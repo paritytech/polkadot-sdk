@@ -150,8 +150,9 @@ fn charge_exact_amount() {
 	assert!(!weight_meter.charge(SimpleToken(25)).is_err());
 }
 
-/// Negative gas left in the executor means it used all the gas it was given and more. The proof
-/// size is not affected.
+/// Negative gas left in the executor means it used all the gas it was given and more.
+///
+/// The proof size is not affected.
 #[test]
 fn negative_executor_gas_consumes_all_gas() {
 	let mut weight_meter =

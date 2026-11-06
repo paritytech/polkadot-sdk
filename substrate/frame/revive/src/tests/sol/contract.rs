@@ -153,7 +153,6 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 }
 
 /// What `SubCaller` does in a loop.
-#[derive(Clone, Copy, Debug)]
 enum SubCall {
 	/// Calls the identity pre-compile, a builtin pre-compile.
 	BuiltinPrecompile,
@@ -175,9 +174,10 @@ enum SubCall {
 
 /// A PVM caller pays for rebuilding its interpreter state after every call, delegate call and
 /// contract creation, to contracts and pre-compiles alike, whether it succeeds or not, in
-/// proportion to the size of its code. The interpreter charges it as gas through the
-/// `per_code_byte_millis` compilation cost. An EVM caller keeps no interpreter state and pays
-/// nothing for it.
+/// proportion to the size of its code.
+///
+/// The interpreter charges it as gas through the `per_code_byte_millis` compilation cost. An EVM
+/// caller keeps no interpreter state and pays nothing for it.
 ///
 /// `SubCallerLarge` runs the same functions as `SubCaller` but has more code. Both make one
 /// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are

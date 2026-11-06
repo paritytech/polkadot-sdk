@@ -614,7 +614,7 @@ impl VmBinaryModule {
 	/// of a lap. The code itself is read only when a block is compiled. The
 	/// `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB, 4.3 times the Ice Lake L1D: each of
 	/// the 64 L1D sets receives about 52 lines against at most 12 ways. Each of the 1024 L2 sets
-	/// receives 3.2 lines, 40 % of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
+	/// receives 3.2 lines, 40% of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
 	/// set is an average that depends on where the pages land. The data spans four arrays of
 	/// 4 KiB pages, jump table 2 to 3, code map 15 to 16, handlers 12 to 13 and arguments 24 to
 	/// 25, so 53 to 57 pages plus the interpreter's own state. They fit the fully associative 64
@@ -876,10 +876,11 @@ mod tests {
 	}
 
 	/// A lap of the `instr_indirect_jump` contract visits every block of the cycle once and
-	/// costs `INDIRECT_JUMP_GAS`. The warm-up before the first lap enters every cycle block in
-	/// code order, which is unrelated to the order of the lap. All blocks fit into the
-	/// interpreter cache, and the blocks are as large as the footprint in the docs of
-	/// `with_indirect_jump_cycle` assumes.
+	/// costs `INDIRECT_JUMP_GAS`.
+	///
+	/// The warm-up before the first lap enters every cycle block in code order, which is
+	/// unrelated to the order of the lap. All blocks fit into the interpreter cache, and the
+	/// blocks are as large as the footprint in the docs of `with_indirect_jump_cycle` assumes.
 	#[test]
 	fn instr_indirect_jump_benchmark_contract() {
 		let module = VmBinaryModule::with_indirect_jump_cycle();

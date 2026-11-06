@@ -416,9 +416,11 @@ fn run_out_of_fuel_host() {
 	});
 }
 
-/// The contract calls `gas_price` in a loop. The interpreter charges for compiling the loop on
-/// its first iteration, so the comparison starts from one iteration: every further iteration
-/// runs the same compiled instructions and must cost the same.
+/// The contract calls `gas_price` in a loop.
+///
+/// The interpreter charges for compiling the loop on its first iteration, so the comparison
+/// starts from one iteration: every further iteration runs the same compiled instructions and
+/// must cost the same.
 #[test]
 fn gas_syncs_work() {
 	let (code, _code_hash) = compile_module("gas_price_n").unwrap();
@@ -465,8 +467,10 @@ mod compilation_cost_benchmark {
 	}
 
 	/// The two contracts have code of the same size and stop at the first instruction of their
-	/// entry block. They differ only in the gas of the entry block: one gas per instruction to
-	/// run it and the compilation per instruction.
+	/// entry block.
+	///
+	/// They differ only in the gas of the entry block: one gas per instruction to run it and the
+	/// compilation per instruction.
 	#[test]
 	fn entry_block_compilation_is_charged_per_instruction() {
 		ExtBuilder::default().build().execute_with(|| {

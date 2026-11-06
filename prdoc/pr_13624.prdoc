@@ -84,17 +84,26 @@ doc:
     - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink` and `Reverter`
       Solidity contracts.
 
-    Client and other crates that use PolkaVM:
+    Other runtime crates that use PolkaVM:
 
-    - `sc-executor-common` (`RuntimeBlob::as_polkavm_blob`) and `sc-executor-polkavm`
-      (`create_runtime`) expose `polkavm::ProgramBlob` in their API, which is now the 0.38 type.
-      Code that passes PolkaVM types to them must use `polkavm` 0.38.
-    - `sc-virtualization`, `sp-io`, `substrate-wasm-builder` and `pallet-revive-uapi` only
-      change their PolkaVM dependency. No PolkaVM item appears in their API, and no migration
-      is needed.
+    - `sp-io`, `pallet-revive-uapi`, `sp-virtualization-test-fixture` and
+      `substrate-wasm-builder` only change their PolkaVM dependency. No PolkaVM item appears in
+      their API, and no migration is needed.
     - `sp-runtime-interface` re-exports the `polkavm_export` and `polkavm_import` macros of
       `polkavm-derive`. `polkavm-derive` 0.38 has the same source as 0.36, so the macros behave
       the same and no migration is needed.
+- audience: Node Dev
+  description: |-
+    The client crates that use PolkaVM move from `polkavm` 0.36 to 0.38.
+
+    - `sc-executor-common` (`RuntimeBlob::as_polkavm_blob`) and `sc-executor-polkavm`
+      (`create_runtime`) expose `polkavm::ProgramBlob` in their API, which is the 0.38 type.
+      The `From` impls of `sc-executor-common` convert from the 0.38 types:
+      `polkavm::program::ProgramParseError`, `polkavm::Error` and `polkavm::CompileError` into
+      `WasmError`, and `polkavm::Error` into `Error`. Code that passes PolkaVM types to these
+      crates must use `polkavm` 0.38.
+    - `sc-virtualization` only changes its PolkaVM dependency. No PolkaVM item appears in its
+      API, and no migration is needed.
 - audience: Runtime User
   description: |-
     The ref time charged per PolkaVM gas changes with the new weights. It covers the more
@@ -102,11 +111,11 @@ doc:
     basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 30303 ps
     before.
 
-    Compiling contract code is now metered as gas, every time it happens: on Asset Hub Westend
-    4 gas per basic block, 1.579 gas per instruction and 0.015 gas per byte of the contract's
-    code section. The per byte part is charged again after every call a PVM contract makes. The
-    weight charged for loading the code of a PVM contract no longer includes the compilation of
-    one maximum-sized basic block.
+    Compiling contract code is charged as gas: on Asset Hub Westend 4 gas per basic block,
+    1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
+    byte part is charged again after every call a PVM contract makes. The weight charged for
+    loading the code of a PVM contract no longer includes the compilation of one maximum-sized
+    basic block.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
     limits to their sub-calls may need to raise those limits.
@@ -131,4 +140,6 @@ crates:
 - name: sp-runtime-interface
   bump: patch
 - name: substrate-wasm-builder
+  bump: patch
+- name: sp-virtualization-test-fixture
   bump: patch
