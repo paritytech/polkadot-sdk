@@ -499,7 +499,7 @@ pub mod pallet {
 					Self::process_queues(
 						T::Target::get(),
 						T::QueueCount::get(),
-						u32::max_value(),
+						u32::MAX,
 						&mut weight_counter,
 					)
 				}
