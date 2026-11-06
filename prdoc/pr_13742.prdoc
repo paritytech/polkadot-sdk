@@ -18,6 +18,6 @@ doc:
     To recover, the current owner must clear or reduce the offending locks or freezes and retry.
 crates:
 - name: pallet-nfts
-  bump: minor
+  bump: major
 - name: pallet-uniques
-  bump: minor
+  bump: major
