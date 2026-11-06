@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793993847064,
+  "lastUpdate": 1793996102459,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -142559,6 +142559,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2837707153,
             "range": "± 30369352",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "olivarra1@gmail.com",
+            "name": "Victor Oliva",
+            "username": "voliva"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4",
+          "message": "[referenda] Add `slash_submission_deposit` extrinsic (#11524)\n\n# Description\n\nCloses #1690 \n\nAdds a new `slash_submission_deposit` extrinsic to `pallet-referenda`\nthat allows slashing the submission deposit for referenda that have been\nRejected or TimedOut.\n\nThis complements the existing `refund_submission_deposit` which only\nworks for Approved or Cancelled referenda. Previously, there was no way\nto slash submission deposits for failed referenda, which causes affected\naccounts to keep a reserved balance preventing that account from getting\ndeleted.\n\n## Integration\n\nThis PR adds a new extrinsic `slash_submission_deposit` with the next\ncall index assigned (9) to not break previous extrinsics. Integration\nshould be automatic.\n\n## Review Notes\n\nThe implementation mirrors `refund_submission_deposit` but calls\n`slash_deposit` instead of `refund_deposit`.\n\nI've recreated `take_submission_deposit` into\n`take_slash_submission_deposit`, which I think better documents which\nstates are appropriate for each case: For slashing, it only succeeds for\nRejected or TimedOut states.\n\nKey changes:\n\nNote: Weights are placeholder values copied from\n`refund_submission_deposit`. Please run /cmd bench --pallet\npallet_referenda to generate accurate weights before merging, as I don't\nhave permission to do that if I'm not wrong.\n\nOne outstanding question: I'm thinking that maybe it would make sense\nfor this extrinsic to be free in terms of fees if it succeeds.\n\nCurrently, the only incentive someone may have to call this extrinsic is\nif they want to recover the existential deposit, which might not be\nworth it if the ED is too small. As for the chain it's beneficial to\nalso cleanup storage, it might be worth considering making this\ntransaction free.\n\nBut I don't know if that's something that's usually done in these cases\nor what... so I went for the safest option of making it Pays::Yes (the\ndefault). Please let me know if it makes sense to have this transaction\nfree, and I'll change it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-06T18:21:40Z",
+          "tree_id": "9b5798bf39f9484b3bf8d8ef453174ebbf6396dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4"
+        },
+        "date": 1793996074062,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21586948,
+            "range": "± 282018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21396869,
+            "range": "± 260495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22775301,
+            "range": "± 863154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26672764,
+            "range": "± 211489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60170354,
+            "range": "± 508680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 417327410,
+            "range": "± 34730151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3395888940,
+            "range": "± 139876712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19353112,
+            "range": "± 155929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18576538,
+            "range": "± 88081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19846447,
+            "range": "± 143619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24088837,
+            "range": "± 486307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70160386,
+            "range": "± 682712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 404268059,
+            "range": "± 2806245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3125226367,
+            "range": "± 45319497",
             "unit": "ns/iter"
           }
         ]
