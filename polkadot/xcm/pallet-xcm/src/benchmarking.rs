@@ -625,16 +625,16 @@ mod benchmarks {
 		let timeout = 1u32.into();
 		let match_querier = Location::from(Here);
 		let query_id = crate::Pallet::<T>::new_query(responder, timeout, match_querier);
-		let infos = (0..xcm::v3::MaxPalletsInfo::get())
+		let infos = (0..xcm::v5::MaxPalletsInfo::get())
 			.map(|_| {
 				PalletInfo::new(
 					u32::MAX,
-					(0..xcm::v3::MaxPalletNameLen::get())
+					(0..xcm::v5::MaxPalletNameLen::get())
 						.map(|_| 97u8)
 						.collect::<Vec<_>>()
 						.try_into()
 						.unwrap(),
-					(0..xcm::v3::MaxPalletNameLen::get())
+					(0..xcm::v5::MaxPalletNameLen::get())
 						.map(|_| 97u8)
 						.collect::<Vec<_>>()
 						.try_into()
