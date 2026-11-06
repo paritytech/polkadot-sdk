@@ -18,7 +18,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts,
+	Pallet as Contracts, RuntimeCosts, SubstrateTxSigner,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -650,6 +650,9 @@ pub struct Stack<'a, T: Config, E> {
 	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
+	/// Whether the first frame instantiates a contract on the nonce of the transaction, which
+	/// `CheckNonce` already consumed pre-dispatch. The origin's nonce is not bumped again then.
+	first_frame_uses_tx_nonce: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -1018,13 +1021,22 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
+		// Without `bump_nonce` the origin is the signer of an eth transaction carrying a single
+		// call. Otherwise it is the recorded signer only if it matches, as a substrate
+		// transaction can instantiate from any origin, and more than once.
+		let first_frame_uses_tx_nonce = match &args {
+			FrameArgs::Instantiate { sender, .. } => {
+				!exec_config.bump_nonce || SubstrateTxSigner::<T>::get().as_ref() == Some(sender)
+			},
+			FrameArgs::Call { .. } => false,
+		};
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
 			transaction_meter,
 			&CallResources::NoLimits,
 			false,
-			true,
+			first_frame_uses_tx_nonce,
 			input_data,
 			exec_config,
 		)?
@@ -1054,6 +1066,7 @@ where
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			access_list: AccessList::new(),
 			exec_config,
+			first_frame_uses_tx_nonce,
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
@@ -1090,7 +1103,7 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
 		read_only: bool,
-		origin_is_caller: bool,
+		uses_tx_nonce: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
@@ -1188,28 +1201,23 @@ where
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+				use sp_runtime::Saturating;
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
+				// The trie id is derived from this nonce too, so it must differ for every
+				// instantiation by `sender` in a transaction. The transaction nonce was already
+				// incremented pre-dispatch.
+				let nonce = if uses_tx_nonce {
+					account_nonce.saturating_sub(1u32.into())
+				} else {
+					account_nonce
+				};
 				let address = if let Some(salt) = salt {
 					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we
-						// need to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
-						} else {
-							account_nonce.saturated_into()
-						},
-					)
+					address::create1(&deployer, nonce.saturated_into())
 				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
+				let contract = ContractInfo::new(&address, nonce, *executable.code_hash())?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
 					CachedContract::Cached(contract),
@@ -1406,6 +1414,7 @@ where
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let bump_nonce = self.exec_config.bump_nonce;
+			let first_frame_uses_tx_nonce = self.first_frame_uses_tx_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1432,10 +1441,13 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				if bump_nonce || !is_first_frame {
+				if !is_first_frame || !first_frame_uses_tx_nonce {
 					// Needs to be incremented before calling into the code so that it is visible
 					// in case of recursion.
 					<System<T>>::inc_account_nonce(caller.account_id()?);
+				} else if bump_nonce {
+					// Only the signer's first instantiation uses the nonce of the transaction.
+					SubstrateTxSigner::<T>::kill();
 				}
 				// The incremented refcount should be visible to the constructor.
 				if is_pvm {

@@ -51,6 +51,7 @@ use core::ops::ControlFlow;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
+	dispatch::GetDispatchInfo,
 	migrations::SteppedMigration,
 	storage::child,
 	traits::{Hooks, fungible::InspectHold},
@@ -77,7 +78,10 @@ use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{generic::DigestItem, traits::Zero};
+use sp_runtime::{
+	generic::DigestItem,
+	traits::{DispatchTransaction, Zero},
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -343,7 +347,7 @@ mod mixed_division_operands {
 
 #[benchmarks(
 	where
-		T: Config,
+		T: Config + Send + Sync,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
@@ -1083,6 +1087,23 @@ mod benchmarks {
 		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
 		#[extrinsic_call]
 		_(origin, Box::new(dispatchable));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn set_origin_substrate_tx() {
+		let caller: T::AccountId = whitelisted_caller();
+		let dispatchable: CallOf<T> = frame_system::Call::remark { remark: vec![] }.into();
+		let info = dispatchable.get_dispatch_info();
+		#[block]
+		{
+			crate::evm::tx_extension::SetOrigin::<T>::default()
+				.test_run(RawOrigin::Signed(caller).into(), &dispatchable, &info, 0, 0, |_| {
+					Ok(().into())
+				})
+				.unwrap()
+				.unwrap();
+		}
+		assert!(!SubstrateTxSigner::<T>::exists());
 	}
 
 	#[benchmark(pov_mode = Measured)]

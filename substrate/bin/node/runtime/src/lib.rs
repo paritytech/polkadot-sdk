@@ -2652,6 +2652,7 @@ pub type MetaTxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 );
 
 impl pallet_meta_tx::Config for Runtime {
