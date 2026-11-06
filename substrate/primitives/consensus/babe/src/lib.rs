@@ -431,10 +431,10 @@ sp_api::decl_runtime_apis! {
 			authority_id: AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof>;
 
-		/// Submits an unsigned extrinsic to report an equivocation. The caller
+		/// Submits an authorized transaction to report an equivocation. The caller
 		/// must provide the equivocation proof and a key ownership proof
 		/// (should be obtained using `generate_key_ownership_proof`). The
-		/// extrinsic will be unsigned and should only be accepted for local
+		/// transaction will not be signed and should only be accepted for local
 		/// authorship (not to be broadcast to the network). This method returns
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
