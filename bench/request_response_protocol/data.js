@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793968029393,
+  "lastUpdate": 1793977696781,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -142127,6 +142127,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2754922941,
             "range": "± 20071725",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1f01611601988e5c60f65be1309e3f5d2fff952",
+          "message": " preflight: count scheduled and manual runs as changed (#13751)\n\nSince #13611, `changes_rust` is empty when no relevant file changed.\nBefore, it was the string `'false'`, which GitHub treats as true.\nScheduled and manual runs have no diff, so `changed-files` checks\nmaster's last commit, and whether their jobs run depends on what that\ncommit touched.\n\nExample: On 2026-11-06 the last commit before the 05:00 run was #13732\n(`review-trigger.yml` only). `check-runtime-migration` skipped\n`prepare-snapshots` and master got no daily snapshot.\n\n`changes_rust` is now `'true'` for `schedule` and `workflow_dispatch`\nevents.\n\nAffected workflows: `check-runtime-migration`,\n`check-runtime-compatibility` and `tests-evm`",
+          "timestamp": "2026-11-06T13:22:47Z",
+          "tree_id": "45590750f73503d3268fc3c4f084ce1566b846fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1f01611601988e5c60f65be1309e3f5d2fff952"
+        },
+        "date": 1793977662821,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20125344,
+            "range": "± 167635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20535909,
+            "range": "± 195467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22121690,
+            "range": "± 65378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26242152,
+            "range": "± 370235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60152938,
+            "range": "± 480226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377893418,
+            "range": "± 6248614",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2837698947,
+            "range": "± 229576934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17471390,
+            "range": "± 120057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17587197,
+            "range": "± 237952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18204328,
+            "range": "± 120622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22685871,
+            "range": "± 171009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63374924,
+            "range": "± 737410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 379303901,
+            "range": "± 1818153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2813146184,
+            "range": "± 25214710",
             "unit": "ns/iter"
           }
         ]
