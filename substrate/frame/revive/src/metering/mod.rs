@@ -764,11 +764,14 @@ impl<T: Config> EthTxInfo<T> {
 			consumed_deposit.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
 		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
 
-		let weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
-			&consumed_weight.saturating_add(self.extra_weight),
-		));
+		deposit_gas.saturating_add(&self.weight_gas_consumption(consumed_weight))
+	}
 
-		deposit_gas.saturating_add(&weight_gas)
+	/// Returns the gas that `consumed_weight` and the transaction's extra weight cost.
+	fn weight_gas_consumption(&self, consumed_weight: &Weight) -> SignedGas<T> {
+		SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
+			&consumed_weight.saturating_add(self.extra_weight),
+		))
 	}
 
 	/// Compute the maximum deposit available from a gas budget assuming zero execution weight

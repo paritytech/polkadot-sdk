@@ -2087,13 +2087,8 @@ fn gas_added_by(weight: Weight, consumed_before: Weight) -> SignedGas<Test> {
 /// left, the gas the stipend adds to the fee, rounded up to whole Ethereum gas.
 fn gas_limit_leaving_the_stipend_gas(consumed: Weight) -> BalanceOf<Test> {
 	let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
-	let max_gas = SignedGas::<Test>::from_ethereum_gas(u64::MAX.into());
-	let caller_meter = first_frame_meter_with_ethereum_limits(u64::MAX.into(), consumed);
-	max_gas
-		.saturating_sub(&ethereum_gas_left(&caller_meter))
-		.saturating_add(&gas_added_by(stipend_weight, consumed))
-		.to_ethereum_gas()
-		.unwrap()
+	first_frame_meter_with_ethereum_limits(u64::MAX.into(), consumed + stipend_weight)
+		.total_consumed_gas()
 }
 
 /// The callee of a value call with no gas limit gets the stipend on top of 63/64 of the weight its

@@ -1205,6 +1205,30 @@ mod eip_150 {
 		}
 	}
 
+	/// Asserts that `caller` sends a value to `receiver` with the limits a dry run returned.
+	fn assert_value_call_with_estimated_limits(
+		caller: H160,
+		receiver: H160,
+		gas: u64,
+		limits: &TransactionLimits<Test>,
+	) {
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller);
+		let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+		let value = 1;
+		let input = Caller::normalCall {
+			_callee: receiver.0.into(),
+			_value: value,
+			_data: Default::default(),
+			_gas: gas,
+		}
+		.abi_encode();
+
+		let receiver_balance = Pallet::<Test>::evm_balance(&receiver);
+		let output = call_with_estimated_limits(caller, input, limits);
+		assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+		assert_eq!(Pallet::<Test>::evm_balance(&receiver), receiver_balance + value);
+	}
+
 	/// Asserts that `result` used at least 63/64 of its weight limit or, in Ethereum mode, of its
 	/// gas limit.
 	fn assert_used_at_least_63_64_of_the_limit(
@@ -1455,21 +1479,7 @@ mod eip_150 {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
-			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
-			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
-			let value = 1;
-			let input = Caller::normalCall {
-				_callee: receiver_addr.0.into(),
-				_value: value,
-				_data: Default::default(),
-				_gas: 0,
-			}
-			.abi_encode();
-
-			let receiver_balance = Pallet::<Test>::evm_balance(&receiver_addr);
-			let output = call_with_estimated_limits(caller_addr, input, &limits);
-			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
-			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
+			assert_value_call_with_estimated_limits(caller_addr, receiver_addr, 0, &limits);
 		});
 	}
 
@@ -1491,22 +1501,13 @@ mod eip_150 {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
-			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
-			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
-			let value = 1;
-			let input = Caller::normalCall {
-				_callee: receiver_addr.0.into(),
-				_value: value,
-				_data: Default::default(),
+			assert_value_call_with_estimated_limits(
+				caller_addr,
+				receiver_addr,
 				// A PVM value call with gas `u64::MAX` gets no stipend.
-				_gas: u64::MAX - 1,
-			}
-			.abi_encode();
-
-			let receiver_balance = Pallet::<Test>::evm_balance(&receiver_addr);
-			let output = call_with_estimated_limits(caller_addr, input, &limits);
-			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
-			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
+				u64::MAX - 1,
+				&limits,
+			);
 			let counter = builder::bare_call(receiver_addr)
 				.data(ComplexReceiver::counterCall {}.abi_encode())
 				.build_and_unwrap_result();

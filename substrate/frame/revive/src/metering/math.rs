@@ -276,7 +276,9 @@ pub mod substrate_execution {
 			CallResources::Ethereum { add_stipend: true, .. } => {
 				validate_and_get_stipend::<T>(weight_left_before_rule)?
 			},
-			_ => Weight::zero(),
+			CallResources::Ethereum { add_stipend: false, .. } |
+			CallResources::NoLimits |
+			CallResources::WeightDeposit { .. } => Weight::zero(),
 		};
 
 		// Setting the stipend aside before the 63/64 rule leaves the caller 1/64 of the rest, as
@@ -506,26 +508,19 @@ pub mod ethereum_execution {
 
 		let (stipend_weight, stipend_gas) = match limit {
 			CallResources::Ethereum { add_stipend: true, .. } => {
-				let weight_left_before_rule = eth_tx_info
-					.weight_remaining(
-						&meter.max_total_gas,
-						&total_consumed_weight,
-						&total_consumed_deposit,
-					)
-					.ok_or(<Error<T>>::OutOfGas)?
-					.min(weight_limit_left_before_rule);
+				let weight_left_before_rule =
+					self::weight_left(meter, eth_tx_info).ok_or(<Error<T>>::OutOfGas)?;
 				let stipend_weight = validate_and_get_stipend::<T>(weight_left_before_rule)?;
 				// The gas the stipend adds to the fee, which can be less than its own price because
 				// the weight part of the fee is the larger of the ref_time and proof-size costs.
 				let stipend_gas = eth_tx_info
-					.gas_consumption(
-						&total_consumed_weight.saturating_add(stipend_weight),
-						&total_consumed_deposit,
-					)
-					.saturating_sub(&total_gas_consumption);
+					.weight_gas_consumption(&total_consumed_weight.saturating_add(stipend_weight))
+					.saturating_sub(&eth_tx_info.weight_gas_consumption(&total_consumed_weight));
 				(stipend_weight, stipend_gas)
 			},
-			_ => (Weight::zero(), SignedGas::default()),
+			CallResources::Ethereum { add_stipend: false, .. } |
+			CallResources::NoLimits |
+			CallResources::WeightDeposit { .. } => (Weight::zero(), SignedGas::default()),
 		};
 
 		// Setting the stipend aside before the 63/64 rule leaves the caller 1/64 of the rest, as

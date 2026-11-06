@@ -4,12 +4,12 @@ doc:
   description: |-
     When a contract calls another contract or a precompile, or creates a contract, the nested call
     now gets at most `63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s` the
-    call stipend (zero without one). In Substrate mode this applies to each weight dimension and
-    to the storage deposit. In Ethereum mode it applies to the gas and to the caller's weight limit,
-    and also to the caller's storage deposit limit if it has one. The weight and storage deposit the
-    nested call can use follow from these. Nested calls with higher limits, or none, get less than
-    before, for example a Solidity `call` without a gas argument. The rule does not apply to the
-    transaction's first call.
+    call stipend (zero without one). In Substrate mode the 63/64 rule applies to each weight
+    dimension and to the storage deposit. In Ethereum mode it applies to the gas and to the
+    caller's weight limit, and also to the caller's storage deposit limit if it has one. The weight
+    and storage deposit the nested call can use follow from these. A nested call that asks for more
+    than its 63/64 share, or sets no limit, gets less than before, for example a Solidity `call`
+    without a gas argument. The rule does not apply to the transaction's first call.
 
     The 63/64 rule also applies to calls to the System precompile, so `ISystem.weightLeft()` now
     returns the weight left without the part the calling contract keeps.
@@ -23,10 +23,10 @@ doc:
     In Ethereum mode, a call stipend now gives the callee the gas that the stipend's weight adds to
     the transaction's fee, instead of the price of that weight on its own. The weight part of a
     transaction's fee is the larger of the cost of its ref_time and the cost of its proof size.
-    When the proof-size cost is the larger one, the stipend therefore pays for no more proof size
-    than it contains. A `receive` function that needs more proof size than that now runs out of
-    gas in such a transaction, and `gasleft()` in a callee that has only the stipend depends on
-    what the transaction did before the call.
+    When the proof-size cost is the larger one, a callee that has only the stipend, such as the
+    receiver of a Solidity `transfer` or `send` of a non-zero amount, can now use no more proof
+    size than the stipend contains and runs out of gas if it needs more. Its `gasleft()` also
+    depends on what the transaction did before the call.
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
@@ -40,7 +40,9 @@ doc:
     keeps. This applies to limits from a dry run on a runtime without this change, which must be
     estimated again, and to limits set to what a dry run or an earlier transaction consumed, for
     example a `weight_limit` set to `weight_consumed`, a `storage_deposit_limit` set to
-    `storage_deposit`, or a gas limit set to a receipt's `gasUsed`.
+    `storage_deposit`, or a gas limit set to a receipt's `gasUsed`. The limits should be set from
+    a dry run's `weight_required`, `max_storage_deposit` and `eth_gas` instead, or from
+    `eth_estimateGas`.
 - audience: Runtime Dev
   description: |-
     `ResourceMeter::new_nested` now applies the 63/64 rule to the limits of the frame it creates
