@@ -240,4 +240,5 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+	type MaxAutoRenewalRetries = ConstU8<2>;
 }
