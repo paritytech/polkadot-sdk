@@ -23,7 +23,7 @@
 
 use crate::{
 	balance, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
-	IdentifierT, PerThing128, VoteWeight, Voter,
+	IdentifierT, PerThing128, VoteWeight, Voter, Winner,
 };
 use alloc::{rc::Rc, vec, vec::Vec};
 use sp_arithmetic::{traits::Bounded, PerThing, Rational128};
@@ -74,7 +74,15 @@ pub fn phragmms<AccountId: IdentifierT, P: PerThing128>(
 		.map_err(|_| crate::Error::ArithmeticError)?;
 	let winners = winners
 		.into_iter()
-		.map(|w_ptr| (w_ptr.borrow().who.clone(), w_ptr.borrow().backed_stake))
+		.map(|w_ptr| {
+			let w = w_ptr.borrow();
+			Winner {
+				who: w.who.clone(),
+				backed_stake: w.backed_stake,
+				round: u32::try_from(w.round)
+					.expect("round is bounded by to_elect which fits in u32; qed"),
+			}
+		})
 		.collect();
 
 	Ok(ElectionResult { winners, assignments })
@@ -352,7 +360,13 @@ mod tests {
 		let config = BalancingConfig { iterations: 2, tolerance: 0 };
 		let ElectionResult::<_, Perbill> { winners, assignments } =
 			phragmms(2, candidates, voters, Some(config)).unwrap();
-		assert_eq!(winners, vec![(3, 30), (2, 30)]);
+		assert_eq!(
+			winners,
+			vec![
+				Winner { who: 3, backed_stake: 30, round: 0 },
+				Winner { who: 2, backed_stake: 30, round: 1 },
+			]
+		);
 		assert_eq!(
 			assignments,
 			vec![
@@ -385,7 +399,15 @@ mod tests {
 		let config = BalancingConfig { iterations: 2, tolerance: 0 };
 		let ElectionResult::<_, Perbill> { winners, assignments: _ } =
 			phragmms(4, candidates, voters, Some(config)).unwrap();
-		assert_eq!(winners, vec![(11, 3000), (31, 2000), (51, 1500), (61, 1500),]);
+		assert_eq!(
+			winners,
+			vec![
+				Winner { who: 11, backed_stake: 3000, round: 0 },
+				Winner { who: 31, backed_stake: 2000, round: 1 },
+				Winner { who: 51, backed_stake: 1500, round: 2 },
+				Winner { who: 61, backed_stake: 1500, round: 3 },
+			]
+		);
 	}
 
 	#[test]
@@ -399,6 +421,6 @@ mod tests {
 		let config = BalancingConfig { iterations: 2, tolerance: 0 };
 		let ElectionResult::<_, Perbill> { winners, assignments: _ } =
 			phragmms(2, candidates, voters, Some(config)).unwrap();
-		assert_eq!(winners.into_iter().map(|(w, _)| w).collect::<Vec<_>>(), vec![1u32, 3]);
+		assert_eq!(winners.into_iter().map(|w| w.who).collect::<Vec<_>>(), vec![1u32, 3]);
 	}
 }
