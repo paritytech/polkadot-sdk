@@ -344,7 +344,6 @@ fn reward_to_stake_works() {
 		.set_status(31, StakerStatus::Idle)
 		.set_status(41, StakerStatus::Idle)
 		.set_stake(21, 2000)
-		.try_state(false)
 		.build_and_execute(|| {
 			assert_eq!(ValidatorCount::<T>::get(), 2);
 			// Confirm account 10 and 20 are validators
@@ -396,6 +395,11 @@ fn reward_to_stake_works() {
 				Staking::eras_stakers(active_era(), &21).total,
 				2000 + validator_payout_0 / 2
 			);
+
+			// Restore valid state so build_and_execute post-check passes.
+			// The test manually inserted a Ledger entry for account 20 without a paired
+			// Bonded/Payee entry, which breaks the count invariant in check_payees.
+			<Ledger<T>>::remove(&20);
 		});
 }
 
