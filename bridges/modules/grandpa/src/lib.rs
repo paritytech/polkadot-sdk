@@ -679,7 +679,9 @@ pub mod pallet {
 		number: BridgedBlockNumber<T, I>,
 		authority_set: bp_header_chain::AuthoritySet,
 	) -> Result<(), sp_runtime::DispatchError> {
-		use bp_header_chain::justification::verify_justification;
+		use bp_header_chain::justification::{
+			verify_justification, JustificationVerificationError,
+		};
 
 		Ok(verify_justification::<BridgedHeader<T, I>>(
 			(hash, number),
@@ -693,7 +695,12 @@ pub mod pallet {
 				?hash,
 				"Received invalid justification"
 			);
-			<Error<T, I>>::InvalidJustification
+			match e {
+				JustificationVerificationError::OutdatedAuthoritySet => {
+					<Error<T, I>>::InvalidAuthoritySetId
+				},
+				_ => <Error<T, I>>::InvalidJustification,
+			}
 		})?)
 	}
 
@@ -1156,6 +1163,34 @@ mod tests {
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
+			assert_err!(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
+					RuntimeOrigin::signed(1),
+					Box::new(header),
+					justification,
+					next_set_id,
+					false,
+				),
+				<Error<TestRuntime>>::InvalidAuthoritySetId
+			);
+		})
+	}
+
+	#[test]
+	fn rejects_justification_that_has_old_set_id() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			let header = test_header(1);
+
+			let old_set_id = 0u64;
+			let next_set_id = 1u64;
+			let params = JustificationGeneratorParams::<TestHeader> {
+				set_id: old_set_id,
+				..Default::default()
+			};
+			let justification = make_justification_for_header(params);
+
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),

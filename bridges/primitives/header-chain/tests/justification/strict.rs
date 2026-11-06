@@ -200,3 +200,26 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 		Err(JustificationVerificationError::TooLowCumulativeWeight),
 	);
 }
+
+#[test]
+fn justification_signed_by_previous_authority_set_rejected_as_outdated() {
+	let justification = make_default_justification::<TestHeader>(&test_header(1));
+	let verify = |set_id| {
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			&verification_context(set_id),
+			&justification,
+		)
+	};
+
+	assert_eq!(verify(TEST_GRANDPA_SET_ID), Ok(()));
+	assert_eq!(
+		verify(TEST_GRANDPA_SET_ID + 1),
+		Err(JustificationVerificationError::OutdatedAuthoritySet),
+	);
+	// only the directly previous set is detected as outdated
+	assert_eq!(
+		verify(TEST_GRANDPA_SET_ID + 2),
+		Err(JustificationVerificationError::Precommit(PrecommitError::InvalidAuthoritySignature)),
+	);
+}
