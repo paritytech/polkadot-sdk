@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793982805425,
+  "lastUpdate": 1793991278730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d1ad712f881477a0991cb0003d4646b3da6817f4",
-          "message": "statement-store: fix metrics accuracy (#11838)\n\n# Description\n\nFixes accuracy gaps and clarify help text in statement store and network\nmetrics.\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:05:32Z",
-          "tree_id": "48b5bc5ad345f7ae8e73cc8409cdad067cbf23e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1ad712f881477a0991cb0003d4646b3da6817f4"
-        },
-        "date": 1776807303045,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009511752046666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02360534129333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14382363244666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006999777046666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009972339813333304,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f0a5d8b7ba3162c99b0384444be521be3427f328",
+          "message": "Uniques/NFTs: make ownership transafer fail if deposit cannot be moved (#13742)\n\nPort of https://github.com/paritytech/polkadot-sdk/pull/12366 to these\ntwo pallets.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-11-06T16:57:57Z",
+          "tree_id": "716310467d138ca86024c53557fd87d398a03828",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0a5d8b7ba3162c99b0384444be521be3427f328"
+        },
+        "date": 1793991249819,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02536954848,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009677420733333296,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007754200246666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14272133973333337,
             "unit": "seconds"
           }
         ]
