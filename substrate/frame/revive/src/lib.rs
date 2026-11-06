@@ -675,8 +675,7 @@ pub mod pallet {
 		StorageRefundLocked = 0x39,
 		/// Called a pre-compile that is not allowed to be delegate called.
 		///
-		/// Some pre-compile functions will trap the caller context if being delegate
-		/// called or if their caller was being delegate called.
+		/// Fails if the pre-compile or its caller is delegate called. The caller is not trapped.
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
