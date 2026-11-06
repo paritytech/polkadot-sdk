@@ -71,7 +71,7 @@ impl<T: Config> EngineMeter<T> {
 			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 
-		self.fuel.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
+		self.fuel = self.fuel.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
 		Ok(Syncable(self.fuel))
 	}
 }
