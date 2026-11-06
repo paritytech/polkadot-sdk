@@ -194,6 +194,7 @@ jobs:
     # If any new job gets added, be sure to add it to this array
     needs:
       [
+        preflight,
         test-linux-stable-int,
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
