@@ -34,7 +34,8 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
 use pallet_revive_fixtures::{
-	ConstructorRevertAfterAction, Fibonacci, FixtureType, NestedCounter, compile_module_with_type,
+	ConstructorRevertAfterAction, Fibonacci, FixtureType, NestedCounter, StorageWrites,
+	compile_module_with_type,
 };
 use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
@@ -1184,6 +1185,128 @@ fn prestate_diff_includes_reverted_contract_by_action(
 			},
 			other => panic!("expected DiffMode, got {:?}", other),
 		}
+	});
+}
+
+fn storage_writes(writes: &[(u64, u64)]) -> Vec<StorageWrites::Write> {
+	writes
+		.iter()
+		.map(|&(slot, value)| StorageWrites::Write {
+			slot: alloy_core::primitives::U256::from(slot),
+			value: alloy_core::primitives::U256::from(value),
+		})
+		.collect()
+}
+
+fn storage_of(info: &crate::evm::PrestateTraceInfo) -> Vec<(u64, u64)> {
+	info.storage
+		.iter()
+		.filter_map(|(k, v)| {
+			let value = v.as_ref()?;
+			Some((
+				crate::U256::from_big_endian(&k.0).as_u64(),
+				crate::U256::from_big_endian(&value.0).as_u64(),
+			))
+		})
+		.collect()
+}
+
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 5)], &[(1, 5)]; "solc same value twice")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 5)], &[(1, 5)]; "resolc same value twice")]
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 5), (1, 5)], &[(1, 5)]; "solc same value thrice")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 5), (1, 5)], &[(1, 5)]; "resolc same value thrice")]
+#[test_case(FixtureType::Solc, &[(1, 5), (2, 7), (2, 7), (3, 9)], &[(1, 5), (2, 7), (3, 9)]; "solc rewrite among other slots")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (2, 7), (2, 7), (3, 9)], &[(1, 5), (2, 7), (3, 9)]; "resolc rewrite among other slots")]
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 6)], &[(1, 6)]; "solc last value wins")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 6)], &[(1, 6)]; "resolc last value wins")]
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 0), (1, 5)], &[(1, 5)]; "solc restored after clear")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 0), (1, 5)], &[(1, 5)]; "resolc restored after clear")]
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 5), (1, 0)], &[]; "solc cleared after rewrite")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 5), (1, 0)], &[]; "resolc cleared after rewrite")]
+#[test_case(FixtureType::Solc, &[(1, 0)], &[]; "solc zero write")]
+#[test_case(FixtureType::Resolc, &[(1, 0)], &[]; "resolc zero write")]
+fn prestate_diff_post_of_created_contract_holds_final_values(
+	fixture_type: FixtureType,
+	writes: &[(u64, u64)],
+	expected: &[(u64, u64)],
+) {
+	use crate::evm::PrestateTrace;
+	use alloy_core::sol_types::SolConstructor;
+
+	let (code, _) = compile_module_with_type("StorageWrites", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let Contract { addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code))
+				.constructor_data(
+					StorageWrites::constructorCall { writes: storage_writes(writes) }.abi_encode(),
+				)
+				.build_and_unwrap_contract()
+		});
+
+		let PrestateTrace::DiffMode { post, .. } = tracer.collect_trace() else {
+			panic!("expected DiffMode");
+		};
+		assert_eq!(storage_of(&post[&addr]), expected);
+	});
+}
+
+// A rewrite that ends on a slot's original value is not a change for an existing contract.
+#[test_case(FixtureType::Solc, &[(1, 5)], &[], &[]; "solc same value")]
+#[test_case(FixtureType::Resolc, &[(1, 5)], &[], &[]; "resolc same value")]
+#[test_case(FixtureType::Solc, &[(1, 5), (1, 5)], &[], &[]; "solc same value twice")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (1, 5)], &[], &[]; "resolc same value twice")]
+#[test_case(FixtureType::Solc, &[(1, 6), (1, 5)], &[], &[]; "solc restored")]
+#[test_case(FixtureType::Resolc, &[(1, 6), (1, 5)], &[], &[]; "resolc restored")]
+#[test_case(FixtureType::Solc, &[(1, 5), (2, 9)], &[], &[(2, 9)]; "solc same value beside change")]
+#[test_case(FixtureType::Resolc, &[(1, 5), (2, 9)], &[], &[(2, 9)]; "resolc same value beside change")]
+#[test_case(FixtureType::Solc, &[(1, 6), (1, 5), (2, 9)], &[], &[(2, 9)]; "solc restored beside change")]
+#[test_case(FixtureType::Resolc, &[(1, 6), (1, 5), (2, 9)], &[], &[(2, 9)]; "resolc restored beside change")]
+#[test_case(FixtureType::Solc, &[(1, 6), (1, 6)], &[(1, 5)], &[(1, 6)]; "solc changed twice")]
+#[test_case(FixtureType::Resolc, &[(1, 6), (1, 6)], &[(1, 5)], &[(1, 6)]; "resolc changed twice")]
+fn prestate_diff_of_existing_contract_ignores_unchanged_rewrites(
+	fixture_type: FixtureType,
+	writes: &[(u64, u64)],
+	expected_pre: &[(u64, u64)],
+	expected_post: &[(u64, u64)],
+) {
+	use crate::evm::PrestateTrace;
+	use alloy_core::sol_types::SolConstructor;
+
+	let (code, _) = compile_module_with_type("StorageWrites", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				StorageWrites::constructorCall { writes: storage_writes(&[(1, 5)]) }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(StorageWrites::writeCall { writes: storage_writes(writes) }.abi_encode())
+				.build_and_unwrap_result();
+		});
+
+		let PrestateTrace::DiffMode { pre, post } = tracer.collect_trace() else {
+			panic!("expected DiffMode");
+		};
+		assert_eq!(pre.get(&addr).map(storage_of).unwrap_or_default(), expected_pre);
+		assert_eq!(post.get(&addr).map(storage_of).unwrap_or_default(), expected_post);
 	});
 }
 
