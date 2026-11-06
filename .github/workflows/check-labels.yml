@@ -62,3 +62,31 @@ jobs:
 
           # --dev is more useful to debug mode to debug
           docker run --rm -i -v $PWD/${RULES_PATH}/:$MOUNT $IMAGE check $MOUNT/$CHECK_SPECS --labels ${labels_args} --dev --tags PR
+
+  # Backports must move forward: a PR labelled `A4-backport-stableX` must also be labelled for
+  # every newer release `stableY` (Y > X). See `.github/scripts/check-backport-labels.sh`.
+  check-backport-labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Check backport labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # Fetch the PR labels instead of reading the event payload, so that a delayed run
+          # still checks the latest labels.
+          PR_LABELS=$(gh api --paginate "repos/${REPO}/issues/${PR}/labels" --jq '.[].name')
+          REPO_LABELS=$(gh api --paginate "repos/${REPO}/labels" --jq '.[].name')
+          export PR_LABELS REPO_LABELS
+
+          .github/scripts/check-backport-labels.sh
