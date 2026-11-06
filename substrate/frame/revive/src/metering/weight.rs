@@ -75,8 +75,9 @@ impl<T: Config> EngineMeter<T> {
 	///   the 8 offsets modulo 64 an 8 byte aligned host buffer can give them, so in one variant
 	///   every load spans two cache lines. The slope of one iteration is divided by
 	///   [`LOAD_CHAIN_GAS`].
-	/// - `instr_indirect_jump`: indirect jumps through a random cycle of compiled basic blocks. The
-	///   slope of one lap is divided by [`INDIRECT_JUMP_GAS`].
+	/// - `instr_indirect_jump`: indirect jumps through a random cycle of compiled basic blocks,
+	///   whose interpreter data stays in the L2 but not in the L1 data cache of the reference
+	///   hardware. The slope of one lap is divided by [`INDIRECT_JUMP_GAS`].
 	pub fn ref_time_per_fuel() -> u64 {
 		let per_gas = |weight: fn(u32) -> Weight, gas: u32| {
 			weight(1).saturating_sub(weight(0)).ref_time().div_ceil(u64::from(gas))
@@ -153,8 +154,9 @@ pub const LOAD_CHAIN_GAS: u32 = BASIC_BLOCK_SIZE + 1;
 ///
 /// A lap is the loop condition, the counter increment, and `INDIRECT_JUMP_GAS - 2` indirect
 /// jumps: one into a cycle of `INDIRECT_JUMP_GAS - 3` basic blocks and one out of each of them.
-/// Every instruction costs one gas.
-pub const INDIRECT_JUMP_GAS: u32 = 20_003;
+/// Every instruction costs one gas. The cycle is sized so that the interpreter data a lap reads
+/// stays in the L2 but not in the L1 data cache of the reference hardware.
+pub const INDIRECT_JUMP_GAS: u32 = 3_003;
 
 /// Resource that needs to be synced to the executor.
 ///

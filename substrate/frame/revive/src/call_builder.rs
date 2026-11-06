@@ -596,6 +596,18 @@ impl VmBinaryModule {
 	/// branch `jump @done if t0 == a1`, followed by `t0 = t0 + 1` and the jump into the cycle.
 	/// The order of the blocks in the cycle is a fixed random permutation, so consecutive
 	/// jumps go to unrelated code addresses.
+	///
+	/// The number of blocks keeps the interpreter data a lap reads in the L2 but not in the L1
+	/// data cache of the reference hardware (see [`Self::LOAD_CHAIN_SLOTS`]). A jump into a
+	/// block reads the block's 2 byte jump table entry, its 4 byte entry in the code map, and
+	/// the 8 byte handler and 16 byte arguments of its two compiled instructions: the gas charge
+	/// and the jump. The code map has one entry per code byte and a block is 5 bytes of code, so
+	/// every block adds 2 + 5 * 4 + 2 * 24 = 70 bytes to the data of a lap. The code itself is
+	/// read only when a block is compiled. The `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB
+	/// in about 52 pages of 4 KiB, 4.3 times the Ice Lake L1D: each of the 64 L1D sets receives
+	/// about 52 lines against at most 12 ways. Each of the 1024 L2 sets receives 3.2 lines, 40 %
+	/// of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per set is an average that
+	/// depends on where the pages land. The pages are fewer than the 64 L1 DTLB entries of both.
 	pub fn with_indirect_jump_cycle() -> Self {
 		use polkavm_common::{
 			abi::VM_CODE_ADDRESS_ALIGNMENT,
@@ -836,7 +848,8 @@ mod tests {
 	}
 
 	/// A lap of the `instr_indirect_jump` contract visits every block of the cycle once and
-	/// costs `INDIRECT_JUMP_GAS`. All blocks fit into the interpreter cache.
+	/// costs `INDIRECT_JUMP_GAS`. All blocks fit into the interpreter cache, and the blocks are
+	/// as large as the footprint in the docs of `with_indirect_jump_cycle` assumes.
 	#[test]
 	fn instr_indirect_jump_benchmark_contract() {
 		let module = VmBinaryModule::with_indirect_jump_cycle();
@@ -873,6 +886,10 @@ mod tests {
 		assert_eq!(jump_table.len(), blocks + 1);
 		// The branch, the increment and the jumps.
 		assert_eq!(2 + jumps, INDIRECT_JUMP_GAS);
+		// At most 5 bytes of code per cycle block, and 2 byte jump table entries.
+		let code_len = u32::try_from(blob.code().len()).unwrap();
+		assert!(code_len <= 5 * blocks, "{code_len} > {}", 5 * blocks);
+		assert!(code_len <= u32::from(u16::MAX), "{code_len}");
 
 		// Every cycle block takes a gas charge and one instruction. The entry, the head and the
 		// exit take 10 entries.

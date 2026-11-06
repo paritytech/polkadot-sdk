@@ -161,6 +161,11 @@ fn evict_caches() {
 /// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots several times.
 const LOAD_CHAIN_ITERATIONS: u32 = 20;
 
+/// The most laps of the `instr_indirect_jump` benchmark.
+///
+/// A lap makes `INDIRECT_JUMP_GAS - 2` indirect jumps, so the largest `r` makes about 400000.
+const INDIRECT_JUMP_LAPS: u32 = 400_000 / (crate::metering::INDIRECT_JUMP_GAS - 2);
+
 /// Prepares the call of the `instr_load_chain_<m>` benchmark for variant `m` and `r` iterations.
 ///
 /// Each iteration runs [`crate::metering::LOAD_CHAIN_GAS`] gas: the loop condition, a basic block
@@ -4570,10 +4575,12 @@ mod benchmarks {
 	///
 	/// Each lap runs [`crate::metering::INDIRECT_JUMP_GAS`] gas: the loop condition, the
 	/// counter increment and one indirect jump into and out of every block of a random cycle
-	/// (see [`VmBinaryModule::with_indirect_jump_cycle`]). The first lap also compiles every
-	/// block of the cycle. Every `r` runs at least one lap, so the compilation is in the
-	/// intercept and the slope is one lap over compiled blocks. All blocks fit into the
-	/// interpreter cache, so no block is compiled twice.
+	/// (see [`VmBinaryModule::with_indirect_jump_cycle`]). The interpreter data a lap reads stays
+	/// in the L2 but not in the L1 data cache of the reference hardware, which is where the cost
+	/// per gas assumes it to be. The first lap also compiles every block of the cycle. Every `r`
+	/// runs at least one lap, so the compilation is in the intercept and the slope is one lap
+	/// over compiled blocks. The contract compiles to 6010 cache entries of 24 bytes, 141 KiB of
+	/// the 1 MiB interpreter cache, so the cache never resets and no block is compiled twice.
 	///
 	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops its
 	/// compiled blocks at every call into another contract and compiles a block again when
@@ -4585,7 +4592,7 @@ mod benchmarks {
 	/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope by
 	/// [`crate::metering::INDIRECT_JUMP_GAS`].
 	#[benchmark(pov_mode = Ignored)]
-	fn instr_indirect_jump(r: Linear<1, 20>) {
+	fn instr_indirect_jump(r: Linear<1, INDIRECT_JUMP_LAPS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_indirect_jump_cycle());
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
