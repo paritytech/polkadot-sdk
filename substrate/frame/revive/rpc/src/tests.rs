@@ -24,7 +24,7 @@ use crate::{
 	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
-		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		Client, GapFillRequest, SubscriptionGapQueue, SubscriptionType, connect,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	example::TransactionBuilder,
@@ -438,6 +438,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_balance_zero,
 		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
+		test_subscription_gap_filler_failure_stays_pending,
+		test_finalized_block_processing_failure_queues_gap_fill,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -3957,5 +3959,64 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	// bg_client holds the channel sender, so abort instead of dropping.
 	subscription_gap_queue_handle.abort();
 
+	Ok(())
+}
+
+/// A gap fill that keeps failing must stay pending, so the sync head cannot advance over
+/// blocks that were never indexed.
+async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<()> {
+	let (sync_client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let queue = sync_client.subscription_gap_queue();
+
+	// Blocks above the chain tip do not exist, so every attempt fails.
+	let tip = sync_client.api().at_current_block().await?.block_number();
+	let last = tip + 1_000;
+	let current = last + 3;
+	queue.detect_and_queue(current, last);
+	assert!(queue.has_pending());
+
+	sync_client
+		.fill_subscription_gap(
+			GapFillRequest { from_inclusive: current - 1, to_inclusive: last + 1 },
+			2,
+			tokio::time::Duration::ZERO,
+		)
+		.await;
+
+	assert!(queue.has_pending(), "failed gap fill must keep the sync head from advancing");
+
+	Ok(())
+}
+
+/// A finalized block whose processing fails is handed to the gap filler, so the sync head
+/// cannot advance over it.
+async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Result<()> {
+	let (sync_client, mut gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
+	assert!(!sync_client.subscription_gap_queue().has_pending());
+
+	let bg_client = sync_client.clone();
+	let subscription_handle = tokio::spawn(async move {
+		bg_client
+			.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |_block| async {
+				Err(crate::client::ClientError::BlockNotFound)
+			})
+			.await
+	});
+	submit_evm_transfers(1).await?;
+
+	let request = tokio::time::timeout(tokio::time::Duration::from_secs(10), gap_fill_rx.recv())
+		.await?
+		.ok_or_else(|| anyhow!("gap fill queue closed"))?;
+	assert_eq!(
+		request.from_inclusive, request.to_inclusive,
+		"a failed finalized block is queued on its own"
+	);
+	assert!(
+		sync_client.subscription_gap_queue().has_pending(),
+		"failed finalized block must keep the sync head from advancing"
+	);
+
+	subscription_handle.abort();
 	Ok(())
 }
