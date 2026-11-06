@@ -1,0 +1,11 @@
+title: 'cumulus-collator: emit the scheduling-signal tail as validate_block does'
+doc:
+- audience: Node Dev
+  description: |-
+    The collator re-encodes a block's scheduling UMP signals with the same parse `validate_block`
+    applies, instead of passing them through raw. Signals the PVF would reject skip the collation.
+crates:
+- name: cumulus-client-collator
+  bump: patch
+- name: cumulus-primitives-core
+  bump: minor
