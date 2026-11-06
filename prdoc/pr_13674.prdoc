@@ -13,11 +13,13 @@ doc:
     of a contract's native hold not recorded in its `NativeDepositOf` rows. Before, it swapped the
     whole hold, so payers who paid native after the switch could no longer free storage.
 
-    `CodeInfoOf` does not record which asset paid a code deposit, so phase 1 credits every code
-    deposit as native. v4 now fails at its first step, before changing any state, if the pallet
-    account holds PGAS under `CodeUploadDepositReserve`. Before, it credited those deposits as
-    native, so their owners were refunded from other uploaders' native deposits and the last
-    owner's `remove_code` failed with `StorageRefundLocked`.
+    `CodeInfoOf` does not record which asset paid a code deposit. When the pallet account already
+    holds PGAS under `CodeUploadDepositReserve`, phase 1 no longer rebuilds its rows: it keeps the
+    rows written since the switch and swaps the native they do not account for to PGAS, as phase 2
+    does for contracts. Code uploaded before the switch is then refunded from PGAS, like code paid
+    in PGAS. Before, phase 1 credited PGAS-paid code as native, so its owners were refunded from
+    other uploaders' native deposits and the last owner's `remove_code` failed with
+    `StorageRefundLocked`.
 
     Phase 3 now rewrites only `DeletionQueue` slots still in the legacy `TrieId` layout. Before, it
     also rewrote items queued in the new layout after the runtime upgrade, replacing their contract
@@ -26,12 +28,11 @@ doc:
     (`PendingDepositCleanup`).
 
     Runtimes that already ran v4 are unaffected. Runtimes that have not:
-    - Schedule v4 before the first code upload paid in PGAS. Otherwise v4 fails and the
-      runtime's `FailedMigrationHandler` decides what happens next.
-    - Register the PGAS asset before scheduling v4. v4 now fails at its first step if the asset
-      is not registered, and fails if any contract's swap to PGAS fails; the runtime's
-      `FailedMigrationHandler` decides what happens next. Before, phase 2 logged the error and v4
-      completed and was recorded with nothing converted, so it never ran again.
+    - Register the PGAS asset before scheduling v4, and run the `try-runtime` migration checks.
+      v4 never fails on chain, since a failed migration is handled by `FailedMigrationHandler`,
+      which commonly freezes the chain. Without the asset every swap rolls back, v4 completes with
+      nothing converted and is not run again. `pre_upgrade` rejects a missing asset and
+      `post_upgrade` rejects any account left on native, so the checks catch this before release.
     - If you implement `pallet_revive::WeightInfo` yourself, add `v4_clear_code_credit_step`, or
       regenerate your weights.
     - `pallet_revive::migrations::v4::Cursor` is now generic over the account id, with
