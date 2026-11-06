@@ -1,0 +1,86 @@
+title: 'pallet-treasury: Ordered Payouts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements ordered spend payouts (Solution 1.2 of https://github.com/paritytech/polkadot-sdk/issues/11100)
+    for `pallet-treasury`. Spends are now paid out in order per asset kind, preventing smaller,
+    later-approved spends from draining the treasury before earlier-approved spends can be paid.
+
+    Two new storage items are introduced: `NextPayout`, holding the spend currently at the head of
+    the payout order for each asset kind together with its order expiration block, and
+    `PayoutQueue`, a bounded vector of `(spend_index, order_key)` entries per asset kind sorted by
+    order key. The order key is `max(now, valid_from)` for newly inserted spends, so a later
+    approval never overtakes an already-mature spend, and the block number of the rotation for
+    spends rotated to the back after their order expired.
+
+    No new extrinsics are added; ordering is enforced transparently through the existing calls:
+
+    - `spend` inserts the approved spend into the payout queue for its asset kind, or sets it as
+      `NextPayout` if there is none, with an order expiration of
+      `max(now, valid_from) + OrderExpirationPeriod`. `valid_from` may be at most
+      `MaxSpendDelay` blocks in the future and fails with the new `SpendTooFarInFuture` error
+      otherwise, so a far-future spend cannot occupy a queue slot indefinitely.
+    - `payout` only succeeds for the spend designated as `NextPayout` for its asset kind and fails
+      with the new `NotNextPayout` error otherwise. A head whose order expiration has lapsed must
+      be rotated by `check_status` first whenever another queued spend is already mature, so a
+      repeatedly failing head cannot renew its order indefinitely; a lone head may still be
+      retried.
+    - `check_status` additionally rotates an expired head back into the queue (emitting the new
+      `PayoutQueueRotated` event) and promotes the next entry on removal of a paid-out or expired
+      spend. A head whose payment is still in progress is rotated as well, so a payment that
+      never concludes cannot block the asset kind. A rotation with nothing mature to promote
+      leaves the head's expired order untouched instead of renewing it.
+    - `void_spend` also removes the spend from the payout order and promotes the next entry.
+
+    Runtimes adopting this need to configure three new `Config` items: `MaxQueuedSpends` (bounds the
+    queue per asset kind; spends fail with the new `QueueFull` error once reached),
+    `OrderExpirationPeriod` (how long a spend may block the head of the order before it can be
+    rotated; must be smaller than `PayoutPeriod`, asserted by an integrity test) and
+    `MaxSpendDelay` (how far in the future `valid_from` may be set). A `MigrateToOrderedPayouts`
+    migration is provided to populate the payout order from the existing `Spends` storage; it is a
+    `VersionedMigration` bumping the pallet storage version from 0 to 1. For a runtime with
+    existing spends this migration is NOT optional: without it no `NextPayout` head exists and
+    every `payout` call fails with `NotNextPayout`.
+
+    Sizing rules:
+
+    - `MaxQueuedSpends` must not be lowered below the length of a live `PayoutQueue` without a
+      migration: a longer stored queue no longer decodes, reads as empty, and the next spend for
+      that asset kind overwrites it, dropping every queued spend from the payout order.
+    - `MaxSpendDelay` should be sized above the longest payout schedule governance uses (years,
+      not weeks): proposers with a far-future `valid_from` otherwise see their already-approved
+      referenda fail at enactment with `SpendTooFarInFuture`.
+- audience: Runtime User
+  description: |-
+    Governance participants and wallets interact with the payout order through the existing
+    calls:
+
+    - `payout` only pays the spend currently designated as `NextPayout` for its asset kind and
+      fails with `NotNextPayout` otherwise (while still charging the full `payout` weight), so
+      callers should read `NextPayout` first. A head whose order lease expired while another
+      queued spend is already mature must first be rotated via `check_status`.
+    - `spend` fails with `QueueFull` once `MaxQueuedSpends` spends are queued for an asset kind,
+      and with `SpendTooFarInFuture` if `valid_from` is more than `MaxSpendDelay` blocks out.
+crates:
+- name: pallet-treasury
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: polkadot-runtime-common
+  bump: none
+- name: pallet-bounties
+  bump: none
+- name: pallet-child-bounties
+  bump: none
+- name: pallet-tips
+  bump: none
