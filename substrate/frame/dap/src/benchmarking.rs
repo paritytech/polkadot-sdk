@@ -59,17 +59,20 @@ mod benchmarks {
 	fn create_asset_allocations<T: Config>(count: u32) -> AssetAllocationMapOf<T> {
 		let mut allocations: AssetAllocationMapOf<T> = BoundedBTreeMap::new();
 
-		let recipients = T::BudgetRecipients::recipients();
-		let mut single_asset_allocation = BoundedBTreeMap::new();
-		for (budget_key, _) in recipients {
-			assert_ok!(single_asset_allocation.try_insert(
-				budget_key,
-				SingleAssetAllocation { amount_per_ms: T::Balance::one() }
-			));
-		}
-
 		for asset_id in 0..count {
 			if let Ok(asset_id) = T::BenchmarkHelper::create_asset(asset_id) {
+				let mut single_asset_allocation = BoundedBTreeMap::new();
+
+				let recipients = T::BudgetRecipients::recipients();
+				for (budget_key, _) in recipients {
+					assert_ok!(single_asset_allocation.try_insert(
+						budget_key,
+						SingleAssetAllocation {
+							amount_per_ms: T::Assets::minimum_balance(asset_id.clone())
+						}
+					));
+				}
+
 				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
 			}
 		}
@@ -77,8 +80,8 @@ mod benchmarks {
 		allocations
 	}
 
-	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: u32) {
-		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into()));
+	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: BalanceOf<T>) {
+		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount));
 	}
 
 	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
@@ -131,7 +134,13 @@ mod benchmarks {
 		}
 
 		for i in asset_allocations.keys() {
-			mint_to_staging::<T>(i.clone(), 1_000_000_000);
+			let cadence = T::IssuanceCadence::get();
+			let cadence_as_balance: T::Balance = SaturatedConversion::saturated_from(cadence);
+			let to_mint = T::Assets::minimum_balance(i.clone())
+				.saturating_mul(cadence_as_balance.saturating_add(T::Balance::from(1u32)))
+				.saturating_mul(T::Balance::from(1_000_000_000u32));
+
+			mint_to_staging::<T>(i.clone(), to_mint);
 		}
 
 		// Trigger transfer from staging to buffer.
@@ -152,9 +161,15 @@ mod benchmarks {
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 
 		for i in asset_allocations.keys() {
+			let elapsed_millis_as_balance: T::Balance = (elapsed_millis as u32).into();
+			let recipients_len: T::Balance = (recipients.len() as u32).into();
+			let minimum_balance = T::Assets::minimum_balance(i.clone());
+
 			assert_has_event::<T>(Event::AssetDistributed {
 				asset: i.clone(),
-				amount: (elapsed_millis as u32 * recipients.len() as u32).into(),
+				amount: elapsed_millis_as_balance
+					.saturating_mul(recipients_len)
+					.saturating_mul(minimum_balance),
 				elapsed_millis,
 			});
 		}
@@ -165,7 +180,7 @@ mod benchmarks {
 		let allocations = create_full_asset_allocations::<T>();
 		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
 
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1u32.into());
 
 		#[block]
 		{
@@ -194,8 +209,8 @@ mod benchmarks {
 
 		let asset = allocations.keys().next().expect("Checked to be non-empty");
 
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
-		mint_to_staging::<T>(asset.clone(), 100);
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1u32.into());
+		mint_to_staging::<T>(asset.clone(), 100u32.into());
 
 		#[block]
 		{

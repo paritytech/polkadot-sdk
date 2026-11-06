@@ -107,6 +107,33 @@ fn set_asset_allocation_rejects_zero_amounts() {
 }
 
 #[test]
+fn set_asset_allocation_rejects_small_amounts() {
+	build_and_execute(true, || {
+		use frame_support::traits::fungibles::Create;
+
+		set_default_budget_allocation();
+
+		assert_ok!(NativeAndAssets::create(
+			NativeOrWithId::WithId(10),
+			account_id(0),
+			true,
+			60_001
+		));
+
+		let allocations = asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"buffer", 1)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),
+			Error::<Test>::TooSmallAssetDistributionShare
+		);
+
+		let allocations = asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"buffer", 2)])]);
+
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),);
+	});
+}
+
+#[test]
 fn set_asset_allocation_rejects_nonexistent_assets() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
