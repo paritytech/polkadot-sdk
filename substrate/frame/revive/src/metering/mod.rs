@@ -36,6 +36,7 @@ use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
+use math::eip_150::Rule;
 use sp_runtime::{FixedPointNumber, Weight};
 use storage::{DepositOf, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
 use weight::WeightMeter;
@@ -45,7 +46,10 @@ use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 /// A type-state pattern ensuring that meters can only be used in valid states (root vs nested).
 ///
 /// It is sealed and cannot be implemented outside of this module.
-pub trait State: private::Sealed + Default + Debug {}
+pub trait State: private::Sealed + Default + Debug {
+	/// Whether the EIP-150 63/64 rule applies to the frames a meter in this state creates.
+	const EIP_150_RULE: Rule;
+}
 
 /// Root state for transaction-level resource metering.
 ///
@@ -59,8 +63,12 @@ pub struct Root;
 #[derive(Default, Debug)]
 pub struct Nested;
 
-impl State for Root {}
-impl State for Nested {}
+impl State for Root {
+	const EIP_150_RULE: Rule = Rule::Skip;
+}
+impl State for Nested {
+	const EIP_150_RULE: Rule = Rule::Apply;
+}
 
 mod private {
 	pub trait Sealed {}
@@ -158,7 +166,12 @@ impl<T: Config> Default for TransactionLimits<T> {
 }
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
-	/// Create a new nested meter with derived resource limits.
+	/// Creates a nested meter with limits derived from `limit` and this meter's remaining
+	/// resources.
+	///
+	/// Except for the transaction's first call, the nested meter gets at most 63/64 of the
+	/// remaining resources under the EIP-150 63/64 rule, plus the call stipend if `limit` adds
+	/// one.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
@@ -201,6 +214,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(new_meter)
 	}
 
+	/// Returns the weight and deposit this frame consumed, and the transaction's totals so far.
+	fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
+		let self_weight = self.weight.weight_consumed();
+		let self_deposit = self.deposit.consumed();
+		let total_weight = self.total_consumed_weight_before.saturating_add(self_weight);
+		let total_deposit = self.total_consumed_deposit_before.saturating_add(&self_deposit);
+		(self_weight, self_deposit, total_weight, total_deposit)
+	}
+
 	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		log::trace!(
@@ -210,6 +232,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
@@ -218,13 +241,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
 			other.deposit_consumed(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb_only_max_charged(other.deposit);
 
 		log::trace!(
@@ -233,11 +257,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 		);
 	}
 
@@ -255,6 +281,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
@@ -263,13 +290,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
 			other.deposit_consumed(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb(other.deposit, contract, info);
 
 		let result = self.adjust_effective_weight_limit();
@@ -281,11 +309,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 		);
 	}
 
@@ -437,12 +467,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.weight_consumed()
 	}
 
-	/// Get total weight required
-	/// This is the maximum amount of weight consumption that occurred during execution so far
-	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
-	/// for some operations
+	/// Get total weight required including the EIP-150 63/64 overhead for nested calls.
+	///
+	/// This is at least the maximum amount of weight consumption that occurred during execution so
+	/// far. This is relevant because consumed weight can decrease in case it is adjusted a
+	/// posteriori for some operations.
 	pub fn weight_required(&self) -> Weight {
-		self.weight.weight_required()
+		self.weight.weight_required_with_eip_150()
 	}
 
 	/// Get total storage deposit consumed in the current frame.
@@ -452,12 +483,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.deposit.consumed()
 	}
 
-	/// Get maximum storage deposit required at any point.
+	/// Get maximum storage deposit required at any point including the EIP-150 63/64 overhead for
+	/// nested calls.
 	///
 	/// Returns the highest deposit amount needed during execution,
 	/// accounting for temporary storage spikes before later refunds.
 	pub fn deposit_required(&self) -> DepositOf<T> {
-		self.deposit.max_charged()
+		self.deposit.deposit_required_with_eip_150()
 	}
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter

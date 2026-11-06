@@ -220,7 +220,7 @@ impl<T: Config> Origin<T> {
 /// call.
 #[derive(DebugNoBound)]
 pub enum CallResources<T: Config> {
-	/// Resources are not limited
+	/// The caller sets no limit, so the callee gets as much as the EIP-150 63/64 rule allows.
 	NoLimits,
 	/// Resources encoded using their actual values.
 	WeightDeposit { weight: Weight, deposit_limit: BalanceOf<T> },

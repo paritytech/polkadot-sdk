@@ -149,3 +149,195 @@ fn charge_exact_amount() {
 	let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(25, 0), None);
 	assert!(!weight_meter.charge(SimpleToken(25)).is_err());
 }
+
+mod eip_150 {
+	use super::*;
+	use crate::metering::math::eip_150::Rule;
+
+	#[test]
+	fn call_without_subcalls_has_no_peak() {
+		let mut meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
+		// Before any charge, the peak, the required weight and the overhead are all zero.
+		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.weight_required(), Weight::zero());
+		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
+
+		meter.charge(SimpleToken(6300)).unwrap();
+		// Without subcalls, a meter has no peak and requires only what it consumed.
+		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.weight_required(), Weight::from_parts(6300, 0));
+		// As the transaction's first call, nothing is kept back for it. As a nested call, its
+		// caller keeps ceil(6300/63) = 100.
+		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
+		assert_eq!(meter.eip_150_total_overhead(Rule::Apply), Weight::from_parts(100, 0));
+	}
+
+	#[test]
+	fn peak_includes_the_part_retained_during_a_subcall() {
+		struct Case {
+			description: &'static str,
+			parent_consumption: u64,
+			child_consumption: u64,
+			weight_required: u64,
+			peak: u64,
+			overhead: u64,
+		}
+
+		let cases = [
+			Case {
+				description: "subcall consumes",
+				parent_consumption: 1000,
+				child_consumption: 6300,
+				weight_required: 7300,
+				peak: 7400, // 1000 + 6300 + ceil(6300/63) = 7400
+				overhead: 100,
+			},
+			Case {
+				description: "subcall consumes nothing",
+				parent_consumption: 5000,
+				child_consumption: 0,
+				weight_required: 5000,
+				peak: 5000,
+				overhead: 0,
+			},
+		];
+
+		for case in &cases {
+			let mut parent_meter =
+				WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
+			parent_meter.charge(SimpleToken(case.parent_consumption)).unwrap();
+			let mut child_meter =
+				WeightMeter::<Test>::new(Weight::from_parts(50_000, 25_000), None);
+			child_meter.charge(SimpleToken(case.child_consumption)).unwrap();
+			parent_meter.absorb_nested(child_meter, Rule::Apply);
+
+			let peak = Weight::from_parts(case.peak, 0);
+			assert_eq!(
+				parent_meter.weight_required(),
+				Weight::from_parts(case.weight_required, 0),
+				"{}",
+				case.description,
+			);
+			assert_eq!(parent_meter.eip_150_peak(), peak, "{}", case.description);
+			assert_eq!(parent_meter.weight_required_with_eip_150(), peak, "{}", case.description);
+			assert_eq!(
+				parent_meter.eip_150_total_overhead(Rule::Skip),
+				Weight::from_parts(case.overhead, 0),
+				"{}",
+				case.description,
+			);
+		}
+	}
+
+	#[test]
+	fn retained_parts_add_up_across_levels() {
+		let mut first_call_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		first_call_meter.charge(SimpleToken(1000)).unwrap();
+
+		let mut first_level_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_level_meter.charge(SimpleToken(2000)).unwrap();
+
+		let mut second_level_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(250_000, 125_000), None);
+		second_level_meter.charge(SimpleToken(6300)).unwrap();
+
+		// second_level_meter is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
+		assert_eq!(second_level_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(second_level_meter.weight_required(), Weight::from_parts(6300, 0));
+		assert_eq!(
+			second_level_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(100, 0),
+		);
+
+		first_level_meter.absorb_nested(second_level_meter, Rule::Apply);
+
+		// first_level_meter: peak_at_subcall = 2000 + 6300 + 100 = 8400
+		assert_eq!(first_level_meter.eip_150_peak(), Weight::from_parts(8400, 0));
+		assert_eq!(first_level_meter.weight_required(), Weight::from_parts(8300, 0));
+		// children_overhead = 8400 - 8300 = 100, ceil(8400/63) = 134, total = 234
+		assert_eq!(
+			first_level_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(234, 0),
+		);
+
+		first_call_meter.absorb_nested(first_level_meter, Rule::Apply);
+
+		// first_call_meter: peak_at_subcall = 1000 + 8300 + 234 = 9534
+		assert_eq!(first_call_meter.eip_150_peak(), Weight::from_parts(9534, 0));
+		assert_eq!(first_call_meter.weight_required(), Weight::from_parts(9300, 0));
+		assert_eq!(first_call_meter.weight_required_with_eip_150(), Weight::from_parts(9534, 0));
+		// The transaction's first call: overhead = peak - weight_required = 234
+		assert_eq!(first_call_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(234, 0));
+	}
+
+	#[test]
+	fn peak_rises_when_a_later_subcall_exceeds_it() {
+		let mut parent_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		parent_meter.charge(SimpleToken(500)).unwrap();
+
+		// First child: 3000 weight, overhead = ceil(3000/63) = 48
+		let mut first_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_child_meter.charge(SimpleToken(3000)).unwrap();
+		parent_meter.absorb_nested(first_child_meter, Rule::Apply);
+		// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(3500, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		// The transaction's first call: overhead = peak - weight_required = 48
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(48, 0));
+
+		parent_meter.charge(SimpleToken(700)).unwrap();
+		// consumed = 4200, past the peak (3548), so the overhead drops to 0
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(4200, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
+
+		// Second child
+		let mut second_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		second_child_meter.charge(SimpleToken(1000)).unwrap();
+		// Subcall leaf: no children, overhead = ceil(1000/63) = 16
+		assert_eq!(second_child_meter.weight_required(), Weight::from_parts(1000, 0));
+		assert_eq!(second_child_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(
+			second_child_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(16, 0),
+		);
+
+		parent_meter.absorb_nested(second_child_meter, Rule::Apply);
+
+		// peak = max(3548, 4200 + 1000 + 16) = 5216
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(5200, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(5216, 0));
+		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(5216, 0));
+		// The transaction's first call: overhead = peak - weight_required = 16
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(16, 0));
+	}
+
+	#[test]
+	fn peak_stays_when_a_later_subcall_needs_less() {
+		let mut parent_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		parent_meter.charge(SimpleToken(500)).unwrap();
+
+		// First child: 6300 weight, peak = 500 + 6300 + ceil(6300/63) = 6900
+		let mut first_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_child_meter.charge(SimpleToken(6300)).unwrap();
+		parent_meter.absorb_nested(first_child_meter, Rule::Apply);
+
+		// Second child: 10 weight, 6800 + 10 + ceil(10/63) = 6811, below the earlier peak
+		let mut second_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		second_child_meter.charge(SimpleToken(10)).unwrap();
+		parent_meter.absorb_nested(second_child_meter, Rule::Apply);
+
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(6810, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(6900, 0));
+		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(6900, 0));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(90, 0));
+	}
+}

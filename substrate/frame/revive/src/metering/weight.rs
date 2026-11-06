@@ -18,6 +18,7 @@
 #[cfg(test)]
 mod tests;
 
+use super::math::eip_150::{self, Peak, WeightEip150};
 use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{DefaultNoBound, weights::Weight};
@@ -143,6 +144,8 @@ pub struct WeightMeter<T: Config> {
 	/// We have to track it separately in order to avoid the loss of precision that happens when
 	/// converting from ref_time to the execution engine unit.
 	engine_meter: EngineMeter<T>,
+	/// EIP-150 63/64 peak tracking for dry-run weight estimation.
+	eip_150_peak: Peak<WeightEip150>,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -156,6 +159,7 @@ impl<T: Config> WeightMeter<T> {
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
+			eip_150_peak: Default::default(),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -167,12 +171,28 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
-	pub fn absorb_nested(&mut self, nested: Self) {
-		self.weight_consumed_highest = self
-			.weight_consumed
-			.saturating_add(nested.weight_required())
-			.max(self.weight_consumed_highest);
-		self.weight_consumed += nested.weight_consumed;
+	///
+	/// `rule` must be the `State::EIP_150_RULE` of the meter that created `nested`.
+	pub fn absorb_nested(&mut self, nested: Self, rule: eip_150::Rule) {
+		let current_weight_consumed_highest =
+			self.weight_consumed.saturating_add(nested.weight_required());
+
+		// Include the nested call's cumulative EIP-150 63/64 overhead.
+		let current_eip_150_peak =
+			current_weight_consumed_highest.saturating_add(nested.eip_150_total_overhead(rule));
+		self.eip_150_peak.update(current_eip_150_peak);
+
+		self.weight_consumed_highest =
+			current_weight_consumed_highest.max(self.weight_consumed_highest);
+		self.weight_consumed = self.weight_consumed.saturating_add(nested.weight_consumed);
+	}
+
+	/// Returns the extra weight the parent needs beyond `weight_required()` to cover the part
+	/// each caller keeps at and below this level.
+	///
+	/// `rule` must be the `State::EIP_150_RULE` of the meter that created this one.
+	fn eip_150_total_overhead(&self, rule: eip_150::Rule) -> Weight {
+		self.eip_150_peak.total_overhead(self.weight_required(), rule)
 	}
 
 	/// Account for used weight.
@@ -265,6 +285,16 @@ impl<T: Config> WeightMeter<T> {
 	/// spent weight can temporarily drop and be refunded later.
 	pub fn weight_required(&self) -> Weight {
 		self.weight_consumed_highest.max(self.weight_consumed)
+	}
+
+	/// Returns the weight required, including the part each caller keeps under the 63/64 rule.
+	pub fn weight_required_with_eip_150(&self) -> Weight {
+		self.weight_required().max(self.eip_150_peak.get())
+	}
+
+	/// Returns the 63/64 weight peak.
+	pub fn eip_150_peak(&self) -> Weight {
+		self.eip_150_peak.get()
 	}
 
 	/// Returns how much weight was spent
