@@ -21,8 +21,8 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, offence_reports, with_on_offence_fractions, Offence, Offences, Runtime,
-	RuntimeEvent, System, KIND,
+	build_and_execute, new_test_ext, offence_reports, with_on_offence_fractions, Offence, Offences,
+	Runtime, RuntimeEvent, System, KIND,
 };
 use frame_system::{EventRecord, Phase};
 use sp_core::H256;
@@ -30,6 +30,8 @@ use sp_runtime::Perbill;
 
 #[test]
 fn should_get_reports_with_storagemap_getter_and_function_getter() {
+	// This writes into `Reports` directly rather than reporting an offence, so it deliberately
+	// leaves the report out of `ConcurrentReportsIndex` and cannot run the invariant checks.
 	new_test_ext().execute_with(|| {
 		// given
 		let report_id: ReportIdOf<Runtime> = H256::from_low_u64_be(1);
@@ -51,7 +53,7 @@ fn should_get_reports_with_storagemap_getter_and_function_getter() {
 
 #[test]
 fn should_report_an_authority_and_trigger_on_offence() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
@@ -70,7 +72,7 @@ fn should_report_an_authority_and_trigger_on_offence() {
 
 #[test]
 fn should_not_report_the_same_authority_twice_in_the_same_slot() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
@@ -95,7 +97,7 @@ fn should_not_report_the_same_authority_twice_in_the_same_slot() {
 
 #[test]
 fn should_report_in_different_slot() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
@@ -121,7 +123,7 @@ fn should_report_in_different_slot() {
 
 #[test]
 fn should_deposit_event() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
@@ -148,7 +150,7 @@ fn should_deposit_event() {
 
 #[test]
 fn doesnt_deposit_event_for_dups() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
@@ -182,7 +184,7 @@ fn doesnt_deposit_event_for_dups() {
 
 #[test]
 fn reports_if_an_offence_is_dup() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
 
@@ -238,7 +240,7 @@ fn reports_if_an_offence_is_dup() {
 fn should_properly_count_offences() {
 	// We report two different authorities for the same issue. Ultimately, the 1st authority
 	// should have `count` equal 2 and the count of the 2nd one should be equal to 1.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let slot = 42;
 		assert_eq!(offence_reports(KIND, slot), vec![]);
