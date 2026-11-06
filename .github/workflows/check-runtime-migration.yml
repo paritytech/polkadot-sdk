@@ -47,16 +47,8 @@ jobs:
   # For PRs: use cached snapshots if available, create if not.
   prepare-snapshots:
     runs-on: ubuntu-latest
-<<<<<<< HEAD
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-=======
     needs: [preflight, release-branch]
-    if: ${{ (needs.preflight.outputs.changes_rust || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.release-branch.outputs.skip != 'true' }}
-    permissions:
-      # Delete superseded snapshot caches.
-      actions: write
->>>>>>> a3683d3 (check-runtime-migration: skip on stable and unstable branches (#13748))
+    if: ${{ needs.preflight.outputs.changes_rust && needs.release-branch.outputs.skip != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -225,11 +217,7 @@ jobs:
     runs-on: ubuntu-latest
     name: All runtime migrations passed
     # If any new job gets added, be sure to add it to this array
-<<<<<<< HEAD
-    needs: [check-runtime-migration]
-=======
-    needs: [preflight, release-branch, prepare-snapshots, check-runtime-migration]
->>>>>>> a3683d3 (check-runtime-migration: skip on stable and unstable branches (#13748))
+    needs: [release-branch, check-runtime-migration]
     if: always() && !cancelled() && github.event_name != 'schedule'
     steps:
       - run: |
