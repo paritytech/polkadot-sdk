@@ -1,0 +1,15 @@
+title: Reject refund of a blocked asset account
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet_assets::refund` did not check the account status, so the holder of a blocked
+    account could call it with `allow_burn` and burn their whole balance, remove the account
+    entry together with its `Blocked` status, and receive the asset again afterwards. A blocked
+    account is meant to neither send nor receive, and `refund_other` already rejected it.
+    `refund` now fails with `Frozen` while the account is blocked, matching `refund_other`.
+    Refunding a frozen account is unchanged.
+
+crates:
+- name: pallet-assets
+  bump: patch

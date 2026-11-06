@@ -1789,7 +1789,8 @@ pub mod pallet {
 		/// - `allow_burn`: If `true` then assets may be destroyed in order to complete the refund.
 		///
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
-		/// the asset account contains holds or freezes in place.
+		/// the asset account contains holds or freezes in place, and with [`Error::Frozen`] if the
+		/// asset account is blocked.
 		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(27)]

@@ -376,6 +376,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(matches!(account.reason, Consumer | DepositHeld(..)), Error::<T, I>::NoDeposit);
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(matches!(details.status, Live | Frozen), Error::<T, I>::IncorrectStatus);
+		ensure!(!account.status.is_blocked(), Error::<T, I>::Frozen);
 		ensure!(account.balance.is_zero() || allow_burn, Error::<T, I>::WouldBurn);
 		Self::ensure_account_can_die(id.clone(), &who)?;
 
