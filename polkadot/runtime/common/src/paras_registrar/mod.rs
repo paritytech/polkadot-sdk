@@ -641,15 +641,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		// The sample size the paras pallet's own benchmarks assume for per-para lists.
 		const OTHER_PARAS: u32 = 1024;
 
-		let code = Self::worst_validation_code();
-		<Self as registrar_primitives::ParachainRegistrar>::register(
-			frame_benchmarking::account("manager", 0, 0),
-			para_id,
-			Self::worst_head_data().0,
-			code.0.clone(),
-		)?;
-		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
-		Self::execute_pending_transitions();
+		<Self as registrar_primitives::ParachainRegistrar>::setup_code_upgrade(para_id)?;
 
 		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
 		// gets no vote of its own, which would make offboarding fail.
@@ -693,14 +685,42 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
 	}
 
-	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
-		Err(())
+	fn check_code_upgrade(para_id: u32, code_len: u32) -> Result<(), ()> {
+		let id = ParaId::from(para_id);
+		let max = configuration::ActiveConfig::<T>::get().max_code_size as u32;
+		// `paras` would still schedule an upgrade for a para on its way out.
+		if !paras::Pallet::<T>::lifecycle(id).is_some_and(|l| !l.is_offboarding()) ||
+			!polkadot_runtime_parachains::can_upgrade_validation_code::<T>(id) ||
+			code_len > max ||
+			code_len < MIN_CODE_SIZE
+		{
+			return Err(());
+		}
+		Ok(())
 	}
 
-	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
-		// TODO(ahm-v2): schedule the validation code upgrade.
-		Err(Error::<T>::NotImplemented.into())
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(para_id: u32, validation_code: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+			ParaId::from(para_id),
+			ValidationCode(validation_code),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		)
 	}
 }
 

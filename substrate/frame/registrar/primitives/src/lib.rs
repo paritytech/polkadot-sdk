@@ -110,7 +110,8 @@ pub enum MessageToRelayV1<AccountId> {
 	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
 	///
 	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
-	/// accept and they are uploaded to it separately. Answered with
+	/// accept and they are uploaded to it separately. Ownership and the lock are checked on the
+	/// parachain, so nothing about the caller travels with this. Answered with
 	/// [`MessageToParaV1::CodeUpgradeResponse`].
 	#[codec(index = 3)]
 	AuthorizeCodeUpgrade {
@@ -282,6 +283,13 @@ pub enum FailureReason {
 	/// The head data is larger than the relay chain accepts.
 	#[codec(index = 5)]
 	HeadDataTooLarge,
+	/// The registry will not take this upgrade now, e.g. one is already in flight or the para is
+	/// in its post-upgrade cooldown.
+	#[codec(index = 6)]
+	CannotUpgradeCode,
+	/// The declared validation code length is outside what the relay chain accepts.
+	#[codec(index = 7)]
+	InvalidCodeSize,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -336,6 +344,10 @@ pub trait ParachainRegistrar {
 	/// Whether `para_id` could take a code upgrade of this size right now.
 	#[allow(clippy::result_unit_err)]
 	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
+
+	/// Leave `para_id` registered and free to take a code upgrade.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult;
 
 	/// Schedule a validation code upgrade for `para_id`.
 	fn schedule_code_upgrade(
