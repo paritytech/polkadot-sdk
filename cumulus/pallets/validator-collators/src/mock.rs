@@ -139,7 +139,7 @@ impl Config for Test {
 
 parameter_types! {
 	/// Value of `MaxCollators` until a test sets it.
-	pub static DefaultMaxCollators: Option<u32> = None;
+	pub static DefaultMaxCollators: CollatorDraw = CollatorDraw::All;
 	/// The time [`MockTime`] returns, in milliseconds.
 	pub static Now: u64 = 0;
 }
@@ -191,7 +191,7 @@ pub const VALIDATORS: [u64; 6] = [10, 11, 12, 13, 14, 15];
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
-	DefaultMaxCollators::set(None);
+	DefaultMaxCollators::set(CollatorDraw::All);
 	MaxEntriesPerReport::set(100);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
