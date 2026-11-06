@@ -26,7 +26,7 @@ use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::pay::{AccountIdToLocalLocation, LocalPay, VersionedLocatableAccount};
 use polkadot_runtime_common::{
-	impls::{ContainsParts, VersionedLocatableAsset},
+	impls::{CanonicalLocatableAsset, ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
 };
 use sp_runtime::{traits::IdentityLookup, Percent};
@@ -152,6 +152,7 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = LocalPay<NativeAndAllAssets, TreasuryAccount, xcm_config::LocationToAccountId>;
 	type BalanceConverter = TreasuryBalanceConverter;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type CanonicalizeAssetKind = CanonicalLocatableAsset;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<
