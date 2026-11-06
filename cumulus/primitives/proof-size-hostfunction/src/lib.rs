@@ -99,7 +99,7 @@ pub trait StorageProofSize {
 	/// Registered only: dropping the marker goes together with switching `host_storage_proof_size`
 	/// in `validate_block` and with dropping the markers of the other registered-only versions, see
 	/// [Registered-only versions](crate#registered-only-versions).
-	#[version(2, register_only)]
+	#[version(2)]
 	fn storage_proof_size(&mut self) -> u64 {
 		storage_proof_size_v2(*self)
 	}

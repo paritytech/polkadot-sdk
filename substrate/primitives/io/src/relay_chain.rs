@@ -269,7 +269,7 @@ pub trait Storage {
 	///
 	/// If the storage item does not support [`EncodeAppend`](codec::EncodeAppend) or
 	/// something else fails at appending, the storage item will be set to `[value]`.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn append(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<Vec<u8>>) {
 		self.storage_append_v2(key.to_vec(), value);
 	}
@@ -571,7 +571,7 @@ pub trait DefaultChildStorage {
 	/// `host_default_child_storage_root` in `validate_block` and with dropping the markers of the
 	/// other registered-only versions, see the crate docs of
 	/// `cumulus-primitives-proof-size-hostfunction`.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
