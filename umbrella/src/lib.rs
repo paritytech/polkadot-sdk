@@ -349,6 +349,10 @@ pub use pallet_asset_tx_payment;
 #[cfg(feature = "pallet-assets")]
 pub use pallet_assets;
 
+/// Pallet forwarding fungible asset definitions to a sibling chain over XCM.
+#[cfg(feature = "pallet-assets-forwarder")]
+pub use pallet_assets_forwarder;
+
 /// Provides freezing features to `pallet-assets`.
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
