@@ -2,7 +2,7 @@ title: 'spec-msg: add primitives'
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds the primitives for Speculative Messaging v0.6.
+    Adds the primitives for Speculative Messaging v0.5.
 
     Relay-visible, in `polkadot-primitives::v9`:
     - `StreamsRoot` and `RequiresSet`. A `RequiresSet` is non-empty by construction.

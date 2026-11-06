@@ -1,0 +1,8 @@
+title: 'spec-msg: align primitives with design v0.6'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Aligns `cumulus-primitives-spec-messaging` with the Speculative Messaging v0.6 design.
+crates:
+- name: cumulus-primitives-spec-messaging
+  bump: major
