@@ -61,9 +61,9 @@ mod benchmarks {
 		assert!(PendingRequests::<T>::get(id).is_none());
 	}
 
-	/// A request for both sides. A release reads and writes less.
+	/// A request for both sides. See [`try_set_deposit_release`] for a release.
 	#[benchmark]
-	fn try_set_deposit() {
+	fn try_set_deposit_both_sides() {
 		T::BenchmarkHelper::ensure_send_to_para();
 		let request = both_sides_request();
 		let response;
@@ -74,6 +74,33 @@ mod benchmarks {
 		}
 
 		assert_eq!(response, Ok(DepositChangeResponse::Pending));
+	}
+
+	/// A release for both sides that joins a [`FailedReleases`] with room for one more. A
+	/// release that is sent instead reads an empty [`FailedReleases`] and writes nothing.
+	#[benchmark]
+	fn try_set_deposit_release() {
+		let waiting = T::MaxFailedReleases::get().saturating_sub(1);
+		let releases: Vec<_> = (0..waiting)
+			.map(|i| {
+				let channel = ChannelId { sender: i, recipient: i + 1 };
+				ReleaseMessageToPara { channel, sender: true, recipient: true }
+			})
+			.collect();
+		FailedReleases::<T>::put(
+			BoundedVec::try_from(releases).expect("less than `MaxFailedReleases`; qed"),
+		);
+		let request =
+			DepositChangeRequest { action: DepositAction::Release, ..both_sides_request() };
+		let response;
+
+		#[block]
+		{
+			response = Pallet::<T>::try_set_deposit(request);
+		}
+
+		assert_eq!(response, Ok(DepositChangeResponse::Applied));
+		assert_eq!(FailedReleases::<T>::get().len() as u32, waiting + 1);
 	}
 
 	/// `n` failed releases waiting, all sent.

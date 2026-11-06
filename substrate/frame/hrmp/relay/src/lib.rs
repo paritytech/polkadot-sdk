@@ -430,6 +430,6 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 	}
 
 	fn weight_of_try_set_deposit() -> Weight {
-		T::WeightInfo::try_set_deposit()
+		T::WeightInfo::try_set_deposit_both_sides().max(T::WeightInfo::try_set_deposit_release())
 	}
 }

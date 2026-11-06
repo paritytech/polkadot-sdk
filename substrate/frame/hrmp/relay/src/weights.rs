@@ -72,7 +72,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_hrmp_relay`.
 pub trait WeightInfo {
 	fn receive() -> Weight;
-	fn try_set_deposit() -> Weight;
+	fn try_set_deposit_both_sides() -> Weight;
+	fn try_set_deposit_release() -> Weight;
 	fn retry_failed_releases(n: u32, ) -> Weight;
 }
 
@@ -100,7 +101,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `HrmpRelay::NextRequestId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `HrmpRelay::PendingRequests` (r:0 w:1)
 	/// Proof: `HrmpRelay::PendingRequests` (`max_values`: None, `max_size`: Some(103), added: 2578, mode: `MaxEncodedLen`)
-	fn try_set_deposit() -> Weight {
+	fn try_set_deposit_both_sides() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `280`
+		//  Estimated: `5990`
+		// Minimum execution time: 13_803_000 picoseconds.
+		Weight::from_parts(15_101_000, 5990)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	/// Storage: `HrmpRelay::FailedReleases` (r:1 w:1)
+	/// Proof: `HrmpRelay::FailedReleases` (`max_values`: Some(1), `max_size`: Some(161), added: 656, mode: `MaxEncodedLen`)
+	fn try_set_deposit_release() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `280`
 		//  Estimated: `5990`
@@ -148,7 +160,18 @@ impl WeightInfo for () {
 	/// Proof: `HrmpRelay::NextRequestId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `HrmpRelay::PendingRequests` (r:0 w:1)
 	/// Proof: `HrmpRelay::PendingRequests` (`max_values`: None, `max_size`: Some(103), added: 2578, mode: `MaxEncodedLen`)
-	fn try_set_deposit() -> Weight {
+	fn try_set_deposit_both_sides() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `280`
+		//  Estimated: `5990`
+		// Minimum execution time: 13_803_000 picoseconds.
+		Weight::from_parts(15_101_000, 5990)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	/// Storage: `HrmpRelay::FailedReleases` (r:1 w:1)
+	/// Proof: `HrmpRelay::FailedReleases` (`max_values`: Some(1), `max_size`: Some(161), added: 656, mode: `MaxEncodedLen`)
+	fn try_set_deposit_release() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `280`
 		//  Estimated: `5990`
