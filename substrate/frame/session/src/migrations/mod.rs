@@ -23,3 +23,10 @@
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod v1;
+
+/// Version 2.
+///
+/// Merges `ExternallySetKeys` and `KeyDepositor` into a single `KeyStatus` map keyed by
+/// validator ID, so that deciding whether a validator's keys were registered locally or
+/// externally no longer depends on which account happens to call `purge_keys`.
+pub mod v2;
