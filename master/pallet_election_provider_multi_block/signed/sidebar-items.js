@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_UNPAID_REWARDS"],"mod":["pallet"],"struct":["ActivePot","FullSubmissionFee","ReactivatingPot","SubmissionMetadata","UnpaidReward"],"trait":["CalculateBaseDeposit","CalculatePageDeposit","RewardSource"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_UNPAID_REWARDS"],"mod":["migrations","pallet"],"struct":["ActivePot","FullSubmissionFee","ReactivatingPot","SubmissionMetadata","UnpaidReward"],"trait":["CalculateBaseDeposit","CalculatePageDeposit","RewardSource"]};

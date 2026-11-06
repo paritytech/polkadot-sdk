@@ -153,6 +153,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     owner: &lt;&lt;T as SystemConfig&gt;::Lookup as StaticLookup&gt;::Source,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Change the Owner of a collection.</p>
 <p>Origin must be <code>ForceOrigin</code>.</p>
+<p>The collection deposit is moved from the current to the new owner. Fails with
+<a href="../enum.Error.html#variant.IncompleteDepositTransfer" title="variant pallet_nfts::pallet::Error::IncompleteDepositTransfer"><code>Error::IncompleteDepositTransfer</code></a> if a lock or freeze on the current owner blocks
+the full transfer; clear it and retry.</p>
 <ul>
 <li><code>collection</code>: The identifier of the collection.</li>
 <li><code>owner</code>: The new Owner of this collection.</li>
