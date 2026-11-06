@@ -278,7 +278,7 @@ fn alarm_interval_works() {
 			System::set_block_number(now);
 			AlarmInterval::set(interval);
 			let when = now + 1;
-			let (actual, _) = Referenda::set_alarm(call.clone(), when).unwrap();
+			let (actual, _) = Referenda::set_alarm(call.clone(), when, 128).unwrap();
 			assert!(actual >= when);
 			assert!(actual - interval <= when);
 		}
@@ -803,6 +803,70 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 			stored, actual,
 			"track 0: DecidingCount={} but found {} Ongoing referenda with deciding.is_some()",
 			stored, actual,
+		);
+	});
+}
+
+fn fill_non_reserved(block: u64) {
+	let max = <<Test as pallet_scheduler::Config>::MaxScheduledPerBlock as Get<u32>>::get();
+	let reserve = <<Test as pallet_scheduler::Config>::PriorityReserve as Get<u32>>::get();
+	let filler = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+	for _ in 0..(max - reserve) {
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			block,
+			None,
+			128,
+			Box::new(filler.clone())
+		));
+	}
+}
+
+#[test]
+fn priority_reserve_denies_privileged_submit_alarm_without_decision_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alarm_block =
+			System::block_number() + <<Test as Config>::UndecidingTimeout as Get<u64>>::get();
+		fill_non_reserved(alarm_block);
+
+		// Without a decision deposit the alarm priority is ungated, so it cannot
+		// claim a reserved slot.
+		assert_noop!(
+			Referenda::submit(
+				RuntimeOrigin::signed(1),
+				Box::new(RawOrigin::Root.into()),
+				set_balance_proposal_bounded(1),
+				DispatchTime::After(0),
+			),
+			Error::<Test>::AlarmScheduleFailed
+		);
+		assert_eq!(ReferendumCount::<Test>::get(), 0);
+	});
+}
+
+#[test]
+fn priority_reserve_protects_privileged_alarm_after_decision_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		let now = System::block_number();
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::After(0),
+		));
+
+		let prepare_end = now + 4;
+		fill_non_reserved(prepare_end);
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+
+		// After deposit the alarm uses the track's priority and claims a reserved slot.
+		assert_eq!(Referenda::ensure_ongoing(0).unwrap().alarm.unwrap().0, prepare_end);
+
+		// The non-reserved portion is exhausted; a normal-priority task is rejected.
+		let filler = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+		assert_noop!(
+			Scheduler::schedule(RuntimeOrigin::root(), prepare_end, None, 128, Box::new(filler)),
+			DispatchError::Exhausted,
 		);
 	});
 }
