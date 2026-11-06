@@ -18,7 +18,7 @@
 #[frame_support::pallet]
 mod pallet {
 	#[pallet::config]
-	pub trait Config: frame_system::Config + codec::Codec + scale_info::TypeInfo {}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -32,8 +32,7 @@ mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		pub fn second(value: T) -> u32 {
-			let _ = value;
+		pub fn second() -> u32 {
 			0
 		}
 	}

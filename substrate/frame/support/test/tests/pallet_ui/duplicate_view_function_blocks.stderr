@@ -1,0 +1,5 @@
+error: Invalid duplicated attribute
+  --> tests/pallet_ui/duplicate_view_function_blocks.rs:33:12
+   |
+33 |     #[pallet::view_functions]
+   |               ^^^^^^^^^^^^^^

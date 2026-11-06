@@ -471,23 +471,15 @@ pub mod pallet {
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T>
 	where
-		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType2>,
+		T::AccountId: From<SomeType1> + SomeAssociation1,
 	{
 		/// Query value no args.
 		pub fn get_value() -> Option<u32> {
-			let _ = T::AccountId::from(SomeType2);
 			Value::<T>::get()
 		}
-	}
 
-	#[pallet::view_functions]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType3>,
-	{
 		/// Query value with args.
 		pub fn get_value_with_arg(key: u16) -> Option<u32> {
-			let _ = T::AccountId::from(SomeType3);
 			Map2::<T>::get(key)
 		}
 	}
@@ -1443,7 +1435,7 @@ fn pallet_item_docs_in_metadata() {
 }
 
 #[test]
-fn multiple_view_function_blocks_metadata_and_dispatch() {
+fn view_function_metadata_and_dispatch() {
 	use codec::Encode;
 	use frame_support::view_functions::{DispatchViewFunction, ViewFunction};
 

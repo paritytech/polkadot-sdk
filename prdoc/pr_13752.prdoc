@@ -1,13 +1,11 @@
-title: 'FRAME: preserve view functions and reject duplicate pallet indices'
+title: 'FRAME: reject duplicate view-function blocks and pallet indices'
 doc:
 - audience: Runtime Dev
   description: |-
-    Multiple `#[pallet::view_functions]` blocks now contribute all their functions to metadata
-    and runtime dispatch in declaration order, instead of silently keeping only the last block.
-    Generated view-function implementations require the combined bounds of `Config` and every
-    view-function block. Rebuild the runtime and regenerate metadata bindings as needed.
-    Generated references retain each block's source span so compiler diagnostics point to the
-    relevant block instead of the first one.
+    Pallets now reject a second `#[pallet::view_functions]` block instead of silently keeping
+    only the last block for metadata and runtime dispatch. Move all view-function methods into
+    a single block, preserving any bounds required by those methods. The compiler points to
+    the duplicate attribute.
 
     Repeated `#[runtime::pallet_index]` attributes on a pallet are now rejected, including when
     their values match. Keep exactly one attribute. Retain the last previously specified index

@@ -17,26 +17,22 @@
 
 use crate::pallet::{parse::view_functions::ViewFunctionDef, Def};
 use proc_macro2::{Span, TokenStream};
+use syn::spanned::Spanned;
 
 pub fn expand_view_functions(def: &Def) -> TokenStream {
-	let span = def.pallet_struct.attr_span;
-	let mut where_clauses = vec![&def.config.where_clause];
-	where_clauses.extend(def.view_functions.iter().map(|block| &block.where_clause));
-	let where_clause = super::merge_where_clauses(&where_clauses);
-	let view_fns = def
-		.view_functions
-		.iter()
-		.flat_map(|block| {
-			block.view_functions.iter().map(move |view_fn| (block.attr_span, view_fn))
-		})
-		.collect::<Vec<_>>();
+	let (span, where_clause, view_fns) = match def.view_functions.as_ref() {
+		Some(view_fns) => {
+			(view_fns.attr_span, view_fns.where_clause.clone(), view_fns.view_functions.clone())
+		},
+		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
+	};
 
 	let view_function_prefix_impl =
 		expand_view_function_prefix_impl(def, span, where_clause.as_ref());
 
 	let view_fn_impls = view_fns
 		.iter()
-		.map(|(span, view_fn)| expand_view_function(def, *span, where_clause.as_ref(), view_fn));
+		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
 	let impl_dispatch_view_function =
 		impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
 	let impl_view_function_metadata =
@@ -162,15 +158,14 @@ fn impl_dispatch_view_function(
 	def: &Def,
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,
-	view_fns: &[(Span, &ViewFunctionDef)],
+	view_fns: &[ViewFunctionDef],
 ) -> TokenStream {
 	let frame_support = &def.frame_support;
 	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
 
-	let query_match_arms = view_fns.iter().map(|(span, view_fn)| {
-		let type_use_gen = &def.type_use_generics(*span);
+	let query_match_arms = view_fns.iter().map(|view_fn| {
 		let view_function_struct_ident = view_fn.view_function_struct_ident();
 		quote::quote! {
 			<#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunctionIdSuffix>::SUFFIX => {
@@ -203,15 +198,14 @@ fn impl_view_function_metadata(
 	def: &Def,
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,
-	view_fns: &[(Span, &ViewFunctionDef)],
+	view_fns: &[ViewFunctionDef],
 ) -> TokenStream {
 	let frame_support = &def.frame_support;
 	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
 
-	let view_functions = view_fns.iter().map(|(span, view_fn)| {
-		let type_use_gen = &def.type_use_generics(*span);
+	let view_functions = view_fns.iter().map(|view_fn| {
 		let view_function_struct_ident = view_fn.view_function_struct_ident();
 		let name = &view_fn.name;
 		let inputs = view_fn.args.iter().filter_map(|fn_arg| {
