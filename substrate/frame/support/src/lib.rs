@@ -953,6 +953,9 @@ pub mod pallet_macros {
 	/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.
 	///
+	/// Multiple `#[pallet::extra_constants]` blocks are allowed. Constants from all blocks are
+	/// included in metadata in declaration order, after the constants defined in `Config`.
+	///
 	/// Must be defined like:
 	///
 	/// ```
