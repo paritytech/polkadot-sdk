@@ -327,6 +327,8 @@ pub mod pallet {
 		AssetIsNotSufficient,
 		/// A zero asset distribution share is detected.
 		ZeroAssetDistribution,
+		/// Too small asset distribution share is detected.
+		TooSmallAssetDistributionShare,
 	}
 
 	#[pallet::hooks]
@@ -455,9 +457,14 @@ pub mod pallet {
 		///
 		/// For budget allocation, the sum of all percentages must be exactly 100%.
 		///
-		/// For asset allocation, all `amount_per_ms` values must be non-zero and every asset must
-		/// be sufficient or match the [`Config::NativeCurrencyAssetId`]. Recipients not included in
-		/// the map receive nothing.
+		/// For asset allocation:
+		/// - All `amount_per_ms` values must be non-zero.
+		/// - For all `amount_per_ms`, the amount must be big enough so that every drip drips at
+		///   least assets' minimum balance, i.e. `amount_per_ms * max(1, IssuanceCadence) >=
+		///   minimum_balance(asset)`.
+		/// - Every asset must either be sufficient or match the [`Config::NativeCurrencyAssetId`].
+		///
+		/// Recipients not included in any of the map receive nothing.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_allocations())]
 		pub fn set_allocations(
@@ -566,9 +573,18 @@ pub mod pallet {
 					Error::<T>::AssetIsNotSufficient
 				);
 
+				let min_balance = T::Assets::minimum_balance(asset.clone());
 				for (key, amount) in allocations {
 					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
-					ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution)
+					ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution);
+
+					let cadence = SaturatedConversion::saturated_into::<BalanceOf<T>>(
+						T::IssuanceCadence::get().max(1),
+					);
+					ensure!(
+						amount.amount_per_ms.saturating_mul(cadence) >= min_balance,
+						Error::<T>::TooSmallAssetDistributionShare
+					);
 				}
 			}
 
