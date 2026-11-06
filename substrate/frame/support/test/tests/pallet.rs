@@ -550,6 +550,7 @@ pub mod pallet {
 			}
 		}
 
+		#[allow(deprecated)]
 		fn is_inherent_required(d: &InherentData) -> Result<Option<Self::Error>, Self::Error> {
 			match d.get_data::<bool>(b"required") {
 				Ok(Some(true)) => Ok(Some(InherentError::Fatal)),
