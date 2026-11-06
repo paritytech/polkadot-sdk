@@ -3,28 +3,30 @@ doc:
 - audience: Runtime User
   description: |-
     When a contract calls another contract or a precompile, or creates a contract, the nested call
-    now gets at most 63/64 of the caller's remaining resources, plus the call stipend if it gets
-    one. In Substrate mode this applies to each weight dimension and to the storage deposit. In
-    Ethereum mode it applies to the gas, and the weight and storage deposit the nested call can
-    use follow from that gas. Nested calls with higher limits, or none, get less than before, for
-    example a Solidity `call` without a gas argument. The rule does not apply to the transaction's
-    first call. It also applies to contracts that are already deployed: a nested call that needs
-    more than 63/64 of what its caller has left now fails.
+    now gets at most `63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s` the
+    call stipend (zero without one). In Substrate mode this applies to each weight dimension and
+    to the storage deposit. In Ethereum mode it applies to the gas and to the caller's weight limit,
+    and also to the caller's storage deposit limit if it has one. The weight and storage deposit the
+    nested call can use follow from these. Nested calls with higher limits, or none, get less than
+    before, for example a Solidity `call` without a gas argument. The rule does not apply to the
+    transaction's first call.
 
     The 63/64 rule also applies to calls to the System precompile, so `ISystem.weightLeft()` now
     returns the weight left without the part the calling contract keeps.
 
     Even when the callee uses up its whole gas limit, the caller now keeps 1/64 of its remaining
-    gas, or less if the call gets a stipend. As on Ethereum, this lets Solidity contracts handle
-    the failure, for example with a `try`/`catch` around a call or contract creation whose callee
-    runs out of gas, or with Multicall3's `aggregate3`, which continues after a failed call.
+    gas, or of what is left after the stipend for a call that gets one. As on Ethereum, this lets
+    Solidity contracts handle the failure, for example with a `try`/`catch` around a call or
+    contract creation whose callee runs out of gas, or with Multicall3's `aggregate3`, which
+    continues after a failed call.
 
-    The 63/64 rule is the one EIP-150 introduced on Ethereum, but the stipend is added differently.
-    On Ethereum, the stipend of a call that transfers value does not come out of the caller's
-    gas, so the caller always keeps 1/64. In pallet-revive, the stipend comes out of what the
-    caller has left, so the caller keeps 1/64 minus the stipend, and nothing when it has 64
-    stipends or fewer left. If the callee then uses up its gas, a `catch` block after the call
-    runs out of gas.
+    In Ethereum mode, a call stipend now gives the callee the gas that the stipend's weight adds to
+    the transaction's fee, instead of the price of that weight on its own. The weight part of a
+    transaction's fee is the larger of the cost of its ref_time and the cost of its proof size.
+    When the proof-size cost is the larger one, the stipend therefore pays for no more proof size
+    than it contains. A `receive` function that needs more proof size than that now runs out of
+    gas in such a transaction, and `gasleft()` in a callee that has only the stipend depends on
+    what the transaction did before the call.
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and

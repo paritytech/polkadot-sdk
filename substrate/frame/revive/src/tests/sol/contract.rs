@@ -1078,7 +1078,8 @@ mod eip_150 {
 		storage::{TransactionOutcome, with_transaction},
 	};
 	use pallet_revive_fixtures::{
-		CatchInvalid, Forwarder, GasLeftReceiver, Multicall3, ReentryStorage, WeightLeft,
+		CatchInvalid, ComplexReceiver, Forwarder, GasLeftReceiver, Multicall3, ReentryStorage,
+		WeightLeft,
 	};
 	use pretty_assertions::assert_eq;
 	use test_case::{test_case, test_matrix};
@@ -1268,7 +1269,6 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[|weight_limit| ethereum_limits(ETH_GAS_LIMIT, weight_limit), substrate_limits]
 	)]
-	#[ignore = "a value call's stipend comes out of the 1/64 its caller keeps"]
 	fn caller_has_gas_left_in_catch_after_value_call_hits_invalid(
 		caller_type: FixtureType,
 		limits: fn(Weight) -> TransactionLimits<Test>,
@@ -1470,6 +1470,50 @@ mod eip_150 {
 			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
+		});
+	}
+
+	/// A value call that forwards gas to a callee that writes storage succeeds when its caller runs
+	/// with exactly the limits a dry run returned.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn dry_run_estimates_suffice_for_transaction_with_value_call_writing_storage(
+		caller_type: FixtureType,
+		receiver_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		let (receiver_code, _) =
+			compile_module_with_type("ComplexReceiver", receiver_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let value = 1;
+			let input = Caller::normalCall {
+				_callee: receiver_addr.0.into(),
+				_value: value,
+				_data: Default::default(),
+				// A PVM value call with gas `u64::MAX` gets no stipend.
+				_gas: u64::MAX - 1,
+			}
+			.abi_encode();
+
+			let receiver_balance = Pallet::<Test>::evm_balance(&receiver_addr);
+			let output = call_with_estimated_limits(caller_addr, input, &limits);
+			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
+			let counter = builder::bare_call(receiver_addr)
+				.data(ComplexReceiver::counterCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(
+				ComplexReceiver::counterCall::abi_decode_returns(&counter.data).unwrap(),
+				alloy_core::primitives::U256::from(1),
+			);
 		});
 	}
 

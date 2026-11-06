@@ -169,9 +169,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Creates a nested meter with limits derived from `limit` and this meter's remaining
 	/// resources.
 	///
-	/// Except for the transaction's first call, the nested meter gets at most 63/64 of the
-	/// remaining resources under the EIP-150 63/64 rule, plus the call stipend if `limit` adds
-	/// one.
+	/// Except for the transaction's first call, the EIP-150 63/64 rule applies: with `r` the
+	/// remaining resources and `s` the call stipend (zero without one), the nested meter gets at
+	/// most `63/64 * (r - s) + s`.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
