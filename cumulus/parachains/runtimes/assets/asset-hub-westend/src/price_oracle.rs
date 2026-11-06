@@ -17,11 +17,14 @@
 use crate::{
 	AccountId, AuraId, Runtime, System, RELAY_CHAIN_SLOT_DURATION_MILLIS, RELAY_PARENT_OFFSET,
 };
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::time::Duration;
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
-use frame_support::traits::{ConstU32, UnixTime};
-use frame_system::EnsureRoot;
+use frame_support::{
+	ord_parameter_types,
+	traits::{ConstU32, EitherOfDiverse, UnixTime},
+};
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_price_oracle::Signers;
 
 /// The collators: the current Aura authorities and the ones queued for the next session.
@@ -70,6 +73,14 @@ impl UnixTime for LatestRelayTime {
 	}
 }
 
+ord_parameter_types! {
+	/// A pure proxy that may configure the oracle besides Root, so it can be set up on Westend
+	/// without governance. `5F66jpJ9M8mJXhDZDc3g3zVFoidvWudX3HYJgVp55EBpNnuQ`.
+	pub const OracleAdmin: AccountId = AccountId::new(hex_literal::hex!(
+		"85c4f913296ea55a4762391d744b7fe20c5a968cc13e700bad7d69362a87c5d6"
+	));
+}
+
 impl pallet_price_oracle::Config for Runtime {
 	type SignerId = AuraId;
 	type SignerSignature = sp_consensus_aura::sr25519::AuthoritySignature;
@@ -79,7 +90,8 @@ impl pallet_price_oracle::Config for Runtime {
 	type MaxCrossRates = ConstU32<4>;
 	type AnchorProvider = (System, LatestRelayTime);
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<OracleAdmin, AccountId>>;
 	type OnPriceUpdate = ();
 	type WeightInfo = ();
 }
