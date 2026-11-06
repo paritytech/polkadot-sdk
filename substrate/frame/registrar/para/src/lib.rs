@@ -530,9 +530,9 @@ pub mod pallet {
 
 		/// Ask the relay chain to register head data and validation code for a reserved para id.
 		///
-		/// The validation code itself stays here: only `code_hash` and `code_len` are sent. The
-		/// caller uploads the blob to the relay chain separately, which accepts it only if it
-		/// hashes to `code_hash` and is exactly `code_len` bytes long.
+		/// Only `code_hash` and `code_len` are sent, never the validation code. The caller uploads
+		/// the blob to the relay chain separately, which accepts it only if it hashes to
+		/// `code_hash` and is exactly `code_len` bytes long.
 		///
 		/// ## Costs
 		///
@@ -720,9 +720,9 @@ pub mod pallet {
 
 		/// Ask the relay chain to authorize a validation code upgrade.
 		///
-		/// Root, the para itself, or its manager while unlocked. As with [`Pallet::register`] the
-		/// code itself stays here: the caller uploads it to the relay chain separately, and it is
-		/// accepted only if it matches `code_hash` and `code_len`. Nothing is recorded and no
+		/// Root, the para itself, or its manager while unlocked. As with [`Pallet::register`] only
+		/// `code_hash` and `code_len` are sent: the caller uploads the code to the relay chain
+		/// separately, and it is accepted only if it matches both. Nothing is recorded and no
 		/// deposit is taken; the outcome comes back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::schedule_code_upgrade())]
