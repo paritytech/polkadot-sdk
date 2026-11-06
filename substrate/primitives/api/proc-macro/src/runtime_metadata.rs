@@ -17,7 +17,7 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_quote, spanned::Spanned, ItemImpl, ItemTrait, Result};
+use syn::{parse_quote, spanned::Spanned, ImplItem, ItemImpl, ItemTrait, Result};
 
 use crate::utils::{
 	extract_api_version, extract_impl_trait, filter_cfg_attributes, generate_crate_access,
@@ -131,12 +131,13 @@ pub fn generate_decl_runtime_metadata<'a>(
 		methods.push(quote!(
 			#( #attrs )*
 			if #version <= impl_version {
+				let deprecation = impl_deprecations.remove(&#method_name).unwrap_or(#deprecation);
 				Some(#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
 					name: #method_name,
 					inputs: #crate_::vec![ #( #inputs, )* ],
 					output: #output,
 					docs: #docs,
-					deprecation_info: #deprecation,
+					deprecation_info: deprecation,
 				})
 			} else {
 				None
@@ -173,9 +174,13 @@ pub fn generate_decl_runtime_metadata<'a>(
 		#crate_::frame_metadata_enabled! {
 			#( #attrs )*
 			#[inline(always)]
-			pub fn runtime_metadata #impl_generics (impl_version: u32) -> #crate_::metadata_ir::RuntimeApiMetadataIR
+			pub fn runtime_metadata #impl_generics (
+				impl_version: u32,
+				mut impl_deprecations: #crate_::__private::BTreeMap<&str, #crate_::metadata_ir::ItemDeprecationInfoIR>
+			) -> #crate_::metadata_ir::RuntimeApiMetadataIR
 				#where_clause
 			{
+				let deprecation = impl_deprecations.remove(&#method_name).unwrap_or(#deprecation);
 				#crate_::metadata_ir::RuntimeApiMetadataIR {
 					name: #trait_name,
 					methods: [ #( #methods, )* ]
@@ -223,6 +228,23 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 			.expect("Trait path should always contain at least one item; qed")
 			.ident;
 
+		let mut deprecations = vec![];
+
+		if impl_.attrs.iter().any(|x| x.path().is_ident("deprecated")) {
+			let deprecation = crate::utils::get_deprecation(&crate_, &impl_.attrs)?;
+			deprecations.push(quote! {(#trait_name, #deprecation)});
+		};
+
+		for method in &impl_.items {
+			if let ImplItem::Fn(method) = method {
+				if method.attrs.iter().any(|x| x.path().is_ident("deprecated")) {
+					let name = &method.sig.ident.to_string();
+					let deprecation = crate::utils::get_deprecation(&crate_, &method.attrs)?;
+					deprecations.push(quote! {(#name, #deprecation)});
+				};
+			}
+		}
+
 		// Extract the generics from the trait to pass to the `runtime_metadata`
 		// function on the hidden module.
 		let generics = trait_
@@ -256,6 +278,10 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 				quote! { #trait_::VERSION }
 			};
 
+			let map = quote! {
+				#crate_::scale_info::prelude::collections::BTreeMap::from([ #( #deprecations, )*])
+			};
+
 			// Handle the case where eg `#[cfg_attr(feature = "foo", api_version(4))]` is
 			// present by using that version only when the feature is enabled and falling
 			// back to the above version if not.
@@ -264,14 +290,14 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 				let cfg_version = cfg_version.1;
 				quote! {{
 					if cfg!(feature = #cfg_feature) {
-						#trait_::runtime_metadata::#generics(#cfg_version)
+						#trait_::runtime_metadata::#generics(#cfg_version, #map)
 					} else {
-						#trait_::runtime_metadata::#generics(#base_version)
+						#trait_::runtime_metadata::#generics(#base_version, #map)
 					}
 				}}
 			} else {
 				quote! {
-					#trait_::runtime_metadata::#generics(#base_version)
+					#trait_::runtime_metadata::#generics(#base_version, #map)
 				}
 			}
 		};
