@@ -600,12 +600,13 @@ where
 		};
 		self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
 		let tip_author = aura_internal::slot_author::<P>(para_slot.slot, &authorities).cloned();
-		let slot_claim =
-			aura_internal::claim_slot::<P>(para_slot.slot, &authorities, &self.keystore)
-				.await
-				.map(|author| {
-					SlotClaim::unchecked::<P>(author, para_slot.slot, para_slot.timestamp)
-				});
+		let slot_claim = crate::collators::claim_slot_among::<P>(
+			para_slot.slot,
+			para_slot.timestamp,
+			&authorities,
+			&self.keystore,
+		)
+		.await;
 
 		// The PVF checks a resubmission's signature against the candidate's parent state, so a
 		// bundle from before an authority-set change needs the prior set's author for this slot.
@@ -1517,8 +1518,11 @@ fn adjust_para_to_relay_parent_slot(
 	let relay_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_header)
 		.map(|babe_pre_digest| babe_pre_digest.slot())
 		.ok()?;
-	let new_slot =
-		para_slot_from_relay_slot(relay_slot, relay_chain_slot_duration, para_slot_duration)?;
+	let new_slot = Slot::from_timestamp(
+		relay_slot
+			.timestamp(SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64))?,
+		para_slot_duration,
+	);
 	let para_slot = SlotInfo { slot: new_slot, timestamp: new_slot.timestamp(para_slot_duration)? };
 	tracing::debug!(
 		target: LOG_TARGET,
@@ -1527,18 +1531,6 @@ fn adjust_para_to_relay_parent_slot(
 		"Parachain slot adjusted to relay chain.",
 	);
 	Some(para_slot)
-}
-
-/// The para slot containing the start of `relay_slot`; the scheduling verifier's formula.
-fn para_slot_from_relay_slot(
-	relay_slot: Slot,
-	relay_chain_slot_duration: Duration,
-	para_slot_duration: SlotDuration,
-) -> Option<Slot> {
-	u64::from(relay_slot)
-		.checked_mul(relay_chain_slot_duration.as_millis() as u64)?
-		.checked_div(para_slot_duration.as_millis())
-		.map(Slot::from)
 }
 
 /// Finds a relay chain parent block at a specified offset from the best block, collecting its
