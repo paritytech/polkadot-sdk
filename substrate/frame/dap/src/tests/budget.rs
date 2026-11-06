@@ -20,7 +20,7 @@ use super::{budget_map, key};
 use crate::{
 	mock::{
 		account_id, assert_try_state_invalid, build_and_execute, set_default_budget_allocation,
-		Dap, RuntimeOrigin, System, Test,
+		Dap, NativeAndAssets, RuntimeOrigin, System, Test,
 	},
 	tests::{asset_allocations, create_asset},
 	AssetAllocation, BudgetAllocation, Error, Event,
@@ -121,6 +121,23 @@ fn set_asset_allocation_rejects_nonexistent_assets() {
 		create_asset(10);
 
 		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)));
+	});
+}
+
+#[test]
+fn set_asset_allocation_rejects_insufficient_assets() {
+	build_and_execute(true, || {
+		use frame_support::traits::fungibles::Create;
+
+		set_default_budget_allocation();
+
+		assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(10), account_id(0), false, 1));
+		let allocations = asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"buffer", 10)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations.clone())),
+			Error::<Test>::AssetIsNotSufficient
+		);
 	});
 }
 

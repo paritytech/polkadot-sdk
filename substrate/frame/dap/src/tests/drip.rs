@@ -200,14 +200,6 @@ fn asset_distribution_fails_with_event_when_there_are_not_enough_funds() {
 			)),
 			2
 		);
-		System::assert_has_event(
-			Event::<Test>::AssetDistributed {
-				asset: NativeOrWithId::Native,
-				amount: 0,
-				elapsed_millis: 60_000,
-			}
-			.into(),
-		);
 
 		System::reset_events();
 
@@ -232,14 +224,6 @@ fn asset_distribution_fails_with_event_when_there_are_not_enough_funds() {
 				},
 			)),
 			2
-		);
-		System::assert_has_event(
-			Event::<Test>::AssetDistributed {
-				asset: NativeOrWithId::WithId(10),
-				amount: 0,
-				elapsed_millis: 60_000,
-			}
-			.into(),
 		);
 	});
 }

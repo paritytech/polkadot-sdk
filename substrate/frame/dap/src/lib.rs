@@ -301,7 +301,8 @@ pub mod pallet {
 	/// This map controls *only* the non-native asset distribution.
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. All `amount_per_ms` values must be
-	/// non-zero, otherwise `set_allocations` will reject such a config.
+	/// non-zero and every asset must be sufficient or match the [`Config::NativeCurrencyAssetId`],
+	/// otherwise `set_allocations` will reject such a config.
 	#[pallet::storage]
 	pub type AssetAllocation<T> = StorageValue<_, AssetAllocationMapOf<T>, ValueQuery>;
 
@@ -320,6 +321,8 @@ pub mod pallet {
 		BudgetNotExact,
 		/// Provided asset does not exist.
 		AssetDoesntExist,
+		/// Provided asset has `is_sufficient = false`.
+		AssetIsNotSufficient,
 		/// A zero asset distribution share is detected.
 		ZeroAssetDistribution,
 	}
@@ -446,9 +449,13 @@ pub mod pallet {
 
 		/// Optionally set the budget and asset allocation maps.
 		///
-		/// Each key must match a registered `BudgetRecipient`. For budget allocation, the sum of
-		/// all percentages must be exactly 100%. For asset allocation, all `amount_per_ms` values
-		/// must be non-zero. Recipients not included in the map receive nothing.
+		/// Each key must match a registered `BudgetRecipient`.
+		///
+		/// For budget allocation, the sum of all percentages must be exactly 100%.
+		///
+		/// For asset allocation, all `amount_per_ms` values must be non-zero and every asset must
+		/// be sufficient or match the [`Config::NativeCurrencyAssetId`]. Recipients not included in
+		/// the map receive nothing.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_allocations())]
 		pub fn set_allocations(
@@ -550,6 +557,12 @@ pub mod pallet {
 			// Validate all keys are registered recipients and no zero amounts are set.
 			for (asset, allocations) in &allocations {
 				ensure!(T::Assets::asset_exists(asset.clone()), Error::<T>::AssetDoesntExist);
+
+				ensure!(
+					T::NativeCurrencyAssetId::get() == *asset ||
+						T::Assets::is_sufficient(asset.clone()),
+					Error::<T>::AssetIsNotSufficient
+				);
 
 				for (key, amount) in allocations {
 					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);

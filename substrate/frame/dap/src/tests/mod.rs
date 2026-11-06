@@ -79,5 +79,5 @@ fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
 }
 
 fn create_asset(asset_id: u32) {
-	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), account_id(0), false, 1));
+	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), account_id(0), true, 1));
 }
