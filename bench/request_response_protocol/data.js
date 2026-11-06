@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793990579396,
+  "lastUpdate": 1793993847064,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -142451,6 +142451,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3013989243,
             "range": "± 25501064",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "22b4d05268e46ca7a19de71a6be502b839ccfecb",
+          "message": "EPMB: determine the signed base deposit at registration (#13722)\n\nThe base deposit of a signed submission was re-computed from the current\nqueue length on every `submit_page`, so the held amount changed with\nregistrations made by other accounts after the submitter registered. A\nsubmitter also counted itself, so storing a page raised its base one\nstep of `DepositBase` above the registration price.\n\nCharge the base deposit once, at `register`, and store it in\n`SubmissionMetadata` as `base`. On every page change the held deposit\nbecomes that base plus the per-page deposit of the stored pages, so a\nlater change of the per-page price or of invulnerable status never takes\nit below the base.\n\nNotes:\n- `CalculatePageDeposit::calculate_page_deposit` no longer takes the\nnumber of existing submitters.\n- The signed pallet moves to storage version 1.\n`signed::migrations::v1::MigrateV0ToV1` derives `base` for stored\nsubmissions, at least the lowest base deposit for the account's current\nstatus and at most the held deposit. It is wired into asset-hub-westend.\nOther runtimes (Polkadot and Kusama Asset Hub) need to add it.\n- try-state checks that every submission holds at least its base.",
+          "timestamp": "2026-11-06T17:45:55Z",
+          "tree_id": "02dfd87c7f4e6f3fe56ebc035d37fa5baca3a5a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b4d05268e46ca7a19de71a6be502b839ccfecb"
+        },
+        "date": 1793993812027,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20729094,
+            "range": "± 354726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21031572,
+            "range": "± 191420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22371103,
+            "range": "± 103437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26762812,
+            "range": "± 237683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59704048,
+            "range": "± 693141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 358558914,
+            "range": "± 2628578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2626633079,
+            "range": "± 145807332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18122509,
+            "range": "± 191679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18301777,
+            "range": "± 109776",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18891577,
+            "range": "± 138506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23914828,
+            "range": "± 298679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62692013,
+            "range": "± 775134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357463261,
+            "range": "± 2554815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2837707153,
+            "range": "± 30369352",
             "unit": "ns/iter"
           }
         ]
