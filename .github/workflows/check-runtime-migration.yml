@@ -14,10 +14,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Scheduled runs refresh the master snapshots. They get their own group so that a push to
-  # master does not cancel them, and a new scheduled run waits for a running one to finish.
-  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  # Scheduled runs and manual runs on master refresh the master snapshots. They share their own
+  # group so that a push to master does not cancel them, and a new refresh run waits for a running
+  # one to finish. Manual runs on other refs use their ref's group. A manual run never cancels a
+  # running run.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')) && 'schedule' || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
 
 permissions: {}
 
@@ -29,15 +31,15 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   # Prepare snapshots for all networks. Runs before the actual migration checks.
-  # For scheduled runs: create a fresh snapshot unless one from today is cached. Scheduled runs
-  # do not depend on changed files, since they only refresh the cache.
+  # For scheduled and manual runs: create a fresh snapshot unless one from today is cached. These
+  # runs do not depend on changed files, since they refresh the cache.
   # For other runs: use cached snapshots if available, create if not.
   # Only master saves snapshots to the cache. Other refs cannot share their caches and would
   # evict the master ones, so they hand a fresh snapshot to the check job as an artifact.
   prepare-snapshots:
     runs-on: ubuntu-latest
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust || github.event_name == 'schedule' }}
+    if: ${{ needs.preflight.outputs.changes_rust || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     permissions:
       # Delete superseded snapshot caches.
       actions: write
@@ -69,15 +71,15 @@ jobs:
         run: |
           echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
 
-      # The cache prefix-matches the key. Scheduled runs look for a snapshot from today, other
-      # runs accept any snapshot.
+      # The cache prefix-matches the key. Scheduled and manual runs look for a snapshot from today,
+      # other runs accept any snapshot.
       - name: Check if snapshot exists in cache
         id: cache-restore
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           lookup-only: true
           path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ github.event_name == 'schedule' && steps.get-date.outputs.today || '' }}
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.get-date.outputs.today || '' }}
           fail-on-cache-miss: false
 
       - name: Download CLI
@@ -108,15 +110,23 @@ jobs:
             sleep 10
           done
 
+      # A scrape can finish after midnight. Date the saved snapshot when the scrape ends, so that
+      # the next scheduled run finds it under its own date.
+      - name: Get save date
+        id: save-date
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
+        run: |
+          echo "today=$(/bin/date -u "+%Y%m%d")" >> "$GITHUB_OUTPUT"
+
       - name: Save snapshot to cache
         if: ${{ steps.cache-restore.outputs.cache-matched-key == '' && github.ref == 'refs/heads/master' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.save-date.outputs.today }}
 
       - name: Upload snapshot as artifact
-        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' && github.event_name != 'schedule' }}
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' && github.event_name != 'schedule' && needs.preflight.outputs.changes_rust }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: try-runtime-snapshot-${{ matrix.network }}
@@ -134,7 +144,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          KEY: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
+          KEY: try-runtime-snapshot-${{ matrix.network }}-${{ steps.save-date.outputs.today }}
         run: |
           for _ in {1..5}; do
             if gh cache list --key "$KEY" --ref refs/heads/master --json key --jq '.[].key' | grep -qx "$KEY"; then
