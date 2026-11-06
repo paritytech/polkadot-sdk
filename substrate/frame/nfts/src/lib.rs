@@ -53,8 +53,14 @@ extern crate alloc;
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
-	ReservableCurrency,
+	tokens::{
+		fungible, Fortitude, Locker,
+		Precision::{BestEffort, Exact},
+		Preservation,
+		Restriction::OnHold,
+	},
+	BalanceStatus::Reserved,
+	Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
@@ -75,7 +81,7 @@ type AccountIdLookupOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Sourc
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
+	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
 
 	/// The in-code storage version.
@@ -84,6 +90,14 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held as a deposit for a collection, item, metadata or attribute.
+		#[codec(index = 0)]
+		Deposit,
+	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<CollectionId, ItemId, Public, AccountId, Signature> {
@@ -146,8 +160,20 @@ pub mod pallet {
 		/// The type used to identify a unique item within a collection.
 		type ItemId: Member + Parameter + MaxEncodedLen + Copy;
 
-		/// The currency mechanism, used for paying for reserves.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The currency mechanism, used for deposits (taken as holds under [`HoldReason`]) and for
+		/// price/royalty transfers.
+		type Currency: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason<I>>;
+
+		/// The legacy reservable currency. Retained only to drain pre-existing reserved deposits as
+		/// the entities holding them are released (lazy migration); new deposits are taken as
+		/// holds. Otherwise unused.
+		type OldCurrency: Currency<Self::AccountId, Balance = DepositBalanceOf<Self, I>>
+			+ ReservableCurrency<Self::AccountId>;
 
 		/// The origin which may forcibly create or destroy an item or otherwise alter privileged
 		/// attributes.
@@ -924,11 +950,11 @@ pub mod pallet {
 							witness_data.clone().ok_or(Error::<T, I>::WitnessRequired)?;
 						let mint_price = mint_price.ok_or(Error::<T, I>::BadWitness)?;
 						ensure!(mint_price >= price, Error::<T, I>::BadWitness);
-						T::Currency::transfer(
+						<T::Currency as fungible::Mutate<_>>::transfer(
 							&caller,
 							&collection_details.owner,
 							price,
-							ExistenceRequirement::KeepAlive,
+							Preservation::Preserve,
 						)?;
 					}
 
@@ -1085,9 +1111,9 @@ pub mod pallet {
 				};
 				let old = details.deposit.amount;
 				if old > deposit {
-					T::Currency::unreserve(&details.deposit.account, old - deposit);
+					Self::release_deposit(&details.deposit.account, old - deposit);
 				} else if deposit > old {
-					if T::Currency::reserve(&details.deposit.account, deposit - old).is_err() {
+					if Self::hold_deposit(&details.deposit.account, deposit - old).is_err() {
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
 						continue;
