@@ -825,6 +825,9 @@ pub mod pallet {
 		}
 
 		/// Add accounts or websites to the list of unscrupulous items.
+		///
+		/// Fails with `AlreadyUnscrupulous` if an item is already listed or appears more than
+		/// once in `items`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::add_unscrupulous_items(items.len() as u32, T::MaxWebsiteUrlLength::get()))]
 		pub fn add_unscrupulous_items(
@@ -838,12 +841,17 @@ pub mod pallet {
 			for info in items.iter() {
 				ensure!(!Self::is_unscrupulous(info), Error::<T, I>::AlreadyUnscrupulous);
 				match info {
-					UnscrupulousItem::AccountId(who) => accounts.push(who.clone()),
+					UnscrupulousItem::AccountId(who) => {
+						// `is_unscrupulous` only sees storage, not earlier items of this batch.
+						ensure!(!accounts.contains(who), Error::<T, I>::AlreadyUnscrupulous);
+						accounts.push(who.clone())
+					},
 					UnscrupulousItem::Website(url) => {
 						ensure!(
 							url.len() as u32 <= T::MaxWebsiteUrlLength::get(),
 							Error::<T, I>::TooLongWebsiteUrl
 						);
+						ensure!(!webs.contains(url), Error::<T, I>::AlreadyUnscrupulous);
 						webs.push(url.clone());
 					},
 				}
