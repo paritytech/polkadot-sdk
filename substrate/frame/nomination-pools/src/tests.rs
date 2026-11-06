@@ -3838,6 +3838,8 @@ mod withdraw_unbonded {
 					UnbondingBalanceMap::set(&x);
 
 					set_pool_balance(1, pool_balance(1) / 2);
+					// Register the sub-pool reduction as outstanding slash debt on the agent
+					DelegateMock::on_slash(default_bonded_account(), 295);
 					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 10);
 					StakingMock::slash_by(1, 5);
 					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 5);
@@ -3913,9 +3915,8 @@ mod withdraw_unbonded {
 					vec![
 						// out of 40, 20 is withdrawn.
 						Event::Withdrawn { member: 40, pool_id: 1, balance: 20, points: 40 },
-						// member is removed and the dangling delegation of 20 tokens left in their
-						// account is released.
-						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 20 }
+						// member is removed with no dangling delegation
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 }
 					]
 				);
 
@@ -3934,8 +3935,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, balance: 5, points: 5, era: 9 },
 						Event::Withdrawn { member: 10, pool_id: 1, balance: 5, points: 5 },
-						// when member is removed, any leftover delegation is released.
-						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 5 },
+						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 						// when the last member leaves, the pool is destroyed.
 						Event::Destroyed { pool_id: 1 }
 					]
