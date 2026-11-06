@@ -159,19 +159,6 @@ fn evict_caches() {
 /// The distance between two slots of the `instr_load_chain_<m>` benchmarks in bytes.
 const LOAD_CHAIN_SLOT_BYTES: u32 = 256;
 
-/// The largest offset of the 8 byte value in a slot of the `instr_load_chain_<m>` benchmarks.
-///
-/// Variant `m` puts the value of every slot at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
-///
-/// An 8 byte load spans two 64 byte cache lines when it starts in the last 7 bytes of a line.
-/// The interpreter keeps the read-write data in a byte vector, whose host address is only known
-/// to be 8 byte aligned. No offset makes a load span two lines for every such address. The 8
-/// offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo 64, so for
-/// any 8 byte aligned host address exactly one variant has every load span two cache lines.
-/// This relies on all 8 variants placing the read-write data at the same host address, which
-/// holds because they run the same setup with the same allocations.
-const LOAD_CHAIN_SLOT_OFFSET: u32 = 124;
-
 /// The number of slots of the `instr_load_chain_<m>` benchmarks.
 const LOAD_CHAIN_SLOTS: u32 = VmBinaryModule::MAX_DATA_BYTES / LOAD_CHAIN_SLOT_BYTES;
 
@@ -187,9 +174,10 @@ const LOAD_CHAIN_ITERATIONS: u32 = LOAD_CHAIN_SLOTS / (LOAD_CHAIN_GAS - 3);
 /// most memory a contract can address. The slots are 256 bytes apart and each value lies within
 /// its slot, so no two loads read the same 128 bytes. Every value is at
 /// `LOAD_CHAIN_SLOT_OFFSET - 8 * m` in its slot, so in one of the variants every load spans two
-/// host cache lines (see [`LOAD_CHAIN_SLOT_OFFSET`]). `r` stays within one pass over the slots,
-/// and the CPU caches are evicted before the call (see [`evict_all_caches`]). On the reference
-/// hardware every load therefore misses the caches and waits for the previous one.
+/// host cache lines (see the comment on `LOAD_CHAIN_SLOT_OFFSET` below). `r` stays within one
+/// pass over the slots, and the CPU caches are evicted before the call (see
+/// [`evict_all_caches`]). On the reference hardware every load therefore misses the caches and
+/// waits for the previous one.
 ///
 /// `r` starts at 1: the interpreter compiles the loop body when execution first enters it, which
 /// `r = 0` never does. With every `r` running at least one iteration, compiling the loop is in
@@ -198,6 +186,18 @@ const LOAD_CHAIN_ITERATIONS: u32 = LOAD_CHAIN_SLOTS / (LOAD_CHAIN_GAS - 3);
 /// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope of every variant by
 /// [`LOAD_CHAIN_GAS`] and takes the largest.
 fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u32) {
+	// The largest offset of the 8 byte value in a slot. Variant `m` puts the value of every slot
+	// at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
+	//
+	// An 8 byte load spans two 64 byte cache lines when it starts in the last 7 bytes of a line.
+	// The interpreter keeps the read-write data in a byte vector, whose host address is only
+	// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
+	// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
+	// 64, so for any 8 byte aligned host address exactly one variant has every load span two
+	// cache lines. This relies on all 8 variants placing the read-write data at the same host
+	// address, which holds because they run the same setup with the same allocations.
+	const LOAD_CHAIN_SLOT_OFFSET: u32 = 124;
+
 	let base = prepared.memory_map().rw_data_address();
 	let offset = LOAD_CHAIN_SLOT_OFFSET - 8 * m;
 	let address = |slot: u32| base + slot * LOAD_CHAIN_SLOT_BYTES + offset;

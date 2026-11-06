@@ -33,7 +33,8 @@ pub use storage::Diff;
 pub use weight::{ChargedAmount, EngineMeter, Token};
 /// The gas of one iteration of the benchmarks that derive the ref time per gas.
 ///
-/// Only the benchmark contracts in `call_builder` need them outside of `weight`.
+/// Only `benchmarking` and the benchmark contracts in `call_builder` need them outside of
+/// `weight`.
 #[cfg(feature = "runtime-benchmarks")]
 pub use weight::{INDIRECT_JUMP_GAS, LOAD_CHAIN_GAS};
 
