@@ -205,11 +205,11 @@ pub trait Externalities: ExtensionStore {
 	/// version explicitly.
 	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8>;
 
-	/// Computes the PoV size as result of storage root calculation.
+	/// Records trie node accesses that would occur during storage root computation for the keys
+	/// changed since the previous call.
 	///
-	/// This records trie node accesses that would occur during storage root computation,
-	/// updating the proof recorder's size estimate. Used by PoV reclaim to account for
-	/// the storage root calculation overhead in block weight estimation.
+	/// This may increase the proof size reported by the recorder. Used by PoV reclaim to account
+	/// for the storage root calculation overhead in block weight estimation.
 	fn record_proof_for_dirty_keys(&mut self);
 
 	/// Get the trie root of a child storage map.
