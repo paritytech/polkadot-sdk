@@ -22,7 +22,6 @@ use cumulus_primitives_core::{
 	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
 };
 
-use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
@@ -99,6 +98,15 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 	}
 }
 
+/// Split a block's upward messages as `validate_block` does: the messages before the first
+/// `UMP_SEPARATOR`, and the signals after it, with every further separator dropped.
+fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+	let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
+	let messages = parts.next().unwrap_or(&[]).to_vec();
+	let signals = parts.next().unwrap_or(&[]).iter().filter(|m| !m.is_empty()).cloned().collect();
+	(messages, signals)
+}
+
 impl<Block, BS, RA> CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
@@ -106,11 +114,6 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
-	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-		let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
-		(parts.next().unwrap_or(&[]).to_vec(), parts.next().unwrap_or(&[]).to_vec())
-	}
-
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
@@ -268,7 +271,7 @@ where
 				.ok()
 				.flatten()?;
 
-			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
+			let (messages, signals) = split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
 			upward_message_signals.extend(signals);
@@ -315,20 +318,25 @@ where
 			}),
 		});
 
-		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
-		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
-		// PVF applies, so the two can't drift; otherwise the block's signals pass through
-		// unchanged.
-		match signed_scheduling_info {
-			Some(signed_info) => upward_messages
-				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
-			None => {
-				if !upward_message_signals.is_empty() {
-					upward_messages.push(UMP_SEPARATOR);
-					upward_messages.extend(upward_message_signals.into_iter());
-				}
+		// Emit the scheduling-signal tail exactly as `validate_block` does, so the two can't drift:
+		// a signed scheduling info (resubmission) replaces the block's own signals wholesale, and
+		// otherwise the block's signals are re-encoded in canonical order. Signals the PVF would
+		// reject skip the collation.
+		let scheduling_signals = match signed_scheduling_info {
+			Some(signed_info) => SchedulingSignals::from_scheduling_info(&signed_info),
+			None => match SchedulingSignals::try_from_block_signals(&upward_message_signals) {
+				Ok(signals) => signals,
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						%error,
+						"Not submitting a collation whose UMP signals the PVF would reject",
+					);
+					return None;
+				},
 			},
-		}
+		};
+		upward_messages.extend(scheduling_signals.into_ump_messages());
 
 		let upward_messages = upward_messages
 			.try_into()
@@ -411,5 +419,32 @@ where
 			proof,
 			scheduling_proof,
 		)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::split_at_separator;
+
+	#[test]
+	fn split_at_separator_matches_validate_block() {
+		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
+		// No separator: everything is a message.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), b.clone()]),
+			(vec![a.clone(), b.clone()], vec![])
+		);
+		// Messages before the first separator, signals after it.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
+			(vec![a.clone()], vec![b.clone(), c.clone()]),
+		);
+		// Every further separator is dropped, as `validate_block` drops it, not kept as a signal.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), vec![], vec![], c.clone()]),
+			(vec![a], vec![b, c]),
+		);
+		// A separator with nothing after it yields no signals.
+		assert_eq!(split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 }
