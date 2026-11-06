@@ -130,18 +130,33 @@ where
 	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
 		match self {
 			TransactionStatusUpdate::Invalidated(_) => TransactionStatus::Invalid,
-			TransactionStatusUpdate::Finalized(_, hash, index) =>
-				TransactionStatus::Finalized((*hash, *index)),
-			TransactionStatusUpdate::Broadcasted(_, peers) =>
-				TransactionStatus::Broadcast(peers.clone()),
-			TransactionStatusUpdate::Dropped(_, DroppedReason::Usurped(by)) =>
-				TransactionStatus::Usurped(*by),
-			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) =>
-				TransactionStatus::Dropped,
-			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) =>
-				TransactionStatus::Invalid,
-			TransactionStatusUpdate::FinalityTimeout(_, block_hash) =>
-				TransactionStatus::FinalityTimeout(*block_hash),
+			TransactionStatusUpdate::Finalized(_, hash, index) => {
+				TransactionStatus::Finalized((*hash, *index))
+			},
+			TransactionStatusUpdate::Broadcasted(_, peers) => {
+				TransactionStatus::Broadcast(peers.clone())
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Usurped(by)) => {
+				TransactionStatus::Usurped(*by)
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) => {
+				TransactionStatus::Dropped
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) => {
+				TransactionStatus::Invalid
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Viewless) => {
+				// Viewless events are handled by dropped_monitor_task and should never
+				// reach the listener. If they do, treat as dropped.
+				tracing::warn!(
+					target: crate::LOG_TARGET,
+					"Unexpected Viewless event reached the transaction status listener"
+				);
+				TransactionStatus::Dropped
+			},
+			TransactionStatusUpdate::FinalityTimeout(_, block_hash) => {
+				TransactionStatus::FinalityTimeout(*block_hash)
+			},
 		}
 	}
 }
@@ -591,7 +606,7 @@ where
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
 					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
-					return None
+					return None;
 				}
 				loop {
 					tokio::select! {
@@ -1038,7 +1053,7 @@ mod tests {
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).unwrap();
 
-		//views will keep transaction valid, invalidation shall not happen
+		// views will keep transaction valid, invalidation shall not happen
 		let view_stream0 = futures::stream::iter(std::iter::repeat(tx_hash).zip(events0.clone()))
 			.chain(stream::pending().boxed());
 		let view_stream1 = futures::stream::iter(std::iter::repeat(tx_hash).zip(events1.clone()))

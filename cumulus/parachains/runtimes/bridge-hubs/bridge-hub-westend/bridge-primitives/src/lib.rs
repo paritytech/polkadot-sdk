@@ -25,10 +25,10 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::{RuntimeDebug, StateVersion};
+use sp_runtime::StateVersion;
 
 /// BridgeHubWestend parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubWestend;
 
 impl Chain for BridgeHubWestend {
@@ -101,7 +101,7 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_034_677_116;
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 11_791_965_915;
 }
 
 /// Wrapper over `BridgeHubWestend`'s `RuntimeCall` that can be used without a runtime.

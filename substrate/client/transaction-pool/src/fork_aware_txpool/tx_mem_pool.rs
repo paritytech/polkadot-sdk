@@ -34,14 +34,14 @@
 use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
+use sc_transaction_pool_api::{error::IntoMetricsLabel, TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -58,8 +58,7 @@ use tracing::{debug, trace};
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
-	graph,
-	graph::{base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
+	graph::{self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
 	ValidateTransactionPriority, LOG_TARGET,
 };
 
@@ -77,6 +76,39 @@ pub(crate) const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
 pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 
 const SYNC_BRIDGE_EXPECT: &str = "The mempool blocking task shall not be terminated. qed.";
+
+#[derive(strum::Display)]
+#[strum(serialize_all = "snake_case")]
+/// Provides a type safe way of determining the category and reason of why
+/// a transaction is marked as invalid, useful to extract labels in the context of
+/// `mempool_revalidation_invalid_txs` metric.
+pub(super) enum InvalidTxReason {
+	/// Coresponds to invalid validity.
+	Invalid(String),
+	/// Corresponds to unknown validity.
+	Unknown(String),
+	/// Corresponds to a transaction which is marked as invalid because it is part of a subtree of
+	/// a transaction with invalid or unknown validities.
+	Subtree(String),
+	/// Corresponds to a transaction for which a validity couldn't be determined due to a failure
+	/// during the validation, or because of a missing runtime prerequisite.
+	ValidationFailed(String),
+}
+
+impl InvalidTxReason {
+	pub(super) fn reason(&self) -> &String {
+		match self {
+			InvalidTxReason::Invalid(inner) |
+			InvalidTxReason::Unknown(inner) |
+			InvalidTxReason::Subtree(inner) |
+			InvalidTxReason::ValidationFailed(inner) => inner,
+		}
+	}
+
+	pub(super) fn category(&self) -> String {
+		self.to_string()
+	}
+}
 
 /// Represents the transaction in the intermediary buffer.
 pub(crate) struct TxInMemPool<ChainApi, Block>
@@ -100,6 +132,10 @@ where
 	/// Priority of transaction at some block. It is assumed it will not be changed often. None if
 	/// not known.
 	priority: RwLock<Option<TransactionPriority>>,
+	/// Indicates that this transaction has lost all referencing views and should be unbanned
+	/// in view rotators once mempool revalidation confirms it is still valid at the finalized
+	/// block.
+	needs_unban: atomic::AtomicBool,
 }
 
 impl<ChainApi, Block> TxInMemPool<ChainApi, Block>
@@ -173,6 +209,7 @@ where
 			validated_at: AtomicU64::new(validated_at),
 			bytes,
 			priority: priority.into(),
+			needs_unban: atomic::AtomicBool::new(false),
 		}
 	}
 
@@ -192,6 +229,22 @@ where
 	pub(crate) fn priority(&self) -> Option<TransactionPriority> {
 		*self.priority.read()
 	}
+
+	/// Returns `true` if this transaction needs to be unbanned after mempool revalidation.
+	pub(crate) fn needs_unban(&self) -> bool {
+		self.needs_unban.load(atomic::Ordering::Relaxed)
+	}
+
+	/// Marks this transaction as needing to be unbanned after the next successful mempool
+	/// revalidation.
+	pub(crate) fn set_needs_unban(&self) {
+		self.needs_unban.store(true, atomic::Ordering::Relaxed);
+	}
+
+	/// Clears the needs-unban flag.
+	pub(crate) fn clear_needs_unban(&self) {
+		self.needs_unban.store(false, atomic::Ordering::Relaxed);
+	}
 }
 
 impl<ChainApi, Block> std::fmt::Debug for TxInMemPool<ChainApi, Block>
@@ -207,6 +260,7 @@ where
 			.field("source", &self.source)
 			.field("validated_at", &self.validated_at)
 			.field("priority", &self.priority)
+			.field("needs_unban", &self.needs_unban)
 			.finish()
 	}
 }
@@ -223,7 +277,9 @@ where
 			self.source == other.source &&
 			*self.priority.read() == *other.priority.read() &&
 			self.validated_at.load(atomic::Ordering::Relaxed) ==
-				other.validated_at.load(atomic::Ordering::Relaxed)
+				other.validated_at.load(atomic::Ordering::Relaxed) &&
+			self.needs_unban.load(atomic::Ordering::Relaxed) ==
+				other.needs_unban.load(atomic::Ordering::Relaxed)
 	}
 }
 
@@ -422,7 +478,7 @@ where
 	/// Returns the number of bytes used by all extrinsics in the the pool.
 	#[cfg(test)]
 	pub fn bytes(&self) -> usize {
-		return self.transactions.bytes()
+		return self.transactions.bytes();
 	}
 
 	/// Returns true if provided values would exceed defined limits.
@@ -451,8 +507,9 @@ where
 				transactions.insert(tx_hash, Arc::from(tx));
 				Ok(InsertionInfo::new(tx_hash, source))
 			},
-			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
+			(_, true) => {
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash)))
+			},
 			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
 		trace!(
@@ -584,7 +641,11 @@ where
 	/// Revalidates a batch of transactions against the provided finalized block.
 	///
 	/// Returns a vector of invalid transaction hashes.
-	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
+	async fn revalidate_inner(
+		&self,
+		view_store: Arc<ViewStore<ChainApi, Block>>,
+		finalized_block: HashAndNumber<Block>,
+	) -> HashSet<ExtrinsicHash<ChainApi>> {
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
@@ -596,13 +657,22 @@ where
 			(
 				self.transactions.len(),
 				self.with_transactions(|iter| {
+					let finalized_block_number = finalized_block.number.into().as_u64();
+					// Prioritize transactions that need unbanning — they should be
+					// revalidated first so stale bans can be cleared promptly.
 					iter.filter(|(_, xt)| {
-						let finalized_block_number = finalized_block.number.into().as_u64();
-						xt.validated_at.load(atomic::Ordering::Relaxed) +
-							TXMEMPOOL_REVALIDATION_PERIOD <
-							finalized_block_number
+						xt.needs_unban() ||
+							xt.validated_at.load(atomic::Ordering::Relaxed) +
+								TXMEMPOOL_REVALIDATION_PERIOD <
+								finalized_block_number
 					})
-					.sorted_by_key(|(_, tx)| tx.validated_at.load(atomic::Ordering::Relaxed))
+					.sorted_by_key(|(_, tx)| {
+						(
+							// needs_unban txs come first (false < true, so negate)
+							!tx.needs_unban(),
+							tx.validated_at.load(atomic::Ordering::Relaxed),
+						)
+					})
 					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE)
 					.map(|(k, v)| (*k, v.clone()))
 					.collect::<Vec<_>>()
@@ -610,6 +680,11 @@ where
 				.await,
 			)
 		};
+
+		// Build a lookup from the batch so we can check needs_unban after validation
+		// without async mempool access.
+		let tx_lookup: HashMap<_, _> =
+			to_be_validated.iter().map(|(k, v)| (*k, v.clone())).collect();
 
 		let validations_futures = to_be_validated.into_iter().map(|(xt_hash, xt)| {
 			self.api
@@ -633,28 +708,81 @@ where
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
+				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
+					// Transaction is valid at finalized block. If it was marked for unbanning,
+					// clear the ban in all active views so it can be picked up by
+					// `update_view_with_mempool` on the next view creation.
+					if let Some(tx) = tx_lookup.get(&tx_hash) {
+						if tx.needs_unban() {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								"mempool::revalidate_inner: unbanning viewless transaction"
+							);
+							view_store.unban_transaction(&tx_hash);
+							tx.clear_needs_unban();
+						}
+					}
+					None
+				},
+				Err(ref error) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						"mempool::revalidate_inner invalid"
+						"mempool::revalidate_inner error during revalidation"
 					);
-					Some(tx_hash)
+					Some((tx_hash, InvalidTxReason::ValidationFailed(error.label())))
+				},
+				Ok(Err(TransactionValidityError::Unknown(error))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"mempool::revalidate_inner cannot determine transaction validity"
+					);
+					Some((tx_hash, InvalidTxReason::Unknown(error.as_ref().to_string())))
+				},
+				Ok(Err(TransactionValidityError::Invalid(error))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"mempool::revalidate_inner transaction is invalid"
+					);
+					Some((tx_hash, InvalidTxReason::Invalid(error.as_ref().to_string())))
 				},
 			})
 			.collect::<Vec<_>>();
+
+		let mut invalid_hashes_subtrees = Vec::new();
+		// Include also subtree txs.
+		for (tx, reason) in &invalid_hashes {
+			let txs_in_subtree = view_store
+				.remove_transaction_subtree(*tx, |_, _| {})
+				.into_iter()
+				.map(|tx| (tx.hash, InvalidTxReason::Subtree(reason.to_string())));
+			invalid_hashes_subtrees.extend(txs_in_subtree);
+		}
+
+		let revalidated_invalid_hashes_len = invalid_hashes.len();
+		let invalid_hashes = invalid_hashes
+			.into_iter()
+			.chain(invalid_hashes_subtrees)
+			.map(|(tx, reason)| {
+				self.metrics
+					.report(|metrics| metrics.mempool_revalidation_invalid_txs.observe(&reason, 1));
+				tx
+			})
+			.collect::<HashSet<_>>();
 
 		debug!(
 			target: LOG_TARGET,
 			?finalized_block,
 			validated_count,
 			total_count,
-			invalid_hashes = invalid_hashes.len(),
+			invalid_hashes_subtrees_len = invalid_hashes.len(),
+			revalidated_invalid_hashes_len,
 			?duration,
 			"mempool::revalidate_inner"
 		);
@@ -686,19 +814,8 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let revalidated_invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
-
-		let mut invalid_hashes_subtrees =
-			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
-		for tx in &revalidated_invalid_hashes {
-			invalid_hashes_subtrees.extend(
-				view_store
-					.remove_transaction_subtree(*tx, |_, _| {})
-					.into_iter()
-					.map(|tx| tx.hash),
-			);
-		}
-
+		let invalid_hashes_subtrees =
+			self.revalidate_inner(view_store.clone(), finalized_block.clone()).await;
 		{
 			let mut transactions = self.transactions.write().await;
 			invalid_hashes_subtrees.iter().for_each(|tx_hash| {
@@ -706,24 +823,14 @@ where
 			});
 		};
 
-		self.metrics.report(|metrics| {
-			metrics
-				.mempool_revalidation_invalid_txs
-				.inc_by(invalid_hashes_subtrees.len() as _)
-		});
-
-		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
-		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
-
-		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
-
-		//note: here the consistency is assumed: it is expected that transaction will be
+		// note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
 		// is referencing tx as ready.
-		self.listener.transactions_invalidated(&invalid_hashes_subtrees);
+		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
+		self.listener.transactions_invalidated(invalid_hashes_subtrees.as_slice());
 		view_store
 			.import_notification_sink
-			.clean_notified_items(&invalid_hashes_subtrees);
+			.clean_notified_items(invalid_hashes_subtrees.as_slice());
 		view_store
 			.dropped_stream_controller
 			.remove_transactions(invalid_hashes_subtrees);
@@ -731,8 +838,6 @@ where
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
-			revalidated_invalid_hashes_len,
-			invalid_hashes_subtrees_len,
 			"mempool::revalidate"
 		);
 	}
@@ -1211,7 +1316,7 @@ mod tx_mem_pool_tests {
 			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
-		//this one should drop 2 xts (size: 1130):
+		// this one should drop 2 xts (size: 1130):
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
 		let (hash, length) = api.hash_and_length(&xt);
 		assert_eq!(length, 1130);
@@ -1253,7 +1358,7 @@ mod tx_mem_pool_tests {
 			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
-		//this one should drop 3 xts (each of size 1129)
+		// this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
 		let (hash, length) = api.hash_and_length(&xt);
 		// overhead is 105, thus length: 105 + 2154
@@ -1325,7 +1430,7 @@ mod tx_mem_pool_tests {
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		//this one could drop 3 xts (each of size 1129)
+		// this one could drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
 		let length = api.hash_and_length(&xt).1;
 		// overhead is 105, thus length: 105 + 2154

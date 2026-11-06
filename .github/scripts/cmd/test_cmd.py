@@ -26,15 +26,6 @@ mock_runtimes_matrix = [
         "bench_flags": "--flag3 --flag4"
     },
     {
-        "name": "rococo",
-        "package": "rococo-runtime",
-        "path": "polkadot/runtime/rococo",
-        "header": "polkadot/file_header.txt",
-        "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
-        "bench_features": "runtime-benchmarks",
-        "bench_flags": ""
-    },
-    {
         "name": "asset-hub-westend",
         "package": "asset-hub-westend-runtime",
         "path": "cumulus/parachains/runtimes/assets/asset-hub-westend",
@@ -105,7 +96,6 @@ class TestCmd(unittest.TestCase):
         self.mock_popen.return_value.read.side_effect = [
             "pallet_balances\npallet_staking\npallet_something\n",  # Output for dev runtime
             "pallet_balances\npallet_staking\npallet_something\n",  # Output for westend runtime
-            "pallet_staking\npallet_something\n",                   # Output for rococo runtime - no pallet here
             "pallet_balances\npallet_staking\npallet_something\n",  # Output for asset-hub-westend runtime
             "./substrate/frame/balances/Cargo.toml\n",                # Mock manifest path for dev -> pallet_balances
         ]
@@ -119,7 +109,6 @@ class TestCmd(unittest.TestCase):
                 # Build calls
                 call("forklift cargo build -q -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
                 call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -q -p rococo-runtime --profile production --features=runtime-benchmarks"),
                 call("forklift cargo build -q -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
 
                 call(get_mock_bench_output(
@@ -137,7 +126,6 @@ class TestCmd(unittest.TestCase):
                     header=os.path.abspath('polkadot/file_header.txt'),
                     bench_flags='--flag3 --flag4'
                 )),
-                # skips rococo benchmark
                 call(get_mock_bench_output(
                     runtime='asset-hub-westend',
                     pallets='pallet_balances',
@@ -230,7 +218,7 @@ class TestCmd(unittest.TestCase):
     def test_bench_command_two_runtimes_two_pallets(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
             command='bench-omni',
-            runtime=['westend', 'rococo'],
+            runtime=['westend'],
             pallet=['pallet_balances', 'pallet_staking'],
             fail_fast=True,
             quiet=False,
@@ -239,7 +227,6 @@ class TestCmd(unittest.TestCase):
         ), [])
         self.mock_popen.return_value.read.side_effect = [
             "pallet_staking\npallet_balances\n",  # Output for westend runtime
-            "pallet_staking\npallet_balances\n",  # Output for rococo runtime
         ]
 
         with patch('sys.exit') as mock_exit:
@@ -251,7 +238,6 @@ class TestCmd(unittest.TestCase):
             expected_calls = [
                 # Build calls
                 call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -q -p rococo-runtime --profile production --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     runtime='westend',
@@ -266,21 +252,6 @@ class TestCmd(unittest.TestCase):
                     output_path='./polkadot/runtime/westend/src/weights',
                     header=header_path,
                     bench_flags='--flag3 --flag4'
-                )),
-                # Rococo runtime calls
-                call(get_mock_bench_output(
-                    runtime='rococo',
-                    pallets='pallet_staking',
-                    output_path='./polkadot/runtime/rococo/src/weights',
-                    header=header_path,
-                    bench_flags=''
-                )),
-                call(get_mock_bench_output(
-                    runtime='rococo',
-                    pallets='pallet_balances',
-                    output_path='./polkadot/runtime/rococo/src/weights',
-                    header=header_path,
-                    bench_flags=''
                 )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
@@ -426,7 +397,21 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
+            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0], log=cmd.print_and_log)
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
+    @patch('os.system', return_value=0)
+    def test_prdoc_command_failure(self, mock_system, mock_parse_args):
+        # generate-prdoc.py reports the reason through the `log` callback before returning 1.
+        def failing_main(args, log):
+            log('Error generating prdoc: boom')
+            return 1
+        self.mock_generate_prdoc_main.side_effect = failing_main
+        with patch('sys.exit') as mock_exit, patch('cmd.print_and_log') as mock_log:
+            import cmd
+            cmd.main()
+            mock_log.assert_has_calls([call('Error generating prdoc: boom'), call('❌ Failed to generate prdoc')])
+            mock_exit.assert_called_with(1)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.get_allowed_labels')

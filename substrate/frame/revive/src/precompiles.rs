@@ -30,18 +30,20 @@ mod builtin;
 mod tests;
 
 pub use crate::{
-	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
-	vm::RuntimeCosts,
-	AddressMapper,
+	AddressMapper, TransactionLimits,
+	access_list::{StorageOp, Warmth},
+	exec::{
+		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
+	},
+	metering::{Diff, Token},
+	vm::{RuntimeCosts, StorageAccessKind},
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
 
 use crate::{
-	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
+	primitives::ExecReturnValue,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -93,9 +95,10 @@ pub enum AddressMatcher {
 	/// xxxxxxxx000000000000000000000000pppp0000
 	/// ```
 	///
-	/// Where `p` is the `u16` defined here as big endian. Hence a maximum of 2 byte can be encoded
-	/// into the address. Allowing more bytes could lead to the situation where legitimate
-	/// accounts could exist at this address. Either by accident or on purpose.
+	/// Where `p` is the `u16` defined here as big endian. The first 4 bytes of the address are
+	/// unconstrained, so a maximum of 4 bytes can be encoded into it. Allowing more bytes could
+	/// lead to the situation where legitimate accounts could exist at this address. Either by
+	/// accident or on purpose.
 	Prefix(NonZero<u16>),
 }
 
@@ -136,6 +139,23 @@ impl From<DispatchError> for Error {
 impl<T: Config> From<CrateError<T>> for Error {
 	fn from(error: CrateError<T>) -> Self {
 		Self::Error(DispatchError::from(error).into())
+	}
+}
+
+impl Error {
+	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
+		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
+		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
+		let message = match () {
+			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ if e == cannot_terminate_delegated => {
+				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
+			},
+			_ => return e.into(),
+		};
+		Self::Revert(message.into())
 	}
 }
 
@@ -299,8 +319,9 @@ impl<E> Instance<E> {
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
-			Err(Error::Revert(msg)) =>
-				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() }),
+			Err(Error::Revert(msg)) => {
+				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() })
+			},
 			Err(Error::Panic(kind)) => Ok(ExecReturnValue {
 				flags: ReturnFlags::REVERT,
 				data: Panic::from(kind).abi_encode(),
@@ -392,6 +413,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	}
 }
 
+/// The collision check is verified by a trybuild test in `ui-tests/src/ui/precompiles_ui.rs`.
 #[impl_trait_for_tuples::impl_for_tuples(20)]
 #[tuple_types_custom_trait_bound(PrimitivePrecompile<T=T>)]
 impl<T: Config> Precompiles<T> for Tuple {
@@ -455,6 +477,13 @@ impl<T: Config> Precompiles<T> for Tuple {
 		);
 		instance
 	}
+}
+
+/// This references the private trait inside the crate.
+#[cfg(feature = "trybuild")]
+#[allow(private_bounds)]
+pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
+	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
@@ -540,7 +569,7 @@ impl BuiltinAddressMatcher {
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}
@@ -583,8 +612,8 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 	};
 	pub use sp_core::{H256, U256};
 

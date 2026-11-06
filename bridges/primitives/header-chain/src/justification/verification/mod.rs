@@ -25,7 +25,7 @@ use crate::{justification::GrandpaJustification, AuthoritySet};
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
-use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
+use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
 	collections::{
 		btree_map::{
@@ -47,7 +47,7 @@ type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
 >;
 
 /// Votes ancestries with useful methods.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct AncestryChain<Header: HeaderT> {
 	/// We expect all forks in the ancestry chain to be descendants of base.
 	base: HeaderId<Header::Hash, Header::Number>,
@@ -95,14 +95,14 @@ impl<Header: HeaderT> AncestryChain<Header> {
 		precommit_target_number: &Header::Number,
 	) -> Option<Vec<Header::Hash>> {
 		if precommit_target_number < &self.base.number() {
-			return None
+			return None;
 		}
 
 		let mut route = vec![];
 		let mut current_hash = *precommit_target_hash;
 		loop {
 			if current_hash == self.base.hash() {
-				break
+				break;
 			}
 
 			current_hash = match self.parent_hash_of(&current_hash) {
@@ -111,7 +111,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 					if is_visited_before {
 						// If the current header has been visited in a previous call, it is a
 						// descendent of `base` (we assume that the previous call was successful).
-						return Some(route)
+						return Some(route);
 					}
 					route.push(current_hash);
 
@@ -136,7 +136,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum Error {
 	/// Could not convert `AuthorityList` to `VoterSet`.
 	InvalidAuthorityList,
@@ -154,7 +154,7 @@ pub enum Error {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum PrecommitError {
 	/// Justification contains redundant votes.
 	RedundantAuthorityVote,
@@ -170,7 +170,7 @@ pub enum PrecommitError {
 }
 
 /// The context needed for validating GRANDPA finality proofs.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct JustificationVerificationContext {
 	/// The authority set used to verify the justification.
 	pub voter_set: VoterSet<AuthorityId>,
@@ -245,7 +245,7 @@ trait JustificationVerifier<Header: HeaderT> {
 		if (justification.commit.target_hash, justification.commit.target_number) !=
 			finalized_target
 		{
-			return Err(Error::InvalidJustificationTarget)
+			return Err(Error::InvalidJustificationTarget);
 		}
 
 		let threshold = context.voter_set.threshold().get();
@@ -262,7 +262,7 @@ trait JustificationVerifier<Header: HeaderT> {
 				let action =
 					self.process_redundant_vote(precommit_idx).map_err(Error::Precommit)?;
 				if matches!(action, IterationFlow::Skip) {
-					continue
+					continue;
 				}
 			}
 
@@ -275,14 +275,14 @@ trait JustificationVerifier<Header: HeaderT> {
 						.process_known_authority_vote(precommit_idx, signed)
 						.map_err(Error::Precommit)?;
 					if matches!(action, IterationFlow::Skip) {
-						continue
+						continue;
 					}
 
 					authority_info
 				},
 				None => {
 					self.process_unknown_authority_vote(precommit_idx).map_err(Error::Precommit)?;
-					continue
+					continue;
 				},
 			};
 
@@ -294,7 +294,7 @@ trait JustificationVerifier<Header: HeaderT> {
 					.process_unrelated_ancestry_vote(precommit_idx)
 					.map_err(Error::Precommit)?;
 				if matches!(action, IterationFlow::Skip) {
-					continue
+					continue;
 				}
 			}
 
@@ -310,7 +310,7 @@ trait JustificationVerifier<Header: HeaderT> {
 			.is_valid()
 			{
 				self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
-				continue
+				continue;
 			}
 
 			// now we can count the vote since we know that it is valid
@@ -324,7 +324,7 @@ trait JustificationVerifier<Header: HeaderT> {
 		// check that the cumulative weight of validators that voted for the justification target
 		// (or one of its descendants) is larger than the required threshold.
 		if cumulative_weight < threshold {
-			return Err(Error::TooLowCumulativeWeight)
+			return Err(Error::TooLowCumulativeWeight);
 		}
 
 		// check that there are no extra headers in the justification

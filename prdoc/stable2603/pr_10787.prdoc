@@ -1,0 +1,23 @@
+title: 'statement-store: validation without runtime'
+doc:
+- audience: Node Dev
+  description: |-
+    This removes slow runtime validation from statement-submission hot path.
+    Validation now happens on the node side via direct signature verification
+    and storage reads for account quotas.
+
+crates:
+- name: sc-statement-store
+  bump: major
+- name: sp-statement-store
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: pallet-statement
+  bump: major
+- name: people-westend-runtime
+  bump: patch
+- name: sc-rpc
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch

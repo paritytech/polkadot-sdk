@@ -230,7 +230,7 @@ mod tests {
 				.get_storage_for_patch(patch)
 				.unwrap();
 
-		//Babe|Authorities
+		// Babe|Authorities
 		let value: Vec<u8> = storage
 			.top
 			.get(

@@ -1,0 +1,10 @@
+title: 'staking: do not remove an invulnerable in case of bad solution'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Invulnerables are not automatically removed from the Invulnerables storage when their solution is rejected.
+    Removal should occur only through governance, not automatically.
+    An operational or network issue that leads to an incomplete submission is much more likely than a bad faith action from an invulnerable.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch

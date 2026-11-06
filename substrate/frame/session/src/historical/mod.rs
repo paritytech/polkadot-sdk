@@ -45,7 +45,6 @@ use sp_trie::{
 };
 
 use frame_support::{
-	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
 	Parameter,
 };
@@ -122,7 +121,7 @@ impl<T: Config> Pallet<T> {
 			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
-				return // out of bounds. harmless.
+				return; // out of bounds. harmless.
 			}
 
 			(start..up_to).for_each(HistoricalSessions::<T>::remove);
@@ -211,8 +210,11 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 					Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
 				},
 				Err(reason) => {
-					print("Failed to generate historical ancestry-inclusion proof.");
-					print(reason);
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to generate historical ancestry-inclusion proof: {:?}",
+						reason,
+					);
 				},
 			};
 		} else {
@@ -376,7 +378,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 		if count != proof.validator_count {
 			print_error("InvalidCount");
-			return None
+			return None;
 		}
 
 		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)

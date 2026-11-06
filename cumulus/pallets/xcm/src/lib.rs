@@ -24,7 +24,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::BadOrigin, RuntimeDebug};
+use sp_runtime::traits::BadOrigin;
 use xcm::latest::{ExecuteXcm, Outcome};
 
 #[frame_support::pallet]
@@ -60,15 +60,7 @@ pub mod pallet {
 
 	/// Origin for the parachains module.
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		TypeInfo,
-		RuntimeDebug,
-		MaxEncodedLen,
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, MaxEncodedLen,
 	)]
 	#[pallet::origin]
 	pub enum Origin {

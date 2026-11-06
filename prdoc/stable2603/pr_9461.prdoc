@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expose migrating keys
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces the ability for multi-block migrations to declare which storage prefixes they will modify,
+      enabling external tooling and monitoring systems to identify potentially affected state during migration execution.
+
+      Implement `migrating_prefixes()` in your SteppedMigration to declare modified storage prefixes.
+      For migration collections, use `nth_migrating_prefixes()` to retrieve prefixes by index.
+
+crates:
+  - name: frame-support
+    bump: major
+  - name: pallet-migrations
+    bump: major

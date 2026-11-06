@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{vm::evm::interpreter::Halt, Config, Error, U256};
+use crate::{Config, Error, U256, vm::evm::interpreter::Halt};
 use core::ops::ControlFlow;
 
 /// Helper function to convert U256 to usize, checking for overflow

@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, num::NonZero};
@@ -35,7 +35,8 @@ impl<T: Config> PrimitivePrecompile for Identity<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Identity(input.len() as _))?;
+		env.frame_meter_mut()
+			.charge_weight_token(RuntimeCosts::Identity(input.len() as _))?;
 		Ok(input)
 	}
 }

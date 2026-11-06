@@ -1,0 +1,46 @@
+title: Consolidate pallet-assets metadata benchmarks into single get_metadata benchmark
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Consolidates the three identical `get_name`, `get_symbol`, and `get_decimals` benchmarks into a single `get_metadata` benchmark. This addresses the follow-up from #10971 where it was noted that these benchmarks perform the same operation (`Pallet::get_metadata()`).
+
+    ## Changes
+
+    ### Benchmarks
+    - **`substrate/frame/assets/src/benchmarking.rs`**
+      - Replaced `get_name`, `get_symbol`, `get_decimals` with single `get_metadata` benchmark
+      - Updated verification to check all three metadata fields (name, symbol, decimals)
+
+    ### Weight Functions
+    - **`substrate/frame/assets/src/weights.rs`**
+      - Replaced `get_name()`, `get_symbol()`, `get_decimals()` with single `get_metadata()` in `WeightInfo` trait
+      - Updated implementations for `SubstrateWeight<T>` and `()`
+
+    ### Precompile
+    - **`substrate/frame/assets/precompiles/src/lib.rs`**
+      - Updated `name()`, `symbol()`, and `decimals()` methods to all charge `get_metadata()` weight
+
+    ### Cumulus Runtimes
+    Updated weight implementations in:
+    - `asset-hub-rococo`: `pallet_assets_foreign.rs`, `pallet_assets_local.rs`, `pallet_assets_pool.rs`
+    - `asset-hub-westend`: `pallet_assets_foreign.rs`, `pallet_assets_local.rs`, `pallet_assets_pool.rs`
+
+    ## Rationale
+
+    All three original benchmarks were measuring the exact same operation - a single metadata storage read. Consolidating them:
+    1. Reduces code duplication
+    2. Simplifies the `WeightInfo` trait
+    3. Accurately reflects that `name()`, `symbol()`, and `decimals()` have identical costs
+
+    Closes follow-up from https://github.com/paritytech/polkadot-sdk/pull/10971#discussion_r2782977769
+crates:
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-assets
+  bump: patch

@@ -89,14 +89,14 @@ impl<T: Config> Pallet<T> {
 		if let Some(core_count) = CoreCountInbox::<T>::take() {
 			status.core_count = core_count;
 			Self::deposit_event(Event::<T>::CoreCountChanged { core_count });
-			return true
+			return true;
 		}
 		false
 	}
 
 	pub(crate) fn process_revenue() -> bool {
 		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
-			return false
+			return false;
 		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
-			return true
+			return true;
 		}
 
 		log::debug!(
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
-			return true
+			return true;
 		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
@@ -200,6 +200,18 @@ impl<T: Config> Pallet<T> {
 			Workplan::<T>::insert((region_begin, first_core), &schedule);
 			first_core.saturating_inc();
 		}
+
+		// Insert ForceReservations at the first free core from the old sale.
+		let mut force_core = old_sale.first_core + old_sale.cores_sold;
+		for schedule in ForceReservations::<T>::take() {
+			if force_core >= status.core_count {
+				Self::deposit_event(Event::<T>::ForceReservationFailed { schedule });
+				continue;
+			}
+			Workplan::<T>::insert((old_sale.region_begin, force_core), &schedule);
+			force_core.saturating_inc();
+		}
+
 		InstaPoolIo::<T>::mutate(region_begin, |r| r.system.saturating_accrue(total_pooled));
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 
@@ -236,7 +248,7 @@ impl<T: Config> Pallet<T> {
 		Leases::<T>::put(&leases);
 
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
-		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
+		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::MAX);
 		let cores_offered = limit_cores_offered.min(max_possible_sales);
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
@@ -247,6 +259,8 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		};
+
+		let sale_index = old_sale.sale_index.saturating_add(1);
 
 		// Update SaleInfo
 		let new_sale = SaleInfoRecord {
@@ -260,6 +274,7 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold,
 			cores_offered,
 			cores_sold: 0,
+			sale_index,
 		};
 
 		SaleInfo::<T>::put(&new_sale);
@@ -275,6 +290,7 @@ impl<T: Config> Pallet<T> {
 			region_end,
 			ideal_cores_sold,
 			cores_offered,
+			sale_index,
 		});
 
 		Some(())
@@ -329,7 +345,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(ref mut last) = assignment.last_mut() {
 				if last.0 == i.0 {
 					last.1 += i.1;
-					continue
+					continue;
 				}
 			}
 			assignment.push(i);
@@ -348,7 +364,7 @@ impl<T: Config> Pallet<T> {
 				// Check if the next renewal is scheduled further in the future than the start of
 				// the next region beginning. If so, we skip the renewal for this core.
 				if sale.region_begin < record.next_renewal {
-					return Some(record)
+					return Some(record);
 				}
 
 				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
@@ -356,8 +372,24 @@ impl<T: Config> Pallet<T> {
 						core: record.core,
 						payer: None,
 					});
-					return None
+					return None;
 				};
+
+				// A core index can be assigned a different workload each bulk period, so this
+				// is not necessarily the workload that was validated when auto-renewal was
+				// enabled. The task must only pay for renewing its own workload.
+				let renewal_id = PotentialRenewalId { core: record.core, when: sale.region_begin };
+				let renews_own_workload = PotentialRenewals::<T>::get(renewal_id)
+					.map_or(false, |renewal| {
+						renewal.completion.is_complete_and_contains_task(record.task)
+					});
+				if !renews_own_workload {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
+					return None;
+				}
 
 				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
 					Some(AutoRenewalRecord {

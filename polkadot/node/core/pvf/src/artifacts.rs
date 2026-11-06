@@ -322,7 +322,7 @@ impl Artifacts {
 
 		while total_size > cleanup_config.cache_limit {
 			let Some((artifact_id, path, size, last_time_needed)) = artifact_sizes.pop() else {
-				break
+				break;
 			};
 
 			let used_recently = now

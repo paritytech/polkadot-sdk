@@ -106,6 +106,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
+	type SchedulingSignatureVerifier = ();
 }
 
 parameter_types! {
@@ -138,8 +139,27 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 }
 
 parameter_types! {
-	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	// pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
 	pub static FirstPagePos: BTreeMap<ParaId, usize> = Default::default();
+}
+
+pub struct EnqueuedMessages {}
+
+impl EnqueuedMessages {
+	pub fn set(msgs: Vec<(ParaId, Vec<u8>)>) {
+		frame_support::storage::unhashed::put(b"TestEnqueuedMessages", &msgs)
+	}
+
+	pub fn reset() {
+		frame_support::storage::unhashed::put(
+			b"TestEnqueuedMessages",
+			&Vec::<(ParaId, Vec<u8>)>::new(),
+		)
+	}
+
+	pub fn get() -> Vec<(ParaId, Vec<u8>)> {
+		frame_support::storage::unhashed::get(b"TestEnqueuedMessages").unwrap_or(vec![])
+	}
 }
 
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
@@ -162,6 +182,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		let mut msgs = EnqueuedMessages::get();
 		msgs.extend(iter.map(|m| (origin, m.to_vec())));
 		EnqueuedMessages::set(msgs);
+
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 

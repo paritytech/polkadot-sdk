@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
-use pallet_revive_proc_macro::unstable_hostfn;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
@@ -119,6 +118,20 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
+	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
+	///
+	/// Adds the EVM gas stipend for non-zero value calls.
+	///
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	fn call_evm(
+		flags: CallFlags,
+		callee: &[u8; 20],
+		gas: u64,
+		value: &[u8; 32],
+		input_data: &[u8],
+		output: Option<&mut &mut [u8]>,
+	) -> Result;
+
 	/// Stores the address of the caller into the supplied buffer.
 	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
@@ -207,14 +220,32 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
-	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
-	/// on the maximum number of topics specified by `event_topics`.
+	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
 	///
-	/// There should not be any duplicates in `topics`.
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	fn delegate_call_evm(
+		flags: CallFlags,
+		address: &[u8; 20],
+		gas: u64,
+		input_data: &[u8],
+		output: Option<&mut &mut [u8]>,
+	) -> Result;
+
+	/// Deposit a contract event with the data buffer and optional list of topics.
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The topics list. It can't contain duplicates.
+	/// - `topics`: At most 4 topics (`NUM_EVENT_TOPICS`).
+	/// - `data`: At most 64 KiB (`EVENT_BYTES`).
+	///
+	/// # Traps
+	///
+	/// Fails the calling frame if either bound is exceeded. Inside an Ethereum transaction
+	/// (`eth_transact`, `eth_substrate_call` and their dry runs) it also fails the frame if the
+	/// event would take the transaction's receipt logs past 2 MiB (`MAX_RECEIPT_LOGS_BYTES`). That
+	/// depends on the logs the transaction already kept, from any contract or mirrored by the
+	/// runtime, not only on this call's arguments. The caller can handle the failure. The receipt
+	/// limit does not apply outside an Ethereum transaction, such as under `Revive::call`.
 	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
 	/// Retrieve the value under the given key from storage.
@@ -436,64 +467,6 @@ pub trait HostFn: private::Sealed {
 	/// akin to the `INVALID` EVM opcode.
 	fn consume_all_gas() -> !;
 
-	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// it into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `pubkey`: The public key bytes.
-	/// - `output`: A reference to the output data buffer to write the address.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Replace the contract code at the specified address with new code.
-	///
-	/// # Note
-	///
-	/// There are a couple of important considerations which must be taken into account when
-	/// using this API:
-	///
-	/// 1. The storage at the code address will remain untouched. This means that contract
-	/// developers must ensure that the storage layout of the new code is compatible with that of
-	/// the old code.
-	///
-	/// 2. Contracts using this API can't be assumed as having deterministic addresses. Said another
-	/// way, when using this API you lose the guarantee that an address always identifies a specific
-	/// code hash.
-	///
-	/// 3. If a contract calls into itself after changing its code the new call would use
-	/// the new code. However, if the original caller panics after returning from the sub call it
-	/// would revert the changes made by [`set_code_hash()`][`Self::set_code_hash`] and the next
-	/// caller would use the old code.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	///
-	/// # Panics
-	///
-	/// Panics if there is no code on-chain with the specified hash.
-	#[unstable_hostfn]
-	fn set_code_hash(code_hash: &[u8; 32]);
-
-	/// Verify a sr25519 signature
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message`: The message bytes.
-	///
-	/// # Errors
-	///
-	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
-	#[unstable_hostfn]
-	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
-
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
 	/// This function never returns. Either the termination was successful and the
@@ -509,7 +482,6 @@ pub trait HostFn: private::Sealed {
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
-	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
 }
 

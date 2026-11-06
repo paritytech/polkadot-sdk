@@ -23,13 +23,13 @@ use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::PalletInfoAccess, weights::Weight, Blake2_128Concat,
 };
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Type used to encode the number of references an account has.
 type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode)]
 struct AccountInfo<Nonce, AccountData> {
 	nonce: Nonce,
 	consumers: RefCount,

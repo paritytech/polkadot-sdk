@@ -15,18 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	gas::Token,
+	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind, U256,
+	access_list::StorageOp,
 	limits,
+	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
-		evm::{
-			instructions::utility::IntoAddress, interpreter::Halt, util::as_usize_or_halt,
-			Interpreter,
-		},
 		Ext,
+		evm::{
+			Interpreter,
+			instructions::utility::{IntoAddress, as_usize_saturated},
+			interpreter::Halt,
+			util::as_usize_or_halt,
+		},
 	},
-	DispatchError, Error, Key, RuntimeCosts, LOG_TARGET, U256,
 };
 use core::ops::ControlFlow;
 
@@ -34,9 +37,15 @@ use core::ops::ControlFlow;
 ///
 /// Gets the balance of the given account.
 pub fn balance<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
 	let ([], top) = interpreter.stack.popn_top()?;
-	*top = interpreter.ext.balance_of(&top.into_address());
+	let address = top.into_address();
+	*top = if address == interpreter.ext.address() {
+		interpreter.ext.charge_or_halt(RuntimeCosts::Balance)?;
+		interpreter.ext.balance()
+	} else {
+		interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
+		interpreter.ext.balance_of(&address)
+	};
 	ControlFlow::Continue(())
 }
 
@@ -73,14 +82,21 @@ pub fn extcodehash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [address, memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::CodeSize)?;
 	if len == 0 {
 		return ControlFlow::Continue(());
 	}
 
 	let address = address.into_address();
+	let code_size = interpreter.ext.code_size(&address) as u32;
+	interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::ExtCodeCopy(code_size.max(len as u32)))?;
+
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
-	let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
+	// Saturate rather than halt: an offset past the code just zero-fills, which
+	// `copy_code_slice` already handles.
+	let code_offset = as_usize_saturated(code_offset);
 
 	interpreter.memory.resize(memory_offset, len)?;
 
@@ -111,13 +127,25 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 /// Loads a word from storage.
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(32))?;
+	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
+	let access_kind =
+		StorageAccessKind::Persistent(interpreter.ext.touch_storage_access(&key, StorageOp::Read));
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
+		len: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
 	let value = interpreter.ext.get_storage(&key);
 
+	let actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetStorage { len: actual_len, kind: access_kind });
+
 	*index = if let Some(storage_value) = value {
-		// sload always reads a word
+		// sload expects a 32-byte word; reject anything else.
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
@@ -130,33 +158,44 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
+/// Shared helper for SSTORE and TSTORE: touch the access list, perform the
+/// write via `set_function`, and pre-charge worst-case `old_bytes` (refunded
+/// on Ok).
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
-	cost_before: RuntimeCosts,
-	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
-	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+	transient: bool,
+	set_function: fn(&mut E, &Key, Option<Vec<u8>>) -> Result<WriteOutcome, DispatchError>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
-	let take_old = false;
-	let Ok(write_outcome) =
-		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
-	else {
+
+	let access_kind = StorageAccessKind::new(transient, || {
+		interpreter.ext.touch_storage_access(&key, StorageOp::Write)
+	});
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
+		new_bytes: 32,
+		old_bytes: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
+
+	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
+	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store) else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
-
+	interpreter.ext.frame_meter_mut().adjust_weight(
+		charged,
+		RuntimeCosts::SetStorage {
+			new_bytes,
+			old_bytes: write_outcome.old_len(),
+			kind: access_kind,
+		},
+	);
 	ControlFlow::Continue(())
 }
 
@@ -164,39 +203,44 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
-	store_helper(
-		interpreter,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
-	)
+	store_helper(interpreter, false, |ext, key, value| {
+		let take_old = false;
+		ext.set_storage(key, value, take_old)
+	})
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
-	store_helper(
-		interpreter,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
-	)
+	store_helper(interpreter, true, |ext, key, value| {
+		let take_old = false;
+		ext.set_transient_storage(key, value, take_old)
+	})
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
 
-	let key = Key::Fix(index.to_big_endian());
-	let bytes = interpreter.ext.get_transient_storage(&key);
+	let access_kind = StorageAccessKind::Transient;
+	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
+		len: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
+	let bytes = interpreter.ext.get_transient_storage(&Key::Fix(index.to_big_endian()));
+
+	let actual_len = bytes.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetStorage { len: actual_len, kind: access_kind });
 
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
-			// tload always reads a word
+			// tload expects a 32-byte word; reject anything else.
 			log::debug!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}
@@ -244,7 +288,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	let topics = interpreter.stack.popn::<N>()?;
 	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
 
-	interpreter.ext.deposit_event(topics, data.to_vec());
+	if let Err(err) = interpreter.ext.deposit_event(topics, data) {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	ControlFlow::Continue(())
 }
 

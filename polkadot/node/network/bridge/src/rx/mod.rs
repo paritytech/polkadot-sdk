@@ -37,8 +37,8 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, ObservedRole, OurView, PeerId,
-	UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, v4_collation,
+	ObservedRole, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
 
 use polkadot_node_subsystem::{
@@ -56,7 +56,6 @@ use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorInde
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,
-	u32,
 };
 
 use super::validator_discovery;
@@ -65,7 +64,8 @@ use super::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_validation_message_v3, Network,
+	send_collation_message_v1, send_collation_message_v2, send_collation_message_v3,
+	send_collation_message_v4, send_validation_message_v3, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -181,13 +181,15 @@ async fn handle_validation_message<AD>(
 						?peer,
 						"Failed to determine peer role for validation protocol",
 					);
-					return
+					return;
 				},
 			};
 
 			let (peer_set, version) = {
-				let (peer_set, version) =
-					(PeerSet::Validation, PeerSet::Validation.get_main_version());
+				let (peer_set, version) = (
+					PeerSet::Validation,
+					peerset_protocol_names.get_main_version(PeerSet::Validation),
+				);
 
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
@@ -200,7 +202,7 @@ async fn handle_validation_message<AD>(
 								"Unknown fallback",
 							);
 
-							return
+							return;
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
@@ -212,7 +214,7 @@ async fn handle_validation_message<AD>(
 									"Fallback mismatched peer-set",
 								);
 
-								return
+								return;
 							}
 
 							(p2, v2)
@@ -237,7 +239,7 @@ async fn handle_validation_message<AD>(
 						?role,
 						"Message sink not available for peer",
 					);
-					return
+					return;
 				},
 			}
 
@@ -291,7 +293,8 @@ async fn handle_validation_message<AD>(
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
-			let (peer_set, version) = (PeerSet::Validation, PeerSet::Validation.get_main_version());
+			let (peer_set, version) =
+				(PeerSet::Validation, peerset_protocol_names.get_main_version(PeerSet::Validation));
 
 			gum::debug!(
 				target: LOG_TARGET,
@@ -312,7 +315,7 @@ async fn handle_validation_message<AD>(
 
 			notification_sinks.lock().remove(&(peer_set, peer));
 
-			if was_connected && version == peer_set.get_main_version() {
+			if was_connected && version == peerset_protocol_names.get_main_version(peer_set) {
 				dispatch_validation_event_to_all(
 					NetworkBridgeEvent::PeerDisconnected(peer),
 					sender,
@@ -408,13 +411,15 @@ async fn handle_collation_message<AD>(
 						?peer,
 						"Failed to determine peer role for validation protocol",
 					);
-					return
+					return;
 				},
 			};
 
 			let (peer_set, version) = {
-				let (peer_set, version) =
-					(PeerSet::Collation, PeerSet::Collation.get_main_version());
+				let (peer_set, version) = (
+					PeerSet::Collation,
+					peerset_protocol_names.get_main_version(PeerSet::Collation),
+				);
 
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
@@ -427,7 +432,7 @@ async fn handle_collation_message<AD>(
 								"Unknown fallback",
 							);
 
-							return
+							return;
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
@@ -439,7 +444,7 @@ async fn handle_collation_message<AD>(
 									"Fallback mismatched peer-set",
 								);
 
-								return
+								return;
 							}
 
 							(p2, v2)
@@ -465,7 +470,7 @@ async fn handle_collation_message<AD>(
 						role = ?role,
 						"Message sink not available for peer",
 					);
-					return
+					return;
 				},
 			}
 
@@ -521,10 +526,23 @@ async fn handle_collation_message<AD>(
 					metrics,
 					notification_sinks,
 				),
+				CollationVersion::V3 => send_collation_message_v3(
+					vec![peer],
+					WireMessage::<v3_collation::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
+				CollationVersion::V4 => send_collation_message_v4(
+					vec![peer],
+					WireMessage::<v4_collation::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
-			let (peer_set, version) = (PeerSet::Collation, PeerSet::Collation.get_main_version());
+			let (peer_set, version) =
+				(PeerSet::Collation, peerset_protocol_names.get_main_version(PeerSet::Collation));
 
 			gum::debug!(
 				target: LOG_TARGET,
@@ -546,7 +564,7 @@ async fn handle_collation_message<AD>(
 
 			notification_sinks.lock().remove(&(peer_set, peer));
 
-			if was_connected && version == peer_set.get_main_version() {
+			if was_connected && version == peerset_protocol_names.get_main_version(peer_set) {
 				dispatch_collation_event_to_all(NetworkBridgeEvent::PeerDisconnected(peer), sender)
 					.await;
 			}
@@ -570,37 +588,53 @@ async fn handle_collation_message<AD>(
 				?peer,
 			);
 
-			let (events, reports) =
-				if expected_versions[PeerSet::Collation] == Some(CollationVersion::V1.into()) {
-					handle_peer_messages::<protocol_v1::CollationProtocol, _>(
-						peer,
-						PeerSet::Collation,
-						&mut shared.0.lock().collation_peers,
-						vec![notification.into()],
-						metrics,
-					)
-				} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V2.into())
-				{
-					handle_peer_messages::<protocol_v2::CollationProtocol, _>(
-						peer,
-						PeerSet::Collation,
-						&mut shared.0.lock().collation_peers,
-						vec![notification.into()],
-						metrics,
-					)
-				} else {
-					gum::warn!(
-						target: LOG_TARGET,
-						version = ?expected_versions[PeerSet::Collation],
-						"Major logic bug. Peer somehow has unsupported collation protocol version."
-					);
+			let (events, reports) = if expected_versions[PeerSet::Collation] ==
+				Some(CollationVersion::V1.into())
+			{
+				handle_peer_messages::<protocol_v1::CollationProtocol, _>(
+					peer,
+					PeerSet::Collation,
+					&mut shared.0.lock().collation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V2.into()) {
+				handle_peer_messages::<protocol_v2::CollationProtocol, _>(
+					peer,
+					PeerSet::Collation,
+					&mut shared.0.lock().collation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V3.into()) {
+				handle_peer_messages::<v3_collation::CollationProtocol, _>(
+					peer,
+					PeerSet::Collation,
+					&mut shared.0.lock().collation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V4.into()) {
+				handle_peer_messages::<v4_collation::CollationProtocol, _>(
+					peer,
+					PeerSet::Collation,
+					&mut shared.0.lock().collation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else {
+				gum::warn!(
+					target: LOG_TARGET,
+					version = ?expected_versions[PeerSet::Collation],
+					"Major logic bug. Peer somehow has unsupported collation protocol version."
+				);
 
-					never!("Only versions 1 and 2 are supported; peer set connection checked above; qed");
+				never!("Only versions 1, 2, 3 and 4 are supported; peer set connection checked above; qed");
 
-					// If a peer somehow triggers this, we'll disconnect them
-					// eventually.
-					(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
-				};
+				// If a peer somehow triggers this, we'll disconnect them
+				// eventually.
+				(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
+			};
 
 			for report in reports {
 				network_service.report_peer(peer, report.into());
@@ -923,7 +957,7 @@ fn update_our_view<Context>(
 			Some(ref v) if v.check_heads_eq(&new_view) => return,
 			None if live_heads.is_empty() => {
 				shared.local_view = Some(new_view);
-				return
+				return;
 			},
 			_ => {
 				shared.local_view = Some(new_view.clone());
@@ -970,6 +1004,10 @@ fn update_our_view<Context>(
 
 	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
+	let v3_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V3.into());
+
+	let v4_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V4.into());
+
 	let v3_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V3.into());
 
@@ -982,6 +1020,20 @@ fn update_our_view<Context>(
 
 	send_collation_message_v2(
 		v2_collation_peers,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+		notification_sinks,
+	);
+
+	send_collation_message_v3(
+		v3_collation_peers,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+		notification_sinks,
+	);
+
+	send_collation_message_v4(
+		v4_collation_peers,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
@@ -1017,7 +1069,7 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 		let message = match WireMessage::<RawMessage>::decode_all(&mut message.as_ref()) {
 			Err(_) => {
 				reports.push(MALFORMED_MESSAGE_COST);
-				continue
+				continue;
 			},
 			Ok(m) => m,
 		};
@@ -1028,20 +1080,21 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 					new_view.finalized_number < peer_data.view.finalized_number
 				{
 					reports.push(MALFORMED_VIEW_COST);
-					continue
+					continue;
 				} else if new_view.is_empty() {
 					reports.push(EMPTY_VIEW_COST);
-					continue
+					continue;
 				} else if new_view == peer_data.view {
-					continue
+					continue;
 				} else {
 					peer_data.view = new_view;
 
 					NetworkBridgeEvent::PeerViewChange(peer, peer_data.view.clone())
 				}
 			},
-			WireMessage::ProtocolMessage(message) =>
-				NetworkBridgeEvent::PeerMessage(peer, message.into()),
+			WireMessage::ProtocolMessage(message) => {
+				NetworkBridgeEvent::PeerMessage(peer, message.into())
+			},
 		})
 	}
 

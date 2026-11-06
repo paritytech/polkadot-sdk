@@ -494,7 +494,7 @@ async fn test_limits_increasing_prio_relaychain() {
 	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
-	//this looks like current limit of what we can handle. A bit choky but almost no empty blocks.
+	// this looks like current limit of what we can handle. A bit choky but almost no empty blocks.
 	let senders_count = 50;
 	let sender_batch = 2000;
 

@@ -23,19 +23,9 @@ use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
-use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
 
-use crate::Timeslice;
-
-/// Index of a Polkadot Core.
-pub type CoreIndex = u16;
-
-/// A Task Id. In general this is called a ParachainId.
-pub type TaskId = u32;
-
-/// Fraction expressed as a nominator with an assumed denominator of 57,600.
-pub type PartsOf57600 = u16;
+use crate::{CoreIndex, PartsOf57600, TaskId, Timeslice};
 
 /// An element to which a core can be assigned.
 #[derive(
@@ -47,7 +37,7 @@ pub type PartsOf57600 = u16;
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

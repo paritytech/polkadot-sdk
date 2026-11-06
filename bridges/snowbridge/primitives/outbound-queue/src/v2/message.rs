@@ -5,10 +5,10 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_std::vec::Vec;
 
-use crate::{OperatingMode, SendError};
+use crate::{dispatch_gas, OperatingMode, SendError};
 use abi::{
 	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
 	UnlockNativeTokenParams, UpgradeParams,
@@ -99,14 +99,14 @@ pub mod abi {
 	}
 }
 
-#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct OutboundCommandWrapper {
 	pub kind: u8,
 	pub gas: u64,
 	pub payload: Vec<u8>,
 }
 
-#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct OutboundMessage {
 	/// Origin
 	pub origin: H256,
@@ -121,7 +121,7 @@ pub struct OutboundMessage {
 pub const MAX_COMMANDS: u32 = 8;
 
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Clone, Debug)]
 pub struct Message {
 	/// Origin
 	pub origin: H256,
@@ -134,7 +134,7 @@ pub struct Message {
 }
 
 /// A command which is executable by the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub enum Command {
 	/// Upgrade the Gateway contract
 	Upgrade {
@@ -214,23 +214,26 @@ impl Command {
 				initParams: Bytes::from(initializer.params.clone()),
 			}
 			.abi_encode(),
-			Command::SetOperatingMode { mode } =>
-				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode(),
-			Command::UnlockNativeToken { token, recipient, amount, .. } =>
+			Command::SetOperatingMode { mode } => {
+				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode()
+			},
+			Command::UnlockNativeToken { token, recipient, amount, .. } => {
 				UnlockNativeTokenParams {
 					token: Address::from(token.as_fixed_bytes()),
 					recipient: Address::from(recipient.as_fixed_bytes()),
 					amount: *amount,
 				}
-				.abi_encode(),
-			Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+				.abi_encode()
+			},
+			Command::RegisterForeignToken { token_id, name, symbol, decimals } => {
 				RegisterForeignTokenParams {
 					foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
 					name: Bytes::from(name.to_vec()),
 					symbol: Bytes::from(symbol.to_vec()),
 					decimals: *decimals,
 				}
-				.abi_encode(),
+				.abi_encode()
+			},
 			Command::MintForeignToken { token_id, recipient, amount } => MintForeignTokenParams {
 				foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
 				recipient: Address::from(recipient.as_fixed_bytes()),
@@ -249,7 +252,7 @@ impl Command {
 
 /// Representation of a call to the initializer of an implementation contract.
 /// The initializer has the following ABI signature: `initialize(bytes)`.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Initializer {
 	/// ABI-encoded params of type `bytes` to pass to the initializer
 	pub params: Vec<u8>,
@@ -275,28 +278,21 @@ pub trait GasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
 }
 
-/// A meter that assigns a constant amount of gas for the execution of a command
+/// A meter that assigns a constant amount of gas for the execution of a command.
 ///
-/// The gas figures are extracted from this report:
-/// > forge test --match-path test/Gateway.t.sol --gas-report
-///
-/// A healthy buffer is added on top of these figures to account for:
-/// * The EIP-150 63/64 rule
-/// * Future EVM upgrades that may increase gas cost
+/// The ceilings live in [`crate::dispatch_gas`].
 pub struct ConstantGasMeter;
 
 impl GasMeter for ConstantGasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
-			Command::SetOperatingMode { .. } => 40_000,
+			Command::SetOperatingMode { .. } => dispatch_gas::SET_OPERATING_MODE,
 			Command::Upgrade { initializer, .. } => {
-				// total maximum gas must also include the gas used for updating the proxy before
-				// the the initializer is called.
-				50_000 + initializer.maximum_required_gas
+				dispatch_gas::UPGRADE_BASE + initializer.maximum_required_gas
 			},
-			Command::UnlockNativeToken { .. } => 200_000,
-			Command::RegisterForeignToken { .. } => 1_200_000,
-			Command::MintForeignToken { .. } => 100_000,
+			Command::UnlockNativeToken { .. } => dispatch_gas::UNLOCK_NATIVE_TOKEN,
+			Command::RegisterForeignToken { .. } => dispatch_gas::REGISTER_FOREIGN_TOKEN,
+			Command::MintForeignToken { .. } => dispatch_gas::MINT_FOREIGN_TOKEN,
 			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
 		}
 	}

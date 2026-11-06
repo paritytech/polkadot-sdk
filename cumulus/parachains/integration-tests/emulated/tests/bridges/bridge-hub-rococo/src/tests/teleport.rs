@@ -20,12 +20,10 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubRococo,      // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -35,12 +33,10 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubRococo,      // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -48,11 +44,12 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
 		vec![BridgeHubRococo],
-		amount,
+		(native_asset, amount),
 		limited_teleport_assets
 	);
 
@@ -67,8 +64,14 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
 
-	test_relay_is_trusted_teleporter!(Rococo, vec![BridgeHubRococo], amount, transfer_assets);
+	test_relay_is_trusted_teleporter!(
+		Rococo,
+		vec![BridgeHubRococo],
+		(native_asset, amount),
+		transfer_assets
+	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		BridgeHubRococo,

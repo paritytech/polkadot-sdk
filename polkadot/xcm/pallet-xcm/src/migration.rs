@@ -59,7 +59,7 @@ pub mod data {
 			for locked in self.iter_mut() {
 				if locked.1.identify_version() < to_xcm_version {
 					let Ok(new_unlocker) = locked.1.clone().into_version(to_xcm_version) else {
-						return Err(())
+						return Err(());
 					};
 					locked.1 = new_unlocker;
 					was_modified = true;
@@ -80,34 +80,37 @@ pub mod data {
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
 			match &self {
-				QueryStatus::Pending { responder, maybe_match_querier, .. } =>
+				QueryStatus::Pending { responder, maybe_match_querier, .. } => {
 					responder.identify_version() < minimal_allowed_xcm_version ||
 						maybe_match_querier
 							.as_ref()
 							.map(|v| v.identify_version() < minimal_allowed_xcm_version)
-							.unwrap_or(false),
-				QueryStatus::VersionNotifier { origin, .. } =>
-					origin.identify_version() < minimal_allowed_xcm_version,
-				QueryStatus::Ready { response, .. } =>
-					response.identify_version() < minimal_allowed_xcm_version,
+							.unwrap_or(false)
+				},
+				QueryStatus::VersionNotifier { origin, .. } => {
+					origin.identify_version() < minimal_allowed_xcm_version
+				},
+				QueryStatus::Ready { response, .. } => {
+					response.identify_version() < minimal_allowed_xcm_version
+				},
 			}
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			// do migration
 			match self {
 				QueryStatus::Pending { responder, maybe_match_querier, maybe_notify, timeout } => {
 					let Ok(responder) = responder.into_version(to_xcm_version) else {
-						return Err(())
+						return Err(());
 					};
 					let Ok(maybe_match_querier) =
 						maybe_match_querier.map(|mmq| mmq.into_version(to_xcm_version)).transpose()
 					else {
-						return Err(())
+						return Err(());
 					};
 					Ok(Some(QueryStatus::Pending {
 						responder,
@@ -137,7 +140,7 @@ pub mod data {
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let Ok(asset_id) = self.2.into_version(to_xcm_version) else { return Err(()) };
@@ -158,7 +161,7 @@ pub mod data {
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let RemoteLockedFungibleRecord { amount, owner, locker, consumers } = self;
@@ -189,12 +192,12 @@ pub mod data {
 			required_version: XcmVersion,
 		) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(required_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let key = if self.0.identify_version() != required_version {
 				let Ok(converted_key) = self.0.clone().into_version(required_version) else {
-					return Err(())
+					return Err(());
 				};
 				converted_key
 			} else {
@@ -225,7 +228,6 @@ pub mod data {
 
 			// check and migrate `Queries`
 			let queries_to_migrate = Queries::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
 				match data.try_migrate(required_xcm_version) {
 					Ok(Some(new_data)) => Some((id, new_data)),
 					Ok(None) => None,
@@ -248,13 +250,12 @@ pub mod data {
 					"Migrating `Queries`"
 				);
 				Queries::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `LockedFungibles`
 			let locked_fungibles_to_migrate =
 				LockedFungibles::<T>::iter().filter_map(|(id, data)| {
-					weight.saturating_add(T::DbWeight::get().reads(1));
 					match data.try_migrate(required_xcm_version) {
 						Ok(Some(new_data)) => Some((id, new_data)),
 						Ok(None) => None,
@@ -277,13 +278,12 @@ pub mod data {
 					"Migrating `LockedFungibles`"
 				);
 				LockedFungibles::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 1. step - just data
 			let remote_locked_fungibles_to_migrate =
 				RemoteLockedFungibles::<T>::iter().filter_map(|(id, data)| {
-					weight.saturating_add(T::DbWeight::get().reads(1));
 					match data.try_migrate(required_xcm_version) {
 						Ok(Some(new_data)) => Some((id, new_data)),
 						Ok(None) => None,
@@ -309,7 +309,7 @@ pub mod data {
 					"Migrating `RemoteLockedFungibles` data"
 				);
 				RemoteLockedFungibles::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 2. step - key
@@ -335,7 +335,7 @@ pub mod data {
 					}
 				});
 			for (old_key, new_key) in remote_locked_fungibles_keys_to_migrate {
-				weight.saturating_add(T::DbWeight::get().reads(1));
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 				// make sure, that we don't override accidentally other data
 				if RemoteLockedFungibles::<T>::get(&new_key).is_some() {
 					tracing::error!(
@@ -366,12 +366,12 @@ pub mod data {
 					_,
 					_,
 				>(&old_key, &new_key);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
 			}
 
 			// check and migrate `AuthorizedAliases`
 			let aliases_to_migrate = AuthorizedAliases::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 				match (&id, data, PhantomData::<T>).try_migrate(required_xcm_version) {
 					Ok(Some((new_id, new_data))) => Some((id, new_id, new_data)),
 					Ok(None) => None,
@@ -399,7 +399,7 @@ pub mod data {
 				count = count + 1;
 			}
 			// two writes per key, one to remove old entry, one to write new entry
-			weight.saturating_add(T::DbWeight::get().writes(count * 2));
+			weight.saturating_accrue(T::DbWeight::get().writes(count * 2));
 		}
 	}
 }
@@ -420,7 +420,7 @@ pub mod v1 {
 
 			if StorageVersion::get::<Pallet<T>>() != 0 {
 				tracing::warn!("skipping v1, should be removed");
-				return weight
+				return weight;
 			}
 
 			weight.saturating_accrue(T::DbWeight::get().writes(1));

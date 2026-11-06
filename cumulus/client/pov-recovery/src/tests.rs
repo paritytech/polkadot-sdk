@@ -19,10 +19,10 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
+	BlockId, BlockNumber, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
 };
 use cumulus_relay_chain_interface::{
-	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
+	ChildInfo, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
 	PersistedValidationData, RelayChainResult, StorageValue, ValidationCodeHash, ValidatorId,
 };
 use cumulus_test_client::runtime::{Block, Header};
@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::CandidateEvent;
+use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, NodeFeatures};
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -42,6 +42,7 @@ use sc_consensus::import_queue::RuntimeOrigin;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::RuntimeApiInfo;
 use sp_blockchain::Info;
+use sp_core::H256;
 use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
 use std::{
@@ -198,11 +199,15 @@ impl<Block: BlockT> BlockBackend<Block> for ParachainClient<Block> {
 		unimplemented!()
 	}
 
-	fn indexed_transaction(&self, _: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn indexed_transaction(&self, _: H256) -> sp_blockchain::Result<Option<Vec<u8>>> {
 		unimplemented!()
 	}
 
-	fn has_indexed_transaction(&self, _: Block::Hash) -> sp_blockchain::Result<bool> {
+	fn has_indexed_transaction(&self, _: H256) -> sp_blockchain::Result<bool> {
+		unimplemented!()
+	}
+
+	fn block_indexed_hashes(&self, _: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
 		unimplemented!()
 	}
 
@@ -470,6 +475,15 @@ impl RelayChainInterface for Relaychain {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn prove_child_read(
+		&self,
+		_: PHash,
+		_: &ChildInfo,
+		_: &[Vec<u8>],
+	) -> RelayChainResult<sc_client_api::StorageProof> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn wait_for_block(&self, _: PHash) -> RelayChainResult<()> {
 		unimplemented!("Not needed for test");
 	}
@@ -512,6 +526,23 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		_at: PHash,
+		_session_index: SessionIndex,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
 		unimplemented!("Not needed for test");
 	}
 }
@@ -698,7 +729,9 @@ async fn single_pending_candidate_recovery_success(
 			assert_eq!(session_index, TEST_SESSION_INDEX);
 			let block_data =
 					ParachainBlockData::<Block>::new(
-						vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+						vec![Block::new(header.clone(), vec![])],
+						CompactProof { encoded_nodes: vec![] },
+						None
 					);
 
 			response_tx.send(
@@ -810,7 +843,9 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								vec![Block::new(header.clone(), Vec::new())], CompactProof { encoded_nodes: vec![] }
+								vec![Block::new(header.clone(), Vec::new())],
+								CompactProof { encoded_nodes: vec![] },
+								None
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -1117,6 +1152,7 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 				block_data: ParachainBlockData::<Block>::new(
 					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
+					None,
 				)
 				.encode()
 				.into(),
@@ -1214,6 +1250,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 				block_data: ParachainBlockData::<Block>::new(
 					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
+					None,
 				)
 				.encode()
 				.into(),
@@ -1299,7 +1336,9 @@ async fn chained_recovery_success() {
 					.send(Ok(AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+								vec![Block::new(header.clone(), vec![])],
+								CompactProof { encoded_nodes: vec![] },
+								None
 							)
 							.encode()
 							.into(),
@@ -1416,6 +1455,7 @@ async fn chained_recovery_child_succeeds_before_parent() {
 					block_data: ParachainBlockData::<Block>::new(
 						vec![Block::new(header.clone(), vec![])],
 						CompactProof { encoded_nodes: vec![] },
+						None,
 					)
 					.encode()
 					.into(),
@@ -1504,6 +1544,7 @@ async fn recovery_multiple_blocks_per_candidate() {
 						block_data: ParachainBlockData::<Block>::new(
 							headers.iter().map(|h| Block::new(h.clone(), vec![])).collect(),
 							CompactProof { encoded_nodes: vec![] },
+							None
 						)
 						.encode()
 						.into(),

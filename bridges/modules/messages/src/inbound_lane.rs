@@ -26,8 +26,8 @@ use bp_messages::{
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::{Type, TypeInfo};
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::PartialEq;
+use Debug;
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {
@@ -58,7 +58,7 @@ pub trait InboundLaneStorage {
 /// these generic bounds all over the code.
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(
 	pub InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 );
@@ -151,10 +151,10 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 
 		if outbound_lane_data.latest_received_nonce > last_delivered_nonce {
 			// this is something that should never happen if proofs are correct
-			return None
+			return None;
 		}
 		if outbound_lane_data.latest_received_nonce <= data.last_confirmed_nonce {
-			return None
+			return None;
 		}
 
 		let new_confirmed_nonce = outbound_lane_data.latest_received_nonce;
@@ -191,18 +191,18 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	) -> ReceptionResult<Dispatch::DispatchLevelResult> {
 		let mut data = self.storage.data();
 		if Some(nonce) != data.last_delivered_nonce().checked_add(1) {
-			return ReceptionResult::InvalidNonce
+			return ReceptionResult::InvalidNonce;
 		}
 
 		// if there are more unrewarded relayer entries than we may accept, reject this message
 		if data.relayers.len() as MessageNonce >= self.storage.max_unrewarded_relayer_entries() {
-			return ReceptionResult::TooManyUnrewardedRelayers
+			return ReceptionResult::TooManyUnrewardedRelayers;
 		}
 
 		// if there are more unconfirmed messages than we may accept, reject this message
 		let unconfirmed_messages_count = nonce.saturating_sub(data.last_confirmed_nonce);
 		if unconfirmed_messages_count > self.storage.max_unconfirmed_messages() {
-			return ReceptionResult::TooManyUnconfirmedMessages
+			return ReceptionResult::TooManyUnconfirmedMessages;
 		}
 
 		// then, dispatch message

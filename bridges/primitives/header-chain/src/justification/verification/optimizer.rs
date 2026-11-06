@@ -80,7 +80,7 @@ impl<Header: HeaderT> JustificationVerifier<Header> for JustificationOptimizer<H
 		// Skip duplicate votes
 		if self.votes.contains(&signed.id) {
 			self.extra_precommits.push(precommit_idx);
-			return Ok(IterationFlow::Skip)
+			return Ok(IterationFlow::Skip);
 		}
 
 		Ok(IterationFlow::Run)

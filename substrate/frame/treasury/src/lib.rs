@@ -50,10 +50,8 @@
 //!
 //! 1. Multiple local spends approved by spend origins and received by a beneficiary.
 #![doc = docify::embed!("src/tests.rs", spend_local_origin_works)]
-//!
 //! 2. Approve a spend of some asset kind and claim it.
 #![doc = docify::embed!("src/tests.rs", spend_payout_works)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -93,12 +91,12 @@ use sp_runtime::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
 		UniqueSaturatedInto, Zero,
 	},
-	PerThing, Permill, RuntimeDebug,
+	Debug, PerThing, Permill,
 };
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, print,
+	ensure,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
@@ -152,15 +150,7 @@ pub type ProposalIndex = u32;
 /// A spending proposal.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub struct Proposal<AccountId, Balance> {
 	/// The account proposing it.
@@ -176,15 +166,7 @@ pub struct Proposal<AccountId, Balance> {
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub enum PaymentState<Id> {
 	/// Pending claim.
@@ -198,15 +180,7 @@ pub enum PaymentState<Id> {
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
 	// The kind of asset to be spent.
@@ -815,7 +789,7 @@ pub mod pallet {
 				// spend has expired and no further status update is expected.
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			let payment_id = match spend.status {
@@ -832,11 +806,11 @@ pub mod pallet {
 				Status::Success | Status::Unknown => {
 					Spends::<T, I>::remove(index);
 					Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 				Status::InProgress => return Err(Error::<T, I>::Inconclusive.into()),
 			}
-			return Ok(Pays::Yes.into())
+			return Ok(Pays::Yes.into());
 		}
 
 		/// Void previously approved spend.
@@ -1010,7 +984,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Err(problem) =
 			T::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
 		{
-			print("Inconsistent state - couldn't settle imbalance for funds spent by treasury");
+			log::error!(
+				target: "runtime::treasury",
+				"Inconsistent state - couldn't settle imbalance for funds spent by treasury"
+			);
 			// Nothing else to do here.
 			drop(problem);
 		}

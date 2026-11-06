@@ -138,7 +138,7 @@ impl Parse for ValueWithFormatMarker {
 
 				let lookahead = input.lookahead1();
 				if !lookahead.peek(Token![.]) {
-					break
+					break;
 				}
 
 				let token = input.parse::<Token![.]>()?;
@@ -233,7 +233,7 @@ impl Parse for FmtGroup {
 		};
 
 		if !input.is_empty() {
-			return Err(syn::Error::new(input.span(), "Unexpected data, expected closing `)`."))
+			return Err(syn::Error::new(input.span(), "Unexpected data, expected closing `)`."));
 		}
 
 		Ok(Self { format_str, maybe_comma, rest })
@@ -319,12 +319,12 @@ impl Parse for Args {
 			if input.fork().parse::<Value>().is_ok() {
 				values.push_value(input.parse::<Value>()?);
 			} else {
-				break
+				break;
 			}
 			if input.peek(Token![,]) {
 				values.push_punct(input.parse::<Token![,]>()?);
 			} else {
-				break
+				break;
 			}
 		}
 

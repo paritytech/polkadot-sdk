@@ -91,12 +91,13 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 				WithdrawAsset(ref assets) |
 				ReceiveTeleportedAsset(ref assets) |
 				ReserveAssetDeposited(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					},
+					}
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
@@ -207,7 +208,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
@@ -314,9 +315,16 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 /// This means `T` will be checked against the actual origin _after_ being modified by prior
 /// instructions.
 ///
-/// In order to execute the `AliasOrigin` instruction, the `Aliasers` type should be set to the same
-/// `Aliasers` item in the XCM configuration. If it isn't, then all messages with an `AliasOrigin`
-/// instruction will be rejected.
+/// In order to allow messages to use `AliasOrigin` before `UnpaidExecution`, the `Aliasers` type
+/// should be set to a *cheap, computation-only* subset of `xcm_executor::Config::Aliasers`.
+/// It must never include filters that read storage, such as `pallet_xcm::AuthorizedAliasers`:
+/// barriers run before any payment is taken, so an expensive check here is a free-of-charge load
+/// on the chain that any incoming message can trigger.
+///
+/// Aliases that are only allowed by the excluded (expensive) filters simply won't get unpaid
+/// execution through this barrier; they can still buy execution via the paid barrier.
+///
+/// With the default (`Nothing`), all messages with an `AliasOrigin` instruction will be rejected.
 pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = Nothing>(PhantomData<(T, Aliasers)>);
 impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute
 	for AllowExplicitUnpaidExecutionFrom<T, Aliasers>
@@ -367,12 +375,13 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 							// to know the origin to know if it's allowed unpaid execution.
 							return Err(ProcessMessageError::Unsupported);
 						},
-						AliasOrigin(target) =>
+						AliasOrigin(target) => {
 							if Aliasers::contains(&actual_origin, &target) {
 								actual_origin = target.clone();
 							} else {
 								return Err(ProcessMessageError::Unsupported);
-							},
+							}
+						},
 						DescendOrigin(child) if child != &Here => {
 							let Ok(_) = actual_origin.append_with(child.clone()) else {
 								return Err(ProcessMessageError::Unsupported);
@@ -454,7 +463,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-					Ok(()),
+				{
+					Ok(())
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -614,7 +625,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 		recursion_count::using_once(&mut 1, || {
 			// Prevent stack overflow by enforcing a recursion depth limit.
 			recursion_count::with(|count| {
-				if *count > xcm_executor::RECURSION_LIMIT {
+				if *count > xcm::RECURSION_LIMIT {
 					tracing::debug!(
                     	target: "xcm::barriers",
                     	"Recursion limit exceeded (count: {count}), origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}",

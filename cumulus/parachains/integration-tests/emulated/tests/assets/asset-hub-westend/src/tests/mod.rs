@@ -20,7 +20,6 @@ mod fellowship_treasury;
 mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
-mod reward_pool;
 mod send;
 mod set_asset_claimer;
 mod set_xcm_versions;
@@ -28,32 +27,7 @@ mod swap;
 mod teleport;
 mod transact;
 mod transfer_assets_validation;
-mod treasury;
 mod xcm_fee_estimation;
-
-#[macro_export]
-macro_rules! foreign_balance_on {
-	( $chain:ident, $id:expr, $who:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
-			<$chain>::execute_with(|| {
-				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
-				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
-			})
-		}
-	};
-}
-
-#[macro_export]
-macro_rules! assets_balance_on {
-	( $chain:ident, $id:expr, $who:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
-			<$chain>::execute_with(|| {
-				type Assets = <$chain as [<$chain Pallet>]>::Assets;
-				<Assets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
-			})
-		}
-	};
-}
 
 #[macro_export]
 macro_rules! create_pool_with_wnd_on {

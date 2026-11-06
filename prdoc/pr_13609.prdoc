@@ -1,0 +1,13 @@
+title: Remove dead code
+doc:
+- audience: Node Dev
+  description: |-
+    Removes code that was no longer compiled or used:
+    - `sc-network`: the private `protocol::message` module with the legacy pre-notification
+      protocol and light client message types. Nothing used it anymore.
+    - `polkadot-node-core-approval-voting`: the orphaned `approval_db/v1/tests.rs`, which was no
+      longer part of the module tree.
+    - Stale, undeclared weight files in the Westend and Rococo runtimes.
+crates:
+- name: sc-network
+  bump: none

@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{mock::*, Event};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, hypothetically};
 use pallet_balances::Event as BEvent;
 use sp_runtime::{
 	bounded_btree_map,
@@ -30,7 +30,7 @@ macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
 		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
-		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
+		BoundedBTreeMap::<EraIndex, UnbondPool<T>, <T as Config>::MaxUnbondingPools>::try_from(not_bounded).unwrap()
 	}};
 }
 
@@ -420,7 +420,7 @@ mod reward_pool {
 			// clear events
 			pool_events_since_last_call();
 
-			// Then: Anyone can permissionlessly can adjust ED deposit.
+			// Then: Anyone can permissionlessly adjust ED deposit upwards.
 
 			// make sure caller has enough funds..
 			assert_ok!(Currency::mint_into(&99, 100));
@@ -445,17 +445,120 @@ mod reward_pool {
 			// When: ED is decreased and reward account has excess ED frozen
 			ExistentialDeposit::set(5);
 
-			// And:: adjust ED deposit is called
-			let pre_balance = Currency::free_balance(&100);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(100), 1));
+			let bonded_pool = BondedPool::<Runtime>::get(1).unwrap();
+			let owner = bonded_pool.roles.depositor;
 
-			// Then: excess ED is claimed by the caller
-			assert_eq!(Currency::free_balance(&100), pre_balance + 45);
+			assert_eq!(owner, 10);
+
+			// And:: adjust ED deposit is called
+			let pre_balance = Currency::free_balance(&owner);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
+
+			// Then: excess ED is claimed by the pool depositor
+			assert_eq!(Currency::free_balance(&owner), pre_balance + 45);
 
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![Event::MinBalanceExcessAdjusted { pool_id: 1, amount: 45 },]
 			);
+		});
+	}
+
+	#[test]
+	fn pool_owner_can_adjust_deposit_downards() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// Given: a nomination pool with no reward deficit
+
+			// Set an initial ED and adjust to there as a baseline.
+			let ed_baseline = 50;
+			let ed_delta = 20;
+
+			ExistentialDeposit::set(ed_baseline);
+
+			// Pool some rewards and check the imbalance.
+			deposit_rewards(50);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			let bonded_pool = BondedPool::<Runtime>::get(1).unwrap();
+			let owner = bonded_pool.roles.depositor;
+			let root = bonded_pool.roles.root.unwrap();
+
+			assert_eq!(owner, 10);
+			assert_eq!(root, 900);
+
+			Currency::set_balance(&owner, 100);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
+
+			hypothetically!({
+				// When the ED is adjusted downards (decreased)
+				Currency::set_balance(&owner, 100);
+				ExistentialDeposit::set(ed_baseline - ed_delta);
+
+				// Then a standard account cannot adjust the pool deposit downards
+				Currency::set_balance(&70, 100);
+				assert_err!(
+					Pools::adjust_pool_deposit(RuntimeOrigin::signed(70), 1),
+					Error::<T>::DoesNotHavePermission
+				);
+
+				// And the pool owner can adjust deposit downards
+				let pre_balance = Currency::free_balance(&owner);
+				assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
+				assert_eq!(reward_imbalance(1), Surplus(0));
+
+				// And the pool owner's balance increases by the ED difference.
+				assert_eq!(Currency::free_balance(&owner), pre_balance + ed_delta);
+			});
+
+			// When the ED is adjusted downards (decreased)
+			Currency::set_balance(&root, 100);
+			ExistentialDeposit::set(ed_baseline - ed_delta * 2);
+
+			// Then a standard account cannot adjust the pool deposit downards
+			Currency::set_balance(&7, 100);
+			assert_err!(
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(7), 1),
+				Error::<T>::DoesNotHavePermission
+			);
+
+			// And the root can also adjust the deposit downwards
+			let pre_balance = Currency::free_balance(&root);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(root), 1));
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// And the root's balance increases by the ED difference.
+			assert_eq!(Currency::free_balance(&root), pre_balance + ed_delta * 2);
+		});
+	}
+
+	#[test]
+	fn anyone_can_adjust_deposit_upwards() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// Given: a nomination pool with no reward deficit
+
+			// Set an initial ED and adjust to there as a baseline.
+			let ed_baseline = 20;
+			let ed_delta = 40;
+			ExistentialDeposit::set(ed_baseline);
+
+			// Pool some rewards and check the imbalance.
+			deposit_rewards(50);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			Currency::set_balance(&10, 100);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
+
+			// When the ED increases
+			ExistentialDeposit::set(ed_baseline + ed_delta);
+
+			// Then anyone can adjust the pool deposit upwards if they have enough funds.
+			Currency::set_balance(&70, 100);
+			let pre_balance = Currency::free_balance(&70);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(70), 1));
+
+			// And the caller's balance decreases by the ED difference.
+			assert_eq!(Currency::free_balance(&70), pre_balance - ed_delta);
+			assert_eq!(reward_imbalance(1), Surplus(0));
 		});
 	}
 
@@ -563,9 +666,11 @@ mod sub_pools {
 	#[test]
 	fn maybe_merge_pools_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert_eq!(TotalUnbondingPools::<Runtime>::get(), 5);
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
 			assert_eq!(BondingDuration::get(), 3);
-			assert_eq!(PostUnbondingPoolsWindow::get(), 2);
+			// Effective post-unbonding window = MaxUnbondingPools - bonding_duration = 5 - 3
+			// = 2.
+			assert_eq!(MaxUnbondingPools::get() - BondingDuration::get(), 2);
 
 			// Given
 			let mut sub_pool_0 = SubPools::<Runtime> {
@@ -579,19 +684,22 @@ mod sub_pools {
 				},
 			};
 
-			// When `current_era < TotalUnbondingPools`,
+			// The effective post-unbonding window is `MaxUnbondingPools - bonding_duration =
+			// 2`, so pools are merged once they are older than `current_era - 2`.
+
+			// When `current_era < window`,
 			let sub_pool_1 = sub_pool_0.clone().maybe_merge_pools(0);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When `current_era == TotalUnbondingPools`,
+			// When `current_era == window`,
 			let sub_pool_1 = sub_pool_1.maybe_merge_pools(1);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When  `current_era - TotalUnbondingPools == 0`,
+			// When `current_era - window == 0`,
 			let mut sub_pool_1 = sub_pool_1.maybe_merge_pools(2);
 
 			// Then era 0 is merged into the `no_era` pool
@@ -608,7 +716,7 @@ mod sub_pools {
 				.try_insert(5, UnbondPool::<Runtime> { points: 50, balance: 50 })
 				.unwrap();
 
-			// When `current_era - TotalUnbondingPools == 1`
+			// When `current_era - window == 1`
 			let sub_pool_2 = sub_pool_1.maybe_merge_pools(3);
 			let era_1_pool = sub_pool_0.with_era.remove(&1).unwrap();
 
@@ -617,7 +725,7 @@ mod sub_pools {
 			sub_pool_0.no_era.balance += era_1_pool.balance;
 			assert_eq!(sub_pool_2, sub_pool_0);
 
-			// When `current_era - TotalUnbondingPools == 5`, so all pools with era <= 4 are removed
+			// When `current_era - window == 5`, so all pools with era <= 5 are removed
 			let sub_pool_3 = sub_pool_2.maybe_merge_pools(7);
 
 			// Then all eras <= 5 are merged into the `no_era` pool
@@ -627,6 +735,76 @@ mod sub_pools {
 				sub_pool_0.no_era.balance += to_merge.balance;
 			}
 			assert_eq!(sub_pool_3, sub_pool_0);
+		});
+	}
+
+	// `MaxUnbondingPools` is a fixed bound that does not depend on the (mutable) bonding
+	// duration. Lowering the bonding duration must NOT shrink the `with_era` bound, and must
+	// instead *widen* the effective post-unbonding window so per-era pools are retained on their
+	// correct ratio for ~`MaxUnbondingPools` eras regardless of the bonding duration.
+	#[test]
+	fn max_unbonding_pools_is_decoupled_from_bonding_duration() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
+
+			let sub_pool = || SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: unbonding_pools_with_era! {
+					0 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					1 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					2 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					3 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					4 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+				},
+			};
+			let remaining_eras = |sub: SubPools<Runtime>| -> Vec<EraIndex> {
+				sub.with_era.keys().copied().collect()
+			};
+
+			// The bound is fixed at 5, regardless of the bonding duration.
+			BondingDuration::set(1);
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
+			BondingDuration::set(3);
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
+
+			// With bonding duration 3, the effective window is `5 - 3 = 2`: at era 4, pools with
+			// era <= 2 are merged into `no_era`, leaving eras 3 and 4.
+			assert_eq!(remaining_eras(sub_pool().maybe_merge_pools(4)), vec![3, 4]);
+
+			// Lowering the bonding duration to 1 (e.g. the post-flip scenario) widens the window to
+			// `5 - 1 = 4` *without* changing the bound: at era 4 only the pool with era <= 0 is
+			// merged, so eras 1..=4 stay separate on their own points-to-balance ratio.
+			BondingDuration::set(1);
+			assert_eq!(remaining_eras(sub_pool().maybe_merge_pools(4)), vec![1, 2, 3, 4]);
+		});
+	}
+
+	// A fixed `MaxUnbondingPools` keeps the `with_era` map decodable: it can always hold up
+	// to `MaxUnbondingPools` era-keyed pools even after the bonding duration is lowered.
+	#[test]
+	fn with_era_bound_does_not_shrink_when_bonding_duration_is_lowered() {
+		ExtBuilder::default().build_and_execute(|| {
+			BondingDuration::set(1);
+
+			let mut sub_pools = SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: Default::default(),
+			};
+
+			// Can insert up to `MaxUnbondingPools` (5) era pools regardless of bonding
+			// duration.
+			for era in 0..<Runtime as Config>::MaxUnbondingPools::get() {
+				assert_ok!(sub_pools
+					.with_era
+					.try_insert(era, UnbondPool::<Runtime> { points: 1, balance: 1 }));
+			}
+			assert_eq!(sub_pools.with_era.len() as u32, 5);
+
+			// The bound is full: a sixth distinct era pool cannot be inserted.
+			assert!(sub_pools
+				.with_era
+				.try_insert(5, UnbondPool::<Runtime> { points: 1, balance: 1 })
+				.is_err());
 		});
 	}
 }
@@ -2682,37 +2860,61 @@ mod unbond {
 
 	#[test]
 	fn depositor_unbond_destroying_permissionless() {
-		// depositor can never be permissionlessly unbonded.
-		ExtBuilder::default().min_join_bond(10).build_and_execute(|| {
-			// give the depositor some extra funds.
-			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
-			assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
+		// depositor can be permissionlessly fully unbonded in destroying state when sole member.
+		ExtBuilder::default()
+			.min_join_bond(10)
+			.add_members(vec![(20, 20)])
+			.build_and_execute(|| {
+				// give the depositor some extra funds.
+				assert_ok!(Pools::bond_extra(
+					RuntimeOrigin::signed(10),
+					BondExtra::FreeBalance(10)
+				));
+				assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
 
-			// set the stage
-			unsafe_set_state(1, PoolState::Destroying);
-			let random = 123;
+				// set the stage
+				unsafe_set_state(1, PoolState::Destroying);
+				let random = 123;
 
-			// cannot be kicked to above limit.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// partial permissionless unbonds are always rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
 
-			// or below the limit
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// full permissionless unbond is rejected while member 20 is still in the pool
+				// (depositor is not the sole member).
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
+					Error::<T>::DoesNotHavePermission
+				);
 
-			// or 0.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
-				Error::<T>::DoesNotHavePermission
-			);
+				// remove member 20 so the depositor becomes the sole remaining member.
+				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(random), 20));
+				CurrentEra::set(3);
+				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(random), 20, 0));
 
-			// they themselves can do it in this case though.
-			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 20));
-		})
+				// even as sole member, partial permissionless unbond of the depositor is still
+				// rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+
+				// now the depositor is the sole member: full permissionless unbond is allowed.
+				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
+
+				// repeated full unbond attempts now fail because balance_after_unbond <
+				// depositor_min_bond.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
+					Error::<T>::MinimumBondNotMet
+				);
+			})
 	}
 
 	#[test]
@@ -2975,7 +3177,7 @@ mod unbond {
 			unsafe_set_state(1, PoolState::Destroying);
 
 			// When
-			let current_era = 1 + TotalUnbondingPools::<Runtime>::get();
+			let current_era = 1 + <Runtime as Config>::MaxUnbondingPools::get();
 			CurrentEra::set(current_era);
 
 			assert_ok!(fully_unbond_permissioned(10));
@@ -3165,13 +3367,8 @@ mod unbond {
 				Error::<Runtime>::PartialUnbondNotAllowedPermissionlessly,
 			);
 
-			// depositor can never be unbonded permissionlessly .
-			assert_noop!(
-				Pools::fully_unbond(RuntimeOrigin::signed(420), 10),
-				Error::<T>::DoesNotHavePermission
-			);
-			// but depositor itself can do it.
-			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
+			// when destroying and sole member, depositor can be unbonded permissionlessly.
+			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(420), 10));
 
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 0);
 			assert_eq!(
@@ -3648,7 +3845,7 @@ mod withdraw_unbonded {
 
 				// Advance the current_era to ensure all `with_era` pools will be merged into
 				// `no_era` pool
-				current_era += TotalUnbondingPools::<Runtime>::get();
+				current_era += <Runtime as Config>::MaxUnbondingPools::get();
 				CurrentEra::set(current_era);
 
 				// Simulate some other call to unbond that would merge `with_era` pools into
@@ -6791,6 +6988,50 @@ mod commission {
 	}
 
 	#[test]
+	fn set_commission_max_snapshots_rewards_before_lowering_current() {
+		// `set_commission_max` force-lowers `current` when the new max is below it. Rewards that
+		// accrued at the higher rate since the last snapshot must stay owed to the payee at that
+		// higher rate, not be re-rated at the new lower rate and leaked to members.
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+			let payee = 900;
+			let _ = Currency::set_balance(&payee, 5);
+
+			// GIVEN: commission is 50% (this snapshots the still-empty reward pool)...
+			assert_ok!(Pools::set_commission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some((Perbill::from_percent(50), payee))
+			));
+			// ...and 100 of rewards accrue with no intervening snapshot (no claim/bond happens).
+			deposit_rewards(100);
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 100);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 0);
+
+			// WHEN: root force-lowers max commission to 20%, cutting `current` from 50% to 20%.
+			assert_ok!(Pools::set_commission_max(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Perbill::from_percent(20)
+			));
+
+			// THEN: the 100 that accrued at 50% was snapshotted before the cut, so 50 is owed to
+			// the payee. Without the pre-cut snapshot this would be 20% * 100 = 20.
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 50);
+
+			// AND: claiming commission pays the payee the pre-cut 50, not the post-cut 20.
+			let _ = pool_events_since_last_call();
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(payee), pool_id));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::PoolCommissionClaimed { pool_id, commission: 50 }]
+			);
+			assert_eq!(Currency::free_balance(&payee), 5 + 50);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_claimed, 50);
+		})
+	}
+
+	#[test]
 	fn set_commission_change_rate_zero_max_increase_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// set commission change rate to 0% per 10 blocks
@@ -7520,6 +7761,67 @@ mod slash {
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap(), bonded(12 + 24, 3));
 		});
 	}
+
+	// A slash that targets an unbonding era must be applied to that era's own `with_era` bucket.
+	// When the effective post-unbonding window widens (e.g. the bonding duration is lowered), eras
+	// that a narrower window would have merged into `no_era` are instead retained, so the slash is
+	// routed to the correct per-era bucket rather than being dropped or applied to the wrong pool.
+	#[test]
+	fn slash_lands_in_correct_bucket_after_window_widens() {
+		use sp_staking::OnStakingUpdate;
+
+		// We hand-craft `SubPoolsStorage` to exercise the slash-routing logic in isolation, which
+		// would otherwise desync the TVL bookkeeping that `do_try_state` validates.
+		ExtBuilder::default().with_check(0).build_and_execute(|| {
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
+
+			// Unbonding sub-pools spanning eras 1..=4, each with a 10/10 points-to-balance ratio.
+			let new_pools = || SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: unbonding_pools_with_era! {
+					1 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					2 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					3 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					4 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+				},
+			};
+
+			// With bonding duration 3 the effective window is `5 - 3 = 2`: at era 4, eras <= 2 are
+			// merged into `no_era`, so era 1 no longer has its own bucket...
+			BondingDuration::set(3);
+			assert!(new_pools().maybe_merge_pools(4).with_era.get(&1).is_none());
+
+			// ...but lowering the bonding duration to 1 widens the window to `5 - 1 = 4`: at era 4
+			// only era <= 0 is merged, so era 1 keeps its own bucket.
+			BondingDuration::set(1);
+			let widened = new_pools().maybe_merge_pools(4);
+			assert_eq!(widened.with_era.keys().copied().collect::<Vec<_>>(), vec![1, 2, 3, 4]);
+			SubPoolsStorage::<Runtime>::insert(1, widened);
+
+			let _ = pool_events_since_last_call();
+
+			// A slash that targets era 1 lands in era 1's bucket (reducing 10 -> 4), leaving the
+			// other era buckets and `no_era` untouched.
+			let slashed_unlocking: BTreeMap<EraIndex, Balance> = [(1, 4)].into_iter().collect();
+			Pools::on_slash(&default_bonded_account(), 0, &slashed_unlocking, 6);
+
+			let after = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			assert_eq!(after.with_era.get(&1).unwrap().balance, 4);
+			assert_eq!(after.with_era.get(&2).unwrap().balance, 10);
+			assert_eq!(after.with_era.get(&3).unwrap().balance, 10);
+			assert_eq!(after.with_era.get(&4).unwrap().balance, 10);
+			assert_eq!(after.no_era.balance, 0);
+			assert_eq!(after.no_era.points, 0);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::UnbondingPoolSlashed { pool_id: 1, era: 1, balance: 4 },
+					Event::PoolSlashed { pool_id: 1, balance: 0 },
+				]
+			);
+		});
+	}
 }
 
 mod chill {
@@ -7635,6 +7937,63 @@ mod filter {
 			// THEN she can bond extra funds to the pool
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::FreeBalance(10)));
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::Rewards));
+		});
+	}
+}
+
+mod claim_trapped_balance_migration {
+	use super::*;
+	use sp_staking::Delegator;
+
+	/// Test that do_claim_trapped_balance successfully recovers trapped funds.
+	#[test]
+	fn migration_recovers_trapped_funds() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+
+			// Member joins with 100
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Simulate trapped funds: delegator_balance > points
+			let pool_account = BondedPool::<Runtime>::get(1).unwrap().bonded_account();
+			DelegateMock::set_delegator_balance(member, 150);
+			DelegateMock::set_agent_balance_full(pool_account, 100, 50, 0);
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(150));
+
+			// Call the helper directly
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify balance corrected: delegator_balance should now match points (100)
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Calling again is a no-op (no state change)
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+		});
+	}
+
+	/// Test that do_claim_trapped_balance is a no-op when no trapped balance.
+	#[test]
+	fn migration_no_op_when_no_trapped_balance() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let balance_before = DelegateMock::delegator_balance(Delegator::from(member));
+			let member_before = PoolMembers::<Runtime>::get(member).unwrap();
+
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify no state changed
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), balance_before);
+			assert_eq!(PoolMembers::<Runtime>::get(member).unwrap(), member_before);
 		});
 	}
 }

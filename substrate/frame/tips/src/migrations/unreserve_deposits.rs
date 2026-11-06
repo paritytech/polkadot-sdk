@@ -176,7 +176,7 @@ where
 		// Deposited funds need to be unreserved.
 		for (account, unreserve_amount) in account_deposits.iter() {
 			if unreserve_amount.is_zero() {
-				continue
+				continue;
 			}
 			T::Currency::unreserve(&account, *unreserve_amount);
 		}
@@ -219,7 +219,7 @@ where
 					actual_reserved_after,
 					expected_amount_deducted
 				);
-				return Err("Reserved balance is incorrect".into())
+				return Err("Reserved balance is incorrect".into());
 			}
 		}
 

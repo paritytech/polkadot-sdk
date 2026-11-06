@@ -220,13 +220,14 @@ pub fn prepare_test(
 	let (overseer, overseer_handle) = match &mode {
 		TestDataAvailability::Read(options) => {
 			let subsystem = match options.strategy {
-				Strategy::FullFromBackers =>
+				Strategy::FullFromBackers => {
 					AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 						collation_req_receiver,
 						&state.req_protocol_names,
 						Metrics::try_register(&dependencies.registry).unwrap(),
 						RecoveryStrategyKind::BackersFirstAlways,
-					),
+					)
+				},
 				Strategy::Chunks => AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
 					&state.req_protocol_names,

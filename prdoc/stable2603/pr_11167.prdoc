@@ -1,0 +1,9 @@
+title: Tiny fixes for staking weights
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes a small weight miscalculation in staking pallet's on-poll hook.
+
+crates:
+- name: pallet-staking-async
+  bump: patch

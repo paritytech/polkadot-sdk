@@ -18,7 +18,7 @@
 
 use self::error::Error;
 use super::*;
-use crate::testing::{allow_unsafe, test_executor, timeout_secs};
+use crate::testing::{allow_unsafe, deny_unsafe, test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError};
@@ -205,6 +205,64 @@ async fn should_call_contract() {
 		client.call("balanceOf".into(), Bytes(vec![1, 2, 3]), Some(genesis_hash).into()),
 		Err(Error::Client(_))
 	)
+}
+
+#[tokio::test]
+async fn call_recorded_is_unsupported_without_recorder() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let block_hash = client.chain_info().best_hash;
+	let (state, _child) = new_full(client, test_executor(), None);
+
+	let err = state
+		.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash)
+		.unwrap_err();
+
+	assert_matches!(err, Error::CallRecordedUnsupported);
+	let object = jsonrpsee::types::ErrorObjectOwned::from(err);
+	assert_eq!(object.code(), error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE);
+}
+
+#[tokio::test]
+async fn call_recorded_denied_when_unsafe() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let block_hash = client.chain_info().best_hash;
+	let (state, _child) = new_full(client, test_executor(), None);
+
+	let err = state
+		.call_recorded(&deny_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash)
+		.unwrap_err();
+
+	assert_matches!(err, Error::CallRecordedDenied);
+	let object = jsonrpsee::types::ErrorObjectOwned::from(err);
+	assert_eq!(object.code(), error::CALL_RECORDED_DENIED_ERROR_CODE);
+}
+
+#[tokio::test]
+async fn call_recorded_reports_dispatch_failures_as_client_errors() {
+	struct FailingExecuteBlock;
+	impl<Block: BlockT> sc_tracing::block::TracingExecuteBlock<Block> for FailingExecuteBlock {
+		fn execute_block(&self, _: Block::Hash, _: Block) -> sp_blockchain::Result<()> {
+			unreachable!("not exercised by this test")
+		}
+
+		fn call_recorded(
+			&self,
+			_: Block::Hash,
+			_: &str,
+			_: &[u8],
+		) -> sp_blockchain::Result<Vec<u8>> {
+			Err(sp_blockchain::Error::Backend("dispatch failed".into()))
+		}
+	}
+
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let block_hash = client.chain_info().best_hash;
+	let (state, _child) = new_full(client, test_executor(), Some(Arc::new(FailingExecuteBlock)));
+
+	assert_matches!(
+		state.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash),
+		Err(Error::Client(e)) if e.to_string().contains("dispatch failed")
+	);
 }
 
 #[tokio::test]
@@ -475,7 +533,7 @@ async fn should_return_runtime_version() {
 		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
-		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
+		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",2],\
 		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"systemVersion\":1,\
 		\"stateVersion\":1}";
 
@@ -524,6 +582,36 @@ async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
 
 	let err = api_rpc.subscribe_unbounded("state_subscribeStorage", EmptyParams::new()).await;
 	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
+}
+
+#[tokio::test]
+async fn get_keys_is_rpc_unsafe() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let (api, child) = new_full(client, test_executor(), None);
+	let mut api_rpc = api.into_rpc();
+	let mut child_rpc = child.into_rpc();
+	let prefix = StorageKey(Vec::new());
+	let child_params = (prefixed_storage_key(), prefix.clone());
+
+	api_rpc.extensions_mut().insert(DenyUnsafe::Yes);
+	child_rpc.extensions_mut().insert(DenyUnsafe::Yes);
+
+	let err = api_rpc.call::<_, Vec<StorageKey>>("state_getKeys", [prefix.clone()]).await;
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
+	let err = child_rpc
+		.call::<_, Vec<StorageKey>>("childstate_getKeys", child_params.clone())
+		.await;
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
+
+	api_rpc.extensions_mut().insert(DenyUnsafe::No);
+	child_rpc.extensions_mut().insert(DenyUnsafe::No);
+
+	let keys = api_rpc.call::<_, Vec<StorageKey>>("state_getKeys", [prefix]).await.unwrap();
+	assert!(!keys.is_empty());
+	assert!(child_rpc
+		.call::<_, Vec<StorageKey>>("childstate_getKeys", child_params)
+		.await
+		.is_ok());
 }
 
 #[tokio::test]

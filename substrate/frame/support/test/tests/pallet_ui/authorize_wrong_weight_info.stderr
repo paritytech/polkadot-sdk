@@ -2,4 +2,4 @@ error[E0599]: no function or associated item named `authorize_call1` found for a
   --> tests/pallet_ui/authorize_wrong_weight_info.rs:39:10
    |
 39 |         pub fn call1(origin: OriginFor<T>, a: u32) -> DispatchResult {
-   |                ^^^^^ function or associated item not found in `<T as Config>::WeightInfo`
+   |                ^^^^^ function or associated item not found in `<T as pallet::Config>::WeightInfo`

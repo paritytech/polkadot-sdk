@@ -62,7 +62,7 @@ fn fee_estimation_for_teleport() {
 				(Here, 100u128).into(),
 				(Parent, 20u128).into(),
 			])),
-			fee_asset_id: Box::new(Parent.into()), // Fees are paid with the RelayToken
+			fee_asset_item: 1, // Fees are paid with the RelayToken
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -112,16 +112,22 @@ fn fee_estimation_for_teleport() {
 					who: 8660274132218572653,
 					amount: 100
 				}),
-				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned {
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::Withdrawn {
 					asset_id: 1,
-					owner: 1,
-					balance: 20
+					who: 1,
+					amount: 20
 				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 100 }),
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::BurnedCredit {
+					asset_id: 1,
+					amount: 20
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who: 1, amount: 100 }),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 100 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
 					outcome: Outcome::Complete { used: Weight::from_parts(400, 40) },
 				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 20 }),
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who: 1, amount: 20 }),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 20 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::FeesPaid {
 					paying: AccountIndex64 { index: 1, network: None }.into(),
 					fees: (Here, 20u128).into(),
@@ -229,7 +235,7 @@ fn dry_run_reserve_asset_transfer_common(
 					.into_version(input_xcm_version)
 					.unwrap(),
 			),
-			fee_asset_id: Box::new(Parent.into()),
+			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -273,15 +279,20 @@ fn dry_run_reserve_asset_transfer_common(
 		assert_eq!(
 			dry_run_effects.emitted_events,
 			vec![
-				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned {
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::Withdrawn {
 					asset_id: 1,
-					owner: 1,
-					balance: 100
+					who: 1,
+					amount: 100
+				}),
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::BurnedCredit {
+					asset_id: 1,
+					amount: 100
 				}),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
 					outcome: Outcome::Complete { used: Weight::from_parts(200, 20) }
 				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 20 }),
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who: 1, amount: 20 }),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 20 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::FeesPaid {
 					paying: AccountIndex64 { index: 1, network: None }.into(),
 					fees: (Here, 20u128).into()
@@ -419,13 +430,14 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		assert_eq!(
 			dry_run_effects.emitted_events,
 			vec![
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 540 }),
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who: 1, amount: 540 }),
 				RuntimeEvent::System(frame_system::Event::NewAccount { account: 2100 }),
 				RuntimeEvent::Balances(pallet_balances::Event::Endowed {
 					account: 2100,
 					free_balance: 520
 				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who: 2100, amount: 520 }),
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who: 2100, amount: 520 }),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 20 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent {
 					origin: (who,).into(),
 					destination: (Parent, Parachain(2100)).into(),
@@ -514,7 +526,7 @@ fn fee_estimation_for_usdt_reserve_transfer_in_usdt() {
 			assets: Box::new(VersionedAssets::from(vec![
 				(usdt_location.clone(), 100u128).into(), // Send 100 USDT
 			])),
-			fee_asset_id: Box::new(VersionedAssetId::from(AssetId(usdt_location.clone()))),
+			fee_asset_item: 0, // Fees are paid with USDT (the only asset)
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));

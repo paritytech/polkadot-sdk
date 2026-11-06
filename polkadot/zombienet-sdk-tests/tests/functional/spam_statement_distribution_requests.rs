@@ -3,6 +3,7 @@
 
 // Test if parachains progress when group is getting spammed by statement distribution requests.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
 use tokio::time::Duration;
 
@@ -28,11 +29,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 					// parachain::statement-distribution=trace to find
 					// "Peer already being served, dropping request"
 					("-lparachain=debug,parachain::statement-distribution=trace").into(),
-				])
+				]))
 				.with_default_resources(|r| {
 					r.with_limit_cpu("2")
 						.with_limit_memory("4G")
@@ -49,11 +50,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("honest-0"))
-				.with_node(|node| node.with_name("honest-1"))
-				.with_node(|node| node.with_name("honest-2"))
-				.with_node(|node| node.with_name("honest-3"))
-				.with_node(|node| {
+				.with_validator(|node| node.with_name("honest-0"))
+				.with_validator(|node| node.with_name("honest-1"))
+				.with_validator(|node| node.with_name("honest-2"))
+				.with_validator(|node| node.with_name("honest-3"))
+				.with_validator(|node| {
 					node.with_name("malus")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -116,7 +117,8 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		2,
-		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)].into_iter().collect(),
+		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)],
+		[],
 	)
 	.await?;
 
@@ -134,7 +136,8 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)].into_iter().collect(),
+		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)],
+		[],
 	)
 	.await?;
 

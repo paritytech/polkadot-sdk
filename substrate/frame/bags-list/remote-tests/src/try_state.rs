@@ -35,12 +35,12 @@ pub async fn execute<Runtime, Block>(
 {
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
-			transport: ws_url.to_string().into(),
+			transport_uris: vec![ws_url.to_string()],
 			pallets: vec![pallet_bags_list::Pallet::<Runtime, pallet_bags_list::Instance1>::name()
 				.to_string()],
 			hashed_prefixes: vec![
-				<pallet_staking::Bonded<Runtime>>::prefix_hash().to_vec(),
-				<pallet_staking::Ledger<Runtime>>::prefix_hash().to_vec(),
+				<pallet_staking_async::Bonded<Runtime>>::prefix_hash().to_vec(),
+				<pallet_staking_async::Ledger<Runtime>>::prefix_hash().to_vec(),
 			],
 			..Default::default()
 		}))

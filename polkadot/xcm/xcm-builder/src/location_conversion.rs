@@ -91,8 +91,9 @@ pub struct DescribeTreasuryVoiceTerminal;
 impl DescribeLocation for DescribeTreasuryVoiceTerminal {
 	fn describe_location(location: &Location) -> Option<Vec<u8>> {
 		match location.unpack() {
-			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some((b"Treasury", b"Voice").encode()),
+			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some((b"Treasury", b"Voice").encode())
+			},
 			_ => None,
 		}
 	}
@@ -155,29 +156,37 @@ impl<AccountId: From<[u8; 32]> + Clone, Describe: DescribeLocation> ConvertLocat
 
 /// This is a describer for legacy support of the `ForeignChainAliasAccount` preimage. New chains
 /// are recommended to use the more extensible `HashedDescription` type.
+///
+/// Kept for chains using `HashedDescription<AccountId, LegacyDescribeForeignChainAccount>`.
+#[allow(dead_code)]
 pub struct LegacyDescribeForeignChainAccount;
 impl DescribeLocation for LegacyDescribeForeignChainAccount {
 	fn describe_location(location: &Location) -> Option<Vec<u8>> {
 		Some(match location.unpack() {
 			// Used on the relay chain for sending paras that use 32 byte accounts
-			(0, [Parachain(para_id), AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 0),
+			(0, [Parachain(para_id), AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 0)
+			},
 
 			// Used on the relay chain for sending paras that use 20 byte accounts
-			(0, [Parachain(para_id), AccountKey20 { key, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 0),
+			(0, [Parachain(para_id), AccountKey20 { key, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 0)
+			},
 
 			// Used on para-chain for sending paras that use 32 byte accounts
-			(1, [Parachain(para_id), AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 1),
+			(1, [Parachain(para_id), AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 1)
+			},
 
 			// Used on para-chain for sending paras that use 20 byte accounts
-			(1, [Parachain(para_id), AccountKey20 { key, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 1),
+			(1, [Parachain(para_id), AccountKey20 { key, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 1)
+			},
 
 			// Used on para-chain for sending from the relay chain
-			(1, [AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_relay_32(id, 1),
+			(1, [AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_relay_32(id, 1)
+			},
 
 			// No other conversions provided
 			_ => return None,
@@ -187,16 +196,20 @@ impl DescribeLocation for LegacyDescribeForeignChainAccount {
 
 /// Prefix for generating alias account for accounts coming
 /// from chains that use 32 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_PARA_32: [u8; 37] = *b"ForeignChainAliasAccountPrefix_Para32";
 
 /// Prefix for generating alias account for accounts coming
 /// from chains that use 20 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_PARA_20: [u8; 37] = *b"ForeignChainAliasAccountPrefix_Para20";
 
 /// Prefix for generating alias account for accounts coming
 /// from the relay chain using 32 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_RELAY: [u8; 36] = *b"ForeignChainAliasAccountPrefix_Relay";
 
+#[allow(dead_code)]
 impl LegacyDescribeForeignChainAccount {
 	fn from_para_32(para_id: &u32, id: &[u8; 32], parents: u8) -> Vec<u8> {
 		(FOREIGN_CHAIN_PREFIX_PARA_32, para_id, id, parents).encode()
@@ -210,62 +223,6 @@ impl LegacyDescribeForeignChainAccount {
 		(FOREIGN_CHAIN_PREFIX_RELAY, id, parents).encode()
 	}
 }
-
-/// This is deprecated in favor of the more modular `HashedDescription` converter. If
-/// your chain has previously used this, then you can retain backwards compatibility using
-/// `HashedDescription` and a tuple with `LegacyDescribeForeignChainAccount` as the first
-/// element. For example:
-///
-/// ```nocompile
-/// pub type LocationToAccount = HashedDescription<
-///   // Legacy conversion - MUST BE FIRST!
-///   LegacyDescribeForeignChainAccount,
-///   // Other conversions
-///   DescribeTerminus,
-///   DescribePalletTerminal,
-/// >;
-/// ```
-///
-/// This type is equivalent to the above but without any other conversions.
-///
-/// ### Old documentation
-///
-/// This converter will for a given `AccountId32`/`AccountKey20`
-/// always generate the same "remote" account for a specific
-/// sending chain.
-/// I.e. the user gets the same remote account
-/// on every consuming para-chain and relay chain.
-///
-/// Can be used as a converter in `SovereignSignedViaLocation`
-///
-/// ## Example
-/// Assuming the following network layout.
-///
-/// ```notrust
-///              R
-///           /    \
-///          /      \
-///        P1       P2
-///        / \       / \
-///       /   \     /   \
-///     P1.1 P1.2  P2.1  P2.2
-/// ```
-/// Then a given account A will have the same alias accounts in the
-/// same plane. So, it is important which chain account A acts from.
-/// E.g.
-/// * From P1.2 A will act as
-///    * hash(`ParaPrefix`, A, 1, 1) on P1.2
-///    * hash(`ParaPrefix`, A, 1, 0) on P1
-/// * From P1 A will act as
-///    * hash(`RelayPrefix`, A, 1) on P1.2 & P1.1
-///    * hash(`ParaPrefix`, A, 1, 1) on P2
-///    * hash(`ParaPrefix`, A, 1, 0) on R
-///
-/// Note that the alias accounts have overlaps but never on the same
-/// chain when the sender comes from different chains.
-#[deprecated = "Use `HashedDescription<AccountId, LegacyDescribeForeignChainAccount>` instead"]
-pub type ForeignChainAliasAccount<AccountId> =
-	HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
 
 pub struct Account32Hash<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
@@ -342,8 +299,9 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some((TreasuryAccount::get().into() as [u8; 32]).into()),
+			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some((TreasuryAccount::get().into() as [u8; 32]).into())
+			},
 			_ => None,
 		}
 	}
@@ -446,8 +404,9 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 		let (remote_network, remote_location) = devolved;
 
 		match remote_location.as_slice() {
-			[Parachain(remote_network_para_id)] =>
-				Some(AccountId::from(Self::from_params(&remote_network, &remote_network_para_id))),
+			[Parachain(remote_network_para_id)] => {
+				Some(AccountId::from(Self::from_params(&remote_network, &remote_network_para_id)))
+			},
 			_ => None,
 		}
 	}
@@ -491,16 +450,18 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 				// equivalent to `EthereumLocationsConverterFor`
 				[] => (b"ethereum-chain", chain_id).using_encoded(blake2_256).into(),
 				// equivalent to `EthereumLocationsConverterFor`
-				[AccountKey20 { network: _, key }] =>
-					(b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into(),
+				[AccountKey20 { network: _, key }] => {
+					(b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into()
+				},
 				// extends `EthereumLocationsConverterFor`
 				tail => (b"ethereum-chain", chain_id, tail).using_encoded(blake2_256).into(),
 			}
 		} else {
 			match remote_location.as_slice() {
 				// equivalent to `GlobalConsensusParachainConvertsFor`
-				[Parachain(para_id)] =>
-					(b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into(),
+				[Parachain(para_id)] => {
+					(b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into()
+				},
 				// converts everything else based on hash of encoded location tail
 				tail => (b"glblcnsnss", remote_network, tail).using_encoded(blake2_256).into(),
 			}

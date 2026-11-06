@@ -1,0 +1,46 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "statement-store: implement new rpc api"
+
+doc:
+- audience: Node Dev
+  description: |
+    Implements the new simplified RPC API for the statement store as proposed in PR #10452.
+    The API surface has been reduced to two main functions: `submit` and `subscribe_statement`.
+
+    **Submit changes:**
+    - Added support for the new `expiry` field where statements with an expiration timestamp
+      lower than the current time are rejected.
+
+    **Subscribe changes:**
+    - Implemented a configurable worker pool that manages all subscriptions.
+    - New subscriptions are assigned to workers via a round-robin protocol.
+    - When a new statement is accepted by the statement-store, all workers are notified and
+      evaluate their assigned subscription filters, notifying each subscriber accordingly.
+    - Existing statements matching the filter are sent on subscription.
+
+    **Additional improvements:**
+    - Added periodical scanning and removal of expired statements.
+    - Removed the old API methods (broadcast, posts, networkState, etc.) in favor of the
+      simplified submit/subscribe interface.
+
+crates:
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: minor
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-network-statement
+  bump: patch
+- name: sc-utils
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: node-rpc
+  bump: patch
+- name: staging-node-cli
+  bump: patch

@@ -132,7 +132,7 @@ impl<'a, Call> MatchXcm for Matcher<'a, Call> {
 		Self: Sized,
 	{
 		if self.total_inst - self.current_idx != n {
-			return Err(ProcessMessageError::BadFormat)
+			return Err(ProcessMessageError::BadFormat);
 		}
 
 		Ok(self)
@@ -159,12 +159,12 @@ impl<'a, Call> MatchXcm for Matcher<'a, Call> {
 		F: FnMut(&mut Self::Inst) -> Result<ControlFlow<()>, Self::Error>,
 	{
 		if self.current_idx >= self.total_inst {
-			return Err(ProcessMessageError::BadFormat)
+			return Err(ProcessMessageError::BadFormat);
 		}
 
 		while self.current_idx < self.total_inst && cond(&self.xcm[self.current_idx]) {
 			if let ControlFlow::Break(()) = f(&mut self.xcm[self.current_idx])? {
-				break
+				break;
 			}
 			self.current_idx += 1;
 		}

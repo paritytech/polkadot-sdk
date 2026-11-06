@@ -103,5 +103,10 @@ pub mod pallet {
 		fn on_validation_code_applied() {
 			crate::Pallet::<T>::set_pending_custom_validation_head_data();
 		}
+		fn on_relay_state_proof(
+			_relay_state_proof: &parachain_system::relay_state_snapshot::RelayChainStateProof,
+		) -> frame_support::weights::Weight {
+			frame_support::weights::Weight::zero()
+		}
 	}
 }

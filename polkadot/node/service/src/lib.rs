@@ -77,7 +77,6 @@ pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id as ParaId};
 pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
-pub use sc_executor::NativeExecutionDispatch;
 use sc_executor::WasmExecutor;
 pub use sc_service::{
 	config::{DatabaseSource, PrometheusConfig},
@@ -444,10 +443,12 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 		});
 
 	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
-			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params),
-		sc_network::config::NetworkBackendType::Litep2p =>
-			new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
+		sc_network::config::NetworkBackendType::Libp2p => {
+			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
+		},
 	}
 }
 

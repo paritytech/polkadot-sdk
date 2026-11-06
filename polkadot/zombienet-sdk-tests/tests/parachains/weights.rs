@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[zombienet_sdk::subxt::subxt(
-	runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale"
+	runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale",
+	crate = "::zombienet_sdk::subxt::ext::subxt_core"
 )]
 mod ahw {}
 
 use ahw::runtime_types::{
-	pallet_revive::primitives::{Code, StorageDeposit},
+	pallet_revive_types::runtime_api::types::contract::{CodeV1, StorageDepositV1},
 	sp_weights::weight_v2::Weight,
 };
 use anyhow::anyhow;
@@ -162,8 +163,8 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_default_db_snapshot("https://storage.googleapis.com/zombienet-db-snaps/polkadot/test_weights/relaychain.tgz")
-				.with_node(|node| node.with_name("validator-0"))
-				.with_node(|node| node.with_name("validator-1"))
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
@@ -294,19 +295,19 @@ async fn instantiate_params(
 	caller: &Keypair,
 ) -> Result<(u64, u64, u128), anyhow::Error> {
 	let account_id = caller.public_key().to_account_id();
-	let code = Code::Upload(code);
+	let code = CodeV1::Upload(code);
 	let call = ahw::apis()
 		.revive_api()
 		.instantiate(account_id, 0, None, None, code, vec![], None);
 	let dry_run = client.runtime_api().at_latest().await?.call(call).await?;
 	let deposit = match dry_run.storage_deposit {
-		StorageDeposit::Charge(c) => c,
-		StorageDeposit::Refund(_) => 0,
+		StorageDepositV1::Charge(c) => c,
+		StorageDepositV1::Refund(_) => 0,
 	};
 
 	// Make sure we have enough gas and multiply by 4, since without it the calls fail not enough
 	// gas.
-	Ok((dry_run.gas_required.ref_time * 4, dry_run.gas_required.proof_size * 4, deposit * 4))
+	Ok((dry_run.weight_required.ref_time * 4, dry_run.weight_required.proof_size * 4, deposit * 4))
 }
 
 async fn call_params(
@@ -319,11 +320,11 @@ async fn call_params(
 	let call = ahw::apis().revive_api().call(account_id, contract, 0, None, None, payload);
 	let dry_run = client.runtime_api().at_latest().await?.call(call).await?;
 	let deposit = match dry_run.storage_deposit {
-		StorageDeposit::Charge(c) => c,
-		StorageDeposit::Refund(_) => 0,
+		StorageDepositV1::Charge(c) => c,
+		StorageDepositV1::Refund(_) => 0,
 	};
 
-	Ok((dry_run.gas_required.ref_time, dry_run.gas_required.proof_size, deposit))
+	Ok((dry_run.weight_required.ref_time, dry_run.weight_required.proof_size, deposit))
 }
 
 async fn call_contract(

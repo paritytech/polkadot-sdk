@@ -25,8 +25,8 @@ use bp_messages::{
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
+use Debug;
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
@@ -65,9 +65,7 @@ impl<T: Config<I>, I: 'static> Get<u32> for StoredMessagePayloadLimit<T, I> {
 pub type StoredMessagePayload<T, I> = BoundedVec<u8, StoredMessagePayloadLimit<T, I>>;
 
 /// Result of messages receival confirmation.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum ReceptionConfirmationError {
 	/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.
@@ -144,10 +142,10 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			end: latest_delivered_nonce,
 		};
 		if confirmed_messages.total_messages() == 0 {
-			return Ok(None)
+			return Ok(None);
 		}
 		if confirmed_messages.end > data.latest_generated_nonce {
-			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages);
 		}
 		if confirmed_messages.total_messages() > max_allowed_messages {
 			// that the relayer has declared correct number of messages that the proof contains (it
@@ -161,7 +159,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 				max_allowed=%max_allowed_messages,
 				"Messages delivery proof contains too many messages to confirm"
 			);
-			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
+			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected);
 		}
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)?;
@@ -205,18 +203,18 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 		// unrewarded relayer entry must have at least 1 unconfirmed message
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end < entry.messages.begin {
-			return Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry)
+			return Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry);
 		}
 		// every entry must confirm range of messages that follows previous entry range
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if expected_entry_begin != Some(entry.messages.begin) {
-			return Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
+			return Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries);
 		}
 		expected_entry_begin = entry.messages.end.checked_add(1);
 		// entry can't confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end > latest_received_nonce {
-			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages);
 		}
 	}
 

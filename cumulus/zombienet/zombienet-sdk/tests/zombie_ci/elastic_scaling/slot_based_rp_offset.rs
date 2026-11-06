@@ -5,14 +5,12 @@
 // elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::assert_relay_parent_offset;
+use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, assign_cores};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
 };
-
-use cumulus_zombienet_sdk_helpers::assign_cores;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
@@ -42,17 +40,19 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..6).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2400)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("relay-parent-offset")
+				.with_chain("relay-parent-offset-2")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
 					("-lparachain=debug,aura=debug").into(),
@@ -79,9 +79,9 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 
 	let para_client = para_node_rp_offset.wait_client().await?;
 
-	assign_cores(relay_node, 2400, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2400, vec![0, 1]).await?;
 
-	assert_relay_parent_offset(&relay_client, &para_client, 2, 30).await?;
+	assert_relay_parent_offset(&relay_client, &para_client, 2, 45).await?;
 
 	log::info!("Test finished successfully");
 

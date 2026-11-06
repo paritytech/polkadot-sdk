@@ -39,7 +39,7 @@ pub fn rerun_if_git_head_changed() {
 			Err(err) => {
 				eprintln!("cargo:warning=Unable to read the Git repository: {}", err);
 
-				return
+				return;
 			},
 			Ok(None) => {},
 			Ok(Some(paths)) => {
@@ -47,7 +47,7 @@ pub fn rerun_if_git_head_changed() {
 					println!("cargo:rerun-if-changed={}", p.display());
 				}
 
-				return
+				return;
 			},
 		}
 

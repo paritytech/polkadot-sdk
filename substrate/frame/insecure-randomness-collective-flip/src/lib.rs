@@ -178,8 +178,9 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub BlockLength: limits::BlockLength = limits::BlockLength
-			::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

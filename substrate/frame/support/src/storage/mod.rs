@@ -27,7 +27,6 @@ use crate::{
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use core::marker::PhantomData;
-use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
 
 pub use self::{
@@ -37,6 +36,7 @@ pub use self::{
 	},
 	types::StorageEntryMetadataBuilder,
 };
+pub use sp_core::storage::ChildInfo;
 pub use sp_runtime::TransactionOutcome;
 pub use types::Key;
 
@@ -1101,7 +1101,7 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1117,14 +1117,14 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1199,12 +1199,12 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 					Ok(item) => return Some(item),
 					Err(e) => {
 						log::error!("key failed to decode at {:?}: {:?}", self.previous_key, e);
-						continue
+						continue;
 					},
 				}
 			}
 
-			return None
+			return None;
 		}
 	}
 }
@@ -1314,7 +1314,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1329,14 +1329,14 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1458,7 +1458,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 				},
 				None => {
 					log::error!("old key failed to decode at {:?}", previous_key);
-					continue
+					continue;
 				},
 			}
 		}
@@ -1802,7 +1802,7 @@ mod test {
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3, 4]);
 
 			// test removal
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 			assert!(MyStorage::iter_values().collect::<Vec<_>>().is_empty());
 
 			// test migration
@@ -1812,7 +1812,7 @@ mod test {
 			assert!(MyStorage::iter_values().collect::<Vec<_>>().is_empty());
 			MyStorage::translate_values(|v: u32| Some(v as u64));
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2]);
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 
 			// test migration 2
 			unhashed::put(&[&k[..], &vec![1][..]].concat(), &1u128);
@@ -1824,7 +1824,7 @@ mod test {
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3]);
 			MyStorage::translate_values(|v: u128| Some(v as u64));
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3]);
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 
 			// test that other values are not modified.
 			assert_eq!(unhashed::get(&key_before[..]), Some(32u64));

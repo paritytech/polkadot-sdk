@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
-use parachains_common::Hash;
+use parachains_common_types::Hash;
 use sc_network::{
 	config::FullNetworkConfiguration, service::traits::NetworkService, NetworkBackend,
 };
@@ -37,6 +37,7 @@ pub(crate) fn new_statement_handler_proto<
 >(
 	client: &ParachainClient<Block, RuntimeApi>,
 	parachain_config: &Configuration,
+	statement_store_config: &sc_statement_store::Config,
 	metrics: &sc_network::NotificationMetrics,
 	net_config: &mut FullNetworkConfiguration<Block, Hash, Net>,
 ) -> sc_network_statement::StatementHandlerPrototype {
@@ -46,6 +47,8 @@ pub(crate) fn new_statement_handler_proto<
 			parachain_config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&net_config.peer_store_handle()),
+			&net_config.network_config,
+			statement_store_config.v2dht.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_config);
 	statement_handler_proto
@@ -63,14 +66,19 @@ pub(crate) fn build_statement_store<
 	sync_service: Arc<sc_network_sync::service::syncing_service::SyncingService<Block>>,
 	local_keystore: Arc<sc_keystore::LocalKeystore>,
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
+	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
+	let network_workers = config.network_workers;
+	let rate_limit = config.rate_limit;
+	let v2dht_config = config.v2dht.clone();
+
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
-		Default::default(),
+		config,
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	let statement_protocol_executor = {
@@ -85,7 +93,15 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
+		network_workers,
+		rate_limit,
+		v2dht_config,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),

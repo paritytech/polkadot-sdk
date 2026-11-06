@@ -34,14 +34,14 @@ impl GenesisBuildDef {
 			item
 		} else {
 			let msg = "Invalid pallet::genesis_build, expected item impl";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		};
 
 		let item_trait = &item
 			.trait_
 			.as_ref()
 			.ok_or_else(|| {
-				let msg = "Invalid pallet::genesis_build, expected impl<..> GenesisBuild<..> \
+				let msg = "Invalid pallet::genesis_build, expected impl<..> BuildGenesisConfig \
 					for GenesisConfig<..>";
 				syn::Error::new(item.span(), msg)
 			})?

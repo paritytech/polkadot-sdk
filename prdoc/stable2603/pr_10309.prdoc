@@ -1,0 +1,10 @@
+title: '[pallet-revive] evm remove contract storage slot when writing all zero bytes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/contract-issues/issues/216
+
+    When writing all zero bytes to a storage item, the item shall be deleted and deposit refunded.
+crates:
+- name: pallet-revive
+  bump: patch

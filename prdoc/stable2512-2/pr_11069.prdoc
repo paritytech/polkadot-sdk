@@ -1,0 +1,11 @@
+title: 'frame-omni-bencher: enable jemalloc-allocator'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix huge benchmark regression for storage-heavy extrinsics, enabling jemalloc-allocator via polkadot-jemalloc-shim for omni-bencher, marked as optional in the scope of PR #10590.
+    Revert also the dummy write/read workaround at the end of commit_db() introduced by #10947.
+crates:
+- name: frame-omni-bencher
+  bump: patch
+- name: frame-benchmarking
+  bump: patch

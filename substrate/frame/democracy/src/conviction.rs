@@ -23,7 +23,7 @@ use core::result::Result;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Bounded, CheckedDiv, CheckedMul, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 /// A value denoting the strength of conviction of a vote.
@@ -38,7 +38,7 @@ use sp_runtime::{
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub enum Conviction {

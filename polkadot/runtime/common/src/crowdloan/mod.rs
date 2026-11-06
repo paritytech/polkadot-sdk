@@ -55,7 +55,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -76,7 +76,7 @@ use sp_runtime::{
 	traits::{
 		AccountIdConversion, CheckedAdd, Hash, IdentifyAccount, One, Saturating, Verify, Zero,
 	},
-	MultiSignature, MultiSigner, RuntimeDebug,
+	Debug, MultiSignature, MultiSigner,
 };
 
 type CurrencyOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::Currency;
@@ -128,7 +128,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum LastContribution<BlockNumber> {
 	Never,
 	PreEnding(u32),
@@ -137,7 +137,7 @@ pub enum LastContribution<BlockNumber> {
 
 /// Information on a funding effort for a pre-existing parachain. We assume that the parachain ID
 /// is known as it's used for the key of the storage item for which this is the value (`Funds`).
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[codec(dumb_trait_bound)]
 pub struct FundInfo<AccountId, Balance, BlockNumber, LeasePeriod> {
 	/// The owning account who placed the deposit.
@@ -2032,6 +2032,7 @@ mod benchmarking {
 	)]
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn create() -> Result<(), BenchmarkError> {

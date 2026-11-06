@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//!Types, and traits to integrate pallet-revive with EVM.
+//! Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
 mod api;
@@ -27,6 +27,9 @@ pub mod fees;
 pub mod runtime;
 pub mod tx_extension;
 pub use alloy_core::sol_types::decode_revert_reason;
+
+/// EIP-7702: Set EOA Account Code
+pub mod eip7702;
 
 /// Ethereum block hash builder related types.
 pub(crate) mod block_hash;

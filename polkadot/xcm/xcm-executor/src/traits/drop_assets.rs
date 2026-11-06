@@ -20,6 +20,10 @@ use frame_support::traits::Contains;
 use xcm::latest::{Assets, Location, Weight, XcmContext};
 
 /// Define a handler for when some non-empty `AssetsInHolding` value should be dropped.
+///
+/// Types implementing this trait should make sure to properly handle imbalances held within
+/// `AssetsInHolding`. Generally should have a mirror `ClaimAssets` implementation that can recover
+/// the imbalance back into holding.
 pub trait DropAssets {
 	/// Handler for receiving dropped assets. Returns the weight consumed by this operation.
 	fn drop_assets(origin: &Location, assets: AssetsInHolding, context: &XcmContext) -> Weight;
@@ -62,15 +66,19 @@ impl<D: DropAssets, O: Contains<Location>> DropAssets for FilterOrigin<D, O> {
 }
 
 /// Define any handlers for the `AssetClaim` instruction.
+///
+/// Types implementing this trait should make sure to properly handle imbalances held within the
+/// trap and pass them over to `AssetsInHolding`. Generally should have a mirror `DropAssets`
+/// implementation that originally moved the imbalance from holding to this trap.
 pub trait ClaimAssets {
-	/// Claim any assets available to `origin` and return them in a single `Assets` value, together
-	/// with the weight used by this operation.
+	/// Claim any assets available to `origin` and return them in a single `AssetsInHolding` value,
+	/// together with the weight used by this operation.
 	fn claim_assets(
 		origin: &Location,
 		ticket: &Location,
 		what: &Assets,
 		context: &XcmContext,
-	) -> bool;
+	) -> Option<AssetsInHolding>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -80,12 +88,16 @@ impl ClaimAssets for Tuple {
 		ticket: &Location,
 		what: &Assets,
 		context: &XcmContext,
-	) -> bool {
+	) -> Option<AssetsInHolding> {
 		for_tuples!( #(
-			if Tuple::claim_assets(origin, ticket, what, context) {
-				return true;
+			if let Some(a) = Tuple::claim_assets(origin, ticket, what, context) {
+				return Some(a);
 			}
 		)* );
-		false
+		None
 	}
 }
+
+/// Helper super trait for requiring implementation of both `DropAssets` and `ClaimAssets`.
+pub trait TrapAndClaimAssets: DropAssets + ClaimAssets {}
+impl<T: DropAssets + ClaimAssets> TrapAndClaimAssets for T {}

@@ -1,0 +1,10 @@
+title: 'election-provider-multi-block: reduce overclaimed proof_size during Signed
+  phase'
+doc:
+- audience: Runtime Dev
+  description: |-
+    on_initialize claimed on_initialize_into_signed weight (> ~3M proof_size) every block during the Signed phase, but the heavy work (loading voter snapshots) only happens once when transitioning from Snapshot into Signed.
+    Use discriminant comparison to distinguish phase entry from same-phase ticks,  falling back to on_initialize_nothing for the latter.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch

@@ -29,7 +29,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Note: it's possible only to lock the setting, but not to unlock it after.
 
-	///
 	/// - `origin`: The origin of the transaction, representing the account attempting to lock the
 	///   collection.
 	/// - `collection`: The identifier of the collection to be locked.

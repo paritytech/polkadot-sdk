@@ -88,8 +88,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -105,8 +106,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -453,7 +455,7 @@ fn cleanup_works() {
 		);
 		assert_ok!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10));
 		// NOTE: This will fail until #10016 is merged.
-		//		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
+		// 		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
 		// Error::<Test>::NoneRemaining);
 	});
 }
@@ -683,4 +685,30 @@ fn max_member_count_works() {
 		assert_eq!(member_count(11), 2);
 		assert_eq!(member_count(12), 2);
 	});
+}
+
+#[test]
+fn vote_weight_converters_do_not_overflow_at_max_rank() {
+	// Documented examples still hold.
+	assert_eq!(Linear::convert(0), 1);
+	assert_eq!(Linear::convert(4), 5);
+	assert_eq!(Geometric::convert(0), 1);
+	assert_eq!(Geometric::convert(4), 15);
+
+	// The largest excess rank must not overflow the intermediate arithmetic. Both results still
+	// fit in `Votes`.
+	assert_eq!(Linear::convert(Rank::MAX), 65_536);
+	assert_eq!(Geometric::convert(Rank::MAX - 1), 2_147_450_880);
+	assert_eq!(Geometric::convert(Rank::MAX), 2_147_516_416);
+
+	// Voting power stays monotonic across the boundary.
+	assert!(Linear::convert(Rank::MAX) > Linear::convert(Rank::MAX - 1));
+	assert!(Geometric::convert(Rank::MAX) > Geometric::convert(Rank::MAX - 1));
+}
+
+#[test]
+fn tally_approval_does_not_overflow() {
+	// `ayes` and `nays` accrue saturatingly, so their sum can exceed `Votes`.
+	let tally: TallyOf<Test> = Tally::from_parts(1, Votes::MAX, Votes::MAX);
+	assert_eq!(tally.approval(0), Perbill::from_rational(1u32, 2));
 }

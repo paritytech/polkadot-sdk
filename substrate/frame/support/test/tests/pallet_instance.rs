@@ -207,7 +207,7 @@ pub mod pallet {
 	#[pallet::origin]
 	#[derive(
 		EqNoBound,
-		RuntimeDebugNoBound,
+		DebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
 		PartialOrdNoBound,
@@ -221,6 +221,7 @@ pub mod pallet {
 	#[scale_info(skip_type_params(T, I))]
 	pub struct Origin<T, I = ()>(PhantomData<(T, I)>);
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config<I>, I: 'static> ValidateUnsigned for Pallet<T, I> {
 		type Call = Call<T, I>;
@@ -248,7 +249,7 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
+	#[derive(codec::Encode, Debug)]
 	#[cfg_attr(feature = "std", derive(codec::Decode))]
 	pub enum InherentError {}
 

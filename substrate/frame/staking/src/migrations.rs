@@ -31,7 +31,7 @@ use sp_runtime::TryRuntimeError;
 /// Used for release versioning up to v12.
 ///
 /// Obsolete from v13. Keeping around to make encoding/decoding of old migration code easier.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 enum ObsoleteReleases {
 	V5_0_0,  // blockable validators.
 	V6_0_0,  // removal of all storage associated with offchain phragmen.
@@ -392,7 +392,9 @@ pub mod v11 {
 						warn,
 						"new bags-list name is equal to the old one, only bumping the version"
 					);
-					return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1))
+					return T::DbWeight::get()
+						.reads(1)
+						.saturating_add(T::DbWeight::get().writes(1));
 				}
 
 				move_pallet(old_pallet_name.as_bytes(), new_pallet_name.as_bytes());
@@ -415,7 +417,7 @@ pub mod v11 {
 
 			// skip storage prefix checks for the same pallet names
 			if new_pallet_name == old_pallet_name {
-				return Ok(())
+				return Ok(());
 			}
 
 			let old_pallet_prefix = twox_128(N::get().as_bytes());

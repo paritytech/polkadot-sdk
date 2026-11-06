@@ -29,15 +29,45 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Download artifact
+    - name: Download artifact (attempt 1)
+      id: download_attempt_1
+      continue-on-error: true
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: ${{ inputs.artifact-name }}
+        github-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.run-id }}
+        path: ${{ inputs.extract-path }}
+
+    - name: Wait before retry 1
+      if: steps.download_attempt_1.outcome == 'failure'
       shell: bash
       run: |
-        echo "::group::📦 Downloading ${{ inputs.artifact-name }}"
-        echo "Artifact: ${{ inputs.artifact-name }}"
-        echo "Run ID: ${{ inputs.run-id }}"
-        echo "::endgroup::"
-    
-    - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        echo "::warning::Attempt 1 failed, retrying in 10s..."
+        sleep 10
+
+    - name: Download artifact (attempt 2)
+      id: download_attempt_2
+      if: steps.download_attempt_1.outcome == 'failure'
+      continue-on-error: true
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: ${{ inputs.artifact-name }}
+        github-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.run-id }}
+        path: ${{ inputs.extract-path }}
+
+    - name: Wait before retry 2
+      if: steps.download_attempt_2.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::warning::Attempt 2 failed, retrying in 20s..."
+        sleep 20
+
+    - name: Download artifact (attempt 3)
+      id: download_attempt_3
+      if: steps.download_attempt_2.outcome == 'failure'
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
         name: ${{ inputs.artifact-name }}
         github-token: ${{ inputs.gh-token }}

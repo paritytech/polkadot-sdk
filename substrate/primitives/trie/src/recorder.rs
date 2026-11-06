@@ -21,7 +21,7 @@
 //! to record storage accesses to the state to generate a [`StorageProof`].
 
 use crate::{GenericMemoryDB, NodeCodec, StorageProof};
-use codec::Encode;
+use codec::{Compact, Decode, Encode};
 use hash_db::Hasher;
 use memory_db::KeyFunction;
 use parking_lot::{Mutex, MutexGuard};
@@ -42,9 +42,25 @@ const LOG_TARGET: &str = "trie-recorder";
 /// A list of ignored nodes for [`Recorder`].
 ///
 /// These nodes when passed to a recorder will be ignored and not recorded by the recorder.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IgnoredNodes<H> {
 	nodes: HashSet<H>,
+}
+
+impl<H: Encode> Encode for IgnoredNodes<H> {
+	fn encode(&self) -> Vec<u8> {
+		let mut encoded = Compact::<u32>(self.nodes.len() as _).encode();
+		self.nodes.iter().for_each(|n| n.encode_to(&mut encoded));
+		encoded
+	}
+}
+
+impl<H: Decode + std::hash::Hash + Eq> Decode for IgnoredNodes<H> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let len = Compact::<u32>::decode(input)?;
+		let data = codec::decode_vec_with_len(input, len.0 as _)?;
+		Ok(Self { nodes: HashSet::from_iter(data.into_iter()) })
+	}
 }
 
 impl<H> Default for IgnoredNodes<H> {
@@ -389,7 +405,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring node",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(
@@ -419,7 +435,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring node",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(
@@ -450,7 +466,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring value",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(

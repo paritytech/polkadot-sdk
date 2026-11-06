@@ -26,14 +26,12 @@ use bp_messages::{
 };
 use bp_runtime::AccountIdOf;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{ensure, sp_runtime::RuntimeDebug, PalletError};
+use frame_support::{ensure, PalletError};
 use scale_info::TypeInfo;
 use sp_std::marker::PhantomData;
 
 /// Lanes manager errors.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum LanesManagerError {
 	/// Inbound lane already exists.
 	InboundLaneAlreadyExists,

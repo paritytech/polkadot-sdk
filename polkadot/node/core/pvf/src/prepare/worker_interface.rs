@@ -140,7 +140,7 @@ pub async fn start_work(
 					"failed to send a prepare request: {:?}",
 					err,
 				);
-				return Outcome::Unreachable
+				return Outcome::Unreachable;
 			}
 
 			// Wait for the result from the worker, keeping in mind that there may be a timeout, the
@@ -157,7 +157,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_worker_result)) =>
+				Ok(Ok(prepare_worker_result)) => {
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -167,7 +167,8 @@ pub async fn start_work(
 						&cache_path,
 						preparation_timeout,
 					)
-					.await,
+					.await
+				},
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
@@ -232,7 +233,7 @@ async fn handle_response(
 			preparation_timeout.as_millis(),
 			tmp_file.display(),
 		);
-		return Outcome::TimedOut
+		return Outcome::TimedOut;
 	}
 
 	let size = match tokio::fs::metadata(cache_path).await {
@@ -244,7 +245,7 @@ async fn handle_response(
 				"failed to read size of the artifact: {}",
 				err,
 			);
-			return Outcome::IoErr(err.to_string())
+			return Outcome::IoErr(err.to_string());
 		},
 	};
 
@@ -330,7 +331,7 @@ where
 		return Outcome::CreateTmpFileErr {
 			worker: IdleWorker { stream, pid, worker_dir },
 			err: format!("{:?}", err),
-		}
+		};
 	};
 
 	let worker_dir_path = worker_dir.path().to_owned();
@@ -345,7 +346,7 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Outcome::ClearWorkerDir { err: format!("{:?}", err) }
+		return Outcome::ClearWorkerDir { err: format!("{:?}", err) };
 	}
 
 	outcome

@@ -99,8 +99,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -114,8 +115,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -1063,4 +1065,69 @@ fn voting_hooks_are_called_correctly() {
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
 	});
+}
+
+#[test]
+fn empty_tally_approval_is_zero() {
+	new_test_ext().execute_with(|| {
+		let empty_tally = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(0, 0, 0);
+		assert_eq!(
+			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&empty_tally, 0),
+			Perbill::zero(),
+		);
+
+		let only_ayes = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(10, 0, 10);
+		assert_eq!(<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_ayes, 0), Perbill::one(),);
+
+		let only_nays = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(0, 10, 0);
+		assert_eq!(<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_nays, 0), Perbill::zero(),);
+
+		let mixed = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(3, 7, 3);
+		assert_eq!(
+			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&mixed, 0),
+			Perbill::from_percent(30),
+		);
+	});
+}
+
+#[test]
+fn failed_tally_remove_leaves_tally_unchanged() {
+	// Underflow in `ayes` after subtracting `support`.
+	let initial = TallyOf::<Test>::from_parts(0, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(aye(10, 0)).is_none());
+	assert_eq!(t, initial);
+
+	// Underflow in `nays` after subtracting `support` and `ayes`.
+	let initial = TallyOf::<Test>::from_parts(1, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(split(10, 10)).is_none());
+	assert_eq!(t, initial);
+
+	// Underflow in `support` on abstain after subtracting aye.
+	let initial = TallyOf::<Test>::from_parts(0, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(split_abstain(10, 0, 10)).is_none());
+	assert_eq!(t, initial);
+}
+
+#[test]
+fn failed_tally_add_leaves_tally_unchanged() {
+	// Overflow in `ayes` after adding `support`.
+	let initial = TallyOf::<Test>::from_parts(u64::MAX, 0, 0);
+	let mut t = initial.clone();
+	assert!(t.add(aye(10, 0)).is_none());
+	assert_eq!(t, initial);
+
+	// Overflow in `nays` after adding `support` and `ayes`.
+	let initial = TallyOf::<Test>::from_parts(0, u64::MAX, 0);
+	let mut t = initial.clone();
+	assert!(t.add(split(10, 10)).is_none());
+	assert_eq!(t, initial);
+
+	// Overflow in `support` on abstain after adding aye.
+	let initial = TallyOf::<Test>::from_parts(0, 0, u64::MAX - 10);
+	let mut t = initial.clone();
+	assert!(t.add(split_abstain(10, 0, 10)).is_none());
+	assert_eq!(t, initial);
 }

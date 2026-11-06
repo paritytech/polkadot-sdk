@@ -17,6 +17,10 @@
 
 mod command;
 
+// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+#[cfg(target_os = "linux")]
+extern crate polkadot_jemalloc_shim;
+
 use clap::Parser;
 use sc_cli::Result;
 use tracing_subscriber::EnvFilter;

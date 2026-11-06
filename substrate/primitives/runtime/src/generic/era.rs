@@ -29,7 +29,7 @@ pub type Period = u64;
 pub type Phase = u64;
 
 /// An era to describe the longevity of a transaction.
-#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Copy, sp_core::RuntimeDebug)]
+#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Era {
 	/// The transaction is valid forever. The genesis hash must be present in the signed content.

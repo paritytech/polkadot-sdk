@@ -17,7 +17,7 @@
 
 /// EVM opcode implementations.
 use super::interpreter::Interpreter;
-use crate::vm::{evm::Halt, Ext};
+use crate::vm::{Ext, evm::Halt};
 use revm::bytecode::opcode::*;
 
 /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).

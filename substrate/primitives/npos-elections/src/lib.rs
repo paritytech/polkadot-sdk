@@ -83,7 +83,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
-use sp_core::RuntimeDebug;
+use Debug;
 
 #[cfg(test)]
 mod mock;
@@ -113,7 +113,7 @@ pub use traits::{IdentifierT, PerThing128};
 #[derive(
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	Clone,
 	codec::Encode,
 	codec::Decode,
@@ -282,7 +282,7 @@ pub struct BalancingConfig {
 pub type CandidatePtr<A> = Rc<RefCell<Candidate<A>>>;
 
 /// A candidate entity for the election.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Candidate<AccountId> {
 	/// Identifier.
 	who: AccountId,
@@ -416,7 +416,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 	/// ### Errors
 	///
 	/// This will return only if the internal `normalize` fails. This can happen if the sum of the
-	/// weights exceeds `ExtendedBalance::max_value()`.
+	/// weights exceeds `ExtendedBalance::MAX`.
 	pub fn try_normalize(&mut self) -> Result<(), &'static str> {
 		let edge_weights = self.edges.iter().map(|e| e.weight).collect::<Vec<_>>();
 		edge_weights.normalize(self.budget).map(|normalized| {
@@ -466,7 +466,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 }
 
 /// Final result of the election.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ElectionResult<AccountId, P: PerThing> {
 	/// Just winners zipped with their approval stake. Note that the approval stake is merely the
 	/// sub of their received stake and could be used for very basic sorting and approval voting.
@@ -483,7 +483,7 @@ pub struct ElectionResult<AccountId, P: PerThing> {
 ///
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
-#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Support<AccountId> {
 	/// Total support.
@@ -565,7 +565,7 @@ pub trait Backings {
 
 /// General evaluation of a list of backings that returns an election score.
 pub fn evaluate_support(backings: impl Iterator<Item = impl Backings>) -> ElectionScore {
-	let mut minimal_stake = ExtendedBalance::max_value();
+	let mut minimal_stake = ExtendedBalance::MAX;
 	let mut sum_stake: ExtendedBalance = Zero::zero();
 	// NOTE: The third element might saturate but fine for now since this will run on-chain and
 	// need to be fast.
@@ -619,7 +619,7 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 			for v in votes {
 				if edges.iter().any(|e| e.who == v) {
 					// duplicate edge.
-					continue
+					continue;
 				}
 				if let Some(idx) = c_idx_cache.get(&v) {
 					// This candidate is valid + already cached.

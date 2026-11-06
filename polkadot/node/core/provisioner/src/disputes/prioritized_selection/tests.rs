@@ -30,7 +30,6 @@ use polkadot_primitives::{
 	InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind, ValidatorSignature,
 };
 
-//
 // Unit tests for various functions
 //
 #[test]
@@ -81,7 +80,7 @@ fn should_keep_vote_behaves() {
 		true
 	);
 
-	//double voting - onchain knows
+	// double voting - onchain knows
 	let local_double_vote_onchain_knows =
 		(ValidatorIndex(4), InvalidDisputeStatementKind::Explicit);
 	assert_eq!(
@@ -93,7 +92,7 @@ fn should_keep_vote_behaves() {
 		false
 	);
 
-	//double voting - onchain doesn't know
+	// double voting - onchain doesn't know
 	let local_double_vote_onchain_doesnt_knows =
 		(ValidatorIndex(0), InvalidDisputeStatementKind::Explicit);
 	assert_eq!(
@@ -285,7 +284,6 @@ fn partitioning_duplicated_dispute() {
 	assert_eq!(result.active_unconcluded_onchain.get(0).unwrap(), &some_dispute.0);
 }
 
-//
 // end-to-end tests for select_disputes()
 //
 
@@ -563,7 +561,7 @@ fn normal_flow() {
 	let (first_idx, first_votes) =
 		input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_BATCH);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	let (fifth_idx, fifth_votes) = input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_BATCH);
 
 	// concluded disputes known onchain - these should be ignored
@@ -644,7 +642,7 @@ fn many_batches() {
 	// active which can't conclude onchain
 	input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_PARTITION);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_PARTITION);
 
 	// concluded disputes known onchain
@@ -698,7 +696,7 @@ fn votes_above_limit() {
 	let (_, first_votes) =
 		input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_PARTITION);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	let (_, third_votes) = input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_PARTITION);
 
 	assert!(

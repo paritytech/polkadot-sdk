@@ -23,17 +23,15 @@
 //! For more information about AuRa, the Substrate crate should be checked.
 
 use codec::Encode;
-use cumulus_primitives_core::PersistedValidationData;
-
-use cumulus_primitives_core::relay_chain::HeadData;
+use cumulus_primitives_core::{relay_chain::HeadData, PersistedValidationData};
+use polkadot_node_primitives::PoV;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use std::{fs, fs::File, path::PathBuf};
+use std::{fs, fs::File, path::Path};
 
 mod import_queue;
 
 pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
-use polkadot_node_primitives::PoV;
 pub use sc_consensus_aura::{
 	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
 	SlotProportion,
@@ -53,7 +51,7 @@ const LOG_TARGET: &str = "aura::cumulus";
 /// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
 /// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
 pub(crate) fn export_pov_to_path<Block: BlockT>(
-	path: PathBuf,
+	path: &Path,
 	pov: PoV,
 	block_hash: Block::Hash,
 	block_number: NumberFor<Block>,
@@ -64,14 +62,14 @@ pub(crate) fn export_pov_to_path<Block: BlockT>(
 ) {
 	if let Err(error) = fs::create_dir_all(&path) {
 		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
+		return;
 	}
 
 	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
 		Ok(f) => f,
 		Err(error) => {
 			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
+			return;
 		},
 	};
 

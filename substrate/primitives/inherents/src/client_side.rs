@@ -143,3 +143,27 @@ impl InherentDataProvider for Tuple {
 		None
 	}
 }
+
+#[async_trait::async_trait]
+impl<T: InherentDataProvider> InherentDataProvider for Vec<T> {
+	async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
+		for idp in self {
+			idp.provide_inherent_data(inherent_data).await?;
+		}
+		Ok(())
+	}
+
+	async fn try_handle_error(
+		&self,
+		identifier: &InherentIdentifier,
+		error: &[u8],
+	) -> Option<Result<(), Error>> {
+		for idp in self {
+			if let Some(r) = idp.try_handle_error(identifier, error).await {
+				return Some(r);
+			}
+		}
+
+		None
+	}
+}

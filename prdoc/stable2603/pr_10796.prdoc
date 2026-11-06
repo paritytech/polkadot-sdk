@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix size limit mismatch in process_initial_sync_burst
+
+doc:
+  - audience: Node Dev
+    description: |
+      Fixes a debug assertion failure in `process_initial_sync_burst` where the size filter
+      used `MAX_STATEMENT_NOTIFICATION_SIZE` while `find_sendable_chunk` reserved additional
+      space for `Compact<u32>` vector length encoding (5 bytes).
+
+      This mismatch caused `debug_assert_eq!(to_send.len(), sent)` to fail when statements
+      were sized to fit the filter's larger limit but exceeded `find_sendable_chunk`'s
+      stricter limit.
+
+      The fix extracts the size calculation into a shared `max_statement_payload_size()`
+      function that both locations now use, ensuring consistent size limits.
+
+crates:
+  - name: sc-network-statement
+    bump: patch

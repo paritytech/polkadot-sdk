@@ -1,0 +1,31 @@
+[package]
+name = "polkadot-jemalloc-shim"
+version = "1.0.0"
+description = "Shim crate to enable jemalloc-allocator feature for polkadot crates and setting global allocator to jemalloc"
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[dependencies]
+polkadot-cli = { optional = true, workspace = true }
+polkadot-node-core-pvf = { optional = true, workspace = true }
+polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true }
+polkadot-overseer = { optional = true, workspace = true }
+tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
+
+[features]
+jemalloc-allocator = [
+	"dep:tikv-jemallocator",
+	"polkadot-cli/jemalloc-allocator",
+	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-node-core-pvf/jemalloc-allocator",
+	"polkadot-overseer/jemalloc-allocator",
+]

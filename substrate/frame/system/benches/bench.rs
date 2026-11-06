@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use frame_support::derive_impl;
+use frame_support::{derive_impl, dispatch::DispatchClass};
 use sp_runtime::{BuildStorage, Perbill};
 #[frame_support::pallet]
 mod module {
@@ -47,11 +47,17 @@ frame_support::construct_runtime!(
 	}
 );
 
+const MAX_BLOCK_LENGTH: u32 = 4 * 1024 * 1024;
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+
 frame_support::parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength =
-		frame_system::limits::BlockLength::max_with_normal_ratio(
-			4 * 1024 * 1024, Perbill::from_percent(75),
-		);
+		frame_system::limits::BlockLength::builder()
+			.max_length(MAX_BLOCK_LENGTH)
+			.modify_max_length_for_class(DispatchClass::Normal, |m| {
+				*m = NORMAL_DISPATCH_RATIO * MAX_BLOCK_LENGTH
+			})
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

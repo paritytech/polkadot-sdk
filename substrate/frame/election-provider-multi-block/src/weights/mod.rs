@@ -42,8 +42,10 @@ pub mod traits {
 			fn unset_page() -> Weight;
 			fn bail() -> Weight;
 			fn clear_old_round_data(p: u32) -> Weight;
+			fn claim_unpaid_reward() -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
 			fn bail() -> Weight {
 				Default::default()
@@ -63,6 +65,9 @@ pub mod traits {
 			fn unset_page() -> Weight {
 				Default::default()
 			}
+			fn claim_unpaid_reward() -> Weight {
+				Default::default()
+			}
 		}
 	}
 
@@ -71,7 +76,7 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block::unsigned`.
 		pub trait WeightInfo {
-			fn validate_unsigned() -> Weight;
+			fn authorize_submit_unsigned() -> Weight;
 			fn submit_unsigned() -> Weight;
 			// This has an auto-impl as the associated benchmark is `#[extra]`.
 			fn mine_solution(_p: u32) -> Weight {
@@ -79,8 +84,9 @@ pub mod traits {
 			}
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
-			fn validate_unsigned() -> Weight {
+			fn authorize_submit_unsigned() -> Weight {
 				Default::default()
 			}
 			fn submit_unsigned() -> Weight {
@@ -94,24 +100,25 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block_verifier`.
 		pub trait WeightInfo {
-			fn on_initialize_valid_non_terminal() -> Weight;
-			fn on_initialize_valid_terminal() -> Weight;
-			fn on_initialize_invalid_terminal() -> Weight;
-			fn on_initialize_invalid_non_terminal(v: u32) -> Weight;
+			fn verification_valid_non_terminal() -> Weight;
+			fn verification_valid_terminal() -> Weight;
+			fn verification_invalid_terminal() -> Weight;
+			fn verification_invalid_non_terminal(v: u32) -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
-			fn on_initialize_valid_non_terminal() -> Weight {
-				Default::default()
+			fn verification_valid_non_terminal() -> Weight {
+				Weight::from_parts(0, 7)
 			}
-			fn on_initialize_valid_terminal() -> Weight {
-				Default::default()
+			fn verification_valid_terminal() -> Weight {
+				Weight::from_parts(0, 7)
 			}
-			fn on_initialize_invalid_terminal() -> Weight {
-				Default::default()
+			fn verification_invalid_terminal() -> Weight {
+				Weight::from_parts(0, 7)
 			}
-			fn on_initialize_invalid_non_terminal(_v: u32) -> Weight {
-				Default::default()
+			fn verification_invalid_non_terminal(_v: u32) -> Weight {
+				Weight::from_parts(0, 7)
 			}
 		}
 	}
@@ -121,36 +128,29 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block`.
 		pub trait WeightInfo {
-			fn on_initialize_nothing() -> Weight;
-			fn on_initialize_into_snapshot_msp() -> Weight;
-			fn on_initialize_into_snapshot_rest() -> Weight;
-			fn on_initialize_into_signed() -> Weight;
-			fn on_initialize_into_signed_validation() -> Weight;
-			fn on_initialize_into_unsigned() -> Weight;
+			fn per_block_nothing() -> Weight;
+			fn per_block_snapshot_msp() -> Weight;
+			fn per_block_snapshot_rest() -> Weight;
+			fn per_block_start_signed_validation() -> Weight;
 			fn export_non_terminal() -> Weight;
 			fn export_terminal() -> Weight;
 			fn admin_set() -> Weight;
 			fn manage_fallback() -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
-			fn on_initialize_nothing() -> Weight {
+			fn per_block_nothing() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_into_snapshot_msp() -> Weight {
-				Default::default()
+			fn per_block_snapshot_msp() -> Weight {
+				Weight::from_parts(0, 5)
 			}
-			fn on_initialize_into_snapshot_rest() -> Weight {
-				Default::default()
+			fn per_block_snapshot_rest() -> Weight {
+				Weight::from_parts(0, 5)
 			}
-			fn on_initialize_into_signed() -> Weight {
-				Default::default()
-			}
-			fn on_initialize_into_signed_validation() -> Weight {
-				Default::default()
-			}
-			fn on_initialize_into_unsigned() -> Weight {
-				Default::default()
+			fn per_block_start_signed_validation() -> Weight {
+				Weight::from_parts(0, 3)
 			}
 			fn export_non_terminal() -> Weight {
 				Default::default()

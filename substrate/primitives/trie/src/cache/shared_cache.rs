@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
-///! that combines both caches and is exported to the outside.
+/// ! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
+/// ! that combines both caches and is exported to the outside.
 use super::{
 	metrics::Metrics, CacheSize, LocalNodeCacheConfig, LocalNodeCacheLimiter,
 	LocalValueCacheConfig, LocalValueCacheLimiter, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
@@ -91,7 +91,7 @@ where
 		let new_item_heap_size = node.size_in_bytes() - std::mem::size_of::<NodeOwned<H>>();
 		if new_item_heap_size > self.max_heap_size {
 			// Item's too big to add even if the cache's empty; bail.
-			return None
+			return None;
 		}
 
 		self.heap_size += new_item_heap_size;
@@ -112,7 +112,7 @@ where
 		let new_item_heap_size = new_node.size_in_bytes() - std::mem::size_of::<NodeOwned<H>>();
 		if new_item_heap_size > self.max_heap_size {
 			// Item's too big to add even if the cache's empty; bail.
-			return false
+			return false;
 		}
 
 		let old_item_heap_size = old_node.size_in_bytes() - std::mem::size_of::<NodeOwned<H>>();
@@ -189,7 +189,7 @@ where
 				let new_item_heap_size = key.storage_key.len();
 				if new_item_heap_size > self.max_heap_size {
 					// Item's too big to add even if the cache's empty; bail.
-					return None
+					return None;
 				}
 
 				self.heap_size += new_item_heap_size;
@@ -292,10 +292,10 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 
 					if access_count >= config.shared_node_cache_max_promoted_keys {
 						// Stop when we've promoted a large enough number of items.
-						break
+						break;
 					}
 
-					continue
+					continue;
 				}
 			}
 
@@ -304,7 +304,7 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
 				// Stop when we've evicted a big enough chunk of the shared cache.
-				break
+				break;
 			}
 		}
 
@@ -557,7 +557,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
 				// Stop when we've evicted a big enough chunk of the shared cache.
-				break
+				break;
 			}
 		}
 

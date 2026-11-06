@@ -147,7 +147,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	fn try_origin(outer: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(outer.clone()).and_then(|o| {
 			match o {
-				frame_system::RawOrigin::Root => Ok(u64::max_value()),
+				frame_system::RawOrigin::Root => Ok(u64::MAX),
 				frame_system::RawOrigin::Signed(10) => Ok(5),
 				frame_system::RawOrigin::Signed(11) => Ok(10),
 				frame_system::RawOrigin::Signed(12) => Ok(20),
@@ -171,7 +171,7 @@ pub struct MulBy<N>(PhantomData<N>);
 impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 	type Error = ();
 	fn from_asset_balance(balance: u64, _asset_id: u32) -> Result<u64, Self::Error> {
-		return balance.checked_mul(N::get()).ok_or(())
+		return balance.checked_mul(N::get()).ok_or(());
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: u32) {}
@@ -400,7 +400,8 @@ fn treasury_account_doesnt_get_deleted() {
 
 		go_to_block(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
+		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still
+		                                                         // there
 	});
 }
 

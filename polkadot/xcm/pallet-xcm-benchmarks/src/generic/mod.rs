@@ -42,7 +42,7 @@ pub mod pallet {
 		/// This is useful for testing and checking.
 		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
 
-		///	The response which causes the most runtime weight.
+		/// 	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);
 
 		/// The pair of asset collections which causes the most runtime weight if demanded to be
@@ -91,8 +91,13 @@ pub mod pallet {
 		fn export_message_origin_and_destination(
 		) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError>;
 
-		/// A `(Location, Location)` that is one of the `Aliasers` configured by the XCM
+		/// A `(Location, Location)` that is matched by one of the `Aliasers` configured by the XCM
 		/// executor.
+		///
+		/// Should be the *most expensive* such pair, since `Aliasers` is tried in order and stops
+		/// at the first match: a pair matched by the first, storage-free filter measures none of
+		/// the work a later one does. Chains whose last aliaser consults an on-chain
+		/// authorization list must also set that list up at its maximum size.
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;

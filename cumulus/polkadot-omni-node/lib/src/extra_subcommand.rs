@@ -48,7 +48,7 @@ use crate::RunConfig;
 ///
 /// #[derive(Debug, Clone, Subcommand)]
 /// pub enum ExtraCmd {
-///		NewCmd,
+/// 		NewCmd,
 /// }
 ///
 /// impl ExtraSubcommand for ExtraCmd {

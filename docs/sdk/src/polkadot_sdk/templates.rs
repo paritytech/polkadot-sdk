@@ -42,4 +42,4 @@
 //! Is a CLI tool capable of scaffolding a new polkadot-sdk-based project, possibly removing the
 //! need for templates.
 //!
-//! - <https://pop.r0gue.io/cli/>
+//! - <https://learn.onpop.io>

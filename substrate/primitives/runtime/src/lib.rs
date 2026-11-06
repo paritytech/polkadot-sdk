@@ -115,8 +115,8 @@ pub use sp_core::{
 #[cfg(feature = "std")]
 pub use sp_core::{bounded_btree_map, bounded_vec};
 
-/// Re-export `RuntimeDebug`, to avoid dependency clutter.
-pub use sp_core::RuntimeDebug;
+/// Re-export `Debug`, to avoid dependency clutter.
+pub use core::fmt::Debug;
 
 /// Re-export big_uint stuff.
 pub use sp_arithmetic::biguint;
@@ -175,7 +175,7 @@ impl Justifications {
 	/// not inserted.
 	pub fn append(&mut self, justification: Justification) -> bool {
 		if self.get(justification.0).is_some() {
-			return false
+			return false;
 		}
 		self.0.push(justification);
 		true
@@ -233,19 +233,6 @@ pub trait BuildStorage {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String>;
 }
 
-/// Something that can build the genesis storage of a module.
-#[cfg(feature = "std")]
-#[deprecated(
-	note = "`BuildModuleGenesisStorage` is planned to be removed in December 2023. Use `BuildStorage` instead of it."
-)]
-pub trait BuildModuleGenesisStorage<T, I>: Sized {
-	/// Create the module genesis storage into the given `storage` and `child_storage`.
-	fn build_module_genesis_storage(
-		&self,
-		storage: &mut sp_core::storage::Storage,
-	) -> Result<(), String>;
-}
-
 #[cfg(feature = "std")]
 impl BuildStorage for sp_core::storage::Storage {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
@@ -255,7 +242,7 @@ impl BuildStorage for sp_core::storage::Storage {
 			if let Some(map) = storage.children_default.get_mut(&k) {
 				map.data.extend(other_map.data.iter().map(|(k, v)| (k.clone(), v.clone())));
 				if !map.child_info.try_update(&other_map.child_info) {
-					return Err("Incompatible child info update".to_string())
+					return Err("Incompatible child info update".to_string());
 				}
 			} else {
 				storage.children_default.insert(k, other_map.clone());
@@ -278,15 +265,7 @@ pub type ConsensusEngineId = [u8; 4];
 /// Signature verify that can work with any known signature types.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-	Eq,
-	PartialEq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Eq, PartialEq, Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
@@ -352,16 +331,7 @@ impl TryFrom<MultiSignature> for ecdsa::Signature {
 
 /// Public key for any known crypto algorithm.
 #[derive(
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
@@ -503,13 +473,23 @@ impl Verify for MultiSignature {
 			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
 			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
 			Self::Ecdsa(sig) => {
+				let sig_ref: &[u8; 65] = sig.as_ref();
+				// Reject high-S signatures (BIP-62 malleability protection)
+				if !ecdsa::is_signature_normalized(sig_ref) {
+					return false;
+				}
 				let m = sp_io::hashing::blake2_256(msg.get());
-				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, &m)
 					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 			Self::Eth(sig) => {
+				let sig_ref: &[u8; 65] = sig.as_ref();
+				// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+				if !ecdsa::is_signature_normalized(sig_ref) {
+					return false;
+				}
 				let m = sp_io::hashing::keccak_256(msg.get());
-				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, &m)
 					.map_or(false, |pubkey| {
 						&MultiSigner::Eth(pubkey.into()).into_account() == signer
 					})
@@ -519,7 +499,7 @@ impl Verify for MultiSignature {
 }
 
 /// Signature verify that can work with any known signature types..
-#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AnySignature(H512);
 
@@ -586,6 +566,30 @@ impl PartialEq for ModuleError {
 	fn eq(&self, other: &Self) -> bool {
 		(self.index == other.index) && (self.error == other.error)
 	}
+}
+
+/// Reason why a transaction was invalid due to a module-specific reason.
+///
+/// Semantically different from [`ModuleError`] (dispatch error). Carries a per-module error
+/// number when validation fails.
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ModuleInvalidity {
+	/// Module index, matching the metadata module index.
+	pub index: u8,
+	/// Module-specific error number.
+	pub error: u16,
 }
 
 /// Errors related to transactional storage layers.
@@ -681,7 +685,7 @@ pub enum DispatchError {
 #[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct DispatchErrorWithPostInfo<Info>
 where
-	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+	Info: Eq + PartialEq + Clone + Copy + Encode + Decode,
 {
 	/// Additional information about the `Dispatchable` which is only known post dispatch.
 	pub post_info: Info,
@@ -693,8 +697,9 @@ impl DispatchError {
 	/// Return the same error but without the attached message.
 	pub fn stripped(self) -> Self {
 		match self {
-			DispatchError::Module(ModuleError { index, error, message: Some(_) }) =>
-				DispatchError::Module(ModuleError { index, error, message: None }),
+			DispatchError::Module(ModuleError { index, error, message: Some(_) }) => {
+				DispatchError::Module(ModuleError { index, error, message: None })
+			},
 			m => m,
 		}
 	}
@@ -702,7 +707,7 @@ impl DispatchError {
 
 impl<T, E> From<E> for DispatchErrorWithPostInfo<T>
 where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable + Default,
+	T: Eq + PartialEq + Clone + Copy + Encode + Decode + Default,
 	E: Into<DispatchError>,
 {
 	fn from(error: E) -> Self {
@@ -770,8 +775,9 @@ impl From<TokenError> for &'static str {
 			TokenError::UnknownAsset => "The asset in question is unknown",
 			TokenError::Frozen => "Funds exist but are frozen",
 			TokenError::Unsupported => "Operation is not supported by the asset",
-			TokenError::CannotCreateHold =>
-				"Account cannot be created for recording amount on hold",
+			TokenError::CannotCreateHold => {
+				"Account cannot be created for recording amount on hold"
+			},
 			TokenError::NotExpendable => "Account that is desired to remain would die",
 			TokenError::Blocked => "Account cannot receive the assets",
 		}
@@ -827,63 +833,10 @@ impl From<DispatchError> for &'static str {
 
 impl<T> From<DispatchErrorWithPostInfo<T>> for &'static str
 where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+	T: Eq + PartialEq + Clone + Copy + Encode + Decode,
 {
 	fn from(err: DispatchErrorWithPostInfo<T>) -> &'static str {
 		err.error.into()
-	}
-}
-
-impl traits::Printable for DispatchError {
-	fn print(&self) {
-		use DispatchError::*;
-		"DispatchError".print();
-		match self {
-			Other(err) => err.print(),
-			CannotLookup => "Cannot lookup".print(),
-			BadOrigin => "Bad origin".print(),
-			Module(ModuleError { index, error, message }) => {
-				index.print();
-				error.print();
-				if let Some(msg) = message {
-					msg.print();
-				}
-			},
-			ConsumerRemaining => "Consumer remaining".print(),
-			NoProviders => "No providers".print(),
-			TooManyConsumers => "Too many consumers".print(),
-			Token(e) => {
-				"Token error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Arithmetic(e) => {
-				"Arithmetic error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Transactional(e) => {
-				"Transactional error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Exhausted => "Resources exhausted".print(),
-			Corruption => "State corrupt".print(),
-			Unavailable => "Resource unavailable".print(),
-			RootNotAllowed => "Root not allowed".print(),
-			Trie(e) => {
-				"Trie error: ".print();
-				<&'static str>::from(*e).print();
-			},
-		}
-	}
-}
-
-impl<T> traits::Printable for DispatchErrorWithPostInfo<T>
-where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
-{
-	fn print(&self) {
-		self.error.print();
-		"PostInfo: ".print();
-		self.post_info.print();
 	}
 }
 
@@ -1085,11 +1038,6 @@ impl traits::ExtrinsicLike for OpaqueExtrinsic {
 	}
 }
 
-/// Print something that implements `Printable` from the runtime.
-pub fn print(print: impl traits::Printable) {
-	print.print();
-}
-
 /// Utility function to declare string literals backed by an array of length N.
 ///
 /// The input can be shorter than N, in that case the end of the array is padded with zeros.
@@ -1145,7 +1093,7 @@ pub enum ExtrinsicInclusionMode {
 }
 
 /// Simple blob that hold a value in an encoded form without committing to its type.
-#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct OpaqueValue(Vec<u8>);
 impl OpaqueValue {
 	/// Create a new `OpaqueValue` using the given encoded representation.
@@ -1207,6 +1155,15 @@ mod tests {
 			decoded,
 			DispatchError::Module(ModuleError { index: 1, error: [2, 0, 0, 0], message: None })
 		);
+	}
+
+	#[test]
+	fn module_invalidity_should_encode_and_decode() {
+		let invalidity = ModuleInvalidity { index: 7, error: 3 };
+		let encoded = invalidity.encode();
+		let decoded = ModuleInvalidity::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(encoded, vec![7, 3, 0]);
+		assert_eq!(decoded, invalidity);
 	}
 
 	#[test]
@@ -1276,6 +1233,81 @@ mod tests {
 		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
 	}
 
+	/// Helper: compute high-S malleable variant of a 65-byte ECDSA signature.
+	/// Returns `s' = order - s` with `v' = v ^ 1`.
+	pub(crate) fn make_high_s_signature(sig: &[u8; 65]) -> [u8; 65] {
+		// secp256k1 curve order N
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+		let s_bytes: [u8; 32] = sig[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
+			}
+		}
+		let mut out = [0u8; 65];
+		out[0..32].copy_from_slice(&sig[0..32]);
+		out[32..64].copy_from_slice(&s_prime);
+		out[64] = sig[64] ^ 1;
+		out
+	}
+
+	#[test]
+	fn multi_signature_ecdsa_rejects_high_s() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+
+		let signature = pair.sign(&msg);
+		let multi_signer = MultiSigner::from(pair.public());
+		let account = multi_signer.into_account();
+
+		// Low-S signature verifies
+		let multi_sig = MultiSignature::from(signature);
+		assert!(multi_sig.verify(msg, &account));
+
+		// Construct high-S malleable variant
+		let sig_bytes: &[u8; 65] = signature.as_ref();
+		let malleable = make_high_s_signature(sig_bytes);
+		let malleable_sig = MultiSignature::Ecdsa(ecdsa::Signature::from_raw(malleable));
+		assert!(
+			!malleable_sig.verify(msg, &account),
+			"high-S ECDSA signature should be rejected by MultiSignature"
+		);
+	}
+
+	#[test]
+	fn multi_signature_eth_rejects_high_s() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::KeccakPair::generate();
+
+		let signature = pair.sign(&msg);
+		let multi_signer = MultiSigner::Eth(pair.public());
+		let account = multi_signer.into_account();
+
+		// Low-S signature verifies
+		let multi_sig = MultiSignature::Eth(signature);
+		assert!(multi_sig.verify(msg, &account));
+
+		// Construct high-S malleable variant
+		let sig_bytes: &[u8; 65] = signature.as_ref();
+		let malleable = make_high_s_signature(sig_bytes);
+		let malleable_sig = MultiSignature::Eth(ecdsa::KeccakSignature::from_raw(malleable));
+		assert!(
+			!malleable_sig.verify(msg, &account),
+			"high-S Eth signature should be rejected by MultiSignature"
+		);
+	}
+
 	#[test]
 	fn multi_signer_eth_address_works() {
 		let ecdsa_pair = ecdsa::Pair::from_seed(&[0x42; 32]);
@@ -1342,8 +1374,6 @@ mod tests {
 // can access the sp_core crate.
 #[cfg(test)]
 mod sp_core_tests {
-	use super::*;
-
 	sp_core::generate_feature_enabled_macro!(if_test, test, $);
 	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 

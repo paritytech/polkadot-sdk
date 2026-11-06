@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix delegate_call_contract in evm-test-suites'
+doc:
+- audience: Runtime Dev
+  description: evm-test-suite was not correctly executing delegate_call_contract causing
+    pallet-revive to silently reject the delegatecall. After evm-test-suite was fixed
+    we found that the trace for delegate calls is incorrect. This fixes it.
+crates:
+- name: pallet-revive
+  bump: patch

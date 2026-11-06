@@ -14,20 +14,15 @@
 // limitations under the License.
 
 use super::*;
-use crate::xcm_config::LocationToAccountId;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
-	parameter_types, traits::ConstU32, CloneNoBound, EqNoBound, PartialEqNoBound,
-	RuntimeDebugNoBound,
+	parameter_types, traits::ConstU32, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
-use parachains_common::{impls::ToParentTreasury, DAYS};
+use parachains_common::DAYS;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AccountIdConversion, Verify},
-	RuntimeDebug,
-};
+use sp_runtime::{traits::Verify, Debug};
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`
@@ -38,8 +33,6 @@ parameter_types! {
 	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const UsernameDeposit: Balance = deposit(0, 32);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
-	pub RelayTreasuryAccount: AccountId =
-		parachains_common::TREASURY_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_identity::Config for Runtime {
@@ -52,7 +45,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
-	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type OffchainSignature = Signature;
@@ -71,7 +64,7 @@ impl pallet_identity::Config for Runtime {
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdentityField {
 	Display,
 	Legal,
@@ -94,7 +87,7 @@ pub enum IdentityField {
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[codec(mel_bound())]

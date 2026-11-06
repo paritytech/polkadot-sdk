@@ -102,7 +102,6 @@
 //!
 //! The following diagram shows the uses of both protocols:
 #![doc = simple_mermaid::mermaid!("../mermaid/transport_protocols.mmd")]
-//!
 //! ## UMP (Upward Message Passing)
 //!
 //! Transport-layer protocol that allows parachains to send messages upwards to their relay chain.

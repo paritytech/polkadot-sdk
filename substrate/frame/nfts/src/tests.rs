@@ -1027,7 +1027,7 @@ fn set_collection_system_attributes_should_work() {
 
 		// test typed system attribute
 		let typed_attribute_key = [0u8; 32];
-		#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+		#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 		struct TypedAttributeValue(u32);
 		let typed_attribute_value = TypedAttributeValue(42);
 

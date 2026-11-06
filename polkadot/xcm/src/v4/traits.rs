@@ -89,13 +89,12 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
+		let Ok(pre) = Self::prepare(message) else {
+			return Outcome::Error { error: Error::WeightNotComputable };
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) };
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}

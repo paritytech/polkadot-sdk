@@ -22,6 +22,7 @@ impl-serde = { optional = true, workspace = true }
 parity-wasm = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-core = { workspace = true }
 sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
@@ -36,6 +37,7 @@ std = [
 	"parity-wasm",
 	"scale-info/std",
 	"serde/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"thiserror",

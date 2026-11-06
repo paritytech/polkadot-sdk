@@ -219,7 +219,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 					}
 				}
 				if level.blocks.is_empty() {
-					break
+					break;
 				}
 				levels.push_back(level);
 				block += 1;
@@ -270,7 +270,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 					front_block_number,
 					front_block_number + self.levels.len() as u64,
 				);
-				return Err(StateDbError::InvalidBlockNumber)
+				return Err(StateDbError::InvalidBlockNumber);
 			}
 			// check for valid parent if inserting on second level or higher
 			if number == front_block_number {
@@ -279,10 +279,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 					.as_ref()
 					.map_or(false, |&(ref h, n)| h == parent_hash && n == number - 1)
 				{
-					return Err(StateDbError::InvalidParent)
+					return Err(StateDbError::InvalidParent);
 				}
 			} else if !self.parents.contains_key(parent_hash) {
-				return Err(StateDbError::InvalidParent)
+				return Err(StateDbError::InvalidParent);
 			}
 		}
 		let level = if self.levels.is_empty() ||
@@ -301,10 +301,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				"Too many sibling blocks at #{number}: {:?}",
 				level.blocks.iter().map(|b| &b.hash).collect::<Vec<_>>()
 			);
-			return Err(StateDbError::TooManySiblingBlocks { number })
+			return Err(StateDbError::TooManySiblingBlocks { number });
 		}
 		if level.blocks.iter().any(|b| b.hash == *hash) {
-			return Err(StateDbError::BlockAlreadyExists)
+			return Err(StateDbError::BlockAlreadyExists);
 		}
 
 		let index = level.available_index();
@@ -501,13 +501,13 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			// Check that it does not have any children
 			if (level_index != level_count - 1) && self.parents.values().any(|h| h == hash) {
 				log::debug!(target: LOG_TARGET, "Trying to remove block {:?} with children", hash);
-				return None
+				return None;
 			}
 			let overlay = level.remove(index);
 			commit.meta.deleted.push(overlay.journal_key);
 			self.parents.remove(&overlay.hash);
 			discard_values(&mut self.values, overlay.inserted);
-			break
+			break;
 		}
 		if self.levels.back().map_or(false, |l| l.blocks.is_empty()) {
 			self.levels.pop_back();

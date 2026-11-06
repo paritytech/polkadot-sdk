@@ -1,0 +1,14 @@
+title: Removed dependency to `sp-consensus-grandpa` from `sc-network-sync`
+doc:
+- audience: Node Dev
+  description: |-
+    Refactored warp sync to remove the dependency on GRANDPA consensus primitives from the network sync module.
+    Instead of directly verifying proofs with GRANDPA-specific parameters, warp sync now uses a more generic
+    verifier pattern. This makes the warp sync implementation independent of any specific consensus mechanism,
+    allowing it to work with different consensus algorithms in the future.
+
+crates:
+- name: sc-consensus-grandpa
+  bump: major
+- name: sc-network-sync
+  bump: major

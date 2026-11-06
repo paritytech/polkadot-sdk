@@ -1,0 +1,8 @@
+title: 'fatxpool: Do not remove listener for finalized view'
+doc:
+- audience: Node Dev
+  description: |-
+    The transaction pool is now able to handle events for active but finalized views. This improves transaction handling for manual-seal nodes which immediately finalize.
+crates:
+- name: sc-transaction-pool
+  bump: patch

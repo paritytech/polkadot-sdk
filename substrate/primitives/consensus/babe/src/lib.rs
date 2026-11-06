@@ -31,7 +31,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{traits::Header, ConsensusEngineId, RuntimeDebug};
+use sp_runtime::{traits::Header, ConsensusEngineId};
 
 use crate::digests::{NextConfigDescriptor, NextEpochDescriptor};
 
@@ -134,7 +134,7 @@ pub enum ConsensusLog {
 }
 
 /// Configuration data used by the BABE consensus engine.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct BabeConfigurationV1 {
 	/// The slot duration in milliseconds for BABE. Currently, only
 	/// the value provided by this type at genesis will be used.
@@ -182,7 +182,7 @@ impl From<BabeConfigurationV1> for BabeConfiguration {
 }
 
 /// Configuration data used by the BABE consensus engine.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct BabeConfiguration {
 	/// The slot duration in milliseconds for BABE. Currently, only
 	/// the value provided by this type at genesis will be used.
@@ -227,7 +227,7 @@ impl BabeConfiguration {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -254,7 +254,7 @@ impl AllowedSlots {
 }
 
 /// Configuration data used by the BABE consensus engine that may change with epochs.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, MaxEncodedLen, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BabeEpochConfiguration {
 	/// A constant value that is used in the threshold calculation formula.
@@ -294,7 +294,7 @@ where
 		let pre_hash = header.hash();
 
 		if !offender.verify(&pre_hash.as_ref(), &seal) {
-			return None
+			return None;
 		}
 
 		Some(())
@@ -303,7 +303,7 @@ where
 	let verify_proof = || {
 		// we must have different headers for the equivocation to be valid
 		if proof.first_header.hash() == proof.second_header.hash() {
-			return None
+			return None;
 		}
 
 		let first_pre_digest = find_pre_digest(&proof.first_header)?;
@@ -314,12 +314,12 @@ where
 		if proof.slot != first_pre_digest.slot() ||
 			first_pre_digest.slot() != second_pre_digest.slot()
 		{
-			return None
+			return None;
 		}
 
 		// both headers must have been authored by the same authority
 		if first_pre_digest.authority_index() != second_pre_digest.authority_index() {
-			return None
+			return None;
 		}
 
 		// we finally verify that the expected authority has signed both headers and

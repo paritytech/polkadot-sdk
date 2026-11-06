@@ -18,7 +18,6 @@
 use crate::pallet::{expand::merge_where_clauses, Def};
 use frame_support_procedural_tools::get_doc_literals;
 
-///
 /// * Add derive trait on Pallet
 /// * Implement GetStorageVersion on Pallet
 /// * Implement OnGenesis on Pallet
@@ -79,7 +78,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
-			#frame_support::RuntimeDebugNoBound,
+			#frame_support::DebugNoBound,
 		)]
 	));
 

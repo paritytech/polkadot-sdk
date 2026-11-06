@@ -21,14 +21,17 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::Weight,
+	weights::{
+		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
+	},
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{Convert, Identity, IdentityLookup, TryConvertInto},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -41,10 +44,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{
-	traits::{Identity, JustTry},
-	XcmExecutor,
-};
+use xcm_executor::XcmExecutor;
 use xcm_simulator::helpers::derive_topic_id;
 
 use crate::{self as pallet_xcm, TestWeightInfo};
@@ -148,6 +148,7 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		Utility: pallet_utility,
 	}
 );
 
@@ -286,6 +287,15 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+// Lets the `weigh_message` benchmark build the same batched worst case real runtimes do;
+// see `benchmarking::Config::batch_call`.
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
@@ -316,6 +326,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -429,7 +440,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	// Excludes relay/parent chain currency
 	EverythingBut<(Equals<RelayLocation>,)>,
 	Identity,
-	JustTry,
+	TryConvertInto,
 >;
 
 pub type AssetTransactors = (
@@ -453,7 +464,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
 	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
 	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
@@ -515,7 +526,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -634,7 +644,7 @@ impl super::benchmarking::Config for Test {
 		))
 	}
 
-	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
@@ -662,7 +672,7 @@ impl super::benchmarking::Config for Test {
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_asset, _) = into_assets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -684,11 +694,33 @@ impl super::benchmarking::Config for Test {
 				usdt_initial_local_amount - fee_amount
 			);
 		});
-		Some((assets, fee_asset.id, dest, verify))
+		Some((assets, fee_index as u32, dest, verify))
 	}
 
 	fn get_asset() -> Asset {
 		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
+	}
+
+	fn get_assets(n: u32) -> Assets {
+		let owner: AccountId = frame_benchmarking::whitelisted_caller();
+		let mut assets: Vec<Asset> = vec![Self::get_asset()];
+		for i in 1..n {
+			// Distinct, depositable foreign assets handled by the `FungiblesAdapter`.
+			let asset_id_location = Location::new(0, [Parachain(2_000 + i)]);
+			frame_support::assert_ok!(AssetsPallet::force_create(
+				RuntimeOrigin::root(),
+				asset_id_location.clone(),
+				owner.clone(),
+				true, // sufficient, so the beneficiary needs no provider reference
+				1,
+			));
+			assets.push(Asset { id: AssetId(asset_id_location), fun: Fungible(100) });
+		}
+		assets.into()
+	}
+
+	fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+		Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 	}
 }
 
@@ -735,6 +767,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	safe_xcm_version: Option<XcmVersion>,
 	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }

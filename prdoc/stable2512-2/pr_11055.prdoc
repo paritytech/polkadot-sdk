@@ -1,0 +1,11 @@
+title: 'staking-async/ah-client: emit event when session key update from AssettHub
+  fails on relay chain'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Emit SessionKeysUpdateFailed with the operation type and dispatch
+    error for observability so set_keys/purge_kets failures from AssetHub are observable
+    on-chain
+crates:
+- name: pallet-staking-async-ah-client
+  bump: major

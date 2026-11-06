@@ -899,6 +899,114 @@ fn set_retry_works() {
 }
 
 #[test]
+fn set_retry_rejects_named_tasks() {
+	new_test_ext().execute_with(|| {
+		// events are not recorded at block zero
+		System::run_to_block::<AllPalletsWithSystem>(1);
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		// unnamed task 20 at #4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 20,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		// the named task can only be configured through `set_retry_named`
+		assert_noop!(Scheduler::set_retry(root().into(), (4, 0), 10, 2), Error::<Test>::Named);
+		assert!(Retries::<Test>::get((4, 0)).is_none());
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 2));
+		// and that way the name shows up in the event
+		System::assert_last_event(
+			crate::Event::RetrySet { task: (4, 0), id: Some([42u8; 32]), period: 2, retries: 10 }
+				.into(),
+		);
+
+		// the unnamed one next to it is unaffected
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 1), 10, 2));
+		assert_eq!(
+			Retries::<Test>::get((4, 1)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: 2 })
+		);
+	});
+}
+
+#[test]
+fn set_retry_on_named_task_checks_privilege_first() {
+	new_test_ext().execute_with(|| {
+		// named task 42 at #4 with account 101 as origin
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			101.into(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		// account 1 may schedule, but has no privilege over a task owned by 101: it gets
+		// `BadOrigin`, not a hint that the task is named
+		let res: Result<(), DispatchError> =
+			Scheduler::set_retry(RuntimeOrigin::signed(1), (4, 0), 10, 2);
+		assert_eq!(res, Err(BadOrigin.into()));
+	});
+}
+
+#[test]
+fn set_retry_works_on_the_retry_clone_of_a_named_task() {
+	new_test_ext().execute_with(|| {
+		// task fails until block 8 is reached
+		Threshold::<Test>::put((8, 100));
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 2));
+
+		// it fails at #4 and is retried at #6 as an unnamed clone
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert!(Agenda::<Test>::get(6)[0].as_ref().unwrap().maybe_id.is_none());
+
+		// so the address based call still works on it
+		assert_ok!(Scheduler::set_retry(root().into(), (6, 0), 3, 1));
+		assert_eq!(
+			Retries::<Test>::get((6, 0)),
+			Some(RetryConfig { total_retries: 3, remaining: 3, period: 1 })
+		);
+	});
+}
+
+#[test]
 fn set_named_retry_works() {
 	new_test_ext().execute_with(|| {
 		// task 42 at #4 with account 101 as origin
@@ -1399,6 +1507,91 @@ fn try_schedule_retry_respects_weight_limits() {
 		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
 		assert_eq!(event, &system_event);
 	});
+}
+
+fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
+	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
+	let retry_period = 3;
+	let task_name = [42u8; 32];
+
+	new_test_ext().execute_with(|| {
+		// Task will fail until block 100 (effectively always fails in this test).
+		Threshold::<Test>::put((100, 200));
+
+		// Fill block 7 (4 + retry_period) to capacity with dummy tasks.
+		let filler_call =
+			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
+		let filler_bound = Preimage::bound(filler_call).unwrap();
+		for _ in 0..max {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4 + retry_period),
+				None,
+				127,
+				root(),
+				filler_bound.clone(),
+			));
+		}
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+
+		// Schedule a task at block 4 that will fail.
+		let failing_call =
+			RuntimeCall::Logger(LoggerCall::timed_log { i: 42, weight: Weight::from_parts(10, 0) });
+		if named {
+			assert_ok!(Scheduler::do_schedule_named(
+				task_name,
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for named task.
+			assert_ok!(Scheduler::set_retry_named(root().into(), task_name, 10, retry_period));
+		} else {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for anonymous task.
+			assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, retry_period));
+		}
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+
+		// Run to block 4: task fails and tries to schedule retry at block 7, but it's full.
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The retry config should be removed since scheduling failed.
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		// Task at block 4 should be gone.
+		assert!(Agenda::<Test>::get(4).is_empty());
+		// Block 7 should still have exactly `max` tasks (the fillers, no retry added).
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+		// Task 42 never executed.
+		assert!(!logger::log().iter().any(|(_, i)| *i == 42));
+
+		// Verify `RetryFailed` event was emitted.
+		// Note: `id` is always `None` because `as_retry()` clears the task name.
+		let events = frame_system::Pallet::<Test>::events();
+		let retry_failed_event: <Test as frame_system::Config>::RuntimeEvent =
+			Event::RetryFailed { task: (4, 0), id: None }.into();
+		assert!(
+			events.iter().any(|record| record.event == retry_failed_event),
+			"Expected RetryFailed event not found"
+		);
+	});
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_anon() {
+	schedule_retry_fails_when_retry_target_block_is_full(false);
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_named() {
+	schedule_retry_fails_when_retry_target_block_is_full(true);
 }
 
 /// Permanently overweight calls are not deleted but also not executed.
@@ -2356,6 +2549,44 @@ fn postponed_named_task_cannot_be_rescheduled() {
 	});
 }
 
+#[test]
+fn postponed_named_task_cannot_have_a_retry_config_set() {
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(1000, 0) });
+		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let len = call.using_encoded(|x| x.len()) as u32;
+		let hashed = Bounded::Lookup { hash, len };
+		let name: [u8; 32] = hash.as_ref().try_into().unwrap();
+
+		let address =
+			Scheduler::do_schedule_named(name, DispatchTime::At(4), None, 127, root(), hashed)
+				.unwrap();
+
+		// The preimage is missing, so the task is postponed and loses its lookup entry while
+		// staying named in the agenda.
+		System::run_to_block::<AllPalletsWithSystem>(10);
+		assert!(!Lookup::<Test>::contains_key(name));
+
+		// Same dead end as `do_reschedule`: neither call reaches it any more.
+		assert_noop!(Scheduler::set_retry(root().into(), address, 10, 2), Error::<Test>::Named);
+		assert_noop!(
+			Scheduler::set_retry_named(root().into(), name, 10, 2),
+			Error::<Test>::NotFound
+		);
+		// Removing a configuration by address still works, which is why `cancel_retry` stays
+		// permissive. This is also the shape an older runtime could have left behind.
+		Retries::<Test>::insert(
+			address,
+			RetryConfig { total_retries: 10, remaining: 10, period: 2 },
+		);
+		assert_ok!(Scheduler::cancel_retry(root().into(), address));
+		assert!(Retries::<Test>::get(address).is_none());
+		// and it reports no id, as its doc comment says
+		System::assert_last_event(crate::Event::RetryCancelled { task: address, id: None }.into());
+	});
+}
+
 /// Using the scheduler as `v3::Anon` works.
 #[test]
 fn scheduler_v3_anon_basic_works() {
@@ -2721,6 +2952,8 @@ fn scheduler_v3_named_cancel_named_works() {
 		.unwrap();
 		// Cancel the call by name.
 		assert_ok!(<Scheduler as Named<_, _, _>>::cancel_named(name));
+		// Lookup storage should be empty.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());
@@ -2751,6 +2984,8 @@ fn scheduler_v3_named_cancel_without_name_works() {
 		.unwrap();
 		// Cancel the call by address.
 		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		// Address-cancellation of named task should still clear the lookup storage.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());

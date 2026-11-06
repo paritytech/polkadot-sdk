@@ -1,0 +1,10 @@
+title: 'Added CID filtering to Bitswap server'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds CID (Content Identifier) validation and filtering to the Bitswap server
+    implementation. The server now validates incoming CID requests before processing them.
+
+crates:
+- name: sc-network
+  bump: minor

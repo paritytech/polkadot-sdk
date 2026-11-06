@@ -58,8 +58,9 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone +
 
 		// here we check if sibling
 		match a.unpack() {
-			(1, interior) =>
-				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
+			(1, interior) => {
+				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get())))
+			},
 			_ => false,
 		}
 	}

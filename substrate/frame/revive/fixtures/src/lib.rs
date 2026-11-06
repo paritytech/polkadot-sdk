@@ -22,6 +22,9 @@ extern crate alloc;
 // generated file that tells us where to find the fixtures
 include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 
+#[cfg(feature = "std")]
+pub mod builder;
+
 /// Enum for different fixture types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FixtureType {

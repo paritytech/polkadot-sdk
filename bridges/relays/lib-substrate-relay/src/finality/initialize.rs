@@ -130,7 +130,7 @@ where
 			"Headers bridge is already initialized. Skipping"
 		);
 		if !dry_run {
-			return Ok(None)
+			return Ok(None);
 		}
 	}
 

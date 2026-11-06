@@ -17,8 +17,8 @@
 // Test if disputes triggered on finalized blocks out of scope never get to be confirmed and
 // concluded.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
-
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use serde_json::json;
 use tokio::time::Duration;
@@ -36,7 +36,9 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lparachain=debug").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"patch": {
 						"configuration" : {
@@ -56,7 +58,7 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 						.with_request_cpu("1")
 				});
 			// Add malus validator
-			let r = r.with_node(|node| {
+			let r = r.with_validator(|node| {
 				node.with_name("malus")
 					.with_args(vec![
 						"-lparachain=debug,MALUS=trace".into(),
@@ -75,7 +77,7 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 			});
 			// Add honest validators
 			let r = (0..6).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("honest-{i}"))
 						.with_args(vec!["-lparachain=debug".into()])
 				})
@@ -108,12 +110,8 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 	let malus = network.get_node("malus")?;
 
 	log::info!("Waiting for parablocks to be produced");
-	assert_para_throughput(
-		&relay_client,
-		20,
-		[(polkadot_primitives::Id::from(2000), 10..30)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(2000), 10..30)], [])
+		.await?;
 
 	let result = malus
 		.wait_log_line_count_with_timeout(

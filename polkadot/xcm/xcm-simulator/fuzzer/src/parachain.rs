@@ -133,7 +133,6 @@ impl Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -237,8 +236,9 @@ pub mod mock_msg_queue {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error(InstructionError { error, .. }) =>
-							(Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail(Some(hash), error))
+						},
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
@@ -258,8 +258,10 @@ pub mod mock_msg_queue {
 		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
 			max_weight: Weight,
-		) -> Weight {
+		) -> (usize, Weight) {
+			let mut num_processed_messages = 0;
 			for (sender, sent_at, data) in iter {
+				num_processed_messages += 1;
 				let mut data_ref = data;
 				let _ = XcmpMessageFormat::decode(&mut data_ref)
 					.expect("Simulator encodes with versioned xcm format; qed");
@@ -275,7 +277,7 @@ pub mod mock_msg_queue {
 					}
 				}
 			}
-			max_weight
+			(num_processed_messages, max_weight)
 		}
 	}
 

@@ -320,7 +320,7 @@ impl CheckInherentsResult {
 	) -> Result<(), Error> {
 		// Don't accept any other error
 		if self.fatal_error {
-			return Err(Error::FatalErrorReported)
+			return Err(Error::FatalErrorReported);
 		}
 
 		self.okay = false;

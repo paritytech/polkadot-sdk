@@ -37,7 +37,8 @@ impl InspectCmd {
 		RA: Send + Sync + 'static,
 	{
 		let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
-		let client = sc_service::new_full_client::<B, RA, _>(&config, None, executor)?;
+		let client =
+			sc_service::new_full_client::<B, RA, _>(&config, None, executor, Default::default())?;
 		let inspect = Inspector::<B>::new(client);
 
 		match &self.command {

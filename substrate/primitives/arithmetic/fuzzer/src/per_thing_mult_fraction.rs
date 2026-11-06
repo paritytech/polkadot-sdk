@@ -61,7 +61,7 @@ where
 {
 	let q = P::from_rational_with_rounding(n, d, Rounding::Down).unwrap();
 	if q.is_zero() {
-		return
+		return;
 	}
 
 	let r = q.saturating_reciprocal_mul_floor(n);

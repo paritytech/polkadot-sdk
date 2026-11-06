@@ -82,6 +82,7 @@
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
 
+#![recursion_limit = "512"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -95,17 +96,24 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
+	fungible::Mutate as FungibleMutate,
+	fungibles::{
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
+	},
+	tokens::{Fortitude, Preservation},
+	Currency,
+	ExistenceRequirement::AllowDeath,
+	Get, Imbalance, OnUnbalanced, ReservableCurrency,
 };
 
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	DispatchResult, Permill, RuntimeDebug,
+	Debug, DispatchResult, Permill,
 };
 
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::EnsureOrigin,
+};
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
@@ -128,15 +136,7 @@ type BlockNumberFor<T, I = ()> =
 
 /// A bounty proposal.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The account proposing it.
@@ -164,15 +164,7 @@ impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
 
 /// The status of a bounty proposal.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum BountyStatus<AccountId, BlockNumber> {
 	/// The bounty is proposed and waiting for approval.
@@ -219,6 +211,109 @@ pub trait ChildBountyManager<Balance> {
 
 	/// Hook called when a parent bounty is removed.
 	fn bounty_removed(bounty_id: BountyIndex);
+}
+
+/// Transfer all assets held by an account (e.g. a stale bounty sub-account) back to another.
+pub trait TransferAllAssets<AccountId> {
+	/// Transfer all assets from one account to another, possibly reaping `from`.
+	///
+	/// Returns `true` if any balance was actually transferred, `false` if the account was already
+	/// empty.
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError>;
+
+	/// Mint benchmark amounts of each relevant asset into `from`.
+	///
+	/// Called during benchmarking so that `force_transfer_all_assets` exercises real transfers
+	/// instead of being a no-op. The default implementation is a no-op.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_from: &AccountId) {}
+}
+
+impl<AccountId> TransferAllAssets<AccountId> for () {
+	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
+		Ok(false)
+	}
+}
+
+/// Transfer the entire balance of a single `fungible::Mutate` currency from one account to
+/// another.
+///
+/// Suitable for runtimes that expose exactly one relevant currency (e.g. native-only runtimes
+/// without multi-asset support). For runtimes with multi-asset support, prefer
+/// [`TransferAllFungibles`] with all relevant asset IDs in `RelevantAssets`.
+pub struct TransferFungible<AccountId, Currency>(core::marker::PhantomData<(AccountId, Currency)>);
+impl<AccountId, C> TransferAllAssets<AccountId> for TransferFungible<AccountId, C>
+where
+	C: FungibleMutate<AccountId>,
+	AccountId: Eq,
+{
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
+		let balance = C::reducible_balance(from, Preservation::Expendable, Fortitude::Polite);
+		if balance.is_zero() {
+			return Ok(false);
+		}
+		C::transfer(from, to, balance, Preservation::Expendable)?;
+		Ok(true)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(from: &AccountId) {
+		let _ = C::mint_into(from, 1_000_000u32.into());
+	}
+}
+
+/// Transfer all `RelevantAssets` of the `Fungibles` from one account to another.
+///
+/// The native asset should be the first in the list of `RelevantAssets`, otherwise the transfers
+/// of the other maybe fails.
+pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
+	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
+);
+impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
+	for TransferAllFungibles<AccountId, Fungibles, RelevantAssets>
+where
+	Fungibles: FungiblesMutate<AccountId> + FungiblesCreate<AccountId>,
+	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
+	AccountId: Eq + Clone,
+{
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
+		// We iterate through all assets twice in case that the Native asset was not last in the
+		// list and ED remained because of an insufficient asset at the end of the list.
+		let assets_twice =
+			RelevantAssets::get().into_iter().chain(RelevantAssets::get().into_iter());
+
+		let mut transferred_any = false;
+		for id in assets_twice {
+			let balance = Fungibles::reducible_balance(
+				id.clone(),
+				from,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			if balance.is_zero() {
+				continue;
+			}
+
+			// Ignore errors since this can only fail if the receiver does not exist.
+			if Fungibles::transfer(id, from, to, balance, Preservation::Expendable).is_ok() {
+				transferred_any = true;
+			}
+		}
+		Ok(transferred_any)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(from: &AccountId) {
+		for id in RelevantAssets::get() {
+			if !Fungibles::asset_exists(id.clone()) {
+				// For native assets, Create is a no-op; for fungible assets this ensures the
+				// asset exists before minting so the benchmark exercises real transfers.
+				Fungibles::create(id.clone(), from.clone(), true, 1u32.into())
+					.expect("asset creation should succeed in benchmarks");
+			}
+			let _ = Fungibles::mint_into(id, from, 1_000u32.into());
+		}
+	}
 }
 
 #[frame_support::pallet]
@@ -292,6 +387,12 @@ pub mod pallet {
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
+
+		/// Means to transfer all assets from one account to another.
+		///
+		/// This is only used for bounty closure to ensure that all assets are returned to the
+		/// treasury.
+		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -321,6 +422,8 @@ pub mod pallet {
 		TooManyQueued,
 		/// User is not the proposer of the bounty.
 		NotProposer,
+		/// The bounty is still active and its account cannot be reclaimed.
+		BountyStillActive,
 	}
 
 	#[pallet::event]
@@ -355,6 +458,8 @@ pub mod pallet {
 			old_deposit: BalanceOf<T, I>,
 			new_deposit: BalanceOf<T, I>,
 		},
+		/// Stranded funds left in a closed bounty's account were reclaimed to the treasury.
+		BountyFundsReclaimed { bounty_id: BountyIndex },
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -521,7 +626,7 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
 						// No curator to unassign at this point.
-						return Err(Error::<T, I>::UnexpectedStatus.into())
+						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
 					BountyStatus::ApprovedWithCurator { ref curator } => {
 						// Bounty not yet funded, but bounty was approved with curator.
@@ -555,7 +660,7 @@ pub mod pallet {
 									// Continue to change bounty status below...
 									} else {
 										// Curator has more time to give an update.
-										return Err(Error::<T, I>::Premature.into())
+										return Err(Error::<T, I>::Premature.into());
 									}
 								} else {
 									// Else this is the curator, willingly giving up their role.
@@ -783,12 +888,12 @@ pub mod pallet {
 							// Return early, nothing else to do.
 							return Ok(
 								Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
-							)
+							);
 						},
 						BountyStatus::Approved | BountyStatus::ApprovedWithCurator { .. } => {
 							// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
-							return Err(Error::<T, I>::UnexpectedStatus.into())
+							return Err(Error::<T, I>::UnexpectedStatus.into());
 						},
 						BountyStatus::Funded | BountyStatus::CuratorProposed { .. } => {
 							// Nothing extra to do besides the removal of the bounty below.
@@ -805,7 +910,7 @@ pub mod pallet {
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
 							// deposit.
-							return Err(Error::<T, I>::PendingPayout.into())
+							return Err(Error::<T, I>::PendingPayout.into());
 						},
 					}
 
@@ -813,14 +918,10 @@ pub mod pallet {
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
 
-					let balance = T::Currency::free_balance(&bounty_account);
-					let res = T::Currency::transfer(
+					T::TransferAllAssets::force_transfer_all_assets(
 						&bounty_account,
 						&Self::account_id(),
-						balance,
-						AllowDeath,
-					); // should not fail
-					debug_assert!(res.is_ok());
+					)?;
 
 					*maybe_bounty = None;
 					T::ChildBountyManager::bounty_removed(bounty_id);
@@ -941,6 +1042,51 @@ pub mod pallet {
 			let deposit_updated = Self::poke_bounty_deposit(bounty_id)?;
 
 			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
+		}
+
+		/// Reclaim funds stranded in a closed bounty's account back to the treasury.
+		///
+		/// Permissionless. Moves all remaining assets from a closed bounty's account back to the
+		/// treasury in a single call. Which assets are swept depends on the `TransferAllAssets`
+		/// configuration.
+		///
+		/// The call is free if funds were reclaimed and paid otherwise, so no-op calls cannot be
+		/// used to grief the network. Emits `BountyFundsReclaimed` on success.
+		///
+		/// ## Complexity
+		/// - O(A) where A is the number of relevant assets configured in `TransferAllAssets`.
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds())]
+		pub fn reclaim_bounty_funds(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			// A live bounty still manages its account, so leave it untouched.
+			ensure!(!Bounties::<T, I>::contains_key(bounty_id), Error::<T, I>::BountyStillActive);
+
+			debug_assert!(
+				T::ChildBountyManager::child_bounties_count(bounty_id) == 0,
+				"child bounties should not exist for a closed bounty"
+			);
+
+			let bounty_account = Self::bounty_account_id(bounty_id);
+			let treasury_account = Self::account_id();
+
+			let transferred = T::TransferAllAssets::force_transfer_all_assets(
+				&bounty_account,
+				&treasury_account,
+			)?;
+
+			// Free only if something moved, otherwise paid to prevent griefing.
+			if !transferred {
+				return Ok(Pays::Yes.into());
+			}
+
+			Self::deposit_event(Event::<T, I>::BountyFundsReclaimed { bounty_id });
+
+			Ok(Pays::No.into())
 		}
 	}
 

@@ -120,7 +120,6 @@
 //!
 //! 2. If a timestamp is set more than once per block:
 #![doc = docify::embed!("src/tests.rs", double_timestamp_should_fail)]
-//!
 //! 3. If a timestamp is set before the [`Config::MinimumPeriod`] is elapsed:
 #![doc = docify::embed!("src/tests.rs", block_period_minimum_enforced)]
 #![deny(missing_docs)]

@@ -119,12 +119,15 @@ impl NetworkServiceProvider {
 
 		while let Some(inner) = rx.next().await {
 			match inner {
-				ToServiceCommand::DisconnectPeer(peer, protocol_name) =>
-					service.disconnect_peer(peer, protocol_name),
-				ToServiceCommand::ReportPeer(peer, reputation_change) =>
-					service.report_peer(peer, reputation_change),
-				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =>
-					service.start_request(peer, protocol, request, None, tx, connect),
+				ToServiceCommand::DisconnectPeer(peer, protocol_name) => {
+					service.disconnect_peer(peer, protocol_name)
+				},
+				ToServiceCommand::ReportPeer(peer, reputation_change) => {
+					service.report_peer(peer, reputation_change)
+				},
+				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) => {
+					service.start_request(peer, protocol, request, None, tx, connect)
+				},
 			}
 		}
 	}

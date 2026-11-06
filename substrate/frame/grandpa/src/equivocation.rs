@@ -80,7 +80,7 @@ pub struct EquivocationOffence<Offender> {
 
 impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	const ID: Kind = *b"grandpa:equivoca";
-	type TimeSlot = TimeSlot;
+	type Slot = TimeSlot;
 
 	fn offenders(&self) -> Vec<Offender> {
 		vec![self.offender.clone()]
@@ -94,7 +94,7 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.time_slot
 	}
 
@@ -191,7 +191,7 @@ where
 
 		// Validate equivocation proof (check votes are different and signatures are valid).
 		if !sp_consensus_grandpa::check_equivocation_proof(equivocation_proof) {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		// Validate the key ownership proof extracting the id of the offender.
@@ -218,7 +218,7 @@ where
 				.map(|previous_index| session_index <= previous_index)
 				.unwrap_or(false)
 		{
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		let offence = EquivocationOffence {
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned report equivocation transaction because it is not local/in-block."
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 
@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix("GrandpaEquivocation")
 				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one equivocation report for the same offender at the same slot.
 				.and_provides((
 					equivocation_proof.offender().clone(),

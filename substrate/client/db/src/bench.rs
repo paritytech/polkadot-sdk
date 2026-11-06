@@ -234,14 +234,21 @@ impl KeyTracker {
 		whitelist.iter().for_each(|key| {
 			let mut whitelisted = TrackedStorageKey::new(key.key.clone());
 			whitelisted.whitelist();
-			self.main_keys.insert(key.key.clone(), whitelisted);
+			if let Some(child_trie_key) = &key.child_trie_key {
+				self.child_keys
+					.entry(child_trie_key.clone())
+					.or_default()
+					.insert(key.key.clone(), whitelisted);
+			} else {
+				self.main_keys.insert(key.key.clone(), whitelisted);
+			}
 		});
 	}
 
 	// Childtrie is identified by its storage key (i.e. `ChildInfo::storage_key`)
 	fn add_read_key(&mut self, childtrie: Option<&[u8]>, key: &[u8]) {
 		if !self.enable_tracking {
-			return
+			return;
 		}
 
 		let child_key_tracker = &mut self.child_keys;
@@ -282,7 +289,7 @@ impl KeyTracker {
 	// Childtrie is identified by its storage key (i.e. `ChildInfo::storage_key`)
 	fn add_write_key(&mut self, childtrie: Option<&[u8]>, key: &[u8]) {
 		if !self.enable_tracking {
-			return
+			return;
 		}
 
 		let child_key_tracker = &mut self.child_keys;
@@ -397,7 +404,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<MerkleValue<Hasher::Output>>, Self::Error> {
-		self.add_read_key(None, key);
+		self.add_read_key(Some(child_info.storage_key()), key);
 		self.state
 			.borrow()
 			.as_ref()
@@ -516,7 +523,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 				})
 			});
 		} else {
-			return Err("Trying to commit to a closed db".into())
+			return Err("Trying to commit to a closed db".into());
 		}
 		self.reopen()
 	}

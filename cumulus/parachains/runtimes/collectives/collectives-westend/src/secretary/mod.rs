@@ -93,7 +93,7 @@ const USDT_UNITS: u128 = 1_000_000;
 /// [`PayOverXcm`] setup to pay the Secretary salary on the AssetHub in USDT.
 pub type SecretarySalaryPaymaster = PayOverXcm<
 	SecretarySalaryInteriorLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,

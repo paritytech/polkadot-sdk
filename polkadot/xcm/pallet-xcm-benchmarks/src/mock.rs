@@ -50,8 +50,9 @@ pub struct AccountIdConverter;
 impl xcm_executor::traits::ConvertLocation<u64> for AccountIdConverter {
 	fn convert_location(ml: &Location) -> Option<u64> {
 		match ml.unpack() {
-			(0, [Junction::AccountId32 { id, .. }]) =>
-				Some(<u64 as codec::Decode>::decode(&mut &*id.to_vec()).unwrap()),
+			(0, [Junction::AccountId32 { id, .. }]) => {
+				Some(<u64 as codec::Decode>::decode(&mut &*id.to_vec()).unwrap())
+			},
 			_ => None,
 		}
 	}

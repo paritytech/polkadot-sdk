@@ -1,0 +1,12 @@
+title: Minor pallet-scheduler documentation/unit test additions
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR changes the Rust documentation of some extrinsic calls in the scheduler pallet.
+
+    It also adds some checks to the `Lookup<T>` storage item in a unit test to named task cancellation via
+    the anonymous cancellation call, and a unit test for the rescheduling of a failed named/anonymous task
+    to a full agenda.
+crates:
+- name: pallet-scheduler
+  bump: patch

@@ -105,7 +105,7 @@ impl PeerInfo {
 			self.reputation = self.reputation.saturating_sub(diff);
 
 			if self.reputation == 0 {
-				break
+				break;
 			}
 		}
 	}
@@ -149,7 +149,7 @@ impl PeerstoreHandle {
 
 	fn progress_time(&self, seconds_passed: u64) {
 		if seconds_passed == 0 {
-			return
+			return;
 		}
 
 		let mut lock = self.0.lock();

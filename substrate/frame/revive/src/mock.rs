@@ -22,7 +22,7 @@
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
 
-use crate::{exec::Origin, pallet, DelegateInfo, ExecReturnValue};
+use crate::{DelegateInfo, ExecReturnValue, exec::Origin, pallet};
 
 /// A trait that provides hooks for mocking EVM contract calls and callers.
 /// This is useful for testing and simulating contract interactions within foundry forge tests.
@@ -61,6 +61,19 @@ pub trait MockHandler<T: pallet::Config> {
 	///
 	/// Returns `Some(DelegateInfo<T>)` if the delegated caller is mocked, otherwise `None`.
 	fn mock_delegated_caller(&self, _dest: H160, _input_data: &[u8]) -> Option<DelegateInfo<T>> {
+		None
+	}
+
+	/// Returns dummy code for mocked addresses.
+	///
+	/// This method serves two purposes:
+	/// 1. Indicates whether an address has mocked calls (Some = mocked, None = not mocked)
+	/// 2. Provides the dummy bytecode for `EXTCODESIZE` and `EXTCODEHASH` opcodes
+	///
+	/// # Returns
+	/// - `Some(bytecode)` containing dummy bytecode if the address has mocked calls
+	/// - `None` if the address is not mocked
+	fn mocked_code(&self, _address: H160) -> Option<&[u8]> {
 		None
 	}
 }

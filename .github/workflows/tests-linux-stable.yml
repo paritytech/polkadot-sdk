@@ -1,4 +1,4 @@
-# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+# GHA for test-linux-stable-int, test-linux-stable
 name: tests linux stable
 
 on:
@@ -22,7 +22,7 @@ jobs:
   test-linux-stable-int:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -35,7 +35,7 @@ jobs:
       RUN_UI_TESTS: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         id: required
         run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
@@ -50,7 +50,7 @@ jobs:
   test-linux-stable-runtime-benchmarks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -61,7 +61,7 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
@@ -75,17 +75,12 @@ jobs:
   test-linux-stable:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ matrix.runners }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         partition: [1/3, 2/3, 3/3]
-        runners:
-          [
-            "${{ needs.preflight.outputs.RUNNER_NEW }}",
-            "${{ needs.preflight.outputs.RUNNER_OLDLINUX_NEW }}",
-          ]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
       # needed for tests that use unshare syscall
@@ -97,7 +92,23 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install resolc
+        run: |
+          . ./.github/env
+          VERSION="$RESOLC_VERSION"
+          if command -v resolc >/dev/null 2>&1 && resolc --version 2>/dev/null | grep -q "$VERSION"; then
+            echo "resolc v$VERSION already present in image at $(command -v resolc)"
+            resolc --version
+          else
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
+            echo "Downloading resolc v$VERSION from $ASSET_URL"
+            curl -Lsf --show-error \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
+              -o /usr/local/bin/resolc "$ASSET_URL"
+            chmod +x /usr/local/bin/resolc
+            resolc --version
+          fi
       - name: script
         id: required
         run: |
@@ -127,7 +138,7 @@ jobs:
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -143,7 +154,23 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install resolc
+        run: |
+          . ./.github/env
+          VERSION="$RESOLC_VERSION"
+          if command -v resolc >/dev/null 2>&1 && resolc --version 2>/dev/null | grep -q "$VERSION"; then
+            echo "resolc v$VERSION already present in image at $(command -v resolc)"
+            resolc --version
+          else
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
+            echo "Downloading resolc v$VERSION from $ASSET_URL"
+            curl -Lsf --show-error \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
+              -o /usr/local/bin/resolc "$ASSET_URL"
+            chmod +x /usr/local/bin/resolc
+            resolc --version
+          fi
       - name: script
         id: required
         run: |
@@ -167,6 +194,7 @@ jobs:
     # If any new job gets added, be sure to add it to this array
     needs:
       [
+        preflight,
         test-linux-stable-int,
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
@@ -176,7 +204,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

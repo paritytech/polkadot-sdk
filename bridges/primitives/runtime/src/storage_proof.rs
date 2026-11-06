@@ -17,11 +17,11 @@
 //! Logic for working with storage proofs.
 
 use frame_support::PalletError;
-use sp_core::RuntimeDebug;
 use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
+use Debug;
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
@@ -33,7 +33,7 @@ use trie_db::{Trie, TrieConfiguration, TrieDBMut};
 
 /// Errors that can occur when interacting with `UnverifiedStorageProof` and `VerifiedStorageProof`.
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+	Clone, Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo,
 )]
 pub enum StorageProofError {
 	/// Call to `generate_trie_proof()` failed.
@@ -130,7 +130,7 @@ where
 
 		let db = proof.into_memory_db();
 		if !db.contains(&root, EMPTY_PREFIX) {
-			return Err(StorageProofError::StorageRootMismatch)
+			return Err(StorageProofError::StorageRootMismatch);
 		}
 
 		Ok(StorageProofChecker { root, db, accessed_nodes_tracker: recorder })
@@ -233,7 +233,7 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 		// create branches at the 1st nibble
 		for branch in 1..=15 {
 			if added_nodes >= num_extra_nodes {
-				return
+				return;
 			}
 
 			// create branches at the 1st nibble
@@ -247,7 +247,7 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 		// create branches at the 2nd nibble
 		for branch in 1..=15 {
 			if added_nodes >= num_extra_nodes {
-				return
+				return;
 			}
 
 			prefix[i] = (first_nibble << 4) | (second_nibble.wrapping_add(branch) % 16);
