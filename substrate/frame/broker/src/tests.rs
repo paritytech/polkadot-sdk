@@ -1733,6 +1733,45 @@ fn short_leases_are_cleaned() {
 }
 
 #[test]
+fn swap_leases_works() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(200, 1));
+
+		assert_ok!(Broker::do_set_lease(1000, 10));
+		assert_ok!(Broker::do_set_lease(2000, 20));
+
+		assert_ok!(Broker::swap_leases(Root.into(), 1000, 2000));
+		assert_eq!(
+			Leases::<Test>::get().into_iter().collect::<Vec<_>>(),
+			vec![
+				LeaseRecordItem { until: 10, task: 2000 },
+				LeaseRecordItem { until: 20, task: 1000 },
+			]
+		);
+
+		// Swapping a task with itself is a no-op.
+		assert_ok!(Broker::swap_leases(Root.into(), 1000, 1000));
+		assert_eq!(
+			Leases::<Test>::get().into_iter().collect::<Vec<_>>(),
+			vec![
+				LeaseRecordItem { until: 10, task: 2000 },
+				LeaseRecordItem { until: 20, task: 1000 },
+			]
+		);
+
+		// Unknown tasks swap nothing.
+		assert_ok!(Broker::swap_leases(Root.into(), 1000, 3000));
+		assert_eq!(
+			Leases::<Test>::get().into_iter().collect::<Vec<_>>(),
+			vec![
+				LeaseRecordItem { until: 10, task: 2000 },
+				LeaseRecordItem { until: 20, task: 3000 },
+			]
+		);
+	});
+}
+
+#[test]
 fn leases_can_be_renewed() {
 	let initial_balance = 100_000;
 	TestExt::new().endow(1, initial_balance).execute_with(|| {

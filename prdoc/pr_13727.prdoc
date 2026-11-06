@@ -1,0 +1,13 @@
+title: '`pallet-broker`: clean up, document, and test `swap_leases`'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the dead `id_leases_count`/`other_leases_count` counters in `do_swap_leases`
+      (unused since #3714), documents the previously undocumented `swap_leases` call, and adds
+      its first unit test (swap both directions, self-swap no-op, unknown tasks).
+      No behavior change; the existing weight remains conservative.
+
+crates:
+  - name: pallet-broker
+    bump: none
