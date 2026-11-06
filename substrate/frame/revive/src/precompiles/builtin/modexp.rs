@@ -185,9 +185,9 @@ fn calculate_gas_cost(
 			//   index of their highest bit to be 0 and the result is exactly 8 * (exp_length - 32)
 			// * the addition can't overflow because the terms are both capped at roughly 8 * max
 			//   size of exp_length (1024)
-			// * the EIP spec is written in python, in which (exponent & (2**256 - 1)) takes the
-			//   FIRST 32 bytes. However this `BigUint` `&` operator takes the LAST 32 bytes. We
-			//   thus instead take the bytes manually.
+			// * in the EIP-2565 python, (exponent & (2**256 - 1)) keeps the low 256 bits, which are
+			//   the last 32 bytes, same as `BigUint`. EIP-198 defines the head as the first 32
+			//   bytes, so we take those manually.
 			let exponent_head = BigUint::from_bytes_be(&exponent_bytes[..32]);
 
 			iteration_count = (8 * (exp_length - 32)) + max(exponent_head.bits(), 1) - 1;

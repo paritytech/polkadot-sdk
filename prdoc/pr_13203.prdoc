@@ -8,8 +8,8 @@ doc:
     input, which matches geth and revm. Contracts calling modexp with a zero-length modulus see
     higher gas usage, and such calls can now run out of gas. An exponent longer than 32 bytes
     whose first 32 bytes are zero was also undercharged by one iteration. It now counts
-    `8 * (exp_len - 32)` iterations as EIP-198 specifies, so these calls cost more for any modulus
-    length. No migration is needed.
+    `8 * (exp_len - 32)` iterations as EIP-198 specifies, so these calls can cost more. No migration
+    is needed.
 crates:
 - name: pallet-revive
   bump: patch
