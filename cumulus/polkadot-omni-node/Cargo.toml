@@ -24,16 +24,33 @@ polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+jsonrpsee = { workspace = true, features = ["ws-client"] }
+pallet-revive = { workspace = true, default-features = true }
+pallet-revive-eth-rpc = { workspace = true, default-features = true }
+penpal-runtime = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
+experimental-eth-rpc-in-node = [
+	"polkadot-omni-node-lib/experimental-eth-rpc-in-node",
+]
 jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
 runtime-benchmarks = [
+	"pallet-revive/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
 	"polkadot-omni-node-lib/runtime-benchmarks",
 ]
 try-runtime = [
+	"pallet-revive/try-runtime",
+	"penpal-runtime/try-runtime",
 	"polkadot-omni-node-lib/try-runtime",
 ]
