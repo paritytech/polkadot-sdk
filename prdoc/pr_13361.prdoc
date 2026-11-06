@@ -1,0 +1,30 @@
+title: '[pallet-dap] Add genesis config for budget allocation'
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |-
+      `pallet-dap` gains a genesis configuration so the budget allocation can be seeded on a freshly
+      initialised chain, keeping the DAP `try_state` invariants satisfied from block 0. The optional
+      `budget_allocation` is validated exactly like `set_budget_allocation`: every key must be a
+      registered `BudgetRecipient` and the parts must sum to 100%, otherwise genesis panics. When it
+      is left `None`, a warning is logged and `BudgetAllocation` stays empty until governance calls
+      `set_budget_allocation`.
+
+      The previously disabled DAP `try_state` check is re-enabled behind a fixed `MIN_SEEDED_VERSION`
+      floor of storage version v2: chains already upgraded by `MigrateV1ToV2`, and chains built from
+      genesis, are verified, while older chains skip the check. No storage migration is introduced.
+
+      The asset-hub-westend and staking-async parachain genesis presets, plus the asset-hub-westend
+      emulated chain, seed the initial allocation with the same 15% DAP buffer / 85% staker rewards /
+      0% validator incentive split that `MigrateV1ToV2` applied on existing chains, so fresh networks
+      match already-running ones.
+
+crates:
+  - name: pallet-dap
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+  - name: asset-hub-westend-emulated-chain
+    bump: none
