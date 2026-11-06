@@ -23,7 +23,9 @@ pub use pallet::*;
 const LOG_TARGET: &str = "pallet_foreign_assets";
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+impl<T: Config, I>
+	AssetsCallback<T::AssetId, T::AccountId, <T as pallet_assets::Config<I>>::Balance>
+	for ForeignAssetId<T, I>
 where
 	T: Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
 	I: 'static,

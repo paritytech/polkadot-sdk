@@ -149,7 +149,6 @@ pub struct AffinityFilter {
 
 impl AffinityFilter {
 	/// Create an empty filter sized for `expected_items` topics at the given false-positive rate.
-	#[allow(dead_code)]
 	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
@@ -158,7 +157,6 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	#[allow(dead_code)]
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
 	}
@@ -167,7 +165,6 @@ impl AffinityFilter {
 	///
 	/// An empty topic set yields a filter that matches nothing, not everything;
 	/// use [`Self::match_all`] for the latter.
-	#[allow(dead_code)]
 	pub(crate) fn from_topics<'a>(
 		topics: impl Iterator<Item = &'a [u8; 32]>,
 		seed: u128,
@@ -183,7 +180,6 @@ impl AffinityFilter {
 	}
 
 	/// Build a filter that matches every topic, for a node that wants the full statement stream.
-	#[allow(dead_code)]
 	pub(crate) fn match_all(seed: u128) -> Self {
 		let bloom = BloomFilter::from_vec(vec![u64::MAX; 16])
 			.hasher(PortableBuildHasher::seeded(seed))

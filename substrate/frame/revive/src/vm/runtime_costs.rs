@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessKind, StorageOp, Warmth},
+	access_list::{StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -38,6 +38,9 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// u64 works for approximations because Weight is a very small unit compared to
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
+
+/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
@@ -184,6 +187,22 @@ pub enum RuntimeCosts {
 	/// for the chain-id failures, which bail before recovery — and incur no
 	/// account creation/update work.
 	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -372,28 +391,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
+			CallBase => T::WeightInfo::seal_call(0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge { dust_transfer } => {
-				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+				// `Weight::max` is per dimension, so ref time and proof size can each be taken from
+				// either of the two benches.
+				T::WeightInfo::seal_call_transfer(dust_transfer.into())
+					.max(T::WeightInfo::seal_call_transfer_to_existing(dust_transfer.into()))
+					.saturating_sub(T::WeightInfo::seal_call(0))
 			},
-			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			CallInputCloned(len) => cost_args!(seal_call, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::seal_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					input_data_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::seal_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::seal_instantiate(0))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::seal_instantiate(input_data_len).saturating_add(transfer)
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::evm_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					init_code_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(BENCH_MIN_EVM_INIT_CODE_LEN))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::evm_instantiate(init_code_len).saturating_add(transfer)
 			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -430,7 +457,7 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+	fn storage_pricing_by_access_kind() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
@@ -483,6 +510,19 @@ mod tests {
 				rev_weight.proof_size(),
 				non_rev_weight.proof_size(),
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+		}
+
+		for transient_cost in with_kind(StorageAccessKind::Transient) {
+			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+			assert_eq!(
+				weight.proof_size(),
+				0,
+				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+			);
+			assert!(
+				weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
 			);
 		}
 	}
@@ -539,6 +579,14 @@ mod tests {
 	}
 
 	#[test]
+	fn a_transient_access_never_consults_the_access_list() {
+		assert_eq!(
+			StorageAccessKind::new(true, || unreachable!("transient storage has no warmth")),
+			StorageAccessKind::Transient,
+		);
+	}
+
+	#[test]
 	fn hot_storage_overlay_overhead_is_not_zero() {
 		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		assert!(
@@ -546,5 +594,41 @@ mod tests {
 			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+	}
+
+	#[test]
+	fn value_transfers_pay_a_surcharge() {
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let call = |dust_transfer| weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
+		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
+		assert!(call(true).ref_time() > call(false).ref_time(), "a call with dust must cost more");
+
+		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
+		};
+		let create: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Create { init_code_len: 0, balance_transfer, dust_transfer }
+		};
+
+		for (name, cost_of) in [("instantiate", instantiate), ("create", create)] {
+			let surcharge = |balance_transfer, dust_transfer| {
+				weight(cost_of(balance_transfer, dust_transfer))
+					.saturating_sub(weight(cost_of(false, false)))
+			};
+			assert!(
+				surcharge(true, false).ref_time() > 0,
+				"{name} with value must pay for its transfer",
+			);
+			assert!(
+				surcharge(true, true).ref_time() > surcharge(true, false).ref_time(),
+				"{name} with dust must cost more",
+			);
+			assert_eq!(
+				surcharge(false, true),
+				surcharge(true, true),
+				"{name} with only dust does the same work as with value and dust",
+			);
+		}
 	}
 }

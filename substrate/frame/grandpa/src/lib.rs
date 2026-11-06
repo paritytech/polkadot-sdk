@@ -126,6 +126,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// check for scheduled pending authority set changes
 			if let Some(pending_change) = PendingChange::<T>::get() {
@@ -589,6 +594,49 @@ impl<T: Config> Pallet<T> {
 		// failed. until then, we can't meaningfully guard against
 		// `next == last` the way that normal session changes do.
 		Stalled::<T>::put((further_wait, median));
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_current_set_id()?;
+		Self::try_state_set_id_session_entries()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `SetIdSession` must contain an entry for `CurrentSetId`.
+	fn try_state_current_set_id() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_set_id = CurrentSetId::<T>::get();
+
+		frame_support::ensure!(
+			SetIdSession::<T>::get(current_set_id).is_some(),
+			"`SetIdSession` must contain an entry for `CurrentSetId`"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * No entry in `SetIdSession` should have a set ID greater than `CurrentSetId`.
+	fn try_state_set_id_session_entries() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_set_id = CurrentSetId::<T>::get();
+
+		for (set_id, _) in SetIdSession::<T>::iter() {
+			frame_support::ensure!(
+				set_id <= current_set_id,
+				"`SetIdSession` contains an entry with a set ID greater than `CurrentSetId`"
+			);
+		}
+
+		Ok(())
 	}
 }
 

@@ -80,25 +80,25 @@ fn generate_mock_xcm_page(
 	data
 }
 
+fn get_outbound_status(recipient: ParaId) -> Option<OutboundChannelDetails> {
+	<OutboundXcmpStatus<Test>>::get()
+		.into_iter()
+		.find(|item| item.recipient == recipient)
+}
+
 #[test]
 fn handling_signals_works() {
 	new_test_ext().execute_with(|| {
-		fn get_channel(recipient: ParaId) -> Option<OutboundChannelDetails> {
-			<OutboundXcmpStatus<Test>>::get()
-				.into_iter()
-				.find(|item| item.recipient == recipient)
-		}
-
 		// Suspend works;
 		let page = (XcmpMessageFormat::Signals, ChannelSignal::Suspend).encode();
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		let channel = get_channel(1000.into()).unwrap();
+		let channel = get_outbound_status(1000.into()).unwrap();
 		assert_eq!(channel.state, OutboundState::Suspended);
 
 		// Resume works
 		let page = (XcmpMessageFormat::Signals, ChannelSignal::Resume).encode();
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		let channel = get_channel(1000.into());
+		let channel = get_outbound_status(1000.into());
 		assert_eq!(channel, None);
 
 		// Only the first 3 signals are processed
@@ -112,22 +112,97 @@ fn handling_signals_works() {
 			ChannelSignal::Resume,
 		)
 			.encode();
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		let channel = get_channel(1000.into()).unwrap();
+		let (num_processed_pages, _) =
+			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		assert_eq!(num_processed_pages, 1);
+		let channel = get_outbound_status(1000.into()).unwrap();
 		assert_eq!(channel.state, OutboundState::Suspended);
 	})
 }
 
 #[test]
-fn empty_concatenated_works() {
+fn handling_signals_rolls_back_on_out_of_weight() {
+	new_test_ext().execute_with(|| {
+		let channel = get_outbound_status(1000.into());
+		assert_eq!(channel, None);
+
+		let weight = <<Test as Config>::WeightInfo>::suspend_channel() +
+			<<Test as Config>::WeightInfo>::resume_channel();
+
+		// Make sure that suspend + resume works
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, (Signals, ChannelSignal::Suspend).encode().as_slice()),
+				(1000.into(), 1, (Signals, ChannelSignal::Resume).encode().as_slice()),
+			]
+			.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 2);
+		let channel = get_outbound_status(1000.into());
+		assert_eq!(channel, None);
+
+		// suspend + resume + resume should return out of weight
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, (Signals, ChannelSignal::Suspend).encode().as_slice()),
+				(
+					1000.into(),
+					1,
+					(Signals, ChannelSignal::Resume, ChannelSignal::Resume).encode().as_slice(),
+				),
+			]
+			.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 1);
+		let channel = get_outbound_status(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+
+		// Make sure that resume + suspend works
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, (Signals, ChannelSignal::Resume).encode().as_slice()),
+				(1000.into(), 1, (Signals, ChannelSignal::Suspend).encode().as_slice()),
+			]
+			.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 2);
+		let channel = get_outbound_status(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+
+		// resume + suspend + suspend should return out of weight
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, (Signals, ChannelSignal::Resume).encode().as_slice()),
+				(
+					1000.into(),
+					1,
+					(Signals, ChannelSignal::Suspend, ChannelSignal::Suspend).encode().as_slice(),
+				),
+			]
+			.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 1);
+		let channel = get_outbound_status(1000.into());
+		assert_eq!(channel, None);
+	})
+}
+
+#[test]
+fn handling_empty_concatenated_works() {
 	new_test_ext().execute_with(|| {
 		let page = generate_mock_xcm_page(0, 0, XcmEncoding::Simple);
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let (num_processed_pages, _) =
+			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		assert_eq!(num_processed_pages, 1);
 		assert_eq!(EnqueuedMessages::get(), vec![]);
 	})
 }
 
-fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
+fn test_basic_xcm_handling(xcm_encoding: XcmEncoding) {
 	new_test_ext().execute_with(|| {
 		// Empty page should work
 		EnqueuedMessages::set(vec![]);
@@ -173,12 +248,12 @@ fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
 }
 
 #[test]
-fn basic_xcm_enqueueing_works() {
-	test_basic_xcm_enqueueing(XcmEncoding::Simple);
-	test_basic_xcm_enqueueing(XcmEncoding::Double);
+fn basic_xcm_handling_works() {
+	test_basic_xcm_handling(XcmEncoding::Simple);
+	test_basic_xcm_handling(XcmEncoding::Double);
 }
 
-fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
+fn test_handling_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
 	new_test_ext().execute_with(|| {
 		EnqueuedMessages::set(vec![]);
 		<QueueConfig<Test>>::set(QueueConfigData {
@@ -199,12 +274,12 @@ fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
 }
 
 #[test]
-fn test_enqueueing_more_than_a_xcm_batch_works() {
-	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Simple);
-	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Double);
+fn test_handling_more_than_a_xcm_batch_works() {
+	test_handling_more_than_a_xcm_batch(XcmEncoding::Simple);
+	test_handling_more_than_a_xcm_batch(XcmEncoding::Double);
 }
 
-fn test_xcm_enqueueing_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
+fn test_xcm_handling_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
 	// We use the fact that our mocked queue enqueues 1 message per page.
 	new_test_ext().execute_with(|| {
 		// enqueue less than a batch
@@ -239,7 +314,7 @@ fn test_xcm_enqueueing_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
 			drop_threshold: 300,
 			resume_threshold: 300,
 		});
-		EnqueuedMessages::set(vec![]);
+		EnqueuedMessages::reset();
 		XcmpQueue::handle_xcmp_messages(
 			once((1000.into(), 1, generate_mock_xcm_page(0, 315, xcm_encoding).as_slice())),
 			Weight::MAX,
@@ -247,7 +322,7 @@ fn test_xcm_enqueueing_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
 		assert_eq!(EnqueuedMessages::get().len(), 300);
 
 		// enqueue messages from multiple pages
-		EnqueuedMessages::set(vec![]);
+		EnqueuedMessages::reset();
 		XcmpQueue::handle_xcmp_messages(
 			[
 				(1000.into(), 1, generate_mock_xcm_page(0, 200, xcm_encoding).as_slice()),
@@ -261,9 +336,9 @@ fn test_xcm_enqueueing_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
 }
 
 #[test]
-fn xcm_enqueueing_starts_dropping_on_overflow() {
-	test_xcm_enqueueing_starts_dropping_on_overflow(XcmEncoding::Simple);
-	test_xcm_enqueueing_starts_dropping_on_overflow(XcmEncoding::Double);
+fn xcm_handling_starts_dropping_on_overflow() {
+	test_xcm_handling_starts_dropping_on_overflow(XcmEncoding::Simple);
+	test_xcm_handling_starts_dropping_on_overflow(XcmEncoding::Double);
 }
 
 #[test]
@@ -300,9 +375,9 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 				&mut weight_meter,
 			);
 			if idx < xcms.len() - 1 {
-				assert!(res.is_err());
+				assert_eq!(res.has_out_of_weight_msgs, true);
 			} else {
-				assert!(res.is_ok());
+				assert_eq!(res.has_out_of_weight_msgs, false);
 			}
 
 			assert_eq!(
@@ -316,13 +391,7 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 	})
 }
 
-#[test]
-fn xcm_enqueueing_uses_correct_pov_size() {
-	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Simple);
-	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Double);
-}
-
-fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
+fn test_xcm_handling_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
 	let first_page_pos = 100_000;
 	// Our mocked queue enqueues 1 message per page.
 	// Let's make sure we don't hit the drop threshold.
@@ -338,7 +407,7 @@ fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
 		]));
 
 		let page = generate_mock_xcm_page(0, 1, xcm_encoding);
-		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+		let (num_processed_pages, consumed_weight) = XcmpQueue::handle_xcmp_messages(
 			[
 				// For the first page for a certain sender, we should take into account the
 				// `first_page_pos` in the PoV size
@@ -353,10 +422,11 @@ fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
 			.into_iter(),
 			Weight::MAX,
 		);
+		assert_eq!(num_processed_pages, 5);
 		assert!(consumed_weight.proof_size() > first_page_pos as u64);
 		assert!(consumed_weight.proof_size() < 2 * first_page_pos as u64);
 
-		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+		let (num_processed_pages, consumed_weight) = XcmpQueue::handle_xcmp_messages(
 			[
 				// For the first page for a certain sender, we should take into account the
 				// `first_page_pos` in the PoV size
@@ -374,114 +444,213 @@ fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
 			.into_iter(),
 			Weight::MAX,
 		);
+		assert_eq!(num_processed_pages, 6);
 		assert!(consumed_weight.proof_size() > 2 * first_page_pos as u64);
 		assert!(consumed_weight.proof_size() < 3 * first_page_pos as u64);
 	})
 }
 
-/// First enqueue 10 good, 1 bad and then 10 good XCMs.
-///
-/// It should only process the first 10 good though.
 #[test]
-#[cfg(not(debug_assertions))]
-fn xcm_enqueueing_broken_xcm_works() {
+fn xcm_handling_uses_correct_pov_size() {
+	test_xcm_handling_uses_correct_pov_size(XcmEncoding::Simple);
+	test_xcm_handling_uses_correct_pov_size(XcmEncoding::Double);
+}
+
+fn test_xcm_handling_partially_skips_broken_page(xcm_encoding: XcmEncoding) {
 	new_test_ext().execute_with(|| {
-		let mut encoded_xcms = vec![];
-		for _ in 0..10 {
-			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-			encoded_xcms.push(xcm.encode());
+		let good_page_1_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
+		let good_page_1 = generate_mock_xcm_page(0, 10, xcm_encoding);
+
+		let bad_page_xcms = encode_xcm_batch(generate_mock_xcm_batch(10, 5), XcmEncoding::Simple);
+		let mut bad_page = generate_mock_xcm_page(10, 5, xcm_encoding);
+		match xcm_encoding {
+			XcmEncoding::Simple => {
+				// Claim that an XCM with version 100 should follow, even if version 100 doesn't
+				// exist.
+				bad_page.push(100);
+			},
+			XcmEncoding::Double => {
+				// A `Compact::<u32>` should follow. We use `Compact::<u64>::from(u64::MAX)`
+				// to break the decoding
+				bad_page.extend(Compact::<u64>::from(u64::MAX).encode());
+			},
+		};
+		for xcm in encode_xcm_batch(generate_mock_xcm_batch(15, 5), xcm_encoding) {
+			bad_page.extend(xcm)
 		}
-		let mut good = ConcatenatedVersionedXcm.encode();
-		good.extend(encoded_xcms.iter().flatten());
 
-		let mut bad = ConcatenatedVersionedXcm.encode();
-		bad.extend(vec![0u8].into_iter());
+		let good_page_2_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(20, 10), XcmEncoding::Simple);
+		let good_page_2 = generate_mock_xcm_page(20, 10, xcm_encoding);
 
-		// If we enqueue them in multiple pages, then it's fine.
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, bad.as_slice())), Weight::MAX);
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
-		assert_eq!(20, EnqueuedMessages::get().len());
-
-		assert_eq!(
-			EnqueuedMessages::get(),
-			encoded_xcms
-				.clone()
-				.into_iter()
-				.map(|xcm| (1000.into(), xcm))
-				.cycle()
-				.take(20)
-				.collect::<Vec<_>>(),
-		);
-		EnqueuedMessages::take();
-
-		// But if we do it all in one page, then it only uses the first 10:
-		XcmpQueue::handle_xcmp_messages(
-			vec![(1000.into(), 1, good.as_slice()), (1000.into(), 1, bad.as_slice())].into_iter(),
+		EnqueuedMessages::reset();
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, good_page_1.as_slice()),
+				(1000.into(), 1, bad_page.as_slice()),
+				(1000.into(), 1, good_page_2.as_slice()),
+			]
+			.into_iter(),
 			Weight::MAX,
 		);
-		assert_eq!(10, EnqueuedMessages::get().len());
+		assert_eq!(num_processed_pages, 3);
+		assert_eq!(25, EnqueuedMessages::get().len());
 		assert_eq!(
-			EnqueuedMessages::get(),
-			encoded_xcms
+			EnqueuedMessages::get()[0..10],
+			good_page_1_xcms
 				.into_iter()
-				.map(|xcm| (1000.into(), xcm))
-				.cycle()
-				.take(10)
+				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.collect::<Vec<_>>(),
+		);
+		assert_eq!(
+			EnqueuedMessages::get()[10..15],
+			bad_page_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.collect::<Vec<_>>(),
+		);
+		assert_eq!(
+			EnqueuedMessages::get()[15..25],
+			good_page_2_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm.into_inner()))
 				.collect::<Vec<_>>(),
 		);
 	})
 }
 
-/// Message blobs are not supported and panic in debug mode.
+/// Enqueue:
+/// - a page with 10 good XCMs
+/// - a page with 5 good, 1 bad and then 5 good XCMs
+/// - a page with 10 good XCMs
+///
+/// It should process the good pages completely and only the first 5 XCMs from the bad page.
 #[test]
-#[should_panic = "Blob messages are unhandled"]
-#[cfg(debug_assertions)]
-fn bad_blob_message_panics() {
+fn xcm_handling_skips_broken_page() {
+	test_xcm_handling_partially_skips_broken_page(XcmEncoding::Simple);
+	test_xcm_handling_partially_skips_broken_page(XcmEncoding::Double);
+}
+
+fn test_xcm_handling_processes_first_page_on_out_of_weight(xcm_encoding: XcmEncoding) {
+	new_test_ext().execute_with(|| {
+		let page_1_xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
+		let mut page_1 = generate_mock_xcm_page(0, 10, xcm_encoding);
+
+		EnqueuedMessages::reset();
+		let (num_processed_pages, mut weight) = XcmpQueue::handle_xcmp_messages(
+			vec![(1000.into(), 1, page_1.as_slice())].into_iter(),
+			Weight::MAX,
+		);
+		assert_eq!(num_processed_pages, 1);
+		assert_eq!(EnqueuedMessages::get().len(), 10);
+		assert_eq!(
+			EnqueuedMessages::get()[0..],
+			page_1_xcms
+				.iter()
+				.map(|xcm| (1000.into(), xcm.clone().into_inner()))
+				.collect::<Vec<_>>(),
+		);
+
+		EnqueuedMessages::reset();
+		for xcm in encode_xcm_batch(generate_mock_xcm_batch(10, 5), xcm_encoding) {
+			if xcm_encoding == XcmEncoding::Simple {
+				weight +=
+					<<Test as Config>::WeightInfo>::take_first_concatenated_xcm(xcm.len() as u32);
+			}
+			page_1.extend(xcm);
+		}
+		let page_2 = generate_mock_xcm_page(20, 5, xcm_encoding);
+
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![(1000.into(), 1, page_1.as_slice()), (1000.into(), 1, page_2.as_slice())]
+				.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 1);
+		assert_eq!(EnqueuedMessages::get().len(), 10);
+		assert_eq!(
+			EnqueuedMessages::get()[0..],
+			page_1_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.collect::<Vec<_>>(),
+		);
+	})
+}
+
+#[test]
+fn xcm_handling_processes_first_page_on_out_of_weight() {
+	test_xcm_handling_processes_first_page_on_out_of_weight(XcmEncoding::Simple);
+	test_xcm_handling_processes_first_page_on_out_of_weight(XcmEncoding::Double);
+}
+
+fn test_xcm_handling_rolls_back_subsequent_page_on_out_of_weight(xcm_encoding: XcmEncoding) {
+	new_test_ext().execute_with(|| {
+		let page_1_xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
+		let page_1 = generate_mock_xcm_page(0, 10, xcm_encoding);
+
+		let mut page_2 = generate_mock_xcm_page(10, 5, xcm_encoding);
+
+		EnqueuedMessages::reset();
+		let (num_processed_pages, mut weight) = XcmpQueue::handle_xcmp_messages(
+			vec![(1000.into(), 1, page_1.as_slice()), (1000.into(), 1, page_2.as_slice())]
+				.into_iter(),
+			Weight::MAX,
+		);
+		assert_eq!(num_processed_pages, 2);
+		assert_eq!(15, EnqueuedMessages::get().len());
+
+		for xcm in encode_xcm_batch(generate_mock_xcm_batch(15, 5), xcm_encoding) {
+			if xcm_encoding == XcmEncoding::Simple {
+				weight +=
+					<<Test as Config>::WeightInfo>::take_first_concatenated_xcm(xcm.len() as u32);
+			}
+			page_2.extend(xcm);
+		}
+		let page_3 = generate_mock_xcm_page(20, 10, xcm_encoding);
+
+		EnqueuedMessages::reset();
+		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+			vec![
+				(1000.into(), 1, page_1.as_slice()),
+				(1000.into(), 1, page_2.as_slice()),
+				(1000.into(), 1, page_3.as_slice()),
+			]
+			.into_iter(),
+			weight,
+		);
+		assert_eq!(num_processed_pages, 1);
+		assert_eq!(EnqueuedMessages::get().len(), 10);
+		assert_eq!(
+			EnqueuedMessages::get(),
+			page_1_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.collect::<Vec<_>>(),
+		);
+	})
+}
+
+#[test]
+fn xcm_handling_rolls_back_subsequent_page_on_out_of_weight() {
+	test_xcm_handling_rolls_back_subsequent_page_on_out_of_weight(XcmEncoding::Simple);
+	test_xcm_handling_rolls_back_subsequent_page_on_out_of_weight(XcmEncoding::Double);
+}
+
+/// Message blobs are not supported.
+#[test]
+fn blob_message_is_skipped() {
 	new_test_ext().execute_with(|| {
 		let data = [ConcatenatedEncodedBlob.encode(), vec![1].encode()].concat();
 
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
-	});
-}
-
-/// Message blobs do not panic in release mode but are just a No-OP.
-#[test]
-#[cfg(not(debug_assertions))]
-fn bad_blob_message_no_panic() {
-	new_test_ext().execute_with(|| {
-		let data = [ConcatenatedEncodedBlob.encode(), vec![1].encode()].concat();
-
-		frame_support::assert_storage_noop!(XcmpQueue::handle_xcmp_messages(
-			once((1000.into(), 1, data.as_slice())),
-			Weight::MAX,
-		));
-	});
-}
-
-/// Invalid concatenated XCMs panic in debug mode.
-#[test]
-#[should_panic = "HRMP inbound decode stream broke; page will be dropped."]
-#[cfg(debug_assertions)]
-fn handle_invalid_data_panics() {
-	new_test_ext().execute_with(|| {
-		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
-
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
-	});
-}
-
-/// Invalid concatenated XCMs do not panic in release mode but are just a No-OP.
-#[test]
-#[cfg(not(debug_assertions))]
-fn handle_invalid_data_no_panic() {
-	new_test_ext().execute_with(|| {
-		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
-
-		frame_support::assert_storage_noop!(XcmpQueue::handle_xcmp_messages(
-			once((1000.into(), 1, data.as_slice())),
-			Weight::MAX,
-		));
+		assert_storage_noop!({
+			let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(
+				once((1000.into(), 1, data.as_slice())),
+				Weight::MAX,
+			);
+			assert_eq!(num_processed_pages, 1);
+		});
 	});
 }
 
@@ -518,7 +687,7 @@ fn suspend_and_resume_xcm_execution_work() {
 }
 
 #[test]
-fn xcm_enqueueing_backpressure_works() {
+fn xcm_handling_backpressure_works() {
 	let para: ParaId = 1000.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 1));
@@ -873,7 +1042,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 
 /// A message that is too deeply nested will be rejected by `take_first_concatenated_xcm`.
 #[test]
-fn take_first_concatenated_xcm_good_bad_depth_errors() {
+fn take_first_concatenated_xcm_checks_decoding_depth() {
 	let mut bad = Xcm::<()>(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
@@ -883,7 +1052,7 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	let page = bad.encode();
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()),
-		Err(())
+		Err(TakeXcmError::InvalidData)
 	);
 }
 
@@ -920,7 +1089,10 @@ fn test_take_first_concatenated_xcms(xcm_encoding: XcmEncoding) {
 			10,
 			&mut WeightMeter::new()
 		),
-		Err(xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect())
+		Err((
+			TakeXcmError::InvalidData,
+			xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect()
+		))
 	);
 }
 

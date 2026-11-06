@@ -48,6 +48,9 @@ pub enum BlockVersionedOutputPayload {
 	/// arguments.
 	///
 	/// This output is identical to the output returned by the unversioned `eth_block` runtime API
-	/// function.
+	/// function. `transactions` is the list the block's `transactions_root` commits to. On a
+	/// runtime that mirrors substrate-native balance changes as EVM logs, a block carrying such
+	/// logs ends with one synthetic transaction for them; `V1` of `eth_receipt_data_versioned` has
+	/// no entry for it, `V2` reports it apart.
 	V1(BlockOutputPayloadV1),
 }

@@ -1,20 +1,38 @@
 # Versioning Guide
 
-This document presents a guide to versioning of pallet-revive's runtime API functions. Specifically, how existing
-un-versioned functions can be versioned and how versioned functions can be updated. It is written in a simple way which
-can be followed either by you or your agent and could even be turned into a skill if you wanted to use it that way
-(although we're not versioning the runtime APIs often enough for a skill to be too useful).
-
-Versioning an un-versioned runtime API function or updating an existing runtime API function is a simple process but
-it's quite mechanical and this document describes the steps in full which need to be taken to do it.
+This guide describes how to version an existing unversioned pallet-revive runtime API function and how
+to add a version to an already versioned function. It owns the procedure and compatibility checks;
+[AGENTS.md](../AGENTS.md) contains the general contribution rules.
 
 > [!NOTE]
-> All of the paths provided in this document are relative to `polkadot-sdk/substrate/frame/revive`.
+> Code paths below are relative to `polkadot-sdk/substrate/frame/revive`. The
+> [Commands](#commands) section specifies when to run from the SDK workspace root.
+
+## Compatibility contract
+
+The runtime interface consumed by RPC implementations must remain backwards and forwards compatible.
+RPC implementations and runtimes are deployed independently. Older clients must continue working with
+newer runtimes, and newer clients must continue working with older runtimes through mutually supported
+versions. Requiring coordinated upgrades is highly disruptive. This is why the interface is versioned.
+
+Once a wire version is published, preserve its definitions, encodings, and semantics, including the
+definitions of types nested inside it. Add new versions for changes rather than editing old ones.
+Keep historical conversions and handlers, even when the execution types change. Append new payload
+enum variants without changing existing variants or their SCALE discriminants.
+
+A successful request with a `Vn` input must return a `Vn` output, even if the runtime supports a newer
+version. The caller selects the version it understands; advertising a higher version does not force
+the caller to use it. Keep older entry points supported when introducing their versioned equivalents.
+Deprecation guides new callers to the replacement; it does not make deployed callers disappear.
+
+This runtime API is distinct from the
+[contract syscall API](../AGENTS.md#contract-syscalls-must-remain-backwards-compatible).
+Contract code is immutable, so incompatible syscall changes require adding a new syscall and retaining
+the existing one. Runtime API payload versioning does not permit breaking contract syscalls.
 
 ## Nomenclature
 
-This section introduces a number of terms which will be used throughout this document and defines them once for the
-purpose of allowing the document to flow in a more natural way.
+The procedure distinguishes internal execution types from the types exposed over the runtime API.
 
 <table>
   <thead>
@@ -73,7 +91,7 @@ Let's assume that we want to version a runtime API function called `${function-n
     `types/runtime_api/types` we defined it in a new file module called `receipt` and named the type `ReceiptGasInfoV1`
     according to the rules here.
 - If, as part of the step above, new types are defined then appropriate conversion traits need to be implemented for
-  them in `pallet-revive`. These traits need to be implement right underneath their equivalent execution types.
+  them in `pallet-revive`. Implement these conversions directly below their equivalent execution types.
   - If the wire type is used as an input type then add a conversion of `From<WireType> for ExecutionType`
   - If the wire type is used as an output type then add a conversion of `From<ExecutionType> for WireType`
   - If it’s being used as both then add both conversion implementations.
@@ -88,7 +106,7 @@ Let's assume that we want to version a runtime API function called `${function-n
 - Add a new file module in `types/src/runtime_api/payloads` which carries the same name as the runtime API function
   which is being versioned and wire it up into the `mod.rs` file. The contents of this file need to be exactly the
   following:
-  - The Polkadot-sdk license header present in all of the other files present in this repo.
+  - The Polkadot SDK license header present in the other files in this repository.
   - The required `use` statements needed for this file (including imports for common collections such as `Vec` from
     `alloc` since the `pallet-revive-types` crate can be compiled with `no-std`).
   - A struct with the following specifications:
@@ -172,7 +190,7 @@ Let's assume that we want to version a runtime API function called `${function-n
 
 - Create a new module in `src/runtime_api` named `${function-name}` and wire it up to the `mod.rs` file. The contents of
   this file need to be exactly the following:
-  - The Polkadot-sdk license header present in all of the other files present in this repo.
+  - The Polkadot SDK license header present in the other files in this repository.
   - The required `use` statements needed for this file (including imports for common collections such as `Vec` from
     `alloc` since the `pallet-revive-types` crate can be compiled with `no-std`).
   - A struct with the following specifications:
@@ -252,14 +270,17 @@ Let's assume that we want to version a runtime API function called `${function-n
 
   - In the same relative position as its unversioned counter-part existed at (e.g., before function X and after function
     Y).
+- Add an entry for `${function-name}_versioned` with value `1` to `version_declarations()` so clients
+  can discover the supported payload version.
 
 ### Deprecations
 
 - Deprecate the old unversioned runtime API function `${function-name}` with a deprecation notice of
   `"Use the versioned equivalent ${function-name}_versioned if available on your runtime"`.
+- Keep the unversioned entry point callable with its existing wire encoding and behavior.
 - Update the implementation of the old unversioned runtime API function `${function-name}` in pallet-revive `src/lib.rs`
   `impl_runtime_apis_plus_revive_traits` block such that it constructs V1 input, delegates to the new versioned runtime
-  API function, then deconstructs V1 input in the following way:
+  API function, then deconstructs V1 output in the following way:
 
   ```rust
   fn function_name(argument: $crate::ArgumentType) -> $crate::ReturnType {
@@ -302,11 +323,17 @@ At this point in the procedure, the state of the codebase should be as follows:
   which have had wire types defined for them in this procedure neither in the runtime API function we're versioning nor
   in other runtime API functions.
 - The new versioned runtime API function has been declared and implemented with an `#[api_version(2)]`.
+- Its `version_declarations()` entry advertises payload version `1`.
 - The unversioned runtime API function delegates execution to the versioned runtime API function.
-- The new runtime API function handles all versions its implemented for and guarantees that `Vn` input produces `Vn`
+- The new runtime API function handles all versions it implements and guarantees that `Vn` input produces `Vn`
   output.
 
 ### ETH-RPC Integration
+
+The following steps apply when adapting the RPC implementation to use the versioned interface. The
+runtime can ship support before clients adopt it; follow
+[RPC capability selection and rollout](#rpc-capability-selection-and-rollout) to preserve independent
+upgrades.
 
 - Add type substitutions for all of the wire-types and the payload types added as part of this procedure to the
   `rpc/src/subxt_client.rs` file's versioning section in order to make the eth-rpc use the types we have defined rather
@@ -316,7 +343,7 @@ At this point in the procedure, the state of the codebase should be as follows:
   - If any non-primitive wire types were defined as part of this procedure into the `types/src/runtime_api/types` module
     then replacements for all of them must be added.
 - If non-primitive wire types were defined as part of this procedure then ensure that the `pallet-revive-eth-rpc` does
-  not use the old execution types in anyway.
+  not use the old execution types in any way.
   - **Example:** When versioning the `eth_receipt_data` runtime API function we introduced the `ReceiptGasInfoV1` wire
     type. We no longer want the eth-rpc to depend on the old execution type since it's no longer being exposed by any of
     the runtime API function we have. Therefore, we added a type substitution for the new `ReceiptGasInfoV1` and ensured
@@ -325,14 +352,13 @@ At this point in the procedure, the state of the codebase should be as follows:
 
 ### Cleanups
 
-These are done in order to ensure that as we version runtime API functions we make execution types truly internal to
-pallet-revive and ensure that they do not leak out in anyway. For all of the execution types which had wire types
-defined for them as part of this procedure check:
+After separating wire types, check which execution types and derives still need to be exposed. Follow
+the [module hierarchy rule](../AGENTS.md#establish-visibility-through-module-hierarchy): keep
+implementation modules private and use focused re-exports for the intended public interface.
 
-- Does this execution type still need to be `pub` or could it be downgraded to a `pub(crate)`? If it can be downgraded
-  then do it.
-  - Example: when versioning the `eth_receipt_data` runtime API function we could not make the execution type
-    `ReceiptGasInfo` a `pub(crate)` since it's being exposed by a public pallet function (not a runtime API function).
+- Remove unnecessary exposure through the module hierarchy, not scoped visibility modifiers. Do not
+  make an entire module public to expose one type. If an execution type is still part of another
+  public API, account for that API's compatibility before changing its exposure.
 - Does this execution type still need its scale encoding derives or could they be removed? If they could be removed then
   remove them.
   - Example: when versioning the `eth_receipt_data` runtime API function we could not remove the scale derives from the
@@ -521,37 +547,87 @@ At this point in the procedure, the state of the codebase should be as follows:
 - Each affected existing versioned runtime API function handles the new variant and guarantees that `Vn+1` input
   produces `Vn+1` output.
 - The entry for each updated runtime API function in `version_declarations()` advertises its new latest payload version.
-- No new runtime API function, deprecation, cleanup, or ETH-RPC integration has been added as part of this procedure.
+- The existing runtime API function and all older payload versions remain supported. Adding a payload
+  version does not require a new entry point or deprecating an older payload.
+- RPC adoption can be included in this change or follow separately. In either case, verify that the
+  new runtime continues serving existing clients; client adoption must retain older-runtime support.
+
+## RPC capability selection and rollout
+
+The RPC implementation must select a version that both sides support. The current selection lives in
+`rpc/src/client/version_aware_runtime_api.rs`. Read capabilities for the block being queried:
+historical blocks may use an older runtime than the chain's current head.
+
+- `version_declarations()` advertises the highest supported payload version for each versioned
+  function. Older versions remain supported. Do not confuse this per-function payload version with
+  the runtime API's `#[api_version(2)]` attribute.
+- A client uses the newest payload version it implements that the runtime also supports. Do not send
+  a version just because it is advertised if the client does not implement that version's encoding.
+- A runtime advertising a version newer than the client's newest known version must not make the
+  method unavailable. For example, a client implementing V1 and V2 can request V2 from a runtime
+  advertising V3, and must receive a V2 response on success.
+- Preserve the paths for older versioned runtimes and existing unversioned entry points. New code
+  must not assume that every runtime has the latest method or payload version. If a new capability
+  is unavailable, handle that explicitly without breaking existing supported operations.
+- Treat a failed capability query as an error, not evidence that the runtime lacks versioning. The
+  metadata and capabilities must describe the same block.
+
+The runtime may add a new version while clients continue using older versions. A client may add
+support before the chain upgrades, provided it selects an older supported interface until the new
+one is available. Neither rollout order may require a coordinated deployment. When a client adopts
+new wire types, update its substitutions and handling as described in
+[ETH-RPC Integration](#eth-rpc-integration), while retaining its older-version paths.
+
+## Compatibility verification
+
+Check the interface across versions, not only a newly built client against a newly built runtime.
+Cover these cases for each affected function:
+
+- Historical requests and responses keep their exact SCALE encodings, including nested wire types
+  and enum discriminants. Pin representative bytes independently of the current definitions; a
+  round trip through the same changed encoder and decoder cannot establish compatibility.
+- Every supported input version receives its matching output version on success. Check preserved
+  behavior and error handling, including after changes to execution types and their conversions.
+- An older client can send its existing requests to the new runtime and decode the responses with
+  its existing wire types. Include the unversioned entry point where one exists.
+- A newer client selects and uses an older runtime's supported payload version or unversioned
+  interface, without assuming the newest capability is available.
+- A client presented with an advertised version beyond its newest known version continues using a
+  mutually supported version. It must not select an unknown encoding or reject the method solely
+  because the advertised version is higher.
+- Capability selection at a historical block uses that block's runtime. Distinguish an absent
+  version declaration from a failed query for a declaration the metadata says exists.
+
+Use interface-level tests for encodings and version selection. When a change also alters contract
+execution, cover that behavior with Solidity fixtures across the supported backends, following
+[the testing rules](../AGENTS.md#tests-must-exercise-the-contract-behavior). Static checks that skip
+fixture compilation do not establish behavioral or cross-version compatibility.
+
 ## Commands
 
-<table>
-  <thead>
-    <tr>
-      <th>Action</th>
-      <th>Command</th>
-      <th>Why</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Check</td>
-      <td>
-        <code>SKIP_WASM_BUILD=1 SKIP_PALLET_REVIVE_FIXTURES=1 cargo clippy -p pallet-revive
-        -p pallet-revive-eth-rpc -p revive-dev-runtime -p pallet-revive-types</code>
-      </td>
-      <td>
-        The other packages added to this command are needed since some of the errors we get when versioning never appear
-        in pallet-revive and might only appear in the consumer (e.g., the <code>pallet-revive-eth-rpc</code>) or in a
-        runtime which implements the runtime API of pallet revive (e.g., <code>revive-dev-runtime</code>)
-      </td>
-    </tr>
-    <tr>
-      <td>Formatting</td>
-      <td><code>cargo +nightly-2026-01-27 fmt --all</code></td>
-      <td>LLMs get it wrong all the time</td>
-    </tr>
-  </tbody>
-</table>
+Run these commands from the SDK workspace root. Use the toolchains described in the
+[contribution guide](../../../../docs/contributor/CONTRIBUTING.md) and
+[style guide](../../../../docs/contributor/STYLE_GUIDE.md); CI defines its formatting check in
+[checks-quick.yml](../../../../.github/workflows/checks-quick.yml).
+
+This static check includes the pallet, wire types, RPC consumer, and a runtime implementing the API.
+It skips WASM and contract fixture compilation; it does not run the compatibility checks above.
+
+```sh
+SKIP_WASM_BUILD=1 SKIP_PALLET_REVIVE_FIXTURES=1 cargo clippy --locked \
+  -p pallet-revive -p pallet-revive-eth-rpc -p revive-dev-runtime -p pallet-revive-types
+```
+
+For Rust changes, format with `cargo +nightly fmt --all`. The non-mutating formatting check used by CI
+is:
+
+```sh
+cargo +nightly fmt --all -- --check
+```
+
+Select tests for the affected interfaces and contract behavior. Unset `SKIP_PALLET_REVIVE_FIXTURES`
+when running contract tests, and provide the required Solc and Resolc compilers. Record which tests
+ran and any prerequisites that prevented validation.
 
 ## Invariants
 
@@ -563,5 +639,11 @@ when updating an existing versioned runtime API function.
   runtime API function which takes no arguments and returns nothing.
 - Calling a runtime API function with a `Vn` input guarantees a `Vn` output on a successful call (or an error on
   fallible runtime API functions).
-- The scale encoding of all of the V1 types must be identical to those used in the unversioned runtime API functions.
-  E.g., `TraceV1` must be byte-by-byte identical to `Trace` such that encoding either allows us to decode as the other.
+- When introducing a versioned equivalent of an unversioned function, its V1 wire types must preserve
+  the original unversioned encoding. Compare against the historical wire contract, not execution
+  types that may have changed since the interface was versioned.
+- Every published wire version retains its encoding and semantics, including nested types and enum
+  discriminants. Changes are expressed through new versions, not edits to historical definitions.
+- Advertising a newer payload version does not remove support for older versions. Client selection
+  must allow either side to upgrade independently, as described in
+  [RPC capability selection and rollout](#rpc-capability-selection-and-rollout).

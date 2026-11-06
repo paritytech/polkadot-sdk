@@ -71,36 +71,6 @@ pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H
 	compile_module_with_type(fixture_name, FixtureType::Rust)
 }
 
-/// Try to compile a fixture from the contracts_not_buildable directory.
-/// This replicates the build process but expects it to fail at the linking stage.
-/// Returns Err if compilation/linking fails (which is expected for invalid fixtures).
-#[cfg(feature = "std")]
-pub fn try_compile_invalid_fixture(fixture_name: &str) -> anyhow::Result<Vec<u8>> {
-	use anyhow::bail;
-	use std::{fs, path::PathBuf};
-
-	let manifest_dir = env!("CARGO_MANIFEST_DIR");
-	let fixture_path = PathBuf::from(manifest_dir)
-		.join("contracts_not_buildable")
-		.join(format!("{}.rs", fixture_name));
-
-	if !fixture_path.exists() {
-		bail!("Invalid fixture not found: {:?}", fixture_path);
-	}
-
-	// Create temporary build directory
-	let temp_dir = std::env::temp_dir().join(format!("revive_invalid_fixture_{}", fixture_name));
-	fs::create_dir_all(&temp_dir)?;
-
-	// Use the shared builder module to compile
-	let result = builder::compile_rust_to_polkavm(&fixture_path, fixture_name, &temp_dir);
-
-	// Cleanup
-	let _ = fs::remove_dir_all(&temp_dir);
-
-	result
-}
-
 /// Fixtures used in runtime benchmarks.
 ///
 /// We explicitly include those fixtures into the binary to make them

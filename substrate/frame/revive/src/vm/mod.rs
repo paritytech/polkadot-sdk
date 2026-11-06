@@ -22,7 +22,9 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::RuntimeCosts;
+#[cfg(feature = "runtime-benchmarks")]
+pub use runtime_costs::BENCH_MIN_EVM_INIT_CODE_LEN;
+pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
