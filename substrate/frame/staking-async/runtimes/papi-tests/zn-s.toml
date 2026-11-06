@@ -1,6 +1,7 @@
 [relaychain]
 default_command = "polkadot"
 chain_spec_path = "./rc.json"
+chain_spec_command = "polkadot export-chain-spec --chain {% raw %}{{chainName}}{% endraw %}"
 
 [[relaychain.nodes]]
 name = "alice"
@@ -21,6 +22,7 @@ args = [
 [[parachains]]
 id = 1100
 chain_spec_path = "./parachain.json"
+chain_spec_command = "polkadot-parachain export-chain-spec --chain {% raw %}{{chainName}}{% endraw %}"
 
 [parachains.collator]
 command = "polkadot-parachain"

@@ -22,11 +22,12 @@ use futures::executor::block_on;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	in_mem, Backend as BackendT, BlockBackend, BlockchainEvents, ExecutorProvider,
-	FinalityNotifications, HeaderBackend, StorageProvider,
+	FinalityNotifications, HeaderBackend, ProofProvider, StorageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, PruningMode};
 use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
+	ImportedState, StateAction, StorageChanges,
 };
 use sc_executor::WasmExecutor;
 use sc_service::client::{new_with_backend, Client, LocalCallExecutor};
@@ -40,10 +41,14 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{Backend as _, TryPendingCode},
-	InMemoryBackend, OverlayedChanges, StateMachine,
+	InMemoryBackend, KeyValueStates, OverlayedChanges, StateMachine,
 };
 use sp_storage::{ChildInfo, StorageKey};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::HashSet,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 use substrate_test_runtime::TestAPI;
 use substrate_test_runtime_client::{
 	runtime::{
@@ -88,6 +93,7 @@ fn construct_block(
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -102,6 +108,7 @@ fn construct_block(
 			&mut Default::default(),
 			&runtime_code,
 			CallContext::Onchain { import: false },
+			substrate_test_runtime::VERSION.state_version(),
 		)
 		.execute()
 		.unwrap();
@@ -116,6 +123,7 @@ fn construct_block(
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -187,6 +195,7 @@ fn construct_genesis_should_work_with_native() {
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -219,6 +228,7 @@ fn construct_genesis_should_work_with_wasm() {
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -2339,4 +2349,158 @@ fn finalize_after_best_block_updates_best() {
 
 	assert_eq!(client.chain_info().finalized_hash, a3.hash());
 	assert_eq!(client.chain_info().best_hash, a3.hash());
+}
+
+#[test]
+fn execution_proof_works() {
+	// The uncapped path: no execution timeout.
+	let client = substrate_test_runtime_client::new();
+
+	// The method must read storage for the recorded proof to be non-empty.
+	let (result, proof) = client
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_get_block_number", &[], None)
+		.unwrap();
+
+	assert!(!result.is_empty());
+	assert!(!proof.is_empty());
+}
+
+#[test]
+fn execution_proof_with_generous_timeout_works() {
+	// A generous timeout must not interfere: the call is routed through the interruptible
+	// runtime (including waiting for its background compilation) and succeeds.
+	let client = substrate_test_runtime_client::new();
+
+	// The method must read storage for the recorded proof to be non-empty.
+	let (result, proof) = client
+		.execution_proof(
+			client.chain_info().genesis_hash,
+			"TestAPI_get_block_number",
+			&[],
+			Some(Duration::from_secs(60)),
+		)
+		.unwrap();
+
+	assert!(!result.is_empty());
+	assert!(!proof.is_empty());
+}
+
+#[test]
+fn execution_proof_timeout_interrupts_runtime_call() {
+	let client = substrate_test_runtime_client::new();
+	let timeout = Duration::from_millis(300);
+
+	let started = Instant::now();
+	let error = client
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_spin", &[], Some(timeout))
+		.unwrap_err();
+
+	assert!(started.elapsed() >= timeout);
+	assert!(error.to_string().contains("Execution timed out"), "{error}");
+}
+
+/// Builds block `#1` containing a transfer, so the header commits to a non-empty
+/// `extrinsics_root`.
+fn block_with_transfer(
+	client: &substrate_test_runtime_client::TestClient,
+) -> sc_block_builder::BuiltBlock<Block> {
+	let mut builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder
+		.push_transfer(Transfer {
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
+			amount: 1 * DOLLARS,
+			nonce: 0,
+		})
+		.unwrap();
+	builder.build().unwrap()
+}
+
+/// Imports block `#1` into a fresh client using the state action returned by `state_action`,
+/// once with the genuine body and once with a body that does not match the header's
+/// `extrinsics_root`. The block is never executed, so the client itself must reject the
+/// forged body.
+fn assert_forged_body_rejected_without_execution(
+	state_action: impl Fn(&mut Header, sc_block_builder::BuiltBlock<Block>) -> StateAction<Block>,
+) {
+	// Signatures are randomized, so every built block has a different hash.
+	let import = |forge_body: bool| {
+		let client = substrate_test_runtime_client::new();
+		let built = block_with_transfer(&client);
+		let (mut header, genuine_body) = built.block.clone().deconstruct();
+		assert!(!genuine_body.is_empty());
+		let state_action = state_action(&mut header, built);
+		let hash = header.hash();
+		let mut import = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+		import.body = Some(if forge_body { Vec::new() } else { genuine_body.clone() });
+		import.state_action = state_action;
+		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		let result = block_on(client.import_block(import));
+		(client, result, hash, genuine_body)
+	};
+
+	// Sanity check: the genuine body is imported.
+	let (client, result, hash, genuine_body) = import(false);
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert_eq!(client.body(hash).unwrap(), Some(genuine_body));
+
+	// The forged body must not be imported under the genuine header.
+	let (client, result, hash, _) = import(true);
+	assert!(
+		!matches!(result, Ok(ImportResult::Imported(_))),
+		"Body not matching `extrinsics_root` was imported: {result:?}",
+	);
+	assert_eq!(client.body(hash).unwrap(), None);
+}
+
+/// Gap sync imports blocks with `skip_execution: true` and no state.
+#[test]
+fn forged_body_is_rejected_when_execution_is_skipped() {
+	assert_forged_body_rejected_without_execution(|_, _| StateAction::Skip);
+}
+
+/// Warp/state sync imports the target block together with its downloaded state.
+#[test]
+fn forged_body_is_rejected_when_importing_state() {
+	assert_forged_body_rejected_without_execution(|header, built| {
+		let client = substrate_test_runtime_client::new();
+		let hash = built.block.hash();
+		block_on(client.import(BlockOrigin::Own, built.block)).unwrap();
+		let levels = client
+			.storage_collection(hash, &[], usize::MAX)
+			.unwrap()
+			.into_iter()
+			.map(|(level, _complete)| level)
+			.collect::<Vec<_>>();
+		// The test genesis has no child tries.
+		assert_eq!(levels.len(), 1);
+
+		// Rebuilding the trie of block `#1` from its key/values does not reproduce the header's
+		// state root. As the block is not executed, only the state needs to match the header,
+		// so commit the header to the root of the imported state.
+		let state_version =
+			client.runtime_version_at(hash, CallContext::Offchain).unwrap().state_version();
+		let storage = sp_storage::Storage {
+			top: levels[0].key_values.iter().cloned().collect(),
+			children_default: Default::default(),
+		};
+		header.state_root = *InMemoryBackend::<BlakeTwo256>::from((storage, state_version)).root();
+
+		StateAction::ApplyChanges(StorageChanges::Import(ImportedState {
+			block: header.hash(),
+			state: KeyValueStates(levels),
+		}))
+	});
+}
+
+/// Locally built blocks are imported with the storage changes of the block builder.
+#[test]
+fn forged_body_is_rejected_when_applying_storage_changes() {
+	assert_forged_body_rejected_without_execution(|_, built| {
+		StateAction::ApplyChanges(StorageChanges::Changes(built.storage_changes))
+	});
 }

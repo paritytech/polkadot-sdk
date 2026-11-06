@@ -35,6 +35,20 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + crate::Config {}
 
+	/// Freezes placed by a pallet other than pallet-revive.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// A freeze on a contract account that the contract did not place.
+		Foreign,
+	}
+
+	/// Holds placed by a pallet other than pallet-revive.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// A hold on a contract account that the contract did not place.
+		Foreign,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Dummy function that overcharges the predispatch weight, allowing us to test the correct
@@ -61,6 +75,27 @@ pub mod pallet {
 				vec![topic].try_into().expect("one topic is within the LOG limit; qed"),
 				Vec::new().try_into().expect("no data is within the LOG limit; qed"),
 			);
+			Ok(())
+		}
+
+		/// Mirror one log without topics per entry of `data_lens`, with that many bytes of data,
+		/// from outside any contract frame.
+		#[pallet::call_index(4)]
+		pub fn emit_logs(
+			origin: OriginFor<T>,
+			contract: H160,
+			data_lens: Vec<u32>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			for data_len in data_lens {
+				crate::Pallet::<T>::emit_contract_log_outside_frame(
+					contract,
+					Default::default(),
+					vec![0u8; data_len as usize]
+						.try_into()
+						.map_err(|_| DispatchError::Other("data exceeds the LOG limit"))?,
+				);
+			}
 			Ok(())
 		}
 

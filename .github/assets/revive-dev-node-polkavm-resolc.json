@@ -1,15 +1,3 @@
 {
-  "fixtures/solidity/complex/create/create2_many/test.json::1::Y M3 S+": "Failed",
-  "fixtures/solidity/complex/create/create_many/test.json::1::Y M3 S+": "Failed",
-  "fixtures/solidity/complex/defi/UniswapV4/test.json::0::Y M3 S-": "Failed",
-  "fixtures/solidity/simple/algorithm/cryptography/book_cypher.sol::0::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/algorithm/cryptography/book_cypher.sol::1::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/algorithm/cryptography/caesar_cypher.sol::2::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/internal_function_pointers/hash.sol::0::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/internal_function_pointers/sum_oddness.sol::0::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/loop/complex/1.sol::0::Y M0 S+": "Failed",
-  "fixtures/solidity/simple/loop/complex/1.sol::0::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/loop/complex/2.sol::0::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/loop/complex/3.sol::0::Y M0 S+": "Failed",
-  "fixtures/solidity/simple/loop/complex/3.sol::0::Y M0 S-": "Failed"
+  "fixtures/solidity/simple/algorithm/cryptography/caesar_cypher.sol::2::Y M0 S-": "Failed"
 }

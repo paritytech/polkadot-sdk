@@ -18,6 +18,23 @@ contract TerminateCaller {
         return address(inner);
     }
 
+    function createAndTerminate(uint value, uint8 method, address beneficiary) external returns (address) {
+        inner = new Terminate{value: value}(true, method, beneficiary);
+        inner.terminate(method, beneficiary);
+        return address(inner);
+    }
+
+    function createAndTerminateThenSelfdestruct(uint value, address beneficiary, bool viaDelegateCall) external returns (address) {
+        inner = new Terminate{value: value}(true, 0, beneficiary);
+        inner.terminateThenSelfdestruct(beneficiary, viaDelegateCall);
+        return address(inner);
+    }
+
+    function createAndSelfdestructInConstructor(uint value, address beneficiary) external returns (address) {
+        // 2 is `Terminate.METHOD_SYSCALL`: the constructor runs `SELFDESTRUCT`.
+        return address(new Terminate{value: value}(false, 2, beneficiary));
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);
@@ -30,6 +47,26 @@ contract TerminateCaller {
         terminate_addr.call(abi.encodeWithSelector(Terminate.terminate.selector, method, beneficiary));
         (bool success, ) = terminate_addr.call{value: value}("");
         require(success, "terminate reverted");
+    }
+
+    function createTerminateTwiceAndSendFunds(uint value, uint8 method1, address beneficiary1, uint8 method2, address beneficiary2) external returns (address) {
+        inner = new Terminate(true, method1, beneficiary1);
+        inner.terminate(method1, beneficiary1);
+        inner.terminate(method2, beneficiary2);
+        (bool success, ) = address(inner).call{value: value}("");
+        require(success, "sending funds failed");
+        return address(inner);
+    }
+
+    function createWithSalt(bytes32 salt, uint8 method) external returns (address) {
+        inner = new Terminate{salt: salt}(true, method, address(0));
+        return address(inner);
+    }
+
+    function createWithSaltAndTerminate(bytes32 salt, uint value, uint8 method, address beneficiary) external returns (address) {
+        inner = new Terminate{salt: salt, value: value}(true, method, address(0));
+        inner.terminate(method, beneficiary);
+        return address(inner);
     }
 
     function revertAfterTerminate(address terminate_addr, uint8 method, address beneficiary) external {
