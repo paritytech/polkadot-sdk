@@ -363,6 +363,16 @@ pub mod pallet {
 	pub type UnbindingUsernames<T: Config> =
 		StorageMap<_, Blake2_128Concat, Username<T>, BlockNumberFor<T>, OptionQuery>;
 
+	/// The account that reserved the deposit for a username granted with
+	/// [`Provider::AuthorityDeposit`]. The deposit is returned to, or slashed from, this account,
+	/// even if the authority of the username's suffix has changed since.
+	///
+	/// Usernames granted before this item was introduced have no entry. Their deposit is handled
+	/// through the current authority of the suffix.
+	#[pallet::storage]
+	pub type UsernameDepositor<T: Config> =
+		StorageMap<_, Blake2_128Concat, Username<T>, T::AccountId, OptionQuery>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too many subs-accounts.
@@ -1138,7 +1148,7 @@ pub mod pallet {
 		///
 		/// The authority can grant up to `allocation` usernames. To top up the allocation or
 		/// change the account used to grant usernames, this call can be used with the updated
-		/// parameters to overwrite the existing configuration.
+		/// parameters to overwrite the existing configuration. 
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::add_username_authority())]
 		pub fn add_username_authority(
@@ -1237,6 +1247,10 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 
+			if matches!(provider, Provider::AuthorityDeposit(_)) {
+				UsernameDepositor::<T>::insert(&bounded_username, &sender);
+			}
+
 			// Insert or queue.
 			let who = T::Lookup::lookup(who)?;
 			if let Some(s) = signature {
@@ -1283,12 +1297,9 @@ pub mod pallet {
 				ensure!(now > expiration, Error::<T>::NotExpired);
 				let actual_weight = match provider {
 					Provider::AuthorityDeposit(deposit) => {
-						let suffix = Self::suffix_of_username(&username)
-							.ok_or(Error::<T>::InvalidUsername)?;
-						let authority_account = AuthorityOf::<T>::get(&suffix)
-							.map(|auth_info| auth_info.account_id)
+						let depositor = Self::take_username_depositor(&username)
 							.ok_or(Error::<T>::NotUsernameAuthority)?;
-						let err_amount = T::Currency::unreserve(&authority_account, deposit);
+						let err_amount = T::Currency::unreserve(&depositor, deposit);
 						debug_assert!(err_amount.is_zero());
 						T::WeightInfo::remove_expired_approval(0)
 					},
@@ -1378,14 +1389,8 @@ pub mod pallet {
 			});
 			match username_info.provider {
 				Provider::AuthorityDeposit(username_deposit) => {
-					let suffix = Self::suffix_of_username(&username)
-						.defensive_proof("registered username must be valid")
-						.ok_or(Error::<T>::InvalidUsername)?;
-					if let Some(authority_account) =
-						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
-					{
-						let err_amount =
-							T::Currency::unreserve(&authority_account, username_deposit);
+					if let Some(depositor) = Self::take_username_depositor(&username) {
+						let err_amount = T::Currency::unreserve(&depositor, username_deposit);
 						debug_assert!(err_amount.is_zero());
 					}
 				},
@@ -1421,13 +1426,9 @@ pub mod pallet {
 			let _ = UnbindingUsernames::<T>::take(&username);
 			let actual_weight = match username_info.provider {
 				Provider::AuthorityDeposit(username_deposit) => {
-					let suffix =
-						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
-					if let Some(authority_account) =
-						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
-					{
+					if let Some(depositor) = Self::take_username_depositor(&username) {
 						T::Slashed::on_unbalanced(
-							T::Currency::slash_reserved(&authority_account, username_deposit).0,
+							T::Currency::slash_reserved(&depositor, username_deposit).0,
 						);
 					}
 					T::WeightInfo::kill_username(0)
@@ -1535,6 +1536,16 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 		(&username[suffix_start..]).to_vec().try_into().ok()
+	}
+
+	/// Remove and return the account holding the deposit for `username`. Usernames granted before
+	/// depositors were recorded fall back to the current authority of their suffix.
+	fn take_username_depositor(username: &Username<T>) -> Option<T::AccountId> {
+		UsernameDepositor::<T>::take(username).or_else(|| {
+			Self::suffix_of_username(username)
+				.and_then(|suffix| AuthorityOf::<T>::get(&suffix))
+				.map(|auth_info| auth_info.account_id)
+		})
 	}
 
 	/// Validate that a suffix conforms to allowed characters/format.
