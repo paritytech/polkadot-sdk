@@ -827,7 +827,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
+					Some(DiscoveryEvent::PeersDiscovered { peers }) => {
 						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
 
 						for peer in &peers {
@@ -835,7 +835,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 
 						if !peers.is_empty() {
-							self.event_streams.send(Event::PeerRoutingTableUpdate(peers));
+							self.event_streams.send(Event::PeersDiscovered(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
