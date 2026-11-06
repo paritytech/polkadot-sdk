@@ -143,3 +143,16 @@ fn fallback_account_of_unmapped_account_is_accepted(fixture_type: FixtureType) {
 		);
 	});
 }
+
+#[test]
+fn dry_run_rejects_shadowed_fallback_account() {
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		assert_ok!(Pallet::<Test>::prepare_dry_run(&EVE_FALLBACK));
+
+		let _ = <Test as Config>::Currency::set_balance(&EVE, FUNDS);
+		assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed(EVE)));
+
+		assert_eq!(Pallet::<Test>::prepare_dry_run(&EVE_FALLBACK), Err(DispatchError::BadOrigin));
+		assert_ok!(Pallet::<Test>::prepare_dry_run(&EVE));
+	});
+}

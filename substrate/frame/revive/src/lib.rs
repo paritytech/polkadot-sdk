@@ -1852,8 +1852,9 @@ impl<T: Config> Pallet<T> {
 	///
 	///
 	/// This function is public because it is called by the runtime API implementation
-	/// (see `impl_runtime_apis_plus_revive`).
-	pub fn prepare_dry_run(account: &T::AccountId) {
+	/// (see `impl_runtime_apis_plus_revive`). It fails for an origin that [`Self::call`] and
+	/// [`Self::instantiate`] would reject because it is not the account behind its address.
+	pub fn prepare_dry_run(account: &T::AccountId) -> DispatchResult {
 		// Bump the  nonce to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
@@ -1863,6 +1864,8 @@ impl<T: Config> Pallet<T> {
 		if !T::AddressMapper::is_mapped(account) {
 			let _ = T::AddressMapper::map_no_deposit_unchecked(account);
 		}
+
+		Self::ensure_signed_origin_owns_address(&OriginFor::<T>::signed(account.clone()))
 	}
 
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
@@ -2228,7 +2231,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
-		Self::prepare_dry_run(&origin);
+		Self::prepare_dry_run(&origin)
+			.map_err(|err| EthTransactError::Message(format!("Invalid origin: {err:?}")))?;
 
 		if let Some(overrides) = state_overrides {
 			state_overrides::apply_state_overrides::<T>(overrides)?;
@@ -3997,18 +4001,20 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						input.dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
+					let contract_result = match $crate::Pallet::<Self>::prepare_dry_run(&input.origin) {
+						Err(error) => $crate::ContractResult { result: Err(error), ..Default::default() },
+						Ok(()) => $crate::Pallet::<Self>::bare_call(
+							<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+							input.dest,
+							$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+							$crate::TransactionLimits::WeightAndDeposit {
+								weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+								deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+							},
+							input.input_data,
+							&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						),
+					};
 
 					let output = CallOutputPayload { contract_result };
 					output_wrapper(output)
@@ -4035,19 +4041,21 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_instantiate(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.code,
-						input.data,
-						input.salt,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
+					let contract_result = match $crate::Pallet::<Self>::prepare_dry_run(&input.origin) {
+						Err(error) => $crate::ContractResult { result: Err(error), ..Default::default() },
+						Ok(()) => $crate::Pallet::<Self>::bare_instantiate(
+							<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+							$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+							$crate::TransactionLimits::WeightAndDeposit {
+								weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+								deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+							},
+							input.code,
+							input.data,
+							input.salt,
+							&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						),
+					};
 
 					let output = InstantiateOutputPayload { contract_result };
 					output_wrapper(output)
