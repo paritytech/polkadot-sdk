@@ -25,6 +25,9 @@ use frame::{
 	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
 
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
+
 #[cfg(test)]
 mod tests;
 
@@ -435,6 +438,48 @@ pub mod pallet {
 			Status::<T, I>::put(&status);
 
 			Self::deposit_event(Event::<T, I>::Paid { who, beneficiary, amount: payout, id });
+			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet, used by the `try_state` hook and the
+		/// tests.
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			match Status::<T, I>::get() {
+				// Claimants are only inducted after `init` sets `Status`, which is never cleared,
+				// so the map cannot be populated while the system is unstarted.
+				None => ensure!(
+					Claimant::<T, I>::iter().next().is_none(),
+					"`Claimant` map is non-empty but `Status` is unset."
+				),
+				Some(status) => {
+					// Unregistered payouts only ever draw from the budget left after registrations
+					// and are reset together with `budget` every cycle, so they never exceed it.
+					ensure!(
+						status.total_unregistered_paid <= status.budget,
+						"`total_unregistered_paid` exceeds the cycle `budget`."
+					);
+
+					// The cycle index only increases and `last_active` is only ever set to a past
+					// or current cycle, so no claimant can be active ahead of the current cycle.
+					for (_, claimant) in Claimant::<T, I>::iter() {
+						ensure!(
+							claimant.last_active <= status.cycle_index,
+							"Claimant `last_active` is ahead of the current cycle index."
+						);
+					}
+				},
+			}
 			Ok(())
 		}
 	}
