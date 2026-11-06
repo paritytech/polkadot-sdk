@@ -3990,3 +3990,26 @@ fn only_people_reports_blocks_and_only_as_itself() {
 		assert!(EnsureReportingSibling::try_origin(origin).is_err());
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn asset_conversion_benchmark_pairs_are_trust_backed() {
+	use pallet_asset_conversion::BenchmarkHelper;
+	type Helper = <Runtime as pallet_asset_conversion::Config>::BenchmarkHelper;
+	type Convert = assets_common::AssetIdForTrustBackedAssetsConvert<
+		TrustBackedAssetsPalletLocation,
+		xcm::v5::Location,
+	>;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let native = xcm::v5::Location::try_from(WestendLocation::get()).unwrap();
+
+		let (asset, target) = Helper::create_pair(0, 7);
+		assert_eq!(target, native);
+		assert_eq!(Convert::convert(&asset), Some(7));
+
+		let (target, asset) = Helper::create_pair(1, 7);
+		assert_eq!(target, native);
+		assert_eq!(Convert::convert(&asset), Some(7));
+	});
+}

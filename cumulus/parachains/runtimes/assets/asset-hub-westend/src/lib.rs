@@ -522,9 +522,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
+	type BenchmarkHelper = assets_common::benchmarks::TrustBackedAssetPairFactory<
 		WestendLocation,
-		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::v5::Location,
 	>;
