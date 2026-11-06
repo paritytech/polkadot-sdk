@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INHERENT_IDENTIFIER"],"enum":["ConsumeItem","ConsumedStream"],"struct":["MessagingInherentData"],"type":["Payload"]};

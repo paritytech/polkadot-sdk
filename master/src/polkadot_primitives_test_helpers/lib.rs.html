@@ -972,7 +972,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#822 id=822 data-nosnippet>822</a>	<span class="kw">use </span>polkadot_primitives::{
 <a href=#823 id=823 data-nosnippet>823</a>		transpose_claim_queue, v9::CandidateUMPSignals, BackedCandidate,
 <a href=#824 id=824 data-nosnippet>824</a>		CandidateDescriptorVersion, ClaimQueueOffset, CommittedCandidateReceiptError, CoreSelector,
-<a href=#825 id=825 data-nosnippet>825</a>		UMPSignal, UMP_SEPARATOR,
+<a href=#825 id=825 data-nosnippet>825</a>		RequiresSet, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 <a href=#826 id=826 data-nosnippet>826</a>	};
 <a href=#827 id=827 data-nosnippet>827</a>	<span class="kw">use </span>std::collections::BTreeMap;
 <a href=#828 id=828 data-nosnippet>828</a>
@@ -1377,7 +1377,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1227 id=1227 data-nosnippet>1227</a>			<span class="prelude-val">Err</span>(CommittedCandidateReceiptError::DuplicateUMPSignal)
 <a href=#1228 id=1228 data-nosnippet>1228</a>		);
 <a href=#1229 id=1229 data-nosnippet>1229</a>
-<a href=#1230 id=1230 data-nosnippet>1230</a>		<span class="comment">// Too many
+<a href=#1230 id=1230 data-nosnippet>1230</a>		<span class="comment">// Too many: one of every variant (== `MAX_UMP_SIGNALS`) plus one extra.
 <a href=#1231 id=1231 data-nosnippet>1231</a>		</span>new_ccr.commitments.upward_messages.clear();
 <a href=#1232 id=1232 data-nosnippet>1232</a>		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 <a href=#1233 id=1233 data-nosnippet>1233</a>		new_ccr
@@ -1391,58 +1391,69 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1241 id=1241 data-nosnippet>1241</a>		new_ccr
 <a href=#1242 id=1242 data-nosnippet>1242</a>			.commitments
 <a href=#1243 id=1243 data-nosnippet>1243</a>			.upward_messages
-<a href=#1244 id=1244 data-nosnippet>1244</a>			.force_push(UMPSignal::ApprovedPeer(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>].try_into().unwrap()).encode());
-<a href=#1245 id=1245 data-nosnippet>1245</a>
-<a href=#1246 id=1246 data-nosnippet>1246</a>		<span class="macro">assert_eq!</span>(
-<a href=#1247 id=1247 data-nosnippet>1247</a>			new_ccr.parse_ump_signals(<span class="kw-2">&amp;</span>cq),
-<a href=#1248 id=1248 data-nosnippet>1248</a>			<span class="prelude-val">Err</span>(CommittedCandidateReceiptError::TooManyUMPSignals)
-<a href=#1249 id=1249 data-nosnippet>1249</a>		);
-<a href=#1250 id=1250 data-nosnippet>1250</a>	}
-<a href=#1251 id=1251 data-nosnippet>1251</a>
-<a href=#1252 id=1252 data-nosnippet>1252</a>	<span class="attr">#[test]
-<a href=#1253 id=1253 data-nosnippet>1253</a>	</span><span class="kw">fn </span>test_backed_candidate_injected_core_index() {
-<a href=#1254 id=1254 data-nosnippet>1254</a>		<span class="kw">let </span>initial_validator_indices = <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>];
-<a href=#1255 id=1255 data-nosnippet>1255</a>		<span class="kw">let </span><span class="kw-2">mut </span>candidate = BackedCandidate::new(
-<a href=#1256 id=1256 data-nosnippet>1256</a>			dummy_committed_candidate_receipt_v2(Hash::default()),
-<a href=#1257 id=1257 data-nosnippet>1257</a>			<span class="macro">vec!</span>[],
-<a href=#1258 id=1258 data-nosnippet>1258</a>			initial_validator_indices.clone(),
-<a href=#1259 id=1259 data-nosnippet>1259</a>			CoreIndex(<span class="number">10</span>),
+<a href=#1244 id=1244 data-nosnippet>1244</a>			.force_push(UMPSignal::Provides(Default::default()).encode());
+<a href=#1245 id=1245 data-nosnippet>1245</a>		new_ccr.commitments.upward_messages.force_push(
+<a href=#1246 id=1246 data-nosnippet>1246</a>			UMPSignal::Requires(
+<a href=#1247 id=1247 data-nosnippet>1247</a>				RequiresSet::try_from_iter([(Id::from(<span class="number">3u32</span>), StreamsRoot(Hash::repeat_byte(<span class="number">3</span>)))])
+<a href=#1248 id=1248 data-nosnippet>1248</a>					.unwrap(),
+<a href=#1249 id=1249 data-nosnippet>1249</a>			)
+<a href=#1250 id=1250 data-nosnippet>1250</a>			.encode(),
+<a href=#1251 id=1251 data-nosnippet>1251</a>		);
+<a href=#1252 id=1252 data-nosnippet>1252</a>		new_ccr
+<a href=#1253 id=1253 data-nosnippet>1253</a>			.commitments
+<a href=#1254 id=1254 data-nosnippet>1254</a>			.upward_messages
+<a href=#1255 id=1255 data-nosnippet>1255</a>			.force_push(UMPSignal::ApprovedPeer(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>].try_into().unwrap()).encode());
+<a href=#1256 id=1256 data-nosnippet>1256</a>
+<a href=#1257 id=1257 data-nosnippet>1257</a>		<span class="macro">assert_eq!</span>(
+<a href=#1258 id=1258 data-nosnippet>1258</a>			new_ccr.parse_ump_signals(<span class="kw-2">&amp;</span>cq),
+<a href=#1259 id=1259 data-nosnippet>1259</a>			<span class="prelude-val">Err</span>(CommittedCandidateReceiptError::TooManyUMPSignals)
 <a href=#1260 id=1260 data-nosnippet>1260</a>		);
-<a href=#1261 id=1261 data-nosnippet>1261</a>
-<a href=#1262 id=1262 data-nosnippet>1262</a>		<span class="comment">// No core index supplied.
-<a href=#1263 id=1263 data-nosnippet>1263</a>		</span>candidate
-<a href=#1264 id=1264 data-nosnippet>1264</a>			.set_validator_indices_and_core_index(initial_validator_indices.clone().into(), <span class="prelude-val">None</span>);
-<a href=#1265 id=1265 data-nosnippet>1265</a>		<span class="kw">let </span>(validator_indices, core_index) = candidate.validator_indices_and_core_index();
-<a href=#1266 id=1266 data-nosnippet>1266</a>		<span class="macro">assert_eq!</span>(validator_indices, initial_validator_indices.as_bitslice());
-<a href=#1267 id=1267 data-nosnippet>1267</a>		<span class="macro">assert!</span>(core_index.is_none());
-<a href=#1268 id=1268 data-nosnippet>1268</a>
-<a href=#1269 id=1269 data-nosnippet>1269</a>		<span class="comment">// No core index supplied. Decoding is corrupted if backing group
-<a href=#1270 id=1270 data-nosnippet>1270</a>		// size larger than 8.
-<a href=#1271 id=1271 data-nosnippet>1271</a>		</span>candidate.set_validator_indices_and_core_index(
-<a href=#1272 id=1272 data-nosnippet>1272</a>			<span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>].into(),
-<a href=#1273 id=1273 data-nosnippet>1273</a>			<span class="prelude-val">None</span>,
-<a href=#1274 id=1274 data-nosnippet>1274</a>		);
-<a href=#1275 id=1275 data-nosnippet>1275</a>
+<a href=#1261 id=1261 data-nosnippet>1261</a>	}
+<a href=#1262 id=1262 data-nosnippet>1262</a>
+<a href=#1263 id=1263 data-nosnippet>1263</a>	<span class="attr">#[test]
+<a href=#1264 id=1264 data-nosnippet>1264</a>	</span><span class="kw">fn </span>test_backed_candidate_injected_core_index() {
+<a href=#1265 id=1265 data-nosnippet>1265</a>		<span class="kw">let </span>initial_validator_indices = <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>];
+<a href=#1266 id=1266 data-nosnippet>1266</a>		<span class="kw">let </span><span class="kw-2">mut </span>candidate = BackedCandidate::new(
+<a href=#1267 id=1267 data-nosnippet>1267</a>			dummy_committed_candidate_receipt_v2(Hash::default()),
+<a href=#1268 id=1268 data-nosnippet>1268</a>			<span class="macro">vec!</span>[],
+<a href=#1269 id=1269 data-nosnippet>1269</a>			initial_validator_indices.clone(),
+<a href=#1270 id=1270 data-nosnippet>1270</a>			CoreIndex(<span class="number">10</span>),
+<a href=#1271 id=1271 data-nosnippet>1271</a>		);
+<a href=#1272 id=1272 data-nosnippet>1272</a>
+<a href=#1273 id=1273 data-nosnippet>1273</a>		<span class="comment">// No core index supplied.
+<a href=#1274 id=1274 data-nosnippet>1274</a>		</span>candidate
+<a href=#1275 id=1275 data-nosnippet>1275</a>			.set_validator_indices_and_core_index(initial_validator_indices.clone().into(), <span class="prelude-val">None</span>);
 <a href=#1276 id=1276 data-nosnippet>1276</a>		<span class="kw">let </span>(validator_indices, core_index) = candidate.validator_indices_and_core_index();
-<a href=#1277 id=1277 data-nosnippet>1277</a>		<span class="macro">assert_eq!</span>(validator_indices, <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>].as_bitslice());
-<a href=#1278 id=1278 data-nosnippet>1278</a>		<span class="macro">assert!</span>(core_index.is_some());
+<a href=#1277 id=1277 data-nosnippet>1277</a>		<span class="macro">assert_eq!</span>(validator_indices, initial_validator_indices.as_bitslice());
+<a href=#1278 id=1278 data-nosnippet>1278</a>		<span class="macro">assert!</span>(core_index.is_none());
 <a href=#1279 id=1279 data-nosnippet>1279</a>
-<a href=#1280 id=1280 data-nosnippet>1280</a>		<span class="comment">// Core index supplied.
-<a href=#1281 id=1281 data-nosnippet>1281</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>candidate = BackedCandidate::new(
-<a href=#1282 id=1282 data-nosnippet>1282</a>			dummy_committed_candidate_receipt_v2(Hash::default()),
-<a href=#1283 id=1283 data-nosnippet>1283</a>			<span class="macro">vec!</span>[],
-<a href=#1284 id=1284 data-nosnippet>1284</a>			<span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>],
-<a href=#1285 id=1285 data-nosnippet>1285</a>			CoreIndex(<span class="number">10</span>),
-<a href=#1286 id=1286 data-nosnippet>1286</a>		);
+<a href=#1280 id=1280 data-nosnippet>1280</a>		<span class="comment">// No core index supplied. Decoding is corrupted if backing group
+<a href=#1281 id=1281 data-nosnippet>1281</a>		// size larger than 8.
+<a href=#1282 id=1282 data-nosnippet>1282</a>		</span>candidate.set_validator_indices_and_core_index(
+<a href=#1283 id=1283 data-nosnippet>1283</a>			<span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>].into(),
+<a href=#1284 id=1284 data-nosnippet>1284</a>			<span class="prelude-val">None</span>,
+<a href=#1285 id=1285 data-nosnippet>1285</a>		);
+<a href=#1286 id=1286 data-nosnippet>1286</a>
 <a href=#1287 id=1287 data-nosnippet>1287</a>		<span class="kw">let </span>(validator_indices, core_index) = candidate.validator_indices_and_core_index();
-<a href=#1288 id=1288 data-nosnippet>1288</a>		<span class="macro">assert_eq!</span>(validator_indices, <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>]);
-<a href=#1289 id=1289 data-nosnippet>1289</a>		<span class="macro">assert_eq!</span>(core_index, <span class="prelude-val">Some</span>(CoreIndex(<span class="number">10</span>)));
+<a href=#1288 id=1288 data-nosnippet>1288</a>		<span class="macro">assert_eq!</span>(validator_indices, <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>].as_bitslice());
+<a href=#1289 id=1289 data-nosnippet>1289</a>		<span class="macro">assert!</span>(core_index.is_some());
 <a href=#1290 id=1290 data-nosnippet>1290</a>
-<a href=#1291 id=1291 data-nosnippet>1291</a>		<span class="kw">let </span>encoded_validator_indices = candidate.raw_validator_indices();
-<a href=#1292 id=1292 data-nosnippet>1292</a>		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
-<a href=#1293 id=1293 data-nosnippet>1293</a>		<span class="macro">assert_eq!</span>(candidate.raw_validator_indices(), encoded_validator_indices);
-<a href=#1294 id=1294 data-nosnippet>1294</a>	}
-<a href=#1295 id=1295 data-nosnippet>1295</a>}
+<a href=#1291 id=1291 data-nosnippet>1291</a>		<span class="comment">// Core index supplied.
+<a href=#1292 id=1292 data-nosnippet>1292</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>candidate = BackedCandidate::new(
+<a href=#1293 id=1293 data-nosnippet>1293</a>			dummy_committed_candidate_receipt_v2(Hash::default()),
+<a href=#1294 id=1294 data-nosnippet>1294</a>			<span class="macro">vec!</span>[],
+<a href=#1295 id=1295 data-nosnippet>1295</a>			<span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>],
+<a href=#1296 id=1296 data-nosnippet>1296</a>			CoreIndex(<span class="number">10</span>),
+<a href=#1297 id=1297 data-nosnippet>1297</a>		);
+<a href=#1298 id=1298 data-nosnippet>1298</a>		<span class="kw">let </span>(validator_indices, core_index) = candidate.validator_indices_and_core_index();
+<a href=#1299 id=1299 data-nosnippet>1299</a>		<span class="macro">assert_eq!</span>(validator_indices, <span class="macro">bitvec!</span>[u8, bitvec::order::Lsb0; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>]);
+<a href=#1300 id=1300 data-nosnippet>1300</a>		<span class="macro">assert_eq!</span>(core_index, <span class="prelude-val">Some</span>(CoreIndex(<span class="number">10</span>)));
+<a href=#1301 id=1301 data-nosnippet>1301</a>
+<a href=#1302 id=1302 data-nosnippet>1302</a>		<span class="kw">let </span>encoded_validator_indices = candidate.raw_validator_indices();
+<a href=#1303 id=1303 data-nosnippet>1303</a>		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
+<a href=#1304 id=1304 data-nosnippet>1304</a>		<span class="macro">assert_eq!</span>(candidate.raw_validator_indices(), encoded_validator_indices);
+<a href=#1305 id=1305 data-nosnippet>1305</a>	}
+<a href=#1306 id=1306 data-nosnippet>1306</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -1,0 +1,191 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Off-chain wire types and their verifiers."><title>yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module message</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module message</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>cumulus_<wbr>primitives_<wbr>spec_<wbr>messaging</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">cumulus_primitives_spec_messaging</a></div><h1>Module <span>message</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/cumulus_primitives_spec_messaging/lib.rs.html#34">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Off-chain wire types and their verifiers.</p>
+<p>The relay chain decodes none of this; it only matches the <code>StreamsRoot</code> commitments in the UMP
+signals. But the two ends of each protocol are different chains’ collators, so the encodings and
+the envelope variant indices are part of the wire format.</p>
+<ul>
+<li><a href="../fn.leaf_hash.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::leaf_hash"><code>leaf_hash</code></a> turns a payload into an MMR leaf. A message is a bounded payload keyed by
+<code>StreamId</code>; source, stream and position are structural, so there is no message struct.</li>
+<li>Fetch: <a href="../struct.MessagesRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MessagesRequest"><code>MessagesRequest</code></a> / <a href="../struct.MessagesResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MessagesResponse"><code>MessagesResponse</code></a>, verified by <a href="../fn.verify_messages.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::verify_messages"><code>verify_messages</code></a> against a
+<code>StreamsRoot</code> the requester has already verified. The <code>extension</code> + <code>tree_proof</code> check is the
+same one the requires-lift performs.</li>
+<li>Event read: <a href="../struct.EventRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::EventRequest"><code>EventRequest</code></a> / <a href="../struct.EventResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::EventResponse"><code>EventResponse</code></a>, the single-leaf read of an <code>Ack</code> /
+<code>Broadcast</code> / <code>Private</code> stream, verified by <a href="../fn.verify_event.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::verify_event"><code>verify_event</code></a>.</li>
+<li>Envelope: <a href="../enum.ExchangeRequest.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::ExchangeRequest"><code>ExchangeRequest</code></a> / <a href="../enum.ExchangeResponse.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::ExchangeResponse"><code>ExchangeResponse</code></a> multiplex both over <code>/spec-msg/exchange</code>,
+verified by <a href="../fn.verify_exchange.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::verify_exchange"><code>verify_exchange</code></a>, which also binds the response variant to the request’s. Variant
+indices are frozen.</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.EventRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::EventRequest">Event<wbr>Request</a></dt><dd>Request for a single event of a lossy stream (<code>Ack</code> / <code>Broadcast</code> / <code>Private</code>), verified under a
+chosen <code>StreamsRoot</code>. The server either serves or fails; nothing is resolved server-side.</dd><dt><a class="struct" href="struct.EventResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::EventResponse">Event<wbr>Response</a></dt><dd>Response carrying one event leaf and the proofs placing it under the requested <code>StreamsRoot</code>.
+Nothing is trusted. <code>under</code> fixes the stream’s leaf count, so the head is the leaf at <code>count - 1</code>; an old leaf cannot be served as the head.</dd><dt><a class="struct" href="struct.MessagesRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::MessagesRequest">Messages<wbr>Request</a></dt><dd>Request for a range of a stream’s messages, verified under a chosen <code>StreamsRoot</code>.</dd><dt><a class="struct" href="struct.MessagesResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::MessagesResponse">Messages<wbr>Response</a></dt><dd>Response: payloads from <code>base</code> on, plus the proofs binding them and everything before them to
+the requested <code>StreamsRoot</code>. Nothing is trusted; fabricated peaks, payloads or proofs cannot
+reproduce a committed root.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ExchangeRequest.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::ExchangeRequest">Exchange<wbr>Request</a></dt><dd>The <code>/spec-msg/exchange</code> request envelope. Variant indices are frozen; foreign implementations
+decode by them.</dd><dt><a class="enum" href="enum.ExchangeResponse.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::ExchangeResponse">Exchange<wbr>Response</a></dt><dd>The <code>/spec-msg/exchange</code> response envelope. No error variant: a server that cannot serve refuses
+at the transport level.</dd><dt><a class="enum" href="enum.ExchangeVerified.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::ExchangeVerified">Exchange<wbr>Verified</a></dt><dd>Verified outcome of an <a href="../enum.ExchangeResponse.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::ExchangeResponse"><code>ExchangeResponse</code></a>: a fetch, or a <a href="../enum.VerifiedEvent.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::VerifiedEvent"><code>VerifiedEvent</code></a>.</dd><dt><a class="enum" href="enum.VerifiedEvent.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::VerifiedEvent">Verified<wbr>Event</a></dt><dd>Outcome of verifying an <a href="../struct.EventResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::EventResponse"><code>EventResponse</code></a>. A head read yields the stream <a href="../struct.MmrFrontier.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MmrFrontier"><code>MmrFrontier</code></a>, which
+lossy consumption records as its interval endpoint; a positional read yields none, since an
+inclusion proof reconstructs a root, not a frontier.</dd><dt><a class="enum" href="enum.VerifyError.html" title="enum yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::VerifyError">Verify<wbr>Error</a></dt><dd>Why verifying an off-chain response failed. <a href="../enum.VerifyError.html#variant.RootMismatch" title="variant yet_another_parachain_runtime::cumulus_primitives_spec_messaging::VerifyError::RootMismatch"><code>RootMismatch</code></a> is
+benign (retry under a fresher root); the rest indicate a malformed or forged response.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_MESSAGES_PER_RESPONSE.html" title="constant yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::MAX_MESSAGES_PER_RESPONSE">MAX_<wbr>MESSAGES_<wbr>PER_<wbr>RESPONSE</a></dt><dd>Maximum payloads in one <a href="../struct.MessagesResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MessagesResponse"><code>MessagesResponse</code></a>, enforced at decode. The byte budget does not bound
+the count: an empty payload costs one wire byte and no budget, yet is hashed into a leaf, so
+without this bound one response could carry millions. A consumer fetches the rest under a later
+request.</dd><dt><a class="constant" href="constant.MAX_SPECULATIVE_MESSAGE_LEN.html" title="constant yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::MAX_SPECULATIVE_MESSAGE_LEN">MAX_<wbr>SPECULATIVE_<wbr>MESSAGE_<wbr>LEN</a></dt><dd>Maximum size in bytes of a single speculative message payload.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.leaf_hash.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::leaf_hash">leaf_<wbr>hash</a></dt><dd>Hash a payload into a stream MMR leaf: <code>H(LEAF_TAG ++ leaf_version ++ payload)</code>. Source, stream
+and position are structural and not in the preimage. Versions are hash-disjoint, so only the
+correct one reproduces a committed root.</dd><dt><a class="fn" href="fn.verify_event.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::verify_event">verify_<wbr>event</a></dt><dd>Verify an <a href="../struct.EventResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::EventResponse"><code>EventResponse</code></a> against its <a href="../struct.EventRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::EventRequest"><code>EventRequest</code></a>: <code>req.at</code> selects head (<code>None</code>) or leaf
+<code>k</code>, so a head response is never accepted for a positional request or vice versa. On <code>Ok</code>,
+<code>resp.payload</code> is verified. The public entry for event reads.</dd><dt><a class="fn" href="fn.verify_exchange.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::verify_exchange">verify_<wbr>exchange</a></dt><dd>Verify a <code>/spec-msg/exchange</code> response against its request. The variants must match
+(<a href="../enum.VerifyError.html#variant.VariantMismatch" title="variant yet_another_parachain_runtime::cumulus_primitives_spec_messaging::VerifyError::VariantMismatch"><code>VariantMismatch</code></a> otherwise); then dispatches to
+<a href="../fn.verify_messages.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::verify_messages"><code>verify_messages</code></a> or <a href="../fn.verify_event.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::verify_event"><code>verify_event</code></a>. The top-level public entry.</dd><dt><a class="fn" href="fn.verify_messages.html" title="fn yet_another_parachain_runtime::cumulus_primitives_spec_messaging::message::verify_messages">verify_<wbr>messages</a></dt><dd>Verify a <a href="../struct.MessagesResponse.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MessagesResponse"><code>MessagesResponse</code></a> against its <a href="../struct.MessagesRequest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_spec_messaging::MessagesRequest"><code>MessagesRequest</code></a>: <code>resp.base == req.start</code>, total
+payload bytes within <code>req.max_bytes</code> (<code>0</code> means proofs only), then the payloads under
+<code>req.stream</code> / <code>req.under</code>. On <code>Ok</code>, <code>resp.payloads</code> are verified. The public entry for the
+fetch protocol.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

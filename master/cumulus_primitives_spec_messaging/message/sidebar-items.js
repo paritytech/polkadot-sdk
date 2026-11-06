@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_MESSAGES_PER_RESPONSE","MAX_SPECULATIVE_MESSAGE_LEN"],"enum":["ExchangeRequest","ExchangeResponse","ExchangeVerified","VerifiedEvent","VerifyError"],"fn":["leaf_hash","verify_event","verify_exchange","verify_messages"],"struct":["EventRequest","EventResponse","MessagesRequest","MessagesResponse"]};

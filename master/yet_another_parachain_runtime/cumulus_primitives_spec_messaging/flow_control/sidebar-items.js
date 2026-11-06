@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SpecMsgKind","SpecMsgSignal"],"struct":["Register","WindowGrant"]};

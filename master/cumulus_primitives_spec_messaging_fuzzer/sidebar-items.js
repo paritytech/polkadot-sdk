@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["N"],"enum":["Count","Edit","FromChoice","HashChoice","Outcome"],"fn":["mmr_size","payload"],"mod":["frontier","message"],"struct":["ExtensionInput","InclusionInput","Oracle","PipelineInput"]};

@@ -731,196 +731,205 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#581 id=581 data-nosnippet>581</a>
 <a href=#582 id=582 data-nosnippet>582</a>	<span class="doccomment">/// Execute all postponed storage deposit operations.
 <a href=#583 id=583 data-nosnippet>583</a>	///
-<a href=#584 id=584 data-nosnippet>584</a>	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded.
-<a href=#585 id=585 data-nosnippet>585</a>	</span><span class="kw">pub fn </span>execute_postponed_deposits(
-<a href=#586 id=586 data-nosnippet>586</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#587 id=587 data-nosnippet>587</a>		origin: <span class="kw-2">&amp;</span>Origin&lt;T&gt;,
-<a href=#588 id=588 data-nosnippet>588</a>		exec_config: <span class="kw-2">&amp;</span>ExecConfig&lt;T&gt;,
-<a href=#589 id=589 data-nosnippet>589</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;DepositOf&lt;T&gt;, DispatchError&gt; {
-<a href=#590 id=590 data-nosnippet>590</a>		<span class="macro">log::debug!</span>(
-<a href=#591 id=591 data-nosnippet>591</a>			target: LOG_TARGET,
-<a href=#592 id=592 data-nosnippet>592</a>			<span class="string">"Transaction meter finishes: \
-<a href=#593 id=593 data-nosnippet>593</a>				weight_left={:?}, \
-<a href=#594 id=594 data-nosnippet>594</a>				deposit_left={:?}, \
-<a href=#595 id=595 data-nosnippet>595</a>				weight_consumed={:?}, \
-<a href=#596 id=596 data-nosnippet>596</a>				deposit_consumed={:?}, \
-<a href=#597 id=597 data-nosnippet>597</a>				eth_gas_consumed={:?}"</span>,
-<a href=#598 id=598 data-nosnippet>598</a>			<span class="self">self</span>.weight_left(),
-<a href=#599 id=599 data-nosnippet>599</a>			<span class="self">self</span>.deposit_left(),
-<a href=#600 id=600 data-nosnippet>600</a>			<span class="self">self</span>.weight_consumed(),
-<a href=#601 id=601 data-nosnippet>601</a>			<span class="self">self</span>.deposit_consumed(),
-<a href=#602 id=602 data-nosnippet>602</a>			<span class="self">self</span>.eth_gas_consumed(),
-<a href=#603 id=603 data-nosnippet>603</a>		);
-<a href=#604 id=604 data-nosnippet>604</a>
-<a href=#605 id=605 data-nosnippet>605</a>		<span class="kw">if </span><span class="self">self</span>.deposit_left().is_none() {
-<a href=#606 id=606 data-nosnippet>606</a>			<span class="comment">// Deposit limit exceeded
-<a href=#607 id=607 data-nosnippet>607</a>			</span><span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositNotEnoughFunds.into());
-<a href=#608 id=608 data-nosnippet>608</a>		}
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a>		<span class="self">self</span>.deposit.execute_postponed_deposits(origin, exec_config)
-<a href=#611 id=611 data-nosnippet>611</a>	}
-<a href=#612 id=612 data-nosnippet>612</a>
-<a href=#613 id=613 data-nosnippet>613</a>	<span class="doccomment">/// Mark a contract as terminated
-<a href=#614 id=614 data-nosnippet>614</a>	///
-<a href=#615 id=615 data-nosnippet>615</a>	/// This will signal to the meter to discard all charged and refunds incured by this
-<a href=#616 id=616 data-nosnippet>616</a>	/// contract. Furthermore it will record that there was a refund of `refunded` and adapt the
-<a href=#617 id=617 data-nosnippet>617</a>	/// total deposit accordingly
-<a href=#618 id=618 data-nosnippet>618</a>	</span><span class="kw">pub fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, contract_account: T::AccountId, refunded: BalanceOf&lt;T&gt;) {
-<a href=#619 id=619 data-nosnippet>619</a>		<span class="self">self</span>.deposit.terminate(contract_account, refunded);
+<a href=#584 id=584 data-nosnippet>584</a>	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded. The
+<a href=#585 id=585 data-nosnippet>585</a>	/// limit is checked again after the refunds, since paying them can raise the deposit consumed.
+<a href=#586 id=586 data-nosnippet>586</a>	</span><span class="kw">pub fn </span>execute_postponed_deposits(
+<a href=#587 id=587 data-nosnippet>587</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#588 id=588 data-nosnippet>588</a>		origin: <span class="kw-2">&amp;</span>Origin&lt;T&gt;,
+<a href=#589 id=589 data-nosnippet>589</a>		exec_config: <span class="kw-2">&amp;</span>ExecConfig&lt;T&gt;,
+<a href=#590 id=590 data-nosnippet>590</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;DepositOf&lt;T&gt;, DispatchError&gt; {
+<a href=#591 id=591 data-nosnippet>591</a>		<span class="macro">log::debug!</span>(
+<a href=#592 id=592 data-nosnippet>592</a>			target: LOG_TARGET,
+<a href=#593 id=593 data-nosnippet>593</a>			<span class="string">"Transaction meter finishes: \
+<a href=#594 id=594 data-nosnippet>594</a>				weight_left={:?}, \
+<a href=#595 id=595 data-nosnippet>595</a>				deposit_left={:?}, \
+<a href=#596 id=596 data-nosnippet>596</a>				weight_consumed={:?}, \
+<a href=#597 id=597 data-nosnippet>597</a>				deposit_consumed={:?}, \
+<a href=#598 id=598 data-nosnippet>598</a>				eth_gas_consumed={:?}"</span>,
+<a href=#599 id=599 data-nosnippet>599</a>			<span class="self">self</span>.weight_left(),
+<a href=#600 id=600 data-nosnippet>600</a>			<span class="self">self</span>.deposit_left(),
+<a href=#601 id=601 data-nosnippet>601</a>			<span class="self">self</span>.weight_consumed(),
+<a href=#602 id=602 data-nosnippet>602</a>			<span class="self">self</span>.deposit_consumed(),
+<a href=#603 id=603 data-nosnippet>603</a>			<span class="self">self</span>.eth_gas_consumed(),
+<a href=#604 id=604 data-nosnippet>604</a>		);
+<a href=#605 id=605 data-nosnippet>605</a>
+<a href=#606 id=606 data-nosnippet>606</a>		<span class="kw">if </span><span class="self">self</span>.deposit_left().is_none() {
+<a href=#607 id=607 data-nosnippet>607</a>			<span class="comment">// Deposit limit exceeded
+<a href=#608 id=608 data-nosnippet>608</a>			</span><span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositNotEnoughFunds.into());
+<a href=#609 id=609 data-nosnippet>609</a>		}
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>		<span class="comment">// Paying the refunds can increase the deposit consumed: the refunds recorded for a
+<a href=#612 id=612 data-nosnippet>612</a>		// terminated contract are dropped and a refund can be released only in part. Check the
+<a href=#613 id=613 data-nosnippet>613</a>		// limit again before any charge is paid.
+<a href=#614 id=614 data-nosnippet>614</a>		</span><span class="self">self</span>.deposit.execute_postponed_refunds(origin, exec_config)<span class="question-mark">?</span>;
+<a href=#615 id=615 data-nosnippet>615</a>		<span class="kw">if </span><span class="self">self</span>.deposit_left().is_none() {
+<a href=#616 id=616 data-nosnippet>616</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositNotEnoughFunds.into());
+<a href=#617 id=617 data-nosnippet>617</a>		}
+<a href=#618 id=618 data-nosnippet>618</a>
+<a href=#619 id=619 data-nosnippet>619</a>		<span class="self">self</span>.deposit.execute_postponed_charges(origin, exec_config)
 <a href=#620 id=620 data-nosnippet>620</a>	}
-<a href=#621 id=621 data-nosnippet>621</a>}
-<a href=#622 id=622 data-nosnippet>622</a>
-<a href=#623 id=623 data-nosnippet>623</a><span class="kw">impl</span>&lt;T: Config&gt; FrameMeter&lt;T&gt; {
-<a href=#624 id=624 data-nosnippet>624</a>	<span class="doccomment">/// Record a contract's storage deposit and schedule the transfer.
-<a href=#625 id=625 data-nosnippet>625</a>	///
-<a href=#626 id=626 data-nosnippet>626</a>	/// Updates the frame's deposit accounting and schedules the actual token transfer
-<a href=#627 id=627 data-nosnippet>627</a>	/// for later execution – at the end of the transaction execution.
-<a href=#628 id=628 data-nosnippet>628</a>	</span><span class="kw">pub fn </span>charge_contract_deposit_and_transfer(
-<a href=#629 id=629 data-nosnippet>629</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#630 id=630 data-nosnippet>630</a>		contract: T::AccountId,
-<a href=#631 id=631 data-nosnippet>631</a>		amount: DepositOf&lt;T&gt;,
-<a href=#632 id=632 data-nosnippet>632</a>	) -&gt; DispatchResult {
-<a href=#633 id=633 data-nosnippet>633</a>		<span class="macro">log::trace!</span>(
-<a href=#634 id=634 data-nosnippet>634</a>			target: LOG_TARGET,
-<a href=#635 id=635 data-nosnippet>635</a>			<span class="string">"Charge deposit and transfer: \
-<a href=#636 id=636 data-nosnippet>636</a>				amount={:?}, \
-<a href=#637 id=637 data-nosnippet>637</a>				deposit_left={:?}, \
-<a href=#638 id=638 data-nosnippet>638</a>				deposit_consumed={:?}, \
-<a href=#639 id=639 data-nosnippet>639</a>				max_charged={:?}"</span>,
-<a href=#640 id=640 data-nosnippet>640</a>			amount,
-<a href=#641 id=641 data-nosnippet>641</a>			<span class="self">self</span>.deposit_left(),
-<a href=#642 id=642 data-nosnippet>642</a>			<span class="self">self</span>.deposit_consumed(),
-<a href=#643 id=643 data-nosnippet>643</a>			<span class="self">self</span>.deposit.max_charged(),
-<a href=#644 id=644 data-nosnippet>644</a>		);
-<a href=#645 id=645 data-nosnippet>645</a>
-<a href=#646 id=646 data-nosnippet>646</a>		<span class="self">self</span>.deposit.charge_deposit(contract, amount);
-<a href=#647 id=647 data-nosnippet>647</a>		<span class="self">self</span>.adjust_effective_weight_limit()
-<a href=#648 id=648 data-nosnippet>648</a>	}
-<a href=#649 id=649 data-nosnippet>649</a>
-<a href=#650 id=650 data-nosnippet>650</a>	<span class="doccomment">/// Record storage changes of a contract.
-<a href=#651 id=651 data-nosnippet>651</a>	</span><span class="kw">pub fn </span>record_contract_storage_changes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, diff: <span class="kw-2">&amp;</span>Diff) -&gt; DispatchResult {
-<a href=#652 id=652 data-nosnippet>652</a>		<span class="macro">log::trace!</span>(
-<a href=#653 id=653 data-nosnippet>653</a>			target: LOG_TARGET,
-<a href=#654 id=654 data-nosnippet>654</a>			<span class="string">"Charge contract storage: \
-<a href=#655 id=655 data-nosnippet>655</a>				diff={:?}, \
-<a href=#656 id=656 data-nosnippet>656</a>				deposit_left={:?}, \
-<a href=#657 id=657 data-nosnippet>657</a>				deposit_consumed={:?}, \
-<a href=#658 id=658 data-nosnippet>658</a>				max_charged={:?}"</span>,
-<a href=#659 id=659 data-nosnippet>659</a>			diff,
-<a href=#660 id=660 data-nosnippet>660</a>			<span class="self">self</span>.deposit_left(),
-<a href=#661 id=661 data-nosnippet>661</a>			<span class="self">self</span>.deposit_consumed(),
-<a href=#662 id=662 data-nosnippet>662</a>			<span class="self">self</span>.deposit.max_charged(),
-<a href=#663 id=663 data-nosnippet>663</a>		);
-<a href=#664 id=664 data-nosnippet>664</a>
-<a href=#665 id=665 data-nosnippet>665</a>		<span class="self">self</span>.deposit.charge(diff);
-<a href=#666 id=666 data-nosnippet>666</a>		<span class="self">self</span>.adjust_effective_weight_limit()
-<a href=#667 id=667 data-nosnippet>667</a>	}
-<a href=#668 id=668 data-nosnippet>668</a>
-<a href=#669 id=669 data-nosnippet>669</a>	<span class="doccomment">/// [`Self::charge_contract_deposit_and_transfer`] and [`Self::record_contract_storage_changes`]
-<a href=#670 id=670 data-nosnippet>670</a>	/// does not enforce the storage limit since we want to do this check as late as possible to
-<a href=#671 id=671 data-nosnippet>671</a>	/// allow later refunds to offset earlier charges.
-<a href=#672 id=672 data-nosnippet>672</a>	</span><span class="kw">pub fn </span>finalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, info: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;&gt;) -&gt; DispatchResult {
-<a href=#673 id=673 data-nosnippet>673</a>		<span class="self">self</span>.deposit.finalize_own_contributions(info);
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>		<span class="kw">if </span><span class="self">self</span>.deposit_left().is_none() {
-<a href=#676 id=676 data-nosnippet>676</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositLimitExhausted.into());
-<a href=#677 id=677 data-nosnippet>677</a>		}
-<a href=#678 id=678 data-nosnippet>678</a>
-<a href=#679 id=679 data-nosnippet>679</a>		<span class="prelude-val">Ok</span>(())
-<a href=#680 id=680 data-nosnippet>680</a>	}
-<a href=#681 id=681 data-nosnippet>681</a>
-<a href=#682 id=682 data-nosnippet>682</a>	<span class="doccomment">/// Apply pending storage changes to a ContractInfo without finalizing the meter.
-<a href=#683 id=683 data-nosnippet>683</a>	///
-<a href=#684 id=684 data-nosnippet>684</a>	/// This is used before creating a nested frame to ensure the child frame can see
-<a href=#685 id=685 data-nosnippet>685</a>	/// the parent's pending storage changes when calculating refunds. This fixes the issue
-<a href=#686 id=686 data-nosnippet>686</a>	/// where storage deposit refunds fail in subframes because the parent's pending
-<a href=#687 id=687 data-nosnippet>687</a>	/// charges haven't been committed to ContractInfo yet.
-<a href=#688 id=688 data-nosnippet>688</a>	///
-<a href=#689 id=689 data-nosnippet>689</a>	/// See: &lt;https://github.com/paritytech/contract-issues/issues/213&gt;
-<a href=#690 id=690 data-nosnippet>690</a>	</span><span class="kw">pub fn </span>apply_pending_storage_changes(<span class="kw-2">&amp;</span><span class="self">self</span>, info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;) {
-<a href=#691 id=691 data-nosnippet>691</a>		<span class="self">self</span>.deposit.apply_pending_changes_to_contract(info);
-<a href=#692 id=692 data-nosnippet>692</a>	}
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>	<span class="doccomment">/// See [`storage::RawMeter::bank_pending_changes`].
-<a href=#695 id=695 data-nosnippet>695</a>	</span><span class="kw">pub fn </span>bank_pending_storage_changes(
-<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#697 id=697 data-nosnippet>697</a>		contract: T::AccountId,
-<a href=#698 id=698 data-nosnippet>698</a>		info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;,
-<a href=#699 id=699 data-nosnippet>699</a>	) {
-<a href=#700 id=700 data-nosnippet>700</a>		<span class="self">self</span>.deposit.bank_pending_changes(contract, info);
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>	<span class="doccomment">/// Mark a contract as terminated
+<a href=#623 id=623 data-nosnippet>623</a>	///
+<a href=#624 id=624 data-nosnippet>624</a>	/// This will signal to the meter to discard all charged and refunds incured by this
+<a href=#625 id=625 data-nosnippet>625</a>	/// contract. Furthermore it will record that there was a refund of `refunded` and adapt the
+<a href=#626 id=626 data-nosnippet>626</a>	/// total deposit accordingly
+<a href=#627 id=627 data-nosnippet>627</a>	</span><span class="kw">pub fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, contract_account: T::AccountId, refunded: BalanceOf&lt;T&gt;) {
+<a href=#628 id=628 data-nosnippet>628</a>		<span class="self">self</span>.deposit.terminate(contract_account, refunded);
+<a href=#629 id=629 data-nosnippet>629</a>	}
+<a href=#630 id=630 data-nosnippet>630</a>}
+<a href=#631 id=631 data-nosnippet>631</a>
+<a href=#632 id=632 data-nosnippet>632</a><span class="kw">impl</span>&lt;T: Config&gt; FrameMeter&lt;T&gt; {
+<a href=#633 id=633 data-nosnippet>633</a>	<span class="doccomment">/// Record a contract's storage deposit and schedule the transfer.
+<a href=#634 id=634 data-nosnippet>634</a>	///
+<a href=#635 id=635 data-nosnippet>635</a>	/// Updates the frame's deposit accounting and schedules the actual token transfer
+<a href=#636 id=636 data-nosnippet>636</a>	/// for later execution – at the end of the transaction execution.
+<a href=#637 id=637 data-nosnippet>637</a>	</span><span class="kw">pub fn </span>charge_contract_deposit_and_transfer(
+<a href=#638 id=638 data-nosnippet>638</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#639 id=639 data-nosnippet>639</a>		contract: T::AccountId,
+<a href=#640 id=640 data-nosnippet>640</a>		amount: DepositOf&lt;T&gt;,
+<a href=#641 id=641 data-nosnippet>641</a>	) -&gt; DispatchResult {
+<a href=#642 id=642 data-nosnippet>642</a>		<span class="macro">log::trace!</span>(
+<a href=#643 id=643 data-nosnippet>643</a>			target: LOG_TARGET,
+<a href=#644 id=644 data-nosnippet>644</a>			<span class="string">"Charge deposit and transfer: \
+<a href=#645 id=645 data-nosnippet>645</a>				amount={:?}, \
+<a href=#646 id=646 data-nosnippet>646</a>				deposit_left={:?}, \
+<a href=#647 id=647 data-nosnippet>647</a>				deposit_consumed={:?}, \
+<a href=#648 id=648 data-nosnippet>648</a>				max_charged={:?}"</span>,
+<a href=#649 id=649 data-nosnippet>649</a>			amount,
+<a href=#650 id=650 data-nosnippet>650</a>			<span class="self">self</span>.deposit_left(),
+<a href=#651 id=651 data-nosnippet>651</a>			<span class="self">self</span>.deposit_consumed(),
+<a href=#652 id=652 data-nosnippet>652</a>			<span class="self">self</span>.deposit.max_charged(),
+<a href=#653 id=653 data-nosnippet>653</a>		);
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>		<span class="self">self</span>.deposit.charge_deposit(contract, amount);
+<a href=#656 id=656 data-nosnippet>656</a>		<span class="self">self</span>.adjust_effective_weight_limit()
+<a href=#657 id=657 data-nosnippet>657</a>	}
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a>	<span class="doccomment">/// Record storage changes of a contract.
+<a href=#660 id=660 data-nosnippet>660</a>	</span><span class="kw">pub fn </span>record_contract_storage_changes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, diff: <span class="kw-2">&amp;</span>Diff) -&gt; DispatchResult {
+<a href=#661 id=661 data-nosnippet>661</a>		<span class="macro">log::trace!</span>(
+<a href=#662 id=662 data-nosnippet>662</a>			target: LOG_TARGET,
+<a href=#663 id=663 data-nosnippet>663</a>			<span class="string">"Charge contract storage: \
+<a href=#664 id=664 data-nosnippet>664</a>				diff={:?}, \
+<a href=#665 id=665 data-nosnippet>665</a>				deposit_left={:?}, \
+<a href=#666 id=666 data-nosnippet>666</a>				deposit_consumed={:?}, \
+<a href=#667 id=667 data-nosnippet>667</a>				max_charged={:?}"</span>,
+<a href=#668 id=668 data-nosnippet>668</a>			diff,
+<a href=#669 id=669 data-nosnippet>669</a>			<span class="self">self</span>.deposit_left(),
+<a href=#670 id=670 data-nosnippet>670</a>			<span class="self">self</span>.deposit_consumed(),
+<a href=#671 id=671 data-nosnippet>671</a>			<span class="self">self</span>.deposit.max_charged(),
+<a href=#672 id=672 data-nosnippet>672</a>		);
+<a href=#673 id=673 data-nosnippet>673</a>
+<a href=#674 id=674 data-nosnippet>674</a>		<span class="self">self</span>.deposit.charge(diff);
+<a href=#675 id=675 data-nosnippet>675</a>		<span class="self">self</span>.adjust_effective_weight_limit()
+<a href=#676 id=676 data-nosnippet>676</a>	}
+<a href=#677 id=677 data-nosnippet>677</a>
+<a href=#678 id=678 data-nosnippet>678</a>	<span class="doccomment">/// [`Self::charge_contract_deposit_and_transfer`] and [`Self::record_contract_storage_changes`]
+<a href=#679 id=679 data-nosnippet>679</a>	/// does not enforce the storage limit since we want to do this check as late as possible to
+<a href=#680 id=680 data-nosnippet>680</a>	/// allow later refunds to offset earlier charges.
+<a href=#681 id=681 data-nosnippet>681</a>	</span><span class="kw">pub fn </span>finalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, info: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;&gt;) -&gt; DispatchResult {
+<a href=#682 id=682 data-nosnippet>682</a>		<span class="self">self</span>.deposit.finalize_own_contributions(info);
+<a href=#683 id=683 data-nosnippet>683</a>
+<a href=#684 id=684 data-nosnippet>684</a>		<span class="kw">if </span><span class="self">self</span>.deposit_left().is_none() {
+<a href=#685 id=685 data-nosnippet>685</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositLimitExhausted.into());
+<a href=#686 id=686 data-nosnippet>686</a>		}
+<a href=#687 id=687 data-nosnippet>687</a>
+<a href=#688 id=688 data-nosnippet>688</a>		<span class="prelude-val">Ok</span>(())
+<a href=#689 id=689 data-nosnippet>689</a>	}
+<a href=#690 id=690 data-nosnippet>690</a>
+<a href=#691 id=691 data-nosnippet>691</a>	<span class="doccomment">/// Apply pending storage changes to a ContractInfo without finalizing the meter.
+<a href=#692 id=692 data-nosnippet>692</a>	///
+<a href=#693 id=693 data-nosnippet>693</a>	/// This is used before creating a nested frame to ensure the child frame can see
+<a href=#694 id=694 data-nosnippet>694</a>	/// the parent's pending storage changes when calculating refunds. This fixes the issue
+<a href=#695 id=695 data-nosnippet>695</a>	/// where storage deposit refunds fail in subframes because the parent's pending
+<a href=#696 id=696 data-nosnippet>696</a>	/// charges haven't been committed to ContractInfo yet.
+<a href=#697 id=697 data-nosnippet>697</a>	///
+<a href=#698 id=698 data-nosnippet>698</a>	/// See: &lt;https://github.com/paritytech/contract-issues/issues/213&gt;
+<a href=#699 id=699 data-nosnippet>699</a>	</span><span class="kw">pub fn </span>apply_pending_storage_changes(<span class="kw-2">&amp;</span><span class="self">self</span>, info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;) {
+<a href=#700 id=700 data-nosnippet>700</a>		<span class="self">self</span>.deposit.apply_pending_changes_to_contract(info);
 <a href=#701 id=701 data-nosnippet>701</a>	}
-<a href=#702 id=702 data-nosnippet>702</a>}
-<a href=#703 id=703 data-nosnippet>703</a>
-<a href=#704 id=704 data-nosnippet>704</a><span class="doccomment">/// Ethereum transaction context for gas conversions.
-<a href=#705 id=705 data-nosnippet>705</a>///
-<a href=#706 id=706 data-nosnippet>706</a>/// Contains the parameters needed to convert between ethereum gas and substrate resources
-<a href=#707 id=707 data-nosnippet>707</a>/// (weight/deposit)
-<a href=#708 id=708 data-nosnippet>708</a></span><span class="attr">#[derive(DebugNoBound, Clone)]
-<a href=#709 id=709 data-nosnippet>709</a></span><span class="kw">pub struct </span>EthTxInfo&lt;T: Config&gt; {
-<a href=#710 id=710 data-nosnippet>710</a>	<span class="doccomment">/// The encoding length of the extrinsic
-<a href=#711 id=711 data-nosnippet>711</a>	</span><span class="kw">pub </span>encoded_len: u32,
-<a href=#712 id=712 data-nosnippet>712</a>	<span class="doccomment">/// The extra weight of the transaction. The total weight of the extrinsic is `extra_weight` +
-<a href=#713 id=713 data-nosnippet>713</a>	/// the weight consumed during smart contract execution.
-<a href=#714 id=714 data-nosnippet>714</a>	</span><span class="kw">pub </span>extra_weight: Weight,
-<a href=#715 id=715 data-nosnippet>715</a>	_phantom: PhantomData&lt;T&gt;,
-<a href=#716 id=716 data-nosnippet>716</a>}
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a><span class="kw">impl</span>&lt;T: Config&gt; EthTxInfo&lt;T&gt; {
-<a href=#719 id=719 data-nosnippet>719</a>	<span class="doccomment">/// Create a new ethereum transaction context with the given parameters.
-<a href=#720 id=720 data-nosnippet>720</a>	</span><span class="kw">pub fn </span>new(encoded_len: u32, extra_weight: Weight) -&gt; <span class="self">Self </span>{
-<a href=#721 id=721 data-nosnippet>721</a>		<span class="self">Self </span>{ encoded_len, extra_weight, _phantom: PhantomData }
-<a href=#722 id=722 data-nosnippet>722</a>	}
-<a href=#723 id=723 data-nosnippet>723</a>
-<a href=#724 id=724 data-nosnippet>724</a>	<span class="doccomment">/// Calculate total gas consumed by weight and storage operations.
-<a href=#725 id=725 data-nosnippet>725</a>	</span><span class="kw">pub fn </span>gas_consumption(
-<a href=#726 id=726 data-nosnippet>726</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#727 id=727 data-nosnippet>727</a>		consumed_weight: <span class="kw-2">&amp;</span>Weight,
-<a href=#728 id=728 data-nosnippet>728</a>		consumed_deposit: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
-<a href=#729 id=729 data-nosnippet>729</a>	) -&gt; SignedGas&lt;T&gt; {
-<a href=#730 id=730 data-nosnippet>730</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
-<a href=#731 id=731 data-nosnippet>731</a>		<span class="kw">let </span>deposit_and_fixed_fee =
-<a href=#732 id=732 data-nosnippet>732</a>			consumed_deposit.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
-<a href=#733 id=733 data-nosnippet>733</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
-<a href=#734 id=734 data-nosnippet>734</a>
-<a href=#735 id=735 data-nosnippet>735</a>		<span class="kw">let </span>weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
-<a href=#736 id=736 data-nosnippet>736</a>			<span class="kw-2">&amp;</span>consumed_weight.saturating_add(<span class="self">self</span>.extra_weight),
-<a href=#737 id=737 data-nosnippet>737</a>		));
-<a href=#738 id=738 data-nosnippet>738</a>
-<a href=#739 id=739 data-nosnippet>739</a>		deposit_gas.saturating_add(<span class="kw-2">&amp;</span>weight_gas)
-<a href=#740 id=740 data-nosnippet>740</a>	}
-<a href=#741 id=741 data-nosnippet>741</a>
-<a href=#742 id=742 data-nosnippet>742</a>	<span class="doccomment">/// Compute the maximum deposit available from a gas budget assuming zero execution weight
-<a href=#743 id=743 data-nosnippet>743</a>	/// and zero deposit consumed. This is the upper bound on how much deposit the transaction
-<a href=#744 id=744 data-nosnippet>744</a>	/// could ever spend.
-<a href=#745 id=745 data-nosnippet>745</a>	</span><span class="kw">pub fn </span>max_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_gas_limit: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
-<a href=#746 id=746 data-nosnippet>746</a>		<span class="kw">let </span>max_gas = SignedGas::&lt;T&gt;::from_ethereum_gas(eth_gas_limit);
-<a href=#747 id=747 data-nosnippet>747</a>		<span class="kw">let </span>overhead_gas =
-<a href=#748 id=748 data-nosnippet>748</a>			<span class="self">self</span>.gas_consumption(<span class="kw-2">&amp;</span>Weight::zero(), <span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(Zero::zero()));
-<a href=#749 id=749 data-nosnippet>749</a>		<span class="kw">let </span>remaining = max_gas.saturating_sub(<span class="kw-2">&amp;</span>overhead_gas);
-<a href=#750 id=750 data-nosnippet>750</a>		remaining.to_adjusted_deposit_charge().unwrap_or_default()
-<a href=#751 id=751 data-nosnippet>751</a>	}
-<a href=#752 id=752 data-nosnippet>752</a>
-<a href=#753 id=753 data-nosnippet>753</a>	<span class="doccomment">/// Calculate maximal possible remaining weight that can be consumed given a particular gas
-<a href=#754 id=754 data-nosnippet>754</a>	/// limit.
-<a href=#755 id=755 data-nosnippet>755</a>	///
-<a href=#756 id=756 data-nosnippet>756</a>	/// Returns None if remaining gas would not allow any more weight consumption.
-<a href=#757 id=757 data-nosnippet>757</a>	</span><span class="kw">pub fn </span>weight_remaining(
-<a href=#758 id=758 data-nosnippet>758</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#759 id=759 data-nosnippet>759</a>		max_total_gas: <span class="kw-2">&amp;</span>SignedGas&lt;T&gt;,
-<a href=#760 id=760 data-nosnippet>760</a>		total_weight_consumption: <span class="kw-2">&amp;</span>Weight,
-<a href=#761 id=761 data-nosnippet>761</a>		total_deposit_consumption: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
-<a href=#762 id=762 data-nosnippet>762</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
-<a href=#763 id=763 data-nosnippet>763</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
-<a href=#764 id=764 data-nosnippet>764</a>		<span class="kw">let </span>deposit_and_fixed_fee =
-<a href=#765 id=765 data-nosnippet>765</a>			total_deposit_consumption.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
-<a href=#766 id=766 data-nosnippet>766</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
-<a href=#767 id=767 data-nosnippet>767</a>
-<a href=#768 id=768 data-nosnippet>768</a>		<span class="kw">let </span>consumable_fee = max_total_gas.saturating_sub(<span class="kw-2">&amp;</span>deposit_gas).to_weight_fee()<span class="question-mark">?</span>;
-<a href=#769 id=769 data-nosnippet>769</a>
-<a href=#770 id=770 data-nosnippet>770</a>		T::FeeInfo::fee_to_weight(consumable_fee)
-<a href=#771 id=771 data-nosnippet>771</a>			.checked_sub(<span class="kw-2">&amp;</span>total_weight_consumption.saturating_add(<span class="self">self</span>.extra_weight))
-<a href=#772 id=772 data-nosnippet>772</a>	}
-<a href=#773 id=773 data-nosnippet>773</a>}
+<a href=#702 id=702 data-nosnippet>702</a>
+<a href=#703 id=703 data-nosnippet>703</a>	<span class="doccomment">/// See [`storage::RawMeter::bank_pending_changes`].
+<a href=#704 id=704 data-nosnippet>704</a>	</span><span class="kw">pub fn </span>bank_pending_storage_changes(
+<a href=#705 id=705 data-nosnippet>705</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#706 id=706 data-nosnippet>706</a>		contract: T::AccountId,
+<a href=#707 id=707 data-nosnippet>707</a>		info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;,
+<a href=#708 id=708 data-nosnippet>708</a>	) {
+<a href=#709 id=709 data-nosnippet>709</a>		<span class="self">self</span>.deposit.bank_pending_changes(contract, info);
+<a href=#710 id=710 data-nosnippet>710</a>	}
+<a href=#711 id=711 data-nosnippet>711</a>}
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a><span class="doccomment">/// Ethereum transaction context for gas conversions.
+<a href=#714 id=714 data-nosnippet>714</a>///
+<a href=#715 id=715 data-nosnippet>715</a>/// Contains the parameters needed to convert between ethereum gas and substrate resources
+<a href=#716 id=716 data-nosnippet>716</a>/// (weight/deposit)
+<a href=#717 id=717 data-nosnippet>717</a></span><span class="attr">#[derive(DebugNoBound, Clone)]
+<a href=#718 id=718 data-nosnippet>718</a></span><span class="kw">pub struct </span>EthTxInfo&lt;T: Config&gt; {
+<a href=#719 id=719 data-nosnippet>719</a>	<span class="doccomment">/// The encoding length of the extrinsic
+<a href=#720 id=720 data-nosnippet>720</a>	</span><span class="kw">pub </span>encoded_len: u32,
+<a href=#721 id=721 data-nosnippet>721</a>	<span class="doccomment">/// The extra weight of the transaction. The total weight of the extrinsic is `extra_weight` +
+<a href=#722 id=722 data-nosnippet>722</a>	/// the weight consumed during smart contract execution.
+<a href=#723 id=723 data-nosnippet>723</a>	</span><span class="kw">pub </span>extra_weight: Weight,
+<a href=#724 id=724 data-nosnippet>724</a>	_phantom: PhantomData&lt;T&gt;,
+<a href=#725 id=725 data-nosnippet>725</a>}
+<a href=#726 id=726 data-nosnippet>726</a>
+<a href=#727 id=727 data-nosnippet>727</a><span class="kw">impl</span>&lt;T: Config&gt; EthTxInfo&lt;T&gt; {
+<a href=#728 id=728 data-nosnippet>728</a>	<span class="doccomment">/// Create a new ethereum transaction context with the given parameters.
+<a href=#729 id=729 data-nosnippet>729</a>	</span><span class="kw">pub fn </span>new(encoded_len: u32, extra_weight: Weight) -&gt; <span class="self">Self </span>{
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="self">Self </span>{ encoded_len, extra_weight, _phantom: PhantomData }
+<a href=#731 id=731 data-nosnippet>731</a>	}
+<a href=#732 id=732 data-nosnippet>732</a>
+<a href=#733 id=733 data-nosnippet>733</a>	<span class="doccomment">/// Calculate total gas consumed by weight and storage operations.
+<a href=#734 id=734 data-nosnippet>734</a>	</span><span class="kw">pub fn </span>gas_consumption(
+<a href=#735 id=735 data-nosnippet>735</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#736 id=736 data-nosnippet>736</a>		consumed_weight: <span class="kw-2">&amp;</span>Weight,
+<a href=#737 id=737 data-nosnippet>737</a>		consumed_deposit: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
+<a href=#738 id=738 data-nosnippet>738</a>	) -&gt; SignedGas&lt;T&gt; {
+<a href=#739 id=739 data-nosnippet>739</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
+<a href=#740 id=740 data-nosnippet>740</a>		<span class="kw">let </span>deposit_and_fixed_fee =
+<a href=#741 id=741 data-nosnippet>741</a>			consumed_deposit.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
+<a href=#742 id=742 data-nosnippet>742</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
+<a href=#743 id=743 data-nosnippet>743</a>
+<a href=#744 id=744 data-nosnippet>744</a>		<span class="kw">let </span>weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
+<a href=#745 id=745 data-nosnippet>745</a>			<span class="kw-2">&amp;</span>consumed_weight.saturating_add(<span class="self">self</span>.extra_weight),
+<a href=#746 id=746 data-nosnippet>746</a>		));
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a>		deposit_gas.saturating_add(<span class="kw-2">&amp;</span>weight_gas)
+<a href=#749 id=749 data-nosnippet>749</a>	}
+<a href=#750 id=750 data-nosnippet>750</a>
+<a href=#751 id=751 data-nosnippet>751</a>	<span class="doccomment">/// Compute the maximum deposit available from a gas budget assuming zero execution weight
+<a href=#752 id=752 data-nosnippet>752</a>	/// and zero deposit consumed. This is the upper bound on how much deposit the transaction
+<a href=#753 id=753 data-nosnippet>753</a>	/// could ever spend.
+<a href=#754 id=754 data-nosnippet>754</a>	</span><span class="kw">pub fn </span>max_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_gas_limit: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
+<a href=#755 id=755 data-nosnippet>755</a>		<span class="kw">let </span>max_gas = SignedGas::&lt;T&gt;::from_ethereum_gas(eth_gas_limit);
+<a href=#756 id=756 data-nosnippet>756</a>		<span class="kw">let </span>overhead_gas =
+<a href=#757 id=757 data-nosnippet>757</a>			<span class="self">self</span>.gas_consumption(<span class="kw-2">&amp;</span>Weight::zero(), <span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(Zero::zero()));
+<a href=#758 id=758 data-nosnippet>758</a>		<span class="kw">let </span>remaining = max_gas.saturating_sub(<span class="kw-2">&amp;</span>overhead_gas);
+<a href=#759 id=759 data-nosnippet>759</a>		remaining.to_adjusted_deposit_charge().unwrap_or_default()
+<a href=#760 id=760 data-nosnippet>760</a>	}
+<a href=#761 id=761 data-nosnippet>761</a>
+<a href=#762 id=762 data-nosnippet>762</a>	<span class="doccomment">/// Calculate maximal possible remaining weight that can be consumed given a particular gas
+<a href=#763 id=763 data-nosnippet>763</a>	/// limit.
+<a href=#764 id=764 data-nosnippet>764</a>	///
+<a href=#765 id=765 data-nosnippet>765</a>	/// Returns None if remaining gas would not allow any more weight consumption.
+<a href=#766 id=766 data-nosnippet>766</a>	</span><span class="kw">pub fn </span>weight_remaining(
+<a href=#767 id=767 data-nosnippet>767</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#768 id=768 data-nosnippet>768</a>		max_total_gas: <span class="kw-2">&amp;</span>SignedGas&lt;T&gt;,
+<a href=#769 id=769 data-nosnippet>769</a>		total_weight_consumption: <span class="kw-2">&amp;</span>Weight,
+<a href=#770 id=770 data-nosnippet>770</a>		total_deposit_consumption: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
+<a href=#771 id=771 data-nosnippet>771</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
+<a href=#772 id=772 data-nosnippet>772</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
+<a href=#773 id=773 data-nosnippet>773</a>		<span class="kw">let </span>deposit_and_fixed_fee =
+<a href=#774 id=774 data-nosnippet>774</a>			total_deposit_consumption.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
+<a href=#775 id=775 data-nosnippet>775</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
+<a href=#776 id=776 data-nosnippet>776</a>
+<a href=#777 id=777 data-nosnippet>777</a>		<span class="kw">let </span>consumable_fee = max_total_gas.saturating_sub(<span class="kw-2">&amp;</span>deposit_gas).to_weight_fee()<span class="question-mark">?</span>;
+<a href=#778 id=778 data-nosnippet>778</a>
+<a href=#779 id=779 data-nosnippet>779</a>		T::FeeInfo::fee_to_weight(consumable_fee)
+<a href=#780 id=780 data-nosnippet>780</a>			.checked_sub(<span class="kw-2">&amp;</span>total_weight_consumption.saturating_add(<span class="self">self</span>.extra_weight))
+<a href=#781 id=781 data-nosnippet>781</a>	}
+<a href=#782 id=782 data-nosnippet>782</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_INCLUSION_PROOF_ITEMS"],"enum":["LiftError","ProofError"],"fn":["build_requires","build_requires_entry","stitch"],"struct":["ConsumptionRecord","Interval","LiftsBySource","MMRExtensionProof","MmrInclusionProof","RequiresLift"],"type":["SourceStreams","TreeInclusionProof"]};

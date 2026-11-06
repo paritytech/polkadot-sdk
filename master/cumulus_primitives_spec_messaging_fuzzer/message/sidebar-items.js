@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STREAMS"],"enum":["PayloadChoice","PayloadEdit","StreamChoice","TreeEdit","UnderChoice"],"fn":["stream_id"],"struct":["EventInput","FetchInput","MessageOracle"]};

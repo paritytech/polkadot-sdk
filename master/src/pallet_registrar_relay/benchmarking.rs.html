@@ -316,8 +316,34 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#166 id=166 data-nosnippet>166</a>		<span class="prelude-val">Ok</span>(())
 <a href=#167 id=167 data-nosnippet>167</a>	}
 <a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
-<a href=#170 id=170 data-nosnippet>170</a>}
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="doccomment">/// Setting a head. Dominated by the head data.
+<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="attr">#[benchmark]
+<a href=#171 id=171 data-nosnippet>171</a>	</span><span class="kw">fn </span>receive_set_current_head(
+<a href=#172 id=172 data-nosnippet>172</a>		h: Linear&lt;<span class="number">0</span>, { T::MaxHeadDataSize::get() }&gt;,
+<a href=#173 id=173 data-nosnippet>173</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#174 id=174 data-nosnippet>174</a>		<span class="comment">// Any registered para will do; this is the only registry setup the trait offers.
+<a href=#175 id=175 data-nosnippet>175</a>		</span>T::Registrar::setup_worst_case_deregister(PARA_ID)<span class="question-mark">?</span>;
+<a href=#176 id=176 data-nosnippet>176</a>		<span class="kw">let </span>message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+<a href=#177 id=177 data-nosnippet>177</a>			para_id: PARA_ID,
+<a href=#178 id=178 data-nosnippet>178</a>			message_id: <span class="number">0</span>,
+<a href=#179 id=179 data-nosnippet>179</a>			head: <span class="macro">alloc::vec!</span>[<span class="number">2u8</span>; h <span class="kw">as </span>usize],
+<a href=#180 id=180 data-nosnippet>180</a>		});
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>		<span class="attr">#[extrinsic_call]
+<a href=#183 id=183 data-nosnippet>183</a>		</span>receive(RawOrigin::Root, message);
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>		frame_system::Pallet::&lt;T&gt;::assert_last_event(
+<a href=#186 id=186 data-nosnippet>186</a>			&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(Event::&lt;T&gt;::HeadUpdated {
+<a href=#187 id=187 data-nosnippet>187</a>				para_id: PARA_ID,
+<a href=#188 id=188 data-nosnippet>188</a>				message_id: <span class="number">0</span>,
+<a href=#189 id=189 data-nosnippet>189</a>			})
+<a href=#190 id=190 data-nosnippet>190</a>			.into(),
+<a href=#191 id=191 data-nosnippet>191</a>		);
+<a href=#192 id=192 data-nosnippet>192</a>		<span class="prelude-val">Ok</span>(())
+<a href=#193 id=193 data-nosnippet>193</a>	}
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
+<a href=#196 id=196 data-nosnippet>196</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

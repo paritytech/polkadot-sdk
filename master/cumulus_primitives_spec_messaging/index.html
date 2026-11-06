@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives for the Speculative Messaging protocol."><title>cumulus_primitives_spec_messaging - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_primitives_spec_messaging" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate cumulus_primitives_spec_messaging</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_primitives_spec_messaging/index.html">cumulus_<wbr>primitives_<wbr>spec_<wbr>messaging</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>cumulus_<wbr>primitives_<wbr>spec_<wbr>messaging</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/cumulus_primitives_spec_messaging/lib.rs.html#17-97">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives for the Speculative Messaging protocol.</p>
+<p>A sender parachain keeps each outgoing stream as an MMR and commits all stream roots as one
+<code>StreamsRoot</code> (a keyed trie). Messages travel between collators; the relay chain only checks
+that each receiver’s <code>Requires</code> matches a sender’s <code>Provides</code>.</p>
+<p>The relay-visible types (<code>StreamsRoot</code>, <code>RequiresSet</code>) are in <code>polkadot-primitives</code>. This crate
+has the parachain-side types and the off-chain wire format.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.ChannelId"><code>pub use channel::<a class="struct" href="channel/struct.ChannelId.html" title="struct cumulus_primitives_spec_messaging::channel::ChannelId">ChannelId</a>;</code></dt><dt id="reexport.ChannelPhase"><code>pub use channel::<a class="enum" href="channel/enum.ChannelPhase.html" title="enum cumulus_primitives_spec_messaging::channel::ChannelPhase">ChannelPhase</a>;</code></dt><dt id="reexport.InChannelState"><code>pub use channel::<a class="struct" href="channel/struct.InChannelState.html" title="struct cumulus_primitives_spec_messaging::channel::InChannelState">InChannelState</a>;</code></dt><dt id="reexport.OutChannelState"><code>pub use channel::<a class="struct" href="channel/struct.OutChannelState.html" title="struct cumulus_primitives_spec_messaging::channel::OutChannelState">OutChannelState</a>;</code></dt><dt id="reexport.RegisterRead"><code>pub use channel::<a class="struct" href="channel/struct.RegisterRead.html" title="struct cumulus_primitives_spec_messaging::channel::RegisterRead">RegisterRead</a>;</code></dt><dt id="reexport.Register"><code>pub use flow_control::<a class="struct" href="flow_control/struct.Register.html" title="struct cumulus_primitives_spec_messaging::flow_control::Register">Register</a>;</code></dt><dt id="reexport.SpecMsgKind"><code>pub use flow_control::<a class="enum" href="flow_control/enum.SpecMsgKind.html" title="enum cumulus_primitives_spec_messaging::flow_control::SpecMsgKind">SpecMsgKind</a>;</code></dt><dt id="reexport.SpecMsgSignal"><code>pub use flow_control::<a class="enum" href="flow_control/enum.SpecMsgSignal.html" title="enum cumulus_primitives_spec_messaging::flow_control::SpecMsgSignal">SpecMsgSignal</a>;</code></dt><dt id="reexport.WindowGrant"><code>pub use flow_control::<a class="struct" href="flow_control/struct.WindowGrant.html" title="struct cumulus_primitives_spec_messaging::flow_control::WindowGrant">WindowGrant</a>;</code></dt><dt id="reexport.ConsumeItem"><code>pub use inherent::<a class="enum" href="inherent/enum.ConsumeItem.html" title="enum cumulus_primitives_spec_messaging::inherent::ConsumeItem">ConsumeItem</a>;</code></dt><dt id="reexport.ConsumedStream"><code>pub use inherent::<a class="enum" href="inherent/enum.ConsumedStream.html" title="enum cumulus_primitives_spec_messaging::inherent::ConsumedStream">ConsumedStream</a>;</code></dt><dt id="reexport.MessagingInherentData"><code>pub use inherent::<a class="struct" href="inherent/struct.MessagingInherentData.html" title="struct cumulus_primitives_spec_messaging::inherent::MessagingInherentData">MessagingInherentData</a>;</code></dt><dt id="reexport.Payload"><code>pub use inherent::<a class="type" href="inherent/type.Payload.html" title="type cumulus_primitives_spec_messaging::inherent::Payload">Payload</a>;</code></dt><dt id="reexport.INHERENT_IDENTIFIER"><code>pub use inherent::<a class="constant" href="inherent/constant.INHERENT_IDENTIFIER.html" title="constant cumulus_primitives_spec_messaging::inherent::INHERENT_IDENTIFIER">INHERENT_IDENTIFIER</a>;</code></dt><dt id="reexport.build_requires"><code>pub use lift::<a class="fn" href="lift/fn.build_requires.html" title="fn cumulus_primitives_spec_messaging::lift::build_requires">build_requires</a>;</code></dt><dt id="reexport.build_requires_entry"><code>pub use lift::<a class="fn" href="lift/fn.build_requires_entry.html" title="fn cumulus_primitives_spec_messaging::lift::build_requires_entry">build_requires_entry</a>;</code></dt><dt id="reexport.stitch"><code>pub use lift::<a class="fn" href="lift/fn.stitch.html" title="fn cumulus_primitives_spec_messaging::lift::stitch">stitch</a>;</code></dt><dt id="reexport.ConsumptionRecord"><code>pub use lift::<a class="struct" href="lift/struct.ConsumptionRecord.html" title="struct cumulus_primitives_spec_messaging::lift::ConsumptionRecord">ConsumptionRecord</a>;</code></dt><dt id="reexport.Interval"><code>pub use lift::<a class="struct" href="lift/struct.Interval.html" title="struct cumulus_primitives_spec_messaging::lift::Interval">Interval</a>;</code></dt><dt id="reexport.LiftError"><code>pub use lift::<a class="enum" href="lift/enum.LiftError.html" title="enum cumulus_primitives_spec_messaging::lift::LiftError">LiftError</a>;</code></dt><dt id="reexport.LiftsBySource"><code>pub use lift::<a class="struct" href="lift/struct.LiftsBySource.html" title="struct cumulus_primitives_spec_messaging::lift::LiftsBySource">LiftsBySource</a>;</code></dt><dt id="reexport.MMRExtensionProof"><code>pub use lift::<a class="struct" href="lift/struct.MMRExtensionProof.html" title="struct cumulus_primitives_spec_messaging::lift::MMRExtensionProof">MMRExtensionProof</a>;</code></dt><dt id="reexport.MmrInclusionProof"><code>pub use lift::<a class="struct" href="lift/struct.MmrInclusionProof.html" title="struct cumulus_primitives_spec_messaging::lift::MmrInclusionProof">MmrInclusionProof</a>;</code></dt><dt id="reexport.ProofError"><code>pub use lift::<a class="enum" href="lift/enum.ProofError.html" title="enum cumulus_primitives_spec_messaging::lift::ProofError">ProofError</a>;</code></dt><dt id="reexport.RequiresLift"><code>pub use lift::<a class="struct" href="lift/struct.RequiresLift.html" title="struct cumulus_primitives_spec_messaging::lift::RequiresLift">RequiresLift</a>;</code></dt><dt id="reexport.SourceStreams"><code>pub use lift::<a class="type" href="lift/type.SourceStreams.html" title="type cumulus_primitives_spec_messaging::lift::SourceStreams">SourceStreams</a>;</code></dt><dt id="reexport.TreeInclusionProof"><code>pub use lift::<a class="type" href="lift/type.TreeInclusionProof.html" title="type cumulus_primitives_spec_messaging::lift::TreeInclusionProof">TreeInclusionProof</a>;</code></dt><dt id="reexport.leaf_hash"><code>pub use message::<a class="fn" href="message/fn.leaf_hash.html" title="fn cumulus_primitives_spec_messaging::message::leaf_hash">leaf_hash</a>;</code></dt><dt id="reexport.verify_event"><code>pub use message::<a class="fn" href="message/fn.verify_event.html" title="fn cumulus_primitives_spec_messaging::message::verify_event">verify_event</a>;</code></dt><dt id="reexport.verify_exchange"><code>pub use message::<a class="fn" href="message/fn.verify_exchange.html" title="fn cumulus_primitives_spec_messaging::message::verify_exchange">verify_exchange</a>;</code></dt><dt id="reexport.verify_messages"><code>pub use message::<a class="fn" href="message/fn.verify_messages.html" title="fn cumulus_primitives_spec_messaging::message::verify_messages">verify_messages</a>;</code></dt><dt id="reexport.EventRequest"><code>pub use message::<a class="struct" href="message/struct.EventRequest.html" title="struct cumulus_primitives_spec_messaging::message::EventRequest">EventRequest</a>;</code></dt><dt id="reexport.EventResponse"><code>pub use message::<a class="struct" href="message/struct.EventResponse.html" title="struct cumulus_primitives_spec_messaging::message::EventResponse">EventResponse</a>;</code></dt><dt id="reexport.ExchangeRequest"><code>pub use message::<a class="enum" href="message/enum.ExchangeRequest.html" title="enum cumulus_primitives_spec_messaging::message::ExchangeRequest">ExchangeRequest</a>;</code></dt><dt id="reexport.ExchangeResponse"><code>pub use message::<a class="enum" href="message/enum.ExchangeResponse.html" title="enum cumulus_primitives_spec_messaging::message::ExchangeResponse">ExchangeResponse</a>;</code></dt><dt id="reexport.ExchangeVerified"><code>pub use message::<a class="enum" href="message/enum.ExchangeVerified.html" title="enum cumulus_primitives_spec_messaging::message::ExchangeVerified">ExchangeVerified</a>;</code></dt><dt id="reexport.MessagesRequest"><code>pub use message::<a class="struct" href="message/struct.MessagesRequest.html" title="struct cumulus_primitives_spec_messaging::message::MessagesRequest">MessagesRequest</a>;</code></dt><dt id="reexport.MessagesResponse"><code>pub use message::<a class="struct" href="message/struct.MessagesResponse.html" title="struct cumulus_primitives_spec_messaging::message::MessagesResponse">MessagesResponse</a>;</code></dt><dt id="reexport.VerifiedEvent"><code>pub use message::<a class="enum" href="message/enum.VerifiedEvent.html" title="enum cumulus_primitives_spec_messaging::message::VerifiedEvent">VerifiedEvent</a>;</code></dt><dt id="reexport.VerifyError"><code>pub use message::<a class="enum" href="message/enum.VerifyError.html" title="enum cumulus_primitives_spec_messaging::message::VerifyError">VerifyError</a>;</code></dt><dt id="reexport.MAX_MESSAGES_PER_RESPONSE"><code>pub use message::<a class="constant" href="message/constant.MAX_MESSAGES_PER_RESPONSE.html" title="constant cumulus_primitives_spec_messaging::message::MAX_MESSAGES_PER_RESPONSE">MAX_MESSAGES_PER_RESPONSE</a>;</code></dt><dt id="reexport.MAX_SPECULATIVE_MESSAGE_LEN"><code>pub use message::<a class="constant" href="message/constant.MAX_SPECULATIVE_MESSAGE_LEN.html" title="constant cumulus_primitives_spec_messaging::message::MAX_SPECULATIVE_MESSAGE_LEN">MAX_SPECULATIVE_MESSAGE_LEN</a>;</code></dt><dt id="reexport.FrontierFull"><code>pub use mmr::<a class="struct" href="mmr/struct.FrontierFull.html" title="struct cumulus_primitives_spec_messaging::mmr::FrontierFull">FrontierFull</a>;</code></dt><dt id="reexport.MessagePosition"><code>pub use mmr::<a class="struct" href="mmr/struct.MessagePosition.html" title="struct cumulus_primitives_spec_messaging::mmr::MessagePosition">MessagePosition</a>;</code></dt><dt id="reexport.MmrFrontier"><code>pub use mmr::<a class="struct" href="mmr/struct.MmrFrontier.html" title="struct cumulus_primitives_spec_messaging::mmr::MmrFrontier">MmrFrontier</a>;</code></dt><dt id="reexport.MmrRoot"><code>pub use mmr::<a class="struct" href="mmr/struct.MmrRoot.html" title="struct cumulus_primitives_spec_messaging::mmr::MmrRoot">MmrRoot</a>;</code></dt><dt id="reexport.PrivateKind"><code>pub use stream::<a class="struct" href="stream/struct.PrivateKind.html" title="struct cumulus_primitives_spec_messaging::stream::PrivateKind">PrivateKind</a>;</code></dt><dt id="reexport.StreamId"><code>pub use stream::<a class="enum" href="stream/enum.StreamId.html" title="enum cumulus_primitives_spec_messaging::stream::StreamId">StreamId</a>;</code></dt><dt id="reexport.STREAM_ID_LEN"><code>pub use stream::<a class="constant" href="stream/constant.STREAM_ID_LEN.html" title="constant cumulus_primitives_spec_messaging::stream::STREAM_ID_LEN">STREAM_ID_LEN</a>;</code></dt><dt id="reexport.StreamProof"><code>pub use streams_root::<a class="struct" href="streams_root/struct.StreamProof.html" title="struct cumulus_primitives_spec_messaging::streams_root::StreamProof">StreamProof</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="channel/index.html" title="mod cumulus_primitives_spec_messaging::channel">channel</a></dt><dd>Channel state primitives: the key and the two per-direction states the messaging
+pallet keeps in <code>OutChannels</code> / <code>InChannels</code> and returns from the runtime API’s <code>out_channels()</code>
+/ <code>in_channels()</code>.</dd><dt><a class="mod" href="flow_control/index.html" title="mod cumulus_primitives_spec_messaging::flow_control">flow_<wbr>control</a></dt><dd>Channel flow-control types: the sender’s channel-stream leaf payload
+(<a href="flow_control/enum.SpecMsgKind.html" title="enum cumulus_primitives_spec_messaging::flow_control::SpecMsgKind"><code>SpecMsgKind</code></a> / <a href="flow_control/enum.SpecMsgSignal.html" title="enum cumulus_primitives_spec_messaging::flow_control::SpecMsgSignal"><code>SpecMsgSignal</code></a>) and the receiver’s out-of-band confirmation <a href="flow_control/struct.Register.html" title="struct cumulus_primitives_spec_messaging::flow_control::Register"><code>Register</code></a>
+with its advisory <a href="flow_control/struct.WindowGrant.html" title="struct cumulus_primitives_spec_messaging::flow_control::WindowGrant"><code>WindowGrant</code></a>. The pallet owns the logic: windowing, version enforcement,
+channel storage, the accept extrinsic.</dd><dt><a class="mod" href="inherent/index.html" title="mod cumulus_primitives_spec_messaging::inherent">inherent</a></dt><dd>The node/runtime consumption interface: what the runtime asks the node to fetch
+(<a href="inherent/enum.ConsumedStream.html" title="enum cumulus_primitives_spec_messaging::inherent::ConsumedStream"><code>ConsumedStream</code></a>, via the <code>consumed_streams()</code> runtime API) and what the node delivers in the
+messaging inherent (<a href="inherent/struct.MessagingInherentData.html" title="struct cumulus_primitives_spec_messaging::inherent::MessagingInherentData"><code>MessagingInherentData</code></a> / <a href="inherent/enum.ConsumeItem.html" title="enum cumulus_primitives_spec_messaging::inherent::ConsumeItem"><code>ConsumeItem</code></a>).</dd><dt><a class="mod" href="lift/index.html" title="mod cumulus_primitives_spec_messaging::lift">lift</a></dt><dd>Requires-lift and consumption-record primitives.</dd><dt><a class="mod" href="message/index.html" title="mod cumulus_primitives_spec_messaging::message">message</a></dt><dd>Off-chain wire types and their verifiers.</dd><dt><a class="mod" href="mmr/index.html" title="mod cumulus_primitives_spec_messaging::mmr">mmr</a></dt><dd>MMR primitives for the Speculative Messaging protocol.</dd><dt><a class="mod" href="stream/index.html" title="mod cumulus_primitives_spec_messaging::stream">stream</a></dt><dd><code>StreamId</code>: the parachain-structured stream key.</dd><dt><a class="mod" href="streams_root/index.html" title="mod cumulus_primitives_spec_messaging::streams_root">streams_<wbr>root</a></dt><dd><code>StreamsRoot</code>: the sender’s stream commitment.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.StreamsRoot.html" title="struct cumulus_primitives_spec_messaging::StreamsRoot">Streams<wbr>Root</a></dt><dd>The sender’s per-block stream commitment root. Defined relay-side and re-exported here.
+Root of a sender’s stream commitment tree: a compact binary trie keyed by the 8-byte <code>StreamId</code>
+encoding, with the streams’ MMR roots as leaves.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.INNER_TAG.html" title="constant cumulus_primitives_spec_messaging::INNER_TAG">INNER_<wbr>TAG</a></dt><dd>MMR inner node.</dd><dt><a class="constant" href="constant.LEAF_TAG.html" title="constant cumulus_primitives_spec_messaging::LEAF_TAG">LEAF_<wbr>TAG</a></dt><dd>MMR leaf.</dd><dt><a class="constant" href="constant.LEAF_VERSION.html" title="constant cumulus_primitives_spec_messaging::LEAF_VERSION">LEAF_<wbr>VERSION</a></dt><dd>Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
+colliding with new ones.</dd><dt><a class="constant" href="constant.PEAK_TAG.html" title="constant cumulus_primitives_spec_messaging::PEAK_TAG">PEAK_<wbr>TAG</a></dt><dd>MMR peak bagging.</dd><dt><a class="constant" href="constant.ROOT_TAG.html" title="constant cumulus_primitives_spec_messaging::ROOT_TAG">ROOT_<wbr>TAG</a></dt><dd>Stream root: <code>H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])</code> (<a href="mmr/struct.MmrRoot.html#method.from_bag" title="associated function cumulus_primitives_spec_messaging::mmr::MmrRoot::from_bag"><code>mmr::MmrRoot::from_bag</code></a>).
+Binding the count stops a peer from presenting the same peaks at a forged position. The empty
+MMR has no peaks to bag; its root is the count-0 case, with a zero bag (<a href="mmr/fn.empty_root.html" title="fn cumulus_primitives_spec_messaging::mmr::empty_root"><code>mmr::empty_root</code></a>).</dd><dt><a class="constant" href="constant.SPMS_ENGINE_ID.html" title="constant cumulus_primitives_spec_messaging::SPMS_ENGINE_ID">SPMS_<wbr>ENGINE_<wbr>ID</a></dt><dd>Engine id of the header digest carrying a block’s <code>StreamsRoot</code>, deposited only by blocks that
+send.</dd><dt><a class="constant" href="constant.TREE_INNER_TAG.html" title="constant cumulus_primitives_spec_messaging::TREE_INNER_TAG">TREE_<wbr>INNER_<wbr>TAG</a></dt><dd>Commitment-tree inner node: <code>H(TREE_INNER_TAG ++ split_bit ++ left[32] ++ right[32])</code>.</dd><dt><a class="constant" href="constant.TREE_LEAF_TAG.html" title="constant cumulus_primitives_spec_messaging::TREE_LEAF_TAG">TREE_<wbr>LEAF_<wbr>TAG</a></dt><dd>Commitment-tree leaf: <code>H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.SpecHasher.html" title="type cumulus_primitives_spec_messaging::SpecHasher">Spec<wbr>Hasher</a></dt><dd>The hash function for all of speculative messaging: leaves, MMR merges, stream and
+commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
+is generic over it.</dd></dl><script type="text/json" id="notable-traits-data">{"&<Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>]</div>","&mut <Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T, A> as IntoIterator>::IntoIter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoDeserializer<'de, E>>::Deserializer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoParallelIterator>::Iter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
