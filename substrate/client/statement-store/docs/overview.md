@@ -67,7 +67,10 @@ When a submission would exceed either limit, the account's lowest-priority state
 the lowest expiry) are evicted to make room. If a single statement's data exceeds `max_size` it is
 rejected outright; and if, even after evicting every lower-priority statement, the new one still
 does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
-at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data.
+at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the v2
+DHT path the statements kept for DHT affinity and the transient ones also have a size limit each,
+and a full limit rejects only new statements of its own kind. Statements kept only for explicit
+affinity have no limit of their own.
 
 Allowances are not fixed in code: they are held in chain state (keyed under
 `STATEMENT_ALLOWANCE_PREFIX`) and granted or revoked by the runtime; an account with no allowance —

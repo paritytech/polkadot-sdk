@@ -141,7 +141,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) {
+	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) -> Result<(), DispatchError> {
 		panic!("MockExt::deposit_event")
 	}
 
@@ -262,18 +262,13 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn touch_storage_access(
 		&mut self,
-		_transient: bool,
 		_key: &Key,
 		_op: crate::access_list::StorageOp,
-	) -> crate::access_list::StorageAccessKind {
+	) -> crate::access_list::Warmth {
 		panic!("MockExt::touch_storage_access")
 	}
 
-	fn peek_storage_access(
-		&self,
-		_transient: bool,
-		_key: &Key,
-	) -> crate::access_list::StorageAccessKind {
+	fn peek_storage_access(&self, _key: &Key) -> crate::access_list::Warmth {
 		panic!("MockExt::peek_storage_access")
 	}
 

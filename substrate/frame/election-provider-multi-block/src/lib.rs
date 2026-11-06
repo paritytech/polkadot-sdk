@@ -2984,7 +2984,7 @@ mod election_provider {
 
 			// Submit the unsigned solution
 			assert_ok!(UnsignedPallet::submit_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(unsigned_solution)
 			));
 
@@ -3057,9 +3057,8 @@ mod election_provider {
 	}
 
 	#[test]
-	#[allow(deprecated)]
 	fn call_to_elect_should_prevent_any_submission() {
-		use frame_support::unsigned::ValidateUnsigned;
+		use frame_support::{traits::Authorize, unsigned::TransactionSource};
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
 			assert!(MultiBlock::current_phase().is_signed());
@@ -3082,9 +3081,11 @@ mod election_provider {
 				SignedPallet::register(RuntimeOrigin::signed(999), Default::default()),
 				crate::signed::Error::<Runtime>::PhaseNotSigned,
 			);
-			assert_storage_noop!(assert!(<UnsignedPallet as ValidateUnsigned>::pre_dispatch(
-				&unsigned::Call::submit_unsigned { paged_solution: Default::default() }
-			)
+			assert_storage_noop!(assert!(unsigned::Call::<Runtime>::submit_unsigned {
+				paged_solution: Default::default()
+			}
+			.authorize(TransactionSource::InBlock)
+			.unwrap()
 			.is_err()));
 		});
 	}

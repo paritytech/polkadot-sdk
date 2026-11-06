@@ -504,7 +504,7 @@ where
 
 					if let Some(ref export_pov) = export_pov {
 						export_pov_to_path::<Block>(
-							export_pov.clone(),
+							export_pov,
 							collation.proof_of_validity.clone().into_compressed(),
 							new_block_hash,
 							*new_block_header.number(),

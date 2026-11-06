@@ -29,8 +29,6 @@ pub enum SyncMode {
 	LightState {
 		/// Skip state proof download and verification.
 		skip_proofs: bool,
-		/// Download indexed transactions for recent blocks.
-		storage_chain_mode: bool,
 	},
 	/// Warp sync - verify authority set transitions and the latest state.
 	Warp,

@@ -1,0 +1,22 @@
+title: "grandpa: don't gossip commits that don't advance finality"
+doc:
+- audience: Node Dev
+  description: |-
+    Gossip an incoming commit only if processing it advanced our view of the finalized height.
+
+    Multiple voters can issue a commit for the same round, and several of them can pass
+    validation before any of them is processed, since validation only compares against the
+    height noted after processing. Each of them was then gossiped as a separate message, so
+    peers received the same finality proof more than once. A commit that doesn't advance our
+    finalized height is now dropped after processing instead of being gossiped, and a debug
+    log is emitted for it. A commit for that height has already been gossiped.
+
+    The dropped commit is still marked as known (new `GossipEngine::mark_message_known`), so
+    later copies of it aren't penalized as past messages.
+
+    Discovered while working on #13318 (but independent of it).
+crates:
+- name: sc-consensus-grandpa
+  bump: patch
+- name: sc-network-gossip
+  bump: minor

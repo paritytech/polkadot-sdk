@@ -32,9 +32,9 @@
 //! length and the blob is uploaded to the relay chain directly:
 //!
 //! 1. [`Pallet::reserve`] allocates a para id here and takes [`Config::ReservationConsideration`].
-//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and the
-//!    *declared* code length, then asks the relay chain to accept the registration. Only the code
-//!    hash and length are sent.
+//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and a
+//!    full-sized validation code, then asks the relay chain to accept the registration. Only the
+//!    code hash and length are sent.
 //! 3. The manager uploads the validation code to the relay chain, which accepts it only if it
 //!    matches the hash and length committed to in step 2.
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
@@ -47,6 +47,29 @@
 //! to drop the authorization and only releases the deposit once it confirms, which is what
 //! keeps a cancellation from freeing the deposit on a para that did register after all.
 //!
+//! ## Giving up a para id
+//!
+//! [`Pallet::deregister`] on an id that is only reserved releases the reservation right away, as
+//! the relay chain never heard of it. A registered para has to be dropped on the relay chain
+//! first, so both deposits stay held until it answers. If the answer never arrives, the manager
+//! calls [`Pallet::deregister`] again.
+//!
+//! ## Forcing
+//!
+//! [`Pallet::force_register`] is the same request from [`Config::ForceOrigin`], for an id that need
+//! not have been reserved first. The manager still pays, unless the id is a system one or the
+//! origin passes `skip_deposit`. A system id whose registration falls through is dropped, not kept
+//! reserved.
+//!
+//! ## Locking
+//!
+//! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
+//! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
+//!
+//! A para is also locked the first time the relay chain reports that it produced a head, which
+//! arrives as [`MessageToParaV1::HeadNoted`]. A lock lifted with [`Pallet::remove_lock`] outranks
+//! that, so it is never re-applied.
+//!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -56,9 +79,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive,
-	traits::{Consideration, Footprint},
+	ensure,
+	traits::{Consideration, EnsureOrigin, Footprint, Get},
 };
+use polkadot_primitives::AbridgedHostConfiguration;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 	ParaId,
@@ -67,7 +91,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Saturating},
-	DispatchResult,
+	DispatchError, DispatchResult,
 };
 
 pub use pallet::*;
@@ -112,6 +136,13 @@ impl SendToRelay for () {
 	}
 }
 
+/// Benchmark setup the runtime provides.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Make [`Config::HostConfiguration`] return `Some(config)`.
+	fn set_host_configuration(config: AbridgedHostConfiguration);
+}
+
 /// Where a para id sits in the registration flow.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -122,7 +153,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	/// The relay chain has been asked to register this para and has not reported back.
 	Pending {
 		/// The registration's [`Consideration`] ticket, returned if the registration fails.
-		ticket: Ticket,
+		/// `None` if [`Pallet::force_register`] skipped the deposit.
+		ticket: Option<Ticket>,
 		/// The block from which the manager may give up on this registration.
 		///
 		/// Expressed in [`Config::BlockNumberProvider`] blocks. Long enough that a verdict already
@@ -130,11 +162,30 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// really has gone quiet. Pushed out again by every [`Pallet::cancel_registration`], so a
 		/// cancellation that gets lost can be retried but not spammed.
 		cancellable_at: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 	/// The relay chain has onboarded this para.
 	Registered {
 		/// The registration's [`Consideration`] ticket, kept while the para is registered.
-		ticket: Ticket,
+		ticket: Option<Ticket>,
+	},
+	/// The relay chain has been asked to drop this para and has not reported back.
+	///
+	/// Both deposits stay held: only the relay chain knows whether the para really went away, and
+	/// a refusal puts it straight back to [`RegistrationState::Registered`].
+	///
+	/// There is nothing to cancel from here: if no answer turns up, the manager calls
+	/// [`Pallet::deregister`] again once `can_retry_after` has passed.
+	Deregistering {
+		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
+		ticket: Option<Ticket>,
+		/// The block from which the manager may send the [`MessageToRelayV1::Deregister`] again,
+		/// if the answer never arrived. Retrying reports the missing answer as
+		/// [`UnexpectedKind::ResponseNeverArrived`].
+		can_retry_after: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 }
 
@@ -145,10 +196,23 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber> {
 	/// The account that reserved the para id and controls it.
 	pub manager: AccountId,
-	/// The [`Consideration`] ticket for the para id itself.
-	pub reservation: ReservationTicket,
+	/// The [`Consideration`] ticket for the para id itself. `None` if
+	/// [`Pallet::force_register`] skipped the deposit.
+	pub reservation: Option<ReservationTicket>,
 	/// Where this para id sits in the registration flow.
 	pub state: RegistrationState<RegistrationTicket, BlockNumber>,
+	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
+	/// for the first time, and read as unlocked.
+	pub locked: Option<bool>,
+}
+
+impl<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+	ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+{
+	/// Whether the manager is locked out of this para.
+	pub fn is_locked(&self) -> bool {
+		self.locked.unwrap_or(false)
+	}
 }
 
 /// The [`ParaInfo`] type as configured.
@@ -172,7 +236,7 @@ pub mod pallet {
 		type ReservationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The cost of a registration, on top of the reservation. The footprint is one item sized
-		/// as head data plus *declared* code length, so a per-byte price fits.
+		/// as head data plus the relay chain's `max_code_size`, so a per-byte price fits.
 		type RegistrationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Sends messages to the relay chain.
@@ -180,6 +244,12 @@ pub mod pallet {
 
 		/// An origin that is sure to be the relay chain's registrar pallet.
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// An origin a parachain uses to act as itself, resolved to its para id.
+		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
+
+		/// The origin allowed to call [`Pallet::force_register`].
+		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The lowest para id this pallet will hand out.
 		///
@@ -195,17 +265,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MinCodeSize: Get<u32>;
 
-		/// The largest validation code the relay chain will accept.
+		/// The relay chain's host configuration, `None` until this chain has received it.
 		///
-		/// A local mirror of the relay chain's `max_code_size`. See [`Config::MinCodeSize`].
-		#[pallet::constant]
-		type MaxCodeSize: Get<u32>;
-
-		/// The largest head data the relay chain will accept.
-		///
-		/// A local mirror of the relay chain's `max_head_data_size`. See [`Config::MinCodeSize`].
-		#[pallet::constant]
-		type MaxHeadDataSize: Get<u32>;
+		/// On a parachain, read `cumulus_pallet_parachain_system::HostConfiguration`.
+		type HostConfiguration: Get<Option<AbridgedHostConfiguration>>;
 
 		/// How long a manager waits for the relay chain before giving up on a registration.
 		///
@@ -223,6 +286,10 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Puts a [`Config::HostConfiguration`] in place for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
@@ -275,6 +342,63 @@ pub mod pallet {
 		CancelRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// The relay chain confirmed a cancellation. The registration consideration was returned.
 		RegistrationCancelled { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// A para id that was never registered was given up. The reservation was returned.
+		ReservationDropped { para_id: ParaId, manager: T::AccountId },
+		/// The relay chain has been asked to drop a para. Both considerations stay taken until it
+		/// answers.
+		DeregisterRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// The relay chain dropped the para. Every consideration was returned and the id is gone.
+		Deregistered { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// The relay chain refused to drop the para. It stays registered, considerations included.
+		DeregistrationFailed {
+			para_id: ParaId,
+			message_id: u64,
+			manager: T::AccountId,
+			reason: FailureReason,
+		},
+		/// The manager is locked out of this para.
+		ParaLocked { para_id: ParaId },
+		/// The manager may control this para again.
+		ParaUnlocked { para_id: ParaId },
+		/// Something that should never happen did. The pallet carried on regardless.
+		Unexpected(UnexpectedKind),
+		/// The relay chain has been asked to set this para's current head.
+		HeadUpdateRequested { para_id: ParaId, message_id: u64 },
+		/// The relay chain set the head.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// The relay chain refused the head.
+		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
+	}
+
+	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
+	/// and not just in the node's logs.
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub enum UnexpectedKind {
+		/// A register response for a para id this pallet does not know.
+		RegisterResponseForUnknownPara { para_id: ParaId, message_id: u64 },
+		/// A register response for a para with no registration in flight.
+		RegisterResponseNotPending { para_id: ParaId, message_id: u64 },
+		/// A head was noted for a para id this pallet does not know.
+		HeadNotedForUnknownPara { para_id: ParaId },
+		/// A cancel response for a para id this pallet does not know.
+		CancelResponseForUnknownPara { para_id: ParaId, message_id: u64 },
+		/// The relay chain refused a cancellation for a reason that is not one of the refusals
+		/// this pallet knows how to settle.
+		CancelRefused { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A head was noted for a para that is not registered.
+		HeadNotedForUnregisteredPara { para_id: ParaId },
+		/// A deregister response for a para id this pallet does not know.
+		DeregisterResponseForUnknownPara { para_id: ParaId, message_id: u64 },
+		/// A deregister response for a para with no deregistration in flight.
+		DeregisterResponseNotDeregistering { para_id: ParaId, message_id: u64 },
+		/// A response answering a request this pallet is no longer waiting on.
+		StaleResponse { para_id: ParaId, message_id: u64, expected: u64 },
+		/// The relay chain never answered this request and the manager gave up waiting.
+		ResponseNeverArrived { para_id: ParaId, message_id: u64 },
+		/// Releasing a deposit failed while applying a relay chain answer, so it is still held.
+		DepositNotReleased { para_id: ParaId, error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -299,159 +423,38 @@ pub mod pallet {
 		SendFailed,
 		/// There are no more para ids to hand out.
 		NoFreeParaId,
+		/// The para is locked, so the manager may not act on it.
+		ParaLocked,
+		/// The para is already locked.
+		AlreadyLocked,
+		/// The para is not locked.
+		NotLocked,
+		/// The para is not registered on the relay chain.
+		NotRegistered,
+		/// The call is scaffolded but not implemented yet.
+		Unimplemented,
+		/// The manager may not ask the relay chain to drop this para again yet.
+		CannotRetryYet,
+		/// System para ids are only registered through [`Pallet::force_register`].
+		SystemParaId,
+		/// The relay chain's host configuration has not been received yet.
+		NoHostConfiguration,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			// Otherwise no validation code could ever pass `register`.
-			assert!(
-				T::MinCodeSize::get() <= T::MaxCodeSize::get(),
-				"MinCodeSize ({}) must not exceed MaxCodeSize ({})",
-				T::MinCodeSize::get(),
-				T::MaxCodeSize::get(),
-			);
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Reserve the next free para id for the caller.
-		///
-		/// Takes [`Config::ReservationConsideration`]. The caller becomes the manager of the new
-		/// id and is the only account that may [`Pallet::register`] against it.
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::reserve())]
-		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let para_id = NextFreeParaId::<T>::get().max(T::FirstPublicParaId::get());
-			let next = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
-			ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
-
-			let reservation = T::ReservationConsideration::new(&who, Footprint::from_parts(1, 0))?;
-
-			Paras::<T>::insert(
-				para_id,
-				ParaInfo { manager: who.clone(), reservation, state: RegistrationState::Reserved },
-			);
-			NextFreeParaId::<T>::put(next);
-
-			Self::deposit_event(Event::Reserved { para_id, who });
-			Ok(())
-		}
-
-		/// Ask the relay chain to register head data and validation code for a reserved para id.
-		///
-		/// The validation code itself stays here: only `code_hash` and `code_len` are sent. The
-		/// caller uploads the blob to the relay chain separately, which accepts it only if it
-		/// hashes to `code_hash` and is exactly `code_len` bytes long.
-		///
-		/// ## Costs
-		///
-		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
-		/// length, on top of the para id reservation. It is returned if the relay chain rejects
-		/// the registration or if the caller later abandons it.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
-		pub fn register(
-			origin: OriginFor<T>,
-			para_id: ParaId,
-			genesis_head: Vec<u8>,
-			code_len: u32,
-			code_hash: H256,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			ensure!(info.manager == who, Error::<T>::NotOwner);
-			ensure!(
-				matches!(info.state, RegistrationState::Reserved),
-				Error::<T>::AlreadyRegistered
-			);
-
-			let head_len = genesis_head.len() as u32;
-			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
-			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
-
-			let ticket = T::RegistrationConsideration::new(
-				&who,
-				Self::registration_footprint(head_len, code_len),
-			)?;
-
-			let cancellable_at = T::BlockNumberProvider::current_block_number()
-				.saturating_add(T::PendingDeadline::get());
-			info.state = RegistrationState::Pending { ticket, cancellable_at };
-			Paras::<T>::insert(para_id, info);
-
-			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
-				para_id,
-				message_id,
-				manager: who.clone(),
-				genesis_head,
-				code_hash,
-				code_len,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager: who });
-			Ok(())
-		}
-
-		/// Give up on a registration the relay chain never reported on.
-		///
-		/// Callable from [`Config::PendingDeadline`] blocks after the request. Nothing on the
-		/// relay chain abandons a registration on its own, so this is what ends one whose code
-		/// never turned up, and the manager pays for the round trip rather than every relay-chain
-		/// block paying for a sweep.
-		///
-		/// The deposit is not released here: the relay chain is asked to drop the authorization
-		/// first, and [`Pallet::receive`] releases the deposit when it confirms. Waiting for that
-		/// answer is the point. A registration that did go through, with a verdict that got lost on
-		/// the way here, must not have its deposit refunded, and only the relay chain knows
-		/// which of the two happened.
-		///
-		/// The para id itself stays reserved either way, so the manager can simply try again.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::cancel_registration())]
-		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { ticket, cancellable_at } = info.state else {
-				return Err(Error::<T>::NotPending.into());
-			};
-			let now = T::BlockNumberProvider::current_block_number();
-			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
-
-			// Another deadline's grace before the manager may ask again, so a request that goes
-			// missing can be retried without the relay chain being asked once per block.
-			info.state = RegistrationState::Pending {
-				ticket,
-				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
-			};
-			Paras::<T>::insert(para_id, info);
-
-			// A transport failure returns `Err` and unwinds the new deadline with it.
-			let message_id = Self::next_message_id();
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
-				para_id,
-				message_id,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::CancelRequested { para_id, message_id, manager: who });
-			Ok(())
-		}
-
 		/// Accept a report from the relay chain's registrar pallet.
 		///
 		/// Not callable by users: the origin must be the relay chain.
-		#[pallet::call_index(3)]
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::receive())]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
@@ -467,15 +470,504 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_code_upgrade_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled {
+					para_id,
+					message_id,
+				}) => Self::on_code_upgrade_scheduled(para_id, message_id),
+				MessageToPara::V1(MessageToParaV1::SetHeadResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_set_head_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }) => {
+					Self::on_head_noted(para_id)
+				},
 			}
+		}
+
+		/// Reserve the next free para id for the caller.
+		///
+		/// Takes [`Config::ReservationConsideration`]. The caller becomes the manager of the new
+		/// id and is the only account that may [`Pallet::register`] against it.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::reserve())]
+		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let para_id = NextFreeParaId::<T>::get().max(T::FirstPublicParaId::get());
+			let next = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
+			ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
+
+			let reservation =
+				T::ReservationConsideration::new(&who, Self::reservation_footprint())?;
+
+			Paras::<T>::insert(
+				para_id,
+				ParaInfo {
+					manager: who.clone(),
+					reservation: Some(reservation),
+					state: RegistrationState::Reserved,
+					locked: None,
+				},
+			);
+			NextFreeParaId::<T>::put(next);
+
+			Self::deposit_event(Event::Reserved { para_id, who });
+			Ok(())
+		}
+
+		/// Ask the relay chain to register head data and validation code for a reserved para id.
+		///
+		/// The validation code itself stays here: only `code_hash` and `code_len` are sent. The
+		/// caller uploads the blob to the relay chain separately, which accepts it only if it
+		/// hashes to `code_hash` and is exactly `code_len` bytes long.
+		///
+		/// ## Costs
+		///
+		/// Takes [`Config::RegistrationConsideration`] for the head data and a code of the relay
+		/// chain's `max_code_size`, on top of the para id reservation: a para pays for the largest
+		/// code it could ever have on chain, not the one it registers with. It is returned if the
+		/// relay chain rejects the registration or if the caller later abandons it.
+		///
+		/// Ids below [`Config::FirstPublicParaId`] are refused, see [`Pallet::force_register`].
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
+		pub fn register(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			genesis_head: Vec<u8>,
+			code_len: u32,
+			code_hash: H256,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(!Self::is_system(para_id), Error::<T>::SystemParaId);
+
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			ensure!(info.manager == who, Error::<T>::NotOwner);
+
+			Self::do_register(para_id, info, genesis_head, code_len, code_hash, false)
+		}
+
+		/// Give up on a registration the relay chain never reported on.
+		///
+		/// Callable from [`Config::PendingDeadline`] blocks after the request. Nothing on the
+		/// relay chain abandons a registration on its own, so this is what ends one whose code
+		/// never turned up, and the manager pays for the round trip rather than every relay-chain
+		/// block paying for a sweep.
+		///
+		/// The deposit is not released here: the relay chain is asked to drop the authorization
+		/// first, and [`Pallet::receive`] releases the deposit when it confirms. Waiting for that
+		/// answer is the point. A registration that did go through, with a verdict that got lost on
+		/// the way here, must not have its deposit refunded, and only the relay chain knows
+		/// which of the two happened.
+		///
+		/// The para id itself stays reserved either way, so the manager can simply try again. A
+		/// system id is dropped instead, as only [`Pallet::force_register`] may register one.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::cancel_registration())]
+		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			ensure!(info.manager == who, Error::<T>::NotOwner);
+			let RegistrationState::Pending { ticket, cancellable_at, message_id: awaited } =
+				info.state
+			else {
+				return Err(Error::<T>::NotPending.into());
+			};
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
+
+			// Getting here means the relay chain's answer to `awaited` never turned up. That should
+			// not happen, so say so on chain instead of quietly retrying.
+			Self::report_unexpected(UnexpectedKind::ResponseNeverArrived {
+				para_id,
+				message_id: awaited,
+			});
+
+			// Another deadline's grace before the manager may ask again, so a request that goes
+			// missing can be retried without the relay chain being asked once per block.
+			let message_id = Self::next_message_id();
+			info.state = RegistrationState::Pending {
+				ticket,
+				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+				message_id,
+			};
+			Paras::<T>::insert(para_id, info);
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
+				para_id,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CancelRequested { para_id, message_id, manager: who });
+			Ok(())
+		}
+
+		/// Lock a registered para, keeping the manager out of it.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::add_lock())]
+		pub fn add_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+			ensure!(!info.is_locked(), Error::<T>::AlreadyLocked);
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+
+			info.locked = Some(true);
+			Paras::<T>::insert(para_id, info);
+
+			Self::deposit_event(Event::ParaLocked { para_id });
+			Ok(())
+		}
+
+		/// Unlock a para, handing control back to the manager.
+		///
+		/// The manager is not accepted here: a lock it could lift would not be a lock.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::remove_lock())]
+		pub fn remove_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			Self::ensure_root_or_para(origin, para_id)?;
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			ensure!(info.is_locked(), Error::<T>::NotLocked);
+
+			info.locked = Some(false);
+			Paras::<T>::insert(para_id, info);
+
+			Self::deposit_event(Event::ParaUnlocked { para_id });
+			Ok(())
+		}
+
+		/// Give up a para id, releasing every consideration held for it.
+		///
+		/// An id that is only reserved is released immediately. A registered para has to be
+		/// dropped on the relay chain first, so the considerations stay taken until it answers.
+		///
+		/// Can be called again on a para that is already deregistering, once `can_retry_after`
+		/// has passed. This resends the request.
+		#[pallet::call_index(6)]
+		#[pallet::weight(
+			T::WeightInfo::deregister_reserved()
+				.max(T::WeightInfo::deregister_registered())
+				.max(T::WeightInfo::deregister_retry())
+		)]
+		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+
+			let manager = info.manager.clone();
+			let now = T::BlockNumberProvider::current_block_number();
+			let ticket = match info.state {
+				// The relay chain never knew this id, so there is nobody to ask.
+				RegistrationState::Reserved => {
+					if let Some(reservation) = info.reservation {
+						reservation.drop(&manager)?;
+					}
+					Paras::<T>::remove(para_id);
+					Self::deposit_event(Event::ReservationDropped { para_id, manager });
+					return Ok(());
+				},
+				RegistrationState::Pending { .. } => return Err(Error::<T>::NotRegistered.into()),
+				RegistrationState::Registered { ticket } => ticket,
+				RegistrationState::Deregistering {
+					ticket,
+					can_retry_after,
+					message_id: awaited,
+				} => {
+					ensure!(now >= can_retry_after, Error::<T>::CannotRetryYet);
+					Self::report_unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: awaited,
+					});
+					ticket
+				},
+			};
+
+			let message_id = Self::next_message_id();
+			info.state = RegistrationState::Deregistering {
+				ticket,
+				can_retry_after: now.saturating_add(T::PendingDeadline::get()),
+				message_id,
+			};
+			Paras::<T>::insert(para_id, info);
+
+			// A transport failure returns `Err` and unwinds the new state with it.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Deregister {
+				para_id,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::DeregisterRequested { para_id, message_id, manager });
+			Ok(())
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn schedule_code_upgrade(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			code_hash: H256,
+			code_len: u32,
+		) -> DispatchResult {
+			let _ = (origin, para_id, code_hash, code_len);
+			// TODO(ahm-v2): send the code upgrade authorization to the relay chain.
+			Err(Error::<T>::Unimplemented.into())
+		}
+
+		/// Set the current head of a registered para.
+		///
+		/// Root, the para itself, or its manager while unlocked. Nothing is recorded here: the
+		/// outcome comes back through [`Pallet::receive`] as an event.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::set_current_head(head.len() as u32))]
+		pub fn set_current_head(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			head: Vec<u8>,
+		) -> DispatchResult {
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+
+			let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
+			ensure!(head.len() as u32 <= config.max_head_data_size, Error::<T>::HeadDataTooLarge);
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+				para_id,
+				message_id,
+				head,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::HeadUpdateRequested { para_id, message_id });
+			Ok(())
+		}
+
+		/// Ask the relay chain to register a para id under `manager`, on [`Config::ForceOrigin`]'s
+		/// say-so.
+		///
+		/// The relay chain's `paras_registrar::force_register`, moved here: the same checks and the
+		/// same deposits, except that the id need not have been reserved first, so the origin can
+		/// onboard an id nobody holds, the system range included.
+		///
+		/// System ids never take a deposit, as on Polkadot, and `skip_deposit` waives it for a
+		/// public id too. A reservation the manager already holds stays held.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
+		pub fn force_register(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			manager: T::AccountId,
+			genesis_head: Vec<u8>,
+			code_len: u32,
+			code_hash: H256,
+			skip_deposit: bool,
+		) -> DispatchResult {
+			T::ForceOrigin::ensure_origin(origin)?;
+			let skip_deposit = skip_deposit || Self::is_system(para_id);
+
+			let info = match Paras::<T>::get(para_id) {
+				Some(info) => {
+					ensure!(info.manager == manager, Error::<T>::NotOwner);
+					ensure!(!info.is_locked(), Error::<T>::ParaLocked);
+					info
+				},
+				// Unreserved ids are the point of this call, so take the reservation now.
+				None => {
+					let reservation = if skip_deposit {
+						None
+					} else {
+						Some(T::ReservationConsideration::new(
+							&manager,
+							Self::reservation_footprint(),
+						)?)
+					};
+					ParaInfo {
+						manager,
+						reservation,
+						state: RegistrationState::Reserved,
+						locked: None,
+					}
+				},
+			};
+
+			Self::do_register(para_id, info, genesis_head, code_len, code_hash, skip_deposit)?;
+
+			// `reserve` errors rather than skipping an id it finds taken, so leaving the counter
+			// behind a forced id would brick it for good.
+			NextFreeParaId::<T>::mutate(|next| *next = (*next).max(para_id.saturating_add(1)));
+			Ok(())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	/// The footprint a registration is charged for: the head data plus the *declared* code length.
-	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
-		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	/// The footprint a para id reservation is charged for.
+	pub fn reservation_footprint() -> Footprint {
+		Footprint::from_parts(1, 0)
+	}
+
+	/// The footprint a registration is charged for: the head data plus a full-sized validation
+	/// code, whatever length the registration itself declares.
+	pub fn registration_footprint(head_len: u32, config: &AbridgedHostConfiguration) -> Footprint {
+		Footprint::from_parts(1, head_len.saturating_add(config.max_code_size) as usize)
+	}
+
+	/// Whether `para_id` is in the system range, below [`Config::FirstPublicParaId`].
+	fn is_system(para_id: ParaId) -> bool {
+		para_id < T::FirstPublicParaId::get()
+	}
+
+	/// Check the pallet's storage invariants.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (para_id, info) in Paras::<T>::iter() {
+			let (reserved, ticket) = match &info.state {
+				RegistrationState::Reserved => (true, None),
+				RegistrationState::Pending { ticket, .. } |
+				RegistrationState::Registered { ticket } |
+				RegistrationState::Deregistering { ticket, .. } => (false, ticket.as_ref()),
+			};
+			if Self::is_system(para_id) {
+				ensure!(!reserved, "a system para id is left reserved");
+				ensure!(
+					info.reservation.is_none() && ticket.is_none(),
+					"a system para holds a deposit"
+				);
+			} else if info.reservation.is_none() || (!reserved && ticket.is_none()) {
+				// `skip_deposit` and migrated paras may lack one, so only warn.
+				log::warn!(target: "runtime::registrar-para", "para {para_id} is missing a deposit");
+			}
+		}
+		Ok(())
+	}
+
+	/// Take the registration deposit from `info.manager` and ask the relay chain to register.
+	fn do_register(
+		para_id: ParaId,
+		mut info: ParaInfoOf<T>,
+		genesis_head: Vec<u8>,
+		code_len: u32,
+		code_hash: H256,
+		skip_deposit: bool,
+	) -> DispatchResult {
+		ensure!(matches!(info.state, RegistrationState::Reserved), Error::<T>::AlreadyRegistered);
+
+		let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
+		let head_len = genesis_head.len() as u32;
+		ensure!(head_len <= config.max_head_data_size, Error::<T>::HeadDataTooLarge);
+		ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
+		ensure!(code_len <= config.max_code_size, Error::<T>::CodeTooLarge);
+
+		let manager = info.manager.clone();
+		let ticket = if skip_deposit {
+			None
+		} else {
+			Some(T::RegistrationConsideration::new(
+				&manager,
+				Self::registration_footprint(head_len, &config),
+			)?)
+		};
+
+		let cancellable_at = T::BlockNumberProvider::current_block_number()
+			.saturating_add(T::PendingDeadline::get());
+		let message_id = Self::next_message_id();
+		info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
+		Paras::<T>::insert(para_id, info);
+
+		// A transport failure returns `Err` and unwinds everything above, tickets included.
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
+			para_id,
+			message_id,
+			manager: manager.clone(),
+			genesis_head,
+			code_hash,
+			code_len,
+		}))
+		.map_err(|()| Error::<T>::SendFailed)?;
+
+		Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager });
+		Ok(())
+	}
+
+	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
+	fn ensure_root_para_or_manager(
+		origin: frame_system::pallet_prelude::OriginFor<T>,
+		para_id: ParaId,
+		info: &ParaInfoOf<T>,
+	) -> DispatchResult {
+		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
+			ensure!(id == para_id, Error::<T>::NotOwner);
+			return Ok(());
+		}
+		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
+			ensure!(who == info.manager, Error::<T>::NotOwner);
+			ensure!(!info.is_locked(), Error::<T>::ParaLocked);
+			return Ok(());
+		}
+		frame_system::ensure_root(origin)?;
+		Ok(())
+	}
+
+	/// Ensure `origin` is root or `para_id` itself.
+	fn ensure_root_or_para(
+		origin: frame_system::pallet_prelude::OriginFor<T>,
+		para_id: ParaId,
+	) -> DispatchResult {
+		if frame_system::ensure_root(origin.clone()).is_ok() {
+			return Ok(());
+		}
+		let id = T::ParachainOrigin::ensure_origin(origin)?;
+		ensure!(id == para_id, Error::<T>::NotOwner);
+		Ok(())
+	}
+
+	/// Store `info`, back to [`RegistrationState::Reserved`] after its registration fell through.
+	/// A system id is dropped instead, as only [`Pallet::force_register`] may register one.
+	fn store_reserved(para_id: ParaId, info: ParaInfoOf<T>) {
+		if Self::is_system(para_id) {
+			Self::release_or_report(info.reservation, &info.manager, para_id);
+			Paras::<T>::remove(para_id);
+		} else {
+			Paras::<T>::insert(para_id, info);
+		}
+	}
+
+	/// Report a failed defensive check: loud in the logs, and visible on chain.
+	fn report_unexpected(kind: UnexpectedKind) {
+		log::error!(target: "runtime::registrar-para", "unexpected: {kind:?}");
+		Self::deposit_event(Event::Unexpected(kind));
+	}
+
+	/// Drop `ticket` without failing: the relay chain already acted on the answer being applied.
+	fn release_or_report<C: Consideration<T::AccountId, Footprint>>(
+		ticket: Option<C>,
+		who: &T::AccountId,
+		para_id: ParaId,
+	) {
+		let Some(ticket) = ticket else { return };
+		if let Err(error) = ticket.drop(who) {
+			Self::report_unexpected(UnexpectedKind::DepositNotReleased { para_id, error });
+		}
 	}
 
 	/// Take the id for the next message to the relay chain.
@@ -491,17 +983,30 @@ impl<T: Config> Pallet<T> {
 	///
 	/// A response about a para id we are not expecting one for is dropped rather than treated as a
 	/// dispatch error: erroring here would unwind the whole incoming message for something we can
-	/// do nothing about anyway. Unexpected responses still trip a defensive failure so they are
-	/// loud in logs (and panic under `debug_assertions`).
+	/// do nothing about anyway. They are reported as [`Event::Unexpected`] instead.
 	fn on_register_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("register response for unknown para, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::RegisterResponseForUnknownPara {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
-			defensive!("register response for para which is not pending, dropping", para_id);
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
+			Self::report_unexpected(UnexpectedKind::RegisterResponseNotPending {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -511,9 +1016,9 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
 			},
 			Err(reason) => {
-				ticket.drop(&info.manager)?;
+				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
-				Paras::<T>::insert(para_id, info);
+				Self::store_reserved(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed {
 					para_id,
 					message_id,
@@ -526,6 +1031,29 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Lock a para the relay chain has seen produce a head.
+	fn on_head_noted(para_id: ParaId) -> DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else {
+			Self::report_unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id });
+			return Ok(());
+		};
+
+		if info.locked.is_some() {
+			return Ok(());
+		}
+
+		if !matches!(info.state, RegistrationState::Registered { .. }) {
+			Self::report_unexpected(UnexpectedKind::HeadNotedForUnregisteredPara { para_id });
+		}
+
+		info.locked = Some(true);
+		Paras::<T>::insert(para_id, info);
+
+		Self::deposit_event(Event::ParaLocked { para_id });
+
+		Ok(())
+	}
+
 	/// Apply the relay chain's answer to a cancellation.
 	///
 	/// `Ok(())` means the authorization is gone, so the deposit goes back. The one refusal is
@@ -533,27 +1061,38 @@ impl<T: Config> Pallet<T> {
 	/// simply lost, so the para is recorded as registered and the deposit stays held.
 	///
 	/// Unlike a register response, an answer for a para that is no longer pending is expected
-	/// rather than defensive: a verdict already in flight when the cancellation was sent settles
+	/// rather than unexpected: a verdict already in flight when the cancellation was sent settles
 	/// the registration first, and this then has nothing left to do.
 	fn on_cancel_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("cancel response for unknown para, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::CancelResponseForUnknownPara {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel response for para {para_id} which is no longer pending, dropping",
 			);
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				ticket.drop(&info.manager)?;
+				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
-				Paras::<T>::insert(para_id, info);
+				Self::store_reserved(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, message_id, manager });
 			},
 			Err(FailureReason::AlreadyRegistered) => {
@@ -564,10 +1103,95 @@ impl<T: Config> Pallet<T> {
 			// Nothing else is a cancellation the relay chain refuses, so leave the registration
 			// pending: the manager can ask again once the deadline comes round.
 			Err(reason) => {
-				defensive!("unexpected cancel refusal, leaving pending", (para_id, &reason));
+				Self::report_unexpected(UnexpectedKind::CancelRefused {
+					para_id,
+					message_id,
+					reason,
+				});
 			},
 		}
 
+		Ok(())
+	}
+
+	/// Apply the relay chain's verdict on a deregistration.
+	///
+	/// `Ok(())` releases every consideration and the entry with them; a refusal puts the para back
+	/// to [`RegistrationState::Registered`].
+	fn on_deregister_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else {
+			Self::report_unexpected(UnexpectedKind::DeregisterResponseForUnknownPara {
+				para_id,
+				message_id,
+			});
+			return Ok(());
+		};
+		let RegistrationState::Deregistering { ticket, message_id: expected, .. } = info.state
+		else {
+			Self::report_unexpected(UnexpectedKind::DeregisterResponseNotDeregistering {
+				para_id,
+				message_id,
+			});
+			return Ok(());
+		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
+
+		let manager = info.manager.clone();
+		match outcome {
+			Ok(()) => {
+				Self::release_or_report(ticket, &manager, para_id);
+				Self::release_or_report(info.reservation, &manager, para_id);
+				Paras::<T>::remove(para_id);
+				Self::deposit_event(Event::Deregistered { para_id, message_id, manager });
+			},
+			Err(reason) => {
+				info.state = RegistrationState::Registered { ticket };
+				Paras::<T>::insert(para_id, info);
+				Self::deposit_event(Event::DeregistrationFailed {
+					para_id,
+					message_id,
+					manager,
+					reason,
+				});
+			},
+		}
+
+		Ok(())
+	}
+
+	fn on_code_upgrade_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Result<u32, FailureReason>,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		// TODO(ahm-v2): settle the pending code upgrade from the relay chain's answer.
+		Err(Error::<T>::Unimplemented.into())
+	}
+
+	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
+		let _ = (para_id, message_id);
+		// TODO(ahm-v2): finish the code upgrade once the relay chain has scheduled it.
+		Err(Error::<T>::Unimplemented.into())
+	}
+
+	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
+	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
+		Self::deposit_event(match outcome {
+			Ok(()) => Event::HeadUpdated { para_id, message_id },
+			Err(reason) => Event::HeadUpdateFailed { para_id, message_id, reason },
+		});
 		Ok(())
 	}
 }

@@ -133,7 +133,7 @@ impl frame_support::traits::EstimateNextSessionRotation<BlockNumber> for TestNex
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl paras::Config for Runtime {
@@ -142,7 +142,7 @@ impl paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = TestNextSessionRotation;
-	type OnNewHead = ();
+	type OnNewHead = (ParasRegistrar, RegistrarRelay);
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
@@ -183,7 +183,7 @@ impl paras_registrar::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 impl pallet_registrar_relay::Config for Runtime {
@@ -344,7 +344,7 @@ construct_runtime!(
 		Parachains: paras,
 		ParasOrigin: origin,
 		ParasRegistrar: paras_registrar,
-		Registrar: pallet_registrar_relay,
+		RegistrarRelay: pallet_registrar_relay,
 		XcmPallet: pallet_xcm,
 		MessageQueue: pallet_message_queue,
 	}
