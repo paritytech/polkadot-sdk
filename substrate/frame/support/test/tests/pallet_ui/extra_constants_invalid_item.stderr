@@ -1,0 +1,5 @@
+error: Invalid pallet::extra_constants, only method accepted
+  --> tests/pallet_ui/extra_constants_invalid_item.rs:27:3
+   |
+27 |         const VALUE: u32 = 1;
+   |         ^^^^^

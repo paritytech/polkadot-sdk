@@ -63,7 +63,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
-			default_byte_impl: quote::quote!(
+			default_byte_impl: quote::quote_spanned!(const_.ident.span() =>
 				#(#maybe_allow_attrs)*
 				let value = <<T as Config #trait_use_gen>::#ident as
 					#frame_support::traits::Get<#const_type>>::get();
@@ -91,7 +91,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
-			default_byte_impl: quote::quote!(
+			default_byte_impl: quote::quote_spanned!(const_.ident.span() =>
 				#(#maybe_allow_attrs)*
 				let value = <Pallet<#type_use_gen>>::#ident();
 				#frame_support::__private::codec::Encode::encode(&value)

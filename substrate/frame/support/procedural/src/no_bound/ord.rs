@@ -43,7 +43,7 @@ pub fn derive_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenS
 					.unnamed
 					.iter()
 					.enumerate()
-					.map(|(i, _)| syn::Index::from(i))
+					.map(|(i, field)| super::field_index(i, field))
 					.map(|i| quote::quote_spanned!(i.span() => self.#i.cmp(&other.#i) ));
 
 				quote::quote!( core::cmp::Ordering::Equal #( .then_with(|| #fields) )* )
