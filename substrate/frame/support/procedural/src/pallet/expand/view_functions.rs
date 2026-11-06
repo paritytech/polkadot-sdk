@@ -20,12 +20,18 @@ use proc_macro2::{Span, TokenStream};
 use syn::spanned::Spanned;
 
 pub fn expand_view_functions(def: &Def) -> TokenStream {
-	let (span, where_clause, view_fns) = match def.view_functions.as_ref() {
-		Some(view_fns) => {
-			(view_fns.attr_span, view_fns.where_clause.clone(), view_fns.view_functions.clone())
-		},
-		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
-	};
+	let span = def
+		.view_functions
+		.first()
+		.map_or_else(|| def.item.span(), |block| block.attr_span);
+	let mut where_clauses = vec![&def.config.where_clause];
+	where_clauses.extend(def.view_functions.iter().map(|block| &block.where_clause));
+	let where_clause = super::merge_where_clauses(&where_clauses);
+	let view_fns = def
+		.view_functions
+		.iter()
+		.flat_map(|block| block.view_functions.iter().cloned())
+		.collect::<Vec<_>>();
 
 	let view_function_prefix_impl =
 		expand_view_function_prefix_impl(def, span, where_clause.as_ref());

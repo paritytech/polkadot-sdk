@@ -71,7 +71,7 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
-	pub view_functions: Option<view_functions::ViewFunctionsImplDef>,
+	pub view_functions: Vec<view_functions::ViewFunctionsImplDef>,
 	pub is_frame_system: bool,
 }
 
@@ -106,7 +106,7 @@ impl Def {
 		let mut storages = vec![];
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
-		let mut view_functions = None;
+		let mut view_functions = vec![];
 		let mut is_frame_system = false;
 
 		for (index, item) in items.iter_mut().enumerate() {
@@ -214,7 +214,7 @@ impl Def {
 					composites.push(composite);
 				},
 				Some(PalletAttr::ViewFunctions(span)) => {
-					view_functions = Some(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
+					view_functions.push(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
 				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";
