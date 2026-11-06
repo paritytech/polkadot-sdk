@@ -204,8 +204,10 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 		voter.edges.retain(|e| e.weight > 0);
 		// edge of all candidates that eventually have a non-zero weight must be elected.
 		debug_assert!(voter.edges.iter().all(|e| e.candidate.borrow().elected));
-		// inc budget to sum the budget.
-		voter.try_normalize_elected().map_err(|_| crate::Error::ArithmeticError)?;
+		if !voter.edges.is_empty() {
+			// Normalize the weights to sum to the voter's budget.
+			voter.try_normalize_elected().map_err(|_| crate::Error::ArithmeticError)?;
+		}
 	}
 
 	Ok((candidates, voters))
