@@ -1,0 +1,72 @@
+title: Check block inherents with the runtime that built the block
+
+doc:
+- audience: Node Dev
+  description: |-
+    `sp_block_builder::check_inherents` and `check_inherents_with_data` now call the runtime's
+    `check_inherents` API in the on-chain call context (`CallContext::Onchain { import: false }`),
+    the context the block builder produces blocks in. With delayed runtime upgrades
+    (`system_version >= 3`) the first block after the upgrade block is built by the new runtime,
+    which is staged in `:pending_code`, while a runtime API call in the default off-chain context
+    still runs the old one. The old runtime fails to decode any inherent whose encoding changed
+    with the upgrade, so every node but the author rejected the block and the chain forked per
+    authority. The AURA and BABE verifiers and the Cumulus import queues go through these helpers
+    and are fixed by this change.
+- audience: Runtime Dev
+  description: |-
+    In the on-chain context the new runtime checks the first post-upgrade block on top of the
+    state the old runtime left behind, before the upgrade's migrations ran. The new
+    `frame_executive::Executive::ensure_runtime_upgrade_applied` runs the pending
+    `on_runtime_upgrade` hooks and records `LastRuntimeUpgrade` when the runtime version changed,
+    and is a no-op otherwise. Call it first in your `BlockBuilder::check_inherents` implementation
+    so that the inherent checks read storage in the layout the new runtime expects; the state
+    changes of the API call are discarded. The runtimes in this repository are updated
+    accordingly.
+
+crates:
+- name: sp-block-builder
+  bump: patch
+- name: frame-executive
+  bump: minor
+- name: kitchensink-runtime
+  bump: patch
+- name: minimal-template-runtime
+  bump: patch
+- name: parachain-template-runtime
+  bump: patch
+- name: solochain-template-runtime
+  bump: patch
+- name: revive-dev-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: cumulus-test-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: polkadot-test-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch

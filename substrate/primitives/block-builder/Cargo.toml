@@ -21,6 +21,13 @@ sp-api = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
 
+[dev-dependencies]
+futures = { workspace = true }
+sp-externalities = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-test-primitives = { workspace = true }
+sp-version = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [

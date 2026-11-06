@@ -54,6 +54,15 @@ sp_api::decl_runtime_apis! {
 		) -> alloc::vec::Vec<<Block as BlockT>::Extrinsic>;
 
 		/// Check that the inherents are valid. The inherent data will vary from chain to chain.
+		///
+		/// The client calls this at the parent of `block` in the on-chain call context, the one
+		/// `block` was built in, so that around a delayed runtime upgrade (`system_version >= 3`)
+		/// the runtime that built the block is the one that checks it. For the first block after
+		/// the upgrade block this is the new runtime, running on top of the state the old runtime
+		/// left behind, before the migrations of the upgrade ran. If the inherent checks read
+		/// storage those migrations change, the implementation has to apply the pending upgrade
+		/// first, for example with `frame_executive::Executive::ensure_runtime_upgrade_applied`.
+		/// The state changes of the call are discarded.
 		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: InherentData) -> CheckInherentsResult;
 	}
 }
