@@ -1,0 +1,10 @@
+title: Fix the no_std build of `sp-consensus-sassafras`
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove an unused `alloc::vec::Vec` import from `sp-consensus-sassafras`. The crate forbids unused imports, so the import broke every build without `std`, including the runtime build of `pallet-sassafras`. The API does not change.
+
+crates:
+- name: sp-consensus-sassafras
+  bump: patch
