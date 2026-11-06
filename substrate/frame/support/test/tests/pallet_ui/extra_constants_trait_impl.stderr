@@ -1,0 +1,5 @@
+error: Invalid pallet::extra_constants, expected no trait ident as in `impl<..> Pallet<..> { .. }`
+  --> tests/pallet_ui/extra_constants_trait_impl.rs:27:28
+   |
+27 |     impl<T: Config> SomeTrait for Pallet<T> {}
+   |                               ^^^
