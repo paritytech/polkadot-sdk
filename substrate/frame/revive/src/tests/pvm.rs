@@ -488,6 +488,40 @@ mod compilation_cost_benchmark {
 		});
 	}
 
+	/// Every basic block a call enters is charged `per_block` on top of its instructions.
+	///
+	/// The contracts of [`VmBinaryModule::with_branch_blocks`] have code of the same size and
+	/// enter `b` blocks of one `branch_eq` before the block of the `ecalli SENTINEL` and the
+	/// instruction after it, which is the same for every `b`. Each further block is compiled
+	/// once, for `per_block` and one instruction of `per_instruction_millis` rounded up, and runs
+	/// its `branch_eq` once, for the gas the cost model assigns to it. The pallet does not set a
+	/// cost model, so the interpreter uses the default one of PolkaVM, the naive model.
+	#[test]
+	fn branch_block_compilation_is_charged_per_block() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+			let weight = |b| {
+				let code = VmBinaryModule::with_branch_blocks(b).code;
+				let addr =
+					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+				let result = builder::bare_call(addr).build();
+				assert_ok!(result.result);
+				result.weight_consumed.ref_time()
+			};
+
+			let cost = EngineMeter::<Test>::interpreter_compilation_cost();
+			assert!(cost.per_block > 0);
+			let compile =
+				u64::from(cost.per_block) + u64::from(cost.per_instruction_millis).div_ceil(1000);
+			let run = u64::from(polkavm::CostModel::naive().branch_eq);
+			let (b1, b2) = (1, VmBinaryModule::BRANCH_BLOCKS / 2);
+			assert_eq!(
+				weight(b2) - weight(b1),
+				u64::from(b2 - b1) * (compile + run) * EngineMeter::<Test>::ref_time_per_fuel()
+			);
+		});
+	}
+
 	/// A call that hands the interpreter less gas than compiling its entry block costs fails
 	/// with `OutOfGas` and consumes all of that gas.
 	#[test]
