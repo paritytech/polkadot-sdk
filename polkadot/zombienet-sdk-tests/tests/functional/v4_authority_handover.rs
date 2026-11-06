@@ -29,6 +29,7 @@ const NUM_VALIDATORS: usize = 6;
 const MIN_START_HEIGHT: u32 = 5;
 const RELAY_ADVANCE: u32 = 3;
 const FINALIZED_PAST_ROTATION: u32 = 10;
+const HANDOVER_LOG: &str = "Authority handover: resubmitting the prior era's blocks";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn v4_authority_handover() -> Result<(), anyhow::Error> {
@@ -226,6 +227,13 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 		}
 		tokio::time::sleep(Duration::from_secs(5)).await;
 	}
+
+	// Proves the rotation block landed through a handover, not a surviving original submission.
+	let mut handovers = 0;
+	for name in &collator_names {
+		handovers += network.get_node(name.as_str())?.logs().await?.matches(HANDOVER_LOG).count();
+	}
+	assert!(handovers > 0, "no collator logged an authority handover");
 
 	log::info!("V4 authority handover test finished");
 	Ok(())

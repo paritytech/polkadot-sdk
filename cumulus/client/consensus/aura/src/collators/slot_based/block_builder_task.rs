@@ -631,16 +631,15 @@ where
 		// The PVF checks a resubmission's signature against the candidate's parent state, so a
 		// bundle from before an authority-set change needs the prior set's author for this slot.
 		// Such a handover takes the slot: building above those blocks is useless until they land.
-		let mut handover: Option<(P::Public, Vec<Block::Header>)> = None;
-		let mut authors = HashMap::from([(initial_parent_hash, tip_author.clone())]);
+		let mut authors = HashMap::new();
 		let mut author_of = |at: Block::Hash| {
 			authors.entry(at).or_insert_with(|| self.author_at(at, para_slot.slot)).clone()
 		};
-		let resubmittable_headers = match resubmittable_headers.first() {
+		let (resubmittable_headers, handover) = match resubmittable_headers.first() {
 			Some(oldest) if v3_enabled => {
 				let first_author = author_of(*oldest.parent_hash());
 				if first_author.is_some() && first_author == tip_author {
-					resubmittable_headers
+					(resubmittable_headers, None)
 				} else {
 					let bundles = split_bundles(resubmittable_headers)
 						.into_iter()
@@ -651,11 +650,10 @@ where
 							sp_application_crypto::key_types::AURA,
 						)])
 					});
-					handover = classified.handover;
-					classified.tip
+					(classified.tip, classified.handover)
 				}
 			},
-			_ => resubmittable_headers,
+			_ => (resubmittable_headers, None),
 		};
 
 		let (role, resubmittable_headers) = match (handover, slot_claim) {
