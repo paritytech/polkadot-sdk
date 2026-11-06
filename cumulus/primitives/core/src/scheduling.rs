@@ -67,6 +67,31 @@ impl SchedulingInfoPayload {
 	}
 }
 
+/// Why a PoV's blocks' scheduling signals cannot form a tail; `validate_block` panics with it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SchedulingSignalError {
+	/// A block emitted bytes that do not decode as a `UMPSignal`.
+	UndecodableSignal,
+	/// The blocks emitted more than one `SelectCore`.
+	DuplicateSelectCore,
+	/// The blocks emitted more than one `ApprovedPeer`.
+	DuplicateApprovedPeer,
+}
+
+impl core::fmt::Display for SchedulingSignalError {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Self::UndecodableSignal => write!(f, "Failed to decode `UMPSignal`"),
+			Self::DuplicateSelectCore => {
+				write!(f, "Parachain emitted more than one `SelectCore` UMP signal")
+			},
+			Self::DuplicateApprovedPeer => {
+				write!(f, "Parachain emitted more than one `ApprovedPeer` UMP signal")
+			},
+		}
+	}
+}
+
 /// The scheduling-signal tail (`SelectCore`/`ApprovedPeer`) a candidate emits after the first
 /// `UMP_SEPARATOR`.
 ///
@@ -83,22 +108,33 @@ pub struct SchedulingSignals {
 impl SchedulingSignals {
 	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
 	///
-	/// Panics on a repeated variant even when the values match: the relay decoder counts
-	/// occurrences, not distinct values, so a duplicate is a bug regardless.
+	/// Panics where [`Self::try_from_block_signals`] errs.
 	pub fn from_block_signals(raw: &[Vec<u8>]) -> Self {
+		Self::try_from_block_signals(raw).unwrap_or_else(|error| panic!("{}", error))
+	}
+
+	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
+	/// The collator applies this to the blocks' signals exactly as `validate_block` does: the tail
+	/// re-encodes them in canonical order, dropping any bytes after each signal.
+	///
+	/// Errs on a repeated variant even when the values match: the relay decoder counts
+	/// occurrences, not distinct values, so a duplicate is a bug regardless.
+	pub fn try_from_block_signals(raw: &[Vec<u8>]) -> Result<Self, SchedulingSignalError> {
 		let mut signals = Self::default();
 		for bytes in raw {
 			// Exhaustive on purpose (no `_`): a new `UMPSignal` variant must fail to compile
 			// here, forcing a deliberate decision rather than being silently dropped.
-			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
+			match UMPSignal::decode(&mut &bytes[..])
+				.map_err(|_| SchedulingSignalError::UndecodableSignal)?
+			{
 				UMPSignal::SelectCore(selector, offset) => {
 					if signals.select_core.replace((selector, offset)).is_some() {
-						panic!("Parachain emitted more than one `SelectCore` UMP signal");
+						return Err(SchedulingSignalError::DuplicateSelectCore);
 					}
 				},
 				UMPSignal::ApprovedPeer(peer_id) => {
 					if signals.approved_peer.replace(peer_id).is_some() {
-						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
+						return Err(SchedulingSignalError::DuplicateApprovedPeer);
 					}
 				},
 				UMPSignal::Provides(_) | UMPSignal::Requires(_) => panic!(
@@ -106,7 +142,7 @@ impl SchedulingSignals {
 				),
 			}
 		}
-		signals
+		Ok(signals)
 	}
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own signals
@@ -218,7 +254,9 @@ impl VerifySchedulingSignature for () {
 
 #[cfg(test)]
 mod tests {
-	use super::{SchedulingInfoPayload, SchedulingSignals, SignedSchedulingInfo};
+	use super::{
+		SchedulingInfoPayload, SchedulingSignalError, SchedulingSignals, SignedSchedulingInfo,
+	};
 	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
@@ -306,6 +344,45 @@ mod tests {
 			UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
 		];
 		let _ = SchedulingSignals::from_block_signals(&raw);
+	}
+
+	#[test]
+	fn try_from_block_signals_canonicalizes_order_and_trailing_bytes() {
+		// The tail is re-encoded: `SelectCore` first, and bytes after a signal dropped. The
+		// collator must apply the same parse rather than pass the block's bytes through.
+		let mut trailing = UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode();
+		trailing.push(0xEE);
+		let raw = vec![UMPSignal::ApprovedPeer(peer(0xAA)).encode(), trailing];
+		assert_eq!(
+			SchedulingSignals::try_from_block_signals(&raw).unwrap().into_ump_messages(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
+				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+			]
+		);
+	}
+
+	#[test]
+	fn try_from_block_signals_errs_where_from_block_signals_panics() {
+		let select_core = UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode();
+		let approved_peer = UMPSignal::ApprovedPeer(peer(0xAA)).encode();
+		for (raw, error) in [
+			(vec![select_core.clone(), select_core], SchedulingSignalError::DuplicateSelectCore),
+			(
+				vec![approved_peer.clone(), approved_peer],
+				SchedulingSignalError::DuplicateApprovedPeer,
+			),
+			(vec![vec![0xFF]], SchedulingSignalError::UndecodableSignal),
+		] {
+			assert_eq!(SchedulingSignals::try_from_block_signals(&raw), Err(error));
+		}
+	}
+
+	#[test]
+	#[should_panic(expected = "Failed to decode `UMPSignal`")]
+	fn from_block_signals_panics_on_undecodable_signal() {
+		let _ = SchedulingSignals::from_block_signals(&[vec![0xFF]]);
 	}
 
 	#[test]

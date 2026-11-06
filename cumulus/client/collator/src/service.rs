@@ -22,7 +22,6 @@ use cumulus_primitives_core::{
 	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
 };
 
-use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
@@ -315,20 +314,25 @@ where
 			}),
 		});
 
-		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
-		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
-		// PVF applies, so the two can't drift; otherwise the block's signals pass through
-		// unchanged.
-		match signed_scheduling_info {
-			Some(signed_info) => upward_messages
-				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
-			None => {
-				if !upward_message_signals.is_empty() {
-					upward_messages.push(UMP_SEPARATOR);
-					upward_messages.extend(upward_message_signals.into_iter());
-				}
+		// Emit the scheduling-signal tail exactly as `validate_block` does, so the two can't drift:
+		// a signed scheduling info (resubmission) replaces the block's own signals wholesale, and
+		// otherwise the block's signals are re-encoded in canonical order. Signals the PVF would
+		// reject skip the collation.
+		let scheduling_signals = match signed_scheduling_info {
+			Some(signed_info) => SchedulingSignals::from_scheduling_info(&signed_info),
+			None => match SchedulingSignals::try_from_block_signals(&upward_message_signals) {
+				Ok(signals) => signals,
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						%error,
+						"Not submitting a collation whose UMP signals the PVF would reject",
+					);
+					return None;
+				},
 			},
-		}
+		};
+		upward_messages.extend(scheduling_signals.into_ump_messages());
 
 		let upward_messages = upward_messages
 			.try_into()
