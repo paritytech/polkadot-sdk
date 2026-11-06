@@ -1,0 +1,11 @@
+error[E0277]: `T` doesn't implement `std::fmt::Debug`
+  --> tests/pallet_ui/view_function_second_block_invalid.rs:35:17
+   |
+35 |         pub fn second(value: T) -> u32 {
+   |                       ^^^^^ the trait `std::fmt::Debug` is not implemented for `T`
+   |
+   = note: required for the cast from `&T` to `&dyn std::fmt::Debug`
+help: consider further restricting type parameter `T` with trait `Debug`
+   |
+33 |     #[pallet::view_functions + std::fmt::Debug]
+   |                              +++++++++++++++++

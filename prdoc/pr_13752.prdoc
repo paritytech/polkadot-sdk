@@ -6,6 +6,8 @@ doc:
     and runtime dispatch in declaration order, instead of silently keeping only the last block.
     Generated view-function implementations require the combined bounds of `Config` and every
     view-function block. Rebuild the runtime and regenerate metadata bindings as needed.
+    Generated references retain each block's source span so compiler diagnostics point to the
+    relevant block instead of the first one.
 
     Repeated `#[runtime::pallet_index]` attributes on a pallet are now rejected, including when
     their values match. Keep exactly one attribute. Retain the last previously specified index
