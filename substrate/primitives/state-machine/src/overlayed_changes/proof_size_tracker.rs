@@ -1106,7 +1106,7 @@ mod tests {
 		use crate::backend::EstimationTrie;
 		use sp_core::{storage::StateVersion, Blake2Hasher, H256};
 		use sp_trie::{
-			AppendOnlyTrieDBMutBuilder, DetachedTrieDBMut, LayoutV1, MemoryDB, TrieDBMutBuilder,
+			DetachedTrieDBMut, LayoutV1, MemoryDB, TransactionalTrieDBMutBuilder, TrieDBMutBuilder,
 			TrieMut,
 		};
 
@@ -1154,13 +1154,13 @@ mod tests {
 
 			fn contains(&mut self, key: &[u8]) -> bool {
 				let (db, trie) = self.db_and_trie();
-				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(db, trie).build();
+				let trie = TransactionalTrieDBMutBuilder::<Layout>::from_detached(db, trie).build();
 				trie.get(key).unwrap().is_some()
 			}
 
 			fn arena_len(&mut self) -> usize {
 				let (db, trie) = self.db_and_trie();
-				AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(db, trie)
+				TransactionalTrieDBMutBuilder::<Layout>::from_detached(db, trie)
 					.build()
 					.arena_len()
 			}

@@ -66,10 +66,10 @@ pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
 	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
-	AppendOnlyTrieDBMutBuilder, CError, DBValue, DetachedTrieDBMut, InvalidSnapshot, Query,
-	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
-	TrieDBMutSnapshot, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
-	TrieRecorder,
+	CError, DBValue, DetachedTrieDBMut, InvalidSnapshot, Query, Recorder,
+	TransactionalTrieDBMutBuilder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
+	TrieDBKeyIterator, TrieDBMutSnapshot, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator,
+	TrieLayout, TrieMut, TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -335,7 +335,7 @@ where
 	A: Borrow<[u8]>,
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	let mut trie = AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, trie)
+	let mut trie = TransactionalTrieDBMutBuilder::<L>::from_detached(db, trie)
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build();
