@@ -1,0 +1,217 @@
+// This file is part of Cumulus.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use jam_types::{
+	AuthConfig, BoundedVec, CodeHash, Encode as JamEncode, MaxWorkItems, RefineContext, ServiceId,
+	WorkItem, WorkPackage,
+};
+use primitive_types::H256;
+
+use crate::WorkPackageBody;
+
+/// Domain separator for the token-free work-package hash signed by AURA collators.
+pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-package:v1";
+
+/// Borrowed view of the work-package fields covered by the collator signature.
+///
+/// JAM-encodes the code host, authorizer code hash, refinement context, authorizer config,
+/// and work items after [`WORK_PACKAGE_SIGN_CTX`], then hashes them with Blake2b-256.
+/// The authorization token is excluded because it contains the signature.
+#[derive(JamEncode)]
+pub(crate) struct SigningPayload<'a> {
+	auth_code_host: ServiceId,
+	auth_code_hash: &'a CodeHash,
+	context: &'a RefineContext,
+	auth_config: &'a AuthConfig,
+	items: &'a BoundedVec<WorkItem, MaxWorkItems>,
+}
+
+impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
+	fn from(package: &'a WorkPackage) -> Self {
+		// Keep this exhaustive so new fields require an explicit signing decision.
+		let WorkPackage { authorization: _, auth_code_host, authorizer, context, items } = package;
+		Self {
+			auth_code_host: *auth_code_host,
+			auth_code_hash: &authorizer.code_hash,
+			context,
+			auth_config: &authorizer.config,
+			items,
+		}
+	}
+}
+
+impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
+	fn from(package: &'a WorkPackageBody) -> Self {
+		// Keep this exhaustive so new fields require an explicit signing decision.
+		let WorkPackageBody { auth_code_host, authorizer, context, items } = package;
+		Self {
+			auth_code_host: *auth_code_host,
+			auth_code_hash: &authorizer.code_hash,
+			context,
+			auth_config: &authorizer.config,
+			items,
+		}
+	}
+}
+
+impl SigningPayload<'_> {
+	pub(crate) fn hash(&self) -> H256 {
+		hash_signing_payload(&self.encode())
+	}
+}
+
+/// Hash the token-free work-package fields signed by the collator.
+pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
+	SigningPayload::from(package).hash()
+}
+
+/// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,
+/// authorizer config, and work items, with the AURA domain separator.
+///
+/// Adapters for other JAM versions must preserve their version's complete context encoding
+/// and exclude the authorization token.
+pub fn hash_signing_payload(payload: &[u8]) -> H256 {
+	let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
+	state.update(WORK_PACKAGE_SIGN_CTX);
+	state.update(payload);
+
+	H256::from_slice(state.finalize().as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use alloc::vec;
+
+	#[test]
+	fn signing_payload_signed_fields_works() {
+		let (_, _, package) = crate::tests::fixture();
+		let original = SigningPayload::from(&package).hash();
+
+		let mutations: [(&str, fn(&mut WorkPackage)); 12] = [
+			("code host", |p| p.auth_code_host += 1),
+			("authorizer code", |p| p.authorizer.code_hash.0[0] ^= 1),
+			("authorizer config", |p| {
+				p.authorizer.config = vec![1].try_into().expect("one byte fits")
+			}),
+			("anchor", |p| p.context.anchor.0[0] ^= 1),
+			("anchor slot", |p| p.context.anchor_slot += 1),
+			("state root", |p| p.context.state_root.0[0] ^= 1),
+			("beefy root", |p| p.context.beefy_root.0[0] ^= 1),
+			("lookup anchor", |p| p.context.lookup_anchor.0[0] ^= 1),
+			("lookup slot", |p| p.context.lookup_anchor_slot += 1),
+			("lookup state root", |p| p.context.lookup_anchor_state_root.0[0] ^= 1),
+			("prerequisites", |p| {
+				p.context.prerequisites.insert([1; 32].into());
+			}),
+			("work items", |p| {
+				p.items = vec![jam_types::WorkItem {
+					service: 1,
+					code_hash: Default::default(),
+					refine_gas_limit: 1,
+					accumulate_gas_limit: 1,
+					export_count: 0,
+					payload: Default::default(),
+					import_segments: Default::default(),
+					extrinsics: Default::default(),
+				}]
+				.try_into()
+				.expect("one work item fits");
+			}),
+		];
+
+		for (field, mutate) in mutations {
+			let mut changed = package.clone();
+			mutate(&mut changed);
+
+			assert_ne!(SigningPayload::from(&changed).hash(), original, "unsigned field: {field}");
+		}
+	}
+
+	#[test]
+	fn signing_payload_excludes_authorization_works() {
+		let (_, _, mut package) = crate::tests::fixture();
+		let original = SigningPayload::from(&package).hash();
+
+		package.authorization = vec![1, 2, 3].try_into().expect("three bytes fit");
+
+		assert_eq!(SigningPayload::from(&package).hash(), original);
+	}
+
+	#[test]
+	fn signing_payload_item_fields_works() {
+		let (_, _, mut package) = crate::tests::fixture();
+
+		let item = jam_types::WorkItem {
+			service: 1,
+			code_hash: Default::default(),
+			refine_gas_limit: 1,
+			accumulate_gas_limit: 1,
+			export_count: 0,
+			payload: Default::default(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		};
+
+		package.items = vec![item.clone()].try_into().expect("one work item fits");
+		let original = SigningPayload::from(&package).hash();
+
+		let mutations: [(&str, fn(&mut jam_types::WorkItem)); 8] = [
+			("service", |i| i.service += 1),
+			("code hash", |i| i.code_hash.0[0] ^= 1),
+			("refine gas", |i| i.refine_gas_limit += 1),
+			("accumulate gas", |i| i.accumulate_gas_limit += 1),
+			("export count", |i| i.export_count += 1),
+			("payload", |i| i.payload = vec![1].try_into().expect("one byte fits")),
+			("imports", |i| {
+				i.import_segments = vec![jam_types::ImportSpec {
+					root: jam_types::RootIdentifier::Direct(Default::default()),
+					index: 1,
+				}]
+				.try_into()
+				.expect("one import fits");
+			}),
+			("extrinsics", |i| {
+				i.extrinsics = vec![jam_types::ExtrinsicSpec { hash: Default::default(), len: 1 }]
+					.try_into()
+					.expect("one extrinsic fits");
+			}),
+		];
+
+		for (field, mutate) in mutations {
+			let mut changed = item.clone();
+			mutate(&mut changed);
+			package.items = vec![changed].try_into().expect("one work item fits");
+
+			assert_ne!(
+				SigningPayload::from(&package).hash(),
+				original,
+				"unsigned item field: {field}"
+			);
+		}
+
+		let mut second = item.clone();
+		second.service += 1;
+
+		package.items = vec![item.clone(), second.clone()].try_into().expect("two work items fit");
+		let ordered = SigningPayload::from(&package).hash();
+
+		package.items = vec![second, item].try_into().expect("two work items fit");
+
+		assert_ne!(SigningPayload::from(&package).hash(), ordered);
+	}
+}
