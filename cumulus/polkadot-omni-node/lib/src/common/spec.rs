@@ -16,9 +16,10 @@
 
 use crate::{
 	chain_spec::Extensions,
-	cli::DevSealMode,
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		command::NodeCommandRunner,
+		price_oracle::PriceOracleNetwork,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
@@ -112,6 +113,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		price_oracle: Option<PriceOracleNetwork<Block>>,
 		block_import_extra_return_value: BIAuxiliaryData,
 	) -> Result<(), sc_service::Error>;
 }
@@ -442,6 +444,29 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					(proto, config)
 				});
 
+			let slot_based = node_extra_args.authoring_policy == AuthoringPolicy::SlotBased;
+			if node_extra_args.price_oracle && !validator {
+				return Err(sc_service::Error::Other(
+					"`--enable-price-oracle` requires `--collator`.".into(),
+				));
+			}
+			if node_extra_args.price_oracle && !slot_based {
+				return Err(sc_service::Error::Other(
+					"`--enable-price-oracle` requires `--authoring slot-based`.".into(),
+				));
+			}
+			let price_oracle_protocol = node_extra_args.price_oracle.then(|| {
+				let (config, notification_service, protocol_name) =
+					sc_price_oracle::peers_set_config::<Self::Block, Net>(
+						client.chain_info().genesis_hash,
+						parachain_config.chain_spec.fork_id(),
+						metrics.clone(),
+						Arc::clone(&net_config.peer_store_handle()),
+					);
+				net_config.add_notification_protocol(config);
+				(notification_service, protocol_name)
+			});
+
 			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
@@ -467,8 +492,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let peer_id = relay_chain_network.local_peer_id();
 
-			if validator && node_extra_args.collator_reserved_slots > 0 {
-				cumulus_client_collator_discovery::start_collator_discovery(
+			// The price oracle needs authority discovery to find the authors it reports to,
+			// even when no collator slots are reserved.
+			let run_discovery =
+				node_extra_args.collator_reserved_slots > 0 || node_extra_args.price_oracle;
+			let authority_discovery = if validator && run_discovery {
+				let service = cumulus_client_collator_discovery::start_collator_discovery(
 					cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
 						max_reserved: node_extra_args.collator_reserved_slots,
 						client: client.clone(),
@@ -487,7 +516,22 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					},
 				)
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-			}
+				Some(service)
+			} else {
+				None
+			};
+
+			// The oracle requires `--collator`, checked above, so discovery runs with it.
+			let price_oracle = price_oracle_protocol.zip(authority_discovery).map(
+				|((notification_service, protocol_name), authority_discovery)| PriceOracleNetwork {
+					notification_service,
+					protocol_name,
+					network: network.clone(),
+					sync_service: sync_service.clone(),
+					authority_discovery,
+					prometheus_registry: prometheus_registry.clone(),
+				},
+			);
 
 			let statement_store = statement_handler_proto
 				.map(|(statement_handler_proto, config)| {
@@ -692,6 +736,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					announce_block,
 					backend.clone(),
 					node_extra_args,
+					price_oracle,
 					block_import_auxiliary_data,
 				)?;
 			}
