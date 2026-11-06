@@ -1007,7 +1007,8 @@ pub mod pallet {
 		pub fn fingerprint() -> T::Hash {
 			let mut hashed_target_and_voters =
 				Self::targets_hash().unwrap_or_default().as_ref().to_vec();
-			let hashed_voters = (Pallet::<T>::msp()..=Pallet::<T>::lsp())
+			let hashed_voters = (Pallet::<T>::lsp()..=Pallet::<T>::msp())
+				.rev()
 				.map(|i| PagedVoterSnapshotHash::<T>::get(Self::round(), i).unwrap_or_default())
 				.flat_map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
 				.collect::<Vec<u8>>();
@@ -2024,6 +2025,48 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Self::create_targets_snapshot();
 		for p in (Self::lsp()..=Self::msp()).rev() {
 			Self::create_voters_snapshot_paged(p)
+		}
+	}
+}
+
+#[cfg(test)]
+mod snapshot {
+	use super::*;
+	use crate::mock::*;
+
+	#[test]
+	fn fingerprint_includes_every_voter_page_in_order() {
+		for pages in [1, 3] {
+			ExtBuilder::full().pages(pages).build_and_execute(|| {
+				roll_to_signed_open();
+				let round = MultiBlock::round();
+				let original = Snapshot::<Runtime>::fingerprint();
+				let mut hashes = Snapshot::<Runtime>::targets_hash().unwrap().as_ref().to_vec();
+				for page in (0..pages).rev() {
+					hashes.extend_from_slice(
+						PagedVoterSnapshotHash::<Runtime>::get(round, page).unwrap().as_ref(),
+					);
+				}
+				assert_eq!(
+					original,
+					<Runtime as frame_system::Config>::Hashing::hash(&hashes),
+					"fingerprint must hash targets followed by voter pages in descending order",
+				);
+
+				for page in 0..pages {
+					let voters = Snapshot::<Runtime>::voters(page).unwrap();
+					let mut changed_voters = voters.clone();
+					changed_voters[0].1 += 1;
+					Snapshot::<Runtime>::set_voters(page, changed_voters);
+					assert_ne!(
+						Snapshot::<Runtime>::fingerprint(),
+						original,
+						"changing voter page {page} must change the fingerprint",
+					);
+					Snapshot::<Runtime>::set_voters(page, voters);
+					assert_eq!(Snapshot::<Runtime>::fingerprint(), original);
+				}
+			});
 		}
 	}
 }

@@ -1,0 +1,13 @@
+title: 'election-provider-multi-block: include voter pages in snapshot fingerprints'
+doc:
+  - audience: [Runtime Dev, Node Operator]
+    description: |
+      Include every voter-page hash in the snapshot fingerprint, in descending
+      page order. Voter-only snapshot changes now invalidate cached unsigned
+      election solutions instead of allowing stale solutions to be resubmitted.
+      Existing cached multi-page solutions are discarded and re-mined through
+      the normal offchain worker flow. No API changes or storage migration are
+      required.
+crates:
+  - name: pallet-election-provider-multi-block
+    bump: patch
