@@ -153,6 +153,11 @@ macro_rules! exchangeable_host_functions {
 exchangeable_host_functions! {
 	/// Get `key` from storage, writing the value into `value_out`.
 	host_read: fn(&[u8], &mut [u8], u32, u32) -> Option<u32> = exchangeable::read;
+	/// Get the value of `key` from storage.
+	///
+	/// Reads through [`host_read`] by default. An implementation that holds the value itself can
+	/// return it directly, without the scratch buffer and copies a read of unknown length needs.
+	host_get: fn(&[u8]) -> Option<Vec<u8>> = get_through_read;
 	/// Set `key` to `value`.
 	host_set: fn(&[u8], &[u8]) = exchangeable::set;
 	/// Check whether `key` exists.
@@ -504,12 +509,19 @@ fn next_key_impl(key: &[u8], key_out: &mut [u8]) -> u32 {
 	return node_next_key(key, key_out);
 }
 
-/// Returns the data for `key` in the storage or `None` if the key can not be found.
-pub fn get(key: &[u8]) -> Option<bytes::Bytes> {
+/// The default [`host_get`]: the value read through [`read_impl`].
+fn get_through_read(key: &[u8]) -> Option<Vec<u8>> {
 	read_value(|value_out, value_offset, allow_partial| {
 		read_impl(key, value_out, value_offset, allow_partial)
 	})
-	.map(Into::into)
+}
+
+/// Returns the data for `key` in the storage or `None` if the key can not be found.
+pub fn get(key: &[u8]) -> Option<bytes::Bytes> {
+	#[cfg(substrate_runtime)]
+	return host_get.get()(key).map(Into::into);
+	#[cfg(not(substrate_runtime))]
+	return get_through_read(key).map(Into::into);
 }
 
 /// Get `key` from storage, placing the value into `value_out` and return the number of

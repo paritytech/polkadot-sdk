@@ -81,7 +81,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	where
 		K: HasKeyPrefix<KP>,
 	{
-		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let storage_prefix = Self::prefix_hash();
 		let key_hashed = <K as HasKeyPrefix<KP>>::partial_key(key);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -98,7 +98,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 		KG: KeyGenerator,
 		KArg: EncodeLikeTuple<KG::KArg> + TupleToEncodedIter,
 	{
-		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let storage_prefix = Self::prefix_hash();
 		let key_hashed = KG::final_key(key);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());

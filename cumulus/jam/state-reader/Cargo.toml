@@ -18,13 +18,14 @@ sp-additional-data = { workspace = true }
 sp-externalities = { workspace = true }
 sp-runtime-interface = { workspace = true }
 
-# JAM state-proof reading (`jam_proof.rs`). Gated off the wasm family: `parachain-service-core`
+# JAM state-proof reading (`jam_proof.rs`). Only JAM runtimes (`--cfg jam`) and the host node
+# read JAM state; relay runtimes, WASM or PolkaVM, read relay state. `parachain-service-core`
 # has its `no_std` gate hard-coded to riscv
 # (`#![cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), no_std)]`), so it cannot
-# compile for `wasm32v1-none` (no `std` there). Non-riscv WASM runtimes read relay state, never
-# JAM state, so the reader is only needed on riscv (task 11) and on the host node (tasks 9/12).
-# `parachain-system` target-gates the same dependency for the same reason.
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
+# compile for `wasm32v1-none` (no `std` there), and on riscv it switches off sp-io's allocator
+# and panic handler, which a relay PolkaVM runtime needs. `parachain-system` target-gates the
+# same dependency for the same reason.
+[target.'cfg(any(jam, not(substrate_runtime)))'.dependencies]
 codec = { workspace = true }
 # no_std by default (`default = []`): the riscv build of this crate needs the verifier no_std,
 # while the std feature gates its std side. Wired the same way omni-node-lib pulls it, except

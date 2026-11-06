@@ -17,6 +17,8 @@ use polkavm::{
 	ModuleConfig, ProgramBlob, ProgramCounter, ProgramParts, RawInstance, Reg,
 };
 
+use crate::profile::Profile;
+
 /// The export the service invokes.
 const PVF_ENTRY_POINT: &str = "jam_validate_block";
 /// The service's cap on the inner PVM's heap (`service/src/constants.rs`).
@@ -33,6 +35,8 @@ pub struct Pvf {
 	rw_data: ArcBytes,
 	memory: MemoryMap,
 	entry_pc: u32,
+	/// The whole blob, which carries the debug line programs the profiler names frames with.
+	symbols: Option<ProgramBlob>,
 }
 
 impl Pvf {
@@ -55,7 +59,7 @@ impl Pvf {
 			.ok_or_else(|| format!("the runtime does not export `{PVF_ENTRY_POINT}`"))?
 			.program_counter()
 			.0;
-		Ok(Pvf { code, ro_data, rw_data, memory, entry_pc })
+		Ok(Pvf { code, ro_data, rw_data, memory, entry_pc, symbols: Some(program) })
 	}
 }
 
@@ -73,6 +77,26 @@ pub struct Outcome {
 
 /// Run `jam_validate_block` on `pov` (work-item extrinsic 0) under `refine_context` (JAM encoded).
 pub fn run(pvf: &Pvf, pov: &[u8], refine_context: &[u8]) -> Result<Outcome, String> {
+	run_inner(pvf, pov, refine_context, None)
+}
+
+/// Run the refine with polkavm step tracing on, writing the gas attribution under `label` into
+/// [`crate::profile::dir`] when it is set.
+pub fn run_profiled(
+	pvf: &Pvf,
+	pov: &[u8],
+	refine_context: &[u8],
+	label: &str,
+) -> Result<Outcome, String> {
+	run_inner(pvf, pov, refine_context, Some(label))
+}
+
+fn run_inner(
+	pvf: &Pvf,
+	pov: &[u8],
+	refine_context: &[u8],
+	profile_label: Option<&str>,
+) -> Result<Outcome, String> {
 	let mut config = Config::new();
 	config.set_backend(Some(BackendKind::Interpreter));
 	config.set_allow_dynamic_paging(true);
@@ -86,6 +110,8 @@ pub fn run(pvf: &Pvf, pov: &[u8], refine_context: &[u8]) -> Result<Outcome, Stri
 	let mut module_config = ModuleConfig::new();
 	module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 	module_config.set_dynamic_paging(true);
+	module_config.set_step_tracing(profile_label.is_some());
+	let mut profile = profile_label.map(|_| Profile::new(&blob));
 	let module = Module::from_blob(&engine, &module_config, blob)
 		.map_err(|error| format!("inner PVM module: {error}"))?;
 	let mut instance =
@@ -119,12 +145,20 @@ pub fn run(pvf: &Pvf, pov: &[u8], refine_context: &[u8]) -> Result<Outcome, Stri
 				Ok(()) => continue,
 				Err(error) => error,
 			},
+			InterruptKind::Step => {
+				let Some(pc) = instance.program_counter() else {
+					return Err("a traced step has no program counter".into());
+				};
+				if let Some(profile) = profile.as_mut() {
+					profile.step(pc.0);
+				}
+				continue;
+			},
 			InterruptKind::Trap => "the runtime panicked".into(),
 			InterruptKind::NotEnoughGas => "the runtime ran out of gas".into(),
 			InterruptKind::Segfault(fault) => {
 				format!("the runtime faulted at page {:#x}", fault.page_address)
 			},
-			InterruptKind::Step => unreachable!("step tracing is not enabled; qed"),
 		};
 		return Err(format!(
 			"{abort} at {:?} after {} gas; runtime log:\n{}",
@@ -134,8 +168,25 @@ pub fn run(pvf: &Pvf, pov: &[u8], refine_context: &[u8]) -> Result<Outcome, Stri
 		));
 	}
 
+	let gas = GAS_LIMIT - instance.gas();
+	if let (Some(mut profile), Some(label), Some(dir)) =
+		(profile, profile_label, crate::profile::dir())
+	{
+		profile.gas = gas;
+		let attributed = profile.gas_total(&module);
+		if attributed != gas {
+			return Err(format!(
+				"the profile attributes {attributed} gas but the run consumed {gas}"
+			));
+		}
+		// The debug names live in the runtime blob, which the inner PVM is only the code of.
+		let symbols =
+			pvf.symbols.as_ref().ok_or("profiling needs the runtime blob's debug info")?;
+		profile.dump(&dir, &module, symbols, label)?;
+	}
+
 	Ok(Outcome {
-		gas: GAS_LIMIT - instance.gas(),
+		gas,
 		host_calls: host.host_calls,
 		parent_head_hash: host.parent_head_hash,
 		head: host.head,

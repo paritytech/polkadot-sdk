@@ -951,7 +951,10 @@ fn build_bloaty_blob(
 
 			rustflags.push_str("-C link-arg=--export-table ");
 		},
-		RuntimeTarget::Riscv => (),
+		// PolkaVM loads and stores any address, aligned or not. Without this the compiler
+		// assembles every value it can't prove aligned (a `u64` decoded from a byte slice, a
+		// hash's input words) from single byte loads, each of which PolkaVM charges for.
+		RuntimeTarget::Riscv => rustflags.push_str("-C target-feature=+unaligned-scalar-mem "),
 	}
 
 	rustflags.push_str(default_rustflags);

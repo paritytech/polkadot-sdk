@@ -79,6 +79,7 @@ members = [
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
+	"cumulus/jam/aura-authorizer-utils",
 	"cumulus/jam/interface",
 	"cumulus/jam/pallet-jam-broker",
 	"cumulus/jam/rpc-interface",
@@ -1615,3 +1616,11 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# The parachain-service crates the JAM tooling depends on name these by crates.io version. Resolve
+# them to this tree and the polkajam2 checkout, so there is only one of each.
+[patch.crates-io]
+cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils" }
+jam-std-common = { path = "../polkajam2/crates/jam-std-common" }
+jam-types = { path = "../polkajam2/crates/jam-types" }
+sp-io = { path = "substrate/primitives/io" }

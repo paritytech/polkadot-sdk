@@ -4827,17 +4827,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-aura-authorizer"
+name = "cumulus-aura-authorizer-utils"
 version = "0.1.0"
 dependencies = [
- "binary-merkle-tree 16.1.1",
+ "binary-merkle-tree 13.0.0",
+ "blake2b_simd",
  "hash-db",
  "hash256-std-hasher",
- "jam-types 0.1.28",
+ "jam-codec",
+ "jam-types",
  "parity-scale-codec",
- "polkadot-parachain-primitives 23.0.0",
+ "polkadot-parachain-primitives 6.0.0",
  "primitive-types 0.13.1",
- "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-crypto-hashing 0.1.0",
 ]
 
 [[package]]
@@ -5059,8 +5061,8 @@ dependencies = [
  "futures",
  "futures-timer",
  "jam-codec",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "parachain-service-core",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -5244,8 +5246,8 @@ dependencies = [
  "async-trait",
  "futures",
  "jam-codec",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
 ]
 
 [[package]]
@@ -5257,8 +5259,8 @@ dependencies = [
  "bytes",
  "cumulus-jam-interface",
  "futures",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "jsonrpsee 0.26.0",
  "serde",
  "serde_json",
@@ -5295,7 +5297,7 @@ dependencies = [
  "frame-system",
  "futures",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "pallet-balances",
  "pallet-transaction-payment",
  "parachain-authorizer",
@@ -5339,8 +5341,8 @@ dependencies = [
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "jam-null-authorizer-bin",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "jsonrpsee 0.24.11",
  "jsonrpsee 0.26.0",
  "log",
@@ -5413,7 +5415,7 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "log",
  "pallet-message-queue",
  "parachain-service-core",
@@ -6007,8 +6009,8 @@ dependencies = [
  "cumulus-jam-rpc-interface",
  "cumulus-primitives-core",
  "futures",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "jsonrpsee 0.24.11",
  "log",
  "parachain-service-core",
@@ -9748,8 +9750,8 @@ version = "0.1.29"
 dependencies = [
  "bounded-collections 0.3.2",
  "jam-codec",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "log",
  "serde",
  "serde_json",
@@ -9803,32 +9805,9 @@ version = "0.1.29"
 dependencies = [
  "bounded-collections 0.3.2",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "picoalloc",
  "polkavm-derive 0.36.0",
-]
-
-[[package]]
-name = "jam-std-common"
-version = "0.1.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c031759ed9963e42b5cc7d9a0ff3c62bb1ad4f05e30ba42e6019f56317b8bad"
-dependencies = [
- "ark-vrf 0.2.2",
- "async-trait",
- "blake2b_simd",
- "bounded-collections 0.3.2",
- "bytes",
- "ed25519-consensus",
- "futures",
- "jam-codec",
- "jam-types 0.1.28",
- "jsonrpsee 0.26.0",
- "rand 0.9.0",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tiny-keccak",
 ]
 
 [[package]]
@@ -9845,7 +9824,7 @@ dependencies = [
  "ed25519-consensus",
  "futures",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "jsonrpsee 0.26.0",
  "p256",
  "rand 0.9.0",
@@ -9854,21 +9833,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tiny-keccak",
-]
-
-[[package]]
-name = "jam-types"
-version = "0.1.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658ebd3553ff9639a66d4d42b62b6a4c5a0d31923c36aa90a2dbf243545126ca"
-dependencies = [
- "atomic-traits",
- "base64 0.22.1",
- "bounded-collections 0.3.2",
- "bytes",
- "jam-codec",
- "macro_rules_attribute",
- "serde",
 ]
 
 [[package]]
@@ -15910,9 +15874,9 @@ name = "parachain-authorizer"
 version = "0.1.0"
 dependencies = [
  "blake2b_simd",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-service-core",
  "parity-scale-codec",
  "primitive-types 0.13.1",
@@ -15924,7 +15888,7 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-authorizer",
  "polkavm-derive 0.36.0",
 ]
@@ -15934,7 +15898,7 @@ name = "parachain-authorizer-sr25519"
 version = "0.1.0"
 dependencies = [
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-authorizer",
  "polkavm-derive 0.36.0",
  "schnorrkel 0.11.5",
@@ -15944,10 +15908,10 @@ dependencies = [
 name = "parachain-chain-spec"
 version = "0.1.0"
 dependencies = [
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-chainspec",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "parachain-service",
  "parachain-service-core",
  "parity-scale-codec",
@@ -15959,11 +15923,11 @@ name = "parachain-service"
 version = "0.1.0"
 dependencies = [
  "bounded-collections 0.3.2",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-codec",
  "jam-pvm-common",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "parachain-service-core",
  "parity-scale-codec",
  "polkavm 0.36.0",
@@ -15976,16 +15940,17 @@ name = "parachain-service-core"
 version = "0.1.0"
 dependencies = [
  "bounded-collections 0.3.2",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-program-blob-common",
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "num_enum",
  "parity-scale-codec",
  "polkadot-parachain-primitives 23.0.0",
  "polkavm 0.36.0",
  "polkavm-derive 0.36.0",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-io 30.0.0",
  "sp-io 48.0.0",
 ]
 
@@ -17743,8 +17708,8 @@ dependencies = [
  "futures",
  "futures-timer",
  "jam-codec",
- "jam-std-common 0.1.29",
- "jam-types 0.1.29",
+ "jam-std-common",
+ "jam-types",
  "jsonrpsee 0.24.11",
  "log",
  "nix 0.29.0",
@@ -32136,8 +32101,8 @@ dependencies = [
  "futures",
  "glob-match",
  "hex",
- "jam-std-common 0.1.28",
- "jam-types 0.1.28",
+ "jam-std-common",
+ "jam-types",
  "libp2p",
  "libsecp256k1",
  "multiaddr",

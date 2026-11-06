@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 };
 use jam_types::RefineContext;
 use parachain_authorizer::{
-	aura::{build_collator_proofs, AuthConfig, AuthToken, CollatorKey},
+	aura::{build_collator_proof, AuthConfig, AuthToken, CollatorKey},
 	block::signable_block_hash,
 };
 use parachain_service_core::{
@@ -56,7 +56,7 @@ use sp_runtime::{
 	Digest, DigestItem, MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_trie::proof_size_extension::ProofSizeExt;
-use std::sync::Arc;
+use std::{num::NonZero, sync::Arc};
 
 /// The host functions the omni-node executes parachain runtimes with
 /// (`polkadot-omni-node-lib`'s `ParachainHostFunctions`).
@@ -173,14 +173,15 @@ impl Chain {
 			.position(|key| *key == collator.public)
 			.ok_or("Alice is not an Aura authority of the development preset")?
 			as u32;
-		let (collator_set_root, proofs) = build_collator_proofs(&collators)
+		let (collator_set_root, own_proof) = build_collator_proof(&collators, own_index)
 			.map_err(|error| format!("collator set: {error:?}"))?;
 		let auth_config = AuthConfig {
 			para_ids: vec![para_id.into()],
 			parachain_service: PARACHAIN_SERVICE_ID,
 			collator_set_root,
-			collator_set_size: collators.len() as u32,
-			slot_duration: 1,
+			collator_set_size: NonZero::new(collators.len() as u32)
+				.ok_or("the development preset has no Aura authorities")?,
+			slot_duration: NonZero::<u32>::MIN,
 		};
 		let code_hash = blake2_256(authorizer_code);
 		let config = auth_config.encode();
@@ -200,7 +201,7 @@ impl Chain {
 				hash,
 				auth_config,
 				own_index,
-				own_proof: proofs[own_index as usize].clone(),
+				own_proof,
 			},
 			collator,
 			sender: Signer::new(Sr25519Keyring::Alice, 2),
@@ -389,10 +390,8 @@ impl Chain {
 	fn jam_slot(&self, number: u32) -> u32 {
 		(FIRST_JAM_SLOT + number..)
 			.find(|slot| {
-				matches!(
-					self.authorizer.auth_config.expected_collator_index(*slot),
-					Ok(index) if index == self.authorizer.own_index
-				)
+				self.authorizer.auth_config.expected_collator_index(*slot) ==
+					self.authorizer.own_index
 			})
 			.expect("the round-robin names every collator once per turn; qed")
 	}

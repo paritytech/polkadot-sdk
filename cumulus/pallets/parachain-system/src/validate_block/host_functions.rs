@@ -38,6 +38,8 @@ use sp_trie::ProofSizeProvider;
 pub(super) fn install_overrides() -> impl Sized {
 	(
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
+		#[cfg(jam)]
+		sp_io::storage::host_get.replace_implementation(host_storage_get),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
@@ -221,6 +223,13 @@ pub(super) fn host_storage_read(
 		},
 		None => None,
 	}
+}
+
+/// The value straight from the externalities, instead of copied into a scratch buffer by
+/// [`host_storage_read`].
+#[cfg(jam)]
+pub(super) fn host_storage_get(key: &[u8]) -> Option<Vec<u8>> {
+	with_externalities(|ext| ext.storage(key))
 }
 
 pub(super) fn host_storage_set(key: &[u8], value: &[u8]) {

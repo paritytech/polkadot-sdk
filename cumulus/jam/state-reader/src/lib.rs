@@ -42,11 +42,9 @@ pub mod upward;
 /// `parachain_service_core::StateKey` (which is gated off the wasm family, where this crate is
 /// still compiled for the relay runtimes).
 pub type StateKey = [u8; 31];
-// The reader's `jam-state-helpers` dependency cannot compile for `wasm32v1-none` (its transitive
-// `parachain-service-interface` hard-codes riscv-only `no_std`), and non-riscv WASM runtimes read
-// relay state, never JAM state, so the reader is only needed on riscv and the host node. Mirrors
-// the Cargo.toml target gate.
-#[cfg(not(target_family = "wasm"))]
+// Relay runtimes, WASM or PolkaVM, read relay state, never JAM state, so the reader is only
+// needed by JAM runtimes and the host node. Mirrors the Cargo.toml target gate.
+#[cfg(any(jam, not(substrate_runtime)))]
 pub mod jam_proof;
 // The commit side pairs with [`JamProofReader`]: authoring commits the carried proof's hash under
 // `JAM_PROOF_KEY` so the digest recomputed on import matches. `std`-only like every additional-data
@@ -57,7 +55,7 @@ pub mod jam_proof_finalizer;
 #[cfg(feature = "std")]
 pub use jam::JamStateExt;
 pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(any(jam, not(substrate_runtime)))]
 pub use jam_proof::JamProofReader;
 #[cfg(feature = "std")]
 pub use jam_proof_finalizer::JamProofFinalizer;

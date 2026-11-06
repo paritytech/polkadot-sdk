@@ -62,7 +62,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	where
 		KeyArg: EncodeLike<K>,
 	{
-		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let storage_prefix = Self::prefix_hash();
 		let key_hashed = key.using_encoded(Self::Hasher::hash);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());

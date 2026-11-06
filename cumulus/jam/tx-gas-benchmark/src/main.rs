@@ -10,6 +10,7 @@
 
 mod block;
 mod jam_state;
+mod profile;
 mod refine;
 
 use clap::Parser;
@@ -28,6 +29,10 @@ struct Cli {
 	/// Transactions in the measured block.
 	#[arg(long, default_value_t = 50)]
 	transactions: u32,
+	/// Attribute the refine gas instruction by instruction and write the result under this
+	/// directory (per function, per call stack, per program counter).
+	#[arg(long)]
+	profile: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -67,8 +72,8 @@ fn run(cli: Cli) -> Result<(), String> {
 	let empty = chain.build(0)?;
 	let full = chain.build(cli.transactions)?;
 
-	let empty_gas = measure(&pvf, &empty)?;
-	let full_gas = measure(&pvf, &full)?;
+	let empty_gas = measure(&pvf, &empty, cli.profile.as_deref().map(|_| "empty"))?;
+	let full_gas = measure(&pvf, &full, cli.profile.as_deref().map(|_| "full"))?;
 	if cli.transactions > 0 {
 		println!(
 			"per transaction: {} gas",
@@ -79,10 +84,17 @@ fn run(cli: Cli) -> Result<(), String> {
 }
 
 /// Refine `block` and check that the runtime validated it, returning the inner PVM's gas.
-fn measure(pvf: &refine::Pvf, block: &block::BuiltBlock) -> Result<i64, String> {
+fn measure(
+	pvf: &refine::Pvf,
+	block: &block::BuiltBlock,
+	profile: Option<&str>,
+) -> Result<i64, String> {
 	let what = format!("block #{} with {} transactions", block.number, block.transactions);
-	let outcome = refine::run(pvf, &block.pov, &block.refine_context)
-		.map_err(|error| format!("refine of {what} failed: {error}"))?;
+	let outcome = match profile {
+		Some(label) => refine::run_profiled(pvf, &block.pov, &block.refine_context, label),
+		None => refine::run(pvf, &block.pov, &block.refine_context),
+	}
+	.map_err(|error| format!("refine of {what} failed: {error}"))?;
 	// The service stores a block's hash as its head and binds the parent through the hash of the
 	// encoded parent hash.
 	if outcome.head.as_deref() != Some(&block.hash.encode()[..]) {

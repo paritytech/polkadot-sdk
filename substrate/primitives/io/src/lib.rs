@@ -85,6 +85,9 @@ mod global_alloc;
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, jam, target_arch = "riscv64"))]
 mod global_alloc_riscv;
 
+#[cfg(all(substrate_runtime, jam, target_arch = "riscv64"))]
+mod mem_riscv;
+
 /// Host functions for the relay chain runtime.
 #[cfg(not(jam))]
 pub mod relay_chain;
