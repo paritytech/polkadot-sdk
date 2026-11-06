@@ -23,6 +23,7 @@ use crate::{
 	debug::DebugSettings,
 	exec::Ext,
 	limits,
+	metering::EngineMeter,
 	primitives::ExecReturnValue,
 	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
 };
@@ -37,15 +38,10 @@ use sp_runtime::{DispatchError, SaturatedConversion};
 
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
-	///
-	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
-	/// don't make use of this buffer. Hence this should not be set to anything
-	/// other than `0` when not used for benchmarking.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
-		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		// Log filtering by level with log::enabled! returns always true,
@@ -69,7 +65,9 @@ impl<T: Config> ContractBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_aux_data_size(aux_data_size);
+		module_config.set_interpreter_compilation_cost(Some(
+			EngineMeter::<T>::interpreter_compilation_cost(),
+		));
 		let module =
 			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
 				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");

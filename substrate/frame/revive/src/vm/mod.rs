@@ -120,6 +120,11 @@ impl ExportedFunction {
 }
 
 /// Cost of code loading from storage.
+///
+/// For PVM code the slope of `interpreter_cache_rebuild` is left out: the callee of
+/// `call_with_pvm_code_per_byte` allocates its map of compiled blocks, which the interpreter
+/// charges as gas. The compilation of its entry block is in the benchmark's intercept and is
+/// charged by the interpreter too.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeLoadToken {
@@ -135,19 +140,14 @@ impl CodeLoadToken {
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
+		let slope = |weight: fn(u32) -> Weight| weight(self.code_len).saturating_sub(weight(0));
 		match self.code_type {
-			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
-			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
-			// instructions here. Let's consider this as a safety margin.
-			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
-				.saturating_add(
-					T::WeightInfo::basic_block_compilation(1)
-						.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-						.set_proof_size(0),
-				),
-			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
+			BytecodeType::Pvm => {
+				let code_map = slope(T::WeightInfo::interpreter_cache_rebuild);
+				slope(T::WeightInfo::call_with_pvm_code_per_byte)
+					.saturating_sub_ref_time(code_map.ref_time())
+			},
+			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte),
 		}
 	}
 }
@@ -353,8 +353,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.code_info().is_pvm() {
-			let prepared_call =
-				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			let prepared_call = self.prepare_call(pvm::Runtime::new(ext, input_data), function)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
 			use revm::bytecode::Bytecode;

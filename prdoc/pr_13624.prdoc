@@ -1,0 +1,149 @@
+title: '[pallet-revive] PolkaVM 0.38: the interpreter meters compilation, new ref time per gas'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    PolkaVM is bumped from 0.36 to 0.38 (`polkavm`, `polkavm-common`, `polkavm-derive`,
+    `polkavm-linker`). PolkaVM 0.38 lets the interpreter charge gas for compiling contract code,
+    and `pallet-revive` now configures that cost from its benchmarks. The `pallet-revive`
+    fixtures build template follows the workspace pin.
+
+    Compilation cost, charged as PolkaVM gas by the interpreter:
+
+    - Per compiled basic block of `n` instructions:
+      `per_block + ceil(n * per_instruction_millis / 1000)`. Every block a contract enters is
+      charged when it is compiled, and again whenever it is compiled after the interpreter
+      dropped its compiled code.
+    - Per byte of the code section: `ceil(code_len * per_code_byte_millis / 1000)`, charged when
+      the interpreter allocates its map of compiled blocks. That happens on the first compilation
+      of a call, on the first compilation after every call, delegate call, pre-compile call and
+      instantiation the contract makes, and when the map is rewritten after many cache resets.
+    - The values come from the slopes of `interpreter_compile_per_instruction`,
+      `interpreter_compile_per_block` and `interpreter_cache_rebuild`, converted with the ref time
+      per gas and rounded up. The first two compile the instruction and the block terminator
+      that took the longest to compile in a local measurement: `store_imm_indirect_u64` and a
+      branch.
+    - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
+      the ref time slope of `interpreter_cache_rebuild`, since the interpreter charges the map of
+      compiled blocks as gas. The code load charge no longer adds the compilation of one
+      maximum-sized basic block. The pallet's `integrity_test` asserts that the first slope is
+      larger than the second.
+    - Compiling a block and allocating the map of compiled blocks can both leave the
+      interpreter's gas negative. `pallet-revive` then charges all the ref time it handed to the
+      interpreter and fails the call frame with `OutOfGas`. The proof size is not affected.
+
+    Ref time per PolkaVM gas, the largest of nine measurements:
+
+    - `instr_load_chain_<m>(r)` for `m` in `0..8` runs `r` iterations of dependent 8 byte loads.
+      They follow a random cycle through 1024 slots 128 bytes apart, which stays in the L2 but
+      not in the L1 data cache of the reference hardware, and `r` goes around the cycle several
+      times. Contract memory is priced as L2 resident. Variant `m` places every value at the
+      `m`-th of the 8 offsets modulo 64 an 8 byte aligned host buffer can give it, so in one
+      variant every load spans two cache lines. Each slope is divided by the gas of one
+      iteration.
+    - `instr_indirect_jump(r)` runs `r` laps of indirect jumps through a random cycle of 3000
+      compiled basic blocks. The interpreter data a lap reads, about 205 KiB, stays in the L2
+      but not in the L1 data cache of the reference hardware. Its slope is divided by the gas
+      of one lap.
+    - The pallet's `integrity_test` asserts that the derived ref time per gas is not zero.
+
+    `WeightInfo` changes, which break every runtime that implements it with its own weights:
+
+    - Removed: `basic_block_compilation(b)`, `instr(r)`, `instr_empty_loop(r)`.
+    - Added: `interpreter_compile_per_instruction(n)`, `interpreter_compile_per_block(b)`,
+      `interpreter_cache_rebuild(c)`, `instr_load_chain_0(r)` to `instr_load_chain_7(r)`,
+      `instr_indirect_jump(r)`.
+
+    To migrate, regenerate the runtime's `pallet_revive` weights with the new benchmarks before
+    upgrading. Renaming the functions is not enough: the ref time per gas and the compilation
+    cost come from their slopes.
+
+    ```rust
+    // Before
+    fn basic_block_compilation(b: u32, ) -> Weight { ... }
+    fn instr(r: u32, ) -> Weight { ... }
+    fn instr_empty_loop(r: u32, ) -> Weight { ... }
+
+    // After
+    fn interpreter_compile_per_instruction(n: u32, ) -> Weight { ... }
+    fn interpreter_compile_per_block(b: u32, ) -> Weight { ... }
+    fn interpreter_cache_rebuild(c: u32, ) -> Weight { ... }
+    fn instr_load_chain_0(r: u32, ) -> Weight { ... }
+    // ... one function per variant ...
+    fn instr_load_chain_7(r: u32, ) -> Weight { ... }
+    fn instr_indirect_jump(r: u32, ) -> Weight { ... }
+    ```
+
+    Other API changes:
+
+    - `ContractBlob::prepare_call` and `CallSetup::prepare_call` lose their `aux_data_size`
+      argument, and `PreparedCall` loses `aux_data_base` and `setup_aux_data`. No contract can
+      access the aux data, and no benchmark uses it anymore.
+    - With the `runtime-benchmarks` feature, `PreparedCall` gains `memory_map`, `write_memory`,
+      `set_reg` and `reset_interpreter_cache`. `VmBinaryModule` in `call_builder` gains
+      `with_entry_block`, `with_branch_blocks`, `with_code_bytes`, `with_load_chain`,
+      `with_indirect_jump_cycle`, `BRANCH_BLOCKS`, `MAX_CODE_BYTES`, `LOAD_CHAIN_SLOTS` and
+      `LOAD_CHAIN_SLOT_BYTES`, and loses `instr`.
+    - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink` and `Reverter`
+      Solidity contracts.
+
+    Other runtime crates that use PolkaVM:
+
+    - `sp-io`, `pallet-revive-uapi`, `sp-virtualization-test-fixture` and
+      `substrate-wasm-builder` only change their PolkaVM dependency. No PolkaVM item appears in
+      their API, and no migration is needed.
+    - `sp-runtime-interface` re-exports the `polkavm_export` and `polkavm_import` macros of
+      `polkavm-derive`. `polkavm-derive` 0.38 has the same source as 0.36, so the macros behave
+      the same and no migration is needed.
+- audience: Node Dev
+  description: |-
+    The client crates that use PolkaVM move from `polkavm` 0.36 to 0.38.
+
+    - `sc-executor-common` (`RuntimeBlob::as_polkavm_blob`) and `sc-executor-polkavm`
+      (`create_runtime`) expose `polkavm::ProgramBlob` in their API, which is the 0.38 type.
+      The `From` impls of `sc-executor-common` convert from the 0.38 types:
+      `polkavm::program::ProgramParseError`, `polkavm::Error` and `polkavm::CompileError` into
+      `WasmError`, and `polkavm::Error` into `Error`. Code that passes PolkaVM types to these
+      crates must use `polkavm` 0.38.
+    - `sc-virtualization` only changes its PolkaVM dependency. No PolkaVM item appears in its
+      API, and no migration is needed.
+- audience: Runtime User
+  description: |-
+    The ref time charged per PolkaVM gas changes with the new weights. It covers the more
+    expensive of dependent loads from the L2 cache and indirect jumps between compiled
+    basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 30303 ps
+    before.
+
+    Compiling contract code is charged as gas: on Asset Hub Westend 4 gas per basic block,
+    1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
+    byte part is charged again after every call a PVM contract makes. The weight charged for
+    loading the code of a PVM contract no longer includes the compilation of one maximum-sized
+    basic block or the map of compiled blocks, which the interpreter charges as gas. On Asset Hub
+    Westend it is 1545 ps of ref time per byte of the code blob.
+
+    PVM execution and calls cost more weight than before. Contracts that pass fixed weight
+    limits to their sub-calls may need to raise those limits.
+
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-polkavm
+  bump: major
+- name: sc-virtualization
+  bump: patch
+- name: sp-io
+  bump: patch
+- name: sp-runtime-interface
+  bump: patch
+- name: substrate-wasm-builder
+  bump: patch
+- name: sp-virtualization-test-fixture
+  bump: patch

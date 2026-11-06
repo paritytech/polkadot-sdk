@@ -155,6 +155,79 @@ fn evict_caches() {
 	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 }
 
+/// The most iterations of the `instr_load_chain_<m>` benchmarks.
+///
+/// An iteration makes `LOAD_CHAIN_GAS - 3` loads, so the largest `r` goes around the cycle of
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots several times.
+const LOAD_CHAIN_ITERATIONS: u32 = 20;
+
+/// The most laps of the `instr_indirect_jump` benchmark.
+///
+/// A lap makes `INDIRECT_JUMP_GAS - 2` indirect jumps, so the largest `r` makes about 400000.
+const INDIRECT_JUMP_LAPS: u32 = 400_000 / (crate::metering::INDIRECT_JUMP_GAS - 2);
+
+/// Prepares the call of the `instr_load_chain_<m>` benchmark for variant `m` and `r` iterations.
+///
+/// Each iteration runs [`crate::metering::LOAD_CHAIN_GAS`] gas: the loop condition, a basic block
+/// of dependent 8 byte loads, the counter increment and the jump back (see
+/// [`VmBinaryModule::with_load_chain`]). The loads follow a random cycle through the
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots of the contract's read-write data, and `r` may go
+/// around the cycle several times. Every value is at `LOAD_CHAIN_SLOT_OFFSET - 8 * m` in its
+/// slot, so in one of the variants every load spans two host cache lines (see the comment on
+/// `LOAD_CHAIN_SLOT_OFFSET` below). Writing the chain brings it into the CPU caches, where it
+/// stays in the L2 but not in the L1 data cache of the reference hardware (see
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`]). Every load therefore waits for the previous one to
+/// come from the L2 cache, which is where the cost per gas assumes contract memory to be.
+///
+/// `r` starts at 1: the interpreter compiles the loop body when execution first enters it, which
+/// `r = 0` never does. With every `r` running at least one iteration, compiling the loop is in
+/// the intercept and the slope is one iteration over compiled code.
+///
+/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope of every variant by
+/// [`crate::metering::LOAD_CHAIN_GAS`] and takes the largest.
+fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u32) {
+	// The largest offset of the 8 byte value in a slot. Variant `m` puts the value of every slot
+	// at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
+	//
+	// An 8 byte load spans two 64 byte cache lines when it starts in the last 7 bytes of a line.
+	// The interpreter keeps the read-write data in a byte vector, whose host address is only
+	// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
+	// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
+	// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
+	// exactly one variant has every load span two cache lines. This relies on all 8 variants
+	// placing the read-write data at the same host address, which holds because they run the same
+	// setup with the same allocations. Every value ends within its slot, so values of different
+	// slots do not overlap.
+	const LOAD_CHAIN_SLOT_OFFSET: u32 = 60;
+	const {
+		let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
+		// All values of a variant have the same position modulo 64.
+		assert!(slot_bytes.is_multiple_of(64));
+		// The 8 offsets are the 8 positions modulo 64 that are 4 past an 8 byte boundary.
+		assert!(LOAD_CHAIN_SLOT_OFFSET % 8 == 4 && LOAD_CHAIN_SLOT_OFFSET >= 8 * 7);
+		// The value at the largest offset ends within its slot.
+		assert!(LOAD_CHAIN_SLOT_OFFSET + 8 <= slot_bytes);
+	}
+
+	let slots = VmBinaryModule::LOAD_CHAIN_SLOTS;
+	let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
+	let base = prepared.memory_map().rw_data_address();
+	let offset = LOAD_CHAIN_SLOT_OFFSET - 8 * m;
+	let address = |slot: u32| base + slot * slot_bytes + offset;
+	let mut order: Vec<u32> = (0..slots).collect();
+	order.shuffle(&mut Pcg64::seed_from_u64(1337));
+	// Only the chain's values are written, so the chain is all the memory the setup brings into
+	// the caches right before the call.
+	for (k, &slot) in order.iter().enumerate() {
+		let next = order[(k + 1) % order.len()];
+		prepared
+			.write_memory(address(slot), &u64::from(address(next)).to_le_bytes())
+			.unwrap();
+	}
+	prepared.set_reg(polkavm::Reg::A0, address(order[0]).into());
+	prepared.set_reg(polkavm::Reg::A1, r.into());
+}
+
 /// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
 fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
 	values
@@ -601,14 +674,16 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`, minus the ref time slope
+	// of `interpreter_cache_rebuild`.
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
 	//
-	// We expect the influence of `c` to be none in this benchmark because every instruction that
-	// is not in the first basic block is never read. We are primarily interested in the
-	// `proof_size` result of this benchmark.
+	// The callee allocates its map of compiled blocks, one entry per byte of code. The
+	// interpreter charges that as gas, so the code load charge leaves out its slope. The
+	// remaining slope is reading the code from storage and decoding it. We are primarily
+	// interested in the `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
@@ -665,21 +740,24 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Measure the amount of time it takes to compile a single basic block.
-	//
-	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
-	//
-	// This is needed because the interpreter will always compile a whole basic block at
-	// a time. To prevent a contract from triggering compilation without doing any execution
-	// we will always charge one max sized block per contract call.
-	//
-	// We ignore the proof size component when using this benchmark as this is already accounted
-	// for in `call_with_pvm_code_per_byte`.
+	/// Measures the time the interpreter needs to compile one instruction of a basic block.
+	///
+	/// The interpreter compiles a basic block when execution first enters it. The called
+	/// contract stops at the first instruction of its entry block, which has `n` instructions
+	/// (see [`VmBinaryModule::with_entry_block`]). The code has the same size for every `n`, so
+	/// the call reads the same storage items of the same size and the slope is the time to
+	/// compile one more instruction of the entry block, including its gas cost calculation.
+	///
+	/// Only the ref time slope is used, for the gas the interpreter charges per compiled
+	/// instruction (see [`crate::metering::EngineMeter::interpreter_compilation_cost`]). Loading
+	/// the code is charged by `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
-	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn interpreter_compile_per_instruction(
+		n: Linear<2, { limits::code::BASIC_BLOCK_SIZE }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
-			VmBinaryModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			VmBinaryModule::with_entry_block(n),
 			vec![],
 		)?;
 		let value = Pallet::<T>::min_balance();
@@ -698,6 +776,72 @@ mod benchmarks {
 		}
 
 		Ok(())
+	}
+
+	/// Measures the time the interpreter needs to compile and enter a basic block of one
+	/// instruction.
+	///
+	/// The called contract runs through `b` blocks that each hold one taken branch before it
+	/// stops (see [`VmBinaryModule::with_branch_blocks`]). The code has the same size for every
+	/// `b`. The slope is the time to compile one block of one instruction and to execute that
+	/// instruction. The per block cost of compilation is this slope minus the slope of
+	/// `interpreter_compile_per_instruction`. It keeps the execution of the branch, which is
+	/// small and already charged as gas.
+	///
+	/// Only the ref time slope is used, for the gas the interpreter charges per compiled block
+	/// (see [`crate::metering::EngineMeter::interpreter_compilation_cost`]). Loading the code is
+	/// charged by `call_with_pvm_code_per_byte`.
+	#[benchmark(pov_mode = Measured)]
+	fn interpreter_compile_per_block(
+		b: Linear<0, { VmBinaryModule::BRANCH_BLOCKS }>,
+	) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::with_branch_blocks(b),
+			vec![],
+		)?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::call(
+				RawOrigin::Signed(instance.caller.clone()).into(),
+				instance.address,
+				value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+			)?;
+		}
+
+		Ok(())
+	}
+
+	/// Measures rebuilding the interpreter state of a contract after it called another
+	/// contract, per byte of its code section.
+	///
+	/// Before a call or an instantiation the caller drops its interpreter state. The first
+	/// block it compiles afterwards allocates it again, including a map with one entry for every
+	/// byte of its code section. A new instance starts with the same empty state. The measured
+	/// block drops the state of a prepared instance and runs it, which compiles its entry block
+	/// of two instructions and stops. The code section has `c` bytes and the entry block is the
+	/// same for every `c` (see [`VmBinaryModule::with_code_bytes`]), so the slope is the
+	/// rebuild per byte of code. The compilation of the entry block is in the intercept.
+	///
+	/// The interpreter charges the slope per byte of code section whenever it allocates or
+	/// rewrites the map, see [`crate::metering::EngineMeter::interpreter_compilation_cost`].
+	#[benchmark(pov_mode = Ignored)]
+	fn interpreter_cache_rebuild(c: Linear<0, { VmBinaryModule::MAX_CODE_BYTES }>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_code_bytes(c));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+
+		#[block]
+		{
+			prepared.reset_interpreter_cache().unwrap();
+			prepared.call().unwrap();
+		}
 	}
 
 	// `c`: Size of the code in bytes.
@@ -1089,7 +1233,7 @@ mod benchmarks {
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::noop());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -4309,69 +4453,14 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
-	// Benchmark the execution of instructions.
-	//
-	// It benchmarks the absolute worst case by allocating a lot of memory
-	// and then accessing it so that each instruction generates two cache misses.
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `60` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, 10_000>) {
-		use rand::{SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		// Ideally, this needs to be bigger than the cache.
-		const MEMORY_SIZE: u64 = sp_core::MAX_POSSIBLE_ALLOCATION as u64;
-
-		// This is benchmarked for x86-64.
-		const CACHE_LINE_SIZE: u64 = 64;
-
-		// An 8 byte load from this misalignment will reach into the subsequent line.
-		const MISALIGNMENT: u64 = 60;
-
-		// We only need one address per cache line.
-		// -1 because we skip the first address
-		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
-
-		assert!(
-			u64::from(r) <= NUM_ADDRESSES / 2,
-			"If we do too many iterations we run into the risk of loading from warm cache lines",
-		);
-
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(true));
+	fn instr_load_chain_0(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
 		let (mut ext, module) = setup.ext();
-		let mut prepared =
-			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
-
-		assert!(
-			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
-			"aux data base must be cache aligned"
-		);
-
-		// Addresses data will be located inside the aux data.
-		let misaligned_base = u64::from(prepared.aux_data_base()) + MISALIGNMENT;
-
-		// Create all possible addresses and shuffle them. This makes sure
-		// the accesses are random but no address is accessed more than once.
-		// we skip the first address since it is our entry point
-		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
-		for i in 1..NUM_ADDRESSES {
-			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
-			addresses.push(addr);
-		}
-		let mut rng = Pcg64::seed_from_u64(1337);
-		addresses.shuffle(&mut rng);
-
-		// The addresses need to be padded to be one cache line apart.
-		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
-		for address in addresses {
-			memory.extend_from_slice(&address);
-			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
-		}
-
-		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
-		// Sets `a0 = MISALIGNMENT` and `a1 = r`.
-		prepared
-			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
-			.unwrap();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 0, r);
 
 		#[block]
 		{
@@ -4379,12 +4468,139 @@ mod benchmarks {
 		}
 	}
 
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `52` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
-	fn instr_empty_loop(r: Linear<0, 10_000>) {
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
+	fn instr_load_chain_1(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
 		let (mut ext, module) = setup.ext();
-		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
-		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 1, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `44` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_2(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 2, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `36` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_3(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 3, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `28` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_4(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 4, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `20` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_5(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 5, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `12` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_6(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 6, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `4` in
+	/// its slot (see [`prepare_load_chain`]).
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_load_chain_7(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepare_load_chain(&mut prepared, 7, r);
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	/// Measures the time of one gas spent on indirect jumps between basic blocks.
+	///
+	/// Each lap runs [`crate::metering::INDIRECT_JUMP_GAS`] gas: the loop condition, the
+	/// counter increment and one indirect jump into and out of every block of a random cycle
+	/// (see [`VmBinaryModule::with_indirect_jump_cycle`]). The interpreter data a lap reads stays
+	/// in the L2 but not in the L1 data cache of the reference hardware, which is where the cost
+	/// per gas assumes it to be. A warm-up before the first lap compiles every block of the cycle
+	/// in code order, so the handlers a lap reads are scattered over the interpreter cache like
+	/// its other data. The first lap compiles the counter increment. Every `r` runs the warm-up
+	/// and at least one lap, so all compilation is in the intercept and the slope is one lap over
+	/// compiled blocks. The contract compiles to 6018 cache entries of 24 bytes, 141 KiB of the
+	/// 1 MiB interpreter cache, so the cache never resets and no block is compiled twice.
+	///
+	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops its
+	/// compiled blocks at every call into another contract and compiles a block again when
+	/// execution next enters it. A block is therefore cold only right after its compilation,
+	/// which `interpreter_compile_per_block` and `interpreter_compile_per_instruction` measure
+	/// and the interpreter charges every time it compiles a block, and later jumps to it find it
+	/// compiled.
+	///
+	/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope by
+	/// [`crate::metering::INDIRECT_JUMP_GAS`].
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_indirect_jump(r: Linear<1, INDIRECT_JUMP_LAPS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_indirect_jump_cycle());
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
+		prepared.set_reg(polkavm::Reg::A1, r.into());
 
 		#[block]
 		{

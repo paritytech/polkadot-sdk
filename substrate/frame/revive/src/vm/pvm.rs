@@ -84,7 +84,7 @@ pub trait Memory<T: Config> {
 	/// This is used before we call into a new contract to free up some memory. Doing
 	/// so we make sure that we only ever have to hold one compilation cache at a time
 	/// independtently of of our call stack depth.
-	fn reset_interpreter_cache(&mut self);
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError>;
 
 	/// Read designated chunk from the sandbox memory.
 	///
@@ -178,7 +178,9 @@ impl<T: Config> Memory<T> for [u8] {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
 
-	fn reset_interpreter_cache(&mut self) {}
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		Ok(())
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -200,8 +202,11 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
-	fn reset_interpreter_cache(&mut self) {
-		self.reset_interpreter_cache();
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		self.reset_interpreter_cache().map_err(|err| {
+			log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+			Error::<T>::ExecutionFailed.into()
+		})
 	}
 }
 
@@ -691,7 +696,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
-		memory.reset_interpreter_cache();
+		memory.reset_interpreter_cache()?;
 
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
@@ -802,7 +807,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(salt)
 		};
 
-		memory.reset_interpreter_cache();
+		memory.reset_interpreter_cache()?;
 
 		match self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
@@ -879,34 +884,36 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		sync_result?;
 		exec_result
 	}
+}
 
-	/// The guest memory address at which the aux data is located.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
+/// Access to the instance for the benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+impl<'a, E: Ext> PreparedCall<'a, E> {
+	/// The memory map of the contract.
+	pub fn memory_map(&self) -> &polkavm::MemoryMap {
+		self.instance.module().memory_map()
 	}
 
-	/// Copies `data` to the aux data at address `offset`.
-	///
-	/// It sets `a0` to the beginning of data inside the aux data.
-	/// It sets `a1` to the value passed.
-	///
-	/// Only used in benchmarking so far.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn setup_aux_data(
+	/// Writes `data` to the contract's memory at `address`.
+	pub fn write_memory(
 		&mut self,
+		address: u32,
 		data: &[u8],
-		offset: u32,
-		a1: u64,
 	) -> frame_support::dispatch::DispatchResult {
-		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
-			Error::<E::T>::CodeRejected
-		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
-		Ok(())
+		self.instance.write_memory(address, data).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to write memory: {err:?}");
+			Error::<E::T>::CodeRejected.into()
+		})
+	}
+
+	/// Sets the register `reg` to `value`.
+	pub fn set_reg(&mut self, reg: polkavm::Reg, value: u64) {
+		self.instance.set_reg(reg, value);
+	}
+
+	/// Drops the interpreter state of the contract, as a sub-call does.
+	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		Memory::<E::T>::reset_interpreter_cache(&mut self.instance)
 	}
 }
 
@@ -934,7 +941,9 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn reset_interpreter_cache(&mut self) {}
+		fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
 	}
 
 	#[test]

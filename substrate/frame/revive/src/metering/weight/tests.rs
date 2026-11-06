@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Token, Weight, WeightMeter};
+use super::{EngineMeter, Token, Weight, WeightMeter};
 use crate::tests::Test;
 
 /// A simple utility macro that helps to match against a
@@ -148,4 +148,44 @@ fn overcharge_does_not_charge() {
 fn charge_exact_amount() {
 	let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(25, 0), None);
 	assert!(!weight_meter.charge(SimpleToken(25)).is_err());
+}
+
+/// Negative gas left in the executor means it used all the gas it was given and more.
+///
+/// The proof size is not affected.
+#[test]
+fn negative_executor_gas_consumes_all_gas() {
+	let mut weight_meter =
+		WeightMeter::<Test>::new(Weight::from_parts(1_000_000_000, 1_000_000), None);
+	let gas = u64::try_from(weight_meter.sync_to_executor()).unwrap();
+	assert!(gas > 0);
+
+	assert!(weight_meter.sync_from_executor(-1).is_err());
+	let ref_time_per_fuel = EngineMeter::<Test>::ref_time_per_fuel();
+	assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(gas * ref_time_per_fuel, 0));
+	assert!(weight_meter.weight_left().ref_time() < ref_time_per_fuel);
+}
+
+/// The compilation cost is converted to gas and thousandths of gas, rounding up and saturating.
+#[test]
+fn compilation_cost_rounds_up() {
+	let convert = EngineMeter::<Test>::compilation_cost_from_ref_time;
+	let cost = |per_block, per_instruction_millis, per_code_byte_millis| {
+		polkavm::InterpreterCompilationCost {
+			per_block,
+			per_instruction_millis,
+			per_code_byte_millis,
+		}
+	};
+
+	assert_eq!(convert(0, 0, 0, 7), cost(0, 0, 0));
+	// Exact multiples of the ref time per gas.
+	assert_eq!(convert(2000, 3, 5, 1000), cost(2, 3, 5));
+	// One ref time more costs one more gas or thousandth of gas.
+	assert_eq!(convert(2001, 3, 5, 1000), cost(3, 3, 5));
+	assert_eq!(convert(1, 1, 1, 3000), cost(1, 1, 1));
+	assert_eq!(convert(5999, 5999, 5999, 3000), cost(2, 2000, 2000));
+	assert_eq!(convert(6001, 6001, 6001, 3000), cost(3, 2001, 2001));
+	// Values beyond `u32` saturate.
+	assert_eq!(convert(u64::MAX, u64::MAX, u64::MAX, 1), cost(u32::MAX, u32::MAX, u32::MAX));
 }

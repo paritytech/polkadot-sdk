@@ -1253,6 +1253,18 @@ pub mod pallet {
 
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
+			assert!(
+				crate::metering::EngineMeter::<T>::ref_time_per_fuel() > 0,
+				"The ref time per PolkaVM gas derived from the weights must not be 0"
+			);
+
+			let slope = |weight: fn(u32) -> Weight| weight(1).saturating_sub(weight(0)).ref_time();
+			assert!(
+				slope(T::WeightInfo::call_with_pvm_code_per_byte) >
+					slope(T::WeightInfo::interpreter_cache_rebuild),
+				"The PVM code load weight per byte must exceed the code map weight per byte"
+			);
+
 			T::FeeInfo::integrity_test();
 
 			// The memory available in the block building runtime
