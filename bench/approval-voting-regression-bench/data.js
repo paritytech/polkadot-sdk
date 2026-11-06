@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793982855552,
+  "lastUpdate": 1793996873842,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1eea8c142f2ed5db6a8a281e35e1bf6b32f48988",
-          "message": "Remove DDayBodyId from Westend relay chain (#11843)\n\nPost-AHM cleanup following #11796. The DDay plurality origin in\n`AuthorizeCurrentCodeOrigin` is no longer needed since governance lives\non AssetHub. Simplified to `EnsureRoot`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T18:36:59Z",
-          "tree_id": "40d254189b4c2b4208538cd037f86d25a672bd55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1eea8c142f2ed5db6a8a281e35e1bf6b32f48988"
-        },
-        "date": 1776802247470,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.159999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.799416348129998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7478289953399703,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8481785868900014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002026232,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001994186,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001994186,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005415209400000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002026232,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.55863601247997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.289832404862738,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8786125048000017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4486438820499967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8305404858700016,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000017050530000000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "olivarra1@gmail.com",
+            "name": "Victor Oliva",
+            "username": "voliva"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4",
+          "message": "[referenda] Add `slash_submission_deposit` extrinsic (#11524)\n\n# Description\n\nCloses #1690 \n\nAdds a new `slash_submission_deposit` extrinsic to `pallet-referenda`\nthat allows slashing the submission deposit for referenda that have been\nRejected or TimedOut.\n\nThis complements the existing `refund_submission_deposit` which only\nworks for Approved or Cancelled referenda. Previously, there was no way\nto slash submission deposits for failed referenda, which causes affected\naccounts to keep a reserved balance preventing that account from getting\ndeleted.\n\n## Integration\n\nThis PR adds a new extrinsic `slash_submission_deposit` with the next\ncall index assigned (9) to not break previous extrinsics. Integration\nshould be automatic.\n\n## Review Notes\n\nThe implementation mirrors `refund_submission_deposit` but calls\n`slash_deposit` instead of `refund_deposit`.\n\nI've recreated `take_submission_deposit` into\n`take_slash_submission_deposit`, which I think better documents which\nstates are appropriate for each case: For slashing, it only succeeds for\nRejected or TimedOut states.\n\nKey changes:\n\nNote: Weights are placeholder values copied from\n`refund_submission_deposit`. Please run /cmd bench --pallet\npallet_referenda to generate accurate weights before merging, as I don't\nhave permission to do that if I'm not wrong.\n\nOne outstanding question: I'm thinking that maybe it would make sense\nfor this extrinsic to be free in terms of fees if it succeeds.\n\nCurrently, the only incentive someone may have to call this extrinsic is\nif they want to recover the existential deposit, which might not be\nworth it if the ED is too small. As for the chain it's beneficial to\nalso cleanup storage, it might be worth considering making this\ntransaction free.\n\nBut I don't know if that's something that's usually done in these cases\nor what... so I went for the safest option of making it Pays::Yes (the\ndefault). Please let me know if it makes sense to have this transaction\nfree, and I'll change it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-06T18:21:40Z",
+          "tree_id": "9b5798bf39f9484b3bf8d8ef453174ebbf6396dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4"
+        },
+        "date": 1793996846582,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63570.64,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021029939999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021029939999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002086456,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.73466186729,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.444278584592818,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7993762125300055,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.744438527170003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002086456,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.77140905988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005420352400000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.204958814000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7874601821999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.362192612530005,
             "unit": "seconds"
           }
         ]
