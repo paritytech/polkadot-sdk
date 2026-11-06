@@ -554,12 +554,14 @@ impl VmBinaryModule {
 	/// L1 data cache of the reference hardware: Intel Ice Lake (48 KiB L1D of 12 ways, 1.25 MiB
 	/// L2 of 20 ways) and AMD Zen 3 (32 KiB L1D of 8 ways, 512 KiB L2 of 8 ways), all with 64
 	/// byte lines, 64 L1D sets and 1024 L2 sets. A load touches one line, or two in the
-	/// benchmark variant where every load spans two lines. With slots two lines apart, the 2048
-	/// lines (128 KiB) of the other variants map to every other set and the 4096 lines (256 KiB)
-	/// of the spanning variant to every set. Either way each L1D set in use receives 64 lines
-	/// against at most 12 ways, and each L2 set on average 4, half the ways of the Zen 3 L2. The
-	/// L2 is indexed by physical address, so the actual count per set varies around that.
-	pub const LOAD_CHAIN_SLOTS: u32 = 2048;
+	/// benchmark variant where every load spans two lines. With slots two lines apart, the 1024
+	/// lines (64 KiB) of the other variants map to every other set and the 2048 lines (128 KiB)
+	/// of the spanning variant to every set. Either way each L1D set in use receives 32 lines
+	/// against at most 12 ways, and each L2 set 2 lines, a quarter of the Zen 3 ways. The L2 is
+	/// physically indexed, so 2 lines per set is an average that depends on where the 32 4 KiB
+	/// pages of the chain land. Every load also takes a DTLB lookup; the 32 pages fit the 64 entry
+	/// L1 DTLB of both.
+	pub const LOAD_CHAIN_SLOTS: u32 = 1024;
 
 	/// The distance between two slots of [`Self::with_load_chain`] in bytes.
 	///

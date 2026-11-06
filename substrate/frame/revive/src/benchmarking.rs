@@ -191,9 +191,18 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 	// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
 	// exactly one variant has every load span two cache lines. This relies on all 8 variants
 	// placing the read-write data at the same host address, which holds because they run the same
-	// setup with the same allocations. Every value ends within the first 68 bytes of its slot, so
-	// values of different slots do not overlap.
+	// setup with the same allocations. Every value ends within its slot, so values of different
+	// slots do not overlap.
 	const LOAD_CHAIN_SLOT_OFFSET: u32 = 60;
+	const {
+		let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
+		// All values of a variant have the same position modulo 64.
+		assert!(slot_bytes.is_multiple_of(64));
+		// The 8 offsets are the 8 positions modulo 64 that are 4 past an 8 byte boundary.
+		assert!(LOAD_CHAIN_SLOT_OFFSET % 8 == 4 && LOAD_CHAIN_SLOT_OFFSET >= 8 * 7);
+		// The value at the largest offset ends within its slot.
+		assert!(LOAD_CHAIN_SLOT_OFFSET + 8 <= slot_bytes);
+	}
 
 	let slots = VmBinaryModule::LOAD_CHAIN_SLOTS;
 	let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
@@ -202,13 +211,14 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 	let address = |slot: u32| base + slot * slot_bytes + offset;
 	let mut order: Vec<u32> = (0..slots).collect();
 	order.shuffle(&mut Pcg64::seed_from_u64(1337));
-	let mut memory = vec![0u8; (slots * slot_bytes) as usize];
+	// Only the chain's values are written, so the chain is all the memory the setup brings into
+	// the caches right before the call.
 	for (k, &slot) in order.iter().enumerate() {
 		let next = order[(k + 1) % order.len()];
-		let at = (address(slot) - base) as usize;
-		memory[at..at + 8].copy_from_slice(&u64::from(address(next)).to_le_bytes());
+		prepared
+			.write_memory(address(slot), &u64::from(address(next)).to_le_bytes())
+			.unwrap();
 	}
-	prepared.write_memory(base, &memory).unwrap();
 	prepared.set_reg(polkavm::Reg::A0, address(order[0]).into());
 	prepared.set_reg(polkavm::Reg::A1, r.into());
 }

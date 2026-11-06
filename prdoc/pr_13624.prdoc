@@ -32,7 +32,7 @@ doc:
     Ref time per PolkaVM gas, the largest of nine measurements:
 
     - `instr_load_chain_<m>(r)` for `m` in `0..8` runs `r` iterations of dependent 8 byte loads.
-      They follow a random cycle through 2048 slots 128 bytes apart, which stays in the L2 but
+      They follow a random cycle through 1024 slots 128 bytes apart, which stays in the L2 but
       not in the L1 data cache of the reference hardware, and `r` goes around the cycle several
       times. Contract memory is priced as L2 resident. Variant `m` places every value at the
       `m`-th of the 8 offsets modulo 64 an 8 byte aligned host buffer can give it, so in one
