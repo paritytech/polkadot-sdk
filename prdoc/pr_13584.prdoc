@@ -1,0 +1,19 @@
+title: '`pallet-transaction-payment`: doc sweep'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes stale documentation across the transaction-payment family: the `Val`/`Pre` docs named
+      `ChargeAssetTxPayment`, which lives in the sibling crate, instead of this crate's
+      `ChargeTransactionPayment`; `remaining_txfee` referenced a nonexistent `charge_from_txfee`
+      instead of `withdraw_txfee`; asset-tx-payment still mentioned paying via `Currency`, removed
+      in #11822. Also a missing verb in the skip-feeless-payment integration docs and minor typos.
+      Docs only.
+
+crates:
+  - name: pallet-transaction-payment
+    bump: none
+  - name: pallet-asset-tx-payment
+    bump: none
+  - name: pallet-skip-feeless-payment
+    bump: none

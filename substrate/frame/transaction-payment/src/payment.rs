@@ -104,7 +104,7 @@ pub trait TxCreditHold<T: Config> {
 /// trait (eg. pallet_balances) using an unbalance handler (implementing
 /// [`OnUnbalanced`]).
 ///
-/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
+/// The unbalance handler is given two imbalances in [`OnUnbalanced::on_unbalanceds`]: `fee` and
 /// then `tip`.
 pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
 
@@ -177,7 +177,7 @@ where
 			.unwrap_or_default();
 
 		// If pallets take away too much it makes the transaction invalid. They need to make
-		// sure that this does not happen. We do not invalide the transaction because we already
+		// sure that this does not happen. We do not invalidate the transaction because we already
 		// executed it and we rather collect too little fees than none at all.
 		if remaining_credit.peek() < corrected_fee {
 			log::error!(target: LOG_TARGET, "Not enough balance on hold to pay tx fees. This is a bug.");
