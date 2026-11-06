@@ -1,0 +1,98 @@
+title: Reconcile the session key deposit against relay chain key state
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes #12443.
+
+    Asset Hub moved the session-key deposit optimistically and never learned what the relay chain did
+    with the keys: `rc_client::purge_keys` released the `KeyDeposit` before RC confirmed the purge, and
+    `ah_client::{set_keys,purge_keys}_from_ah` swallowed the `DispatchError`. A `DuplicatedKey`
+    rejection on RC therefore left the deposit held against keys that were never registered, and a
+    failed purge left live keys with no deposit backing them.
+
+    RC now reports its resulting key state after every key operation, and AH reconciles the hold
+    against it. No new storage items and no XCM types added to `rc-client`.
+
+    # Integration
+
+    Relay-chain runtimes using `pallet-staking-async-ah-client` must make three changes.
+
+    **1. Implement the new `SendToAssetHub::relay_keys_state`:**
+
+    ```rust
+    fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
+        rc_client::XCMSender::<
+            xcm_config::XcmRouter,
+            AssetHubLocation,
+            (AccountId, bool),
+            KeysStateToXcm,
+        >::send((stash, has_keys))
+    }
+    ```
+
+    **2. Add the call variant and its converter.** The codec index must be `12`, matching
+    `#[pallet::call_index(12)]` on `rc_client::Call::relay_keys_state` -- it is not the enum's
+    positional index:
+
+    ```rust
+    enum RcClientCalls<AccountId> {
+        // ..existing variants..
+        #[codec(index = 12)]
+        RelayKeysState { stash: AccountId, has_keys: bool },
+    }
+
+    pub struct KeysStateToXcm;
+    impl Convert<(AccountId, bool), Xcm<()>> for KeysStateToXcm {
+        fn convert((stash, has_keys): (AccountId, bool)) -> Xcm<()> {
+            Xcm(vec![
+                Instruction::UnpaidExecution {
+                    weight_limit: WeightLimit::Unlimited,
+                    check_origin: None,
+                },
+                Instruction::Transact {
+                    origin_kind: OriginKind::Superuser,
+                    fallback_max_weight: None,
+                    call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayKeysState {
+                        stash,
+                        has_keys,
+                    })
+                    .encode()
+                    .into(),
+                },
+            ])
+        }
+    }
+    ```
+
+    **3. `ah_client::Config::SessionInterface` gains a `ValidatorRegistration` bound.** No action is
+    needed if you use `pallet_session::Pallet` (`type SessionInterface = Session`), which already
+    implements it. Custom implementations must add it:
+
+    ```diff
+         type SessionInterface: SessionInterface<
+                 ValidatorId = Self::AccountId,
+                 AccountId = Self::AccountId,
+    -        >;
+    +        > + ValidatorRegistration<Self::AccountId>;
+    ```
+
+    ## Behaviour change
+
+    `rc_client::purge_keys` no longer releases the deposit synchronously; it is released once RC
+    reports back. Tests or tooling asserting an immediate release need updating.
+
+    ## Deployment order: RC before AH
+
+    Deploy the relay chain runtime first. RC then sends a call index AH does not have yet, the
+    `Transact` fails to decode and the message is dropped, so AH keeps behaving as before. Deploying
+    AH first is not safe: it stops releasing on purge while no report exists, so anyone who purges and
+    walks away has a permanently stuck deposit.
+
+    No storage migrations.
+crates:
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-staking-async-ah-client
+  bump: major
