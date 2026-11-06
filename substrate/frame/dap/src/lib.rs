@@ -129,6 +129,8 @@ pub trait BenchmarkHelper<AccountId, AssetKind> {
 	fn mint_ed(account: &AccountId) -> DispatchResult;
 
 	/// Create an asset, deriving its `asset_id` from `u32`.
+	///
+	/// The created asset must be sufficient.
 	fn create_asset(asset_id_seed: u32) -> Result<AssetKind, DispatchError>;
 }
 

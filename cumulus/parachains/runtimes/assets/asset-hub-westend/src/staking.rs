@@ -391,7 +391,7 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 		use frame_support::traits::fungibles::Create;
 
 		let asset_id = NativeOrWithId::WithId(asset_id_seed);
-		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), false, 1)?;
+		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), true, 1)?;
 
 		Ok(asset_id)
 	}
