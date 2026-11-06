@@ -14,10 +14,11 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Config,
-	DrawnCollators, EpochRandomness, EraCollators, EraValidatorSet, Error, Event,
-	ExpectedEraDuration, ExternalSetReceivedAt, ExternalValidatorSet, MaxCollators,
-	PendingRotation, ReportMargin, ReportPeriod, RotationState, UnexpectedKind,
+	migrations::v1::MigrateV0ToV1, mock::*, relay_proof::relay_state_proof, weights::WeightInfo,
+	AuthoredBlocks, Call, CollatorDraw, Config, DrawnCollators, EpochRandomness, EraCollators,
+	EraValidatorSet, Error, Event, ExpectedEraDuration, ExternalSetReceivedAt,
+	ExternalValidatorSet, MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState,
+	UnexpectedKind,
 };
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::{
@@ -27,7 +28,10 @@ use cumulus_pallet_parachain_system::{
 use cumulus_primitives_core::relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Hooks, UnfilteredDispatchable, ValidatorRegistration},
+	storage::unhashed,
+	traits::{
+		Hooks, OnRuntimeUpgrade, StorageVersion, UnfilteredDispatchable, ValidatorRegistration,
+	},
 	weights::{Weight, WeightMeter},
 	BoundedBTreeSet,
 };
@@ -67,7 +71,7 @@ fn register_candidate(who: u64) {
 	assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(who)));
 }
 
-fn set_cap(cap: Option<u32>) {
+fn set_cap(cap: CollatorDraw) {
 	assert_ok!(ValidatorCollators::set_max_collators(
 		RuntimeOrigin::signed(RootAccount::get()),
 		cap
@@ -123,7 +127,7 @@ fn calls_reject_wrong_origin() {
 		assert_noop!(
 			ValidatorCollators::set_max_collators(
 				RuntimeOrigin::signed(not_update_origin),
-				Some(1)
+				CollatorDraw::UpTo(1)
 			),
 			BadOrigin
 		);
@@ -211,7 +215,7 @@ fn call_listing_an_account_twice_stores_it_once() {
 #[test]
 fn received_set_is_enacted_after_two_forced_rotations() {
 	// A cap draws the validators but must not add or delay rotations.
-	for cap in [None, Some(3)] {
+	for cap in [CollatorDraw::All, CollatorDraw::UpTo(3)] {
 		build_and_execute(|| {
 			// GIVEN invulnerables 1 and 2 in force, candidate 4, and validators 10 and 11 with keys
 			initialize_to_block(1);
@@ -256,8 +260,7 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 
 			// WHEN the second forced rotation happens at block 5
 			initialize_to_block(5);
-			// THEN the session holds the deduplicated union, with the validators in account order
-			// without a cap
+			// THEN the session holds the deduplicated union, with the validators in drawn order
 			assert_eq!(Session::current_index(), 2, "cap {cap:?}");
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
 			assert_eq!(
@@ -271,10 +274,8 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 				"cap {cap:?}"
 			);
 			let drawn = drawn().unwrap();
-			let expected_drawn = match cap {
-				None => vec![2, 10, 11],
-				Some(cap) => reference_draw(expected_seed(1, [7; 32]), &[2, 10, 11], cap as usize),
-			};
+			let expected_drawn =
+				reference_draw(expected_seed(1, [7; 32]), &[2, 10, 11], cap.limit() as usize);
 			assert_eq!(drawn, expected_drawn, "cap {cap:?}");
 			let expected = [1, 2, 4]
 				.into_iter()
@@ -306,7 +307,7 @@ fn received_validator_without_keys_is_not_a_collator() {
 }
 
 #[test]
-fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
+fn set_changes_and_key_removals_reach_the_session_validators_at_the_next_rotations() {
 	build_and_execute(|| {
 		// GIVEN the era 1 set of 10, 11 and 12 is enacted while only 10 and 11 have keys
 		initialize_to_block(1);
@@ -314,8 +315,9 @@ fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
 		set_keys(11);
 		assert_ok!(receive(1, vec![10, 11, 12]));
 		initialize_to_block(3);
-		assert_eq!(drawn(), Some(vec![10, 11]));
-		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		let both = reference_draw(expected_seed(1, [7; 32]), &[10, 11, 12], 3);
+		assert_eq!(drawn(), Some(both.clone()));
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(both).collect::<Vec<_>>());
 		assert_eq!(
 			events_since_last_call(),
 			vec![
@@ -353,29 +355,29 @@ fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
 		// WHEN 12 registers keys and 11 purges its keys after the forced rotations
 		set_keys(12);
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(11)));
-		// THEN the next periodic rotation draws and queues 12 without 11, and the one after
-		// enacts it
+		// THEN the next periodic rotation queues the draw without 11, where 12 waits for the next
+		// draw, and the one after enacts it
 		initialize_to_block(10);
-		assert_eq!(drawn(), Some(vec![12]));
+		assert_eq!(drawn(), Some(vec![]));
 		assert_eq!(
 			events_since_last_call(),
 			vec![Event::CollatorsDrawn {
 				era: 2,
 				external_len: 2,
-				drawn_len: 1,
+				drawn_len: 0,
 				new_external: false
 			}]
 		);
-		assert_eq!(queued(), vec![1, 2, 12]);
+		assert_eq!(queued(), vec![1, 2]);
 		assert_eq!(Session::validators(), vec![1, 2, 11]);
 		initialize_to_block(20);
-		assert_eq!(Session::validators(), vec![1, 2, 12]);
+		assert_eq!(Session::validators(), vec![1, 2]);
 	});
 }
 
 #[test]
 fn drawn_validator_that_removes_its_keys_is_dropped_at_the_next_rotation() {
-	for cap in [None, Some(2)] {
+	for cap in [CollatorDraw::All, CollatorDraw::UpTo(2)] {
 		build_and_execute(|| {
 			// GIVEN 10, 11 and 12 with keys, and a set of them drawn and in force
 			initialize_to_block(1);
@@ -384,7 +386,7 @@ fn drawn_validator_that_removes_its_keys_is_dropped_at_the_next_rotation() {
 			assert_ok!(receive(1, vec![10, 11, 12]));
 			initialize_to_block(3);
 			let before = drawn().unwrap();
-			assert_eq!(before.len(), cap.map_or(3, |cap| cap as usize), "cap {cap:?}");
+			assert_eq!(before.len(), cap.limit().min(3) as usize, "cap {cap:?}");
 
 			// WHEN a drawn validator removes its keys at block 3
 			let leaver = before[0];
@@ -455,8 +457,13 @@ fn periodic_rotation_continues_after_forced_rotations() {
 fn cap_counts_only_validators_with_keys_and_not_the_other_collators() {
 	let set = vec![10, 11, 12, 13];
 	// (cap, number of validators drawn)
-	let cases: [(Option<u32>, usize); 5] =
-		[(Some(0), 0), (Some(1), 1), (Some(2), 2), (Some(10), 3), (None, 3)];
+	let cases = [
+		(CollatorDraw::None, 0),
+		(CollatorDraw::UpTo(1), 1),
+		(CollatorDraw::UpTo(2), 2),
+		(CollatorDraw::UpTo(10), 3),
+		(CollatorDraw::All, 3),
+	];
 	for (cap, count) in cases {
 		build_and_execute(|| {
 			// GIVEN invulnerables 1 and 2, candidate 4 and a set whose first validator has no keys
@@ -470,11 +477,8 @@ fn cap_counts_only_validators_with_keys_and_not_the_other_collators() {
 			initialize_to_block(3);
 
 			// THEN the drawn validators are the reference draw with the seed of era 1 and the
-			// cached randomness under a cap, and every validator with keys without one
-			let expected = match cap {
-				Some(cap) => reference_draw(expected_seed(1, [7; 32]), &set, cap as usize),
-				None => vec![11, 12, 13],
-			};
+			// cached randomness
+			let expected = reference_draw(expected_seed(1, [7; 32]), &set, cap.limit() as usize);
 			assert_eq!(expected.len(), count, "cap {cap:?}");
 			assert_eq!(drawn(), Some(expected.clone()), "cap {cap:?}");
 			assert_eq!(
@@ -510,7 +514,7 @@ fn cap_counts_only_validators_with_keys_and_not_the_other_collators() {
 		initialize_to_block(1);
 		register_candidate(4);
 		// WHEN a cap of 1 is set and the set is received and enacted
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		assert_ok!(receive(1, vec![4, 11, 12]));
 		initialize_to_block(3);
 		// THEN candidate 4 takes the only place under the cap and adds no collator
@@ -525,7 +529,7 @@ fn each_new_set_is_drawn_with_the_seed_of_its_era() {
 		// GIVEN validators 11, 12 and 13 with keys, 10 without, and a cap of 1
 		initialize_to_block(1);
 		[11, 12, 13].into_iter().for_each(set_keys);
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		let set = vec![10, 11, 12, 13];
 		for era in 1..=10 {
 			// WHEN the set of `era` arrives
@@ -550,7 +554,7 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		initialize_to_block(1);
 		let set = vec![10, 11, 12, 13, 14, 15];
 		set.iter().copied().for_each(set_keys);
-		set_cap(Some(3));
+		set_cap(CollatorDraw::UpTo(3));
 		initialize_to_block(3);
 		assert_ok!(receive(1, set.clone()));
 		// WHEN the first forced rotation happens at block 4
@@ -565,7 +569,7 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		// WHEN the relay randomness changes and the cap is raised to 5 at block 6
 		RelayEpochRandomness::set(Some([8; 32]));
 		initialize_to_block(6);
-		set_cap(Some(5));
+		set_cap(CollatorDraw::UpTo(5));
 		// THEN nothing is drawn before the next rotation, and two rotations follow at blocks 7
 		// and 8
 		assert_eq!(drawn(), Some(three));
@@ -585,14 +589,14 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		// WHEN the relay randomness changes again and the cap is lowered to 2 at block 9
 		RelayEpochRandomness::set(Some([9; 32]));
 		initialize_to_block(9);
-		set_cap(Some(2));
+		set_cap(CollatorDraw::UpTo(2));
 		initialize_to_block(10);
 		// THEN the redraw at block 10 uses the randomness cached then
 		let two = reference_draw(expected_seed(1, [9; 32]), &set, 2);
 		assert_eq!(drawn(), Some(two.clone()));
 
 		// WHEN the cap is removed at block 10
-		set_cap(None);
+		set_cap(CollatorDraw::All);
 		// THEN nothing is drawn yet, and two rotations follow
 		assert_eq!(drawn(), Some(two));
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
@@ -600,8 +604,9 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		initialize_to_block(12);
 		assert_eq!(Session::current_index(), session + 2);
 		// AND every validator of the set, all of which have keys, is drawn and collates
-		assert_eq!(drawn(), Some(set.clone()));
-		assert_eq!(Session::validators(), [1, 2].into_iter().chain(set).collect::<Vec<_>>());
+		let six = reference_draw(expected_seed(1, [9; 32]), &set, 6);
+		assert_eq!(drawn(), Some(six.clone()));
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(six).collect::<Vec<_>>());
 	});
 }
 
@@ -612,7 +617,7 @@ fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_cap(Some(3));
+		set_cap(CollatorDraw::UpTo(3));
 		assert_ok!(receive(1, vec![10, 11, 12]));
 		initialize_to_block(3);
 		let drawn_without_12 = drawn().unwrap();
@@ -625,7 +630,7 @@ fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
 		assert_eq!(drawn(), Some(drawn_without_12));
 		assert!(!Session::validators().contains(&12));
 		// WHEN the cap is set again, which forces two rotations and a redraw
-		set_cap(Some(3));
+		set_cap(CollatorDraw::UpTo(3));
 		initialize_to_block(22);
 		// THEN 12 is drawn and collates
 		assert!(drawn().unwrap().contains(&12));
@@ -639,9 +644,9 @@ fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 		// GIVEN no stored set
 		initialize_to_block(1);
 		// WHEN a cap is set and then removed
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		assert_eq!(drawn(), None);
-		set_cap(None);
+		set_cap(CollatorDraw::All);
 		// THEN nothing is drawn and no rotation is pending
 		assert_eq!(drawn(), None);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
@@ -657,7 +662,7 @@ fn drawn_collators_track_the_last_returned_set() {
 		[10, 11, 12].into_iter().for_each(set_keys);
 		let recorded = || DrawnCollators::<Test>::get().map(|d| (d.era, d.collators.into_inner()));
 
-		let with_keys = vec![10, 11, 12];
+		let with_keys = reference_draw(expected_seed(1, [7; 32]), &set, 4);
 		let drawn_event = |era, drawn_len, new_external| Event::CollatorsDrawn {
 			era,
 			external_len: 4,
@@ -683,7 +688,7 @@ fn drawn_collators_track_the_last_returned_set() {
 		);
 
 		// WHEN a cap of 2 is set at block 3
-		set_cap(Some(2));
+		set_cap(CollatorDraw::UpTo(2));
 		// THEN the record is unchanged until the first forced rotation draws at block 4
 		assert_eq!(recorded(), Some((1, with_keys.clone())));
 		initialize_to_block(5);
@@ -692,7 +697,7 @@ fn drawn_collators_track_the_last_returned_set() {
 		assert_eq!(
 			events_since_last_call(),
 			vec![
-				Event::MaxCollatorsSet { max: Some(2) },
+				Event::MaxCollatorsSet { max: CollatorDraw::UpTo(2) },
 				drawn_event(1, 2, true),
 				drawn_event(1, 2, false),
 			]
@@ -717,16 +722,17 @@ fn drawn_collators_track_the_last_returned_set() {
 		);
 
 		// WHEN the cap is removed at block 21
-		set_cap(None);
+		set_cap(CollatorDraw::All);
 		// THEN the draw is kept until the next rotation, which records the validators with keys
 		// again
 		assert_eq!(recorded(), Some((2, two)));
 		initialize_to_block(23);
+		let with_keys = reference_draw(expected_seed(2, [8; 32]), &set, 4);
 		assert_eq!(recorded(), Some((2, with_keys)));
 		assert_eq!(
 			events_since_last_call(),
 			vec![
-				Event::MaxCollatorsSet { max: None },
+				Event::MaxCollatorsSet { max: CollatorDraw::All },
 				drawn_event(2, 3, true),
 				drawn_event(2, 3, false),
 			]
@@ -742,7 +748,7 @@ fn capped_rotation_without_drawn_collators_returns_nothing() {
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(3);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
@@ -766,9 +772,12 @@ fn new_pallet_with_a_cap_returns_nothing_until_a_set_arrives() {
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
-		assert_eq!(events_since_last_call(), vec![Event::MaxCollatorsSet { max: Some(1) }]);
+		assert_eq!(
+			events_since_last_call(),
+			vec![Event::MaxCollatorsSet { max: CollatorDraw::UpTo(1) }]
+		);
 
 		for block in [10, 20, 30] {
 			// WHEN the periodic rotations of several sessions happen
@@ -796,11 +805,11 @@ fn new_pallet_with_a_cap_returns_nothing_until_a_set_arrives() {
 fn default_cap_applies_until_governance_sets_the_cap() {
 	build_and_execute(|| {
 		// GIVEN a default cap of zero and a set of validators with keys
-		DefaultMaxCollators::set(Some(0));
+		DefaultMaxCollators::set(CollatorDraw::None);
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		assert_eq!(MaxCollators::<Test>::get(), Some(0));
+		assert_eq!(MaxCollators::<Test>::get(), CollatorDraw::None);
 
 		// WHEN the set arrives and is brought into force
 		assert_ok!(receive(1, vec![10, 11]));
@@ -811,13 +820,111 @@ fn default_cap_applies_until_governance_sets_the_cap() {
 		assert_eq!(Session::validators(), vec![1, 2]);
 
 		// WHEN governance removes the cap
-		set_cap(None);
+		set_cap(CollatorDraw::All);
 		initialize_to_block(5);
 
 		// THEN the stored value replaces the default and every validator with keys collates
-		assert_eq!(MaxCollators::<Test>::get(), None);
-		assert_eq!(drawn(), Some(vec![10, 11]));
-		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		assert_eq!(MaxCollators::<Test>::get(), CollatorDraw::All);
+		let both = reference_draw(expected_seed(1, [7; 32]), &[10, 11], 2);
+		assert_eq!(drawn(), Some(both.clone()));
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(both).collect::<Vec<_>>());
+	});
+}
+
+/// Run [`MigrateV0ToV1`] from storage version 0, with its try-runtime checks when enabled.
+fn migrate_to_v1() {
+	StorageVersion::new(0).put::<ValidatorCollators>();
+	#[cfg(feature = "try-runtime")]
+	MigrateV0ToV1::<Test>::try_on_runtime_upgrade(true).unwrap();
+	#[cfg(not(feature = "try-runtime"))]
+	MigrateV0ToV1::<Test>::on_runtime_upgrade();
+	assert_eq!(StorageVersion::get::<ValidatorCollators>(), 1);
+}
+
+#[test]
+fn migration_to_v1_keeps_a_cap_stored_as_u32() {
+	for cap in [0, 1] {
+		build_and_execute(|| {
+			// GIVEN validators with keys drawn under a cap, stored as a plain `u32` the way
+			// version 0 stores it
+			initialize_to_block(1);
+			set_keys(10);
+			set_keys(11);
+			assert_ok!(receive(1, vec![10, 11]));
+			set_cap(CollatorDraw::UpTo(cap));
+			initialize_to_block(3);
+			let expected = reference_draw(expected_seed(1, [7; 32]), &[10, 11], cap as usize);
+			assert_eq!(drawn(), Some(expected.clone()));
+			unhashed::put_raw(&MaxCollators::<Test>::hashed_key(), &cap.encode());
+			// AND read as `CollatorDraw`, the stored cap is lost
+			assert_eq!(MaxCollators::<Test>::get(), CollatorDraw::All);
+
+			// WHEN the migration runs
+			migrate_to_v1();
+
+			// THEN the cap is kept and the next rotations draw under it
+			assert_eq!(MaxCollators::<Test>::get(), CollatorDraw::UpTo(cap));
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+			initialize_to_block(10);
+			assert_eq!(drawn(), Some(expected.clone()), "cap {cap}");
+			assert_eq!(
+				Session::validators(),
+				[1, 2].into_iter().chain(expected).collect::<Vec<_>>()
+			);
+		});
+	}
+}
+
+#[test]
+fn migration_to_v1_leaves_a_cap_stored_as_option_u32() {
+	// (stored `Option<u32>`, what it reads as)
+	let cases = [
+		(None::<u32>, CollatorDraw::All),
+		(Some(0), CollatorDraw::UpTo(0)),
+		(Some(3), CollatorDraw::UpTo(3)),
+	];
+	for (cap, expected) in cases {
+		build_and_execute(|| {
+			// GIVEN a default of no validator, a stored set, and a cap stored as `Option<u32>`
+			DefaultMaxCollators::set(CollatorDraw::None);
+			initialize_to_block(1);
+			assert_ok!(receive(1, vec![10, 11]));
+			initialize_to_block(3);
+			let raw = cap.encode();
+			unhashed::put_raw(&MaxCollators::<Test>::hashed_key(), &raw);
+
+			// WHEN the migration runs
+			migrate_to_v1();
+
+			// THEN the stored bytes are kept, read as the same cap, and no rotation is forced
+			assert_eq!(unhashed::get_raw(&MaxCollators::<Test>::hashed_key()), Some(raw));
+			assert_eq!(MaxCollators::<Test>::get(), expected, "cap {cap:?}");
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+		});
+	}
+}
+
+#[test]
+fn migration_to_v1_draws_again_under_a_new_default_cap() {
+	build_and_execute(|| {
+		// GIVEN validators with keys drawn without a cap, and no cap stored
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(3);
+		assert_eq!(drawn(), Some(reference_draw(expected_seed(1, [7; 32]), &[10, 11], 2)));
+		assert!(!MaxCollators::<Test>::exists());
+
+		// WHEN the upgrade brings a default cap of zero and the migration runs
+		DefaultMaxCollators::set(CollatorDraw::None);
+		migrate_to_v1();
+
+		// THEN the set is drawn again under the default cap at the next rotations
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
+		initialize_to_block(5);
+		assert_eq!(drawn(), Some(vec![]));
+		assert_eq!(Session::validators(), vec![1, 2]);
 	});
 }
 
@@ -831,7 +938,7 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		set_keys(11);
 		assert_eq!(EpochRandomness::<Test>::get(), None);
 		// WHEN a capped set arrives and the next rotation draws
-		set_cap(Some(1));
+		set_cap(CollatorDraw::UpTo(1));
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(2);
 		// THEN it is drawn with a zero randomness value instead of being skipped
@@ -937,7 +1044,7 @@ fn undecodable_relay_randomness_makes_the_block_invalid() {
 #[test]
 fn set_received_while_planned_rearms_the_rotations() {
 	// A cap draws the validators but must not add or delay rotations.
-	for cap in [None, Some(1)] {
+	for cap in [CollatorDraw::All, CollatorDraw::UpTo(1)] {
 		build_and_execute(|| {
 			// GIVEN a set for era 1 received at block 3 and queued at block 4
 			initialize_to_block(1);
@@ -1045,56 +1152,55 @@ fn try_state_detects_drawn_collators_that_break_the_invariants() {
 	// (cap, drawn collators, randomness cached, the error), checked after the forced rotations
 	let cases = [
 		// a validator of the set that lost its keys at the last rotation
-		(None, Some(collators_of(1, vec![10])), true, None),
+		(CollatorDraw::All, Some(collators_of(1, vec![10])), true, None),
 		// a draw in drawn order under a cap
-		(Some(2), Some(collators_of(1, vec![11, 10])), true, None),
+		(CollatorDraw::UpTo(2), Some(collators_of(1, vec![11, 10])), true, None),
 		// no drawn collators for a set brought into force
-		(None, None, true, Some("no collators are drawn for the set")),
-		(Some(2), None, true, Some("no collators are drawn for the set")),
+		(CollatorDraw::All, None, true, Some("no collators are drawn for the set")),
+		(CollatorDraw::UpTo(2), None, true, Some("no collators are drawn for the set")),
 		// drawn collators of another era
 		(
-			Some(2),
+			CollatorDraw::UpTo(2),
 			Some(collators_of(0, vec![10])),
 			true,
 			Some("the drawn collators belong to another era"),
 		),
 		// a duplicate
 		(
-			Some(2),
+			CollatorDraw::UpTo(2),
 			Some(collators_of(1, vec![10, 10])),
 			true,
 			Some("the drawn collators contain duplicates"),
 		),
 		// a drawn collator outside the set
 		(
-			None,
+			CollatorDraw::All,
 			Some(collators_of(1, vec![12])),
 			true,
 			Some("a drawn collator is not in the stored validator set"),
 		),
 		(
-			Some(2),
+			CollatorDraw::UpTo(2),
 			Some(collators_of(1, vec![12])),
 			true,
 			Some("a drawn collator is not in the stored validator set"),
-		),
-		// without a cap, collators out of account order
-		(
-			None,
-			Some(collators_of(1, vec![11, 10])),
-			true,
-			Some("without a cap the drawn collators are not in account order"),
 		),
 		// more than the cap
 		(
-			Some(1),
+			CollatorDraw::UpTo(1),
 			Some(collators_of(1, vec![10, 11])),
+			true,
+			Some("more collators are drawn than the cap allows"),
+		),
+		(
+			CollatorDraw::None,
+			Some(collators_of(1, vec![10])),
 			true,
 			Some("more collators are drawn than the cap allows"),
 		),
 		// drawn collators without a cached randomness
 		(
-			Some(2),
+			CollatorDraw::UpTo(2),
 			Some(collators_of(1, vec![10])),
 			false,
 			Some("collators are drawn without a cached relay chain epoch randomness"),
@@ -1107,7 +1213,7 @@ fn try_state_detects_drawn_collators_that_break_the_invariants() {
 			set_keys(11);
 			assert_ok!(receive(1, vec![10, 11]));
 			initialize_to_block(2);
-			assert_eq!(drawn(), Some(vec![10, 11]));
+			assert_eq!(drawn().map(|drawn| drawn.len()), Some(2));
 			assert_ok!(ValidatorCollators::do_try_state());
 			// WHEN the cap, the drawn collators and the cache change
 			MaxCollators::<Test>::set(cap);
