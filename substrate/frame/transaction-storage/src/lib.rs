@@ -213,6 +213,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			// TODO: https://github.com/paritytech/polkadot-sdk/issues/10203 - Replace this with benchmarked weights.
 			let mut weight = Weight::zero();
@@ -648,6 +653,58 @@ pub mod pallet {
 				),
 				Error::<T>::InvalidProof
 			);
+
+			Ok(())
+		}
+	}
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Ensure the correctness of the state of this pallet.
+		///
+		/// This should be valid before or after each state transition of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_stored_blocks_have_chunks()?;
+			Self::try_state_block_chunks_are_cumulative()?;
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A block is recorded in `Transactions` only if it stored at least one chunk.
+		///   `on_finalize` leans on this to treat a block with no entry as one that held no data
+		///   and so needs no storage proof; an entry without chunks would have it demand a proof
+		///   that cannot be produced.
+		fn try_state_stored_blocks_have_chunks() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (_, transactions) in Transactions::<T>::iter() {
+				frame_support::ensure!(
+					TransactionInfo::total_chunks(&transactions) != 0,
+					"a block recorded in `Transactions` must hold at least one chunk"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `block_chunks` is the running total of the chunks stored in the block, and is binary
+		///   searched to map a chunk index back to the transaction that holds it. Every entry must
+		///   therefore carry the sum of `num_chunks` over itself and all transactions before it,
+		///   which also makes the sequence strictly increasing as no blob may be empty.
+		fn try_state_block_chunks_are_cumulative() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (_, transactions) in Transactions::<T>::iter() {
+				let mut total: ChunkIndex = 0;
+
+				for transaction in transactions.iter() {
+					total = total.saturating_add(num_chunks(transaction.size));
+
+					frame_support::ensure!(
+						transaction.block_chunks == total,
+						"`block_chunks` must be the running total of the chunks in the block"
+					);
+				}
+			}
 
 			Ok(())
 		}
