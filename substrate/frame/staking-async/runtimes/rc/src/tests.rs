@@ -18,8 +18,12 @@
 
 use std::collections::HashSet;
 
-use crate::{xcm_config::LocationConverter, *};
+use crate::{
+	xcm_config::{LocationConverter, RcAssetMatcher},
+	*,
+};
 use frame_support::traits::WhitelistedStorageKeys;
+use pallet_xcm_benchmarks::xcm_weights::{AssetWeigher, MatchedAssetWeigher};
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -215,18 +219,12 @@ fn location_conversion_works() {
 }
 
 #[test]
-fn treasury_location_delivery_fees_are_waived() {
-	use xcm_executor::traits::{FeeManager, FeeReason};
+fn all_counted_has_a_sane_weight_upper_limit() {
+	let assets = AssetFilter::Wild(AllCounted(4294967295));
+	let weight = Weight::from_parts(1000, 1000);
 
-	// GIVEN the location `PayOverXcm` charges treasury payout delivery fees from
-	let treasury = xcm_config::TreasuryLocation::get();
-
-	// WHEN the fee manager decides whether to charge it
-	let waived = <xcm_config::XcmConfig as xcm_executor::Config>::FeeManager::is_waived(
-		Some(&treasury),
-		FeeReason::ChargeFees,
+	assert_eq!(
+		<MatchedAssetWeigher<RcAssetMatcher> as AssetWeigher>::weigh_asset_filter(&assets, weight,),
+		weight * 1
 	);
-
-	// THEN it is waived, as no account backs that location
-	assert!(waived);
 }

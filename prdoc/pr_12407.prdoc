@@ -1,0 +1,12 @@
+title: 'Optimize and removed redundant boilerplate of runtimes' xcm-benchmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The refactor focuses on ensure no extra work needs to be done for runtime(s) to understand xcm-benchmarks.
+
+    ### Completed
+
+    - Migrated cumulus runtimes to use Asset Count-based match and filter
+    - Migrated polkadot (relay) runtimes to use Asset match-based filter and matching
+    - Deleted xcm-benchmarks from custom directory
+crates: []
