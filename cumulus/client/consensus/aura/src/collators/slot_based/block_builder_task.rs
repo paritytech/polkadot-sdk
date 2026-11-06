@@ -16,8 +16,10 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
+	handover::classify_bundles,
 	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
 	resubmission::resolve_session,
+	resubmittable_segment::split_bundles,
 };
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
@@ -51,7 +53,7 @@ use futures::prelude::*;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sc_consensus_aura::SlotDuration;
+use sc_consensus_aura::{standalone as aura_internal, SlotDuration};
 use sc_network_types::PeerId;
 use sp_api::{ApiExt, ApiRef, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
@@ -59,7 +61,7 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, ByteArray};
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -291,7 +293,30 @@ struct SlotContext<Block: BlockT, Pub> {
 	max_pov_size: u32,
 	allowed_pov_size: usize,
 	relay_slot: Slot,
-	slot_claim: SlotClaim<Pub>,
+	role: SlotRole<Pub>,
+}
+
+/// Whether we author the slot or only resubmit a prior set's blocks under its slot author.
+enum SlotRole<Pub> {
+	Author(SlotClaim<Pub>),
+	Handover(Pub),
+}
+
+impl<Pub> SlotRole<Pub> {
+	fn claim(&self) -> Option<&SlotClaim<Pub>> {
+		match self {
+			Self::Author(claim) => Some(claim),
+			Self::Handover(_) => None,
+		}
+	}
+
+	/// Signs the resubmissions; every header in `resubmittable_headers` verifies under it.
+	fn author(&self) -> &Pub {
+		match self {
+			Self::Author(claim) => claim.author_pub(),
+			Self::Handover(author) => author,
+		}
+	}
 }
 
 impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
@@ -407,18 +432,6 @@ where
 			max_pov_size * 85 / 100
 		};
 		allowed_pov_size as usize
-	}
-
-	/// Refresh the backing-group connections for the authorities at `parent`, logging on failure.
-	async fn update_backing_connections(&mut self, slot: Slot, parent: Block::Hash) {
-		match onchain_runtime_api(&*self.para_client).authorities(parent) {
-			Ok(authorities) => self.connection_helper.update::<P>(slot, &authorities).await,
-			Err(error) => tracing::warn!(
-				target: LOG_TARGET,
-				?error,
-				"Failed to fetch authorities for backing-group connections.",
-			),
-		}
 	}
 
 	/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
@@ -545,6 +558,13 @@ where
 		})
 	}
 
+	/// The author the scheduling verifier expects for `para_slot` at `at`, assuming the slot
+	/// duration is unchanged across the unincluded segment.
+	fn author_at(&self, at: Block::Hash, para_slot: Slot) -> Option<P::Public> {
+		let authorities = onchain_runtime_api(&*self.para_client).authorities(at).ok()?;
+		aura_internal::slot_author::<P>(para_slot, &authorities).cloned()
+	}
+
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
 	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
@@ -601,29 +621,77 @@ where
 
 		let included_hash_at_execution = included_header_at_execution.hash();
 
-		self.update_backing_connections(para_slot.slot, initial_parent_hash).await;
-
-		let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
+		// Read once: backing connections, the claim and the tip author all use the tip's set.
+		let Ok(authorities) =
+			onchain_runtime_api(&*self.para_client).authorities(initial_parent_hash)
+		else {
+			tracing::error!(target: LOG_TARGET, "Failed to fetch authorities from runtime.");
+			return None;
+		};
+		self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
+		let tip_author = aura_internal::slot_author::<P>(para_slot.slot, &authorities).cloned();
+		let slot_claim = crate::collators::claim_slot_among::<P>(
 			para_slot.slot,
 			para_slot.timestamp,
-			initial_parent_hash,
-			&*self.para_client,
+			&authorities,
 			&self.keystore,
 		)
-		.await
-		else {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?unincluded_segment_len_at_execution,
-				relay_parent = ?relay_parent_hash,
-				relay_parent_num = %relay_parent_header.number(),
-				?included_hash_at_execution,
-				included_num_at_execution = %included_header_at_execution.number(),
-				initial_parent = ?initial_parent_hash,
-				slot = ?para_slot.slot,
-				"Not eligible to claim slot."
-			);
-			return None;
+		.await;
+
+		// The PVF checks a resubmission's signature against the candidate's parent state, so a
+		// bundle from before an authority-set change needs the prior set's author for this slot.
+		// Such a handover takes the slot: building above those blocks is useless until they land.
+		let mut authors = HashMap::new();
+		let mut author_of = |at: Block::Hash| {
+			authors.entry(at).or_insert_with(|| self.author_at(at, para_slot.slot)).clone()
+		};
+		let (resubmittable_headers, handover) = match resubmittable_headers.first() {
+			Some(oldest) if v3_enabled => {
+				let first_author = author_of(*oldest.parent_hash());
+				if first_author.is_some() && first_author == tip_author {
+					(resubmittable_headers, None)
+				} else {
+					let bundles = split_bundles(resubmittable_headers)
+						.into_iter()
+						.map(|bundle| (author_of(*bundle[0].parent_hash()), bundle));
+					let classified = classify_bundles(bundles, tip_author.as_ref(), |author| {
+						self.keystore.has_keys(&[(
+							author.to_raw_vec(),
+							sp_application_crypto::key_types::AURA,
+						)])
+					});
+					(classified.tip, classified.handover)
+				}
+			},
+			_ => (resubmittable_headers, None),
+		};
+
+		let (role, resubmittable_headers) = match (handover, slot_claim) {
+			(Some((author, headers)), _) => {
+				tracing::info!(
+					target: LOG_TARGET,
+					blocks = headers.len(),
+					first = ?headers.first().map(|header| header.hash()),
+					slot = ?para_slot.slot,
+					"Authority handover: resubmitting the prior era's blocks, building nothing.",
+				);
+				(SlotRole::Handover(author), headers)
+			},
+			(None, Some(claim)) => (SlotRole::Author(claim), resubmittable_headers),
+			(None, None) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?unincluded_segment_len_at_execution,
+					relay_parent = ?relay_parent_hash,
+					relay_parent_num = %relay_parent_header.number(),
+					?included_hash_at_execution,
+					included_num_at_execution = %included_header_at_execution.number(),
+					initial_parent = ?initial_parent_hash,
+					slot = ?para_slot.slot,
+					"Not eligible to claim slot."
+				);
+				return None;
+			},
 		};
 
 		tracing::debug!(
@@ -652,7 +720,7 @@ where
 			max_pov_size,
 			allowed_pov_size,
 			relay_slot,
-			slot_claim,
+			role,
 		})
 	}
 
@@ -914,7 +982,7 @@ where
 					para_id,
 					relay_client: &env.relay_client,
 					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
+					slot_claim: cx.role.claim(),
 					collator: &mut collator,
 					allowed_pov_size: cx.allowed_pov_size,
 					core_info: core_info.clone(),
@@ -985,7 +1053,7 @@ where
 					cx.relay_parent(),
 					&core_info,
 					collator_peer_id,
-					cx.slot_claim.author_pub(),
+					cx.role.author(),
 					&env.keystore,
 					this_core_index,
 				);
@@ -1042,7 +1110,8 @@ struct BuildCollationParams<
 	para_id: ParaId,
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
-	slot_claim: &'a SlotClaim<P::Public>,
+	/// `None` builds nothing.
+	slot_claim: Option<&'a SlotClaim<P::Public>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -1180,6 +1249,7 @@ where
 		+ ApiExt<Block>
 		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
 {
+	let Some(slot_claim) = slot_claim else { return Ok(None) };
 	let core_start = Instant::now();
 
 	let pov_parent_hash = pov_parent_header.hash();

@@ -1,0 +1,18 @@
+title: 'cumulus: resubmit pre-rotation blocks with the prior aura set''s slot author'
+doc:
+- audience: Node Dev
+  description: |-
+    ## Problem
+    After an Aura authority-set change, the PVF checks a resubmitted bundle's scheduling signature against its parent's state, so it expects the prior set's slot author. The tip author's signature fails, and the prior-set author never resubmits because it is "Not eligible to claim slot", so the para stalls.
+
+    ## Fix
+    When some unincluded blocks were built before an authority-set change, the collator that held the slot under the old set takes over their resubmission. It signs them with its own key, which is the signature the PVF expects for those blocks. The rest of the segment stays with the current slot author.
+    Blocks are handed over in whole bundles, never split, because the PVF checks one signature per bundle. Each collator only checks whether the oldest unincluded block's slot author still matches the tip's, which costs one extra runtime read per slot.
+
+    ## Test
+    `functional::v4_authority_handover` pauses validators 1-5 across a sudo authority rotation, so the original submissions expire unbacked. It then asserts that the exact rotation block finalizes, with 10 blocks on top, and that a collator logged the handover.
+
+    closes #13631
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
