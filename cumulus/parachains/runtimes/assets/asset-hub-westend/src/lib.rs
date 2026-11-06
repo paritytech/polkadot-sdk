@@ -1980,6 +1980,8 @@ pub type Migrations = (
 		ad_migration::KeysTranslator,
 	>,
 	// unreleased
+	// Stores the registration base deposit of every signed election submission.
+	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
 	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
