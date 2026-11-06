@@ -3878,6 +3878,7 @@ mod revive_trace_reclaim {
 	}
 }
 
+<<<<<<< HEAD
 #[test]
 fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	use cumulus_primitives_core::{
@@ -3891,4 +3892,105 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	let keys = Runtime::keys_to_prove().keys;
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
+=======
+// The meta transaction signer's deploy uses the nonce its own `CheckNonce` consumed, as the
+// `instantiate` dry run for that signer predicts, and the relayer's deploy later in the same
+// extrinsic still uses the relayer's.
+#[cfg(not(feature = "runtime-benchmarks"))]
+#[test]
+fn meta_tx_signer_and_relayer_deploy_at_their_tx_nonces() {
+	use pallet_revive::{create1, AccountInfo, AddressMapper};
+	use sp_runtime::traits::TransactionExtension;
+
+	let signer = Sr25519Keyring::Alice;
+	let relayer = Sr25519Keyring::Bob;
+	let signer_id = signer.to_account_id();
+	let relayer_id = relayer.to_account_id();
+	let address =
+		|who: &AccountId| <Runtime as pallet_revive::Config>::AddressMapper::to_address(who);
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		assert_ok!(Balances::mint_into(
+			&pallet_revive::Pallet::<Runtime>::account_id(),
+			ExistentialDeposit::get()
+		));
+		assert_ok!(Balances::mint_into(&signer_id, 1_000 * UNITS));
+		assert_ok!(Balances::mint_into(&relayer_id, 1_000 * UNITS));
+		let (code, _) = compile_module_with_type("Dummy", FixtureType::Resolc).unwrap();
+		let instantiate = || {
+			RuntimeCall::Revive(pallet_revive::Call::instantiate_with_code {
+				value: 0,
+				weight_limit: Weight::from_parts(500_000_000_000, 1024 * 1024),
+				storage_deposit_limit: Balance::MAX,
+				code: code.clone(),
+				data: vec![],
+				salt: None,
+			})
+		};
+		let signer_nonce = System::account_nonce(&signer_id);
+		let relayer_nonce = System::account_nonce(&relayer_id);
+
+		let signed_ext = (
+			pallet_meta_tx::MetaTxMarker::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(signer_nonce),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+		);
+		let payload = (0u8, instantiate(), signed_ext.clone(), signed_ext.implicit().unwrap());
+		let signature = MultiSignature::Sr25519(
+			payload.using_encoded(|e| signer.sign(&sp_io::hashing::blake2_256(e))),
+		);
+		let (marker, non_zero, spec, tx_version, genesis, era, nonce, metadata, set_origin) =
+			signed_ext;
+		let meta_tx = pallet_meta_tx::MetaTxFor::<Runtime>::new(
+			instantiate(),
+			0,
+			(
+				pallet_verify_signature::VerifySignature::new_with_signature(
+					signature,
+					signer_id.clone(),
+				),
+				marker,
+				non_zero,
+				spec,
+				tx_version,
+				genesis,
+				era,
+				nonce,
+				metadata,
+				set_origin,
+			),
+		);
+		let call = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+			calls: vec![
+				RuntimeCall::MetaTx(pallet_meta_tx::Call::dispatch {
+					meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+					meta_tx: Box::new(meta_tx),
+				}),
+				instantiate(),
+			],
+		});
+		assert_ok!(Executive::apply_extrinsic(construct_extrinsic(relayer, call)).unwrap());
+
+		assert!(System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::MetaTx(pallet_meta_tx::Event::Dispatched { result: Ok(_) })
+		)));
+		assert!(AccountInfo::<Runtime>::is_contract(&create1(
+			&address(&signer_id),
+			signer_nonce.into()
+		)));
+		assert_eq!(System::account_nonce(&signer_id), signer_nonce + 1);
+		assert!(AccountInfo::<Runtime>::is_contract(&create1(
+			&address(&relayer_id),
+			relayer_nonce.into()
+		)));
+		assert_eq!(System::account_nonce(&relayer_id), relayer_nonce + 1);
+	});
+>>>>>>> 31402fd3b5 (address reviews)
 }

@@ -1050,7 +1050,8 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		// Eth transactions carry a single call whose origin is the signer. A substrate
+		// Without `bump_nonce` the origin is the signer of an eth transaction carrying a single
+		// call. Otherwise it is the recorded signer only if it matches, as a substrate
 		// transaction can instantiate from any origin, and more than once.
 		let first_frame_uses_tx_nonce = match &args {
 			FrameArgs::Instantiate { sender, .. } => {
@@ -1229,28 +1230,23 @@ where
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+				use sp_runtime::Saturating;
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
+				// The trie id is derived from this nonce too, so it must differ for every
+				// instantiation by `sender` in a transaction. The transaction nonce was already
+				// incremented pre-dispatch.
+				let nonce = if uses_tx_nonce {
+					account_nonce.saturating_sub(1u32.into())
+				} else {
+					account_nonce
+				};
 				let address = if let Some(salt) = salt {
 					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we
-						// need to subtract 1 to get the nonce at the time of the call.
-						if uses_tx_nonce {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
-						} else {
-							account_nonce.saturated_into()
-						},
-					)
+					address::create1(&deployer, nonce.saturated_into())
 				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
+				let contract = ContractInfo::new(&address, nonce, *executable.code_hash())?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
 					CachedContract::Cached(contract),

@@ -880,12 +880,14 @@ pub mod pallet {
 
 	/// The signer of the substrate transaction currently being dispatched.
 	///
-	/// Set by [`crate::evm::tx_extension::SetOrigin`] and removed once the transaction is
-	/// dispatched, so it never persists past a transaction. A signed origin is only known to be
-	/// the signer, whose nonce `CheckNonce` already consumed, if it matches this value. The first
-	/// top level instantiation by the signer takes the value, so that later instantiations in
-	/// the same transaction consume nonces of their own.
+	/// Set by [`crate::evm::tx_extension::SetOrigin`] and [`Pallet::eth_substrate_call`] and
+	/// removed once the transaction is dispatched. [`Pallet::prepare_dry_run`] also sets it and
+	/// relies on the dry run's changes being discarded. A signed origin is only known to be the
+	/// signer, whose nonce `CheckNonce` already consumed, if it matches this value. The first top
+	/// level instantiation by the signer takes the value, so that later instantiations in the
+	/// same transaction consume nonces of their own.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(crate) type SubstrateTxSigner<T: Config> = StorageValue<_, T::AccountId>;
 
 	pub mod genesis {
@@ -1755,7 +1757,11 @@ pub mod pallet {
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
+				// `SetOrigin` does not record the signer of an eth transaction, as its own calls
+				// into the pallet are told about the consumed nonce by `ExecConfig::bump_nonce`.
+				SubstrateTxSigner::<T>::put(&signer);
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+				SubstrateTxSigner::<T>::kill();
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
@@ -2072,7 +2078,8 @@ impl<T: Config> Pallet<T> {
 	///
 	///
 	/// This function is public because it is called by the runtime API implementation
-	/// (see `impl_runtime_apis_plus_revive`).
+	/// (see `impl_runtime_apis_plus_revive`). It must only run inside a dry run whose changes are
+	/// discarded, as nothing removes the signer it records.
 	pub fn prepare_dry_run(account: &T::AccountId) {
 		// Bump the  nonce and record the signer to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.

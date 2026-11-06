@@ -439,16 +439,24 @@ mod test {
 	use super::*;
 	use crate::{
 		EthTransactInfo, RUNTIME_PALLETS_ADDR, Weight,
+		address::create1,
 		evm::*,
 		test_utils::*,
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, TestSigner,
-			UncheckedExtrinsic,
+			UncheckedExtrinsic, test_utils::get_contract_checked,
 		},
 	};
-	use frame_support::traits::fungible::Mutate;
-	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction, LookupError};
+	use frame_support::{
+		assert_ok,
+		storage::{TransactionOutcome, with_transaction},
+		traits::fungible::Mutate,
+	};
+	use pallet_revive_fixtures::{FixtureType, compile_module, compile_module_with_type};
+	use sp_runtime::{
+		DispatchError,
+		traits::{self, Checkable, DispatchTransaction, LookupError},
+	};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -1015,5 +1023,69 @@ mod test {
 				.check(),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 		);
+	}
+
+	#[test_case::test_case(FixtureType::Solc)]
+	#[test_case::test_case(FixtureType::Resolc)]
+	fn eth_substrate_call_instantiates_at_tx_nonce(fixture_type: FixtureType) {
+		let (code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+		let instantiate: CallOf<Test> = crate::Call::instantiate_with_code {
+			value: 0,
+			weight_limit: Weight::from_parts(100_000_000_000, 2 * 1024 * 1024),
+			storage_deposit_limit: deposit_limit::<Test>(),
+			code,
+			data: vec![],
+			salt: None,
+		}
+		.into();
+		let mut builder =
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(instantiate.encode());
+
+		ExtBuilder::default().build().execute_with(|| {
+			let account = Account::default();
+			let expected = create1(&account.address(), 0);
+
+			UncheckedExtrinsicBuilder::fund_account(&account);
+			assert_ok!(with_transaction(|| {
+				let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
+					builder.tx.clone(),
+					None,
+					true,
+					None,
+				)
+				.unwrap();
+				builder.tx.gas = Some(dry_run.eth_gas);
+				builder.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
+				builder.tx.max_fee_per_gas = Some(<Pallet<Test>>::evm_base_fee());
+				assert!(get_contract_checked(&expected).is_some());
+				TransactionOutcome::Rollback(Ok::<_, DispatchError>(()))
+			}));
+			assert!(get_contract_checked(&expected).is_none());
+
+			let signed = account.sign_transaction(builder.tx.clone().try_into_unsigned().unwrap());
+			let uxt: UncheckedExtrinsic =
+				generic::UncheckedExtrinsic::new_bare(RuntimeCall::Contracts(
+					crate::Call::eth_transact { payload: signed.signed_payload().clone() },
+				))
+				.into();
+			let len = uxt.encoded_size();
+			let checked = uxt.check(&TestContext {}).unwrap();
+			let ExtrinsicFormat::Signed(signer, extra) = checked.format else { unreachable!() };
+			assert_ok!(
+				extra
+					.dispatch_transaction(
+						RuntimeOrigin::signed(signer.clone()),
+						checked.function.clone(),
+						&checked.function.get_dispatch_info(),
+						len,
+						0,
+					)
+					.unwrap()
+			);
+
+			assert!(get_contract_checked(&expected).is_some());
+			assert_eq!(frame_system::Pallet::<Test>::account_nonce(&signer), 1);
+			assert!(!crate::SubstrateTxSigner::<Test>::exists());
+		});
 	}
 }

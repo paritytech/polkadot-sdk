@@ -1,0 +1,37 @@
+title: '[pallet-revive] Derive CREATE1 from the transaction nonce only for the signer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A contract deployed without a salt by a substrate transaction now lands at
+    `create1(address, nonce)` where `nonce` is the one the signer's `CheckNonce` consumed, and
+    the signer's nonce is incremented once per deploy instead of twice. Every other origin
+    (fallback accounts, proxies, multisigs, XCM sovereign accounts) derives from its own nonce
+    and increments it, so its second deploy no longer fails with `DuplicateContract`.
+
+    To tell the signer apart, `SetOrigin` now records the signer of a signed substrate
+    transaction for the duration of its dispatch and charges the new
+    `WeightInfo::set_origin_substrate_tx` weight for it. Required changes:
+
+    - Keep `pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default()` in the
+      transaction extension of every pipeline that dispatches signed substrate calls into
+      pallet-revive. Without it the signer's deploy uses a different address than dry runs
+      predict.
+    - If the runtime uses `pallet-meta-tx`, append `SetOrigin<Runtime>` to the meta
+      transaction extension tuple, after `CheckNonce`. Meta transactions then deploy at the
+      meta signer's consumed nonce. The extension adds no bytes to the encoded meta
+      transaction, but clients building one must include it in the signed extension list.
+    - Implement `set_origin_substrate_tx` in the runtime's `pallet_revive::WeightInfo`, or
+      regenerate the weights.
+- audience: Runtime User
+  description: |-
+    A contract deployed without a salt by a substrate extrinsic lands at the address derived
+    from the nonce the extrinsic was signed with, the same address `eth_getTransactionCount`
+    and the dry run predict, and costs one nonce. Deploys from proxies, multisigs and fallback
+    accounts each use and consume their own nonce.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major

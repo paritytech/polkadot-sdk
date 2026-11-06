@@ -19,19 +19,21 @@
 
 use crate::{
 	BalanceOf, Code, Config, ExecConfig, SubstrateTxSigner,
-	address::{AddressMapper, create1},
-	test_utils::{ALICE, EVE, EVE_FALLBACK, WEIGHT_LIMIT, deposit_limit},
+	address::{AddressMapper, create1, create2},
+	test_utils::{ALICE, ALICE_ADDR, EVE, EVE_FALLBACK, WEIGHT_LIMIT, deposit_limit},
 	tests::{
 		ExtBuilder, RuntimeCall, RuntimeOrigin, System, Test, builder,
 		test_utils::{dispatch_signed_tx, get_contract_checked},
 	},
 };
+use alloy_core::sol_types::SolCall;
 use frame_support::{
 	assert_ok,
 	storage::{TransactionOutcome, with_transaction},
-	traits::fungible::Mutate,
+	traits::{Hooks, fungible::Mutate},
+	weights::Weight,
 };
-use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
+use pallet_revive_fixtures::{FixtureType, StoreAndTerminate, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use sp_runtime::{AccountId32, DispatchError};
@@ -222,4 +224,60 @@ fn dry_run_matches_extrinsic(fixture_type: FixtureType) {
 			assert!(get_contract_checked(&predicted).is_some());
 		}
 	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn redeploy_after_terminate_in_batch_keeps_storage(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("StoreAndTerminate", fixture_type).unwrap();
+
+	// Paying the deposit in PGAS leaves no `NativeDepositOf` rows, so nothing blocks the redeploy
+	// until `on_idle` runs.
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(ALICE, FUNDS)])
+		.build()
+		.execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, FUNDS);
+			let salt = [7; 32];
+			let addr = create2(&ALICE_ADDR, &code, &[], &salt);
+			let call = |data: Vec<u8>| {
+				RuntimeCall::Contracts(crate::Call::call {
+					dest: addr,
+					value: 0,
+					weight_limit: WEIGHT_LIMIT,
+					storage_deposit_limit: deposit_limit::<Test>(),
+					data,
+				})
+			};
+
+			assert_ok!(dispatch_signed_tx(
+				&ALICE,
+				RuntimeCall::Utility(pallet_utility::Call::batch_all {
+					calls: vec![
+						instantiate(&code, 0, Some(salt)),
+						call(
+							StoreAndTerminate::terminateCall { beneficiary: ALICE_ADDR.0.into() }
+								.abi_encode()
+						),
+						instantiate(&code, 0, Some(salt)),
+						call(
+							StoreAndTerminate::storeCall {
+								newValue: alloy_core::primitives::U256::from(42)
+							}
+							.abi_encode()
+						),
+					],
+				}),
+			));
+
+			crate::Pallet::<Test>::on_idle(System::block_number(), Weight::MAX);
+
+			let value = builder::bare_call(addr)
+				.data(StoreAndTerminate::valueCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(
+				StoreAndTerminate::valueCall::abi_decode_returns(&value.data).unwrap(),
+				alloy_core::primitives::U256::from(42),
+			);
+		});
 }
