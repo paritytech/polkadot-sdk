@@ -49,7 +49,7 @@ pub struct ConsumedStreams {
 	/// frontier.
 	pub channels: BTreeMap<InChannelId, MmrFrontier>,
 	/// Outbound channels whose recipient's register should be read, mapped to the cursor
-	/// ([`crate::OutChannelState::register_cursor`]).
+	/// (the position after the last applied register).
 	pub registers: BTreeMap<OutChannelId, MessagePosition>,
 	/// Active broadcast subscriptions, mapped to the cursor (`highwater + 1`, or `0` before the
 	/// first read).
