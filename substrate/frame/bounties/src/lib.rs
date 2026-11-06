@@ -211,6 +211,15 @@ pub trait ChildBountyManager<Balance> {
 
 	/// Hook called when a parent bounty is removed.
 	fn bounty_removed(bounty_id: BountyIndex);
+
+	/// Close all active child bounties of a parent bounty, refunding curator deposits and returning
+	/// their funds to the parent account, so the parent can be awarded/closed without leaving an
+	/// orphaned child bounty. Returns the actual weight consumed.
+	fn close_child_bounties(bounty_id: BountyIndex) -> Result<Weight, DispatchError>;
+
+	/// Worst-case weight of [`Self::close_child_bounties`], reserved up front by the parent
+	/// `award_bounty` / `close_bounty` calls and refunded via [`PostDispatchInfo`].
+	fn close_child_bounties_max_weight() -> Weight;
 }
 
 /// Transfer all assets held by an account (e.g. a stale bounty sub-account) back to another.
@@ -743,26 +752,25 @@ pub mod pallet {
 		/// - `bounty_id`: Bounty ID to award.
 		/// - `beneficiary`: The beneficiary account whom will receive the payout.
 		///
+		/// Any active child bounties are closed as part of this call.
+		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(C) where C is the number of active child bounties (bounded by
+		///   `MaxActiveChildBountyCount`).
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty()
+			.saturating_add(T::ChildBountyManager::close_child_bounties_max_weight()))]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			beneficiary: AccountIdLookupOf<T>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let signer = ensure_signed(origin)?;
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
 
+			let mut child_bounties_weight = Weight::zero();
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-
-				// Ensure no active child bounties before processing the call.
-				ensure!(
-					T::ChildBountyManager::child_bounties_count(bounty_id) == 0,
-					Error::<T, I>::HasActiveChildBounty
-				);
 
 				match &bounty.status {
 					BountyStatus::Active { curator, .. } => {
@@ -770,6 +778,11 @@ pub mod pallet {
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
+
+				// Close active child bounties so a curator cannot block the award; their funds
+				// return to the parent account and are included in the payout.
+				child_bounties_weight = T::ChildBountyManager::close_child_bounties(bounty_id)?;
+
 				bounty.status = BountyStatus::PendingPayout {
 					curator: signer,
 					beneficiary: beneficiary.clone(),
@@ -780,7 +793,10 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::<T, I>::BountyAwarded { index: bounty_id, beneficiary });
-			Ok(())
+			Ok(Some(
+				<T as Config<I>>::WeightInfo::award_bounty().saturating_add(child_bounties_weight),
+			)
+			.into())
 		}
 
 		/// Claim the payout from an awarded bounty after payout delay.
@@ -850,11 +866,15 @@ pub mod pallet {
 		///
 		/// - `bounty_id`: Bounty ID to cancel.
 		///
+		/// Any active child bounties are closed as part of this call.
+		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(C) where C is the number of active child bounties (bounded by
+		///   `MaxActiveChildBountyCount`).
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
-			.max(<T as Config<I>>::WeightInfo::close_bounty_active()))]
+			.max(<T as Config<I>>::WeightInfo::close_bounty_active())
+			.saturating_add(T::ChildBountyManager::close_child_bounties_max_weight()))]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
@@ -865,12 +885,6 @@ pub mod pallet {
 				bounty_id,
 				|maybe_bounty| -> DispatchResultWithPostInfo {
 					let bounty = maybe_bounty.as_ref().ok_or(Error::<T, I>::InvalidIndex)?;
-
-					// Ensure no active child bounties before processing the call.
-					ensure!(
-						T::ChildBountyManager::child_bounties_count(bounty_id) == 0,
-						Error::<T, I>::HasActiveChildBounty
-					);
 
 					match &bounty.status {
 						BountyStatus::Proposed => {
@@ -914,6 +928,11 @@ pub mod pallet {
 						},
 					}
 
+					// Close active child bounties so a curator cannot block governance; their funds
+					// return to the parent account and are swept to the treasury below.
+					let child_bounties_weight =
+						T::ChildBountyManager::close_child_bounties(bounty_id)?;
+
 					let bounty_account = Self::bounty_account_id(bounty_id);
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
@@ -927,7 +946,11 @@ pub mod pallet {
 					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
-					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
+					Ok(Some(
+						<T as Config<I>>::WeightInfo::close_bounty_active()
+							.saturating_add(child_bounties_weight),
+					)
+					.into())
 				},
 			)
 		}
@@ -1326,4 +1349,13 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	}
 
 	fn bounty_removed(_bounty_id: BountyIndex) {}
+
+	fn close_child_bounties(_bounty_id: BountyIndex) -> Result<Weight, DispatchError> {
+		// No child bounties when the child-bounties pallet is not in use.
+		Ok(Weight::zero())
+	}
+
+	fn close_child_bounties_max_weight() -> Weight {
+		Weight::zero()
+	}
 }
