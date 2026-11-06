@@ -241,10 +241,7 @@ where
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
 	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
 	// Collator revamp is the default one, unless explicitly stated otherwise.
-	let experimental_collator_protocol = match cli.run.experimental_collator_protocol {
-		Some(experimental_protocol_flag) => experimental_protocol_flag,
-		None => true,
-	};
+	let experimental_collator_protocol = cli.run.experimental_collator_protocol.unwrap_or(true);
 
 	// Reject `collator_reputation_persist_interval` cli parameter when
 	// `experimental_collator_protocol` is `false`.
