@@ -99,14 +99,14 @@ doc:
   description: |-
     The ref time charged per PolkaVM gas changes with the new weights. It covers the more
     expensive of dependent loads from the L2 cache and indirect jumps between compiled
-    basic blocks. On Asset Hub Westend one gas costs `<new>` ps of ref time, against `<old>` ps
+    basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 30303 ps
     before.
 
     Compiling contract code is now metered as gas, every time it happens: on Asset Hub Westend
-    `<per_block>` gas per basic block, `<per_instruction>` gas per instruction and `<per_byte>`
-    gas per byte of the contract's code section. The per byte part is charged again after every
-    call a PVM contract makes. The weight charged for loading the code of a PVM contract no
-    longer includes the compilation of one maximum-sized basic block.
+    4 gas per basic block, 1.579 gas per instruction and 0.015 gas per byte of the contract's
+    code section. The per byte part is charged again after every call a PVM contract makes. The
+    weight charged for loading the code of a PVM contract no longer includes the compilation of
+    one maximum-sized basic block.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
     limits to their sub-calls may need to raise those limits.
