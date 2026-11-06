@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793979944638,
+  "lastUpdate": 1793982905673,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c319f547cae0c67204a18d9dd3daf98a2c152004",
-          "message": "Statement-store: defer statement protocol connections during major sync (#11487)\n\n# Description\nImplement #11411\n\nReconnect all statement protocol peers when major sync ends. Removing\nand re-adding peers to the reserved set closes and reopens the\nnotification substreams on both sides, triggering a fresh bidirectional\ninitial sync. This causes peers to re-deliver any statements that were\ndropped during the sync window.\n\n- On was_major_syncing → false transition, call\nreconnect_statement_peers which removes then re-adds all connected peers\nfrom the statement\nprotocol reserved set\n- Both sides receive NotificationStreamClosed then\nNotificationStreamOpened, restarting the 100ms initial sync burst\n \n# Changes\n- `reconnect_statement_peers`: fires when major sync ends, reconnects\nall statement peers to trigger fresh initial sync\n- New zombienet integration test:\nstatement_store_peer_disconnect_during_major_sync — verifies that\nstatements submitted before a late-joining nodeenters major sync are\nfully recovered after sync completes, confirmed via log assertion that\nreconnect_statement_peers fired\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T04:53:59Z",
-          "tree_id": "522d3584a40b602fc08588068b809aa44ce288eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c319f547cae0c67204a18d9dd3daf98a2c152004"
-        },
-        "date": 1776754346679,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038071094062,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07695692035199991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0809341155539999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ecd9787848dbd7fcbc8df14e81222ff53c0f01e9",
+          "message": "pallet-balances: Do not store empty reserves in state (#13733)\n\nEnsure that we do not store empty reserves in the state to not have\nuseless state items.\n\n---------\n\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-11-06T14:59:10Z",
+          "tree_id": "5ba7d6ab88a0c8941a1c7a146b97152524a1eed0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecd9787848dbd7fcbc8df14e81222ff53c0f01e9"
+        },
+        "date": 1793982871881,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13999999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03934620453399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08473780645399992,
             "unit": "seconds"
           }
         ]
