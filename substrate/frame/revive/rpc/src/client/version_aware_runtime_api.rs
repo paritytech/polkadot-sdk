@@ -19,11 +19,11 @@
 //! tracks which runtime API methods are available in each runtime spec version.
 
 use crate::{
-	BlockId,
 	client::{Balance, ClientError, RecordedUnavailable, SubstrateBlockNumber},
 	subxt_client::{self, SrcChainConfig},
+	BlockId,
 };
-use futures::{FutureExt, TryFutureExt, future::BoxFuture};
+use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
 use sp_core::{Bytes, H256};
@@ -34,12 +34,12 @@ use std::{
 	sync::{Arc, Mutex, MutexGuard, PoisonError},
 };
 use subxt::{
-	Metadata, OnlineClient,
 	client::OnlineClientAtBlock,
 	error::RuntimeApiError,
 	ext::{frame_decode, scale_decode::IntoVisitor},
-	rpcs::{RpcClient, rpc_params},
+	rpcs::{rpc_params, RpcClient},
 	runtime_apis::{Payload, StaticPayload},
+	Metadata, OnlineClient,
 };
 
 use MethodStatus::*;

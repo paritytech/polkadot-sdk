@@ -28,10 +28,11 @@ use pallet_revive::evm::{Account, U256};
 use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
 use sc_chain_spec::{ChainType, GenericChainSpec, NoExtension};
 use std::{
+	io::{BufRead, BufReader},
 	net::TcpListener,
 	path::Path,
 	process::{Child, Command, Stdio},
-	sync::Arc,
+	sync::{mpsc, Arc},
 	time::{Duration, Instant},
 };
 
@@ -91,12 +92,12 @@ async fn connect(url: &str, node: &mut Child) -> WsClient {
 	}
 }
 
-fn spawn_node(base_dir: &Path, rpc_port: u16, eth_rpc_port: u16) -> KillChildOnDrop {
+fn spawn_node(base_dir: &Path, rpc_port: u16, eth_rpc_port: u16, stderr: Stdio) -> KillChildOnDrop {
 	let chain_spec = write_chain_spec(base_dir);
 	KillChildOnDrop(
 		Command::new(env!("CARGO_BIN_EXE_polkadot-omni-node"))
 			.stdout(Stdio::null())
-			.stderr(Stdio::inherit())
+			.stderr(stderr)
 			.arg("--chain")
 			.arg(&chain_spec)
 			.arg("--base-path")
@@ -119,7 +120,7 @@ async fn best_block(client: &WsClient) -> u64 {
 async fn dev_node_serves_eth_rpc() {
 	let base_dir = tempfile::tempdir().unwrap();
 	let eth_rpc_port = free_port();
-	let mut node = spawn_node(base_dir.path(), free_port(), eth_rpc_port);
+	let mut node = spawn_node(base_dir.path(), free_port(), eth_rpc_port, Stdio::inherit());
 
 	let client = Arc::new(connect(&format!("ws://127.0.0.1:{eth_rpc_port}"), &mut node.0).await);
 
@@ -149,9 +150,27 @@ async fn eth_rpc_failure_leaves_the_node_running() {
 
 	let rpc_port = free_port();
 	let eth_rpc_port = free_port();
-	let mut node = spawn_node(base_dir.path(), rpc_port, eth_rpc_port);
+	let mut node = spawn_node(base_dir.path(), rpc_port, eth_rpc_port, Stdio::piped());
+
+	// Keep draining after the match so the node never blocks on a full pipe.
+	let stderr = node.0.stderr.take().unwrap();
+	let (stopped_tx, stopped_rx) = mpsc::channel();
+	std::thread::spawn(move || {
+		for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+			eprintln!("{line}");
+			if line.contains("The embedded ETH RPC server stopped") {
+				let _ = stopped_tx.send(());
+			}
+		}
+	});
 
 	let deadline = Instant::now() + Duration::from_secs(300);
+	while stopped_rx.try_recv().is_err() {
+		assert!(node.0.try_wait().unwrap().is_none(), "the node exited");
+		assert!(Instant::now() < deadline, "the ETH RPC server never reported stopping");
+		tokio::time::sleep(Duration::from_millis(500)).await;
+	}
+
 	let rpc = loop {
 		if let Ok(client) =
 			WsClientBuilder::default().build(format!("ws://127.0.0.1:{rpc_port}")).await

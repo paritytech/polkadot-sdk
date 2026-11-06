@@ -21,47 +21,46 @@ pub(crate) mod storage_api;
 pub(crate) mod version_aware_runtime_api;
 
 use crate::{
+	block_sync::SyncCheckpoint,
+	subxt_client::{self, revive::calls::EthTransact, SrcChainConfig},
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
 	FilterError, Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	SyncingProgress, SyncingStatus, TraceOutcome, TransactionTrace,
-	block_sync::SyncCheckpoint,
-	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use futures::TryStreamExt;
-use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
+	evm::{decode_revert_reason, TransactionSigned, H256, U256},
 	EthTransactError,
-	evm::{H256, TransactionSigned, U256, decode_revert_reason},
 };
 use pallet_revive_types::runtime_api::*;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
 	sync::{
-		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
+		Arc,
 	},
 	time::Duration,
 };
 use storage_api::StorageApi;
 use subxt::{
-	OnlineClient,
 	backend::{LegacyBackend, StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
 	rpcs::{
-		RpcClient,
 		client::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 		methods::{
-			LegacyRpcMethods,
 			legacy::{SystemHealth, TransactionStatus},
+			LegacyRpcMethods,
 		},
-		rpc_params,
+		rpc_params, RpcClient,
 	},
+	OnlineClient,
 };
 
 use thiserror::Error;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 use version_aware_runtime_api::{
 	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
@@ -592,6 +591,8 @@ impl Client {
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
+	///
+	/// Resubscribes whenever the stream ends, so this only returns on error.
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
@@ -753,6 +754,8 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
+	///
+	/// Resubscribes whenever the stream ends, so this only returns on error.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
 		subscription_type: SubscriptionType,
