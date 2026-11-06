@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793957232485,
+  "lastUpdate": 1793979944638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "71da30286be32e2368b4d948b5febd80c0b6a92d",
-          "message": "pallet-beefy: Allow unsigned execution of an unsigned method (#11816)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-20T19:01:03Z",
-          "tree_id": "369fddca6948db7257d0963f64fb1ad24c4d04e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/71da30286be32e2368b4d948b5febd80c0b6a92d"
-        },
-        "date": 1776722735875,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.086,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08330980397799992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03818593622199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0862131759019999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1f01611601988e5c60f65be1309e3f5d2fff952",
+          "message": " preflight: count scheduled and manual runs as changed (#13751)\n\nSince #13611, `changes_rust` is empty when no relevant file changed.\nBefore, it was the string `'false'`, which GitHub treats as true.\nScheduled and manual runs have no diff, so `changed-files` checks\nmaster's last commit, and whether their jobs run depends on what that\ncommit touched.\n\nExample: On 2026-11-06 the last commit before the 05:00 run was #13732\n(`review-trigger.yml` only). `check-runtime-migration` skipped\n`prepare-snapshots` and master got no daily snapshot.\n\n`changes_rust` is now `'true'` for `schedule` and `workflow_dispatch`\nevents.\n\nAffected workflows: `check-runtime-migration`,\n`check-runtime-compatibility` and `tests-evm`",
+          "timestamp": "2026-11-06T13:22:47Z",
+          "tree_id": "45590750f73503d3268fc3c4f084ce1566b846fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1f01611601988e5c60f65be1309e3f5d2fff952"
+        },
+        "date": 1793979916860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12199999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038665586514000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0809341155539999,
             "unit": "seconds"
           }
         ]
