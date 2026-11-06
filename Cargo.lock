@@ -10303,10 +10303,13 @@ name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
  "array-bytes 6.2.2",
+ "hrmp-primitives",
  "log",
  "node-primitives",
  "pallet-example-mbm",
  "pallet-example-tasks",
+ "pallet-hrmp-para",
+ "pallet-hrmp-relay",
  "pallet-registrar-para",
  "pallet-registrar-relay",
  "pallet-transaction-storage",
@@ -13956,20 +13959,34 @@ dependencies = [
 name = "pallet-hrmp-para"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "pallet-hrmp-relay"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "log",
+ "pallet-balances",
+ "pallet-hrmp-para",
  "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
