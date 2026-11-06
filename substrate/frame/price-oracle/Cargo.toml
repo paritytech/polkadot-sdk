@@ -28,6 +28,9 @@ sp-inherents = { workspace = true }
 sp-price-oracle = { workspace = true }
 sp-runtime = { workspace = true }
 
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [

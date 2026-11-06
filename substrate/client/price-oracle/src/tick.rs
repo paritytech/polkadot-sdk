@@ -22,7 +22,7 @@
 use crate::{
 	fetcher::{Fetcher, MarketResponses},
 	metrics::Metrics,
-	pool::ReportPool,
+	pool::{ReportPool, Window},
 	signer, LOG_TARGET,
 };
 use codec::{Decode, DecodeAll, Encode};
@@ -72,8 +72,8 @@ pub(crate) mod benefit {
 pub struct TickSetup<Hash, Id> {
 	/// The best block the state was read at.
 	pub best_hash: Hash,
-	/// The anchor of a report signed at this tick: the number of `best_hash`.
-	anchor: Anchor,
+	/// The number of `best_hash`, the block a report signed at this tick is anchored to.
+	block: u32,
 	/// The signers, the report window and the tick interval in force.
 	settings: Settings<Id>,
 	/// The local signer key, if the keystore holds one of the accepted signers.
@@ -101,7 +101,7 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 	{
 		let info = client.info();
 		let best_hash = info.best_hash;
-		let anchor = Anchor(info.best_number.saturated_into());
+		let block = info.best_number.saturated_into();
 		let api = client.runtime_api();
 
 		let (settings, markets) = match (api.settings(best_hash), api.markets(best_hash)) {
@@ -117,7 +117,7 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		*api_missing_logged = false;
 
 		let signer = signer::local_signer(keystore, &settings.signers);
-		Some(Self { best_hash, anchor, settings, signer, markets })
+		Some(Self { best_hash, block, settings, signer, markets })
 	}
 
 	/// Whether the keystore holds one of the accepted signer keys.
@@ -130,24 +130,32 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		Duration::from_millis(self.settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL)
 	}
 
-	/// The oldest anchor a report may have to be accepted at this tick.
-	pub fn oldest(&self) -> Anchor {
-		Anchor(self.anchor.0.saturating_sub(self.settings.report_window))
+	/// The anchors a report may have to count at this tick, with this node's clock at `now_ms`.
+	///
+	/// The block must be within `report_window` of this tick's block, and the timestamp within
+	/// `report_window_ms` of `now_ms`. This node's clock is used rather than the chain's time,
+	/// which lags behind real time, and freezes when the relay chain stalls. A block or a
+	/// timestamp ahead is accepted: a peer may be ahead of this node, and the runtime rejects
+	/// blocks ahead of the block including them.
+	pub fn window(&self, now_ms: u64) -> Window {
+		Window {
+			oldest_block: self.block.saturating_sub(self.settings.report_window),
+			newest_block: None,
+			oldest_timestamp_ms: now_ms.saturating_sub(self.settings.report_window_ms),
+		}
 	}
 
-	/// Check a report `sender` sent against the rules of this tick: it must decode as a
-	/// [`SignedPriceReport`], be anchored within the report window, come from an accepted
-	/// signer, and carry a valid signature, checked in that order. `Err` is the reputation
-	/// change the sender deserves, and the reason.
-	///
-	/// Reports anchored ahead of this tick are accepted: a peer may be ahead of this node, and
-	/// the runtime rejects anchors ahead of the block including them.
+	/// Check a report `sender` sent against the rules of this tick, with this node's clock at
+	/// `now_ms`: it must decode as a [`SignedPriceReport`], be within the window (see
+	/// [`Self::window`]), come from an accepted signer, and carry a valid signature, checked in
+	/// that order. `Err` is the reputation change the sender deserves, and the reason.
 	// TODO: consider bounding how far ahead an anchor may be. A signer anchoring far ahead pins
 	// its own pool slot and costs every author a filtered report per block.
 	pub fn check<Signature>(
 		&self,
 		sender: &PeerId,
 		mut data: &[u8],
+		now_ms: u64,
 	) -> Result<SignedPriceReport<Id, Signature>, (ReputationChange, &'static str)>
 	where
 		Id: RuntimeAppPublic<Signature = Signature> + Decode + PartialEq,
@@ -160,7 +168,7 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		let Ok(report) = SignedPriceReport::<Id, Signature>::decode_all(&mut data) else {
 			return reject(cost::MALFORMED, "malformed");
 		};
-		if report.report.anchor < self.oldest() {
+		if !self.window(now_ms).contains(&report.report.anchor) {
 			return reject(cost::STALE_REPORT, "stale");
 		}
 		if !self.settings.signers.contains(&report.signer) {
@@ -216,7 +224,7 @@ impl TickOutcome {
 }
 
 /// Fetch and price the markets, aggregate the prices, and sign the result as a report anchored
-/// at `setup.anchor`.
+/// at `setup`'s block and this node's clock at signing.
 ///
 /// Returns the encoded signed report after inserting it into `pool`, or the outcome that
 /// stopped the tick.
@@ -236,7 +244,7 @@ where
 	Signature: Clone + Encode,
 {
 	let interval = setup.interval();
-	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
+	let TickSetup { best_hash, block, signer, markets, .. } = setup;
 	// The missing signer is warned about in `run`.
 	let signer = signer.ok_or(TickOutcome::NoSigner)?;
 	if markets.is_empty() {
@@ -309,6 +317,7 @@ where
 	}
 	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
+	let anchor = Anchor::new(block, now_ms());
 	let report = PriceReport { anchor, quotes };
 	let signed =
 		signer::sign_report(&keystore, signer, report).ok_or(TickOutcome::SigningFailed)?;
@@ -325,7 +334,7 @@ where
 }
 
 /// Current Unix time in milliseconds.
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
 	SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
@@ -343,20 +352,27 @@ mod tests {
 	fn id(seed: u8) -> AuthorityId {
 		pair(seed).public().into()
 	}
-	fn signed(seed: u8, anchor: u32) -> Signed {
-		let report = PriceReport { anchor: Anchor(anchor), quotes: vec![] };
+	/// This node's clock in the tests.
+	const NOW_MS: u64 = 1_800_000_000_000;
+
+	fn signed_at(seed: u8, block: u32, timestamp_ms: u64) -> Signed {
+		let report = PriceReport { anchor: Anchor::new(block, timestamp_ms), quotes: vec![] };
 		let signature = pair(seed).sign(&report.signing_payload()).into();
 		Signed { report, signer: id(seed), signature }
 	}
+	fn signed(seed: u8, block: u32) -> Signed {
+		signed_at(seed, block, NOW_MS)
+	}
 
-	/// A tick accepting signers 1 and 2, at anchor 100 with a window of 10.
+	/// A tick accepting signers 1 and 2, at block 100 with windows of 10 blocks and 30 s.
 	fn tick() -> TickSetup<H256, AuthorityId> {
 		TickSetup {
 			best_hash: H256::zero(),
-			anchor: Anchor(100),
+			block: 100,
 			settings: Settings {
 				signers: vec![id(1), id(2)],
 				report_window: 10,
+				report_window_ms: 30_000,
 				tick_interval_ms: 2_000,
 			},
 			signer: None,
@@ -365,7 +381,7 @@ mod tests {
 	}
 
 	fn check(tick: &TickSetup<H256, AuthorityId>, data: &[u8]) -> Result<Signed, ReputationChange> {
-		tick.check(&PeerId::random(), data).map_err(|(cost, _)| cost)
+		tick.check(&PeerId::random(), data, NOW_MS).map_err(|(cost, _)| cost)
 	}
 
 	#[test]
@@ -378,11 +394,20 @@ mod tests {
 	#[test]
 	fn stale_reports_are_rejected_and_ahead_ones_accepted() {
 		let tick = tick();
-		// Oldest accepted: 90. No upper bound.
-		assert_eq!(tick.oldest(), Anchor(90));
+		// Oldest accepted: block 90, 30 s ago. No upper bound on either.
+		assert_eq!(
+			tick.window(NOW_MS),
+			Window { oldest_block: 90, newest_block: None, oldest_timestamp_ms: NOW_MS - 30_000 }
+		);
 		assert!(check(&tick, &signed(1, 90).encode()).is_ok());
 		assert!(check(&tick, &signed(2, 1_000).encode()).is_ok());
+		assert!(check(&tick, &signed_at(1, 100, NOW_MS - 30_000).encode()).is_ok());
+		assert!(check(&tick, &signed_at(2, 100, NOW_MS + 60_000).encode()).is_ok());
 		assert_eq!(check(&tick, &signed(1, 89).encode()), Err(cost::STALE_REPORT));
+		assert_eq!(
+			check(&tick, &signed_at(1, 100, NOW_MS - 30_001).encode()),
+			Err(cost::STALE_REPORT)
+		);
 	}
 
 	#[test]
@@ -390,7 +415,7 @@ mod tests {
 		let tick = tick();
 		assert_eq!(check(&tick, &signed(3, 100).encode()), Err(cost::UNKNOWN_SIGNER));
 		let mut forged = signed(1, 100);
-		forged.report.anchor = Anchor(99);
+		forged.report.anchor = Anchor::new(99, NOW_MS);
 		assert_eq!(check(&tick, &forged.encode()), Err(cost::BAD_SIGNATURE));
 		assert_eq!(check(&tick, b"garbage"), Err(cost::MALFORMED));
 		// A valid report with trailing bytes is malformed too.

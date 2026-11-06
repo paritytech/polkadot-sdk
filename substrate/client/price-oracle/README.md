@@ -46,7 +46,7 @@ the stall carries them.
 The tick interval comes from the runtime, re-read every tick so a governance change takes
 effect without restart, with a floor of 500 ms.
 
-1. **Read** the signers, the report window, the tick interval and the active markets at the
+1. **Read** the signers, the report windows, the tick interval and the active markets at the
    best block.
 2. **Fetch** all queries of all markets concurrently, under one tick deadline of the tick
    interval minus 200 ms. Each request has its own timeout and response size cap. A market
@@ -55,7 +55,8 @@ effect without restart, with a floor of 500 ms.
 4. **Aggregate**: at the deadline, one call to `aggregate`, which returns every registered pair
    with its votes, quorum and price if it reached the quorum. A pair below its quorum is warned
    about. No priced pair means nothing to sign this tick.
-5. **Sign** a `PriceReport` anchored to the best block number with the local key.
+5. **Sign** a `PriceReport` with the local key, anchored to the best block number and the
+   node's clock at signing.
 6. **Publish**: insert into the pool and send to the recipients.
 
 A tick is skipped while the node is major syncing, while the previous tick is still running,
@@ -97,15 +98,18 @@ authority discovery, so the runtime must return its authority discovery keys in 
 as `cumulus-client-collator-discovery` requires.
 
 Every incoming message is validated. A message is rejected, and the sending peer's reputation
-lowered, if it does not decode, is anchored before the window, comes from a signer outside the
+lowered, if it does not decode, is anchored before a window, comes from a signer outside the
 accepted set, or carries an invalid signature, in that order, so the signature is checked last.
 A report the pool declines as superseded is ignored without penalty. Anything else is pooled
 and rewarded.
 
-Anchors ahead of the current anchor are accepted: a peer may be ahead of this node, and the
-runtime rejects anchors ahead of the block including them. The signer set, the current anchor
-and the window form a snapshot the tick loop replaces once per tick, so validation never calls
-the runtime on the network path. While the node is major syncing or cannot read the rules from
+A report is within the windows if its block is at most `report_window` behind the tick's block
+and its timestamp at most `report_window_ms` behind the node's clock. Blocks and timestamps ahead
+are accepted: a peer may be ahead of this node, and the runtime rejects blocks ahead of the block
+including them. The node's clock is used rather than the chain's time, which lags behind and
+freezes when the relay chain stalls. The signer set, the tick's block and the windows form a
+snapshot the tick loop replaces once per tick, so validation never calls the runtime on the
+network path. While the node is major syncing or cannot read the rules from
 the runtime, the snapshot is cleared and incoming reports are ignored without judging the
 sender.
 
@@ -113,17 +117,18 @@ sender.
 
 `ReportPool` holds one report per signer, shared by the tick loop and the
 inherent data provider. A report replaces the signer's previous one if its anchor is greater or
-equal: at equal anchors nothing tells which is fresher, so the last received wins. The tick loop
-prunes reports that fell out of the window. Reading for a block removes nothing, so a report not
+equal, comparing blocks first, then timestamps: at equal anchors nothing tells which is fresher,
+so the last received wins. The tick loop prunes reports that fell out of either window. Reading for a block removes nothing, so a report not
 included in one block stays available for the next.
 
 ## Inherent data
 
 For the block on `parent`, the provider reads the parent's height, `settings` and
-`latest_anchors` at the parent, and takes every pooled report anchored within the report window
-of the block being built, except those anchored before the signer's vote already on chain. No
-other filtering: the author includes every fresh report it holds. If the header or the API is
-unavailable, the block is authored without oracle data.
+`latest_anchors` at the parent, and takes every pooled report anchored within the block window
+of the block being built and within the time window of the node's clock, except those anchored
+before the signer's vote already on chain. The clock filter is stricter than the runtime after a
+relay chain stall, when the chain's time still shows the time before it. If the header or the API
+is unavailable, the block is authored without oracle data.
 
 ## Signing
 

@@ -47,9 +47,9 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 - **Signer**: a key whose reports the pallet accepts. The set of signers comes from the runtime,
   typically the block producers.
 - **Report**: the pair prices one signer computed in one pass over the markets, signed and
-  anchored to a block height.
-- **Anchor**: the block height a report is stamped with. It orders the reports of a signer and
-  expires old ones.
+  anchored.
+- **Anchor**: when a report was made: the height of the signer's best block and the signer's
+  clock. It orders the reports of a signer, block first, and expires old ones.
 - **Vote**: the latest price one signer reported for one pair. A pair holds at most one vote per
   signer.
 - **Quorum**: the number of votes a pair needs to have a price. There are two. The market quorum
@@ -63,7 +63,7 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 2. The node prices each market and aggregates the market prices into pair prices through the
    runtime APIs, so the rules are the runtime's and governance changes them without a node
    release.
-3. The node signs the pair prices as a report anchored to the current block height and sends it
+3. The node signs the pair prices as a report anchored to its best block and its clock, and sends it
    to the nodes authoring next.
 4. A block author includes the reports it collected as an inherent. The inherent never rejects a
    block: if it fails, the block keeps no oracle update.
@@ -87,7 +87,7 @@ set_pair(USDT_USD, PairConfig { market_quorum: 2 })
 set_pair(DOT_USD, PairConfig { market_quorum: 3 })
 set_cross_rates(DOT_USD, [(DOT_USDT, USDT_USD)])    // DOT/USD = DOT/USDT * USDT/USD
 set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, pricing, active: true })
-set_parameters(Parameters { report_window, quorum, tick_interval_ms })
+set_parameters(Parameters { report_window, report_window_ms, quorum, tick_interval_ms })
 ```
 
 Nothing is reported or published until the parameters are set.
@@ -148,14 +148,24 @@ market at 4.01, DOT/USD has the votes 3.996, 4.01598 and 4.01, and is reported a
 ## Processing reports
 
 The block author's reports arrive in the mandatory inherent `process_reports`, once per block.
-Nothing is processed while `Params` is unset or processing is paused. A report is ignored if its
-anchor is ahead of the current one or more than `report_window` blocks behind it, if its signer
-is not in `Signers::signers()`, or if its signature does not verify. Of several reports of one
-signer in a block, the one with the highest anchor is kept. At equal anchors the later one in the
-block wins.
+Nothing is processed while `Params` is unset or processing is paused. A report is ignored if it
+is not live, if its signer is not in `Signers::signers()`, or if its signature does not verify.
+Of several reports of one signer in a block, the one with the highest anchor is kept. At equal
+anchors the later one in the block wins.
+
+A report or vote is live while:
+
+- its block is not ahead of the current block of `AnchorProvider`, and at most `report_window`
+  blocks behind it;
+- its timestamp is at most `report_window_ms` behind the current time of `AnchorProvider`.
+
+A timestamp ahead of the chain's time is accepted: the chain's time may lag behind the signer's
+clock, and the block window bounds how long such a vote counts. The chain's time only ages votes: running
+ahead of real time expires them early, lagging behind lets them count longer. It keeps advancing
+while this chain stalls, so votes made before a stall expire after it.
 
 Each quote of an accepted report becomes the signer's vote for that pair, replacing an older or
-equally anchored vote. Votes anchored outside the report window are dropped. A pair with at least
+equally anchored vote. Votes that are no longer live are dropped. A pair with at least
 the signer `quorum` of `Params` gets the median as its price, stamped with the current block
 number of `BlockNumberProvider` and the number of votes. When the price differs from the stored
 one, `PriceUpdated` is emitted and `OnPriceUpdate` is called, unless publishing is paused. The
@@ -164,6 +174,7 @@ block stays valid either way. Rejected reports are counted in `ReportsProcessed`
 
 ## Open points
 
-- Anchors are block numbers of this chain, which stop advancing while the chain stalls, so
-  reports made before a stall look fresh after it. A two-dimensional anchor, adding the relay
-  chain slot, is a candidate replacement.
+- When the chain's time freezes too, as after a relay chain stall on a parachain, votes made
+  before the stall look fresh in the first blocks after it. Honest block authors leave such
+  reports out by their own clock; a dishonest one can include them until the chain's time catches
+  up.

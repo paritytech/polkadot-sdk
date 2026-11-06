@@ -24,12 +24,14 @@ pub mod order_book;
 pub mod pricing;
 pub mod registry;
 pub mod signers;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{PricePoint, PriceProvider},
+	traits::{PricePoint, PriceProvider, UnixTime},
 };
 use frame_system::pallet_prelude::*;
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError};
@@ -68,9 +70,7 @@ pub type ProvidedBlockNumberOf<T> =
 pub struct Vote<Id> {
 	/// The signer.
 	pub signer: Id,
-	/// Anchor of the report the price was taken from.
-	///
-	/// e.g. block or slot number.
+	/// Anchor of the report the price was taken from: the signer's best block and clock.
 	pub anchor: Anchor,
 	/// The reported price.
 	pub price: Price,
@@ -83,11 +83,37 @@ pub struct Vote<Id> {
 pub struct Parameters {
 	/// Reports anchored more than this many blocks ago are ignored.
 	pub report_window: u32,
+	/// Reports signed more than this many milliseconds before the time of
+	/// [`Config::AnchorProvider`] are ignored.
+	pub report_window_ms: u64,
 	/// Minimum number of live votes, one per signer, for a pair to have a price. A vote is live
-	/// for `report_window` blocks.
+	/// while it is within both `report_window` and `report_window_ms`.
 	pub quorum: u32,
 	/// Time between two ticks of an oracle node, in milliseconds.
 	pub tick_interval_ms: u32,
+}
+
+/// Provides the current anchor, against which reports and votes are measured.
+///
+/// The block is the number of this chain's blocks, as oracle nodes read it from their best block.
+/// The time only ages votes. The closer to real time the better: a time running ahead makes votes
+/// expire that much early, a time lagging behind lets them count that much longer than
+/// `report_window_ms`. Unlike the block number, it should keep advancing while this chain stalls,
+/// so votes made before a stall expire after it.
+///
+/// Implemented for a pair of a [`BlockNumberProvider`] and a [`UnixTime`].
+pub trait AnchorProvider {
+	/// The current block and time.
+	fn current_anchor() -> Anchor;
+}
+
+impl<B: BlockNumberProvider, T: UnixTime> AnchorProvider for (B, T) {
+	fn current_anchor() -> Anchor {
+		Anchor {
+			block: B::current_block_number().saturated_into(),
+			timestamp_ms: T::now().as_millis().saturated_into(),
+		}
+	}
 }
 
 /// Settings of a registered pair.
@@ -98,24 +124,6 @@ pub struct PairConfig {
 	/// How many market votes an oracle node needs to quote the pair. Used by the nodes, not by
 	/// the on-chain vote.
 	pub market_quorum: u32,
-}
-
-/// Provides the current anchor, against which the age of reports is measured.
-///
-/// Oracle nodes anchor their reports to the same clock, so it must be one both the runtime and
-/// the nodes can observe.
-///
-/// TODO: a block number of this chain stops advancing while the chain stalls, so reports made
-/// before a stall look fresh after it. Reconsider once the node side exists, e.g. relay slots.
-pub trait AnchorProvider {
-	/// The current anchor.
-	fn current_anchor() -> Anchor;
-}
-
-impl<P: BlockNumberProvider> AnchorProvider for P {
-	fn current_anchor() -> Anchor {
-		Anchor(P::current_block_number().saturated_into())
-	}
 }
 
 /// What is paused.
@@ -191,7 +199,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxCrossRates: Get<u32>;
 
-		/// Provides the anchor reports are measured against.
+		/// Provides the current block and time reports and votes are measured against.
 		type AnchorProvider: AnchorProvider;
 
 		/// Provides the block number stored with every price, marking its age.
@@ -363,7 +371,7 @@ pub mod pallet {
 			let anchor = T::AnchorProvider::current_anchor();
 			let total = reports.len() as u32;
 
-			let accepted = Self::filter_reports(reports, anchor, params.report_window);
+			let accepted = Self::filter_reports(reports, anchor, &params);
 			Self::deposit_event(Event::ReportsProcessed {
 				accepted: accepted.len() as u32,
 				rejected: total - accepted.len() as u32,
@@ -375,12 +383,15 @@ pub mod pallet {
 
 		/// Set the parameters. Reports are processed once they are set.
 		///
-		/// `report_window` and `quorum` must be at least one.
+		/// `report_window`, `report_window_ms` and `quorum` must be at least one.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_parameters())]
 		pub fn set_parameters(origin: OriginFor<T>, params: Parameters) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(params.report_window >= 1 && params.quorum >= 1, Error::<T>::InvalidParameters);
+			ensure!(
+				params.report_window >= 1 && params.report_window_ms >= 1 && params.quorum >= 1,
+				Error::<T>::InvalidParameters
+			);
 			Params::<T>::put(&params);
 			Self::deposit_event(Event::ParametersSet { params });
 			Ok(())
@@ -542,6 +553,7 @@ impl<T: Config> Pallet<T> {
 		sp_price_oracle::Settings {
 			signers: T::Signers::signers(),
 			report_window: params.as_ref().map_or(0, |p| p.report_window),
+			report_window_ms: params.as_ref().map_or(0, |p| p.report_window_ms),
 			tick_interval_ms: params.as_ref().map_or(0, |p| p.tick_interval_ms),
 		}
 	}
@@ -637,9 +649,16 @@ impl<T: Config> PriceProvider for Pallet<T> {
 	}
 }
 
-/// A vote's anchor is live if it is not ahead of the current anchor and within the report window.
-fn is_live(anchor: Anchor, current: Anchor, window: u32) -> bool {
-	anchor <= current && current.0 - anchor.0 <= window
+/// Whether a report or vote anchored at `anchor` counts at `current`.
+///
+/// Its block must not be ahead of the current block, and must be within `report_window` of it.
+/// Its timestamp must be within `report_window_ms` of the current time. A timestamp ahead of the
+/// current time is not rejected: the chain's time may lag behind the signer's clock, and the
+/// block window bounds how long such a vote counts.
+fn is_live(anchor: Anchor, current: Anchor, params: &Parameters) -> bool {
+	anchor.block <= current.block &&
+		current.block - anchor.block <= params.report_window &&
+		current.timestamp_ms.saturating_sub(anchor.timestamp_ms) <= params.report_window_ms
 }
 
 impl<T: Config> Pallet<T> {
@@ -648,13 +667,13 @@ impl<T: Config> Pallet<T> {
 	fn filter_reports(
 		reports: Vec<SignedPriceReportOf<T>>,
 		current: Anchor,
-		window: u32,
+		params: &Parameters,
 	) -> Vec<SignedPriceReportOf<T>> {
 		let signers = T::Signers::signers();
 		let mut latest: BTreeMap<T::SignerId, SignedPriceReportOf<T>> = BTreeMap::new();
 
 		for report in reports {
-			if !is_live(report.report.anchor, current, window) {
+			if !is_live(report.report.anchor, current, params) {
 				log::debug!(
 					target: LOG_TARGET,
 					"Stale report anchored at {:?}, current anchor {current:?}",
@@ -690,7 +709,7 @@ impl<T: Config> Pallet<T> {
 
 		// Prune first, so expired votes never take the room of new ones.
 		for pair_votes in votes.values_mut() {
-			pair_votes.retain(|v| is_live(v.anchor, current, params.report_window));
+			pair_votes.retain(|v| is_live(v.anchor, current, params));
 		}
 
 		for report in reports {

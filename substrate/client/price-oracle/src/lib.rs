@@ -178,7 +178,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					no_signer_logged = true;
 				}
 				// Drop pooled reports that fell out of the report window.
-				pool.prune(setup.oldest());
+				pool.prune(&setup.window(tick::now_ms()));
 				metrics.on_pool_reports(pool.len());
 				// Keep a substream open to the recipients of this tick.
 				targets.reserve(recipients.recipients(setup.best_hash).await);
@@ -232,7 +232,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 							metrics.on_received_report("no_tick_setup");
 							continue;
 						};
-						match setup.check(&peer, &notification) {
+						match setup.check(&peer, &notification, tick::now_ms()) {
 							Ok(report) =>
 								if pool.insert(report) {
 									network.report_peer(peer, GOOD_REPORT);

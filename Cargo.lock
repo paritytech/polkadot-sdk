@@ -14536,6 +14536,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-price-oracle",
  "sp-runtime 31.0.1",
 ]

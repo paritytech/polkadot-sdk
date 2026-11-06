@@ -111,7 +111,7 @@ mod tests {
 
 	fn report() -> PriceReport {
 		PriceReport {
-			anchor: Anchor(7),
+			anchor: Anchor::new(7, 1_800_000_000_000),
 			quotes: vec![Quote { pair: PairId(1), price: Price::from_rational(4_206, 1_000) }],
 		}
 	}

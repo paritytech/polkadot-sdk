@@ -30,10 +30,12 @@ use scale_info::TypeInfo;
 use sp_arithmetic::FixedU128;
 use sp_runtime::RuntimeAppPublic;
 
-/// The block height a price report is anchored to.
+/// When a price report was made.
 ///
-/// Reports carry the height of the best block known to the signer at signing time. The runtime
-/// uses it to order reports of the same signer and to expire old ones.
+/// Reports carry the height of the best block known to the signer and the signer's clock at
+/// signing time. The runtime orders the reports of a signer by both, block first, rejects reports
+/// anchored to a block ahead of its own, and expires votes once either the block or the time is
+/// too old.
 #[derive(
 	Clone,
 	Copy,
@@ -48,7 +50,19 @@ use sp_runtime::RuntimeAppPublic;
 	MaxEncodedLen,
 	TypeInfo,
 )]
-pub struct Anchor(pub u32);
+pub struct Anchor {
+	/// Height of the signer's best block.
+	pub block: u32,
+	/// The signer's clock, in milliseconds since the Unix epoch.
+	pub timestamp_ms: u64,
+}
+
+impl Anchor {
+	/// An anchor at `block` and `timestamp_ms`.
+	pub const fn new(block: u32, timestamp_ms: u64) -> Self {
+		Self { block, timestamp_ms }
+	}
+}
 
 /// Identifier of a pair of assets, such as DOT/USD.
 ///
@@ -125,6 +139,8 @@ pub struct Settings<Id> {
 	pub signers: Vec<Id>,
 	/// Reports anchored more than this many blocks ago are ignored.
 	pub report_window: u32,
+	/// Reports signed more than this many milliseconds ago are ignored.
+	pub report_window_ms: u64,
 	/// Time between two ticks, in milliseconds.
 	pub tick_interval_ms: u32,
 }
@@ -137,7 +153,7 @@ pub const SIGNING_CONTEXT: &[u8; 12] = b"price-report";
 /// A set of prices published by an oracle node, anchored to one block height.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct PriceReport {
-	/// The block height the report is anchored to.
+	/// When the report was made.
 	pub anchor: Anchor,
 	/// Prices for the pairs the node was able to price. Any subset of the pairs known to the
 	/// runtime, at most one quote per pair.
@@ -183,7 +199,7 @@ mod tests {
 
 	fn report() -> PriceReport {
 		PriceReport {
-			anchor: Anchor(1_000),
+			anchor: Anchor::new(1_000, 1_800_000_000_000),
 			quotes: vec![
 				Quote { pair: PairId(1), price: Price::from_rational(4_206, 1_000) },
 				Quote { pair: PairId(3), price: Price::from_rational(9_998, 10_000) },
@@ -222,7 +238,7 @@ mod tests {
 		assert!(!signed.verify_signature());
 
 		let mut signed = sign(&pair, report());
-		signed.report.anchor = Anchor(1_001);
+		signed.report.anchor = Anchor::new(1_001, 1_800_000_000_000);
 		assert!(!signed.verify_signature());
 	}
 

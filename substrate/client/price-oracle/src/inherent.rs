@@ -17,11 +17,15 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Inherent data provider carrying the pooled reports into a block.
 
-use crate::{pool::ReportPool, LOG_TARGET};
+use crate::{
+	pool::{ReportPool, Window},
+	tick::now_ms,
+	LOG_TARGET,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_price_oracle::{
-	inherents::InherentDataProvider, runtime_api::PriceOracleApi, Anchor, SignedPriceReport,
+	inherents::InherentDataProvider, runtime_api::PriceOracleApi, SignedPriceReport,
 };
 use sp_runtime::{
 	traits::{Block as BlockT, Header, SaturatedConversion},
@@ -34,10 +38,14 @@ pub struct PriceOracleInherentDataProvider;
 impl PriceOracleInherentDataProvider {
 	/// The inherent data provider for the block built on `parent`.
 	///
-	/// Selects from `pool` the reports the runtime will accept in that block, with
+	/// Selects from `pool` the reports the runtime accepts in that block, with
 	/// `current = parent + 1`:
-	/// - `current - window <= anchor <= current`,
-	/// - `anchor >= latest anchor of the signer on chain`.
+	/// - `current - report_window <= anchor.block <= current`,
+	/// - `anchor >= latest anchor of the signer on chain`,
+	/// and that are fresh by this node's clock: `now - report_window_ms <= anchor.timestamp_ms`.
+	/// The runtime measures timestamps against the chain's time, which freezes while the chain
+	/// stalls; this node's clock does not, so an honest author leaves out reports the runtime would
+	/// still accept after a stall.
 	///
 	/// Nothing is selected if the header of `parent` is unavailable or the runtime at `parent`
 	/// does not implement the price oracle API.
@@ -92,11 +100,11 @@ impl PriceOracleInherentDataProvider {
 				return None;
 			},
 		};
-		let parent_number = Anchor((*header.number()).saturated_into());
+		let parent_number: u32 = (*header.number()).saturated_into();
 
 		let api = client.runtime_api();
-		let (window, on_chain) = match (api.settings(parent), api.latest_anchors(parent)) {
-			(Ok(settings), Ok(on_chain)) => (settings.report_window, on_chain),
+		let (settings, on_chain) = match (api.settings(parent), api.latest_anchors(parent)) {
+			(Ok(settings), Ok(on_chain)) => (settings, on_chain),
 			(Err(e), _) | (_, Err(e)) => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -105,16 +113,21 @@ impl PriceOracleInherentDataProvider {
 				return None;
 			},
 		};
-		let (oldest, newest) = anchor_bounds(parent_number, window);
-		Some(pool.select(&on_chain, oldest, newest))
+		let (oldest_block, newest_block) = block_bounds(parent_number, settings.report_window);
+		let window = Window {
+			oldest_block,
+			newest_block: Some(newest_block),
+			oldest_timestamp_ms: now_ms().saturating_sub(settings.report_window_ms),
+		};
+		Some(pool.select(&on_chain, &window))
 	}
 }
 
-/// The anchors the runtime accepts in the block built on `parent_number`:
-/// `current - window ..= current` with `current = parent_number + 1`.
-fn anchor_bounds(parent_number: Anchor, window: u32) -> (Anchor, Anchor) {
-	let current = parent_number.0.saturating_add(1);
-	(Anchor(current.saturating_sub(window)), Anchor(current))
+/// The oldest and newest block the runtime accepts in the block built on `parent_number`:
+/// `current - window` and `current`, with `current = parent_number + 1`.
+fn block_bounds(parent_number: u32, window: u32) -> (u32, u32) {
+	let current = parent_number.saturating_add(1);
+	(current.saturating_sub(window), current)
 }
 
 #[cfg(test)]
@@ -124,26 +137,27 @@ mod tests {
 	#[test]
 	fn bounds_match_the_runtime_window() {
 		// The runtime accepts `current - anchor <= window` with `current = parent + 1`.
-		let accepted = |anchor: u32, parent: u32, window: u32| {
+		let accepted = |block: u32, parent: u32, window: u32| {
 			let current = parent + 1;
-			anchor <= current && current - anchor <= window
+			block <= current && current - block <= window
 		};
 		for (parent, window) in [(100, 10), (100, 1), (0, 5), (5, 0)] {
-			let (oldest, newest) = anchor_bounds(Anchor(parent), window);
-			// Every selected anchor is accepted by the runtime, and the ones just outside are not.
-			for anchor in oldest.0..=newest.0 {
-				assert!(accepted(anchor, parent, window), "{anchor} at {parent}/{window}");
+			let (oldest, newest) = block_bounds(parent, window);
+			// Every block within the bounds is accepted by the runtime, and the ones just outside
+			// are not.
+			for block in oldest..=newest {
+				assert!(accepted(block, parent, window), "{block} at {parent}/{window}");
 			}
-			if oldest.0 > 0 {
-				assert!(!accepted(oldest.0 - 1, parent, window));
+			if oldest > 0 {
+				assert!(!accepted(oldest - 1, parent, window));
 			}
-			assert!(!accepted(newest.0 + 1, parent, window));
+			assert!(!accepted(newest + 1, parent, window));
 		}
-		assert_eq!(anchor_bounds(Anchor(100), 10), (Anchor(91), Anchor(101)));
-		// A zero window, as served while the parameters are unset, selects only the current
-		// anchor, which the runtime accepts as well.
-		assert_eq!(anchor_bounds(Anchor(5), 0), (Anchor(6), Anchor(6)));
+		assert_eq!(block_bounds(100, 10), (91, 101));
+		// A zero window, as served while the parameters are unset, takes only the current block,
+		// which the runtime accepts as well.
+		assert_eq!(block_bounds(5, 0), (6, 6));
 		// No overflow at the top of the range.
-		assert_eq!(anchor_bounds(Anchor(u32::MAX), 1).1, Anchor(u32::MAX));
+		assert_eq!(block_bounds(u32::MAX, 1).1, u32::MAX);
 	}
 }

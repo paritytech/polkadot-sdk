@@ -22,15 +22,36 @@ use parking_lot::RwLock;
 use sp_price_oracle::{Anchor, SignedPriceReport};
 use std::{collections::BTreeMap, sync::Arc};
 
+/// The anchors a report may have to count.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Window {
+	/// The oldest block accepted.
+	pub oldest_block: u32,
+	/// The newest block accepted. `None` accepts any.
+	pub newest_block: Option<u32>,
+	/// The oldest timestamp accepted, in milliseconds since the Unix epoch.
+	pub oldest_timestamp_ms: u64,
+}
+
+impl Window {
+	/// Whether `anchor` is within the window.
+	pub fn contains(&self, anchor: &Anchor) -> bool {
+		anchor.block >= self.oldest_block &&
+			self.newest_block.map_or(true, |newest| anchor.block <= newest) &&
+			anchor.timestamp_ms >= self.oldest_timestamp_ms
+	}
+}
+
 /// Reports collected from the oracle nodes, the latest one per signer.
 ///
 /// Reports enter the pool from two sides: the ones signed by this node, and the ones received
 /// from peers and passed the acceptance rules. A report replaces the signer's previous one
 /// unless the previous one has a greater anchor; at equal anchors the one inserted last wins, as
-/// nothing tells which of two reports with the same anchor is fresher. Reports leave the pool only
-/// by pruning, once their anchor falls out of the window the runtime accepts. The block author
-/// reads the pool through [`select`](Self::select) without removing anything, so a report stays
-/// available to the next block if the current one is not included.
+/// nothing tells which of two reports with the same anchor is fresher. Anchors compare by block,
+/// then by timestamp. Reports leave the pool only by pruning, once their block or timestamp falls
+/// out of the report windows. The block author reads the pool through [`select`](Self::select)
+/// without removing anything, so a report stays available to the next block if the current one is
+/// not included.
 ///
 /// The pool holds no cryptographic or membership judgement of its own. Whoever inserts a report
 /// is responsible for having verified it.
@@ -60,24 +81,23 @@ impl<Id: Ord + Clone, Signature: Clone> ReportPool<Id, Signature> {
 		}
 	}
 
-	/// Drop reports anchored before `oldest`.
-	pub fn prune(&self, oldest: Anchor) {
-		self.inner.write().retain(|_, r| r.report.anchor >= oldest);
+	/// Drop reports anchored outside `window`.
+	pub fn prune(&self, window: &Window) {
+		self.inner.write().retain(|_, r| window.contains(&r.report.anchor));
 	}
 
-	/// The reports to include in a block: all held reports anchored within `oldest..=newest`,
-	/// except those anchored before the signer's vote already on chain, as given by `on_chain`.
-	/// Nothing is removed from the pool.
+	/// The reports to include in a block: all held reports anchored within `window`, except those
+	/// anchored before the signer's vote already on chain, as given by `on_chain`. Nothing is
+	/// removed from the pool.
 	pub fn select(
 		&self,
 		on_chain: &[(Id, Anchor)],
-		oldest: Anchor,
-		newest: Anchor,
+		window: &Window,
 	) -> Vec<SignedPriceReport<Id, Signature>> {
 		let on_chain: BTreeMap<&Id, Anchor> = on_chain.iter().map(|(id, a)| (id, *a)).collect();
 		let pool = self.inner.read();
 		pool.values()
-			.filter(|r| r.report.anchor >= oldest && r.report.anchor <= newest)
+			.filter(|r| window.contains(&r.report.anchor))
 			.filter(|r| on_chain.get(&r.signer).map_or(true, |a| r.report.anchor >= *a))
 			.cloned()
 			.collect()
@@ -107,38 +127,52 @@ mod tests {
 
 	type Pool = ReportPool<u8, ()>;
 
-	fn report(signer: u8, anchor: u32) -> SignedPriceReport<u8, ()> {
+	fn report_at(signer: u8, block: u32, timestamp_ms: u64) -> SignedPriceReport<u8, ()> {
 		SignedPriceReport {
-			report: PriceReport { anchor: Anchor(anchor), quotes: vec![] },
+			report: PriceReport { anchor: Anchor::new(block, timestamp_ms), quotes: vec![] },
 			signer,
 			signature: (),
 		}
 	}
+	fn report(signer: u8, block: u32) -> SignedPriceReport<u8, ()> {
+		report_at(signer, block, 1_000)
+	}
+
+	fn window(oldest_block: u32, newest_block: Option<u32>, oldest_timestamp_ms: u64) -> Window {
+		Window { oldest_block, newest_block, oldest_timestamp_ms }
+	}
 
 	fn anchors(reports: &[SignedPriceReport<u8, ()>]) -> Vec<(u8, u32)> {
-		reports.iter().map(|r| (r.signer, r.report.anchor.0)).collect()
+		reports.iter().map(|r| (r.signer, r.report.anchor.block)).collect()
+	}
+	fn all(pool: &Pool) -> Vec<SignedPriceReport<u8, ()>> {
+		pool.select(&[], &window(0, None, 0))
 	}
 
 	#[test]
 	fn insert_keeps_the_latest_per_signer() {
 		let pool = Pool::new();
 		assert!(pool.insert(report(1, 10)));
-		assert!(pool.insert(report(1, 11)), "greater anchor replaces");
+		assert!(pool.insert(report(1, 11)), "greater block replaces");
 		assert!(pool.insert(report(1, 11)), "equal anchor replaces: last wins");
-		assert!(!pool.insert(report(1, 10)), "smaller anchor is dropped");
+		assert!(!pool.insert(report(1, 10)), "smaller block is dropped");
+		assert!(pool.insert(report_at(1, 11, 2_000)), "same block, later timestamp replaces");
+		assert!(!pool.insert(report_at(1, 11, 1_500)), "same block, earlier timestamp is dropped");
+		assert!(pool.insert(report_at(1, 12, 500)), "later block replaces, whatever the timestamp");
 		assert!(pool.insert(report(2, 5)));
 		assert_eq!(pool.len(), 2);
-		assert_eq!(anchors(&pool.select(&[], Anchor(0), Anchor(u32::MAX))), vec![(1, 11), (2, 5)]);
+		assert_eq!(anchors(&all(&pool)), vec![(1, 12), (2, 5)]);
 	}
 
 	#[test]
-	fn prune_drops_reports_before_oldest() {
+	fn prune_drops_reports_out_of_either_window() {
 		let pool = Pool::new();
-		pool.insert(report(1, 10));
-		pool.insert(report(2, 11));
-		pool.insert(report(3, 12));
-		pool.prune(Anchor(11));
-		assert_eq!(anchors(&pool.select(&[], Anchor(0), Anchor(u32::MAX))), vec![(2, 11), (3, 12)]);
+		pool.insert(report_at(1, 10, 1_000)); // block too old
+		pool.insert(report_at(2, 11, 1_000));
+		pool.insert(report_at(3, 12, 999)); // timestamp too old
+		pool.insert(report_at(4, 12, 5_000));
+		pool.prune(&window(11, None, 1_000));
+		assert_eq!(anchors(&all(&pool)), vec![(2, 11), (4, 12)]);
 	}
 
 	#[test]
@@ -148,14 +182,16 @@ mod tests {
 		pool.insert(report(2, 11)); // same anchor as on chain: included, last wins
 		pool.insert(report(3, 12)); // newer than on chain: included
 		pool.insert(report(4, 12)); // not on chain: included
-		pool.insert(report(5, 3)); // before `oldest`: skipped
-		pool.insert(report(6, 13)); // after `newest`: skipped
-		let on_chain = [(1, Anchor(11)), (2, Anchor(11)), (3, Anchor(11))];
+		pool.insert(report(5, 3)); // before the oldest block: skipped
+		pool.insert(report(6, 13)); // after the newest block: skipped
+		pool.insert(report_at(7, 12, 999)); // before the oldest timestamp: skipped
+		let on_chain =
+			[(1, Anchor::new(11, 1_000)), (2, Anchor::new(11, 1_000)), (3, Anchor::new(11, 1_000))];
 		assert_eq!(
-			anchors(&pool.select(&on_chain, Anchor(5), Anchor(12))),
+			anchors(&pool.select(&on_chain, &window(5, Some(12), 1_000))),
 			vec![(2, 11), (3, 12), (4, 12)]
 		);
-		assert_eq!(pool.len(), 6, "select removes nothing");
+		assert_eq!(pool.len(), 7, "select removes nothing");
 	}
 
 	#[test]
