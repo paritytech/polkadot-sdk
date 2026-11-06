@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793982905673,
+  "lastUpdate": 1793996928140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9",
-          "message": "eth-rpc: Bulk INSERT/DELETE and commit per-block writes atomically (#11726)\n\n### Summary\n\n- Query SQLite's max variable limit at startup and use it to chunk bulk\nINSERTs and DELETEs, avoiding bind-parameter overflows\n- Replace per-row individual inserts with batched bulk inserts\n- Commit transaction hashes, logs, and block mapping in a single SQLite\ntransaction per block, same for deletes\n- Use `INSERT OR REPLACE` for logs (previously plain INSERT) to match\ntransaction_hashes and prevent UNIQUE constraint failures if the EXISTS\ndedup guard is bypassed\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T09:42:37Z",
-          "tree_id": "4a66e89e5d744d17c7e6be0dd29e0999f2436304",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9"
-        },
-        "date": 1776772546480,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.07400000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038088125135999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08066830294199993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08473780645399992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "olivarra1@gmail.com",
+            "name": "Victor Oliva",
+            "username": "voliva"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4",
+          "message": "[referenda] Add `slash_submission_deposit` extrinsic (#11524)\n\n# Description\n\nCloses #1690 \n\nAdds a new `slash_submission_deposit` extrinsic to `pallet-referenda`\nthat allows slashing the submission deposit for referenda that have been\nRejected or TimedOut.\n\nThis complements the existing `refund_submission_deposit` which only\nworks for Approved or Cancelled referenda. Previously, there was no way\nto slash submission deposits for failed referenda, which causes affected\naccounts to keep a reserved balance preventing that account from getting\ndeleted.\n\n## Integration\n\nThis PR adds a new extrinsic `slash_submission_deposit` with the next\ncall index assigned (9) to not break previous extrinsics. Integration\nshould be automatic.\n\n## Review Notes\n\nThe implementation mirrors `refund_submission_deposit` but calls\n`slash_deposit` instead of `refund_deposit`.\n\nI've recreated `take_submission_deposit` into\n`take_slash_submission_deposit`, which I think better documents which\nstates are appropriate for each case: For slashing, it only succeeds for\nRejected or TimedOut states.\n\nKey changes:\n\nNote: Weights are placeholder values copied from\n`refund_submission_deposit`. Please run /cmd bench --pallet\npallet_referenda to generate accurate weights before merging, as I don't\nhave permission to do that if I'm not wrong.\n\nOne outstanding question: I'm thinking that maybe it would make sense\nfor this extrinsic to be free in terms of fees if it succeeds.\n\nCurrently, the only incentive someone may have to call this extrinsic is\nif they want to recover the existential deposit, which might not be\nworth it if the ED is too small. As for the chain it's beneficial to\nalso cleanup storage, it might be worth considering making this\ntransaction free.\n\nBut I don't know if that's something that's usually done in these cases\nor what... so I went for the safest option of making it Pays::Yes (the\ndefault). Please let me know if it makes sense to have this transaction\nfree, and I'll change it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-06T18:21:40Z",
+          "tree_id": "9b5798bf39f9484b3bf8d8ef453174ebbf6396dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4"
+        },
+        "date": 1793996901118,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13200000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038647113620000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08375912053199991,
             "unit": "seconds"
           }
         ]
