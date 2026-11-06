@@ -609,12 +609,17 @@ impl VmBinaryModule {
 	/// block reads the block's 2 byte jump table entry, its 4 byte entry in the code map, and
 	/// the 8 byte handler and 16 byte arguments of its two compiled instructions: the gas charge
 	/// and the jump. The code map has one entry per code byte and a block is 5 bytes of code, so
-	/// every block adds 2 + 5 * 4 + 2 * 24 = 70 bytes to the data of a lap. The code itself is
-	/// read only when a block is compiled. The `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB
-	/// in about 52 pages of 4 KiB, 4.3 times the Ice Lake L1D: each of the 64 L1D sets receives
-	/// about 52 lines against at most 12 ways. Each of the 1024 L2 sets receives 3.2 lines, 40 %
-	/// of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per set is an average that
-	/// depends on where the pages land. The pages are fewer than the 64 L1 DTLB entries of both.
+	/// the entries of consecutive blocks are 20 bytes apart and a lap reads every cache line of
+	/// the map: 20 bytes per block. Every block thus adds 2 + 20 + 2 * 24 = 70 bytes to the data
+	/// of a lap. The code itself is read only when a block is compiled. The
+	/// `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB, 4.3 times the Ice Lake L1D: each of
+	/// the 64 L1D sets receives about 52 lines against at most 12 ways. Each of the 1024 L2 sets
+	/// receives 3.2 lines, 40 % of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
+	/// set is an average that depends on where the pages land. The data spans four arrays of
+	/// 4 KiB pages, jump table 2 to 3, code map 15 to 16, handlers 12 to 13 and arguments 24 to
+	/// 25, so 53 to 57 pages plus the interpreter's own state. They fit the fully associative 64
+	/// entry L1 DTLB of Zen 3. The 64 entry L1 DTLB of Ice Lake is 4-way set associative, so some
+	/// of them may miss it and hit the second level TLB.
 	pub fn with_indirect_jump_cycle() -> Self {
 		use polkavm_common::{
 			abi::VM_CODE_ADDRESS_ALIGNMENT,
@@ -891,19 +896,22 @@ mod tests {
 		let entry = call_instructions(&module);
 
 		// The warm-up adds `step` to `t1` and jumps to it until `t1` is the address of the
-		// warm-up loop. Every block it jumps to returns to the loop.
+		// warm-up loop. It loads the loop's address into `link`, the register every cycle block
+		// jumps to (checked below), so every block it jumps to returns to the loop.
 		let Instruction::load_imm(t1, start) = entry[0].kind else { panic!("{:?}", entry[0]) };
 		assert_eq!(kind(warm_up), entry[2].kind);
 		let Instruction::add_imm_64(sum, addend, step) = entry[2].kind else {
 			panic!("{:?}", entry[2])
 		};
-		let Instruction::branch_eq_imm(compared, end, _) = entry[3].kind else {
+		let Instruction::branch_eq_imm(compared, end, exit) = entry[3].kind else {
 			panic!("{:?}", entry[3])
 		};
-		let Instruction::load_imm_and_jump_indirect(_, base, back, 0) = entry[4].kind else {
+		let Instruction::load_imm_and_jump_indirect(link, base, back, 0) = entry[4].kind else {
 			panic!("{:?}", entry[4])
 		};
 		assert!([sum, addend, compared, base].iter().all(|&reg| reg == t1), "{:?}", &entry[..5]);
+		assert_ne!(link, t1);
+		assert_eq!(exit, entry[5].offset.0);
 		assert_eq!(jump_table.get_by_address(back.cast_unsigned()), Some(warm_up));
 		assert_eq!(jump_table.get_by_address(end.cast_unsigned()), Some(warm_up));
 		let warm_up_steps = i32::try_from(blocks).unwrap();
@@ -912,11 +920,14 @@ mod tests {
 			.map(|k| jump_table.get_by_address((start + k * step).cast_unsigned()).unwrap())
 			.collect();
 
-		// Follow the jumps from the head into the cycle and back.
-		let Instruction::load_imm(_, first) = entry[5].kind else { panic!("{:?}", entry[5]) };
-		let Instruction::load_imm_and_jump_indirect(_, _, mut next, _) = entry[9].kind else {
+		// Follow the jumps from the head into the cycle and back. The end of the warm-up, the
+		// increment and every cycle block load and jump through `link`.
+		let Instruction::load_imm(lap_reg, first) = entry[5].kind else { panic!("{:?}", entry[5]) };
+		assert_eq!(lap_reg, link);
+		let Instruction::load_imm_and_jump_indirect(r, b, mut next, 0) = entry[9].kind else {
 			panic!("{:?}", entry[9])
 		};
+		assert!(r == link && b == link, "{:?}", entry[9]);
 		assert!(matches!(entry[7].kind, Instruction::branch_eq(..)));
 		assert_eq!(kind(head), entry[7].kind);
 		let mut target = jump_table.get_by_address(first.cast_unsigned()).unwrap();
@@ -924,9 +935,10 @@ mod tests {
 		while target != head {
 			assert!(lap_order.len() < compile_order.len(), "the lap does not return to the head");
 			lap_order.push(target);
-			let Instruction::load_imm_and_jump_indirect(_, _, value, _) = kind(target) else {
+			let Instruction::load_imm_and_jump_indirect(r, b, value, 0) = kind(target) else {
 				panic!("{:?}", kind(target))
 			};
+			assert!(r == link && b == link, "block {target}: {:?}", kind(target));
 			target = jump_table.get_by_address(next.cast_unsigned()).unwrap();
 			next = value;
 		}
@@ -946,8 +958,9 @@ mod tests {
 			.filter(|w| compiled_at(w[1]) == compiled_at(w[0]) + 1)
 			.count();
 		assert!(100 * in_compile_order < lap_order.len(), "{in_compile_order}");
-		// At most 5 bytes of code per cycle block, and 2 byte jump table entries.
+		// Between 4 and 5 bytes of code per cycle block, and 2 byte jump table entries.
 		let code_len = u32::try_from(blob.code().len()).unwrap();
+		assert!(code_len >= 4 * blocks, "{code_len} < {}", 4 * blocks);
 		assert!(code_len <= 5 * blocks, "{code_len} > {}", 5 * blocks);
 		assert!(code_len <= u32::from(u16::MAX), "{code_len}");
 
