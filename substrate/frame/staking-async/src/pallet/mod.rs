@@ -54,7 +54,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, ServiceKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -431,7 +431,8 @@ pub mod pallet {
 		/// Check if validator was inactive at some era.
 		///
 		/// This check is used by `chill_inactive` extrinsic to check which
-		/// validators can be chilled.
+		/// validators can be chilled. See the implementors of [`IsValidatorInactive`] for the
+		/// available options.
 		type IsValidatorInactive: IsValidatorInactive<Self::AccountId>;
 
 		/// Notified with the validators of each era when it becomes active.
@@ -927,9 +928,29 @@ pub mod pallet {
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
+	///
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
+	/// This pot is essentially the _total_ points earned by the validator.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+
+	/// The points of [`ErasRewardPoints`] split by the service that earned them.
+	///
+	/// Values are era points as credited, in the same unit as [`ErasRewardPoints`]. A service
+	/// measured in other units, such as blocks authored, is converted to points before it is
+	/// credited. Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more
+	/// than the tally does for the same account.
+	#[pallet::storage]
+	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		ServiceKind,
+		EraRewardPoints<T>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -1095,9 +1116,12 @@ pub mod pallet {
 	/// The number of eras a validator can remain inactive during the last
 	/// [`Config::HistoryDepth`] before being subject to chilling because of inactivity.
 	///
-	/// This must be less than or equal [`Config::HistoryDepth`] and bigger than 1.
+	/// This must be less than or equal [`Config::HistoryDepth`] and bigger than 1. The weight of
+	/// `chill_inactive` with a proof of this length must fit in one normal extrinsic.
+	///
+	/// If `None`, the default, `chill_inactive` is disabled.
 	#[pallet::storage]
-	pub type ChillInactiveThreshold<T: Config> = StorageValue<_, u32, ValueQuery, T::HistoryDepth>;
+	pub type ChillInactiveThreshold<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -1478,6 +1502,14 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
+		/// `era` and `dropped` entries were not.
+		ServicePointsCredited {
+			service: ServiceKind,
+			era: EraIndex,
+			credited: u32,
+			dropped: u32,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1592,6 +1624,8 @@ pub mod pallet {
 		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
+		/// `chill_inactive` is disabled, as [`ChillInactiveThreshold`] is not set.
+		ChillInactiveDisabled,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -1703,6 +1737,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
+					// At most one entry per `ServiceKind`.
+					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
@@ -2629,7 +2665,8 @@ pub mod pallet {
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
 		/// * `chill_inactive_threshold`: The number of eras a validator can remain inactive during
 		///   the last [`Config::HistoryDepth`] eras before being subject to chilling becuase of
-		///   inactivity.
+		///   inactivity. The weight of `chill_inactive` with a proof of this length must fit in one
+		///   normal extrinsic. When removed, `chill_inactive` is disabled.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -2659,6 +2696,13 @@ pub mod pallet {
 			if let ConfigOp::Set(threshold) = chill_inactive_threshold {
 				ensure!(
 					threshold > 1 && threshold <= T::HistoryDepth::get(),
+					Error::<T>::InvalidChillInactiveThreshold
+				);
+				let block_weights = T::BlockWeights::get();
+				let normal = block_weights.get(DispatchClass::Normal);
+				let max_weight = normal.max_extrinsic.or(normal.max_total).unwrap_or(Weight::MAX);
+				ensure!(
+					T::WeightInfo::chill_inactive(threshold).all_lte(max_weight),
 					Error::<T>::InvalidChillInactiveThreshold
 				);
 			}
@@ -3219,6 +3263,8 @@ pub mod pallet {
 		/// This extrinsic can be called by anyone, given that the valid inactivity proof is
 		/// provided. Inactivity proof is a vector of eras where the given validator was inactive.
 		///
+		/// Disabled while [`ChillInactiveThreshold`] is not set.
+		///
 		/// Requirements for the inactivity proof:
 		/// - The length must be equal to [`ChillInactiveThreshold`].
 		/// - It must be sorted in ascending order.
@@ -3237,7 +3283,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
-			let threshold = ChillInactiveThreshold::<T>::get();
+			let threshold =
+				ChillInactiveThreshold::<T>::get().ok_or(Error::<T>::ChillInactiveDisabled)?;
 			ensure!(
 				proof.len() as EraIndex == threshold,
 				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidLen)
@@ -3266,10 +3313,10 @@ pub mod pallet {
 					)
 				);
 
-				let points = Eras::<T>::get_reward_points_for_validator(era, &stash);
+				let points = Eras::<T>::get_reward_points_by_service_for_validator(era, &stash);
 
 				ensure!(
-					T::IsValidatorInactive::is_inactive(era, &stash, points),
+					T::IsValidatorInactive::is_inactive(era, &stash, &points),
 					Error::<T>::InvalidInactivityProof(
 						InvalidInactivityProofError::ValidatorActive
 					)

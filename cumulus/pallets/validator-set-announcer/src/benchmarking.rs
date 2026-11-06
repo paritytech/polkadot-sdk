@@ -24,7 +24,7 @@ use crate::Pallet as ValidatorSetAnnouncer;
 use alloc::vec::Vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::Get;
-use pallet_validator_collators::ValidatorSet;
+use pallet_validator_collators::ExternalValidatorSet;
 
 #[benchmarks]
 mod benchmarks {
@@ -46,7 +46,7 @@ mod benchmarks {
 			)?;
 		}
 
-		assert_eq!(ValidatorSet::<T>::get().map(|set| set.era), Some(1));
+		assert_eq!(ExternalValidatorSet::<T>::get().map(|set| set.era), Some(1));
 		Ok(())
 	}
 
