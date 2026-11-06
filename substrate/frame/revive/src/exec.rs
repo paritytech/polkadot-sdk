@@ -1520,7 +1520,12 @@ where
 					<CodeInfo<T>>::increment_refcount(code_hash)?;
 				}
 
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				// Root pays no storage deposit, so a base deposit recorded here would never be
+				// held. It stays zero, as storage refunds are bounded by the deposit held above it.
+				let deposit = match &self.origin {
+					Origin::Signed(_) => frame.contract_info().update_base_deposit(code_deposit),
+					Origin::Root => Zero::zero(),
+				};
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),
