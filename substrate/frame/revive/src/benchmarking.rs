@@ -4577,10 +4577,12 @@ mod benchmarks {
 	/// counter increment and one indirect jump into and out of every block of a random cycle
 	/// (see [`VmBinaryModule::with_indirect_jump_cycle`]). The interpreter data a lap reads stays
 	/// in the L2 but not in the L1 data cache of the reference hardware, which is where the cost
-	/// per gas assumes it to be. The first lap also compiles every block of the cycle. Every `r`
-	/// runs at least one lap, so the compilation is in the intercept and the slope is one lap
-	/// over compiled blocks. The contract compiles to 6010 cache entries of 24 bytes, 141 KiB of
-	/// the 1 MiB interpreter cache, so the cache never resets and no block is compiled twice.
+	/// per gas assumes it to be. A warm-up before the first lap compiles every block of the cycle
+	/// in code order, so the handlers a lap reads are scattered over the interpreter cache like
+	/// its other data. The first lap compiles the counter increment. Every `r` runs the warm-up
+	/// and at least one lap, so all compilation is in the intercept and the slope is one lap over
+	/// compiled blocks. The contract compiles to 6018 cache entries of 24 bytes, 141 KiB of the
+	/// 1 MiB interpreter cache, so the cache never resets and no block is compiled twice.
 	///
 	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops its
 	/// compiled blocks at every call into another contract and compiles a block again when
