@@ -142,7 +142,8 @@ impl<C: Chain> RpcClient<C> {
 				SubstrateChainClient::<C>::block_hash(&*genesis_hash_client, Some(Zero::zero()))
 					.await
 			})
-			.await??;
+			.await??
+			.ok_or_else(|| Error::unknown_header_hash_by_number::<C>(Zero::zero()))?;
 
 		let chain_runtime_version = params.chain_runtime_version;
 		let mut client = Self {
@@ -332,11 +333,15 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	}
 
 	async fn header_hash_by_number(&self, number: BlockNumberOf<C>) -> Result<HashOf<C>> {
-		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateChainClient::<C>::block_hash(&*client, Some(number)).await?)
-		})
-		.await
-		.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))
+		let maybe_hash = self
+			.jsonrpsee_execute(move |client| async move {
+				Ok(SubstrateChainClient::<C>::block_hash(&*client, Some(number)).await?)
+			})
+			.await
+			.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))?;
+
+		// `CachingClient` resolves the number without this RPC when the node has no answer
+		maybe_hash.ok_or_else(|| Error::unknown_header_hash_by_number::<C>(number))
 	}
 
 	async fn header_by_hash(&self, hash: HashOf<C>) -> Result<HeaderOf<C>> {
