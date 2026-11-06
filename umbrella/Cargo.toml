@@ -35,6 +35,7 @@ std = [
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
 	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-spec-messaging?/std",
 	"cumulus-primitives-storage-weight-reclaim?/std",
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
@@ -124,6 +125,7 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-on-demand-para?/std",
 	"pallet-oracle-runtime-api?/std",
 	"pallet-oracle?/std",
 	"pallet-origin-restriction?/std",
@@ -150,6 +152,7 @@ std = [
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
+	"pallet-staking-async-points-converter?/std",
 	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-async-runtime-api?/std",
 	"pallet-staking-async?/std",
@@ -167,6 +170,8 @@ std = [
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
+	"pallet-validator-collators?/std",
+	"pallet-validator-set-announcer?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
@@ -323,6 +328,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-on-demand-para?/runtime-benchmarks",
 	"pallet-oracle?/runtime-benchmarks",
 	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
@@ -346,6 +352,7 @@ runtime-benchmarks = [
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
+	"pallet-staking-async-points-converter?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
 	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
@@ -358,6 +365,8 @@ runtime-benchmarks = [
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
+	"pallet-validator-collators?/runtime-benchmarks",
+	"pallet-validator-set-announcer?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
@@ -473,6 +482,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-on-demand-para?/try-runtime",
 	"pallet-oracle?/try-runtime",
 	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
@@ -496,6 +506,7 @@ try-runtime = [
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
+	"pallet-staking-async-points-converter?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
 	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
@@ -509,6 +520,8 @@ try-runtime = [
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
+	"pallet-validator-collators?/try-runtime",
+	"pallet-validator-set-announcer?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
@@ -604,6 +617,7 @@ runtime-full = [
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
 	"cumulus-primitives-proof-size-hostfunction",
+	"cumulus-primitives-spec-messaging",
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
@@ -695,6 +709,7 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-on-demand-para",
 	"pallet-oracle",
 	"pallet-oracle-runtime-api",
 	"pallet-origin-restriction",
@@ -725,6 +740,7 @@ runtime-full = [
 	"pallet-staking",
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
+	"pallet-staking-async-points-converter",
 	"pallet-staking-async-rc-client",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
@@ -741,6 +757,8 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-validator-collators",
+	"pallet-validator-set-announcer",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-vesting-precompiles",
@@ -1189,6 +1207,11 @@ path = "../cumulus/primitives/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/primitives/proof-size-hostfunction"
+
+[dependencies.cumulus-primitives-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/primitives/spec-messaging"
 
 [dependencies.cumulus-primitives-storage-weight-reclaim]
 default-features = false
@@ -1645,6 +1668,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
 
+[dependencies.pallet-on-demand-para]
+default-features = false
+optional = true
+path = "../substrate/frame/on-demand"
+
 [dependencies.pallet-oracle]
 default-features = false
 optional = true
@@ -1795,6 +1823,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/staking-async/ah-client"
 
+[dependencies.pallet-staking-async-points-converter]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/points-converter"
+
 [dependencies.pallet-staking-async-rc-client]
 default-features = false
 optional = true
@@ -1874,6 +1907,16 @@ path = "../substrate/frame/uniques"
 default-features = false
 optional = true
 path = "../substrate/frame/utility"
+
+[dependencies.pallet-validator-collators]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-collators"
+
+[dependencies.pallet-validator-set-announcer]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-set-announcer"
 
 [dependencies.pallet-verify-signature]
 default-features = false

@@ -1,0 +1,61 @@
+[package]
+name = "cumulus-primitives-spec-messaging-fuzzer"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Fuzzer for the speculative-messaging MMR, lift and message verifiers."
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "lift_extension"
+path = "src/bin/lift_extension.rs"
+
+[[bin]]
+name = "lift_inclusion"
+path = "src/bin/lift_inclusion.rs"
+
+[[bin]]
+name = "lift_decode"
+path = "src/bin/lift_decode.rs"
+
+[[bin]]
+name = "lift_pipeline"
+path = "src/bin/lift_pipeline.rs"
+
+[[bin]]
+name = "mmr_frontier"
+path = "src/bin/mmr_frontier.rs"
+
+[[bin]]
+name = "mmr_decode"
+path = "src/bin/mmr_decode.rs"
+
+[[bin]]
+name = "message_fetch"
+path = "src/bin/message_fetch.rs"
+
+[[bin]]
+name = "message_event"
+path = "src/bin/message_event.rs"
+
+[[bin]]
+name = "message_decode"
+path = "src/bin/message_decode.rs"
+
+[dependencies]
+arbitrary = { features = ["derive"], workspace = true }
+codec = { workspace = true, default-features = true }
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
+honggfuzz = { workspace = true }
+mmr-lib = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+
+[dev-dependencies]
+hex-literal = { workspace = true, default-features = true }

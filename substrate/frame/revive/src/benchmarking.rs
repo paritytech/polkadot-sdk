@@ -26,8 +26,8 @@ use crate::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Key, Origin as ExecOrigin, PrecompileExt},
-	limits,
+	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
+	limits::{self, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
@@ -38,8 +38,8 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		evm,
-		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
+		BENCH_MIN_EVM_INIT_CODE_LEN, evm,
+		evm::{ExtBytecode, Halt, Interpreter, instructions},
 		pvm,
 	},
 	*,
@@ -47,6 +47,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
+use core::ops::ControlFlow;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
@@ -61,7 +62,15 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::Bytecode;
+use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand_pcg::Pcg64;
+use revm::{
+	bytecode::{
+		Bytecode,
+		opcode::{ADDMOD, DIV, MOD, MULMOD, POP, SDIV, SMOD},
+	},
+	primitives::{eip170::MAX_CODE_SIZE, eip3860::MAX_INITCODE_SIZE},
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -108,6 +117,18 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
 ///
 /// Returns the account id the `seal_call` family expects in guest memory: `address` is never
@@ -117,6 +138,207 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
 		.map_err(|_| "set_delegation failed")?;
 	Ok(account_id)
+}
+
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
+}
+
+/// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
+///
+/// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
+fn evict_caches() {
+	const EVICTION_SIZE: usize = 8 * 1024 * 1024;
+	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
+}
+
+/// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
+fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
+	values
+		.into_iter()
+		.for_each(|value| interpreter.stack.push(value).continue_value().unwrap());
+}
+
+/// Pairs a pseudo-randomly chosen denominator with the shared `2^255` numerator.
+fn unsigned_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let denominator = denominators.choose(rng).copied().unwrap();
+	[denominator, knuth_division_operands::NUMERATOR]
+}
+
+/// Like [`unsigned_division_operands`], but negates the divisor pseudo-randomly.
+fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let [magnitude, numerator] = unsigned_division_operands(rng, denominators);
+	let divisor =
+		if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+	[divisor, numerator]
+}
+
+/// Operands covering all 17 correction patterns possible when dividing `2^255` by two-limb
+/// divisors.
+///
+/// Knuth's Algorithm D can correct the highest quotient limb zero or one time and each lower limb
+/// up to twice. The pattern `1, 0, 2` is impossible for this numerator. The counts were checked
+/// against `uint` 0.10.0's division. None of these operands needs the rarer correction that adds
+/// the divisor back after subtracting.
+///
+/// Picking a denominator pseudo-randomly varies the correction branches across divisions. Each
+/// denominator also makes the `u128` divisions behind the estimates take as many steps as any we
+/// found with its pattern. Correcting a limb twice needs a second denominator limb above one, which
+/// shortens the division behind the first estimate.
+///
+/// The fixed divisors are the denominators that measured slowest for each op-code. The slowest one
+/// depends on the op-code: `SDIV` and `SMOD` measured slowest with different patterns than `DIV`
+/// and `MOD`. After updating `uint` or the Rust toolchain, search for the denominators again and
+/// measure which one is slowest for each op-code.
+mod knuth_division_operands {
+	use super::{Rng, U256};
+
+	pub fn fixed_signed_operands(rng: &mut impl Rng, magnitude: U256) -> [U256; 2] {
+		// Consume the divisor draw to match the baseline's pseudo-random sign sequence.
+		let _ = rng.gen_range(0..DENOMINATORS.len() as u32);
+		let divisor =
+			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+		[divisor, NUMERATOR]
+	}
+
+	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
+	/// divide the same magnitudes.
+	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	/// The denominator that measured slowest for `DIV`.
+	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SDIV`.
+	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `MOD`.
+	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SMOD`.
+	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	/// `ADDMOD` reuses the divisor of `MOD`.
+	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 34] = [
+		// Corrections: 0, 0, 0.
+		U256([0x1ac6_6dea_3270_0980, 0x1, 0, 0]),
+		U256([0x1150_77a4_12e2_ccc0, 0x1, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0x3c9b_ee44_0b3f_dba7, 0x1, 0, 0]),
+		U256([0x62aa_fc46_0845_aad9, 0x1, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0x2806_4b94_70ef_f3d9, 0x1, 0, 0]),
+		U256([0x61d1_c4c6_195a_2d43, 0x1, 0, 0]),
+		// Corrections: 0, 1, 1.
+		SDIV_FIXED_DIVISOR,
+		U256([0x3ef8_7550_1dce_eb99, 0x1, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xce1e_8ac2_290c_265f, 0x1, 0, 0]),
+		U256([0xd736_05ee_66e1_a76b, 0x1, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xeb2b_fb00_8fa9_e0f7, 0x1, 0, 0]),
+		SMOD_FIXED_DIVISOR,
+		// Corrections: 1, 1, 0.
+		U256([0x500c_237e_4578_d88b, 0x1, 0, 0]),
+		U256([0x0164_a34e_0b1c_a4fd, 0x1, 0, 0]),
+		// Corrections: 1, 1, 1.
+		MOD_FIXED_DIVISOR,
+		DIV_FIXED_DIVISOR,
+		// Corrections: 0, 0, 2.
+		U256([0x3db2_354e_f8e8_6ca5, 0x96aa_3b25, 0, 0]),
+		U256([0x2848_08be_ea22_56a3, 0x9339_ddd9, 0, 0]),
+		// Corrections: 0, 1, 2.
+		U256([0x2534_a796_ffdf_b85e, 0xc250_8262, 0, 0]),
+		U256([0x4726_e939_da3c_08fe, 0xc198_a4ce, 0, 0]),
+		// Corrections: 0, 2, 0.
+		U256([0x5d5b_2f53_f03d_bec8, 0x909d_ad3b, 0, 0]),
+		U256([0x8e31_4add_736d_ee08, 0x40ce_7f0c, 0, 0]),
+		// Corrections: 0, 2, 1.
+		U256([0x0c62_030f_fabf_0fc7, 0xb51d_e6cb, 0, 0]),
+		U256([0x0332_58df_e522_494c, 0xb4db_915d, 0, 0]),
+		// Corrections: 0, 2, 2.
+		U256([0x0b07_4c7e_fb00_0c1f, 0xa5b9_8f9a, 0, 0]),
+		U256([0x26a5_a3c7_fce7_abd6, 0xa4a5_d36a, 0, 0]),
+		// Corrections: 1, 1, 2.
+		U256([0x6654_d104_1c8e_6943, 0x2, 0, 0]),
+		U256([0x64b6_7f9c_0cf1_dbff, 0x2, 0, 0]),
+		// Corrections: 1, 2, 0.
+		U256([0xeff9_3d22_eeac_89cf, 0x87, 0, 0]),
+		U256([0xadb2_0f65_e0ba_c8df, 0x12, 0, 0]),
+		// Corrections: 1, 2, 1.
+		U256([0xf486_a407_463b_dfde, 0x253, 0, 0]),
+		U256([0xaea8_360c_3043_f5f9, 0x1b4, 0, 0]),
+		// Corrections: 1, 2, 2.
+		U256([0xecbe_4a28_bb14_dbf0, 0x43, 0, 0]),
+		U256([0x64e2_acbc_9934_b1f2, 0x43, 0, 0]),
+	];
+}
+
+/// Operands covering all eight correction patterns in the one-limb division path.
+///
+/// `div_mod_small` divides one numerator limb at a time. The highest limb cannot require a
+/// correction. Each remaining limb can cause one correction in the 128-bit division helper. The
+/// patterns below are ordered by numerator limbs 2, 1, 0. The counts were checked with a
+/// source-level trace of Rust 1.93 `compiler_builtins` using the shared `2^255` numerator.
+///
+/// Each pattern has two distinct full-width divisors. Selecting a divisor pseudo-randomly varies
+/// the correction branches while preserving the signed minimum-numerator case.
+mod one_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 16] = [
+		// Corrections: 0, 0, 0.
+		U256([0xfff9_9928_4b39_14e9, 0, 0, 0]),
+		U256([0xfff7_2ef6_07d7_0402, 0, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0xfffc_adff_2ef2_7bf4, 0, 0, 0]),
+		U256([0xffc7_1287_6d60_c1f0, 0, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0xfff8_74b0_648f_da8a, 0, 0, 0]),
+		U256([0xfff7_1d06_39ab_3877, 0, 0, 0]),
+		// Corrections: 0, 1, 1.
+		U256([0xf974_5f46_74c9_5adf, 0, 0, 0]),
+		U256([0xf7e1_3204_7bd0_15af, 0, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xfff7_ac60_75f1_501f, 0, 0, 0]),
+		U256([0xffe8_555d_5f54_a346, 0, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xfe7a_ca58_4afc_ed70, 0, 0, 0]),
+		U256([0xfd2b_4905_64bd_9797, 0, 0, 0]),
+		// Corrections: 1, 1, 0.
+		U256([0xfcd0_0e3d_ccbd_7da4, 0, 0, 0]),
+		U256([0xee06_4d5d_bfab_b524, 0, 0, 0]),
+		// Corrections: 1, 1, 1.
+		U256([0xf42a_21ef_e080_fc89, 0, 0, 0]),
+		U256([0xf095_aea7_fc96_fbde, 0, 0, 0]),
+	];
+}
+
+/// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
+mod mixed_division_operands {
+	use super::{
+		Rng, U256, knuth_division_operands, one_limb_division_operands, signed_division_operands,
+		unsigned_division_operands,
+	};
+
+	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		unsigned_division_operands(rng, denominators)
+	}
+
+	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		signed_division_operands(rng, denominators)
+	}
+
+	fn denominators(rng: &mut impl Rng) -> &'static [U256] {
+		if rng.gen_bool(0.5) {
+			&knuth_division_operands::DENOMINATORS
+		} else {
+			&one_limb_division_operands::DENOMINATORS
+		}
+	}
 }
 
 #[benchmarks(
@@ -411,7 +633,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_init_code_for_runtime_size(c),
@@ -1134,6 +1358,11 @@ mod benchmarks {
 			Pallet::<T>::min_balance() * 2u32.into(),
 			42u32,
 		));
+		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
+		// still be able to read its own balance. In a contract called without value by another
+		// contract, the read is unpaid until #12673 removes this whitelist.
+		let account_id = &contract.account_id;
+		whitelist_account!(account_id);
 
 		let result;
 		#[block]
@@ -1516,6 +1745,7 @@ mod benchmarks {
 		if !delete_code {
 			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
 		}
+		assert_account_not_whitelisted::<T>(&instance.account_id);
 
 		let result;
 		#[block]
@@ -1528,6 +1758,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The teardown of a terminated contract at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1555,26 +1786,18 @@ mod benchmarks {
 		let exec_config = ExecConfig::new_substrate_tx();
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
-		let beneficiary_clone = beneficiary.clone();
-		let trie_id = instance.info()?.trie_id.clone();
-		let code_hash = instance.info()?.code_hash;
-		let only_if_same_tx = false;
+		assert_account_not_whitelisted::<T>(contract_account);
 
-		let result;
 		#[block]
 		{
-			result = crate::exec::bench_do_terminate::<T>(
+			crate::exec::bench_do_terminate::<T>(
 				&mut transaction_meter,
 				&exec_config,
 				contract_account,
 				&origin,
-				beneficiary_clone,
-				trie_id,
-				code_hash,
-				only_if_same_tx,
+				&beneficiary,
 			);
 		}
-		result.unwrap();
 
 		// Check that the contract is removed
 		assert!(PristineCode::<T>::get(code_hash).is_none());
@@ -1605,16 +1828,21 @@ mod benchmarks {
 		let data = vec![42u8; n as _];
 		build_runtime!(runtime, instance, memory: [ topics_data, data, ]);
 
+		// Inside an ethereum transaction, the worst case: the log is also captured into the open
+		// receipt, which encodes it, accrues the bloom and writes what the transaction has
+		// committed so far to storage.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_deposit_event(
-				memory.as_mut_slice(),
-				0, // topics_ptr
-				num_topic,
-				topics_data.len() as u32, // data_ptr
-				n,                        // data_len
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_deposit_event(
+					memory.as_mut_slice(),
+					0, // topics_ptr
+					num_topic,
+					topics_data.len() as u32, // data_ptr
+					n,                        // data_len
+				)
+			});
 		}
 		assert_ok!(result);
 
@@ -2571,76 +2799,161 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
-	// i: size of the input data
+	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
+	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
+	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
+	// arrived.
+	macro_rules! call_setup {
+		(
+			$do_call:ident, $assert_transferred:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
+			callee_exists: $callee_exists:expr
+		) => {
+			// An EIP-7702 delegated callee is the worst case for the account resolution.
+			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			if $callee_exists {
+				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			}
+			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, $dust);
+			}
+			let callee_balance_before = Pallet::<T>::evm_balance(&callee_addr);
+
+			let callee_bytes = callee.encode();
+			let callee_len = callee_bytes.len() as u32;
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+
+			let deposit = default_deposit_limit::<T>();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let caller_account = setup.contract().account_id.clone();
+			let caller_addr = setup.contract().address;
+			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
+			let callee_ed_paid = if $callee_exists {
+				U256::zero()
+			} else {
+				Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance())
+			};
+
+			let (mut ext, _) = setup.ext();
+			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
+			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			};
+
+			let $assert_transferred = || {
+				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					callee_balance_before + evm_value,
+					"{callee_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
+				assert_eq!(
+					Pallet::<T>::evm_balance(&caller_addr),
+					caller_balance_before - evm_value - callee_ed_paid,
+					"{caller_addr:?} should pay only the value and the callee's ED"
+				);
+			};
+			assert_account_not_whitelisted::<T>(&caller_account);
+		};
+	}
+
+	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		// An EIP-7702 delegated callee is the worst case for the account resolution in
-		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code. (A callee whose delegation snapshot is empty
-		// costs a second read of the target but skips code load and execution entirely, so it
-		// is cheaper overall.)
-		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let callee_addr = H160([0x42; 20]);
-		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-		// Keep the origin's budget the same as with a contract callee. A contract already exists
-		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
-		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
-		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
-		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i,
+			callee_exists: true
+		);
 
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		// We benchmark the overhead of cloning the input. Not passing it to the contract.
-		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
-		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
-
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
-
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before + evm_value,
-			"{callee_addr:?} balance should have grown by {evm_value:?}"
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: false
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer_to_existing(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: true
+		);
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
 		Ok(())
 	}
 
@@ -2697,10 +3010,12 @@ mod benchmarks {
 		// so we make sure to create it
 		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
 
+		// Inside an ethereum transaction, the worst case: the pre-compile's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_benchmark();
+			result = block_storage::bench_with_ethereum_context(|| do_benchmark());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2709,7 +3024,6 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		// Delegated code source: worst case for the callee resolution in `new_frame`.
-		// See `seal_call`.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
@@ -2727,143 +3041,276 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_delegate_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(0, 0),        // flags + address ptr
-				u64::MAX,                // ref_time_limit
-				u64::MAX,                // proof_size_limit
-				address_len,             // deposit_ptr
-				pack_hi_lo(0, 0),        // input len + data ptr
-				pack_hi_lo(0, SENTINEL), // output len + ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
+	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! seal_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+		) => {
+			let code = VmBinaryModule::dummy();
+			let hash =
+				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+			let hash_bytes = hash.encode();
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+			let value_len = value_bytes.len() as u32;
+
+			let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+
+			let account_id = &setup.contract().account_id.clone();
+			let (mut ext, _) = setup.ext();
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+
+			let input = vec![42u8; $input_len as usize];
+			let input_len = hash_bytes.len() as u32 + input.len() as u32;
+			let salt = [42u8; 32];
+			let deployer = T::AddressMapper::to_address(&account_id);
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+			let new_contract_addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
+			let deposit_ptr = input_len;
+			let value_ptr = deposit_ptr + deposit_len;
+			let salt_ptr = value_ptr + value_len;
+
+			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			let mut $do_instantiate = || {
+				runtime.bench_instantiate(
+					memory.as_mut_slice(),
+					u64::MAX,                           // ref_time_limit
+					u64::MAX,                           // proof_size_limit
+					pack_hi_lo(deposit_ptr, value_ptr), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),           // input_data_len + input_data
+					pack_hi_lo(0, SENTINEL),            // output_len_ptr + output_ptr
+					pack_hi_lo(SENTINEL, salt_ptr),     // address_ptr + salt_ptr
+				)
+			};
+			let $assert_instantiated = || {
+				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value,
+					"{deployer:?} should pay only the value"
+				);
+			};
+			assert_account_not_whitelisted::<T>(account_id);
+		};
+	}
+
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::CALLDATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let code = VmBinaryModule::dummy();
-		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
-		let hash_bytes = hash.encode();
+	fn seal_instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i
+		);
 
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-		let value_len = value_bytes.len() as u32;
-
-		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
-
-		let account_id = &setup.contract().account_id.clone();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let input = vec![42u8; i as _];
-		let input_len = hash_bytes.len() as u32 + input.len() as u32;
-		let salt = [42u8; 32];
-		let deployer = T::AddressMapper::to_address(&account_id);
-		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
-
-		let mut offset = {
-			let mut current = 0u32;
-			move |after: u32| {
-				current += after;
-				current
-			}
-		};
-
-		assert!(AccountInfoOf::<T>::get(&addr).is_none());
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_instantiate(
-				memory.as_mut_slice(),
-				u64::MAX,                                           // ref_time_limit
-				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
-				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
-				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-
-		assert_eq!(
-			Pallet::<T>::evm_balance(&addr),
-			evm_value,
-			"{addr:?} balance should hold {evm_value:?}"
-		);
+		assert_instantiated();
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
 	// d: with or without dust value to transfer
-	// i: size of the init code (max 49152 bytes per EIP-3860)
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(caller_funding::<T>());
+	fn seal_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
-
-		let value = {
-			let value: BalanceOf<T> = (1_000_000u32 * t).into();
-			let dust = 100u32 * d;
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
-		};
-
-		let init_code = vec![BENCH_INIT_CODE; i as usize];
-		let _ = interpreter.memory.resize(0, init_code.len());
-		let salt = U256::from(42u64);
-		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
-
-		// Setup stack for create instruction [value, offset, size, salt]
-		let _ = interpreter.stack.push(salt);
-		let _ = interpreter.stack.push(U256::from(init_code.len()));
-		let _ = interpreter.stack.push(U256::zero());
-		let _ = interpreter.stack.push(value);
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<true, _>(&mut interpreter);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_instantiated();
+		Ok(())
+	}
+
+	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! evm_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, init_code_len: $init_code_len:expr
+		) => {
+			use crate::vm::evm::instructions::BENCH_INIT_CODE;
+			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let deployer_account = setup.contract().account_id.clone();
+			let deployer = setup.contract().address;
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+
+			let (mut ext, _) = setup.ext();
+			let mut interpreter =
+				Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+
+			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
+			let _ = interpreter.memory.resize(0, init_code.len());
+			let salt = U256::from(42u64);
+			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+			let new_contract_addr =
+				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			// Setup stack for create instruction [value, offset, size, salt]
+			let _ = interpreter.stack.push(salt);
+			let _ = interpreter.stack.push(U256::from(init_code.len()));
+			let _ = interpreter.stack.push(U256::zero());
+			let _ = interpreter.stack.push(evm_value);
+
+			let mut $do_instantiate =
+				|| instructions::contract::create::<true, _>(&mut interpreter);
+			let $assert_instantiated = || {
+				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
+					.expect("the create should deploy a contract");
+				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				let code_deposit = Pallet::<T>::convert_native_to_evm(
+					CodeInfoOf::<T>::get(new_contract.code_hash)
+						.expect("the create should store its runtime code")
+						.deposit(),
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value - code_deposit,
+					"{deployer:?} should pay only the value and the code deposit"
+				);
+			};
+			assert_account_not_whitelisted::<T>(&deployer_account);
+		};
+	}
+
+	// i: size of the init code
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		i: Linear<{ BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			init_code_len: i
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert!(result.is_continue());
-		let addr = interpreter.stack.top().unwrap().into_address();
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		assert_instantiated();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert!(result.is_continue());
+		assert_instantiated();
 		Ok(())
 	}
 
@@ -3223,6 +3670,643 @@ mod benchmarks {
 
 		assert!(result.is_ok());
 		Ok(())
+	}
+
+	/// Benchmarks `r` EVM `POP` op-codes.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![POP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{DIV_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [DIV_FIXED_DIVISOR, NUMERATOR]);
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * No early exit from the check against the most negative value, since the numerator is that
+	///   value.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the divisor and the quotient are negated, since the
+	///   divisor's sign is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SDIV_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SDIV_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{MOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [MOD_FIXED_DIVISOR, NUMERATOR]);
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the divisor is negated, since its sign is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SMOD_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SMOD_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A division for each addend, since both are above the modulus.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the modulus is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the modulus is subtracted from the sum, since that
+	///   depends on the modulus picked.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = mixed_division_operands::unsigned_operands(&mut rng);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::{ADDMOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [ADDMOD_FIXED_DIVISOR, NUMERATOR, NUMERATOR]);
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MULMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A product that fills every limb, since the top and lowest bits of both operands are set.
+	/// * A multiply-subtract over all divisor limbs instead of all but the top two, since the top
+	///   bits of the modulus are clear and division requires a nonzero normalization shift.
+	/// * A branch misprediction on how many times the division loops, since the size of the modulus
+	///   is pseudo-random.
+	/// * A branch misprediction on each adjustment of the modulus's reciprocal, since whether it
+	///   happens is pseudo-random.
+	/// * A branch misprediction on the carry steps of the multiplication, since which limbs of one
+	///   operand are zero is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let top_bit = U256::one() << 255;
+		// The division computes the reciprocal of the top two limbs of the shifted modulus from the
+		// top limb first, and then adjusts it twice for the second limb. These say whether each
+		// adjustment happens.
+		let reciprocal_adjustments = |modulus: U256| {
+			let top = (modulus << modulus.leading_zeros() as usize) >> 128;
+			let (high, low) = (top.low_u128() >> 64, u128::from(top.low_u64()));
+			[low > u128::MAX % high, (U256::MAX >> 64) / top < U256::from((u128::MAX - low) / high)]
+		};
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let limbs = if rng.gen_bool(0.5) { 3 } else { 4 };
+			let adjustments = [rng.gen_bool(0.5), rng.gen_bool(0.5)];
+			let modulus = loop {
+				let modulus = (U256(rng.r#gen()) | top_bit) >> (2 + 64 * (4 - limbs));
+				if reciprocal_adjustments(modulus) == adjustments {
+					break modulus;
+				}
+			};
+			let a = U256(rng.r#gen()) | top_bit | U256::one();
+			let mut b = U256(rng.r#gen()) | top_bit | U256::one();
+			for limb in 1..=2 {
+				if rng.gen_bool(0.5) {
+					b.0[limb] = 0;
+				}
+			}
+			[modulus, b, a]
+		});
+
+		let code = Bytecode::new_raw([MULMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
 	}
 
 	// Benchmark the execution of instructions.
@@ -3628,6 +4712,11 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
+		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
+		// transactions and logs they set up themselves and no synthetic transaction on top.
+		Pallet::<T>::clear_outside_frame_logs();
+
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
@@ -3679,7 +4768,7 @@ mod benchmarks {
 				// Store transaction
 				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
-						block_storage::get_receipt_details().unwrap_or_default();
+						block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3755,7 +4844,7 @@ mod benchmarks {
 			// Store transaction
 			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
-					block_storage::get_receipt_details().unwrap_or_default();
+					block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 				let block_builder_ir = EthBlockBuilderIR::<T>::get();
 				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3821,8 +4910,16 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
+			// Captured inside the ethereum context, so each lands on the transaction's own receipt
+			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
+			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
+			for _ in 0..e {
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
+			}
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3836,12 +4933,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
-		// Create e events with minimal data to isolate event count overhead
-		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
-		}
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -3852,7 +4945,8 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its `e` logs are on its own receipt, so no synthetic
+		// transaction is built.
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
@@ -3885,24 +4979,6 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-			block_builder.process_transaction(
-				signed_transaction,
-				true,
-				receipt_gas_info,
-				encoded_logs,
-				bloom,
-			);
-
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
 		// Create one event with d bytes of data distributed across topics and data field
 		let (event_data, topics) = if d < 32 {
 			// If total data is less than 32 bytes, put all in data field
@@ -3926,7 +5002,31 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		// Store transaction
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
+			// Captured inside the ethereum context, so the log lands on the transaction's own
+			// receipt — the path `on_finalize_block_per_event` is charged for on every
+			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
+			// separately.
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -3937,7 +5037,83 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its log is on its own receipt, so no synthetic transaction is
+		// built.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
+	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
+	///
+	/// `pov_mode = Measured` because the block builder's storage is unbounded. The buffer itself is
+	/// whitelisted, so the marginal carries no proof size; a log's proof charge is its entry's
+	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
+	/// `buffer_outside_frame_log`.
+	///
+	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
+	/// data word.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; 32];
+
+		// Appended straight into the buffer, past the cap: the drain is what is measured, and a
+		// runtime that keeps the buffer off still needs its weight.
+		for _ in 0..n {
+			Pallet::<T>::bench_buffer_outside_frame_log(
+				instance.address,
+				topics.clone(),
+				data.clone(),
+			);
+		}
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Only the synthetic transaction, and only when at least one log was buffered.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), (n > 0) as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
+	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
+	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	///
+	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
+	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
+	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
+	/// benchmark's 32-byte word alone would under-charge it.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; d as usize];
+
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())

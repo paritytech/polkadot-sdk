@@ -5,3 +5,6 @@ mod bench;
 mod common;
 mod integration;
 mod integration_v2_dht;
+mod mixed_version;
+mod v2_dht_mixed_soak;
+mod v2_dht_soak;

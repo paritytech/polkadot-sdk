@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/debian:bookworm-slim
 
 # This file allows building a Generic debug container image
 # based on one or multiple pre-built Linux binaries.
@@ -32,7 +32,7 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates && \
 	# apt cleanup
 	apt-get autoremove -y && \

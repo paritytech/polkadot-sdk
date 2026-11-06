@@ -137,17 +137,16 @@ fn main() {
 	let heap_reopened = settled_heap("reopen");
 	let rss_reopened = rss_bytes();
 
-	// Read workload: bounded, diverse and scaled queries; checks whether reads retain memory.
+	// Read workload: bounded, diverse and scaled subscriptions; checks whether reads retain memory.
 	let mut matched = 0usize;
 	for _ in 0..100 {
-		matched += store.broadcasts(&t01()).unwrap().len();
-		matched += store.posted(&[], dk42()).unwrap().len();
+		matched += snapshot_len(&store, &t01());
 	}
 	let group_base = diverse_topic_group().saturating_sub(1000);
 	for k in 0..1000u64 {
-		matched += store.broadcasts(&[topic(1000 + group_base + k)]).unwrap().len();
+		matched += snapshot_len(&store, &[topic(1000 + group_base + k)]);
 	}
-	matched += store.broadcasts(&t23()).unwrap().len();
+	matched += snapshot_len(&store, &t23());
 	let heap_after_reads = settled_heap("read workload");
 	let rss_after_reads = rss_bytes();
 

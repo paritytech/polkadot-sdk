@@ -457,7 +457,7 @@ fn double_map_basic_insert_remove_remove_prefix_with_commit_should_work() {
 	e.commit_all().unwrap();
 	e.execute_with(|| {
 		assert!(matches!(
-			DoubleMap::clear_prefix(&key1, u32::max_value(), None),
+			DoubleMap::clear_prefix(&key1, u32::MAX, None),
 			MultiRemovalResults { maybe_cursor: None, backend: 2, unique: 2, loops: 2 }
 		));
 		assert_eq!(DoubleMap::get(&key1, &key2), 0u64);
@@ -499,7 +499,7 @@ fn double_map_basic_insert_remove_remove_prefix_should_work() {
 		DoubleMap::insert(&(key1 + 1), &(key2 + 1), &4u64);
 		// all in overlay
 		assert!(matches!(
-			DoubleMap::clear_prefix(&key1, u32::max_value(), None),
+			DoubleMap::clear_prefix(&key1, u32::MAX, None),
 			MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
 		));
 		// Note this is the incorrect answer (for now), since we are using v2 of
@@ -507,7 +507,7 @@ fn double_map_basic_insert_remove_remove_prefix_should_work() {
 		// When we switch to v3, then this will become:
 		//   MultiRemovalResults:: { maybe_cursor: None, backend: 0, unique: 2, loops: 2 },
 		assert!(matches!(
-			DoubleMap::clear_prefix(&key1, u32::max_value(), None),
+			DoubleMap::clear_prefix(&key1, u32::MAX, None),
 			MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
 		));
 		assert_eq!(DoubleMap::get(&key1, &key2), 0u64);

@@ -195,7 +195,7 @@ fn linear_regression(
 }
 
 impl Analysis {
-	// Useful for when there are no components, and we just need an median value of the benchmark
+	// Useful for when there are no components, and we just need a median value of the benchmark
 	// results. Note: We choose the median value because it is more robust to outliers.
 	fn median_value(
 		r: &Vec<BenchmarkResult>,
@@ -203,16 +203,7 @@ impl Analysis {
 	) -> Result<Self, anyhow::Error> {
 		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
 
-		let mut values: Vec<u128> = r
-			.iter()
-			.map(|result| match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
-			.collect();
+		let mut values: Vec<u128> = r.iter().map(|result| selector.get_value(result)).collect();
 
 		values.sort();
 		let mid = values.len() / 2;
@@ -223,7 +214,7 @@ impl Analysis {
 			names: Vec::new(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -261,17 +252,7 @@ impl Analysis {
 							.enumerate()
 							.all(|(j, (v1, v2))| j == i || v1 == *v2)
 					})
-					.map(|result| {
-						// Extract the data we are interested in analyzing
-						let data = match selector {
-							BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-							BenchmarkSelector::StorageRootTime => result.storage_root_time,
-							BenchmarkSelector::Reads => result.reads.into(),
-							BenchmarkSelector::Writes => result.writes.into(),
-							BenchmarkSelector::ProofSize => result.proof_size.into(),
-						};
-						(result.components[i].1, data)
-					})
+					.map(|result| (result.components[i].1, selector.get_value(result)))
 					.collect::<Vec<_>>();
 				(format!("{:?}", param), i, others, values)
 			})
@@ -341,7 +322,7 @@ impl Analysis {
 			names: results.into_iter().map(|x| x.0).collect::<Vec<_>>(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -366,13 +347,7 @@ impl Analysis {
 		let mut results = BTreeMap::<Vec<u32>, Vec<u128>>::new();
 		for result in r.iter() {
 			let p = result.components.iter().map(|x| x.1).collect::<Vec<_>>();
-			results.entry(p).or_default().push(match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
+			results.entry(p).or_default().push(selector.get_value(result));
 		}
 
 		for (_, rs) in results.iter_mut() {
@@ -429,7 +404,7 @@ impl Analysis {
 					.map(|value| selector.scale_and_cast_weight(value, false))
 					.collect(),
 			),
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -457,7 +432,7 @@ impl Analysis {
 		let names = median_slopes.names;
 		let value_dists = min_squares.value_dists;
 		let errors = min_squares.errors;
-		let minimum = selector.get_minimum(&r);
+		let minimum = selector.get_minimum(r);
 
 		Ok(Self { base, slopes, names, value_dists, errors, selector, minimum })
 	}

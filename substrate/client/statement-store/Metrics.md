@@ -43,6 +43,18 @@ of statements in the database
 - **Why it matters:** Metric detects byte-level saturation independently of count.
 - **How to read:** Color thresholds match statement count: green/yellow/red at 70%/90% of capacity.
 
+#### Storage Used by Retention Track
+- **Metric:** `substrate_sub_statement_store_bytes_by_retention{track}`
+- **Type:** Gauge, refreshed by store maintenance (every 29s)
+- **What it measures:** Bytes of statement data per retention track:
+  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps
+    everything here)
+  - `explicit`: kept only for explicit (subscription) affinity
+  - `transient`: kept only until propagated to the replicas
+- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range
+  next to what it relays.
+- **How to read:** Stacked area; the tracks sum to `bytes_total`.
+
 #### Unique Accounts
 - **Metric:** `substrate_sub_statement_store_accounts_total`
 - **Type:** Gauge
@@ -73,19 +85,30 @@ of statements in the database
 ### Throughput & Operations
 
 #### Submission Rate (Successful)
-- **Metric:** `rate(substrate_sub_statement_store_submitted_statements[$__rate_interval])`
-- **Type:** Counter (displayed as rate)
-- **What it measures:** Successful new statement submissions per second.
+- **Metric:** `rate(substrate_sub_statement_store_submitted_statements[$__rate_interval])` with label `reason`
+- **Type:** CounterVec (displayed as rate; use `sum by (reason)` for breakdown)
+- **Labels:** `reason` = `persistent` | `transient` | `dht` | `explicit` | `both`
+- **What it measures:** Successful new statement submissions per second, broken down by the
+  retention reason chosen at admission:
+  - **`persistent`**: No v2 retention resolver is installed (v2 DHT disabled); the statement is
+    kept under the normal retention rules.
+  - **`transient`**: The node has no affinity for any of the statement's topics; it is kept only
+    until the first maintenance sweep after propagation.
+  - **`dht`** / **`explicit`** / **`both`**: The node is a DHT replica for one of the statement's
+    topics, has explicit (configured or subscribed) affinity for one, or both.
 - **Why it matters:** Throughput metric it tells you how fast the system
   is processing valid work. Drops indicate upstream issues (fewer clients, network problems);
   spikes indicate bursts of activity.
-- **How to read:** Line chart showing submissions/sec. Legend shows mean/max/sum.
+- **How to read:** Line chart showing submissions/sec. Legend shows mean/max/sum. Use `sum(...)`
+  for the total across reasons.
 - **Problems it solves:**
   - Detect throughput degradation after a release (compare before/after deployment).
+  - Tell whether the v2 affinity oracles drive retention: a v2 node admitting only `transient`
+    statements keeps nothing by affinity.
 
 #### Throughput vs Errors
 - **Metrics:**
-  - `rate(submitted_statements)` (green = successful)
+  - `sum(rate(submitted_statements))` (green = successful, summed over `reason` label)
   - `sum(rate(validations_invalid))` (red = invalid, summed over `reason` label)
   - `sum(rate(rejections_total))` (orange = rejected, summed over `reason` label)
 - **What it measures:** Comparison of successful vs failed operations.
@@ -220,9 +243,14 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
+- **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
+  carry `route`: `dht` for peers served through the v2 DHT path, `legacy` for the rest (v1 peers and v2
+  peers without a filter). A peer counts as `dht` only once its affinity filter applies, so a peer in its grace
+  period counts as `legacy`. A node without the v2 DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
+  - Show the `legacy` share of a v2 node's traffic during the rollout
 
 ---
 
@@ -262,6 +290,22 @@ percentiles, making it easy to spot tail latency regressions.
 
 ### Network Health Indicators
 
+#### Peers Assumed Match-All
+- **Metric:** `rate(substrate_sync_statement_peers_assumed_match_all_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** v2 peers that sent no affinity filter within the 10s grace period, so the node
+  sends them everything.
+- **Why it matters:** v2 peers running without the DHT path land here once per connection. Compare with
+  `substrate_sync_statement_late_affinity_filters_total`.
+
+#### Late Affinity Filters
+- **Metric:** `rate(substrate_sync_statement_late_affinity_filters_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Affinity filters that arrived after the grace period and moved their peer
+  back to the v2 DHT path.
+- **Why it matters:** Each one is a v2 peer that was slow with its filter and was sent everything in the
+  meantime. A steady rate suggests the grace period is too short.
+
 ---
 
 ### Statement Expiration & Cleanup
@@ -292,6 +336,10 @@ percentiles, making it easy to spot tail latency regressions.
 ---
 
 ### Initial Sync
+
+`initial_sync_statements_sent` and `initial_sync_bursts_total` carry a `route` label (`dht` or
+`legacy`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
+on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`
