@@ -79,6 +79,7 @@ pub trait WeightInfo {
 	fn delegate(r: u32, ) -> Weight;
 	fn undelegate(r: u32, ) -> Weight;
 	fn unlock() -> Weight;
+	fn cleanup_empty_storage() -> Weight;
 }
 
 /// Weights for `pallet_conviction_voting` using the Substrate node and recommended hardware.
@@ -237,6 +238,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+
+	fn cleanup_empty_storage() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `11593`
+		//  Estimated: `30706`
+		// Minimum execution time: 83_405_000 picoseconds.
+		Weight::from_parts(92_198_000, 30706)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -386,6 +397,16 @@ impl WeightInfo for () {
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	fn unlock() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `11593`
+		//  Estimated: `30706`
+		// Minimum execution time: 83_405_000 picoseconds.
+		Weight::from_parts(92_198_000, 30706)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	fn cleanup_empty_storage() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `11593`
 		//  Estimated: `30706`
