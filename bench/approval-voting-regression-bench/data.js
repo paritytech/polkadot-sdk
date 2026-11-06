@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793881527010,
+  "lastUpdate": 1793957180282,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb",
-          "message": "make prepare-* jobs required to trigger zombienet workflows (#11835)\n\nMake `prepare-*` jobs required to prevent race conditions like\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/24575289788/job/71864462979?pr=11815.\n\ncc: @alvicsam / @bkchr",
-          "timestamp": "2026-04-21T10:44:16Z",
-          "tree_id": "28c3613306b026a3cf94266be7e2ae44f495146f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb"
-        },
-        "date": 1776774823562,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63620.12999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001888394,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.814712929930001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7576150600199727,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9147698696400006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018710610000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4631909534899954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001888394,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.846303855770001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.83028383462,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.264649488642695,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018710610000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005528470450000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.632404973919966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.514401760272666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "228917acb2a1f175500e3ca8f7689ffd854900a1",
+          "message": "pallet-validator-collators: store MaxCollators as CollatorDraw (#13734)\n\n#13710 changed `MaxCollators` from an optional `u32` to an `Option<u32>`\nwith `DefaultMaxCollators` as default, without a migration.\n\nThis PR stores `MaxCollators` as a new enum `CollatorDraw`, still with\n`DefaultMaxCollators` as default:\n\n- `All` (index 0): every validator with registered keys.\n- `UpTo(n)` (index 1): up to `n` validators with registered keys.\n- `None` (index 2): no validator is drawn.\n\nThe indices make an `Option<u32>` written by #13710 keep its meaning, in\nstorage and in calls: `None` (`0x00`) reads as `All` and `Some(n)` as\n`UpTo(n)`.\n\nEvery variant draws at random, so collators are in drawn order and a\nvalidator that registers keys after the draw joins at the next set or\ncap change. Asset Hub Westend and People Westend default to `None`.\n\nIt also adds storage version 1 and `migrations::v1::MigrateV0ToV1`, to\nrun on Asset Hub Westend and People Westend. It must ship in the same\nAsset Hub Westend upgrade as #13710.\n\nThe migration handles three cases:\n\n- A cap stored as `u32`, exactly 4 bytes. Read as `CollatorDraw` it is\nmisread, so the migration rewrites it as `UpTo(cap)`.\n- A cap stored as `Option<u32>` by #13710. It already reads as the same\n`CollatorDraw` and is left as it is.\n- No stored cap. The default replaces \"no cap\", but the collators drawn\nbefore the upgrade (if any) stay in place. When a set is stored, the\nmigration sets `PendingRotation` to `AwaitingQueue`, as\n`set_max_collators` does, so the set is drawn again under the default.\n\n## Note on Westend Asset Hub\n\nThe `u32` and no-cap cases showed up on Westend Asset Hub, which still\nruns a runtime without #13710 after 2026-11-04 runtime upgrade:\n\n1. The first validator set arrived at block `18999262` and 5 validators\nwith session keys were drawn without a cap (see\nhttps://github.com/paritytech/metanode/issues/46#issuecomment-6653108369).\n2. check-runtime-migration e.g. on #13722 then failed on the 2026-11-05\nsnapshot (block `19005749`), with `\"ValidatorCollators\" try_state checks\nfailed: Other(\"more collators are drawn than the cap allows\")` see\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/41992109446/job/127127335164).\nWith #13710 the cap read as the default `Some(0)`, while the 5 collators\nstayed drawn.\n3. `set_max_collators(Some(0))` via sudo at block `19008348` cleared the\ndraw. It stored the cap as a u32 `0`. #13710 alone reads it as `None`\n(no cap), so every validator with session keys would collate again. This\nPR rewrites it as `UpTo(0)`.\n\nChains that add the pallet fresh are not affected: FRAME writes storage\nversion 1 and the migration is skipped so we will be good on Polkadot.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-06T07:53:45Z",
+          "tree_id": "c8e73d0d36006b198fa2995e7a0d86b0af1b26fd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/228917acb2a1f175500e3ca8f7689ffd854900a1"
+        },
+        "date": 1793957145228,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.55000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.776882935599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.395719578929996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8470496634300078,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001930055,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.568981785892825,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.74867085015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.289247479939998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001930055,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7357313384099973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001929453,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001929453,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.779513227789999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005679885629999998,
             "unit": "seconds"
           }
         ]
