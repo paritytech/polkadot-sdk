@@ -326,6 +326,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), Error<T>> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let original_region_id = region_id;
 
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
@@ -333,8 +334,9 @@ impl<T: Config> Pallet<T> {
 
 			// Remove this region from the pool in case it has been assigned provisionally. If we
 			// get this far then it is still in `Regions` and thus could only have been pooled
-			// provisionally.
-			Self::force_unpool_region(region_id, &region, &status);
+			// provisionally. The contribution is keyed by the original id, as `utilize` moves the
+			// begin forward once the region has started.
+			Self::force_unpool_region(original_region_id, &region, &status);
 
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
@@ -396,14 +398,16 @@ impl<T: Config> Pallet<T> {
 		finality: Finality,
 	) -> Result<(), Error<T>> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let original_region_id = region_id;
 
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
 
 			// Remove this region from the pool in case it has been pooled provisionally, so that
-			// pooling it again does not count it twice.
-			Self::force_unpool_region(region_id, &region, &status);
+			// pooling it again does not count it twice. The contribution is keyed by the original
+			// id, as `utilize` moves the begin forward once the region has started.
+			Self::force_unpool_region(original_region_id, &region, &status);
 
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
