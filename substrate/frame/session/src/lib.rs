@@ -120,7 +120,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
-use codec::{Decode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
@@ -143,6 +143,7 @@ use sp_runtime::{
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
+use scale_info::TypeInfo;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -495,12 +496,22 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
+
+	/// How a validator's current keys were registered. See [`KeyStatus`].
+	#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+	pub enum KeyRegistration<AccountId> {
+		/// Keys were registered locally, by this account.
+		Local(AccountId),
+		/// Keys were registered externally. No deposit was placed and no consumer reference was
+		/// taken.
+		External,
+	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -603,7 +614,7 @@ pub mod pallet {
 					// key.
 					frame_system::Pallet::<T>::inc_providers(&account);
 				}
-				KeyDepositor::<T>::insert(&val, &account);
+				KeyStatus::<T>::insert(&val, KeyRegistration::Local(account));
 			}
 
 			let initial_validators_0 =
@@ -678,23 +689,18 @@ pub mod pallet {
 	pub type KeyOwner<T: Config> =
 		StorageMap<_, Twox64Concat, (KeyTypeId, Vec<u8>), T::ValidatorId, OptionQuery>;
 
-	/// Accounts whose keys were set via `SessionInterface` (external path) without
-	/// incrementing the consumer reference or placing a key deposit. `do_purge_keys`
-	/// only decrements consumers for accounts that were registered through the local
-	/// session pallet.
-	#[pallet::storage]
-	pub type ExternallySetKeys<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
-
-	/// The account that placed the key deposit and holds the consumer reference for a
-	/// validator's locally set keys.
+	/// How a validator's current keys were registered: locally, through `set_keys`/
+	/// `purge_keys`, which books a deposit and a consumer reference on the recorded account; or
+	/// externally, through [`SessionInterface::set_keys`], which does neither.
 	///
-	/// Several accounts may convert to the same validator ID, so the deposit must be released
-	/// from this account rather than from whichever account purges or replaces the keys.
-	/// Registrations made before this item was introduced have no entry.
+	/// Several accounts may convert to the same validator ID, so this is tracked per validator
+	/// rather than per account: the deposit and consumer reference of a `Local` registration
+	/// must be released from the recorded account, not from whichever account purges or
+	/// replaces the keys. A missing entry means the deposit, if any, was placed by the account
+	/// purging or replacing the keys.
 	#[pallet::storage]
-	pub type KeyDepositor<T: Config> =
-		StorageMap<_, Twox64Concat, T::ValidatorId, T::AccountId, OptionQuery>;
+	pub type KeyStatus<T: Config> =
+		StorageMap<_, Twox64Concat, T::ValidatorId, KeyRegistration<T::AccountId>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -988,22 +994,22 @@ impl<T: Config> Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
+		let was_external = matches!(KeyStatus::<T>::get(&who), Some(KeyRegistration::External));
+
 		// Only check consumer capacity when we will actually increment the consumer
 		// count: first-time local registration or external-to-local transition.
 		// Key rotation for an existing locally-managed validator does not need this.
-		let needs_new_consumer =
-			!NextKeys::<T>::contains_key(&who) || ExternallySetKeys::<T>::contains_key(account);
+		let needs_new_consumer = !NextKeys::<T>::contains_key(&who) || was_external;
 		if needs_new_consumer {
 			ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
 		}
 
 		let old_keys = Self::inner_set_keys(&who, keys)?;
 
-		// Place deposit and increment consumer if this is a new local registration,
-		// or if transitioning from external to local management.
-		// We also clear `ExternallySetKeys` if set.
-		let needs_local_setup =
-			old_keys.is_none() || ExternallySetKeys::<T>::take(account).is_some();
+		// Place deposit and increment consumer if this is a new local registration, or if
+		// transitioning from external to local management. This also records `account` as the
+		// depositor for `who`, overwriting a stale external or other-account entry if one exists.
+		let needs_local_setup = old_keys.is_none() || was_external;
 		if needs_local_setup {
 			let deposit = T::KeyDeposit::get();
 			if !deposit.is_zero() {
@@ -1012,7 +1018,7 @@ impl<T: Config> Pallet<T> {
 
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
-			KeyDepositor::<T>::insert(&who, account);
+			KeyStatus::<T>::insert(&who, KeyRegistration::Local(account.clone()));
 		}
 
 		Ok(())
@@ -1020,12 +1026,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Release the key deposit and consumer reference of a local registration of `who`'s keys.
 	///
-	/// They are released from the account recorded in [`KeyDepositor`]. Registrations without
-	/// a recorded depositor fall back to `account`, unless `account` set its keys externally.
+	/// They are released from the account recorded in [`KeyStatus`]. A missing entry falls back
+	/// to releasing from `account`.
 	fn release_key_deposit(account: &T::AccountId, who: &T::ValidatorId) {
-		let depositor = match KeyDepositor::<T>::take(who) {
-			Some(depositor) => depositor,
-			None if ExternallySetKeys::<T>::contains_key(account) => return,
+		let depositor = match KeyStatus::<T>::take(who) {
+			Some(KeyRegistration::Local(depositor)) => depositor,
+			Some(KeyRegistration::External) => return,
 			None => account.clone(),
 		};
 
@@ -1086,7 +1092,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::release_key_deposit(account, who);
-		ExternallySetKeys::<T>::remove(account);
 
 		Ok(())
 	}
@@ -1221,8 +1226,8 @@ impl<T: Config> Pallet<T> {
 			"DisabledValidators is not sorted"
 		);
 		ensure!(
-			KeyDepositor::<T>::iter_keys().all(|who| NextKeys::<T>::contains_key(&who)),
-			"KeyDepositor entry without NextKeys"
+			KeyStatus::<T>::iter_keys().all(|who| NextKeys::<T>::contains_key(&who)),
+			"KeyStatus entry without NextKeys"
 		);
 		Ok(())
 	}
@@ -1295,7 +1300,7 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		if old_keys.is_some() {
 			Self::release_key_deposit(account, &who);
 		}
-		ExternallySetKeys::<T>::insert(account, ());
+		KeyStatus::<T>::insert(&who, KeyRegistration::External);
 		Ok(())
 	}
 

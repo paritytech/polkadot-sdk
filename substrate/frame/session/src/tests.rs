@@ -644,14 +644,14 @@ fn purge_keys_by_other_account_releases_depositor() {
 			create_set_keys_proof(1000, &UintAuthorityId(50)),
 		));
 		assert_eq!(session_hold(1000), KeyDeposit::get());
-		assert_eq!(KeyDepositor::<Test>::get(50), Some(1000));
+		assert_eq!(KeyStatus::<Test>::get(50), Some(KeyRegistration::Local(1000)));
 
 		// When: account 69 purges the keys of the shared validator.
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(69)));
 
 		// Then: the deposit and consumer reference are released from 1000, and 69 is untouched.
 		assert_eq!(Session::load_keys(&50), None);
-		assert_eq!(KeyDepositor::<Test>::get(50), None);
+		assert_eq!(KeyStatus::<Test>::get(50), None);
 		assert_eq!(session_hold(1000), 0);
 		assert_eq!(System::consumers(&1000), consumers_1000);
 		assert_eq!(System::consumers(&69), consumers_69);
@@ -732,20 +732,20 @@ mod externally_set_keys_tracking {
 	}
 
 	fn assert_local_state(consumers_before: u32) {
-		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(KeyStatus::<Test>::get(ACCOUNT), Some(KeyRegistration::Local(ACCOUNT)));
 		// +1 from session's inc_consumers, +1 from pallet-balances hold.
 		assert_eq!(System::consumers(&ACCOUNT), consumers_before + 2);
 		assert_eq!(session_hold(ACCOUNT), KeyDeposit::get());
 	}
 
 	fn assert_remote_state(consumers_before: u32) {
-		assert!(ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(KeyStatus::<Test>::get(ACCOUNT), Some(KeyRegistration::External));
 		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
 		assert_eq!(session_hold(ACCOUNT), 0);
 	}
 
 	fn assert_clean_state(consumers_before: u32) {
-		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(KeyStatus::<Test>::get(ACCOUNT), None);
 		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
 		assert_eq!(session_hold(ACCOUNT), 0);
 	}
@@ -931,6 +931,56 @@ mod externally_set_keys_tracking {
 				Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof),
 				Error::<Test>::NoAccount,
 			);
+		});
+	}
+
+	#[test]
+	fn purge_by_other_account_leaves_external_registration_untouched() {
+		new_test_ext().execute_with(|| {
+			// Given: accounts 69 and 1000 both map to validator 50, and 1000 registers the
+			// keys through the external path (no deposit, no consumer reference taken).
+			TestValidatorIdOf::set(
+				vec![(1, 1), (2, 2), (3, 3), (69, 50), (1000, 50)].into_iter().collect(),
+			);
+			frame_system::Pallet::<Test>::inc_consumers(&69).unwrap();
+			let consumers_69 = System::consumers(&69);
+			let consumers_1000 = System::consumers(&1000);
+
+			<Session as SessionInterface>::set_keys(&1000, UintAuthorityId(50).into()).unwrap();
+			assert_eq!(KeyStatus::<Test>::get(50), Some(KeyRegistration::External));
+
+			// When: account 69 purges the keys of the shared validator.
+			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(69)));
+
+			// Then: there was nothing to release, and 69's own unrelated consumer
+			// reference is untouched.
+			assert_eq!(Session::load_keys(&50), None);
+			assert_eq!(KeyStatus::<Test>::get(50), None);
+			assert_eq!(System::consumers(&69), consumers_69);
+			assert_eq!(System::consumers(&1000), consumers_1000);
+		});
+	}
+
+	#[test]
+	fn purge_with_no_key_status_entry_releases_from_registrant() {
+		new_test_ext().execute_with(|| {
+			// Given: a validator registered the way it would have been before `KeyStatus`
+			// (or its predecessor `KeyDepositor`) existed: a deposit is held and a consumer
+			// reference is taken, but no entry records who placed them.
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+			KeyStatus::<Test>::remove(ACCOUNT);
+
+			// When: the same account that registered purges its keys.
+			purge_local();
+
+			// Then: the fallback releases the hold and consumer reference from the caller,
+			// same as it would have from a recorded depositor.
+			assert_eq!(session_hold(ACCOUNT), 0);
+			assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+			assert_eq!(Session::load_keys(&ACCOUNT), None);
 		});
 	}
 }
