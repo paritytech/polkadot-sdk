@@ -70,7 +70,7 @@ impl<T: Config> Stack<T> {
 	}
 
 	/// Get a reference to the top stack item without removing it
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(test)]
 	pub fn top(&self) -> Option<&U256> {
 		self.stack.last()
 	}
