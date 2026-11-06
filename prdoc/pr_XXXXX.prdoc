@@ -1,0 +1,23 @@
+title: 'Staking: Chill stakers should not have a score'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Port of #9926 from `pallet-staking-async` to `pallet-staking`: `ScoreProvider::score` now
+    returns `None` for a bonded stash that is neither a nominator nor a validator.
+
+    Previously any bonded stash had a score. Recent versions of `pallet-bags-list` insert any
+    account they are asked to rebag that is missing from the list but has a score, so a chilled
+    staker could be put back into `VoterList`:
+
+    - by anyone, through the permissionless `rebag` call, and
+    - by the `on_idle` auto-rebag, if the staker chilled while the auto-rebag cursor
+      (`NextNodeAutoRebagged`) pointed at them. The cursor is processed first even if it has left
+      the list in the meantime.
+
+    Such a node is neither a nominator nor a validator, so every election snapshot hits the
+    "invalid item in `VoterList`" defensive failure, and it takes up a spot in the voter list. This
+    was observed on Versi after validators chilled to shrink the validator set. With this change,
+    existing stale nodes have no score, so the next `rebag` or auto-rebag of them removes them.
+crates:
+- name: pallet-staking
+  bump: patch

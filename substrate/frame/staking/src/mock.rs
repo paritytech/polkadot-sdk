@@ -214,6 +214,8 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
+	// Off by default; tests that exercise the bags-list auto-rebag in `on_idle` turn it on.
+	pub static MaxAutoRebagPerBlock: u32 = 0;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -223,7 +225,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
-	type MaxAutoRebagPerBlock = ();
+	type MaxAutoRebagPerBlock = MaxAutoRebagPerBlock;
 	type Score = VoteWeight;
 }
 
