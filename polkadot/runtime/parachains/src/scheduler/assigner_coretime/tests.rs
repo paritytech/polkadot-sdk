@@ -511,7 +511,7 @@ fn pop_assignment_for_core_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread, wait for it to be ready, then add an
 		// on demand order to later pop with our Coretime assigner.
-		schedule_blank_para(para_id, ParaKind::Parathread);
+		schedule_blank_para(para_id, ParaKind::Parachain);
 		on_demand::Credits::<Test>::insert(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), amt, para_id));

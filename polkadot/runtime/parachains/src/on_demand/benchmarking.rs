@@ -51,7 +51,7 @@ where
 		&mut parachains,
 		para_id,
 		&ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
+			para_kind: ParaKind::Parachain,
 			genesis_head: HeadData(vec![1, 2, 3, 4]),
 			validation_code: ValidationCode(vec![1, 2, 3, 4]),
 		},

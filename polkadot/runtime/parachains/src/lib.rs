@@ -138,16 +138,6 @@ pub fn schedule_para_cleanup<T: paras::Config>(id: polkadot_primitives::Id) -> R
 	paras::Pallet::<T>::schedule_para_cleanup(id).map_err(|_| ())
 }
 
-/// Schedule a parathread (on-demand parachain) to be upgraded to a lease holding parachain.
-pub fn schedule_parathread_upgrade<T: paras::Config>(id: ParaId) -> Result<(), ()> {
-	paras::Pallet::<T>::schedule_parathread_upgrade(id).map_err(|_| ())
-}
-
-/// Schedule a lease holding parachain to be downgraded to an on-demand parachain.
-pub fn schedule_parachain_downgrade<T: paras::Config>(id: ParaId) -> Result<(), ()> {
-	paras::Pallet::<T>::schedule_parachain_downgrade(id).map_err(|_| ())
-}
-
 /// Schedules a validation code upgrade to a parachain with the given id.
 pub fn schedule_code_upgrade<T: paras::Config>(
 	id: ParaId,
