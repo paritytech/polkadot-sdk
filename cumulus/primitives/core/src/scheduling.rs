@@ -266,7 +266,8 @@ mod tests {
 	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, StreamsRoot, UMPSignal, UMP_SEPARATOR,
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, Id as ParaId, RequiresSet, StreamsRoot,
+		UMPSignal, UMP_SEPARATOR,
 	};
 
 	fn peer(byte: u8) -> ApprovedPeerId {
@@ -384,8 +385,74 @@ mod tests {
 				vec![UMPSignal::Provides(StreamsRoot(Default::default())).encode()],
 				SchedulingSignalError::SpeculativeMessagingSignal,
 			),
+			(vec![requires()], SchedulingSignalError::SpeculativeMessagingSignal),
+			// A duplicate is caught with another signal between the two.
+			(
+				vec![
+					UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+					UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
+					UMPSignal::SelectCore(CoreSelector(2), ClaimQueueOffset(0)).encode(),
+				],
+				SchedulingSignalError::DuplicateSelectCore,
+			),
 		] {
 			assert_eq!(SchedulingSignals::try_from_block_signals(&raw), Err(error));
+		}
+	}
+
+	fn requires() -> Vec<u8> {
+		let set =
+			RequiresSet::try_from_iter([(ParaId::from(1000), StreamsRoot(Default::default()))])
+				.expect("one entry is a valid set; qed");
+		UMPSignal::Requires(set).encode()
+	}
+
+	#[test]
+	fn canonical_signals_pass_through_unchanged() {
+		// What `parachain-system` emits: `SelectCore` then `ApprovedPeer`, each at most once. The
+		// tail must equal the raw signals, so honest runtimes see no change.
+		let select_core = UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(1)).encode();
+		let approved_peer = UMPSignal::ApprovedPeer(peer(0xAA)).encode();
+		for raw in [
+			vec![select_core.clone(), approved_peer.clone()],
+			vec![select_core.clone()],
+			vec![approved_peer.clone()],
+		] {
+			let tail = SchedulingSignals::try_from_block_signals(&raw).unwrap().into_ump_messages();
+			assert_eq!(tail, core::iter::once(UMP_SEPARATOR).chain(raw).collect::<Vec<_>>());
+		}
+	}
+
+	#[test]
+	fn from_block_signals_panics_exactly_where_try_from_block_signals_errs() {
+		let select_core = UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode();
+		let approved_peer = UMPSignal::ApprovedPeer(peer(0xAA)).encode();
+		let mut trailing = approved_peer.clone();
+		trailing.push(0xEE);
+		for raw in [
+			vec![],
+			vec![approved_peer.clone(), select_core.clone()],
+			vec![trailing],
+			vec![select_core.clone(), select_core.clone()],
+			vec![approved_peer.clone(), approved_peer],
+			vec![vec![0xFF]],
+			vec![select_core, requires()],
+		] {
+			let tried = SchedulingSignals::try_from_block_signals(&raw);
+			let panicked = std::panic::catch_unwind(|| SchedulingSignals::from_block_signals(&raw));
+			match (tried, panicked) {
+				(Ok(tried), Ok(signals)) => assert_eq!(tried, signals),
+				(Err(error), Err(payload)) => {
+					let message = payload
+						.downcast_ref::<alloc::string::String>()
+						.cloned()
+						.unwrap_or_default();
+					assert_eq!(message, error.to_string(), "{raw:?}");
+				},
+				(tried, panicked) => {
+					panic!("{raw:?}: {tried:?} but panicked: {}", panicked.is_err())
+				},
+			}
 		}
 	}
 
