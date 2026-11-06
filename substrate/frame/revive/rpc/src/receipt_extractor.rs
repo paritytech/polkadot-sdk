@@ -841,6 +841,54 @@ impl ReceiptExtractor {
 	}
 }
 
+/// Receipt builders for tests outside this module, so they compare against what block extraction
+/// produces without fetching a block.
+#[cfg(test)]
+impl ReceiptExtractor {
+	/// The receipt of the ethereum transaction with the signed `payload`, as block extraction
+	/// builds it.
+	pub fn build_receipt_for_test(
+		&self,
+		eth_block_hash: H256,
+		block_number: U256,
+		payload: Vec<u8>,
+		transaction_index: usize,
+		receipt_gas_info: ReceiptGasInfoV1,
+		reverted: bool,
+		logs: Vec<Log>,
+	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+		let transaction_hash = H256(keccak_256(&payload));
+		self.decode_transaction_and_build_receipt(
+			eth_block_hash,
+			block_number,
+			EthTransact { payload },
+			transaction_hash,
+			transaction_index,
+			receipt_gas_info,
+			reverted,
+			logs,
+		)
+	}
+
+	/// The receipt of the block's synthetic transaction, as block extraction builds it.
+	pub fn build_synthetic_receipt_for_test(
+		&self,
+		eth_block_hash: H256,
+		eth_block_number: U256,
+		transaction_index: usize,
+		gas_info: ReceiptGasInfoV1,
+		logs: Vec<Log>,
+	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+		self.build_synthetic_receipt(
+			eth_block_hash,
+			eth_block_number,
+			transaction_index,
+			gas_info,
+			logs,
+		)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

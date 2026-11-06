@@ -986,7 +986,7 @@ impl Client {
 			return Ok(None);
 		};
 		let receipts = self.receipt_provider.block_receipts(&block).await?;
-		Ok(Some(receipts.into_iter().map(|(_, receipt)| receipt).collect()))
+		Ok(Some(receipts))
 	}
 
 	/// Get The post dispatch weight associated with this Ethereum transaction hash.
@@ -1039,8 +1039,20 @@ impl Client {
 			.await
 	}
 
-	pub async fn signed_tx_by_hash(&self, tx_hash: &H256) -> Option<TransactionSigned> {
-		self.receipt_provider.signed_tx_by_hash(tx_hash).await
+	/// Get an EVM transaction and its receipt by transaction hash.
+	pub async fn transaction(&self, tx_hash: &H256) -> Option<(TransactionSigned, ReceiptInfo)> {
+		self.receipt_provider.transaction_by_hash(tx_hash).await
+	}
+
+	/// Get an EVM transaction and its receipt by Substrate block hash and transaction index.
+	pub async fn transaction_by_hash_and_index(
+		&self,
+		block_hash: &H256,
+		transaction_index: usize,
+	) -> Option<(TransactionSigned, ReceiptInfo)> {
+		self.receipt_provider
+			.transaction_by_block_hash_and_index(block_hash, transaction_index)
+			.await
 	}
 
 	/// Get receipts count per block.

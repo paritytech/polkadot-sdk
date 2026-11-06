@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT receipt\n\t\t\tFROM receipts\n\t\t\tWHERE block_hash = $1\n\t\t\tORDER BY transaction_index\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "receipt",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b97938b6c506f4a05079cda0b32e0f664640edcefd732fc657c51715359e393c"
+}
