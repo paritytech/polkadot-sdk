@@ -1418,6 +1418,7 @@ pub mod pallet {
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1461,6 +1462,7 @@ pub mod pallet {
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
@@ -1528,6 +1530,7 @@ pub mod pallet {
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1975,6 +1978,11 @@ pub mod pallet {
 		/// Every `AccountId32` can control its corresponding fallback account. The fallback account
 		/// is the `AccountId20` with the last 12 bytes set to `0xEE`. This is essentially a
 		/// recovery function in case an `AccountId20` was used without creating a mapping first.
+		///
+		/// Once the caller is mapped, the fallback account is no longer the account behind the
+		/// shared address, and [`Self::call`], [`Self::instantiate`] and
+		/// [`Self::instantiate_with_code`] reject it. Its funds can still be recovered through
+		/// calls to other pallets, such as a balance transfer.
 		#[pallet::call_index(9)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
@@ -2087,8 +2095,9 @@ impl<T: Config> Pallet<T> {
 	///
 	///
 	/// This function is public because it is called by the runtime API implementation
-	/// (see `impl_runtime_apis_plus_revive`).
-	pub fn prepare_dry_run(account: &T::AccountId) {
+	/// (see `impl_runtime_apis_plus_revive`). It fails for an origin that [`Self::call`] and
+	/// [`Self::instantiate`] would reject because it is not the account behind its address.
+	pub fn prepare_dry_run(account: &T::AccountId) -> DispatchResult {
 		// Bump the  nonce to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
@@ -2098,6 +2107,8 @@ impl<T: Config> Pallet<T> {
 		if !T::AddressMapper::is_mapped(account) {
 			let _ = T::AddressMapper::map_no_deposit_unchecked(account);
 		}
+
+		Self::ensure_signed_origin_owns_address(&OriginFor::<T>::signed(account.clone()))
 	}
 
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
@@ -2468,7 +2479,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
-		Self::prepare_dry_run(&origin);
+		Self::prepare_dry_run(&origin)
+			.map_err(|err| EthTransactError::Message(format!("Invalid origin: {err:?}")))?;
 
 		if let Some(overrides) = state_overrides {
 			state_overrides::apply_state_overrides::<T>(overrides)?;
@@ -3223,6 +3235,27 @@ impl<T: Config> Pallet<T> {
 			Err(DispatchError::BadOrigin)
 		} else {
 			Ok(())
+		}
+	}
+
+	/// Ensure that a signed origin is the account behind its own address.
+	///
+	/// Once a native account is mapped, its fallback account shares the address but not the
+	/// nonce or balance the EVM attributes to it. Acting as that address would feed a second
+	/// nonce into CREATE1 and pay with funds that address does not own.
+	fn ensure_signed_origin_owns_address(origin: &OriginFor<T>) -> DispatchResult {
+		let Some(account_id) = origin.as_signer() else { return Ok(()) };
+		let address = T::AddressMapper::to_address(account_id);
+		if &T::AddressMapper::to_account_id(&address) == account_id {
+			Ok(())
+		} else if T::AddressMapper::is_eth_derived(account_id) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"reject tx as {address:?} is mapped to another account than {account_id:?}",
+			);
+			Err(DispatchError::BadOrigin)
+		} else {
+			Err(<Error<T>>::AccountUnmapped.into())
 		}
 	}
 }
@@ -4233,18 +4266,20 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						input.dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
+					let contract_result = match $crate::Pallet::<Self>::prepare_dry_run(&input.origin) {
+						Err(error) => $crate::ContractResult { result: Err(error), ..Default::default() },
+						Ok(()) => $crate::Pallet::<Self>::bare_call(
+							<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+							input.dest,
+							$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+							$crate::TransactionLimits::WeightAndDeposit {
+								weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+								deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+							},
+							input.input_data,
+							&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						),
+					};
 
 					let output = CallOutputPayload { contract_result };
 					output_wrapper(output)
@@ -4271,19 +4306,21 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_instantiate(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.code,
-						input.data,
-						input.salt,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
+					let contract_result = match $crate::Pallet::<Self>::prepare_dry_run(&input.origin) {
+						Err(error) => $crate::ContractResult { result: Err(error), ..Default::default() },
+						Ok(()) => $crate::Pallet::<Self>::bare_instantiate(
+							<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+							$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+							$crate::TransactionLimits::WeightAndDeposit {
+								weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+								deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+							},
+							input.code,
+							input.data,
+							input.salt,
+							&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						),
+					};
 
 					let output = InstantiateOutputPayload { contract_result };
 					output_wrapper(output)

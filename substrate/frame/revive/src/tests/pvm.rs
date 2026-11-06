@@ -3942,7 +3942,7 @@ fn prepare_dry_run_maps_unmapped_account() {
 		assert!(!frame_system::Pallet::<Test>::account_exists(&EVE));
 		assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
 
-		Pallet::<Test>::prepare_dry_run(&EVE);
+		assert_ok!(Pallet::<Test>::prepare_dry_run(&EVE));
 
 		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
 	});
