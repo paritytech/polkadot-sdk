@@ -424,6 +424,66 @@ fn open_system_channel_does_not_work_with_one_non_system_chain() {
 }
 
 #[test]
+fn open_system_channel_origins() {
+	let para_a = 1.into();
+	let para_b = 3.into();
+	let para_c = 4.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+		register_parachain(para_c);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// A non-system para may not.
+		let non_system: crate::Origin = 2001.into();
+		assert_noop!(
+			Hrmp::establish_system_channel(non_system.into(), para_a, para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		// The `ChannelManager` may, and so may any system para, even one not in the channel.
+		assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), para_a, para_b));
+		let system: crate::Origin = 4.into();
+		assert_ok!(Hrmp::establish_system_channel(system.into(), para_b, para_c));
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn poke_deposits_origins() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 100);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// A para outside of the channel may not.
+		let other: crate::Origin = 2003.into();
+		assert_noop!(
+			Hrmp::poke_channel_deposits(other.into(), para_a, para_b),
+			Error::<Test>::PokeHrmpChannelUnauthorized
+		);
+		// Neither may a system para outside of the channel.
+		let system: crate::Origin = 1.into();
+		assert_noop!(
+			Hrmp::poke_channel_deposits(system.into(), para_a, para_b),
+			Error::<Test>::PokeHrmpChannelUnauthorized
+		);
+		// Either side of the channel and the `ChannelManager` may.
+		let sender: crate::Origin = 2001.into();
+		assert_ok!(Hrmp::poke_channel_deposits(sender.into(), para_a, para_b));
+		let recipient: crate::Origin = 2002.into();
+		assert_ok!(Hrmp::poke_channel_deposits(recipient.into(), para_a, para_b));
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::root(), para_a, para_b));
+	});
+}
+
+#[test]
 fn poke_deposits_works() {
 	let para_a = 1.into();
 	let para_b = 2001.into();
