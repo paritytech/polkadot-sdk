@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793881424160,
+  "lastUpdate": 1793957077516,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1eea8c142f2ed5db6a8a281e35e1bf6b32f48988",
-          "message": "Remove DDayBodyId from Westend relay chain (#11843)\n\nPost-AHM cleanup following #11796. The DDay plurality origin in\n`AuthorizeCurrentCodeOrigin` is no longer needed since governance lives\non AssetHub. Simplified to `EnsureRoot`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T18:36:59Z",
-          "tree_id": "40d254189b4c2b4208538cd037f86d25a672bd55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1eea8c142f2ed5db6a8a281e35e1bf6b32f48988"
-        },
-        "date": 1776802184327,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.104229191766667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13280995783333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1344801534,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "228917acb2a1f175500e3ca8f7689ffd854900a1",
+          "message": "pallet-validator-collators: store MaxCollators as CollatorDraw (#13734)\n\n#13710 changed `MaxCollators` from an optional `u32` to an `Option<u32>`\nwith `DefaultMaxCollators` as default, without a migration.\n\nThis PR stores `MaxCollators` as a new enum `CollatorDraw`, still with\n`DefaultMaxCollators` as default:\n\n- `All` (index 0): every validator with registered keys.\n- `UpTo(n)` (index 1): up to `n` validators with registered keys.\n- `None` (index 2): no validator is drawn.\n\nThe indices make an `Option<u32>` written by #13710 keep its meaning, in\nstorage and in calls: `None` (`0x00`) reads as `All` and `Some(n)` as\n`UpTo(n)`.\n\nEvery variant draws at random, so collators are in drawn order and a\nvalidator that registers keys after the draw joins at the next set or\ncap change. Asset Hub Westend and People Westend default to `None`.\n\nIt also adds storage version 1 and `migrations::v1::MigrateV0ToV1`, to\nrun on Asset Hub Westend and People Westend. It must ship in the same\nAsset Hub Westend upgrade as #13710.\n\nThe migration handles three cases:\n\n- A cap stored as `u32`, exactly 4 bytes. Read as `CollatorDraw` it is\nmisread, so the migration rewrites it as `UpTo(cap)`.\n- A cap stored as `Option<u32>` by #13710. It already reads as the same\n`CollatorDraw` and is left as it is.\n- No stored cap. The default replaces \"no cap\", but the collators drawn\nbefore the upgrade (if any) stay in place. When a set is stored, the\nmigration sets `PendingRotation` to `AwaitingQueue`, as\n`set_max_collators` does, so the set is drawn again under the default.\n\n## Note on Westend Asset Hub\n\nThe `u32` and no-cap cases showed up on Westend Asset Hub, which still\nruns a runtime without #13710 after 2026-11-04 runtime upgrade:\n\n1. The first validator set arrived at block `18999262` and 5 validators\nwith session keys were drawn without a cap (see\nhttps://github.com/paritytech/metanode/issues/46#issuecomment-6653108369).\n2. check-runtime-migration e.g. on #13722 then failed on the 2026-11-05\nsnapshot (block `19005749`), with `\"ValidatorCollators\" try_state checks\nfailed: Other(\"more collators are drawn than the cap allows\")` see\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/41992109446/job/127127335164).\nWith #13710 the cap read as the default `Some(0)`, while the 5 collators\nstayed drawn.\n3. `set_max_collators(Some(0))` via sudo at block `19008348` cleared the\ndraw. It stored the cap as a u32 `0`. #13710 alone reads it as `None`\n(no cap), so every validator with session keys would collate again. This\nPR rewrites it as `UpTo(0)`.\n\nChains that add the pallet fresh are not affected: FRAME writes storage\nversion 1 and the migration is skipped so we will be good on Polkadot.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-06T07:53:45Z",
+          "tree_id": "c8e73d0d36006b198fa2995e7a0d86b0af1b26fd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/228917acb2a1f175500e3ca8f7689ffd854900a1"
+        },
+        "date": 1793957042688,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13252906426666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.83372871753333,
             "unit": "seconds"
           }
         ]
