@@ -13,15 +13,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::impls::AccountIdOf;
+use crate::{impls::AccountIdOf, AccountId};
 use core::marker::PhantomData;
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
-	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair},
+	traits::{
+		fungibles::Inspect,
+		tokens::{imbalance::ResolveTo, ConversionToAssetBalance},
+		Contains, ContainsPair,
+	},
 	weights::Weight,
 };
+use pallet_collator_selection::StakingPotAccountId;
+use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::Get;
 use xcm::latest::prelude::*;
+use xcm_builder::{
+	AccountId32Aliases, DescribeAllTerminal, DescribeFamily,
+	ExternalConsensusLocationsConverterFor, HashedDescription, ParentIsPreset,
+	SiblingParachainConvertsVia, UsingComponents,
+};
+
+/// `Location`-to-`AccountId` converters shared by every system parachain: parent Relay Chain,
+/// sibling parachains, and local accounts. Nest this as the first tuple element to extend it.
+pub type LocalAndSiblingLocationToAccountId<RelayNetwork, AccountIdValue = AccountId> = (
+	ParentIsPreset<AccountIdValue>,
+	SiblingParachainConvertsVia<Sibling, AccountIdValue>,
+	AccountId32Aliases<RelayNetwork, AccountIdValue>,
+);
+
+/// Standard system-parachain converter: [`LocalAndSiblingLocationToAccountId`] plus a hashed
+/// fallback for foreign locations.
+pub type LocationToAccountId<RelayNetwork, AccountIdValue = AccountId> = (
+	LocalAndSiblingLocationToAccountId<RelayNetwork, AccountIdValue>,
+	HashedDescription<AccountIdValue, DescribeFamily<DescribeAllTerminal>>,
+);
+
+/// [`LocationToAccountId`] plus sovereign accounts for other global-consensus systems (e.g.
+/// bridged chains).
+pub type LocationToAccountIdWithExternalConsensus<
+	RelayNetwork,
+	UniversalLocation,
+	AccountIdValue = AccountId,
+> = (
+	LocationToAccountId<RelayNetwork, AccountIdValue>,
+	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountIdValue>,
+);
+
+/// Standard system-parachain XCM `Trader`: charges fees in the native (Relay Chain) token and
+/// resolves them to the collator-selection staking pot.
+// TODO: once DAP allocates collator budgets, redirect execution fees to the accumulation account
+// via the runtime's `DealWithFeesAccumulate`. See https://github.com/paritytech/polkadot-sdk/issues/12329.
+pub type StakingPotAsTrader<Runtime, WeightToFee, NativeLocation, AccountIdValue = AccountId> =
+	UsingComponents<
+		WeightToFee,
+		NativeLocation,
+		AccountIdValue,
+		pallet_balances::Pallet<Runtime>,
+		ResolveTo<StakingPotAccountId<Runtime>, pallet_balances::Pallet<Runtime>>,
+	>;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
