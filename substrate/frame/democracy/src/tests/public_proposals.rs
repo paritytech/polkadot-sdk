@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn backing_for_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(propose_set_balance(1, 2, 2));
 		assert_ok!(propose_set_balance(1, 4, 4));
 		assert_ok!(propose_set_balance(1, 3, 3));
@@ -33,7 +33,7 @@ fn backing_for_should_work() {
 
 #[test]
 fn deposit_for_proposals_should_be_taken() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(propose_set_balance(1, 2, 5));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
@@ -47,7 +47,7 @@ fn deposit_for_proposals_should_be_taken() {
 
 #[test]
 fn deposit_for_proposals_should_be_returned() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(propose_set_balance(1, 2, 5));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
@@ -62,21 +62,21 @@ fn deposit_for_proposals_should_be_returned() {
 
 #[test]
 fn proposal_with_deposit_below_minimum_should_not_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(propose_set_balance(1, 2, 0), Error::<Test>::ValueLow);
 	});
 }
 
 #[test]
 fn poor_proposer_should_not_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(propose_set_balance(1, 2, 11), BalancesError::<Test, _>::InsufficientBalance);
 	});
 }
 
 #[test]
 fn poor_seconder_should_not_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(propose_set_balance(2, 2, 11));
 		assert_noop!(
 			Democracy::second(RuntimeOrigin::signed(1), 0),
@@ -87,7 +87,7 @@ fn poor_seconder_should_not_work() {
 
 #[test]
 fn cancel_proposal_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(propose_set_balance(1, 2, 2));
 		assert_ok!(propose_set_balance(1, 4, 4));
 		assert_noop!(Democracy::cancel_proposal(RuntimeOrigin::signed(1), 0), BadOrigin);
@@ -112,7 +112,7 @@ fn cancel_proposal_should_work() {
 
 #[test]
 fn blacklisting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let hash = set_balance_proposal(2).hash();
 
@@ -138,7 +138,7 @@ fn blacklisting_should_work() {
 
 #[test]
 fn runners_up_should_come_after() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_ok!(propose_set_balance(1, 2, 2));
 		assert_ok!(propose_set_balance(1, 4, 4));
