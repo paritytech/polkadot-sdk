@@ -1568,7 +1568,7 @@ mod remote_tests {
 			"wss://bridge-hub-polkadot-rpc.n.dwellir.com",
 			"wss://sys.ibp.network/bridgehub-polkadot",
 			"wss://bridgehub-polkadot.api.onfinality.io/public",
-			"wss://dot-rpc.stakeworld.io/bridgehub",
+			"wss://rpc-bridge-hub-polkadot.stakeworld.io",
 		];
 
 		info!(target: LOG_TARGET, "Connecting to Bridge Hub Polkadot using {} RPC providers", endpoints.len());
@@ -1633,7 +1633,7 @@ mod remote_tests {
 			"wss://asset-hub-polkadot-rpc.dwellir.com",
 			"wss://sys.ibp.network/asset-hub-polkadot",
 			"wss://asset-hub-polkadot.api.onfinality.io/public",
-			"wss://dot-rpc.stakeworld.io/assethub",
+			"wss://rpc-asset-hub-polkadot.stakeworld.io",
 		];
 
 		info!(target: LOG_TARGET, "Connecting to Asset Hub Polkadot using {} RPC providers", endpoints.len());
