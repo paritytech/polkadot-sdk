@@ -11,6 +11,10 @@ Backports should only be used to fix bugs or security issues - never to introduc
     - `A4-backport-stable2412`
     - `A4-backport-stable2503`
     - `A4-backport-stable2506`
+
+    Backports must move forward: if you backport into a release, you must also backport into
+    every newer release. For example, `A4-backport-stable2503` requires `A4-backport-stable2506`
+    and every later `A4-backport-stable*` label. The `check-backport-labels` CI job enforces this.
 3. Merge the PR into `master`.
 4. Wait for the bot to open the backport PR.
 5. Ensure the change is audited or does not need audit.
