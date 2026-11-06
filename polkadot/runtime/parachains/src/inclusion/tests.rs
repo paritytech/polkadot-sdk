@@ -3293,6 +3293,21 @@ mod speculative_provides_window {
 	}
 
 	#[test]
+	fn newest_included_provides_is_none_while_offboarding() {
+		new_test_ext(genesis_config(vec![(ParaId::from(1000), ParaKind::Parachain)])).execute_with(
+			|| {
+				use crate::runtime_api_impl::vstaging::newest_included_provides;
+				let source = ParaId::from(1000);
+				ParaInclusion::record_provides(source, sr(0xA));
+				assert_eq!(newest_included_provides::<Test>(source), Some(sr(0xA)));
+
+				paras::Pallet::<Test>::schedule_para_cleanup(source).unwrap();
+				assert_eq!(newest_included_provides::<Test>(source), None);
+			},
+		);
+	}
+
+	#[test]
 	fn offboarding_clears_provides_window() {
 		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
 			let (staying, leaving) = (ParaId::from(1), ParaId::from(2));
