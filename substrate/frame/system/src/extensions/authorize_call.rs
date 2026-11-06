@@ -21,7 +21,7 @@ use frame_support::{
 	pallet_prelude::{
 		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
 	},
-	traits::Authorize,
+	traits::{Authorize, OriginTrait},
 	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::{
@@ -29,7 +29,7 @@ use sp_runtime::{
 		AsTransactionAuthorizedOrigin, Dispatchable, Implication, PostDispatchInfoOf,
 		TransactionExtension, ValidateResult,
 	},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 
 /// A transaction extension that authorizes some calls (i.e. dispatchable functions) to be
@@ -77,9 +77,13 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if !origin.is_transaction_authorized() {
 			if let Some(authorize) = call.authorize(source) {
-				return authorize.map(|(validity, unspent)| {
-					(validity, unspent, crate::Origin::<T>::Authorized.into())
-				});
+				let (validity, unspent) = authorize?;
+				let authorized: T::RuntimeOrigin = crate::Origin::<T>::Authorized.into();
+				// The authorized origin must still be subject to the runtime call filter.
+				if !authorized.filter_call(call) {
+					return Err(InvalidTransaction::Call.into());
+				}
+				return Ok((validity, unspent, authorized));
 			}
 		}
 
@@ -206,9 +210,22 @@ mod tests {
 		TransactionExtension,
 	>;
 
+	frame_support::parameter_types! {
+		pub static Pallet1Paused: bool = false;
+	}
+
+	/// Stands in for safe mode / tx-pause filtering `Pallet1`.
+	pub struct PausablePallet1;
+	impl frame_support::traits::Contains<RuntimeCall> for PausablePallet1 {
+		fn contains(call: &RuntimeCall) -> bool {
+			!(Pallet1Paused::get() && matches!(call, RuntimeCall::Pallet1(_)))
+		}
+	}
+
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = Block;
+		type BaseCallFilter = PausablePallet1;
 	}
 
 	impl pallet1::Config for Runtime {}
@@ -338,6 +355,34 @@ mod tests {
 				.expect("valid");
 
 			assert!(!new_origin.filter_call(&filtered_call));
+		});
+	}
+
+	#[test]
+	fn filtered_call_is_not_authorized() {
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
+
+		new_test_ext().execute_with(|| {
+			Pallet1Paused::set(true);
+
+			let tx = UncheckedExtrinsic::new_transaction(
+				call,
+				(frame_system::AuthorizeCall::<Runtime>::new(),),
+			);
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+				.expect("Transaction is general so signature is good");
+
+			// The call filter rejects the call at dispatch, so it must not be admitted either.
+			assert_eq!(
+				checked.validate::<Runtime>(TransactionSource::External, &info, len),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				checked.apply::<Runtime>(&info, len).map(|_| ()),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
 		});
 	}
 }
