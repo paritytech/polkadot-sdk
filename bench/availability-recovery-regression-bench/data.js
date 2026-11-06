@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793957077516,
+  "lastUpdate": 1793979790169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d1ad712f881477a0991cb0003d4646b3da6817f4",
-          "message": "statement-store: fix metrics accuracy (#11838)\n\n# Description\n\nFixes accuracy gaps and clarify help text in statement store and network\nmetrics.\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:05:32Z",
-          "tree_id": "48b5bc5ad345f7ae8e73cc8409cdad067cbf23e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1ad712f881477a0991cb0003d4646b3da6817f4"
-        },
-        "date": 1776807272441,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.9333895089,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13014619076666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.83372871753333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1f01611601988e5c60f65be1309e3f5d2fff952",
+          "message": " preflight: count scheduled and manual runs as changed (#13751)\n\nSince #13611, `changes_rust` is empty when no relevant file changed.\nBefore, it was the string `'false'`, which GitHub treats as true.\nScheduled and manual runs have no diff, so `changed-files` checks\nmaster's last commit, and whether their jobs run depends on what that\ncommit touched.\n\nExample: On 2026-11-06 the last commit before the 05:00 run was #13732\n(`review-trigger.yml` only). `check-runtime-migration` skipped\n`prepare-snapshots` and master got no daily snapshot.\n\n`changes_rust` is now `'true'` for `schedule` and `workflow_dispatch`\nevents.\n\nAffected workflows: `check-runtime-migration`,\n`check-runtime-compatibility` and `tests-evm`",
+          "timestamp": "2026-11-06T13:22:47Z",
+          "tree_id": "45590750f73503d3268fc3c4f084ce1566b846fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1f01611601988e5c60f65be1309e3f5d2fff952"
+        },
+        "date": 1793979761441,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.854386325233333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13181906400000004,
             "unit": "seconds"
           }
         ]
