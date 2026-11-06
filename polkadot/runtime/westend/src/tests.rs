@@ -422,3 +422,64 @@ mod drain_legacy_treasury_migration {
 		});
 	}
 }
+
+/// The trap account migration of `pallet_xcm` moves existing traps to the legacy map, funds the
+/// trap account, and the pallet's trap account try-state check passes afterwards.
+#[test]
+fn pallet_xcm_trap_account_migration_works() {
+	use frame_support::traits::{Currency, OnRuntimeUpgrade, StorageVersion};
+	use sp_runtime::traits::{BlakeTwo256, Hash};
+	use xcm::prelude::*;
+	use xcm_executor::traits::ClaimAssets;
+
+	new_test_ext().execute_with(|| {
+		let trap_account = XcmPallet::trap_account().expect("the trap location converts");
+		let ed = ExistentialDeposit::get();
+		let amount = 10 * ed;
+		let origin = Location::new(0, [Parachain(2000)]);
+		let assets: Assets = (Here, amount).into();
+
+		// A chain from before the trap account existed (this externalities only builds the
+		// system genesis): no balance, storage version 1, and a trap made under XCM v4 whose
+		// amount is counted in total issuance but held by nobody.
+		assert_eq!(<Balances as Inspect<AccountId>>::balance(&trap_account), 0);
+		StorageVersion::new(1).put::<XcmPallet>();
+		let versioned_assets = VersionedAssets::from(assets.clone()).into_version(4).unwrap();
+		let VersionedLocation::V4(origin_v4) =
+			VersionedLocation::from(origin.clone()).into_version(4).unwrap()
+		else {
+			panic!("converted to v4")
+		};
+		let hash = BlakeTwo256::hash_of(&(origin_v4, versioned_assets));
+		pallet_xcm::AssetTraps::<Runtime>::insert(hash, 1);
+		core::mem::forget(<Balances as Currency<AccountId>>::issue(amount));
+		let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+		assert!(XcmPallet::try_state_trap_account().is_err());
+
+		pallet_xcm::migration::v2::MigrateToV2::<Runtime>::on_runtime_upgrade();
+
+		assert_eq!(StorageVersion::get::<XcmPallet>(), 2);
+		assert_ok!(XcmPallet::try_state_trap_account());
+		assert_eq!(<Balances as Inspect<AccountId>>::balance(&trap_account), ed);
+		// Only the existential deposit was issued.
+		assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before + ed);
+		assert_eq!(pallet_xcm::AssetTraps::<Runtime>::get(hash), 0);
+		assert_eq!(pallet_xcm::LegacyAssetTraps::<Runtime>::get(hash), 1);
+
+		// The legacy trap is claimable through its v4 ticket by minting; dropping the claimed
+		// holding burns it again.
+		let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
+		let ticket: Location = GeneralIndex(4).into();
+		let claimed = <XcmPallet as ClaimAssets>::claim_assets(&origin, &ticket, &assets, &context)
+			.expect("legacy traps are claimable");
+		assert!(claimed.ensure_contains(&assets).is_ok());
+		drop(claimed);
+		assert_eq!(pallet_xcm::LegacyAssetTraps::<Runtime>::get(hash), 0);
+		assert_eq!(<Balances as Inspect<AccountId>>::balance(&trap_account), ed);
+		assert_eq!(
+			<Balances as Inspect<AccountId>>::total_issuance(),
+			issuance_before + ed - amount
+		);
+		assert_ok!(XcmPallet::try_state_trap_account());
+	});
+}

@@ -1863,6 +1863,8 @@ pub mod migrations {
 			FastUnstakePalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		// unreleased
+		pallet_xcm::migration::v2::MigrateToV2<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);

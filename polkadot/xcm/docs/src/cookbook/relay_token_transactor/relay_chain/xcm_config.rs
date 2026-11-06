@@ -154,6 +154,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	// How to turn locations into accounts
 	type SovereignAccountOf = LocationToAccountId;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	// A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<HereLocation>;

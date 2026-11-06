@@ -455,6 +455,123 @@ pub mod v1 {
 	>;
 }
 
+pub mod v2 {
+	//! Trapped assets are held by the trap account, see [`Config::TrapAccountLocation`].
+	//!
+	//! Before this version, trapped fungibles stayed counted in total issuance without being in
+	//! any balance (sum of balances < total issuance) and claims minted them back. The trapped
+	//! assets cannot be migrated into the trap account, since [`AssetTraps`] only records the hash
+	//! of each `(origin, assets)` pair, so they are moved to [`LegacyAssetTraps`], where they stay
+	//! claimable the old way until they are claimed.
+
+	use super::*;
+	#[cfg(feature = "try-runtime")]
+	use crate::BalanceOf;
+	use crate::{AssetTraps, LegacyAssetTraps};
+	use alloc::vec::Vec;
+	use frame_support::traits::Currency;
+	use sp_core::H256;
+	#[cfg(feature = "try-runtime")]
+	use sp_runtime::traits::Saturating;
+
+	const LOG_TARGET: &str = "runtime::xcm::pallet-xcm::migration::v2";
+
+	/// Moves the existing asset traps to [`LegacyAssetTraps`] and sets the trap account up.
+	///
+	/// - Every entry of [`AssetTraps`] is moved to [`LegacyAssetTraps`]. The "legacy" map is only
+	///   used to claim historic traps, nothing is ever added to it. [`AssetTraps`] is the "new" map
+	///   where recorded trapped assets are also moved to a dedicated trap account.
+	/// - The trap account is topped up to the native existential deposit, so that amounts of any
+	///   size can be trapped and claimed without dusting. This is minted and is the only change to
+	///   total issuance this migration makes.
+	///
+	/// Use [`MigrateToV2`], which only runs this on storage version 1.
+	pub struct VersionUncheckedMigrateToV2<T>(PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			let traps: Vec<(H256, u32)> = AssetTraps::<T>::drain().collect();
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			for (hash, count) in traps {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				LegacyAssetTraps::<T>::mutate(hash, |n| *n = n.saturating_add(count));
+			}
+
+			let Some(trap_account) = Pallet::<T>::trap_account() else {
+				tracing::error!(
+					target: LOG_TARGET,
+					"`TrapAccountLocation` does not convert to an account, trap account not funded",
+				);
+				return weight;
+			};
+			let ed = T::Currency::minimum_balance();
+			let free = T::Currency::free_balance(&trap_account);
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			if free < ed {
+				tracing::info!(
+					target: LOG_TARGET,
+					?trap_account,
+					"Funding the trap account with the existential deposit",
+				);
+				// Dropping the imbalance adds the minted amount to total issuance.
+				let _ = T::Currency::deposit_creating(&trap_account, ed - free);
+				weight.saturating_accrue(T::DbWeight::get().writes(2));
+			}
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let trap_account = Pallet::<T>::trap_account()
+				.ok_or("`TrapAccountLocation` does not convert to an account")?;
+			let mut traps: Vec<(H256, u32)> = AssetTraps::<T>::iter().collect();
+			traps.sort();
+			let state: (BalanceOf<T>, BalanceOf<T>, Vec<(H256, u32)>, Vec<(H256, u32)>) = (
+				T::Currency::total_issuance(),
+				T::Currency::free_balance(&trap_account),
+				traps,
+				LegacyAssetTraps::<T>::iter().collect(),
+			);
+			Ok(state.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (issuance_before, free_before, traps_before, legacy_before): (
+				BalanceOf<T>,
+				BalanceOf<T>,
+				Vec<(H256, u32)>,
+				Vec<(H256, u32)>,
+			) = Decode::decode(&mut &state[..]).map_err(|_| "cannot decode pre-upgrade state")?;
+			ensure!(
+				legacy_before.is_empty(),
+				"`LegacyAssetTraps` was not empty before the upgrade"
+			);
+			ensure!(AssetTraps::<T>::iter().next().is_none(), "`AssetTraps` was not emptied");
+			let mut legacy: Vec<(H256, u32)> = LegacyAssetTraps::<T>::iter().collect();
+			legacy.sort();
+			ensure!(legacy == traps_before, "`LegacyAssetTraps` does not hold the previous traps");
+			Pallet::<T>::try_state_trap_account()?;
+			let topped_up = T::Currency::minimum_balance().saturating_sub(free_before);
+			ensure!(
+				T::Currency::total_issuance() == issuance_before.saturating_add(topped_up),
+				"total issuance changed by more than the existential deposit top-up"
+			);
+			Ok(())
+		}
+	}
+
+	/// Version checked migration to v2, see [`VersionUncheckedMigrateToV2`].
+	pub type MigrateToV2<T> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		VersionUncheckedMigrateToV2<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// When adding a new XCM version, we need to run this migration for `pallet_xcm` to ensure that all
 /// previously stored data with subkey prefix `XCM_VERSION-1` (and below) are migrated to the
 /// `XCM_VERSION`.

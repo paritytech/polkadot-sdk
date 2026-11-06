@@ -350,3 +350,13 @@ fn coretime_revenue_goes_to_accumulation_account() {
 			);
 		});
 }
+
+/// The trap account migration of `pallet_xcm` sets the account up and moves known traps into it,
+/// and the pallet's trap account try-state check passes afterwards.
+#[test]
+fn pallet_xcm_trap_account_migration_works() {
+	parachains_runtimes_test_utils::test_cases::pallet_xcm_trap_account_migration_works::<Runtime>(
+		collator_session_keys(),
+		1005,
+	)
+}

@@ -182,6 +182,11 @@ fn westend_testnet_genesis(
 				.iter()
 				.map(|k| (k.clone(), ENDOWMENT))
 				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
+				.chain(core::iter::once((
+					crate::XcmPallet::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ExistentialDeposit::get()
+				)))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
@@ -348,6 +353,11 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
 				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
+				.chain(core::iter::once((
+					crate::XcmPallet::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ExistentialDeposit::get()
+				)))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {

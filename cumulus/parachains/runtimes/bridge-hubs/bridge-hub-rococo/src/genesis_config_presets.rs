@@ -41,6 +41,11 @@ fn bridge_hub_rococo_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, 1u128 << 60))
+				.chain(core::iter::once((
+					PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					BRIDGE_HUB_ROCOCO_ED
+				)))
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },

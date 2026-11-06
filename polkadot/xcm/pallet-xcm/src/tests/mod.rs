@@ -25,17 +25,18 @@ use crate::{
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
 	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
-	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
-	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
-	VersionNotifiers, VersionNotifyTargets, WeightInfo,
+	LatestVersionedLocation, LegacyAssetTraps, MaxAuthorizedAliases, Pallet, Queries, QueryStatus,
+	RecordedXcm, RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue,
+	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
-	traits::{ContainsPair, Currency, Hooks},
+	traits::{ContainsPair, Currency, Hooks, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
+use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, BlockNumberProvider, Hash},
 	SaturatedConversion, TokenError,
@@ -46,8 +47,10 @@ use xcm::{
 };
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
-	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
-	XcmExecutor,
+	traits::{
+		ClaimAssets, DropAssets, Properties, QueryHandler, QueryResponseStatus, ShouldExecute,
+	},
+	AssetsInHolding, XcmExecutor,
 };
 use xcm_simulator::fake_message_hash;
 
@@ -56,6 +59,19 @@ const BOB: AccountId = AccountId::new([1u8; 32]);
 const INITIAL_BALANCE: u128 = 1000;
 const SEND_AMOUNT: u128 = 10;
 const FEE_AMOUNT: u128 = 2;
+
+/// Sum of all native balances. Equals total issuance, except on a chain with asset traps made
+/// before trapped assets were held by the trap account.
+fn sum_of_native_balances() -> u128 {
+	frame_system::Account::<Test>::iter_keys()
+		.map(|who| Balances::total_balance(&who))
+		.sum()
+}
+
+/// The trap account, funded with the existential deposit at genesis.
+fn trap_account() -> AccountId {
+	XcmPallet::trap_account().unwrap()
+}
 
 #[test]
 fn report_outcome_notify_works() {
@@ -648,6 +664,7 @@ fn trapped_assets_can_be_claimed() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 6;
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let ed = ExistentialDeposit::get();
 
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -682,6 +699,7 @@ fn trapped_assets_can_be_claimed() {
 		);
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&trap_account()), ed + SEND_AMOUNT);
 
 		let expected = vec![(hash, 1u32)];
 		assert_eq!(trapped, expected);
@@ -699,6 +717,7 @@ fn trapped_assets_can_be_claimed() {
 
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE + SEND_AMOUNT);
+		assert_eq!(Balances::total_balance(&trap_account()), ed);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
 		// Can't claim twice.
@@ -725,6 +744,7 @@ fn trapped_assets_can_be_claimed() {
 fn claim_assets_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
+		let ed = ExistentialDeposit::get();
 		// First trap some assets.
 		let trapping_program =
 			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
@@ -757,6 +777,7 @@ fn claim_assets_works() {
 		);
 		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
 		assert_eq!(trapped, vec![(hash, 1)]);
+		assert_eq!(Balances::total_balance(&trap_account()), ed + SEND_AMOUNT);
 
 		// Now claim them with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
@@ -768,6 +789,7 @@ fn claim_assets_works() {
 			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&trap_account()), ed);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 	});
 }
@@ -778,6 +800,7 @@ fn claim_assets_works_with_multiple_assets() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		use crate::tests::assets_transfer::set_up_foreign_asset;
+		let ed = ExistentialDeposit::get();
 		let foreign_amount = 100u128;
 		let (_, _, foreign_asset_id_location) = set_up_foreign_asset(
 			FOREIGN_ASSET_RESERVE_PARA_ID,
@@ -804,6 +827,12 @@ fn claim_assets_works_with_multiple_assets() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(AssetsPallet::balance(foreign_asset_id_location.clone(), &ALICE), 0);
 		assert_eq!(AssetTraps::<Test>::iter().count(), 1);
+		let trap_account = trap_account();
+		assert_eq!(Balances::total_balance(&trap_account), ed + SEND_AMOUNT);
+		assert_eq!(
+			AssetsPallet::balance(foreign_asset_id_location.clone(), &trap_account),
+			foreign_amount
+		);
 
 		// Now claim them all back with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
@@ -815,8 +844,529 @@ fn claim_assets_works_with_multiple_assets() {
 			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		assert_eq!(AssetsPallet::balance(foreign_asset_id_location, &ALICE), foreign_amount);
+		assert_eq!(
+			AssetsPallet::balance(foreign_asset_id_location.clone(), &ALICE),
+			foreign_amount
+		);
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(AssetsPallet::balance(foreign_asset_id_location, &trap_account), 0);
 		assert_eq!(AssetTraps::<Test>::iter().count(), 0);
+	});
+}
+
+/// Trapped assets are moved into the trap account and withdrawn from it when claimed. Total
+/// issuance keeps matching the sum of balances throughout, and nothing is minted or burned.
+#[test]
+fn trapped_assets_are_held_by_the_trap_account() {
+	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		use crate::tests::assets_transfer::set_up_foreign_asset;
+		use frame_support::traits::fungibles::Inspect;
+		let ed = ExistentialDeposit::get();
+		let foreign_amount = 100u128;
+		let (_, _, foreign_id) = set_up_foreign_asset(
+			FOREIGN_ASSET_RESERVE_PARA_ID,
+			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
+			foreign_amount,
+			true,
+		);
+		let assets: Assets =
+			vec![(Here, SEND_AMOUNT).into(), (foreign_id.clone(), foreign_amount).into()].into();
+		let trap_account = trap_account();
+		let native_issuance = Balances::total_issuance();
+		let foreign_issuance = AssetsPallet::total_issuance(foreign_id.clone());
+		assert_eq!(sum_of_native_balances(), native_issuance);
+		assert_ok!(XcmPallet::try_state_trap_account());
+
+		assert_ok!(XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(Xcm(vec![WithdrawAsset(assets.clone())]))),
+			BaseXcmWeight::get() * 2,
+		));
+
+		// Held by the trap account; total issuance still equals the sum of balances.
+		assert_eq!(Balances::total_balance(&trap_account), ed + SEND_AMOUNT);
+		assert_eq!(AssetsPallet::balance(foreign_id.clone(), &trap_account), foreign_amount);
+		assert_eq!(Balances::total_issuance(), native_issuance);
+		assert_eq!(AssetsPallet::total_issuance(foreign_id.clone()), foreign_issuance);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let hash = BlakeTwo256::hash_of(&(origin, VersionedAssets::from(assets.clone())));
+		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![(hash, 1)]);
+
+		System::reset_events();
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(assets)),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
+		));
+
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(AssetsPallet::balance(foreign_id.clone(), &trap_account), 0);
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetsPallet::balance(foreign_id.clone(), &ALICE), foreign_amount);
+		assert_eq!(Balances::total_issuance(), native_issuance);
+		assert_eq!(AssetsPallet::total_issuance(foreign_id), foreign_issuance);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+		assert!(AssetTraps::<Test>::iter().next().is_none());
+		assert_ok!(XcmPallet::try_state_trap_account());
+		// The claim withdraws from the trap account; it does not mint a duplicate and burn it.
+		assert!(!all_events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Issued { .. } | pallet_balances::Event::Rescinded { .. }
+			)
+		)));
+	});
+}
+
+/// The trap account holds the existential deposit, so amounts below the existential deposit can
+/// be trapped and claimed, and claiming everything leaves the account in place.
+#[test]
+fn sub_existential_deposit_amounts_can_be_trapped_and_claimed() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let ed = ExistentialDeposit::get();
+		let trap_account = trap_account();
+		assert_eq!(System::providers(&trap_account), 1);
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		let native_issuance = Balances::total_issuance();
+
+		// Trap a single unit (the existential deposit is one unit too) twice, the second
+		// time together with a sub-existential-deposit foreign amount.
+		let assets: Assets = (Here, 1u128).into();
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		for _ in 0..2 {
+			assert_ok!(XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(Xcm(vec![WithdrawAsset(assets.clone())]))),
+				BaseXcmWeight::get() * 2,
+			));
+		}
+		let hash = BlakeTwo256::hash_of(&(origin.clone(), VersionedAssets::from(assets.clone())));
+		assert_eq!(AssetTraps::<Test>::get(hash), 2);
+		assert_eq!(Balances::total_balance(&trap_account), ed + 2);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		let beneficiary = Box::new(VersionedLocation::from(origin));
+		for remaining in [1, 0] {
+			assert_ok!(XcmPallet::claim_assets(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedAssets::from(assets.clone())),
+				beneficiary.clone(),
+			));
+			assert_eq!(AssetTraps::<Test>::get(hash), remaining);
+		}
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(System::providers(&trap_account), 1);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+		assert_ok!(XcmPallet::try_state_trap_account());
+	});
+}
+
+/// An asset the trap account cannot receive (here an NFT no transactor handles) is burned
+/// instead of being left counted in total issuance without a holder, recorded as a trap of its
+/// own and reported in an `AssetsTrapFailed` event. The assets trapped alongside it are held and
+/// claimable on their own; the burned one cannot be claimed until the trap account holds it.
+#[test]
+fn asset_the_trap_account_cannot_receive_is_burned() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		use frame_support::traits::{
+			fungible::Balanced,
+			tokens::{Fortitude, Precision, Preservation},
+		};
+		let ed = ExistentialDeposit::get();
+		let native_issuance = Balances::total_issuance();
+		let nft: Asset = (Location::new(1, [Parachain(9999)]), AssetInstance::Index(7)).into();
+		let withdraw_native = || {
+			<Balances as Balanced<AccountId>>::withdraw(
+				&ALICE,
+				SEND_AMOUNT,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			)
+			.unwrap()
+		};
+		let nft_holding =
+			|| AssetsInHolding::new_from_non_fungible(nft.id.clone(), AssetInstance::Index(7));
+		let mut holding =
+			AssetsInHolding::new_from_fungible_credit(Here.into(), Box::new(withdraw_native()));
+		holding.subsume_assets(nft_holding());
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
+		<XcmPallet as DropAssets>::drop_assets(&origin, holding, &context);
+
+		// The held native asset and the burned NFT are recorded as separate traps.
+		let native: Assets = vec![(Here, SEND_AMOUNT).into()].into();
+		let hash_of = |assets: &Assets| {
+			BlakeTwo256::hash_of(&(origin.clone(), VersionedAssets::from(assets.clone())))
+		};
+		let (native_hash, nft_hash) = (hash_of(&native), hash_of(&vec![nft.clone()].into()));
+		assert_ne!(native_hash, nft_hash);
+		let mut traps = AssetTraps::<Test>::iter().collect::<Vec<_>>();
+		traps.sort();
+		let mut expected = vec![(native_hash, 1), (nft_hash, 1)];
+		expected.sort();
+		assert_eq!(traps, expected);
+		// The burned NFT is reported as evidence for its recovery, then the held assets.
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::AssetsTrapFailed {
+					hash: nft_hash,
+					origin: origin.clone(),
+					asset: nft.clone(),
+					error: XcmError::AssetNotFound,
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::AssetsTrapped {
+					hash: native_hash,
+					origin: origin.clone(),
+					assets: VersionedAssets::from(native.clone()),
+				}),
+			]
+		);
+		// The native asset is held; the NFT has no holder and is not counted anywhere.
+		assert_eq!(Balances::total_balance(&trap_account()), ed + SEND_AMOUNT);
+		assert_eq!(Balances::total_issuance(), native_issuance);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		// The burned NFT cannot be claimed, alone or together with the native asset.
+		let nft_assets: Assets = vec![nft.clone()].into();
+		assert!(<XcmPallet as ClaimAssets>::claim_assets(
+			&origin,
+			&Here.into(),
+			&nft_assets,
+			&context
+		)
+		.is_none());
+		let both: Assets = vec![(Here, SEND_AMOUNT).into(), nft.clone()].into();
+		assert!(<XcmPallet as ClaimAssets>::claim_assets(&origin, &Here.into(), &both, &context)
+			.is_none());
+		assert_eq!(AssetTraps::<Test>::get(nft_hash), 1);
+		assert_eq!(AssetTraps::<Test>::get(native_hash), 1);
+		assert_eq!(Balances::total_balance(&trap_account()), ed + SEND_AMOUNT);
+
+		// The native asset is claimable on its own, without governance.
+		System::reset_events();
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(native)),
+			Box::new(VersionedLocation::from(origin.clone())),
+		));
+		assert_eq!(AssetTraps::<Test>::get(native_hash), 0);
+		assert_eq!(AssetTraps::<Test>::get(nft_hash), 1);
+		assert_eq!(Balances::total_balance(&trap_account()), ed);
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		// When nothing can be held, nothing is announced as trapped; the burned asset's own trap
+		// is counted once more.
+		System::reset_events();
+		<XcmPallet as DropAssets>::drop_assets(&origin, nft_holding(), &context);
+		assert_eq!(AssetTraps::<Test>::get(nft_hash), 2);
+		assert_eq!(
+			all_events(),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AssetsTrapFailed {
+				hash: nft_hash,
+				origin: origin.clone(),
+				asset: nft,
+				error: XcmError::AssetNotFound,
+			})]
+		);
+	});
+}
+
+/// A claim is all or nothing: if one asset cannot be withdrawn from the trap account, the ones
+/// already withdrawn go back, the trap stays claimable and nothing is burned.
+#[test]
+fn claim_is_all_or_nothing() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		use crate::tests::assets_transfer::set_up_foreign_asset;
+		let ed = ExistentialDeposit::get();
+		let foreign_amount = 100u128;
+		let (_, _, foreign_id) = set_up_foreign_asset(
+			FOREIGN_ASSET_RESERVE_PARA_ID,
+			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
+			foreign_amount,
+			true,
+		);
+		let assets: Assets =
+			vec![(Here, SEND_AMOUNT).into(), (foreign_id.clone(), foreign_amount).into()].into();
+		let trap_account = trap_account();
+		let native_issuance = Balances::total_issuance();
+		assert_ok!(XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(Xcm(vec![WithdrawAsset(assets.clone())]))),
+			BaseXcmWeight::get() * 2,
+		));
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let hash = BlakeTwo256::hash_of(&(origin.clone(), VersionedAssets::from(assets.clone())));
+		assert_eq!(AssetTraps::<Test>::get(hash), 1);
+
+		// Freezing the foreign asset makes its withdrawal from the trap account fail. The native
+		// asset sorts first, so it is withdrawn before the failure and must be put back.
+		assert_ok!(AssetsPallet::freeze_asset(RuntimeOrigin::signed(BOB), foreign_id.clone()));
+		let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
+		assert!(<XcmPallet as ClaimAssets>::claim_assets(&origin, &Here.into(), &assets, &context)
+			.is_none());
+		assert_eq!(Balances::total_balance(&trap_account), ed + SEND_AMOUNT);
+		assert_eq!(AssetsPallet::balance(foreign_id.clone(), &trap_account), foreign_amount);
+		assert_eq!(AssetTraps::<Test>::get(hash), 1);
+		assert_eq!(Balances::total_issuance(), native_issuance);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		// Once thawed, the claim goes through.
+		assert_ok!(AssetsPallet::thaw_asset(RuntimeOrigin::signed(BOB), foreign_id.clone()));
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(assets)),
+			Box::new(VersionedLocation::from(origin)),
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetsPallet::balance(foreign_id.clone(), &ALICE), foreign_amount);
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(AssetsPallet::balance(foreign_id, &trap_account), 0);
+		assert_eq!(AssetTraps::<Test>::get(hash), 0);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+	});
+}
+
+/// The trap account try-state check catches a balance below the existential deposit.
+#[test]
+fn try_state_trap_account_checks_existential_deposit() {
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		let trap_account = trap_account();
+		assert_ok!(XcmPallet::try_state_trap_account());
+
+		assert_ok!(<Balances as Currency<_>>::transfer(
+			&trap_account,
+			&ALICE,
+			ExistentialDeposit::get(),
+			frame_support::traits::ExistenceRequirement::AllowDeath,
+		));
+		assert_noop!(
+			XcmPallet::try_state_trap_account(),
+			sp_runtime::DispatchError::Other(
+				"trap account holds less than the existential deposit"
+			)
+		);
+	});
+}
+
+/// Simulates a trap made before trapped assets were held by the trap account: the hash of
+/// `(origin, assets)` as encoded at the given XCM `version` is recorded in `map`, and the native
+/// amount is issued without a holder.
+fn legacy_trap<Map: frame_support::StorageMap<H256, u32, Query = u32>>(
+	origin: &Location,
+	assets: &Assets,
+	version: XcmVersion,
+	count: u32,
+) -> H256 {
+	use frame_support::traits::fungible::Balanced;
+	let versioned_assets = VersionedAssets::from(assets.clone()).into_version(version).unwrap();
+	let hash = match VersionedLocation::from(origin.clone()).into_version(version).unwrap() {
+		VersionedLocation::V3(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+		VersionedLocation::V4(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+		VersionedLocation::V5(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+	};
+	Map::mutate(hash, |n| *n += count);
+	for asset in assets.inner() {
+		if let (AssetId(location), Fungible(amount)) = (&asset.id, &asset.fun) {
+			if location == &Location::here() {
+				for _ in 0..count {
+					core::mem::forget(<Balances as Balanced<AccountId>>::issue(*amount));
+				}
+			}
+		}
+	}
+	hash
+}
+
+/// The v2 migration moves the existing traps to `LegacyAssetTraps`, where they stay claimable
+/// through the mint path, and funds the trap account with the existential deposit, the only
+/// change it makes to total issuance.
+#[test]
+fn migration_to_v2_moves_existing_traps_to_legacy_and_funds_the_trap_account() {
+	use crate::migration::v2::MigrateToV2;
+	use frame_support::traits::fungibles::Inspect;
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		use crate::tests::assets_transfer::set_up_foreign_asset;
+		let ed = ExistentialDeposit::get();
+		let trap_account = trap_account();
+		// Pre-migration chain: no trap account, storage version 1.
+		assert_ok!(<Balances as Currency<_>>::transfer(
+			&trap_account,
+			&ALICE,
+			ed,
+			frame_support::traits::ExistenceRequirement::AllowDeath,
+		));
+		assert_eq!(System::providers(&trap_account), 0);
+		StorageVersion::new(1).put::<XcmPallet>();
+		let foreign_amount = 100u128;
+		let (_, _, foreign_id) = set_up_foreign_asset(
+			FOREIGN_ASSET_RESERVE_PARA_ID,
+			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
+			foreign_amount,
+			true,
+		);
+		let foreign_issuance = AssetsPallet::total_issuance(foreign_id.clone());
+
+		// Three traps: one trapped twice under XCM v3, one native-and-foreign trap under v4 and
+		// one under v5.
+		let origin_a: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let origin_b = Location::new(1, [Parachain(2000)]);
+		let assets_a: Assets = (Here, SEND_AMOUNT).into();
+		let assets_b: Assets =
+			vec![(Here, 3 * SEND_AMOUNT).into(), (foreign_id.clone(), foreign_amount).into()]
+				.into();
+		let assets_c: Assets = (Here, 7u128).into();
+		let hash_a = legacy_trap::<AssetTraps<Test>>(&origin_a, &assets_a, 3, 2);
+		let hash_b = legacy_trap::<AssetTraps<Test>>(&origin_b, &assets_b, 4, 1);
+		let hash_c = legacy_trap::<AssetTraps<Test>>(&origin_b, &assets_c, 5, 1);
+		// The foreign amount is counted in its issuance without a holder, like the native one.
+		<AssetsPallet as frame_support::traits::fungibles::Unbalanced<AccountId>>::set_total_issuance(
+			foreign_id.clone(),
+			foreign_issuance + foreign_amount,
+		);
+		let native_issuance = Balances::total_issuance();
+		let trapped_native = 2 * SEND_AMOUNT + 3 * SEND_AMOUNT + 7;
+		assert_eq!(sum_of_native_balances(), native_issuance - trapped_native);
+
+		MigrateToV2::<Test>::on_runtime_upgrade();
+
+		assert_eq!(StorageVersion::get::<XcmPallet>(), 2);
+		assert!(AssetTraps::<Test>::iter().next().is_none());
+		let mut legacy = LegacyAssetTraps::<Test>::iter().collect::<Vec<_>>();
+		legacy.sort();
+		let mut expected = vec![(hash_a, 2), (hash_b, 1), (hash_c, 1)];
+		expected.sort();
+		assert_eq!(legacy, expected);
+		// Only the existential deposit was issued; the trapped amounts stay unheld until claimed.
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(Balances::total_issuance(), native_issuance + ed);
+		assert_eq!(sum_of_native_balances(), native_issuance + ed - trapped_native);
+		assert_ok!(XcmPallet::try_state_trap_account());
+
+		// Running it again is a no-op.
+		MigrateToV2::<Test>::on_runtime_upgrade();
+		assert_eq!(Balances::total_issuance(), native_issuance + ed);
+		assert_eq!(LegacyAssetTraps::<Test>::iter().count(), 3);
+
+		// Every legacy trap is claimable through its original version ticket, by minting.
+		let beneficiary = Box::new(VersionedLocation::from(origin_a.clone()));
+		for remaining in [1, 0] {
+			assert_ok!(XcmPallet::claim_assets(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedAssets::from(assets_a.clone()).into_version(3).unwrap()),
+				beneficiary.clone(),
+			));
+			assert_eq!(LegacyAssetTraps::<Test>::get(hash_a), remaining);
+		}
+		// Alice also received the deposit moved out of the trap account above.
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE + ed + 2 * SEND_AMOUNT);
+		let context =
+			XcmContext { origin: Some(origin_b.clone()), message_id: [0; 32], topic: None };
+		let ticket_v4: Location = GeneralIndex(4).into();
+		let claimed =
+			<XcmPallet as ClaimAssets>::claim_assets(&origin_b, &ticket_v4, &assets_b, &context)
+				.unwrap();
+		assert!(claimed.ensure_contains(&assets_b).is_ok());
+		assert_eq!(LegacyAssetTraps::<Test>::get(hash_b), 0);
+		assert_eq!(
+			AssetsPallet::total_issuance(foreign_id.clone()),
+			foreign_issuance + foreign_amount
+		);
+		drop(claimed);
+		assert_eq!(AssetsPallet::total_issuance(foreign_id), foreign_issuance);
+		let ticket_v5: Location = GeneralIndex(5).into();
+		let claimed =
+			<XcmPallet as ClaimAssets>::claim_assets(&origin_b, &ticket_v5, &assets_c, &context)
+				.unwrap();
+		assert!(claimed.ensure_contains(&assets_c).is_ok());
+		drop(claimed);
+		assert!(LegacyAssetTraps::<Test>::iter().next().is_none());
+		// Claimed legacy amounts are deposited (first trap) or dropped (the other two) here, so
+		// the sum of balances matches total issuance again.
+		assert_eq!(Balances::total_issuance(), native_issuance + ed - 3 * SEND_AMOUNT - 7);
+		assert_eq!(sum_of_native_balances(), Balances::total_issuance());
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_ok!(XcmPallet::try_state_trap_account());
+
+		// Nothing is claimable twice.
+		assert!(<XcmPallet as ClaimAssets>::claim_assets(
+			&origin_b, &ticket_v5, &assets_c, &context
+		)
+		.is_none());
+	});
+}
+
+/// A legacy trap and a new, held trap of the same origin and assets share a hash. Each is
+/// claimed through its own path: the held one by withdrawing from the trap account, the legacy
+/// one by minting back the forgotten amount. Nothing is ever added to `LegacyAssetTraps`.
+#[test]
+fn legacy_and_held_traps_with_the_same_hash_are_both_claimable() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let ed = ExistentialDeposit::get();
+		let trap_account = trap_account();
+		let native_issuance = Balances::total_issuance();
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
+		let beneficiary = Box::new(VersionedLocation::from(origin.clone()));
+
+		let hash = legacy_trap::<LegacyAssetTraps<Test>>(&origin, &assets, XCM_VERSION, 1);
+		assert_eq!(Balances::total_issuance(), native_issuance + SEND_AMOUNT);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		// The same origin traps the same assets again, now held by the trap account.
+		assert_ok!(XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(Xcm(vec![WithdrawAsset(assets.clone())]))),
+			BaseXcmWeight::get() * 2,
+		));
+		assert_eq!(AssetTraps::<Test>::get(hash), 1);
+		assert_eq!(LegacyAssetTraps::<Test>::get(hash), 1);
+		assert_eq!(Balances::total_balance(&trap_account), ed + SEND_AMOUNT);
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+
+		// The first claim is served from the trap account.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(assets.clone())),
+			beneficiary.clone(),
+		));
+		assert_eq!(AssetTraps::<Test>::get(hash), 0);
+		assert_eq!(LegacyAssetTraps::<Test>::get(hash), 1);
+		assert_eq!(Balances::total_balance(&trap_account), ed);
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_issuance(), native_issuance + SEND_AMOUNT);
+		assert_eq!(sum_of_native_balances(), native_issuance);
+
+		// The second one mints the forgotten amount back, which closes the gap.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(assets.clone())),
+			beneficiary.clone(),
+		));
+		assert_eq!(LegacyAssetTraps::<Test>::get(hash), 0);
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE + SEND_AMOUNT);
+		assert_eq!(Balances::total_issuance(), native_issuance + SEND_AMOUNT);
+		assert_eq!(sum_of_native_balances(), native_issuance + SEND_AMOUNT);
+
+		// Nothing left in either map.
+		let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
+		assert!(<XcmPallet as ClaimAssets>::claim_assets(&origin, &Here.into(), &assets, &context)
+			.is_none());
 	});
 }
 
