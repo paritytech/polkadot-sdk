@@ -1081,15 +1081,30 @@ pub mod pallet {
 				let mut item = maybe_item.take().ok_or(Error::<T, I>::UnknownCollection)?;
 				let old_owner = item.owner;
 				let new_owner = T::Lookup::lookup(owner)?;
-				item.owner = new_owner.clone();
-				item.issuer = T::Lookup::lookup(issuer)?;
-				item.admin = T::Lookup::lookup(admin)?;
-				item.freezer = T::Lookup::lookup(freezer)?;
+				let issuer = T::Lookup::lookup(issuer)?;
+				let admin = T::Lookup::lookup(admin)?;
+				let freezer = T::Lookup::lookup(freezer)?;
+
+				if old_owner != new_owner {
+					// Move the deposit to the new owner so that deposit accounting stays
+					// consistent when the collection ownership changes.
+					T::Currency::repatriate_reserved(
+						&old_owner,
+						&new_owner,
+						item.total_deposit,
+						Reserved,
+					)?;
+					CollectionAccount::<T, I>::remove(&old_owner, &collection);
+					CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
+				}
+
+				item.owner = new_owner;
+				item.issuer = issuer;
+				item.admin = admin;
+				item.freezer = freezer;
 				item.free_holding = free_holding;
 				item.is_frozen = is_frozen;
 				*maybe_item = Some(item);
-				CollectionAccount::<T, I>::remove(&old_owner, &collection);
-				CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
 
 				Self::deposit_event(Event::ItemStatusChanged { collection });
 				Ok(())
