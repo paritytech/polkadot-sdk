@@ -120,6 +120,11 @@ impl ExportedFunction {
 }
 
 /// Cost of code loading from storage.
+///
+/// For PVM code the slope of `interpreter_cache_rebuild` is left out: the callee of
+/// `call_with_pvm_code_per_byte` allocates its map of compiled blocks, which the interpreter
+/// charges as gas. The compilation of its entry block is in the benchmark's intercept and is
+/// charged by the interpreter too.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeLoadToken {
@@ -135,14 +140,14 @@ impl CodeLoadToken {
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
+		let slope = |weight: fn(u32) -> Weight| weight(self.code_len).saturating_sub(weight(0));
 		match self.code_type {
-			// The benchmark also compiles the entry block of the called contract. The linear fit
-			// puts that cost into the intercept, which is subtracted here. The interpreter
-			// charges the compilation of every block as gas.
-			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0)),
-			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
+			BytecodeType::Pvm => {
+				let code_map = slope(T::WeightInfo::interpreter_cache_rebuild);
+				slope(T::WeightInfo::call_with_pvm_code_per_byte)
+					.saturating_sub_ref_time(code_map.ref_time())
+			},
+			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte),
 		}
 	}
 }

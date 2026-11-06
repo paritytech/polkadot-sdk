@@ -674,14 +674,16 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`, minus the ref time slope
+	// of `interpreter_cache_rebuild`.
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
 	//
-	// We expect the influence of `c` to be none in this benchmark because every instruction that
-	// is not in the first basic block is never read. We are primarily interested in the
-	// `proof_size` result of this benchmark.
+	// The callee allocates its map of compiled blocks, one entry per byte of code. The
+	// interpreter charges that as gas, so the code load charge leaves out its slope. The
+	// remaining slope is reading the code from storage and decoding it. We are primarily
+	// interested in the `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =

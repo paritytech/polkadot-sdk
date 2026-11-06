@@ -23,11 +23,14 @@ doc:
       per gas and rounded up. The first two compile the instruction and the block terminator
       that took the longest to compile in a local measurement: `store_imm_indirect_u64` and a
       branch.
-    - Loading PVM code for a call is charged only by `call_with_pvm_code_per_byte`. The code load
-      charge no longer adds the compilation of one maximum-sized basic block.
-    - Compilation can leave the interpreter's gas negative. `pallet-revive` then charges all the
-      ref time it handed to the interpreter and fails the call frame with `OutOfGas`. The proof
-      size is not affected.
+    - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
+      the ref time slope of `interpreter_cache_rebuild`, since the interpreter charges the map of
+      compiled blocks as gas. The code load charge no longer adds the compilation of one
+      maximum-sized basic block. The pallet's `integrity_test` asserts that the first slope is
+      larger than the second.
+    - Compiling a block and allocating the map of compiled blocks can both leave the
+      interpreter's gas negative. `pallet-revive` then charges all the ref time it handed to the
+      interpreter and fails the call frame with `OutOfGas`. The proof size is not affected.
 
     Ref time per PolkaVM gas, the largest of nine measurements:
 
@@ -115,7 +118,8 @@ doc:
     1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
     byte part is charged again after every call a PVM contract makes. The weight charged for
     loading the code of a PVM contract no longer includes the compilation of one maximum-sized
-    basic block.
+    basic block or the map of compiled blocks, which the interpreter charges as gas. On Asset Hub
+    Westend it is 1545 ps of ref time per byte of the code blob.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
     limits to their sub-calls may need to raise those limits.
