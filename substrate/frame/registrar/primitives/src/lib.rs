@@ -227,8 +227,8 @@ pub enum MessageToParaV1 {
 	},
 	/// Answer a [`MessageToRelayV1::SetCurrentHead`].
 	///
-	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
-	/// a refusal here means the two have drifted apart.
+	/// The parachain checks that it holds the para and that the head fits its own mirror of the
+	/// relay chain's limits first, so a refusal here means the two have drifted apart.
 	#[codec(index = 5)]
 	SetHeadResponse {
 		/// The para id the answer is about.
@@ -270,7 +270,7 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
-	/// The relay chain does not know this para id.
+	/// The relay chain does not know this para id, e.g. a deregistration overtook the request.
 	#[codec(index = 2)]
 	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
@@ -280,12 +280,15 @@ pub enum FailureReason {
 	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
+	/// The head data is larger than the relay chain accepts.
+	#[codec(index = 5)]
+	HeadDataTooLarge,
 	/// The registry will not take this upgrade now, e.g. one is already in flight or the para is
 	/// in its post-upgrade cooldown.
-	#[codec(index = 5)]
+	#[codec(index = 6)]
 	CannotUpgradeCode,
 	/// The declared validation code length is outside what the relay chain accepts.
-	#[codec(index = 6)]
+	#[codec(index = 7)]
 	InvalidCodeSize,
 }
 

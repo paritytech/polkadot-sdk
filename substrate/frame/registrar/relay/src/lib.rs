@@ -253,6 +253,10 @@ pub mod pallet {
 		Deregistered { para_id: ParaId, message_id: u64 },
 		/// The registry refused to drop a para.
 		DeregistrationRejected { para_id: ParaId, message_id: u64 },
+		/// A para's current head was set at the parachain's request.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// A head update was refused.
+		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 	}
 
 	#[pallet::error]
@@ -286,9 +290,10 @@ pub mod pallet {
 				T::WeightInfo::receive_cancel_registration(),
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
 				T::WeightInfo::receive_deregister(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { head, .. }) =>
+				T::WeightInfo::receive_set_current_head(head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) =>
 				T::WeightInfo::receive_authorize_code_upgrade(),
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::MAX,
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -669,9 +674,28 @@ pub mod pallet {
 			});
 		}
 
+		/// Set `para_id`'s head if the para is known and the head fits, and report either way.
+		///
+		/// Registration is re-checked here since a deregistration can land before an earlier head.
 		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
-			let _ = (para_id, message_id, head);
-			// TODO(ahm-v2): set the para's head and report the outcome back.
+			let fits = u32::try_from(head.len())
+				.is_ok_and(|len| T::Registrar::check_head_data(len).is_ok());
+			let reason = if !T::Registrar::is_registered(para_id) {
+				Some(FailureReason::NotRegistered)
+			} else if !fits {
+				Some(FailureReason::HeadDataTooLarge)
+			} else {
+				None
+			};
+			if let Some(reason) = reason {
+				Self::report_set_head(para_id, message_id, Err(reason.clone()));
+				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
+				return;
+			}
+
+			T::Registrar::set_current_head(para_id, head);
+			Self::report_set_head(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::HeadUpdated { para_id, message_id });
 		}
 
 		/// Tell the parachain how a deregistration ended.
@@ -705,7 +729,7 @@ pub mod pallet {
 			);
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain whether the head was set.
 		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
