@@ -1228,7 +1228,8 @@ parameter_types! {
 			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
 			+ 30;
 	// Validators contribute no collators until governance raises the cap.
-	pub const DefaultMaxCollators: Option<u32> = Some(0);
+	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
+		pallet_validator_collators::CollatorDraw::None;
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -1979,6 +1980,9 @@ pub type Migrations = (
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
 	>,
+	// unreleased
+	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
+	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
