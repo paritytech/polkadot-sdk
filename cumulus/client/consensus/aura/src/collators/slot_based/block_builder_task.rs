@@ -293,10 +293,30 @@ struct SlotContext<Block: BlockT, Pub> {
 	max_pov_size: u32,
 	allowed_pov_size: usize,
 	relay_slot: Slot,
-	/// `None` when another author owns the slot: we only resubmit.
-	slot_claim: Option<SlotClaim<Pub>>,
+	role: SlotRole<Pub>,
+}
+
+/// Whether we author the slot or only resubmit a prior set's blocks under its slot author.
+enum SlotRole<Pub> {
+	Author(SlotClaim<Pub>),
+	Handover(Pub),
+}
+
+impl<Pub> SlotRole<Pub> {
+	fn claim(&self) -> Option<&SlotClaim<Pub>> {
+		match self {
+			Self::Author(claim) => Some(claim),
+			Self::Handover(_) => None,
+		}
+	}
+
 	/// Signs the resubmissions; every header in `resubmittable_headers` verifies under it.
-	resubmit_author: Pub,
+	fn author(&self) -> &Pub {
+		match self {
+			Self::Author(claim) => claim.author_pub(),
+			Self::Handover(author) => author,
+		}
+	}
 }
 
 impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
@@ -638,8 +658,8 @@ where
 			_ => resubmittable_headers,
 		};
 
-		let (slot_claim, resubmit_author, resubmittable_headers) = match handover {
-			Some((author, headers)) => {
+		let (role, resubmittable_headers) = match (handover, slot_claim) {
+			(Some((author, headers)), _) => {
 				tracing::info!(
 					target: LOG_TARGET,
 					blocks = headers.len(),
@@ -647,27 +667,23 @@ where
 					slot = ?para_slot.slot,
 					"Authority handover: resubmitting the prior era's blocks, building nothing.",
 				);
-				(None, Some(author), headers)
+				(SlotRole::Handover(author), headers)
 			},
-			None => {
-				let author = slot_claim.as_ref().map(|claim| claim.author_pub().clone());
-				(slot_claim, author, resubmittable_headers)
+			(None, Some(claim)) => (SlotRole::Author(claim), resubmittable_headers),
+			(None, None) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?unincluded_segment_len_at_execution,
+					relay_parent = ?relay_parent_hash,
+					relay_parent_num = %relay_parent_header.number(),
+					?included_hash_at_execution,
+					included_num_at_execution = %included_header_at_execution.number(),
+					initial_parent = ?initial_parent_hash,
+					slot = ?para_slot.slot,
+					"Not eligible to claim slot."
+				);
+				return None;
 			},
-		};
-
-		let Some(resubmit_author) = resubmit_author else {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?unincluded_segment_len_at_execution,
-				relay_parent = ?relay_parent_hash,
-				relay_parent_num = %relay_parent_header.number(),
-				?included_hash_at_execution,
-				included_num_at_execution = %included_header_at_execution.number(),
-				initial_parent = ?initial_parent_hash,
-				slot = ?para_slot.slot,
-				"Not eligible to claim slot."
-			);
-			return None;
 		};
 
 		tracing::debug!(
@@ -696,8 +712,7 @@ where
 			max_pov_size,
 			allowed_pov_size,
 			relay_slot,
-			slot_claim,
-			resubmit_author,
+			role,
 		})
 	}
 
@@ -959,7 +974,7 @@ where
 					para_id,
 					relay_client: &env.relay_client,
 					code_hash_provider: &code_hash_provider,
-					slot_claim: cx.slot_claim.as_ref(),
+					slot_claim: cx.role.claim(),
 					collator: &mut collator,
 					allowed_pov_size: cx.allowed_pov_size,
 					core_info: core_info.clone(),
@@ -1030,7 +1045,7 @@ where
 					cx.relay_parent(),
 					&core_info,
 					collator_peer_id,
-					&cx.resubmit_author,
+					cx.role.author(),
 					&env.keystore,
 					this_core_index,
 				);

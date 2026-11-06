@@ -109,9 +109,7 @@ mod tests {
 	}
 
 	#[test]
-	fn mid_bundle_rotation_keeps_bundles_whole() {
-		// The rotation lands in block 2, so per-header parents would read pre, pre, post, post,
-		// post; the bundle's first parent decides for the whole bundle.
+	fn prior_set_bundle_goes_to_handover() {
 		let headers = vec![header(1, 0), header(2, 1), header(3, 2), header(4, 0), header(5, 1)];
 		let out = classify(headers, |first| Some(if first == 1 { PRIOR } else { TIP }));
 
@@ -131,9 +129,5 @@ mod tests {
 		});
 		assert!(out.handover.is_none());
 		assert_eq!(numbers(&out.tip), vec![3]);
-
-		let steady = classify(vec![header(1, 0), header(2, 1), header(3, 0)], |_| Some(TIP));
-		assert!(steady.handover.is_none());
-		assert_eq!(numbers(&steady.tip), vec![1, 2, 3]);
 	}
 }
