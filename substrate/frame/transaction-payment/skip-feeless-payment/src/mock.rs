@@ -21,6 +21,7 @@ use frame_system as system;
 use sp_runtime::{
 	traits::{DispatchOriginOf, TransactionExtension},
 	transaction_validity::ValidTransaction,
+	BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -37,7 +38,11 @@ impl Config for Runtime {
 parameter_types! {
 	pub static PrepareCount: u32 = 0;
 	pub static ValidateCount: u32 = 0;
+	pub static PostDispatchCount: u32 = 0;
 }
+
+/// Unspent weight reported by `DummyExtension::post_dispatch_details`.
+pub const DUMMY_UNSPENT_WEIGHT: Weight = Weight::from_parts(5, 0);
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct DummyExtension;
@@ -77,6 +82,24 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 		PrepareCount::mutate(|c| *c += 1);
 		Ok(())
 	}
+
+	fn post_dispatch_details(
+		_pre: Self::Pre,
+		_info: &DispatchInfoOf<RuntimeCall>,
+		_post_info: &PostDispatchInfoOf<RuntimeCall>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<Weight, TransactionValidityError> {
+		PostDispatchCount::mutate(|c| *c += 1);
+		Ok(DUMMY_UNSPENT_WEIGHT)
+	}
+}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut ext = sp_io::TestExternalities::new(storage);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
 
 #[frame_support::pallet(dev_mode)]
