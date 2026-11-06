@@ -132,7 +132,7 @@ Parachain Service
    │  parachain_log
    │  records B's header as Asset Hub's para head
 
-━━ Asset Hub block C: a later block, its lookup-anchor at or past B's accumulation ━
+━━ Asset Hub block C: a later block, its anchor at or past B's accumulation ━━━━━
 
 pallet-parachain-system
    │  reads the para head and parachain_log; the head is B or later, so B
@@ -912,7 +912,7 @@ is layered on a generic transport mechanism, expected as an extension of
 calls; the service-state read is undefined there. The generic pallet
 would send the upward messages through `send_upward_message` inside
 `jam_validate_block` (Parachain Service design §4.3), read the Parachain
-Service state at the block's lookup-anchor, and call the pallet's hooks.
+Service state at the block's anchor, and call the pallet's hooks.
 
 #### The parachain-system pallet requirements
 
@@ -932,7 +932,7 @@ The transport layer responsibilities:
 
 - the outcome of each operation: the block that sent it and its
   `parachain_log` entries, reported once, in send order, in the block whose
-  lookup-anchor first covers it;
+  anchor first covers it;
 - `incoming_transfers` delivered as whole buckets, up to the number
   `pallet-jamkb` can process; a bucket not processed is delivered again;
 - `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
@@ -952,8 +952,8 @@ The transport layer responsibilities:
   are sent in a later one;
 - a bound on the log entries not yet pruned: each message counts the
   largest `AccumulateLog` event it can cause, and each block its
-  `LogEntry::Accumulate`, until an Asset Hub block whose lookup-anchor is
-  past them is accepted; the messages of one operation are sent in one
+  `LogEntry::Accumulate`, until an Asset Hub block whose anchor is past
+  them is accepted; the messages of one operation are sent in one
   block; the total stays within the 64 KiB log, so no entry is evicted
   before Asset Hub reads it;
 
