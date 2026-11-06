@@ -304,7 +304,6 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	// path.
 	type BurnDestination = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = EitherOf<
 		EitherOf<
 			EnsureRootWithSuccess<AccountId, MaxBalance>,

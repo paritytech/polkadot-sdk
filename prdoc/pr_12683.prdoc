@@ -1,0 +1,42 @@
+title: Remove deprecated treasury spend_local and remove_approval
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related public
+    getters, and dropped the legacy drain loop from `spend_funds` along with its
+    `on_initialize_proposals` benchmark and weight entries.
+
+    The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind `migration::v0`
+    aliases. `migration::MigrateV0ToV1` pays approved proposals out of the pot, refunds every
+    proposer's bond and then deletes that storage, and bumps the pallet storage version from 0 to
+    1 so the step runs once. The old `cleanup_proposals` migration is removed in the same bump: a
+    partial unreserve wrote the shortfall into `proposal.value`, so a second run would unreserve
+    the full bond again, and nothing in-repo still schedules it. If the pot cannot cover an
+    approved proposal, the migration defers it, logs a warning naming the index and amount, and
+    keeps the legacy storage. **Before enacting the upgrade, a chain whose pot cannot cover an
+    approved proposal must pay it out manually, fund the pot, or remove the approval: the storage
+    version is then 1, so a later upgrade does not retry deferred entries.** It is wired into the
+    Rococo, Asset Hub Westend, Collectives Westend and kitchensink runtimes. Pass the same
+    `MaxApprovals` getter the runtime used on treasury; that constant now lives on
+    `pallet_bounties::Config` and only bounds `BountyApprovals` there.
+
+    Removed the deprecated `Config::RuntimeEvent` associated type from `pallet_bounties::Config`;
+    external runtimes must bound `frame_system::Config` with
+    `RuntimeEvent: From<pallet_bounties::Event>`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch
+- name: pallet-bounties
+  bump: major
+- name: pallet-child-bounties
+  bump: patch
+- name: pallet-tips
+  bump: patch
+- name: pallet-treasury
+  bump: major
