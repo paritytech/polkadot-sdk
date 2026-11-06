@@ -737,6 +737,10 @@ fn cancel_queued_referendum_does_not_desync_deciding_count() {
 			ReferendumInfoFor::<Test>::get(1),
 			Some(ReferendumInfo::Cancelled(_, _, _))
 		));
+		assert!(
+			TrackQueue::<Test>::get(0u8).iter().all(|(idx, _)| *idx != 1),
+			"cancel must remove a queued referendum from its track queue"
+		);
 
 		run_to(6);
 
@@ -785,6 +789,10 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
 		assert!(matches!(ReferendumInfoFor::<Test>::get(1), Some(ReferendumInfo::Killed(_))));
+		assert!(
+			TrackQueue::<Test>::get(0u8).iter().all(|(idx, _)| *idx != 1),
+			"kill must remove a queued referendum from its track queue"
+		);
 
 		run_to(6);
 
@@ -804,5 +812,48 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 			"track 0: DecidingCount={} but found {} Ongoing referenda with deciding.is_some()",
 			stored, actual,
 		);
+	});
+}
+
+#[test]
+fn queue_draining_persists_and_try_state_spots_stale_entries() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(2),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(2),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(5), 1));
+		run_to(5);
+
+		// Referendum 0 decides, referendum 1 waits in the queue.
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert!(queue.iter().any(|(idx, _)| *idx == 1));
+
+		// Kill the queued referendum, then put its entry back by hand. This is the
+		// storage a chain carries from before the fix: an entry whose referendum
+		// is dead.
+		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
+		assert!(TrackQueue::<Test>::get(0u8).is_empty());
+		TrackQueue::<Test>::insert(0u8, queue);
+
+		// The integrity check must name the stale entry.
+		assert!(Referenda::do_try_state().is_err());
+
+		// Kill the deciding referendum. That schedules `one_fewer_deciding`, which
+		// drains the stale entry and must persist the drained queue.
+		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 0));
+		run_to(7);
+		assert!(TrackQueue::<Test>::get(0u8).is_empty());
+		assert_eq!(DecidingCount::<Test>::get(0u8), 0);
 	});
 }
