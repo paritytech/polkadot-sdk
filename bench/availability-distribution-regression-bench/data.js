@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793991278730,
+  "lastUpdate": 1793996823489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "52bb5ba83b1fca4a9127ebda188cfcc53cf49773",
-          "message": "statement-store: Remove double peer state clean up on flooding and add zombienet tests (#11701)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11535: covers\nflooding detection.\n\nFixed a bug with double peer state cleanup. The initial purpose was to\nadd flooding e2e tests, but the tests revealed a bug in the rate-limit\nmechanics: the peer was attempted to be removed twice.\n\nAdded two zombienet integration tests that verify statement-store\nflooding detection:\n\n- Sustained-rate flooding — submits statements continuously against a\nrate-limited node. Verifies the\nnode accepts early batches (token bucket not yet exhausted) then\ntriggers flooding detection as tokens\ndrain.\n- Burst flooding — submits a large batch at once against a tightly\nrate-limited node. Verifies immediate\n flooding detection with zero statements accepted.\n\nAlso refactors common test helpers to allow spawning custom network\nconfigurations for the flooding\ntests.\n\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:14:21Z",
-          "tree_id": "c62694fc30c295da247c3515559369a4ae688fe7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bb5ba83b1fca4a9127ebda188cfcc53cf49773"
-        },
-        "date": 1776811933719,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023989291360000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007157703793333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1456847217666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00955910391333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14272133973333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "olivarra1@gmail.com",
+            "name": "Victor Oliva",
+            "username": "voliva"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4",
+          "message": "[referenda] Add `slash_submission_deposit` extrinsic (#11524)\n\n# Description\n\nCloses #1690 \n\nAdds a new `slash_submission_deposit` extrinsic to `pallet-referenda`\nthat allows slashing the submission deposit for referenda that have been\nRejected or TimedOut.\n\nThis complements the existing `refund_submission_deposit` which only\nworks for Approved or Cancelled referenda. Previously, there was no way\nto slash submission deposits for failed referenda, which causes affected\naccounts to keep a reserved balance preventing that account from getting\ndeleted.\n\n## Integration\n\nThis PR adds a new extrinsic `slash_submission_deposit` with the next\ncall index assigned (9) to not break previous extrinsics. Integration\nshould be automatic.\n\n## Review Notes\n\nThe implementation mirrors `refund_submission_deposit` but calls\n`slash_deposit` instead of `refund_deposit`.\n\nI've recreated `take_submission_deposit` into\n`take_slash_submission_deposit`, which I think better documents which\nstates are appropriate for each case: For slashing, it only succeeds for\nRejected or TimedOut states.\n\nKey changes:\n\nNote: Weights are placeholder values copied from\n`refund_submission_deposit`. Please run /cmd bench --pallet\npallet_referenda to generate accurate weights before merging, as I don't\nhave permission to do that if I'm not wrong.\n\nOne outstanding question: I'm thinking that maybe it would make sense\nfor this extrinsic to be free in terms of fees if it succeeds.\n\nCurrently, the only incentive someone may have to call this extrinsic is\nif they want to recover the existential deposit, which might not be\nworth it if the ED is too small. As for the chain it's beneficial to\nalso cleanup storage, it might be worth considering making this\ntransaction free.\n\nBut I don't know if that's something that's usually done in these cases\nor what... so I went for the safest option of making it Pays::Yes (the\ndefault). Please let me know if it makes sense to have this transaction\nfree, and I'll change it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-06T18:21:40Z",
+          "tree_id": "9b5798bf39f9484b3bf8d8ef453174ebbf6396dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4"
+        },
+        "date": 1793996796368,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024959923459999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007577105706666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009819571253333319,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14201554159333335,
             "unit": "seconds"
           }
         ]
