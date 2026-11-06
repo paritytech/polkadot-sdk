@@ -31,7 +31,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   # The Westend chains can run newer runtimes than the (un)stable release branches, which would make
-  # the check run a downgrade. Skip it for PRs from this repository into such a branch.
+  # the check run a downgrade. Skip it for runs on or into such a branch.
   release-branch:
     runs-on: ubuntu-latest
     outputs:
@@ -39,10 +39,9 @@ jobs:
     steps:
       - id: check
         env:
-          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref || github.ref_name }}
         run: |
-          if [[ "${BASE_REF#refs/heads/}" =~ ^(un)?stable[0-9]{4}$ && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
+          if [[ "${BASE_REF#refs/heads/}" =~ ^(un)?stable[0-9]{4}$ ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
