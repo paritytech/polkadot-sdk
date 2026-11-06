@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793956244862,
+  "lastUpdate": 1793968029393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -142019,6 +142019,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2757736595,
             "range": "± 24525717",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7a87c0c6ad0049f7442ec820a43dae31b1d4ecee",
+          "message": "Registrar: Set Current Head (#13096)\n\nCloses #12821\n\n## What's added\n\n- `pallet-registrar-para::set_current_head`: checks that the para is\nregistered and the head size fits, then sends `SetCurrentHead` to the\nrelay chain. The answer comes back as `HeadUpdated` /\n`HeadUpdateFailed`.\n- `pallet-registrar-relay` checks the head against the live config, sets\nit and reports back. Adds `FailureReason::HeadDataTooLarge`.\n- `paras_registrar` implements `check_head_data` and `set_current_head`.\n\n## Decisions\n\n- Same origin as the legacy call: root, the para, or the manager while\nunlocked.\n- No pending state on the parachain. Setting a head is idempotent and\nholds no deposit, so the answer is just an event.\n- The size is checked on both sides: the para checks its constant to\nfail early, the relay checks the live config.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-06T11:07:16Z",
+          "tree_id": "381398b6b8b94c0be2240f69a784e22dcd6e9c68",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a87c0c6ad0049f7442ec820a43dae31b1d4ecee"
+        },
+        "date": 1793967993904,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19624510,
+            "range": "± 96287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20040596,
+            "range": "± 163888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21507154,
+            "range": "± 102851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25745985,
+            "range": "± 105647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57119655,
+            "range": "± 674275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 352229575,
+            "range": "± 5185100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2695156247,
+            "range": "± 137228717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16901315,
+            "range": "± 143352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17001342,
+            "range": "± 126294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17787982,
+            "range": "± 120366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22221300,
+            "range": "± 202008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59993010,
+            "range": "± 421323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352802712,
+            "range": "± 3151042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2754922941,
+            "range": "± 20071725",
             "unit": "ns/iter"
           }
         ]
