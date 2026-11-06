@@ -76,6 +76,8 @@ pub enum SchedulingSignalError {
 	DuplicateSelectCore,
 	/// The blocks emitted more than one `ApprovedPeer`.
 	DuplicateApprovedPeer,
+	/// A block emitted `Provides` or `Requires`, which `validate_block` does not yet forward.
+	SpeculativeMessagingSignal,
 }
 
 impl core::fmt::Display for SchedulingSignalError {
@@ -88,6 +90,10 @@ impl core::fmt::Display for SchedulingSignalError {
 			Self::DuplicateApprovedPeer => {
 				write!(f, "Parachain emitted more than one `ApprovedPeer` UMP signal")
 			},
+			Self::SpeculativeMessagingSignal => write!(
+				f,
+				"Parachain emitted a speculative-messaging UMP signal, which `validate_block` does not yet forward"
+			),
 		}
 	}
 }
@@ -137,9 +143,9 @@ impl SchedulingSignals {
 						return Err(SchedulingSignalError::DuplicateApprovedPeer);
 					}
 				},
-				UMPSignal::Provides(_) | UMPSignal::Requires(_) => panic!(
-					"Parachain emitted a speculative-messaging UMP signal, which `validate_block` does not yet forward"
-				),
+				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {
+					return Err(SchedulingSignalError::SpeculativeMessagingSignal);
+				},
 			}
 		}
 		Ok(signals)
@@ -260,7 +266,7 @@ mod tests {
 	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 	};
 
 	fn peer(byte: u8) -> ApprovedPeerId {
@@ -374,6 +380,10 @@ mod tests {
 				SchedulingSignalError::DuplicateApprovedPeer,
 			),
 			(vec![vec![0xFF]], SchedulingSignalError::UndecodableSignal),
+			(
+				vec![UMPSignal::Provides(StreamsRoot(Default::default())).encode()],
+				SchedulingSignalError::SpeculativeMessagingSignal,
+			),
 		] {
 			assert_eq!(SchedulingSignals::try_from_block_signals(&raw), Err(error));
 		}
