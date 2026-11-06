@@ -58,7 +58,7 @@ pub use lift::{
 	LiftsBySource, RequiresLift, SourceStreams,
 };
 pub use mmr::{
-	leaf_hash, leaf_hash_with_version, FrontierFull, MMRExtensionProof, MessagePosition,
+	leaf_hash, leaf_hash_with_version, FrontierFull, MessagePosition, MmrExtensionProof,
 	MmrFrontier, MmrRoot, ProofError,
 };
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};

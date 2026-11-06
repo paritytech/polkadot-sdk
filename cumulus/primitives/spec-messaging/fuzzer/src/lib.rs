@@ -37,7 +37,7 @@ use codec::Decode;
 use cumulus_primitives_spec_messaging::{
 	build_requires, leaf_hash_with_version,
 	mmr::{bag_peaks, empty_root, SpecMerge},
-	stitch, ConsumptionRecord, Interval, LiftsBySource, MMRExtensionProof, MmrFrontier,
+	stitch, ConsumptionRecord, Interval, LiftsBySource, MmrExtensionProof, MmrFrontier,
 	LEAF_VERSION,
 };
 use mmr_lib::{
@@ -91,7 +91,7 @@ pub struct Oracle {
 	/// Root to leaf count, including the empty root.
 	pub roots: HashMap<Hash, usize>,
 	/// `[k][m]`: from `k` to `m` leaves, `None` unless `k < m`.
-	extensions: Vec<Vec<Option<MMRExtensionProof>>>,
+	extensions: Vec<Vec<Option<MmrExtensionProof>>>,
 	/// Every real hash an attacker could replay: nodes, partial peak bags and roots.
 	pub palette: Vec<Hash>,
 }
@@ -143,7 +143,7 @@ impl Oracle {
 					.map(|m| {
 						(k <= m).then(|| {
 							if k == m {
-								return MMRExtensionProof::identity(&frontiers[m]);
+								return MmrExtensionProof::identity(&frontiers[m]);
 							}
 							let connecting_nodes = if k == 0 {
 								frontiers[m].peaks().to_vec()
@@ -159,7 +159,7 @@ impl Oracle {
 							};
 							let connecting_nodes = BoundedVec::try_from(connecting_nodes)
 								.expect("an honest proof fits the bound; qed");
-							MMRExtensionProof { leaf_count: m as u64, connecting_nodes }
+							MmrExtensionProof { leaf_count: m as u64, connecting_nodes }
 						})
 					})
 					.collect()
@@ -183,7 +183,7 @@ impl Oracle {
 		Self { leaves, frontiers, roots, extensions, palette: palette.into_iter().collect() }
 	}
 
-	pub fn extension(&self, k: u64, m: u64) -> Option<&MMRExtensionProof> {
+	pub fn extension(&self, k: u64, m: u64) -> Option<&MmrExtensionProof> {
 		self.extensions.get(k as usize)?.get(m as usize)?.as_ref()
 	}
 
@@ -213,13 +213,13 @@ impl Oracle {
 		apply(&self.palette, items, edits)
 	}
 
-	/// Fuzz entry point for [`MMRExtensionProof::calculate_root`].
+	/// Fuzz entry point for [`MmrExtensionProof::calculate_root`].
 	pub fn check_extension_input(&self, input: &ExtensionInput) -> Outcome {
 		let Some(from) = self.from(&input.from) else { return Outcome::Skipped };
 		let mut proof = input
 			.template
 			.and_then(|m| self.extension(from.leaf_count(), m as u64 % (N as u64 + 1)).cloned())
-			.unwrap_or_else(|| MMRExtensionProof::identity(&from));
+			.unwrap_or_else(|| MmrExtensionProof::identity(&from));
 		if let Some(count) = input.leaf_count {
 			proof.leaf_count = count.get();
 		}
@@ -228,7 +228,7 @@ impl Oracle {
 	}
 
 	/// A real root must come from the honest proof off a real frontier.
-	pub fn check_extension(&self, from: &MmrFrontier, proof: &MMRExtensionProof) -> Outcome {
+	pub fn check_extension(&self, from: &MmrFrontier, proof: &MmrExtensionProof) -> Outcome {
 		let Ok(root) = proof.calculate_root(from) else { return Outcome::Rejected };
 		let Some(&m) = self.roots.get(&root.0) else { return Outcome::Unbound };
 		let k = from.leaf_count();
@@ -263,14 +263,14 @@ impl Oracle {
 		let input = &mut rest;
 		match selector % 3 {
 			0 => {
-				let Ok((k, proof)) = <(u8, MMRExtensionProof)>::decode(input) else {
+				let Ok((k, proof)) = <(u8, MmrExtensionProof)>::decode(input) else {
 					return Outcome::Skipped;
 				};
 				self.check_extension(&self.frontiers[k as usize % (N + 1)], &proof)
 			},
 			1 => {
 				let Ok((intervals, advances)) =
-					<(Vec<Interval>, Vec<MMRExtensionProof>)>::decode(input)
+					<(Vec<Interval>, Vec<MmrExtensionProof>)>::decode(input)
 				else {
 					return Outcome::Skipped;
 				};

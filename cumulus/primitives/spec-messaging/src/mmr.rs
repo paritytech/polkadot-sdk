@@ -277,7 +277,7 @@ pub enum ProofError {
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
 )]
-pub struct MMRExtensionProof {
+pub struct MmrExtensionProof {
 	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
 	/// independent size can be smuggled in. The frontier's own count with empty
 	/// `connecting_nodes` is the identity extension.
@@ -290,7 +290,7 @@ pub struct MMRExtensionProof {
 	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 }
 
-impl MMRExtensionProof {
+impl MmrExtensionProof {
 	/// The identity extension of `from`: its own leaf count and no connecting nodes.
 	pub fn identity(from: &MmrFrontier) -> Self {
 		Self { leaf_count: from.leaf_count(), connecting_nodes: BoundedVec::new() }
@@ -732,7 +732,7 @@ mod tests {
 		bad.connecting_nodes[0] = H256::repeat_byte(0xff);
 		assert_ne!(bad.calculate_root(&frontier_at(&all, 2)), Ok(root_at(&all, 5)));
 		// Identity extension yields the frontier's own root.
-		let id = MMRExtensionProof::identity(&frontier_at(&all, 3));
+		let id = MmrExtensionProof::identity(&frontier_at(&all, 3));
 		assert_eq!(id.calculate_root(&frontier_at(&all, 3)), Ok(root_at(&all, 3)));
 	}
 
@@ -775,7 +775,7 @@ mod tests {
 		assert_eq!(to4.calculate_root(&from1), Ok(root_at(&all, 4)));
 		// The same two nodes under the other count place differently and reach neither root.
 		let relabelled =
-			MMRExtensionProof { leaf_count: 4, connecting_nodes: to3.connecting_nodes };
+			MmrExtensionProof { leaf_count: 4, connecting_nodes: to3.connecting_nodes };
 		let got = relabelled.calculate_root(&from1);
 		assert_ne!(got, Ok(root_at(&all, 3)));
 		assert_ne!(got, Ok(root_at(&all, 4)));
@@ -810,13 +810,13 @@ mod tests {
 	fn identity_verifies_to_the_frontier_root() {
 		let all = leaves(5);
 		for f in [MmrFrontier::new(), frontier_at(&all, 1), frontier_at(&all, 5)] {
-			let id = MMRExtensionProof::identity(&f);
+			let id = MmrExtensionProof::identity(&f);
 			assert_eq!(id.leaf_count, f.leaf_count());
 			assert!(id.connecting_nodes.is_empty());
 			assert_eq!(id.calculate_root(&f), Ok(f.root()));
 		}
 		assert_eq!(
-			MMRExtensionProof::identity(&MmrFrontier::new()).calculate_root(&MmrFrontier::new()),
+			MmrExtensionProof::identity(&MmrFrontier::new()).calculate_root(&MmrFrontier::new()),
 			Ok(empty_root()),
 		);
 	}
@@ -826,7 +826,7 @@ mod tests {
 		let all = leaves(5);
 		let f = frontier_at(&all, 3);
 		let empty =
-			|leaf_count| MMRExtensionProof { leaf_count, connecting_nodes: BoundedVec::new() };
+			|leaf_count| MmrExtensionProof { leaf_count, connecting_nodes: BoundedVec::new() };
 		// Below the frontier, including `0` on a non-empty one.
 		assert_eq!(empty(0).calculate_root(&f), Err(ProofError::NotForward));
 		assert_eq!(empty(2).calculate_root(&f), Err(ProofError::NotForward));
@@ -845,7 +845,7 @@ mod tests {
 	fn equal_count_with_connecting_nodes_is_invalid() {
 		let all = leaves(5);
 		for f in [MmrFrontier::new(), frontier_at(&all, 3)] {
-			let mut id = MMRExtensionProof::identity(&f);
+			let mut id = MmrExtensionProof::identity(&f);
 			id.connecting_nodes.try_push(h(1)).unwrap();
 			assert_eq!(id.calculate_root(&f), Err(ProofError::InvalidProof));
 		}
@@ -870,9 +870,9 @@ mod tests {
 		// The bound is in the type, so an over-long proof is rejected at the length prefix.
 		let max = MAX_MMR_HASHES as usize;
 		let at_bound = (codec::Compact(5u64), vec![H256::zero(); max]).encode();
-		assert!(MMRExtensionProof::decode(&mut &at_bound[..]).is_ok());
+		assert!(MmrExtensionProof::decode(&mut &at_bound[..]).is_ok());
 		let over = (codec::Compact(5u64), vec![H256::zero(); max + 1]).encode();
-		assert!(MMRExtensionProof::decode(&mut &over[..]).is_err());
+		assert!(MmrExtensionProof::decode(&mut &over[..]).is_err());
 	}
 
 	#[test]
@@ -910,7 +910,7 @@ mod tests {
 		for count in 2..=all.len() {
 			for later in 2..=count {
 				let given = if later == count {
-					MMRExtensionProof::identity(&frontier_at(&all, count))
+					MmrExtensionProof::identity(&frontier_at(&all, count))
 				} else {
 					extension(&all, later, count)
 				};

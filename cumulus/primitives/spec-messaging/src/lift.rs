@@ -39,7 +39,7 @@ use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	mmr::{MMRExtensionProof, MmrFrontier, MmrRoot},
+	mmr::{MmrExtensionProof, MmrFrontier, MmrRoot},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
@@ -86,10 +86,10 @@ pub type SourceStreams = BTreeMap<StreamId, Vec<Interval>>;
 pub struct RequiresLift {
 	/// One extension per gap in the stream's interval chain, in gap order. Empty when there are no
 	/// gaps.
-	pub advances: Vec<MMRExtensionProof>,
+	pub advances: Vec<MmrExtensionProof>,
 	/// Extends the chain's endpoint to the stream's current root. The identity of the endpoint's
 	/// frontier when it already is that root.
-	pub extension: MMRExtensionProof,
+	pub extension: MmrExtensionProof,
 	/// Keyed walk from the current stream root to the `StreamsRoot` the requires entry becomes.
 	pub tree_proof: StreamProof,
 }
@@ -183,7 +183,7 @@ pub enum LiftError {
 /// that is the STF's to hold.
 pub fn stitch(
 	intervals: &[Interval],
-	advances: &[MMRExtensionProof],
+	advances: &[MmrExtensionProof],
 ) -> Result<MmrFrontier, LiftError> {
 	let (first, rest) = intervals.split_first().ok_or(LiftError::EmptyRecord)?;
 	let mut gaps = advances.iter();
@@ -400,7 +400,7 @@ mod tests {
 		let interval = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) };
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([(stream, vec![interval])]);
@@ -432,7 +432,7 @@ mod tests {
 			source,
 			vec![RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			}],
 		);
@@ -455,7 +455,7 @@ mod tests {
 	fn lifts_by_source_decode_enforces_canonical_form() {
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&MmrFrontier::new()),
+			extension: MmrExtensionProof::identity(&MmrFrontier::new()),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let pair = |id: u32| (ParaId::from(id), vec![lift()]);
@@ -505,7 +505,7 @@ mod tests {
 
 		let lift = |tree_proof, n| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, n)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, n)),
 			tree_proof,
 		};
 		// SourceStreams is keyed, so it iterates a, b — the order the lifts must match.
@@ -542,7 +542,7 @@ mod tests {
 			};
 			let lift = RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			};
 			(record, lift)
@@ -575,7 +575,7 @@ mod tests {
 		];
 		let lift = RequiresLift {
 			advances: vec![extension(&all, 2, 4)], // bridges the gap
-			extension: MMRExtensionProof::identity(&frontier_at(&all, 5)), /* endpoint @5 already
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 5)), /* endpoint @5 already
 			                                        * the committed root */
 			tree_proof,
 		};
@@ -593,7 +593,7 @@ mod tests {
 		)]);
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		// One stream, no lifts, and one stream, two lifts — both mismatch.
@@ -620,7 +620,7 @@ mod tests {
 		// BadExtension.
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof { leaf_count: 1, connecting_nodes: BoundedVec::new() },
+			extension: MmrExtensionProof { leaf_count: 1, connecting_nodes: BoundedVec::new() },
 			tree_proof,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadExtension));
@@ -653,7 +653,7 @@ mod tests {
 		};
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: bad,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadTreeProof));
@@ -669,7 +669,7 @@ mod tests {
 		let mk = |intervals, advances| {
 			let lift = RequiresLift {
 				advances,
-				extension: MMRExtensionProof::identity(&frontier_at(&all, 5)),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 5)),
 				tree_proof: tree_proof.clone(),
 			};
 			build_requires_entry(&SourceStreams::from([(stream, intervals)]), &[lift])
@@ -702,7 +702,7 @@ mod tests {
 
 		let mk = |tree_proof| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([
@@ -718,17 +718,17 @@ mod tests {
 	#[test]
 	fn encoded_len_for_matches_generated_proofs_and_rejects_other_node_counts() {
 		// Out-of-range inputs return None without panicking.
-		assert_eq!(MMRExtensionProof::encoded_len_for(0, 1), None);
-		assert_eq!(MMRExtensionProof::encoded_len_for(5, 4), None);
-		assert_eq!(MMRExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT + 1), None);
+		assert_eq!(MmrExtensionProof::encoded_len_for(0, 1), None);
+		assert_eq!(MmrExtensionProof::encoded_len_for(5, 4), None);
+		assert_eq!(MmrExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT + 1), None);
 		assert_eq!(
-			MMRExtensionProof::encoded_len_for(MAX_MMR_LEAF_COUNT + 1, MAX_MMR_LEAF_COUNT + 1),
+			MmrExtensionProof::encoded_len_for(MAX_MMR_LEAF_COUNT + 1, MAX_MMR_LEAF_COUNT + 1),
 			None,
 		);
 
 		// Equal counts need no skip proof (0 bytes).
 		for n in [1, 2, 64, 1 << 20, MAX_MMR_LEAF_COUNT] {
-			assert_eq!(MMRExtensionProof::encoded_len_for(n, n), Some(0));
+			assert_eq!(MmrExtensionProof::encoded_len_for(n, n), Some(0));
 		}
 
 		// Exhaustively check every pair up to 64 leaves against real generated proofs, and verify
@@ -739,11 +739,11 @@ mod tests {
 				let from = frontier_at(&all, n1);
 				let proof = extension(&all, n1, n2);
 				assert_eq!(
-					MMRExtensionProof::encoded_len_for(n1 as u64, n2 as u64),
+					MmrExtensionProof::encoded_len_for(n1 as u64, n2 as u64),
 					Some(proof.encoded_size()),
 					"encoded_len_for mismatch at {n1} -> {n2}"
 				);
-				assert!(proof.encoded_size() <= MMRExtensionProof::max_encoded_len());
+				assert!(proof.encoded_size() <= MmrExtensionProof::max_encoded_len());
 
 				// Truncated proof must fail verify.
 				let mut truncated = proof.clone();
@@ -773,19 +773,19 @@ mod tests {
 		];
 		for (i, &n1) in edge_counts.iter().enumerate() {
 			for &n2 in &edge_counts[i + 1..] {
-				let len = MMRExtensionProof::encoded_len_for(n1, n2).unwrap();
+				let len = MmrExtensionProof::encoded_len_for(n1, n2).unwrap();
 				assert!(
-					len <= MMRExtensionProof::max_encoded_len(),
+					len <= MmrExtensionProof::max_encoded_len(),
 					"{n1} -> {n2}: {len} > {}",
-					MMRExtensionProof::max_encoded_len()
+					MmrExtensionProof::max_encoded_len()
 				);
 			}
 		}
 		// Worst-case extension (1 -> 2^48 - 1) takes 48 hashes: 7 + 1 + 48*32 = 1,544 bytes
 		// (`Compact(2^48 - 1)` is 7 bytes; `MaxEncodedLen` reserves 8 bytes for `#[codec(compact)]
 		// u64` = 1,545 bytes).
-		assert_eq!(MMRExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT - 1), Some(1_544));
-		assert_eq!(MMRExtensionProof::max_encoded_len(), 1_545);
+		assert_eq!(MmrExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT - 1), Some(1_544));
+		assert_eq!(MmrExtensionProof::max_encoded_len(), 1_545);
 		assert_eq!(StreamProof::max_encoded_len(), 2_114);
 	}
 
@@ -818,7 +818,7 @@ mod tests {
 				if end > N {
 					break;
 				}
-				reserved += MMRExtensionProof::encoded_len_for(prev_end as u64, start as u64)
+				reserved += MmrExtensionProof::encoded_len_for(prev_end as u64, start as u64)
 					.expect("1 <= prev_end <= start <= N; qed");
 				if start > prev_end {
 					advances.push(extension(&all, prev_end, start));
@@ -835,9 +835,9 @@ mod tests {
 
 	#[test]
 	fn extension_proof_frozen_layout() {
-		assert_eq!(MMRExtensionProof::identity(&MmrFrontier::new()).encode(), vec![0x00, 0x00]);
+		assert_eq!(MmrExtensionProof::identity(&MmrFrontier::new()).encode(), vec![0x00, 0x00]);
 
-		let proof = MMRExtensionProof {
+		let proof = MmrExtensionProof {
 			leaf_count: 1 << 47,
 			connecting_nodes: BoundedVec::truncate_from(vec![
 				H256::repeat_byte(0x01),
@@ -849,6 +849,6 @@ mod tests {
 		expected.extend([0x01; 32]);
 		expected.extend([0x02; 32]);
 		assert_eq!(proof.encode(), expected);
-		assert_eq!(MMRExtensionProof::decode(&mut &expected[..]).unwrap(), proof);
+		assert_eq!(MmrExtensionProof::decode(&mut &expected[..]).unwrap(), proof);
 	}
 }

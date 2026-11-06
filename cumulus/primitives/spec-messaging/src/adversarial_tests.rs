@@ -23,7 +23,7 @@ use crate::{
 	fetch::{verify_messages, MessagesRequest, MessagesResponse, VerifyError},
 	lift::{stitch, Interval, LiftError},
 	mmr::{
-		bag_peaks, leaf_hash, leaf_hash_with_version, MMRExtensionProof, MmrFrontier, MmrRoot,
+		bag_peaks, leaf_hash, leaf_hash_with_version, MmrExtensionProof, MmrFrontier, MmrRoot,
 		SpecMerge, MAX_MMR_LEAF_COUNT,
 	},
 	streams_root::{gen_stream_proof, streams_root, streams_root_from_proof},
@@ -82,7 +82,7 @@ fn forged_head_frontier_never_moves_a_leaf() {
 		let honest = MessagesResponse {
 			frontier: honest_frontier.clone(),
 			payloads: BoundedVec::truncate_from(vec![payloads[m - 1].clone()]),
-			extension: MMRExtensionProof::identity(&frontier_at(&all, m)),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, m)),
 			tree_proof: tree_proof.clone(),
 		};
 		assert_eq!(verify_messages(&req, &honest), Ok(()));
@@ -102,14 +102,14 @@ fn forged_head_frontier_never_moves_a_leaf() {
 			let mut forged_end = forged_frontier.clone();
 			forged_end.append(all[m - 1]);
 			let forged =
-				MessagesResponse { extension: MMRExtensionProof::identity(&forged_end), ..moved };
+				MessagesResponse { extension: MmrExtensionProof::identity(&forged_end), ..moved };
 			assert_eq!(verify_messages(&req, &forged), Err(VerifyError::RootMismatch));
 		}
 		if let Some(ceiling_frontier) =
 			MmrFrontier::from_parts(honest_frontier.peaks().to_vec(), MAX_MMR_LEAF_COUNT)
 		{
 			// The extension names the head's end count, one past the ceiling.
-			let past_ceiling = MMRExtensionProof {
+			let past_ceiling = MmrExtensionProof {
 				leaf_count: MAX_MMR_LEAF_COUNT + 1,
 				..honest.extension.clone()
 			};
@@ -145,7 +145,7 @@ fn forged_extension_never_reaches_the_committed_root() {
 		assert_eq!(honest.calculate_root(&from), Ok(target));
 
 		for count in claimable_counts().filter(|count| *count != n as u64) {
-			let forged = MMRExtensionProof { leaf_count: count, ..honest.clone() };
+			let forged = MmrExtensionProof { leaf_count: count, ..honest.clone() };
 			assert_ne!(
 				forged.calculate_root(&from),
 				Ok(target),

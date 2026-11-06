@@ -26,7 +26,7 @@ use polkadot_primitives::RequiresSet;
 
 use crate::{
 	lift::{build_requires, ConsumptionRecord, Interval, LiftsBySource, RequiresLift},
-	mmr::{empty_root, leaf_hash, MMRExtensionProof},
+	mmr::{empty_root, leaf_hash, MmrExtensionProof},
 	stream::StreamId,
 	streams_root::gen_stream_proof,
 	test_utils::{ch, extension, frontier_at},
@@ -39,12 +39,12 @@ fn stream_leaves(n: u64) -> Vec<Hash> {
 
 /// The extension proof from `n1` to `n2` leaves: the identity when equal, the new peaks from the
 /// empty stream, else the `mmr_lib` ancestry proof.
-fn proof(all: &[Hash], n1: usize, n2: usize) -> MMRExtensionProof {
+fn proof(all: &[Hash], n1: usize, n2: usize) -> MmrExtensionProof {
 	if n1 == n2 {
-		MMRExtensionProof::identity(&frontier_at(all, n1))
+		MmrExtensionProof::identity(&frontier_at(all, n1))
 	} else if n1 == 0 {
 		let peaks = frontier_at(all, n2).peaks().to_vec();
-		MMRExtensionProof { leaf_count: n2 as u64, connecting_nodes: peaks.try_into().unwrap() }
+		MmrExtensionProof { leaf_count: n2 as u64, connecting_nodes: peaks.try_into().unwrap() }
 	} else {
 		extension(all, n1, n2)
 	}
@@ -74,7 +74,7 @@ fn lift(
 	all: &[Hash],
 	entries: &BTreeMap<StreamId, Hash>,
 	stream: StreamId,
-	advances: Vec<MMRExtensionProof>,
+	advances: Vec<MmrExtensionProof>,
 	end: usize,
 	current: usize,
 ) -> RequiresLift {
@@ -247,7 +247,7 @@ fn extension_proofs_are_frozen() {
 	for &(n1, n2, bytes, root) in vectors {
 		let from = frontier_at(&all, n1);
 		assert_eq!(proof(&all, n1, n2).encode(), bytes, "proof bytes for ({n1}, {n2})");
-		let decoded = MMRExtensionProof::decode(&mut &bytes[..]).unwrap();
+		let decoded = MmrExtensionProof::decode(&mut &bytes[..]).unwrap();
 		assert_eq!(
 			decoded.calculate_root(&from).unwrap().0,
 			Hash::from(root),

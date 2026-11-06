@@ -38,7 +38,7 @@ use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_messages, ChannelMessage, MMRExtensionProof, MessagePosition, MessagesRequest,
+	verify_messages, ChannelMessage, MmrExtensionProof, MessagePosition, MessagesRequest,
 	MessagesResponse, MessagingInherentData, MmrFrontier, Register, StreamId, StreamProof,
 	StreamsRoot, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
@@ -298,7 +298,7 @@ impl MessageOracle {
 			let end = resp.frontier.leaf_count() + resp.payloads.len() as u64;
 			resp.extension =
 				self.mmr.extension(end, target as u64 % (N as u64 + 1)).cloned().unwrap_or_else(
-					|| MMRExtensionProof::identity(&self.mmr.frontiers[end as usize]),
+					|| MmrExtensionProof::identity(&self.mmr.frontiers[end as usize]),
 				);
 		}
 		let leaf_count = input.resp_base.map_or(resp.frontier.leaf_count(), Count::get);

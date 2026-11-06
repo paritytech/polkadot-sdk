@@ -33,7 +33,7 @@ use sp_runtime::BoundedVec;
 
 use crate::{
 	mmr::{
-		leaf_hash, MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError,
+		leaf_hash, MessagePosition, MmrExtensionProof, MmrFrontier, MmrRoot, ProofError,
 		MAX_MMR_LEAF_COUNT,
 	},
 	stream::StreamId,
@@ -112,7 +112,7 @@ pub struct MessagesResponse {
 	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
 	/// From the frontier after `payloads` to the stream's state under `under`; the identity of
 	/// that frontier when `payloads` already reach it.
-	pub extension: MMRExtensionProof,
+	pub extension: MmrExtensionProof,
 	/// From the stream's root to `under`.
 	pub tree_proof: StreamProof,
 }
@@ -276,14 +276,14 @@ mod tests {
 	}
 
 	/// O(log n) ancestry extension from `k` leaves to `n` leaves.
-	fn ancestry(leaves: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
+	fn ancestry(leaves: &[Hash], k: usize, n: usize) -> MmrExtensionProof {
 		let store = MemStore::<Hash>::default();
 		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for l in &leaves[..n] {
 			mmr.push(*l).unwrap();
 		}
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-		MMRExtensionProof {
+		MmrExtensionProof {
 			leaf_count: n as u64,
 			connecting_nodes: BoundedVec::truncate_from(
 				ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
@@ -546,7 +546,7 @@ mod tests {
 			(
 				MmrFrontier::new(),
 				vec![Vec::<u8>::new(); count],
-				MMRExtensionProof::identity(&MmrFrontier::new()),
+				MmrExtensionProof::identity(&MmrFrontier::new()),
 				StreamProof { steps: Default::default() },
 			)
 				.encode()
@@ -596,7 +596,7 @@ mod tests {
 		let at_ceiling = MessagesResponse {
 			frontier: MmrFrontier::from_parts(vec![H256::zero(); 1], MAX_MMR_LEAF_COUNT).unwrap(),
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			extension: MMRExtensionProof::identity(
+			extension: MmrExtensionProof::identity(
 				&MmrFrontier::from_parts(vec![H256::zero(); 1], MAX_MMR_LEAF_COUNT).unwrap(),
 			),
 			tree_proof: StreamProof { steps: Default::default() },
@@ -643,7 +643,7 @@ mod tests {
 		let response = MessagesResponse {
 			frontier: MmrFrontier::from_parts(vec![H256::repeat_byte(0x22)], 1).unwrap(),
 			payloads: BoundedVec::truncate_from(vec![vec![0xAA]]),
-			extension: MMRExtensionProof {
+			extension: MmrExtensionProof {
 				leaf_count: 3,
 				connecting_nodes: BoundedVec::truncate_from(vec![H256::repeat_byte(0x33)]),
 			},
@@ -671,10 +671,10 @@ mod tests {
 	}
 
 	/// The identity extension of `frontier` after `payloads` are appended.
-	fn identity_after(frontier: &MmrFrontier, payloads: &[Vec<u8>]) -> MMRExtensionProof {
+	fn identity_after(frontier: &MmrFrontier, payloads: &[Vec<u8>]) -> MmrExtensionProof {
 		let mut end = frontier.clone();
 		payloads.iter().for_each(|p| end.append(leaf_hash(p)));
-		MMRExtensionProof::identity(&end)
+		MmrExtensionProof::identity(&end)
 	}
 
 	/// Two committed 6-leaf streams with distinct payloads, and the `StreamsRoot` over both.
@@ -707,7 +707,7 @@ mod tests {
 		end: usize,
 	) -> MessagesResponse {
 		let extension = if end == 6 {
-			MMRExtensionProof::identity(&frontier_at(leaves, 6))
+			MmrExtensionProof::identity(&frontier_at(leaves, 6))
 		} else {
 			ancestry(leaves, end, 6)
 		};
