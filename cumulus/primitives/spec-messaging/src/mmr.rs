@@ -24,7 +24,7 @@
 //! and ancestry proofs (`gen_ancestry_proof` / `verify_incremental`). [`MmrFrontier`] is the
 //! peaks-only state: the sender's on-chain accumulator, and what proofs extend from.
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
 use mmr_lib::{
 	ancestry_proof::bagging_peaks_hashes, helper::get_peaks, Error as MmrError, Merge,
@@ -372,6 +372,168 @@ impl MMRExtensionProof {
 			.calculate_root(nodes)
 			.map(|bag| MmrRoot::from_bag(self.leaf_count, bag))
 			.map_err(|_| ProofError::InvalidProof)
+	}
+
+	/// This extension, which starts `leaves.len()` leaves past `from`, rebased to extend `from`
+	/// itself to the same root. `None` if `from` is empty (that extension carries the new peaks one
+	/// by one, and `self` may bag some) or if the material does not fit together.
+	///
+	/// The extension from `from` needs the subtrees right of it. Those over `leaves` are hashed,
+	/// those past them are `self`'s siblings, and one over both is merged from its halves. Its run
+	/// of new peaks ends with the run `self` bagged, which is folded into the rest. The result is
+	/// checked to reach the root `self` does before it is returned.
+	pub fn rebase(&self, from: &MmrFrontier, leaves: &[Hash]) -> Option<Self> {
+		let (old, count) = (from.leaf_count(), self.leaf_count);
+		let past = old.checked_add(leaves.len() as u64)?;
+		if old == 0 || past > count || count > MAX_MMR_LEAF_COUNT {
+			return None;
+		}
+		let given = Layout::new(past, count);
+		if given.len() != self.connecting_nodes.len() {
+			return None;
+		}
+		let (siblings, run) = self.connecting_nodes.split_at(given.siblings.len());
+		let subtrees = Subtrees {
+			first: old,
+			leaves,
+			known: given.siblings.iter().copied().zip(siblings.iter().copied()).collect(),
+		};
+
+		let wanted = Layout::new(old, count);
+		let mut nodes = wanted
+			.siblings
+			.iter()
+			.map(|span| subtrees.get(*span))
+			.collect::<Option<Vec<_>>>()?;
+		if let Some((lowest, higher)) = wanted.run.split_last() {
+			// Bags fold from the lowest peak up, so the run `self` bagged starts the fold.
+			let (mut bag, higher) = match run.first() {
+				Some(node) if wanted.run.ends_with(&given.run) => {
+					(*node, &wanted.run[..wanted.run.len() - given.run.len()])
+				},
+				_ => (subtrees.get(*lowest)?, higher),
+			};
+			for span in higher.iter().rev() {
+				bag = SpecMerge::merge_peaks(&bag, &subtrees.get(*span)?).ok()?;
+			}
+			nodes.push(bag);
+		}
+		let rebased = Self { leaf_count: count, connecting_nodes: nodes.try_into().ok()? };
+
+		let mut to = from.clone();
+		for leaf in leaves {
+			to.try_append(*leaf).ok()?;
+		}
+		(rebased.calculate_root(from).ok()? == self.calculate_root(&to).ok()?).then_some(rebased)
+	}
+}
+
+/// A perfect subtree of a stream's MMR: its first leaf and its height.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+struct Span {
+	start: u64,
+	height: u32,
+}
+
+impl Span {
+	/// The leaf after its last.
+	fn end(&self) -> u64 {
+		self.start + (1 << self.height)
+	}
+}
+
+/// The subtrees the connecting nodes of an extension stand for, in their wire order: one node per
+/// sibling, then one for the run if there is one.
+#[derive(Default)]
+struct Layout {
+	/// The right siblings on the path from the last old leaf up to the new peak over it, lowest
+	/// first.
+	siblings: Vec<Span>,
+	/// The new peaks to the right of the old leaves, highest first. The proof carries them as one
+	/// node: their bag, or the peak itself if there is only one.
+	run: Vec<Span>,
+}
+
+impl Layout {
+	/// The layout of an extension from `n1` to `n2` leaves, `1 <= n1 <= n2 <= MAX_MMR_LEAF_COUNT`.
+	/// Empty for the identity.
+	fn new(n1: u64, n2: u64) -> Self {
+		let mut layout = Self::default();
+		if n1 >= n2 {
+			return layout;
+		}
+		// The highest bit the counts differ in: `n2` has a peak of that height, starting at
+		// `split`, that `n1` lacks. The peaks before it are common to both.
+		let height = 63 - (n1 ^ n2).leading_zeros();
+		let split = (n2 >> (height + 1)) << (height + 1);
+		// The old leaves under that peak.
+		let held = n1 - split;
+		if held == 0 {
+			layout.run.push(Span { start: split, height });
+		} else {
+			for h in 0..height {
+				// The node over the last old leaf at height `h`. A right child merges with an old
+				// peak; a left child needs its sibling.
+				let index = (held - 1) >> h;
+				if index & 1 == 0 {
+					layout.siblings.push(Span { start: split + ((index + 1) << h), height: h });
+				}
+			}
+		}
+		let mut start = split + (1 << height);
+		for h in (0..height).rev() {
+			if (n2 >> h) & 1 == 1 {
+				layout.run.push(Span { start, height: h });
+				start += 1 << h;
+			}
+		}
+		layout
+	}
+
+	/// The number of connecting nodes.
+	fn len(&self) -> usize {
+		self.siblings.len() + usize::from(!self.run.is_empty())
+	}
+}
+
+/// The subtrees past `first`: over `leaves` from `first` on, the known ones past those, and
+/// whatever spans both, from its halves.
+struct Subtrees<'a> {
+	first: u64,
+	leaves: &'a [Hash],
+	known: BTreeMap<Span, Hash>,
+}
+
+impl Subtrees<'_> {
+	fn get(&self, span: Span) -> Option<Hash> {
+		let past = self.first + self.leaves.len() as u64;
+		if span.start >= self.first && span.end() <= past {
+			let (start, end) =
+				((span.start - self.first) as usize, (span.end() - self.first) as usize);
+			return merkle(&self.leaves[start..end]);
+		}
+		if let Some(node) = self.known.get(&span) {
+			return Some(*node);
+		}
+		if span.height == 0 || span.start >= past || span.end() <= past {
+			return None;
+		}
+		let half = span.height - 1;
+		let left = self.get(Span { start: span.start, height: half })?;
+		let right = self.get(Span { start: span.start + (1 << half), height: half })?;
+		SpecMerge::merge(&left, &right).ok()
+	}
+}
+
+/// The root of the perfect subtree over `leaves`, a power of two of them.
+fn merkle(leaves: &[Hash]) -> Option<Hash> {
+	match leaves {
+		[] => None,
+		[leaf] => Some(*leaf),
+		_ => {
+			let (left, right) = leaves.split_at(leaves.len() / 2);
+			SpecMerge::merge(&merkle(left)?, &merkle(right)?).ok()
+		},
 	}
 }
 
@@ -737,5 +899,56 @@ mod tests {
 				"cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b"
 			))
 		);
+	}
+
+	/// Every rebase from `from` past `later` leaves to `count` equals the extension built from
+	/// the leaves with `mmr_lib`, for every `1 <= from < later <= count <= 120`.
+	#[test]
+	fn a_rebased_extension_is_the_one_built_from_the_leaves() {
+		let all = leaves(120);
+		let mut checked = 0;
+		for count in 2..=all.len() {
+			for later in 2..=count {
+				let given = if later == count {
+					MMRExtensionProof::identity(&frontier_at(&all, count))
+				} else {
+					extension(&all, later, count)
+				};
+				for from in 1..later {
+					let rebased = given.rebase(&frontier_at(&all, from), &all[from..later]);
+					assert_eq!(
+						rebased.as_ref(),
+						Some(&extension(&all, from, count)),
+						"{from}, {later}, {count}"
+					);
+					checked += 1;
+				}
+			}
+		}
+		assert_eq!(checked, (2..=120u64).map(|n| n * (n - 1) / 2).sum::<u64>());
+	}
+
+	#[test]
+	fn a_rebase_needs_a_start_and_a_proof_that_fits() {
+		let all = leaves(9);
+		let at = |n: usize| frontier_at(&all, n);
+		let given = extension(&all, 6, 9);
+
+		// No leaves: the extension itself.
+		assert_eq!(given.rebase(&at(6), &[]), Some(given.clone()));
+		// From the empty stream, the proof is the new peaks themselves.
+		assert_eq!(given.rebase(&MmrFrontier::new(), &all[..6]), None);
+		// Leaves past the proof's count.
+		let to_seven = extension(&all, 5, 7);
+		assert_eq!(to_seven.rebase(&at(4), &all[4..9]), None);
+		// A node too many or too few for the counts.
+		let mut long = given.clone();
+		long.connecting_nodes.try_push(all[0]).expect("room for one more");
+		assert_eq!(long.rebase(&at(4), &all[4..6]), None);
+		let mut short = given.clone();
+		short.connecting_nodes.truncate(given.connecting_nodes.len() - 1);
+		assert_eq!(short.rebase(&at(4), &all[4..6]), None);
+		// The same proof with every node in place rebases.
+		assert_eq!(given.rebase(&at(4), &all[4..6]), Some(extension(&all, 4, 9)));
 	}
 }
