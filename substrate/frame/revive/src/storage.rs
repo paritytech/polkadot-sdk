@@ -527,6 +527,15 @@ impl<T: Config> ContractInfo<T> {
 		self.extra_deposit().saturating_add(self.storage_base_deposit)
 	}
 
+	/// Record a refund that stayed on hold because the deposit backend did not release it.
+	///
+	/// The counters were lowered by the full refund when the storage change was recorded. The
+	/// amount goes back to the item deposit, so the next refund of an item can release it to an
+	/// entitled origin.
+	pub fn retain_deposit(&mut self, amount: BalanceOf<T>) {
+		self.storage_item_deposit = self.storage_item_deposit.saturating_add(amount);
+	}
+
 	/// Returns the storage base deposit of the contract.
 	pub fn storage_base_deposit(&self) -> BalanceOf<T> {
 		self.storage_base_deposit
