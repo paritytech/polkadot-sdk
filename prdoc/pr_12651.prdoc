@@ -1,0 +1,19 @@
+title: 'frame system/executive: add a flag to know if the runtime is validating a transaction for the tx-pool'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduce `frame_system::Pallet::<T>::is_pool_transaction_validation()` to query whether the
+    code is running as part of the transaction validation for the transaction pool, as opposed to
+    block building, block import or any other context.
+
+    This enables batching proof validation at the end of the block by validating each proof
+    individually in the pool and deferring the validation during dispatch to validate all of them
+    in a batch at the end of the block execution.
+
+    `frame-executive` MUST be updated if `frame-system` is updated.
+
+crates:
+- name: frame-system
+  bump: minor
+- name: frame-executive
+  bump: minor
