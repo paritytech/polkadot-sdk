@@ -36,6 +36,11 @@ doc:
     A dry run also no longer reports a `max_storage_deposit` that is too low when a contract
     frees storage and then makes a call that reenters it.
 
+    An Ethereum dry run without a gas limit now runs the call with the maximum `eth_transact`
+    weight minus the transaction's base weight, so that the weight it reports leaves room for the
+    base weight also when a nested call uses up its share. A call that needs more weight than that
+    now runs out of gas in the dry run, as it does in a transaction.
+
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be
     estimated again, and to limits set to what a dry run or an earlier transaction consumed, for

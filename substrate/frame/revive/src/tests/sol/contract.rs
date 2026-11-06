@@ -1429,6 +1429,50 @@ mod eip_150 {
 		});
 	}
 
+	/// A dry run without a gas limit succeeds when a call made by `aggregate3` uses up its gas,
+	/// and the transaction succeeds with the gas the dry run returned.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc]
+	)]
+	fn dry_run_without_gas_succeeds_when_aggregate3_call_drains_its_gas(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+	) {
+		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
+			// The dry run estimates gas for about the whole weight limit, and the transaction pays
+			// the fee for all of it up front; twice that also covers the length fee and deposit.
+			let max_fee = <Test as Config>::FeeInfo::weight_to_fee(
+				&Pallet::<Test>::evm_max_extrinsic_weight(),
+			);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 2 * max_fee);
+			let calls = vec![
+				Multicall3::Call3 {
+					target: callee_addr.0.into(),
+					allowFailure: true,
+					callData: Callee::invalidCall {}.abi_encode().into(),
+				},
+				Multicall3::Call3 {
+					target: callee_addr.0.into(),
+					allowFailure: false,
+					callData: Callee::echoCall { _data: 42 }.abi_encode().into(),
+				},
+			];
+			let output = eth_transact_with_estimated_gas(
+				multicall_addr,
+				Multicall3::aggregate3Call { calls }.abi_encode(),
+			);
+
+			let results = Multicall3::aggregate3Call::abi_decode_returns(&output).unwrap();
+			assert!(!results[0].success, "the first call must use up its gas and fail");
+			assert_eq!(Callee::echoCall::abi_decode_returns(&results[1].returnData).unwrap(), 42);
+		});
+	}
+
 	/// A nested call succeeds when its caller runs with exactly the limits a dry run returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],

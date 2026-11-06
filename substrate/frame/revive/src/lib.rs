@@ -2567,7 +2567,9 @@ impl<T: Config> Pallet<T> {
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-			weight_limit: Self::evm_max_extrinsic_weight(),
+			// The transaction's base weight is added to the weight the dry run reports as required,
+			// which can be this whole limit.
+			weight_limit: Self::evm_max_extrinsic_weight().saturating_sub(base_info.total_weight()),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 			authorization_deposit: actual_auth_deposit,
 		};
