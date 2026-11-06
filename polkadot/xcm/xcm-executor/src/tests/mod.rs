@@ -24,5 +24,6 @@ mod deposit_with_retry;
 mod initiate_transfer;
 pub(crate) mod mock;
 mod pay_fees;
+mod refund_surplus;
 mod set_asset_claimer;
 mod transactional;

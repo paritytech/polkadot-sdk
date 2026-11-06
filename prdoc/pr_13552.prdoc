@@ -1,0 +1,28 @@
+title: 'xcm-executor: price the end-of-message refund and trap a refund holding cannot take'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The surplus refund the executor runs at the end of every message was never charged. It is
+    now charged the weigher's weight of a `RefundSurplus`, kept out of the refund and counted in
+    the weight used, but only when the trader refunds something. The charge is taken per weight
+    dimension: a dimension whose surplus does not cover it is not refunded, and a surplus that
+    covers it in no dimension is left as it was. As for the explicit instruction, the weight is the
+    benchmarked one, which does not include the swap a swapping trader such as
+    `SwapFirstAssetTrader` makes to refund.
+
+    A refund whose asset holding cannot take, because the asset is not in holding and holding is
+    at capacity, is now trapped for the claimer together with any leftover `fees`, instead of
+    being bought back from the trader. `RefundSurplus` with surplus to refund and holding at
+    capacity now fails with `HoldingWouldOverflow` before asking the trader, even when the refund
+    asset is in holding, and leaves the surplus to the end of the message.
+    Before, the trader bought the refund back, or dropped it when the buy-back failed, as it always
+    did for `TakeFirstAssetTrader`, and the leftover `fees` were dropped with the executor; both
+    are now claimable.
+- audience: Runtime User
+  description: |-
+    A message that leaves surplus weight without an explicit `RefundSurplus` is charged the
+    weight of one `RefundSurplus` for the refund the executor makes on its behalf, so the refund
+    is that much smaller, and no refund is made when the surplus does not cover it.
+crates:
+- name: staging-xcm-executor
+  bump: patch
