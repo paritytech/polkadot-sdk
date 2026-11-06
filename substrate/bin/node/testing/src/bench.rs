@@ -302,6 +302,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 				format: ExtrinsicFormat::Signed(
 					sender,
 					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+					Default::default(),
 				),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive => {
@@ -575,7 +576,7 @@ impl BenchKeyring {
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
 		match xt.format {
-			ExtrinsicFormat::Signed(signed, tx_ext) => {
+			ExtrinsicFormat::Signed(signed, tx_ext, _) => {
 				let payload = (
 					xt.function,
 					tx_ext.clone(),
