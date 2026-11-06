@@ -559,3 +559,77 @@ fn fatp_prios_submit_local_full_mempool_higher_prio_is_accepted() {
 	assert_ready_iterator!(header02.hash(), pool, [xt3, xt2]);
 	assert_ready_iterator!(header03.hash(), pool, [xt5, xt4]);
 }
+
+#[test]
+fn fatp_prios_full_mempool_higher_prio_retracted_tx_is_accepted() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 300);
+	let xt2 = uxt(Charlie, 400);
+
+	api.set_priority(&xt0, 10);
+	api.set_priority(&xt1, 1);
+	api.set_priority(&xt2, 5);
+
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let xt2_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	assert_eq!(block_on(pool.mempool_len()), (0, 2));
+
+	// xt0 was never submitted to this pool, it only shows up in a block that gets retracted.
+	let header02a = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 201);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02a.hash())));
+
+	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02a.hash()), header02b.hash())));
+
+	assert_eq!(block_on(pool.mempool_len()), (1, 1));
+	assert_ready_iterator!(header02b.hash(), pool, [xt0, xt2]);
+
+	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
+	assert_watcher_stream!(xt2_watcher, [TransactionStatus::Ready]);
+}
+
+#[test]
+fn fatp_prios_full_mempool_lower_prio_retracted_tx_is_dropped() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 300);
+	let xt2 = uxt(Charlie, 400);
+
+	api.set_priority(&xt0, 1);
+	api.set_priority(&xt1, 5);
+	api.set_priority(&xt2, 5);
+
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	assert_eq!(block_on(pool.mempool_len()), (2, 0));
+
+	let header02a = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 201);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02a.hash())));
+
+	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02a.hash()), header02b.hash())));
+
+	assert_eq!(block_on(pool.mempool_len()), (2, 0));
+	assert_ready_iterator!(header02b.hash(), pool, [xt1, xt2]);
+}

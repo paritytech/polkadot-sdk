@@ -199,7 +199,8 @@
 //! - [update the view][ForkAwareTxPool::update_view_with_fork] with the transactions from the [tree
 //!   route][`TreeRoute`] (which is computed from the recent best block to newly notified one by
 //!   [enactment state][`EnactmentState`] helper):
-//! 	- resubmit the transactions from the retracted blocks,
+//! 	- resubmit the transactions from the retracted blocks, and add the ones unknown to the
+//!    *mempool* there too, so they compete on priority with other *mempool* transactions,
 //! 	- prune extrinsic from the enacted blocks, and trigger [`InBlock`] events,
 //! - insert the newly created and updated view into the view store.
 //!
