@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793881475459,
+  "lastUpdate": 1793957128887,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8bdf835e260de3f6a72a7e5a84b41b807771b7cd",
-          "message": "ci: use GH App token for zombienet artifact downloads (#11831)\n\n## Summary\n            \nZombienet matrix CI tests fail with `API rate limit exceeded for\ninstallation` because\nall matrix jobs download artifacts concurrently via `GITHUB_TOKEN`.\nThis PR uses the dedicated `ARTIFACTS_DOWNLOADER` GitHub App to generate\ninstallation\ntokens with a separate rate limit pool. For fork PRs (external\ncontributors),\norg secrets are unavailable so the action automatically falls back to\n`GITHUB_TOKEN`.\n\n## Changes\n- `zombienet-sdk` action: add optional `app-id`/`app-private-key`\ninputs, generate App\ntoken when provided, pass effective token to all downstream download\nactions\n- All 4 zombienet workflows (`substrate`, `polkadot`, `cumulus`,\n`parachain-template`):\ndeclare and pass `ARTIFACTS_DOWNLOADER` secrets to the zombienet-sdk\naction\n- `zombienet_cumulus.yml`: handle standalone `download-artifact-extract`\ncall with App token\n- `build-publish-images.yml`: explicit `secrets:` mapping (not `secrets:\ninherit`) in all 4 `trigger-zombienet-*` jobs\n\n## Security\n- No `secrets: inherit` only the two required secrets are explicitly\nmapped\n- App token generated as step output, never written to `$GITHUB_ENV`\n- Fork PRs: secrets are empty → automatic fallback to `GITHUB_TOKEN`",
-          "timestamp": "2026-04-21T13:26:57Z",
-          "tree_id": "ff769d35af5cdbd0d97fe08b98f14d1f10ccd83d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8bdf835e260de3f6a72a7e5a84b41b807771b7cd"
-        },
-        "date": 1776783183478,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14424827625999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007305984726666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023745119119999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009491089539999968,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024975764660000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "228917acb2a1f175500e3ca8f7689ffd854900a1",
+          "message": "pallet-validator-collators: store MaxCollators as CollatorDraw (#13734)\n\n#13710 changed `MaxCollators` from an optional `u32` to an `Option<u32>`\nwith `DefaultMaxCollators` as default, without a migration.\n\nThis PR stores `MaxCollators` as a new enum `CollatorDraw`, still with\n`DefaultMaxCollators` as default:\n\n- `All` (index 0): every validator with registered keys.\n- `UpTo(n)` (index 1): up to `n` validators with registered keys.\n- `None` (index 2): no validator is drawn.\n\nThe indices make an `Option<u32>` written by #13710 keep its meaning, in\nstorage and in calls: `None` (`0x00`) reads as `All` and `Some(n)` as\n`UpTo(n)`.\n\nEvery variant draws at random, so collators are in drawn order and a\nvalidator that registers keys after the draw joins at the next set or\ncap change. Asset Hub Westend and People Westend default to `None`.\n\nIt also adds storage version 1 and `migrations::v1::MigrateV0ToV1`, to\nrun on Asset Hub Westend and People Westend. It must ship in the same\nAsset Hub Westend upgrade as #13710.\n\nThe migration handles three cases:\n\n- A cap stored as `u32`, exactly 4 bytes. Read as `CollatorDraw` it is\nmisread, so the migration rewrites it as `UpTo(cap)`.\n- A cap stored as `Option<u32>` by #13710. It already reads as the same\n`CollatorDraw` and is left as it is.\n- No stored cap. The default replaces \"no cap\", but the collators drawn\nbefore the upgrade (if any) stay in place. When a set is stored, the\nmigration sets `PendingRotation` to `AwaitingQueue`, as\n`set_max_collators` does, so the set is drawn again under the default.\n\n## Note on Westend Asset Hub\n\nThe `u32` and no-cap cases showed up on Westend Asset Hub, which still\nruns a runtime without #13710 after 2026-11-04 runtime upgrade:\n\n1. The first validator set arrived at block `18999262` and 5 validators\nwith session keys were drawn without a cap (see\nhttps://github.com/paritytech/metanode/issues/46#issuecomment-6653108369).\n2. check-runtime-migration e.g. on #13722 then failed on the 2026-11-05\nsnapshot (block `19005749`), with `\"ValidatorCollators\" try_state checks\nfailed: Other(\"more collators are drawn than the cap allows\")` see\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/41992109446/job/127127335164).\nWith #13710 the cap read as the default `Some(0)`, while the 5 collators\nstayed drawn.\n3. `set_max_collators(Some(0))` via sudo at block `19008348` cleared the\ndraw. It stored the cap as a u32 `0`. #13710 alone reads it as `None`\n(no cap), so every validator with session keys would collate again. This\nPR rewrites it as `UpTo(0)`.\n\nChains that add the pallet fresh are not affected: FRAME writes storage\nversion 1 and the migration is skipped so we will be good on Polkadot.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-06T07:53:45Z",
+          "tree_id": "c8e73d0d36006b198fa2995e7a0d86b0af1b26fd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/228917acb2a1f175500e3ca8f7689ffd854900a1"
+        },
+        "date": 1793957093720,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007534524286666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009936439059999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1467815399266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025318555319999998,
             "unit": "seconds"
           }
         ]
