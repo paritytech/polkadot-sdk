@@ -72,10 +72,13 @@ mod signed;
 pub use signed::{EncodeAs, Signed, UncheckedSigned};
 
 pub mod async_backing;
+/// Speculative Messaging commitment set primitives.
+pub mod commitment_set;
 pub mod executor_params;
 pub mod slashing;
 
 pub use async_backing::AsyncBackingParams;
+pub use commitment_set::CommitmentSet;
 pub use executor_params::{
 	ExecutorHostFunction, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
 	ExecutorParamsPrepHash,
