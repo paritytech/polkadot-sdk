@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["VersionUncheckedMigrateV0ToV1"],"type":["MigrateV0ToV1"]};

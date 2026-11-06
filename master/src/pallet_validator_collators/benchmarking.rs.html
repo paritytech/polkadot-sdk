@@ -223,9 +223,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#73 id=73 data-nosnippet>73</a>		Pallet::&lt;T&gt;::do_receive_validator_set(<span class="number">0</span>, stored)<span class="question-mark">?</span>;
 <a href=#74 id=74 data-nosnippet>74</a>
 <a href=#75 id=75 data-nosnippet>75</a>		<span class="attr">#[extrinsic_call]
-<a href=#76 id=76 data-nosnippet>76</a>		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, <span class="prelude-val">None</span>);
+<a href=#76 id=76 data-nosnippet>76</a>		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, CollatorDraw::UpTo(max));
 <a href=#77 id=77 data-nosnippet>77</a>
-<a href=#78 id=78 data-nosnippet>78</a>		<span class="macro">assert_eq!</span>(MaxCollators::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
+<a href=#78 id=78 data-nosnippet>78</a>		<span class="macro">assert_eq!</span>(MaxCollators::&lt;T&gt;::get(), CollatorDraw::UpTo(max));
 <a href=#79 id=79 data-nosnippet>79</a>		<span class="macro">assert_eq!</span>(PendingRotation::&lt;T&gt;::get(), RotationState::AwaitingQueue);
 <a href=#80 id=80 data-nosnippet>80</a>		<span class="prelude-val">Ok</span>(())
 <a href=#81 id=81 data-nosnippet>81</a>	}
