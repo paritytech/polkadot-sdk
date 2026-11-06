@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793993794147,
+  "lastUpdate": 1793996048535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -254591,6 +254591,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2676768923,
             "range": "± 67722583",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "olivarra1@gmail.com",
+            "name": "Victor Oliva",
+            "username": "voliva"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4",
+          "message": "[referenda] Add `slash_submission_deposit` extrinsic (#11524)\n\n# Description\n\nCloses #1690 \n\nAdds a new `slash_submission_deposit` extrinsic to `pallet-referenda`\nthat allows slashing the submission deposit for referenda that have been\nRejected or TimedOut.\n\nThis complements the existing `refund_submission_deposit` which only\nworks for Approved or Cancelled referenda. Previously, there was no way\nto slash submission deposits for failed referenda, which causes affected\naccounts to keep a reserved balance preventing that account from getting\ndeleted.\n\n## Integration\n\nThis PR adds a new extrinsic `slash_submission_deposit` with the next\ncall index assigned (9) to not break previous extrinsics. Integration\nshould be automatic.\n\n## Review Notes\n\nThe implementation mirrors `refund_submission_deposit` but calls\n`slash_deposit` instead of `refund_deposit`.\n\nI've recreated `take_submission_deposit` into\n`take_slash_submission_deposit`, which I think better documents which\nstates are appropriate for each case: For slashing, it only succeeds for\nRejected or TimedOut states.\n\nKey changes:\n\nNote: Weights are placeholder values copied from\n`refund_submission_deposit`. Please run /cmd bench --pallet\npallet_referenda to generate accurate weights before merging, as I don't\nhave permission to do that if I'm not wrong.\n\nOne outstanding question: I'm thinking that maybe it would make sense\nfor this extrinsic to be free in terms of fees if it succeeds.\n\nCurrently, the only incentive someone may have to call this extrinsic is\nif they want to recover the existential deposit, which might not be\nworth it if the ED is too small. As for the chain it's beneficial to\nalso cleanup storage, it might be worth considering making this\ntransaction free.\n\nBut I don't know if that's something that's usually done in these cases\nor what... so I went for the safest option of making it Pays::Yes (the\ndefault). Please let me know if it makes sense to have this transaction\nfree, and I'll change it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-06T18:21:40Z",
+          "tree_id": "9b5798bf39f9484b3bf8d8ef453174ebbf6396dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0ab3dd05594f0daae77c7ee863b5c1f9b2f2ed4"
+        },
+        "date": 1793996020095,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4569648,
+            "range": "± 30007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 326534,
+            "range": "± 5132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4655478,
+            "range": "± 61560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 409644,
+            "range": "± 10467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5011338,
+            "range": "± 65477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 955570,
+            "range": "± 13695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11445101,
+            "range": "± 99972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5388468,
+            "range": "± 67777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 49251455,
+            "range": "± 797633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41585533,
+            "range": "± 743552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 465540753,
+            "range": "± 9845731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 375405223,
+            "range": "± 7726630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2799661280,
+            "range": "± 36352740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2864185767,
+            "range": "± 30370055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 4774566,
+            "range": "± 136707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2175262,
+            "range": "± 8992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4215800,
+            "range": "± 61946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2235962,
+            "range": "± 12639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4836198,
+            "range": "± 66070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2606161,
+            "range": "± 23546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8958363,
+            "range": "± 98584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6218071,
+            "range": "± 42376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 43984904,
+            "range": "± 374645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 41945861,
+            "range": "± 388745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 354609484,
+            "range": "± 2646409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 317273411,
+            "range": "± 2359874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2794873389,
+            "range": "± 18753244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2754063034,
+            "range": "± 65989464",
             "unit": "ns/iter"
           }
         ]
