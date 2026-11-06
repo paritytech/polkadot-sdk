@@ -54,7 +54,7 @@ pub use controller::{
 };
 
 mod forwarder;
-pub use forwarder::TeleportForwarderForAccountId32;
+pub use forwarder::{TeleportAndBurnForwarderForAccountId32, TeleportForwarderForAccountId32};
 
 mod fee_handling;
 pub use fee_handling::{
