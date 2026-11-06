@@ -44,7 +44,7 @@ where
 							"Discarding a message sent from overseer {:?}",
 							overseer_msg
 						);
-						continue
+						continue;
 					},
 				}
 			}

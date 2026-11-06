@@ -25,13 +25,13 @@ use frame_support::{
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
 	test_utils::{
-		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-		TestSubscriptionService, TestUniversalAliases,
+		TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
+		TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
 	FrameTransactionalProcessor,
 };
-use xcm_executor::traits::ConvertOrigin;
+use xcm_executor::{traits::ConvertOrigin, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -50,10 +50,14 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
-/// The benchmarks in this pallet should never need an asset transactor to begin with.
-pub struct NoAssetTransactor;
-impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
-	fn deposit_asset(_: &Asset, _: &Location, _: Option<&XcmContext>) -> Result<(), XcmError> {
+/// The benchmarks in this pallet should not withdraw or deposit assets.
+pub struct MockTransactor;
+impl xcm_executor::traits::TransactAsset for MockTransactor {
+	fn deposit_asset(
+		_: AssetsInHolding,
+		_: &Location,
+		_: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		unreachable!();
 	}
 
@@ -63,6 +67,10 @@ impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
 		_: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
 		unreachable!();
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
@@ -84,7 +92,7 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type XcmEventEmitter = ();
-	type AssetTransactor = NoAssetTransactor;
+	type AssetTransactor = MockTransactor;
 	type OriginConverter = AlwaysSignedByDefault<RuntimeOrigin>;
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
@@ -96,7 +104,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = TestAssetTrap;
 	type AssetLocker = TestAssetLocker;
 	type AssetExchanger = TestAssetExchanger;
-	type AssetClaims = TestAssetTrap;
 	type SubscriptionService = TestSubscriptionService;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -134,7 +141,7 @@ impl crate::Config for Test {
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> Assets {
+	fn worst_case_holding(depositable_count: u32) -> AssetsInHolding {
 		generate_holding_assets(
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)

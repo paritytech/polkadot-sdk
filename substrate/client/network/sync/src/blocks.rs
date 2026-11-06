@@ -18,8 +18,10 @@
 
 use crate::LOG_TARGET;
 use log::trace;
+use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network_common::sync::message;
 use sc_network_types::PeerId;
+use sp_arithmetic::traits::Saturating;
 use sp_runtime::traits::{Block as BlockT, NumberFor, One};
 use std::{
 	cmp,
@@ -53,6 +55,25 @@ impl<B: BlockT> BlockRangeState<B> {
 	}
 }
 
+#[derive(Clone)]
+pub(crate) struct Metrics {
+	stale_download_reservations: Counter<U64>,
+}
+
+impl Metrics {
+	pub(crate) fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			stale_download_reservations: register(
+				Counter::new(
+					"substrate_sync_stale_download_reservations_total",
+					"Number of stale block download reservations released before scheduling a new range",
+				)?,
+				registry,
+			)?,
+		})
+	}
+}
+
 /// A collection of blocks being downloaded.
 #[derive(Default)]
 pub struct BlockCollection<B: BlockT> {
@@ -62,15 +83,22 @@ pub struct BlockCollection<B: BlockT> {
 	/// Block ranges downloaded and queued for import.
 	/// Maps start_hash => (start_num, end_num).
 	queued_blocks: HashMap<B::Hash, (NumberFor<B>, NumberFor<B>)>,
+	/// Metrics shared by regular and gap sync.
+	metrics: Option<Metrics>,
 }
 
 impl<B: BlockT> BlockCollection<B> {
 	/// Create a new instance.
 	pub fn new() -> Self {
+		Self::with_metrics(None)
+	}
+
+	pub(crate) fn with_metrics(metrics: Option<Metrics>) -> Self {
 		Self {
 			blocks: BTreeMap::new(),
 			peer_requests: HashMap::new(),
 			queued_blocks: HashMap::new(),
+			metrics,
 		}
 	}
 
@@ -83,7 +111,7 @@ impl<B: BlockT> BlockCollection<B> {
 	/// Insert a set of blocks into collection.
 	pub fn insert(&mut self, start: NumberFor<B>, blocks: Vec<message::BlockData<B>>, who: PeerId) {
 		if blocks.is_empty() {
-			return
+			return;
 		}
 
 		match self.blocks.get(&start) {
@@ -92,7 +120,7 @@ impl<B: BlockT> BlockCollection<B> {
 			},
 			Some(BlockRangeState::Complete(existing)) if existing.len() >= blocks.len() => {
 				trace!(target: LOG_TARGET, "Ignored block data already downloaded: {}", start);
-				return
+				return;
 			},
 			_ => (),
 		}
@@ -116,9 +144,17 @@ impl<B: BlockT> BlockCollection<B> {
 		max_parallel: u32,
 		max_ahead: u32,
 	) -> Option<Range<NumberFor<B>>> {
+		// Cancellation, responses and disconnection should release the previous range.
+		if self.peer_requests.contains_key(&who) {
+			log::debug!(target: LOG_TARGET, "Releasing stale block download reservation for {who}");
+			if let Some(metrics) = &self.metrics {
+				metrics.stale_download_reservations.inc();
+			}
+			self.clear_peer_download(&who);
+		}
 		if peer_best <= common {
 			// Bail out early
-			return None
+			return None;
 		}
 		// First block number that we need to download
 		let first_different = common + <NumberFor<B>>::one();
@@ -136,37 +172,44 @@ impl<B: BlockT> BlockCollection<B> {
 					// the range start.
 					(Some((start, &BlockRangeState::Downloading { ref len, downloading })), _)
 						if downloading < max_parallel && *start >= first_different =>
-						(*start..*start + *len, downloading),
+					{
+						(*start..*start + *len, downloading)
+					},
 					// If there is a gap between ranges requested, download this gap unless the peer
 					// has common number above the gap start
 					(Some((start, r)), Some((next_start, _)))
 						if *start + r.len() < *next_start &&
 							*start + r.len() >= first_different =>
-						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0),
+					{
+						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0)
+					},
 					// Download `count` blocks after the last range requested unless the peer
 					// has common number above this new range
-					(Some((start, r)), None) if *start + r.len() >= first_different =>
-						(*start + r.len()..*start + r.len() + count, 0),
+					(Some((start, r)), None) if *start + r.len() >= first_different => {
+						(*start + r.len()..*start + r.len() + count, 0)
+					},
 					// If there are no ranges currently requested, download `count` blocks after
 					// `common` number
 					(None, None) => (first_different..first_different + count, 0),
 					// If the first range starts above `common + 1`, download the gap at the start
-					(None, Some((start, _))) if *start > first_different =>
-						(first_different..cmp::min(first_different + count, *start), 0),
+					(None, Some((start, _))) if *start > first_different => {
+						(first_different..cmp::min(first_different + count, *start), 0)
+					},
 					// Move on to the next range pair
 					_ => {
 						prev = next;
-						continue
+						continue;
 					},
-				}
+				};
 			}
 		};
 		// crop to peers best
 		if range.start > peer_best {
 			trace!(target: LOG_TARGET, "Out of range for peer {} ({} vs {})", who, range.start, peer_best);
-			return None
+			return None;
 		}
-		range.end = cmp::min(peer_best + One::one(), range.end);
+
+		range.end = cmp::min(peer_best.saturating_add(One::one()), range.end);
 
 		if self
 			.blocks
@@ -175,7 +218,20 @@ impl<B: BlockT> BlockCollection<B> {
 			.map_or(false, |(n, _)| range.start > *n + max_ahead.into())
 		{
 			trace!(target: LOG_TARGET, "Too far ahead for peer {} ({})", who, range.start);
-			return None
+			return None;
+		}
+
+		if range.end <= range.start {
+			debug_assert!(
+				false,
+				"Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}",
+				range, count, peer_best, common, self.blocks
+			);
+			trace!(
+				target: LOG_TARGET,
+				"Empty range for peer {who}: {range:?}, count={count}, peer_best={peer_best}, common={common}",
+			);
+			return None;
 		}
 
 		self.peer_requests.insert(who, range.start);
@@ -186,12 +242,7 @@ impl<B: BlockT> BlockCollection<B> {
 				downloading: downloading + 1,
 			},
 		);
-		if range.end <= range.start {
-			panic!(
-				"Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}",
-				range, count, peer_best, common, self.blocks
-			);
-		}
+
 		Some(range)
 	}
 
@@ -206,7 +257,7 @@ impl<B: BlockT> BlockCollection<B> {
 		let mut prev = from;
 		for (&start, range_data) in &mut self.blocks {
 			if start > prev {
-				break
+				break;
 			}
 			let len = match range_data {
 				BlockRangeState::Complete(blocks) => {
@@ -279,7 +330,6 @@ mod test {
 				hash: H256::random(),
 				header: None,
 				body: None,
-				indexed_body: None,
 				message_queue: None,
 				receipt: None,
 				justification: None,
@@ -381,11 +431,15 @@ mod test {
 			.collect();
 		bc.blocks.insert(114305, BlockRangeState::Complete(blocks));
 
+		// Each range is requested by a distinct peer: sync issues at most one in-flight range
+		// per peer, and a peer only asks for another range once its previous one is released.
 		let peer0 = PeerId::random();
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
 		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), Some(1..100));
-		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), None); // too far ahead
+		assert_eq!(bc.needed_blocks(peer1, 128, 10000, 0, 1, 200), None); // too far ahead
 		assert_eq!(
-			bc.needed_blocks(peer0, 128, 10000, 0, 1, 200000),
+			bc.needed_blocks(peer2, 128, 10000, 0, 1, 200000),
 			Some(100 + 128..100 + 128 + 128)
 		);
 	}
@@ -422,17 +476,21 @@ mod test {
 	fn clear_queued_subsequent_ranges() {
 		let mut bc = BlockCollection::new();
 		assert!(is_empty(&bc));
-		let peer = PeerId::random();
+		// Two consecutive ranges are requested, one per peer: sync issues at most one in-flight
+		// range per peer, so distinct peers stand in for the two requests.
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
 
 		let blocks = generate_blocks(10);
 
 		// Request 2 ranges
-		assert_eq!(bc.needed_blocks(peer, 5, 50, 39, 0, 200), Some(40..45));
-		assert_eq!(bc.needed_blocks(peer, 5, 50, 39, 0, 200), Some(45..50));
+		assert_eq!(bc.needed_blocks(peer1, 5, 50, 39, 0, 200), Some(40..45));
+		assert_eq!(bc.needed_blocks(peer2, 5, 50, 39, 0, 200), Some(45..50));
 
-		// got a response on the request for `40..50`
-		bc.clear_peer_download(&peer);
-		bc.insert(40, blocks.to_vec(), peer);
+		// got a response covering `40..50`
+		bc.clear_peer_download(&peer1);
+		bc.clear_peer_download(&peer2);
+		bc.insert(40, blocks.to_vec(), peer1);
 
 		// request any blocks starting from 1000 or lower.
 		let ready = bc.ready_blocks(1000);
@@ -440,7 +498,7 @@ mod test {
 			ready,
 			blocks
 				.iter()
-				.map(|b| BlockData { block: b.clone(), origin: Some(peer) })
+				.map(|b| BlockData { block: b.clone(), origin: Some(peer1) })
 				.collect::<Vec<_>>()
 		);
 
@@ -512,6 +570,58 @@ mod test {
 			bc.needed_blocks(peer2, count, peer2_best, peer2_common, max_parallel, max_ahead),
 			Some(16..21),
 		);
+	}
+
+	#[test]
+	fn requesting_a_new_range_releases_a_peers_stale_range() {
+		// A peer must release its previous in-flight range before being recorded against a new
+		// one. If a stale entry lingers (e.g. an obsolete response was dropped without notifying
+		// sync), requesting again must not orphan the old `Downloading` marker — an orphan would
+		// pin the collection's lowest block and stall gap sync behind `max_ahead`.
+		let metrics = super::Metrics::register(&prometheus_endpoint::Registry::new()).unwrap();
+		let mut bc = BlockCollection::with_metrics(Some(metrics.clone()));
+		assert!(is_empty(&bc));
+
+		let count = 128;
+		let best = 10_000;
+		let max_parallel = 1;
+		let max_ahead = 2048;
+
+		let peer = PeerId::random();
+
+		// The first request is recorded as in-flight for the peer.
+		let first = bc.needed_blocks(peer, count, best, 0, max_parallel, max_ahead).unwrap();
+		assert_eq!(bc.peer_requests.get(&peer), Some(&first.start));
+		assert!(matches!(bc.blocks.get(&first.start), Some(BlockRangeState::Downloading { .. }),));
+		assert_eq!(metrics.stale_download_reservations.get(), 0);
+
+		// The same peer is asked for a new range while its previous one is still tracked. The
+		// stale range is released, so the peer is tracked only for the new range and exactly
+		// one `Downloading` marker remains — no orphan is left pinning the collection.
+		let second = bc.needed_blocks(peer, count, best, 200, max_parallel, max_ahead).unwrap();
+		assert_eq!(metrics.stale_download_reservations.get(), 1);
+		assert_ne!(first.start, second.start);
+		assert_eq!(bc.peer_requests.get(&peer), Some(&second.start));
+
+		let downloading = bc
+			.blocks
+			.iter()
+			.filter(|(_, state)| matches!(state, BlockRangeState::Downloading { .. }))
+			.map(|(n, _)| *n)
+			.collect::<Vec<_>>();
+		assert_eq!(
+			downloading,
+			vec![second.start],
+			"stale range must be released, leaving no orphaned Downloading marker",
+		);
+
+		// Normal cancellation and a collection reset must not count as stale recovery or reset
+		// the cumulative counter.
+		bc.clear_peer_download(&peer);
+		assert!(bc.needed_blocks(peer, count, best, 400, max_parallel, max_ahead).is_some());
+		bc.clear();
+		assert!(bc.needed_blocks(peer, count, best, 600, max_parallel, max_ahead).is_some());
+		assert_eq!(metrics.stale_download_reservations.get(), 1);
 	}
 
 	#[test]

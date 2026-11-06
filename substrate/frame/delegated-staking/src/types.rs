@@ -30,7 +30,7 @@ pub(crate) enum AccountType {
 }
 
 /// Information about delegation of a `delegator`.
-#[derive(Default, Encode, Clone, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, Encode, Clone, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct Delegation<T: Config> {
 	/// The target of delegation.
@@ -65,18 +65,21 @@ impl<T: Config> Delegation<T> {
 
 	/// Save self to storage.
 	///
-	/// If the delegation amount is zero, remove the delegation. Also adds and removes provider
-	/// reference as needed.
+	/// If the delegation amount is zero, no delegation is stored: an existing one is removed and a
+	/// new one is not created. Also adds and removes provider reference as needed.
 	pub(crate) fn update(self, key: &T::AccountId) {
-		if <Delegators<T>>::contains_key(key) {
-			// Clean up if no delegation left.
-			if self.amount == Zero::zero() {
+		let exists = <Delegators<T>>::contains_key(key);
+
+		if self.amount.is_zero() {
+			if exists {
 				<Delegators<T>>::remove(key);
 				// Remove provider if no delegation left.
 				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
-				return
 			}
-		} else {
+			return;
+		}
+
+		if !exists {
 			// this is a new delegation. Provide for this account.
 			frame_system::Pallet::<T>::inc_providers(key);
 		}
@@ -90,7 +93,7 @@ impl<T: Config> Delegation<T> {
 /// This keeps track of the active balance of the `Agent` that is made up from the funds that
 /// are currently delegated to this `Agent`. It also tracks the pending slashes yet to be
 /// applied among other things.
-#[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct AgentLedger<T: Config> {
 	/// Where the reward should be paid out.

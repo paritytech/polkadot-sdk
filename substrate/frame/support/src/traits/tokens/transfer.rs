@@ -21,7 +21,6 @@ use crate::pallet_prelude::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::traits::tokens::PaymentStatus;
 use scale_info::TypeInfo;
-use sp_debug_derive::RuntimeDebug;
 use sp_runtime::codec::{FullCodec, MaxEncodedLen};
 
 /// Is intended to be implemented using a `fungible` impl, but can also be implemented with
@@ -82,7 +81,7 @@ pub trait Transfer {
 }
 
 /// Status for making a payment via the `Pay::pay` trait function.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum TransferStatus {
 	/// Payment is in progress. Nothing to report yet.
 	InProgress,

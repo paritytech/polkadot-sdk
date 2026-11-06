@@ -153,9 +153,13 @@ fn bond_works() {
 #[test]
 fn bond_controller_cannot_be_stash_works() {
 	ExtBuilder::default().build_and_execute(|| {
+		// `create_unique_stash_controller` bonds `ED * (balance_factor / 10).max(1)`. Pass a
+		// `balance_factor` large enough that the bonded amount clears `min_chilled_bond` under
+		// the default builder. The test's concern is the `AlreadyPaired` path, not the min-bond
+		// thresholds.
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
-			10,
+			100,
 			RewardDestination::Staked,
 			false,
 		)
@@ -809,7 +813,7 @@ mod ledger_recovery {
 
 			// however if 333 bonds extra, the wrong lock is updated.
 			bond_extra_no_checks(&333, 30);
-			assert_eq!(asset::staked::<Test>(&333), lock_444_before + 40 + 30); //not OK
+			assert_eq!(asset::staked::<Test>(&333), lock_444_before + 40 + 30); // not OK
 			assert_eq!(asset::staked::<Test>(&444), lock_444_before + 40); // OK
 
 			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
@@ -830,7 +834,7 @@ mod ledger_recovery {
 				Error::<Test>::CannotRestoreLedger
 			);
 
-			//and enforcing a new ledger lock/total on this non-corrupted ledger will work.
+			// and enforcing a new ledger lock/total on this non-corrupted ledger will work.
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,

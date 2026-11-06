@@ -74,19 +74,21 @@ where
 fn round(f: Fraction, r: Rounding) -> Fraction {
 	match r {
 		Up => f.ceil(),
-		NearestPrefUp =>
+		NearestPrefUp => {
 			if f.fract() < Fraction::from(0.5) {
 				f.floor()
 			} else {
 				f.ceil()
-			},
+			}
+		},
 		Down => f.floor(),
-		NearestPrefDown =>
+		NearestPrefDown => {
 			if f.fract() > Fraction::from(0.5) {
 				f.ceil()
 			} else {
 				f.floor()
-			},
+			}
+		},
 	}
 }
 

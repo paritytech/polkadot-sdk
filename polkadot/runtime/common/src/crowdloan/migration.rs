@@ -118,7 +118,7 @@ pub mod crowdloan_index_migration {
 			for (who, _amount) in leases.iter().flatten() {
 				if *who == old_fund_account {
 					found_lease_deposit = true;
-					break
+					break;
 				}
 			}
 			if found_lease_deposit {

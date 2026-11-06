@@ -39,7 +39,8 @@ events during Ethereum block construction:
 ```text
 Total Weight = fixed_part +
                Σ(per_tx_part(payload_i)) +
-               Σ(per_event_part(data_len_j))
+               Σ(per_event_part(data_len_j)) +
+               Σ(per_outside_frame_log_part(data_len_k))
 ```
 
 **High-Level Weight API (`OnFinalizeBlockParts` trait):**
@@ -47,6 +48,8 @@ The pallet exposes these weight calculation methods for runtime use:
 - **Fixed cost**: `on_finalize_block_fixed()` - Base overhead regardless of transaction/event count
 - **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
 - **Per-event cost**: `on_finalize_block_per_event(data_len)` - Applied dynamically during each `deposit_event()`
+- **Per-outside-of-frame-log cost**: `per_outside_frame_log(data_len)` - Applied when a log emitted outside an
+  ethereum transaction is buffered for the block's synthetic transaction
 
 **Underlying Benchmark Functions (`WeightInfo` trait):**
 These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:
@@ -54,6 +57,10 @@ These low-level benchmarks measure raw computational costs and are used to deriv
 - **Per-transaction data**: `on_finalize_per_transaction_data(d)` - Measures cost scaling with `d` bytes of transaction payload
 - **Per-event overhead**: `on_finalize_per_event(e)` - Measures cost scaling with `e` event count
 - **Per-event data**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` bytes of event data
+- **Per-outside-of-frame log**: `outside_frame_log(n)` - Measures the `on_finalize` drain cost scaling with
+  `n` buffered logs
+- **Per-outside-of-frame log data**: `outside_frame_log_data(d)` - Measures the drain cost scaling with `d` bytes
+  of one buffered log's data
 
 **Weight Derivation Methodology:**
 The high-level API methods use differential calculation to isolate marginal costs from benchmarks:
@@ -61,6 +68,8 @@ The high-level API methods use differential calculation to isolate marginal cost
 - Per-transaction byte: `on_finalize_per_transaction_data(1) - on_finalize_per_transaction_data(0)`
 - Per-event base: `on_finalize_per_event(1) - on_finalize_per_event(0)`
 - Per-byte of event data: `on_finalize_per_event_data(data_len) - on_finalize_per_event_data(0)`
+- Per-outside-of-frame log: `outside_frame_log(1) - outside_frame_log(0)`
+- Per-byte of outside-of-frame log data: `outside_frame_log_data(data_len) - outside_frame_log_data(0)`
 
 This comprehensive weight model ensures that:
 - Transactions emitting many events are properly weighted based on event count and data size
@@ -100,20 +109,5 @@ Example:
 ```bash
 cargo run --release -- --dev -lerror,runtime::revive::strace=trace,runtime::revive=debug
 ```
-
-## Unstable Interfaces
-
-Driven by the desire to have an iterative approach in developing new contract interfaces this pallet contains the
-concept of an unstable interface. Akin to the rust nightly compiler it allows us to add new interfaces but mark them as
-unstable so that contract languages can experiment with them and give feedback before we stabilize those.
-
-In order to access interfaces which don't have a stable `#[stable]` in [`runtime.rs`](src/vm/runtime.rs)
-one need to set `pallet_revive::Config::UnsafeUnstableInterface` to `ConstU32<true>`.
-**It should be obvious that any production runtime should never be compiled with this feature: In addition to be
-subject to change or removal those interfaces might not have proper weights associated with them and are therefore
-considered unsafe**.
-
-New interfaces are generally added as unstable and might go through several iterations before they are promoted to a
-stable interface.
 
 License: Apache-2.0

@@ -16,19 +16,18 @@
 //! Tests related to claiming assets trapped during XCM execution.
 
 use crate::imports::*;
-
 use emulated_integration_tests_common::test_chain_can_claim_assets;
 
 #[test]
 fn assets_can_be_claimed() {
 	let amount = PeopleWestendExistentialDeposit::get();
-	let assets: Assets = (Parent, amount).into();
+	let asset: Asset = (Parent, amount).into();
 
 	test_chain_can_claim_assets!(
 		PeopleWestend,
-		RuntimeCall,
+		PeopleWestendXcmConfig,
 		NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
-		assets,
+		asset,
 		amount
 	);
 }

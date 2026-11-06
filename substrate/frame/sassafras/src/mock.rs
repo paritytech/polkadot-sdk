@@ -135,8 +135,8 @@ fn make_ticket_with_prover(
 	log::debug!("attempt: {}", attempt);
 
 	// Values are referring to the next epoch
-	let epoch = Sassafras::epoch_index() + 1;
-	let randomness = Sassafras::next_randomness();
+	let epoch = EpochIndex::<Test>::get() + 1;
+	let randomness = NextRandomness::<Test>::get();
 
 	// Make a dummy ephemeral public that hopefully is unique within one test instance.
 	// In the tests, the values within the erased public are just used to compare
@@ -162,9 +162,9 @@ pub fn make_prover(pair: &AuthorityPair) -> RingProver {
 	let public = pair.public();
 	let mut prover_idx = None;
 
-	let ring_ctx = Sassafras::ring_context().unwrap();
+	let ring_ctx = RingContext::<Test>::get().unwrap();
 
-	let pks: Vec<sp_core::bandersnatch::Public> = Sassafras::authorities()
+	let pks: Vec<sp_core::bandersnatch::Public> = Authorities::<Test>::get()
 		.iter()
 		.enumerate()
 		.map(|(idx, auth)| {
@@ -195,8 +195,8 @@ pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<TicketEnvelope> 
 
 pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, TicketBody) {
 	// Values are referring to the next epoch
-	let epoch = Sassafras::epoch_index() + 1;
-	let randomness = Sassafras::next_randomness();
+	let epoch = EpochIndex::<Test>::get() + 1;
+	let randomness = NextRandomness::<Test>::get();
 
 	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx, epoch);
 	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
@@ -275,8 +275,8 @@ pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
 }
 
 fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
-	let mut epoch = Sassafras::epoch_index();
-	let mut randomness = Sassafras::randomness();
+	let mut epoch = EpochIndex::<Test>::get();
+	let mut randomness = CurrentRandomness::<Test>::get();
 
 	// Check if epoch is going to change on initialization.
 	let epoch_start = Sassafras::current_epoch_start();
@@ -341,7 +341,7 @@ pub fn go_to_block(number: u64, slot: Slot, pair: &AuthorityPair) -> Digest {
 /// Progress the pallet state up to the given block `number`.
 /// Slots will grow linearly accordingly to blocks.
 pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
-	let mut slot = Sassafras::current_slot() + 1;
+	let mut slot = CurrentSlot::<Test>::get() + 1;
 	let mut digest = None;
 	for i in System::block_number() + 1..=number {
 		let dig = go_to_block(i, slot, pair);

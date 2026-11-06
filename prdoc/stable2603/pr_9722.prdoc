@@ -1,0 +1,109 @@
+title: '[pallet-revive] opcode tracer'
+doc:
+- audience: Runtime Dev
+  description: |
+    This PR introduces a **Geth-compatible execution tracer** ([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger)) for pallet-revive
+
+    The tracer can be used to capture both EVM opcode and PVM syscall.
+    It can be used with  the same RPC endpoint as Geth StructLogger.
+
+
+    Since it can be quite resource intensive, It can only be queried from the node when the **DebugSettings** are enabled (This is turned on now by default in the dev-node)
+
+    Tested in https://github.com/paritytech/evm-test-suite/pull/138
+
+
+    example:
+
+    ```sh
+    ❯ cast rpc debug_traceTransaction "<TX_HASH>" | jq
+
+    # or with options
+    # See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger
+
+     ❯ cast rpc debug_traceTransaction "<TX_HASH>", { "tracer": { "enableMemory": true } } | jq
+    ```
+
+    The response includes additional fields compared to the original Geth debug RPC endpoints:
+
+    For the trace:
+    - `weight_consumed`: same as gas but expressed in Weight
+    - `base_call_weight`: the base cost of the transaction
+
+    For each step:
+    - `weight_cost`: same as gas_cost but expressed in Weight
+
+    For an EVM execution, the output will look like this
+
+    ```json
+    {
+      "gas": 4208049,
+      "weight_consumed": { "ref_time": 126241470000, "proof_size": 4208 },
+      "base_call_weight": { "ref_time": 9000000000, "proof_size": 3000 },
+      "failed": false,
+      "returnValue": "0x",
+      "structLogs": [
+        {
+          "gas": 4109533,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
+          "depth": 1,
+          "pc": 0,
+          "op": "PUSH1",
+          "stack": []
+        },
+        {
+          "gas": 4109530,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
+          "depth": 1,
+          "pc": 2,
+          "op": "PUSH1",
+          "stack": [
+            "0x80"
+          ]
+        },
+        {
+          "gas": 4109527,
+          "gasCost": 3,
+          "weight_cost": { "ref_time": 90000, "proof_size": 0 },
+          "depth": 1,
+          "pc": 4,
+          "op": "MSTORE",
+          "stack": [
+            "0x80",
+            "0x40"
+          ]
+        }]
+    }
+    ```
+
+    For PVM execution, each step includes additional fields not present in Geth:
+
+    - `args`: Array of syscall arguments (register values a0-a5) as hex strings
+    - `returned`: The syscall return value
+
+    These fields are enabled by default. To disable them, use `disableSyscallDetails: true`.
+
+    Example output with syscall details:
+
+    ```json
+    {
+      "gas": 97108,
+      "gasCost": 131,
+      "weight_cost": { "ref_time": 3930000, "proof_size": 0 },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": ["0x0", "0x4"],
+      "returned": "0x2a"
+    }
+    ```
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: revive-dev-runtime
+  bump: patch

@@ -28,11 +28,11 @@ line_num=0
 
 while IFS= read -r line || [[ -n "$line" ]]; do
     line_num=$((line_num + 1))
-    
+
     if [[ -z "$line" ]]; then
         continue
     fi
-    
+
     # Parse format: test-name:issue-number
     if [[ ! "$line" =~ ^([^:]+):([0-9]+)$ ]]; then
         echo "❌ Line $line_num: Missing required issue number" >&2
@@ -42,26 +42,26 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         has_errors=true
         continue
     fi
-    
+
     test_name="${BASH_REMATCH[1]}"
     issue_number="${BASH_REMATCH[2]}"
-    
+
     set +e
     issue_data=$(gh issue view "$issue_number" --json state,title,url 2>&1)
     gh_exit_code=$?
     set -e
-    
+
     if [[ $gh_exit_code -ne 0 ]]; then
         echo "❌ Line $line_num: Issue #$issue_number does not exist" >&2
         echo "   Test: $test_name" >&2
         has_errors=true
         continue
     fi
-    
+
     url=$(echo "$issue_data" | jq -r '.url')
     state=$(echo "$issue_data" | jq -r '.state')
     title=$(echo "$issue_data" | jq -r '.title')
-    
+
     # Check if it's an issue (not a PR) by verifying the URL contains '/issues/'
     if [[ ! "$url" =~ /issues/ ]]; then
         echo "❌ Line $line_num: #$issue_number is a Pull Request, not an Issue" >&2
@@ -71,7 +71,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         has_errors=true
         continue
     fi
-    
+
     if [[ "$state" == "OPEN" ]]; then
         echo "✅ Line $line_num: $test_name -> Issue #$issue_number (open)"
     else
@@ -79,8 +79,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         echo "   Test: $test_name" >&2
         echo "   Consider removing this entry if the issue is resolved." >&2
     fi
-    
-done < "$FLAKY_TESTS_FILE"
+
+# exclude empty lines and comments
+done < <(grep -vE '^\s*(#|$)' "$FLAKY_TESTS_FILE")
 
 echo
 

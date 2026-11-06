@@ -33,6 +33,10 @@ fn score_from(x: u128) -> ElectionScore {
 	ElectionScore { minimal_stake: x, ..Default::default() }
 }
 
+fn max_fee_refund() -> Balance {
+	<Runtime as crate::signed::Config>::MaxFeeRefund::get()
+}
+
 mod calls {
 	use super::*;
 	use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
@@ -217,6 +221,37 @@ mod calls {
 	}
 
 	#[test]
+	fn resubmitting_a_stored_page_does_not_accumulate_fee() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN a registered submitter with one page stored.
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			let before = Submissions::<Runtime>::metadata_of(0, 99).unwrap();
+			assert_eq!(before.fee, 2);
+
+			// WHEN the same page is stored again.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			// THEN nothing in the metadata moves: no second fee for the same page, and the page
+			// count, hence the deposit, is the same.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap(), before);
+		});
+	}
+
+	#[test]
 	fn metadata_submission_sorted_based_on_score() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
@@ -287,6 +322,7 @@ mod calls {
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(_, 92, _),
 					SignedEvent::Ejected(_, 92),
 					SignedEvent::Registered(_, 94, _),
 				]
@@ -311,8 +347,10 @@ mod calls {
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(..),
 					SignedEvent::Ejected(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(_, 91, _),
 					SignedEvent::Ejected(_, 91),
 					SignedEvent::Registered(_, 95, _),
 				]
@@ -341,7 +379,11 @@ mod calls {
 
 			assert_eq!(
 				signed_events(),
-				vec![Event::Registered(0, 99, score), Event::Bailed(0, 99)]
+				vec![
+					Event::Registered(0, 99, score),
+					Event::Slashed(0, 99, 4),
+					Event::Bailed(0, 99)
+				]
 			);
 		});
 	}
@@ -426,6 +468,62 @@ mod calls {
 				]
 			));
 		});
+	}
+}
+
+mod max_fee_refund {
+	use super::*;
+	use codec::Encode;
+	use frame_support::{dispatch::DispatchInfo, traits::EstimateFee};
+
+	/// A fee model that charges one unit per encoded byte, and nothing for weight.
+	pub struct PerByteFee;
+	impl EstimateFee<Balance> for PerByteFee {
+		fn estimate_fee(len: u32, _: &DispatchInfo) -> Balance {
+			len.into()
+		}
+	}
+
+	#[test]
+	fn is_what_a_full_submission_accrues() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN a full submission, under a fee model that charges one unit per call.
+			load_signed_for_verification(99, mine_full_solution().unwrap());
+			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), Pages::get() as usize);
+
+			// THEN the bound is exactly what it accrued: one `register`, plus one call per page.
+			let accrued = Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee;
+			assert_eq!(accrued, 1 + Pages::get() as Balance);
+			assert_eq!(accrued, max_fee_refund());
+		})
+	}
+
+	#[test]
+	fn covers_the_length_of_a_real_submission() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN the calls that a full submission is made of, priced by encoded length.
+			let paged = mine_full_solution().unwrap();
+			let mut submission_len =
+				crate::signed::Call::<Runtime>::register { claimed_score: paged.score }
+					.encoded_size();
+			for (page, solution) in paged.solution_pages.pagify(Pages::get()) {
+				submission_len += crate::signed::Call::<Runtime>::submit_page {
+					page,
+					maybe_solution: Some(Box::new(solution.clone())),
+				}
+				.encoded_size();
+			}
+
+			// THEN the bound covers it with room to spare: pages are priced at the maximum page
+			// size, not their actual size.
+			assert!(FullSubmissionFee::<Runtime, PerByteFee>::get() > submission_len as Balance);
+		})
 	}
 }
 
@@ -525,19 +623,50 @@ mod e2e {
 					)
 				]
 			);
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![
+					SignedEvent::Registered(
+						0,
+						99,
+						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 }
+					),
+					SignedEvent::Stored(0, 99, 0),
+					SignedEvent::Registered(
+						0,
+						999,
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					),
+					SignedEvent::Stored(0, 999, 0),
+					SignedEvent::Stored(0, 999, 1),
+					SignedEvent::Stored(0, 999, 2),
+					SignedEvent::Registered(
+						0,
+						92,
+						ElectionScore {
+							minimal_stake: 110,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					)
+				]
+			);
 
 			roll_to_signed_validation_open();
 
-			// 92 is slashed in 3+1 blocks, 999 becomes rewarded in 3 blocks, and 99 is discarded.
-			roll_next();
-			roll_next();
-			roll_next();
-			roll_next();
+			// 92 is slashed in 3 blocks, 999 becomes rewarded in 3 blocks, and 99 is discarded.
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(4), Status::Ongoing(0));
+			// Note `Ongoing(2)` -- verifier is signaled to continue.
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(3), Status::Ongoing(2));
 
 			// Check events after first solution (92) is rejected
-			let events_after_first_rejection = verifier_events_since_last_call();
 			assert_eq!(
-				events_after_first_rejection,
+				verifier_events_since_last_call(),
 				vec![
 					crate::verifier::Event::Verified(2, 0),
 					crate::verifier::Event::Verified(1, 0),
@@ -545,6 +674,8 @@ mod e2e {
 					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
 			);
+			// and that submitter is slashed.
+			assert_eq!(signed_events_since_last_call(), vec![SignedEvent::Slashed(0, 92, 5)]);
 
 			assert_eq!(
 				Submissions::<Runtime>::leaderboard(0)
@@ -554,14 +685,13 @@ mod e2e {
 				vec![99, 999]
 			);
 
-			roll_next();
-			roll_next();
-			roll_next();
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(2), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(1), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(0), Status::Nothing);
 
 			// Check events after second solution (999) is accepted
-			let events_after_acceptance = verifier_events_since_last_call();
 			assert_eq!(
-				events_after_acceptance,
+				verifier_events_since_last_call(),
 				vec![
 					crate::verifier::Event::Verified(2, 2),
 					crate::verifier::Event::Verified(1, 2),
@@ -577,45 +707,7 @@ mod e2e {
 				]
 			);
 
-			assert_eq!(
-				signed_events_since_last_call(),
-				vec![
-					Event::Registered(
-						0,
-						99,
-						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 }
-					),
-					Event::Stored(0, 99, 0),
-					Event::Registered(
-						0,
-						999,
-						ElectionScore {
-							minimal_stake: 55,
-							sum_stake: 130,
-							sum_stake_squared: 8650
-						}
-					),
-					Event::Stored(0, 999, 0),
-					Event::Stored(0, 999, 1),
-					Event::Stored(0, 999, 2),
-					Event::Registered(
-						0,
-						92,
-						ElectionScore {
-							minimal_stake: 110,
-							sum_stake: 130,
-							sum_stake_squared: 8650
-						}
-					),
-					Event::Slashed(0, 92, 5),
-					Event::Rewarded(0, 999, 7),
-				]
-			);
-
-			assert!(
-				verifier_events_since_last_call().is_empty(),
-				"No additional verifier events should occur"
-			);
+			assert_eq!(signed_events_since_last_call(), vec![SignedEvent::Rewarded(0, 999, 7)]);
 
 			// 99 is discarded -- for now they have some deposit collected, which they have to
 			// manually collect next.
@@ -661,6 +753,49 @@ mod e2e {
 	}
 
 	#[test]
+	fn winner_fee_refund_is_bounded_by_max_fee_refund() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN a full, valid solution, whose accrued fee is already at the bound.
+			let paged = mine_full_solution().unwrap();
+			load_signed_for_verification(99, paged.clone());
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee, max_fee_refund());
+
+			// WHEN further fee-paying calls are made against the same submission, leaving it
+			// unchanged.
+			let (page_index, page) = paged.solution_pages.pagify(Pages::get()).next().unwrap();
+			for _ in 0..3 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), page_index, None));
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page_index,
+					Some(Box::new(page.clone()))
+				));
+			}
+			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), Pages::get() as usize);
+			assert_eq!(Submissions::<Runtime>::get_page_of(0, &99, page_index), Some(page.clone()));
+			assert!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee > max_fee_refund(),
+				"the bound must actually bind for this test to mean anything"
+			);
+			let _ = signed_events_since_last_call();
+
+			// THEN the winner is paid the reward plus the bound, not the accrued fee.
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![SignedEvent::Rewarded(0, 99, SignedRewardBase::get() + max_fee_refund())]
+			);
+			// deposit released, and only the bounded refund minted on top of the reward.
+			assert_eq!(balances(99), (100 + SignedRewardBase::get() + max_fee_refund(), 0));
+		})
+	}
+
+	#[test]
 	fn after_rejecting_does_not_call_verifier_start_if_no_leader_exists() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
@@ -675,7 +810,6 @@ mod e2e {
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
 
 			roll_to_signed_validation_open();
-			roll_next(); // one block so signed pallet will send start signal.
 			roll_to_full_verification();
 
 			// Check that rejection events were properly generated
@@ -691,23 +825,22 @@ mod e2e {
 
 			// Check that expected events were emitted for the rejection
 			assert_eq!(
-				signed_events(),
+				signed_events_since_last_call(),
 				vec![Event::Registered(0, 99, invalid_score), Event::Slashed(0, 99, 5),]
 			);
 
 			// Verify no-restart conditions are met
-			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
+			assert!(MultiBlock::current_phase().is_signed_validation());
 			assert!(!Submissions::<Runtime>::has_leader(current_round));
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
 			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
 			// Verifier should remain idle for the rest of the signed validation phase
 			while crate::Pallet::<Runtime>::current_phase().is_signed_validation() {
-				roll_next();
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+				roll_next_and_verifier(Status::Nothing);
 			}
 
-			roll_next();
+			roll_next_and_phase(Phase::<T>::Done);
 			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 		});
 	}
@@ -745,9 +878,9 @@ mod e2e {
 
 			// Verify the metadata shows correct page submission status
 			assert_eq!(
-					    Submissions::<Runtime>::metadata_of(0, submitter).unwrap().pages.into_inner(),
-					    vec![true, false, false]
-					);
+				Submissions::<Runtime>::metadata_of(0, submitter).unwrap().pages.into_inner(),
+				vec![true, false, false]
+			);
 
 			// Verify that the solution data provider can access all pages without errors
 			let page_0 = SignedPallet::get_page(0);
@@ -763,10 +896,9 @@ mod e2e {
 			roll_to_signed_validation_open();
 
 			// The verification should proceed and treat the missing pages as empty
-			roll_next(); // set status to ongoing
-			roll_next(); // Process page 2 (missing, treated as empty)
-			roll_next(); // Process page 1 (missing, treated as empty)
-			roll_next(); // Process page 0 (submitted with real data)
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(4), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(3), Status::Nothing);
 
 			// Check only the events from this verification
 			assert_eq!(
@@ -785,9 +917,8 @@ mod e2e {
 	#[test]
 	fn not_all_solutions_verified_signed_verification_to_unsigned() {
 		// Test that in case of multiple verifications when not all of them are verified within the
-		// signed validation phase, the verifier should stop and go back to
-		// idle when transitioning from signed validation to unsigned phase, while keeping not yet
-		// verified solutions.
+		// signed validation phase, the verifier should stop and go back to idle when transitioning
+		// from signed validation to unsigned phase, while keeping not yet verified solutions.
 		// NOTE: the signed validation phase must be a multiple of the number of pages, which
 		// ensures that solutions cannot be halfway verified
 		ExtBuilder::signed()
@@ -811,65 +942,10 @@ mod e2e {
 					load_signed_for_verification(999, strong_solution.clone());
 				}
 
-				let current_round = SignedPallet::current_round();
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
-
-				roll_to_signed_validation_open();
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(3));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Nothing));
-				roll_next(); // one block so signed-pallet will send the start signal
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(2));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(2)));
-
-				// Initial verifier state should have no queued solution
-				assert_eq!(VerifierPallet::queued_score(), None);
-
-				// Bad solution is the current leader
-				let mut remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
-				assert_eq!(remaining_leader.0, 99);
-
-				// Bad solution starts verification
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(1));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Nothing));
-
-				// Check events after bad solution verification completes
 				assert_eq!(
-					verifier_events_since_last_call(),
+					signed_events_since_last_call(),
 					vec![
-						crate::verifier::Event::Verified(2, 0),
-						crate::verifier::Event::Verified(1, 0),
-						crate::verifier::Event::Verified(0, 0),
-						crate::verifier::Event::VerificationFailed(
-							0,
-							FeasibilityError::InvalidScore
-						),
-					]
-				);
-
-				// Verify phase transition to unsigned
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
-
-				// Check that invalid solution is slashed but good solution remains
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-				assert!(Submissions::<Runtime>::has_leader(current_round));
-				remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
-				assert_eq!(remaining_leader.0, 999); // Good solution remains
-
-				// Check that expected events were emitted for the rejection
-				assert_eq!(
-					signed_events(),
-					vec![
-						Event::Registered(
+						SignedEvent::Registered(
 							0,
 							99,
 							ElectionScore {
@@ -878,7 +954,7 @@ mod e2e {
 								sum_stake_squared: 8650
 							}
 						),
-						Event::Registered(
+						SignedEvent::Registered(
 							0,
 							999,
 							ElectionScore {
@@ -887,12 +963,54 @@ mod e2e {
 								sum_stake_squared: 8650
 							}
 						),
-						Event::Stored(0, 999, 0),
-						Event::Stored(0, 999, 1),
-						Event::Stored(0, 999, 2),
-						Event::Slashed(0, 99, 5),
+						SignedEvent::Stored(0, 999, 0),
+						SignedEvent::Stored(0, 999, 1),
+						SignedEvent::Stored(0, 999, 2),
 					]
 				);
+
+				let current_round = SignedPallet::current_round();
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
+
+				roll_to_signed_validation_open();
+				assert_eq!(verifier_events_since_last_call(), vec![]);
+
+				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
+				assert_eq!(
+					verifier_events_since_last_call(),
+					vec![crate::verifier::Event::Verified(2, 0)]
+				);
+
+				// Initial verifier state should have no queued solution
+				assert_eq!(VerifierPallet::queued_score(), None);
+
+				// Bad solution starts verification
+				roll_next_and_phase_verifier(Phase::SignedValidation(1), Status::Ongoing(0));
+				assert_eq!(
+					verifier_events_since_last_call(),
+					vec![crate::verifier::Event::Verified(1, 0)]
+				);
+
+				roll_next_and_phase_verifier(Phase::SignedValidation(0), Status::Nothing);
+				assert_eq!(
+					verifier_events_since_last_call(),
+					vec![
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						)
+					]
+				);
+
+				roll_next_and_phase(Phase::Unsigned(UnsignedPhase::get() - 1));
+
+				// Check that invalid solution is slashed but good solution remains
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+				assert!(Submissions::<Runtime>::has_leader(current_round));
+
+				// Check that expected events were emitted for the rejection
+				assert_eq!(signed_events_since_last_call(), vec![Event::Slashed(0, 99, 5)]);
 
 				// Verify no additional events occurred
 				assert!(
@@ -930,16 +1048,16 @@ mod e2e {
 					let good_solution = mine_full_solution().unwrap();
 					load_signed_for_verification(999, good_solution);
 				}
+				// skip registration events
+				let _ = signed_events_since_last_call();
 
 				roll_to_signed_validation_open();
-				let _ = signed_events_since_last_call();
 
 				// henceforth we proceed block-by-block for better visibility of what is happening.
 
-				// 3 blocks to reject the first one: 1 to set status to ongoing, and 2 to verify
-				roll_next();
-				roll_next();
-				roll_next();
+				// 2 blocks to reject the first one
+				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
+				roll_next_and_phase_verifier(Phase::SignedValidation(1), Status::Nothing);
 
 				assert_eq!(
 					verifier_events_since_last_call(),
@@ -958,21 +1076,20 @@ mod e2e {
 					vec![crate::signed::Event::Slashed(0, 99, 8)]
 				);
 
-				// we have 1 block left in signed verification, but we cannot do anything here.
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));
+				// we have 2 blocks left in signed verification (1 and 3), but we cannot do anything
+				// here. Status remains idle.
+				roll_next_and_phase_verifier(Phase::SignedValidation(0), Status::Nothing);
 
 				// we go back to signed next
-				roll_next();
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::Signed(4));
+				roll_next_and_phase(Phase::Signed(4));
 
 				// no one submits again, and we go to verification again
 				roll_to_signed_validation_open();
 
 				// 4 block to verify: 1 to set status, and 3 to verify
-				roll_next();
-				roll_next();
-				roll_next();
-				roll_next();
+				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
+				roll_next_and_phase_verifier(Phase::SignedValidation(1), Status::Ongoing(0));
+				roll_next_and_phase_verifier(Phase::SignedValidation(0), Status::Nothing);
 
 				assert_eq!(
 					verifier_events_since_last_call(),
@@ -997,124 +1114,12 @@ mod e2e {
 
 				// verifier is `Nothing`, and will remain so as signed-pallet will not start it
 				// again.
-
 				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
 				// next block we go to done
-				roll_next();
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::Done);
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+				roll_next_and_phase_verifier(Phase::Done, Status::Nothing);
 			})
-	}
-
-	#[test]
-	fn not_all_solutions_verified_signed_verification_incomplete_to_signed() {
-		// Test that demonstrates early failure and no verifier restart due to insufficient blocks:
-		// - SignedValidation phase of 3 blocks with 3-page solutions
-		// - Bad solution with high score fails early on page 1 with invalid voter index
-		// - Good solution with lower score is submitted but cannot be verified
-		// - After bad solution fails, verifier is NOT restarted because there are only 2 blocks
-		//   remaining and we need 3 blocks for a 3-page solution
-		// - System transitions back to Signed phase with good solution still queued for next round
-		ExtBuilder::signed()
-			.pages(3)
-			.signed_validation_phase(3) // 3 blocks for validation
-			.are_we_done(crate::mock::AreWeDoneModes::BackToSigned) // Revert to signed if no solution
-			.build_and_execute(|| {
-				roll_to_signed_open();
-
-				// Submit bad solution with high score that will fail early during verification
-				{
-					let mut bad_solution = mine_full_solution().unwrap();
-					bad_solution.score.minimal_stake *= 2;
-					bad_solution.solution_pages[1usize].corrupt();
-					load_signed_for_verification(99, bad_solution);
-				}
-
-				// Submit good solution with lower score (all pages valid)
-				{
-					let good_solution = mine_full_solution().unwrap();
-					load_signed_for_verification(999, good_solution.clone());
-				}
-
-				let current_round = SignedPallet::current_round();
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
-
-				roll_to_signed_validation_open();
-				roll_next(); // one block so signed-pallet will send the start signal
-				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-				// Bad solution is the current leader (higher score)
-				let leader = Submissions::<Runtime>::leader(current_round).unwrap();
-				assert_eq!(leader.0, 99);
-
-				// Block 1: Start verification of bad solution (page 2)
-				roll_next(); // SignedValidation(2) -> SignedValidation(1)
-				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(1)));
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-				// Should verify page 2 successfully
-				assert_eq!(
-					verifier_events_since_last_call(),
-					vec![crate::verifier::Event::Verified(2, 2)]
-				);
-
-				// Block 2: Continue verification (page 1) - bad solution should fail here
-				roll_next(); // SignedValidation(1) -> SignedValidation(0)
-				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(0)));
-
-				// Bad solution should fail early with NposElection error on page 1 verification
-				assert_eq!(
-					verifier_events_since_last_call(),
-					vec![crate::verifier::Event::VerificationFailed(
-						1,
-						FeasibilityError::NposElection(
-							sp_npos_elections::Error::SolutionInvalidIndex
-						)
-					)]
-				);
-
-				// Block 3: No more verification needed - bad solution already failed
-				roll_next(); // SignedValidation(0) -> transitions to next phase
-
-				// Check that bad solution is removed and good solution remains
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-				let remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
-				assert_eq!(remaining_leader.0, 999); // Good solution is now leader
-
-				// CRITICAL: Verifier should NOT restart because there are only 2 blocks remaining
-				// (after using 1 block and failing early, but still need 3 blocks for a full
-				// solution) Should transition back to Signed phase since verification cannot
-				// restart
-				assert!(matches!(MultiBlock::current_phase(), Phase::Signed(_)));
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-
-				// Check events - bad solution should be slashed
-				let all_signed_events = signed_events();
-				assert!(all_signed_events.iter().any(|e| matches!(e, Event::Slashed(0, 99, _))));
-
-				// At the end of signed phase, verifier is still idle
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-
-				roll_to_signed_validation_open();
-				roll_next(); // one block so signed-pallet will send the start signal
-
-				// Now in the next validation phase, the good solution starts verification
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-
-				// Verify the good solution over 3 blocks
-				roll_next(); // Process page 2
-				roll_next(); // Process page 1
-				roll_next(); // Process page 0
-
-				// Good solution should be fully verified and accepted
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
-			});
 	}
 
 	#[test]
@@ -1122,8 +1127,6 @@ mod e2e {
 		// Test that when the submission queue is at capacity (MaxSubmissions = 3), with only the
 		// third submission being valid, the verifier processes the entire queue sequentially and
 		// eventually accepts the final valid solution.
-
-		// Set max submissions to 3 for this test
 		ExtBuilder::signed()
 			.max_signed_submissions(3)
 			.signed_validation_phase(9) // 3 solutions * 3 pages per solution = 9 blocks needed
@@ -1134,23 +1137,32 @@ mod e2e {
 				let current_round = SignedPallet::current_round();
 
 				// Submit two invalid solutions (register but don't submit pages)
-				let invalid_score1 = {
-					let mut score = mine_full_solution().unwrap().score;
-					score.minimal_stake *= 2; // Make it attractive but it will be invalid
-					score
-				};
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), invalid_score1));
+				{
+					let invalid_score1 = {
+						let mut score = mine_full_solution().unwrap().score;
+						score.minimal_stake *= 2; // Make it attractive but it will be invalid
+						score
+					};
+					assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), invalid_score1));
+				}
 
-				let invalid_score2 = {
-					let mut score = mine_full_solution().unwrap().score;
-					score.minimal_stake *= 3; // Make it even more attractive but still invalid
-					score
-				};
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), invalid_score2));
+				{
+					let invalid_score2 = {
+						let mut score = mine_full_solution().unwrap().score;
+						score.minimal_stake *= 3; // Make it even more attractive but still invalid
+						score
+					};
+					assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), invalid_score2));
+				}
 
 				// Submit one valid solution at the end
-				let valid_solution = mine_full_solution().unwrap();
-				load_signed_for_verification(99, valid_solution.clone());
+				let valid_score = {
+					let valid_solution = mine_full_solution().unwrap();
+					load_signed_for_verification(99, valid_solution.clone());
+					valid_solution.score
+				};
+				// skip registration events
+				let _ = signed_events_since_last_call();
 
 				// Verify we have 3 submissions at max capacity
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 3);
@@ -1158,18 +1170,15 @@ mod e2e {
 
 				// Move to verification phase
 				roll_to_signed_validation_open();
-				roll_next(); // one block so signed-pallet will send the start signal
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
-				// Process first invalid solution (91)
-				roll_next(); // Process page 2
-				roll_next(); // Process page 1
-				roll_next(); // Process page 0 and reject solution
+				roll_next_and_phase_verifier(Phase::SignedValidation(8), Status::Ongoing(1));
+				roll_next_and_phase_verifier(Phase::SignedValidation(7), Status::Ongoing(0));
+				// Note `Status::Ongoing(2)` -- we are signaled to start again in then next block.
+				roll_next_and_phase_verifier(Phase::SignedValidation(6), Status::Ongoing(2));
 
 				// Check events after first solution (91) is rejected
-				let events_first_solution = verifier_events_since_last_call();
 				assert_eq!(
-					events_first_solution,
+					verifier_events_since_last_call(),
 					vec![
 						crate::verifier::Event::Verified(2, 0),
 						crate::verifier::Event::Verified(1, 0),
@@ -1180,15 +1189,15 @@ mod e2e {
 						),
 					]
 				);
+				assert_eq!(signed_events_since_last_call(), vec![SignedEvent::Slashed(0, 92, 5)]);
 
 				// Verify first solution was slashed and removed
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
-				// Process second invalid solution (92)
-				roll_next(); // Process page 2
-				roll_next(); // Process page 1
-				roll_next(); // Process page 0 and reject solution
+				roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+				roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+				// Note `Status::Ongoing(2)` -- we are signaled to start again in then next block.
+				roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Ongoing(2));
 
 				// Check events after second solution (92) is rejected
 				assert_eq!(
@@ -1203,19 +1212,19 @@ mod e2e {
 						),
 					]
 				);
+				assert_eq!(signed_events_since_last_call(), vec![SignedEvent::Slashed(0, 91, 5)]);
 
 				// Verify second solution was slashed and removed
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
 				// Verify the last remaining solution is our valid one
 				let leader = Submissions::<Runtime>::leader(current_round).unwrap();
 				assert_eq!(leader.0, 99);
 
-				// Process the final valid solution
-				roll_next(); // Process page 2 of valid solution
-				roll_next(); // Process page 1 of valid solution
-				roll_next(); // Process page 0 of valid solution and accept it
+				// Process the final valid solution. We are done _exactly on time_.
+				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
+				roll_next_and_phase_verifier(Phase::SignedValidation(1), Status::Ongoing(0));
+				roll_next_and_phase_verifier(Phase::SignedValidation(0), Status::Nothing);
 
 				// Check events after valid solution (99) is accepted
 				assert_eq!(
@@ -1224,34 +1233,15 @@ mod e2e {
 						crate::verifier::Event::Verified(2, 2),
 						crate::verifier::Event::Verified(1, 2),
 						crate::verifier::Event::Verified(0, 2),
-						crate::verifier::Event::Queued(valid_solution.score, None),
+						crate::verifier::Event::Queued(valid_score, None),
 					]
 				);
-
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
 				// Check that all expected events were emitted in the correct order
-				assert_eq!(
-					signed_events(),
-					vec![
-						Event::Registered(0, 91, invalid_score1),
-						Event::Registered(0, 92, invalid_score2),
-						Event::Registered(0, 99, valid_solution.score),
-						Event::Stored(0, 99, 0),
-						Event::Stored(0, 99, 1),
-						Event::Stored(0, 99, 2),
-						Event::Slashed(0, 92, 5),
-						Event::Slashed(0, 91, 5),
-						Event::Rewarded(0, 99, 7),
-					]
-				);
+				assert_eq!(signed_events_since_last_call(), vec![Event::Rewarded(0, 99, 7)]);
 
 				// finally done
-				roll_next();
-				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::Done);
-				// verifier has done nothing
-				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+				roll_next_and_phase_verifier(Phase::Done, Status::Nothing);
 				assert!(
 					verifier_events_since_last_call().is_empty(),
 					"No additional verifier events should occur"
@@ -1520,7 +1510,6 @@ mod invulnerables {
 			let _ = signed_events_since_last_call();
 
 			roll_to_signed_validation_open();
-			roll_next();
 			roll_to_full_verification();
 
 			assert_eq!(
@@ -1542,9 +1531,8 @@ mod invulnerables {
 			assert_eq!(signed_events_since_last_call(), vec![Event::Rewarded(0, 98, 7)]);
 
 			// not relevant: signed will not start verification again
-			roll_next();
+			roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Nothing);
 			assert!(verifier_events_since_last_call().is_empty());
-			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
 			// fast-forward to round being over
 			roll_to_done();
@@ -1559,6 +1547,53 @@ mod invulnerables {
 			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
 			// full deposit is returned + tx-fee
 			assert_eq!(balances(99), (101, 0));
+		})
+	}
+
+	#[test]
+	fn discarded_invulnerable_fee_refund_is_bounded_by_max_fee_refund() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN an invulnerable with an accrued fee above the bound.
+			make_invulnerable(99);
+			roll_to_signed_open();
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			for _ in 0..6 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					0,
+					Some(Default::default())
+				));
+			}
+			assert!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee > max_fee_refund(),
+				"the bound must actually bind for this test to mean anything"
+			);
+
+			// a stronger solution wins the round, so 99 is discarded rather than rewarded.
+			load_signed_for_verification(98, mine_full_solution().unwrap());
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+			roll_to_done();
+			MultiBlock::rotate_round();
+			assert!(signed_events_since_last_call().contains(&Event::Rewarded(
+				0,
+				98,
+				SignedRewardBase::get() + max_fee_refund()
+			)));
+
+			// WHEN they clear their discarded submission.
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
+
+			// THEN they are discarded, their deposit is returned in full, and the fee refund is
+			// the bound.
+			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
+			assert_eq!(balances(99), (100 + max_fee_refund(), 0));
 		})
 	}
 
@@ -1594,7 +1629,7 @@ mod invulnerables {
 	}
 
 	#[test]
-	fn slashed_invulnerable_is_expelled() {
+	fn slashed_invulnerable_is_not_expelled() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -1605,7 +1640,6 @@ mod invulnerables {
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
 
 			roll_to_signed_validation_open();
-			roll_next(); // one block so signed pallet will send start signal.
 			roll_to_full_verification();
 
 			// Check that rejection events were properly generated
@@ -1630,8 +1664,8 @@ mod invulnerables {
 				                                                                         * (7) ^^^^ */
 			);
 
-			// Verify invulnerable is expelled
-			assert!(!Invulnerables::<T>::get().contains(&99));
+			// Verify invulnerable is not expelled. It remains in the list despite being slashed.
+			assert!(Invulnerables::<T>::get().contains(&99));
 		});
 	}
 }
@@ -1655,12 +1689,6 @@ mod defensive_tests {
 
 			// Submit a solution page to have something to verify
 			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()));
-
-			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
-
-			roll_next(); // Process page 2
-			roll_next(); // Process page 1
-
 			assert_eq!(
 				signed_events_since_last_call(),
 				vec![
@@ -1673,16 +1701,19 @@ mod defensive_tests {
 				]
 			);
 
-			// Now mutate storage to delete the score of the leader.
-			let current_round = SignedPallet::current_round();
+			// verify 2 of the pages.
+			roll_to_signed_validation_open();
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
 
 			// Delete the score storage
-			let full_key =
-				crate::signed::pallet::SortedScores::<Runtime>::hashed_key_for(current_round);
+			let full_key = crate::signed::pallet::SortedScores::<Runtime>::hashed_key_for(
+				SignedPallet::current_round(),
+			);
 			unhashed::kill(&full_key);
 
 			// Complete verification - this should trigger score unavailable detection
-			roll_next();
+			roll_next_and_phase(Phase::SignedValidation(3));
 		});
 	}
 
@@ -1715,6 +1746,327 @@ mod defensive_tests {
 
 			// get_page should trigger defensive failure when no leader exists
 			let _page = SignedPallet::get_page(0);
+		});
+	}
+}
+
+mod issuance {
+	use super::*;
+	use frame_support::traits::fungible::Mutate;
+
+	/// Arbitrary account used as a reward pot in these tests.
+	const POT: AccountId = 1000;
+
+	/// Submit a full valid solution for `who` and roll through to the Rewarded event.
+	///
+	/// Returns the balances snapshot of `who` just before rolling to SignedValidation.
+	fn submit_and_verify_winning(who: AccountId) {
+		roll_to_signed_open();
+		assert_full_snapshot();
+
+		let paged = mine_full_solution().unwrap();
+		load_signed_for_verification(who, paged);
+		let _ = signed_events_since_last_call();
+
+		roll_to_signed_validation_open();
+		let _ = multi_block_events_since_last_call();
+
+		for _ in 0..Pages::get() + 1 {
+			roll_to(System::block_number() + 1);
+		}
+	}
+
+	#[test]
+	fn reward_mints_by_default() {
+		// When RewardSource is None (default), rewards are minted and TotalIssuance increases.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(None);
+
+			let ti_before = Balances::total_issuance();
+			submit_and_verify_winning(999);
+
+			let rewarded_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.collect();
+			assert_eq!(rewarded_events.len(), 1, "expected exactly one Rewarded event");
+
+			let ti_after = Balances::total_issuance();
+			// reward (3) + fee (1 register + 3 pages = 4) = 7
+			assert!(ti_after > ti_before, "total issuance must increase when minting rewards");
+		});
+	}
+
+	#[test]
+	fn reward_transfers_from_source_when_configured() {
+		// When RewardSource is Some(pot), the reward is transferred from the pot account.
+		// TotalIssuance must not change during the reward payment.
+		ExtBuilder::signed().build_and_execute(|| {
+			Balances::mint_into(&POT, 1_000).unwrap();
+			SignedRewardSource::set(Some(POT));
+
+			let ti_before = Balances::total_issuance();
+			let pot_before = Balances::free_balance(POT);
+
+			submit_and_verify_winning(999);
+
+			let rewarded_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.collect();
+			assert_eq!(rewarded_events.len(), 1, "expected exactly one Rewarded event");
+
+			// mint_into of pot balance was the only issuance change before the test window
+			let ti_after = Balances::total_issuance();
+			let pot_after = Balances::free_balance(POT);
+
+			assert_eq!(ti_before, ti_after, "total issuance must not change when paying from pot");
+			assert!(pot_after < pot_before, "reward pot balance must decrease after paying winner");
+		});
+	}
+
+	#[test]
+	fn reward_deferred_when_source_pot_is_empty() {
+		// Empty pot: transfer fails, RewardPaymentDeferred fires instead of Rewarded, and the
+		// amount is queued in UnpaidRewards rather than paid.
+		ExtBuilder::signed().build_and_execute(|| {
+			// Do NOT fund the pot.
+			SignedRewardSource::set(Some(POT));
+
+			let ti_before = Balances::total_issuance();
+			submit_and_verify_winning(999);
+			let ti_after = Balances::total_issuance();
+
+			let events = signed_events_since_last_call();
+			assert!(
+				!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))),
+				"Rewarded must not be emitted when the pot transfer fails"
+			);
+			let deferred_events: Vec<_> = events
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..)))
+				.collect();
+			assert_eq!(
+				deferred_events.len(),
+				1,
+				"expected exactly one RewardPaymentDeferred event"
+			);
+			assert_eq!(ti_before, ti_after, "total issuance must not change when pot is empty");
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1, "the reward must be queued");
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_works_once_pot_refilled() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			submit_and_verify_winning(999);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+			let _ = signed_events_since_last_call();
+
+			// Refill the pot, then claim.
+			Balances::mint_into(&POT, 1_000).unwrap();
+			let balance_before = Balances::free_balance(999);
+
+			assert_ok!(SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0));
+
+			assert!(
+				Balances::free_balance(999) > balance_before,
+				"winner must receive the deferred reward"
+			);
+			assert!(UnpaidRewards::<T>::get().is_empty(), "claimed entry must be removed");
+			assert!(signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Rewarded(0, 999, _))));
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_is_permissionless() {
+		// Anyone can trigger the claim; the payout still goes to the original winner, not the
+		// caller.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			submit_and_verify_winning(999);
+			Balances::mint_into(&POT, 1_000).unwrap();
+			let winner_balance_before = Balances::free_balance(999);
+			let caller_balance_before = Balances::free_balance(1);
+
+			// 1 claims on behalf of 999.
+			assert_ok!(SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(1), 0));
+
+			assert!(Balances::free_balance(999) > winner_balance_before, "winner gets paid");
+			assert_eq!(Balances::free_balance(1), caller_balance_before, "caller gets nothing");
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_fails_when_no_entry() {
+		ExtBuilder::signed().build_and_execute(|| {
+			assert_noop!(
+				SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0),
+				Error::<T>::NoUnpaidReward
+			);
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_fails_when_pot_still_depleted() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+			submit_and_verify_winning(999);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+
+			// Pot is still empty.
+			assert_noop!(
+				SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0),
+				Error::<T>::PotStillDepleted
+			);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1, "entry must remain queued");
+		});
+	}
+
+	#[test]
+	fn reward_deferral_evicts_oldest_when_unpaid_queue_is_full() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			// Fill the unpaid-rewards queue to capacity, oldest (round 999) first.
+			UnpaidRewards::<T>::mutate(|unpaid| {
+				for i in 0..MAX_UNPAID_REWARDS as u64 {
+					unpaid
+						.try_push(UnpaidReward { round: 999 + i as u32, who: i, amount: 1 })
+						.unwrap();
+				}
+			});
+
+			submit_and_verify_winning(999);
+
+			let events = signed_events_since_last_call();
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::UnpaidRewardEvicted(999, 0, 1))),
+				"expected the oldest entry (round 999) to be evicted"
+			);
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))),
+				"the new reward must still be deferred, never dropped"
+			);
+			let unpaid = UnpaidRewards::<T>::get();
+			assert_eq!(
+				unpaid.len(),
+				MAX_UNPAID_REWARDS as usize,
+				"queue stays at capacity, oldest swapped for newest"
+			);
+			assert!(!unpaid.iter().any(|e| e.round == 999), "evicted entry must be gone");
+		});
+	}
+
+	#[test]
+	fn fee_refund_failed_when_source_pot_is_empty() {
+		// An invulnerable's fee refund is not deferred like a reward: on failure it just emits
+		// FeeRefundFailed, and Discarded still fires normally.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+			// Do NOT fund POT.
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99]).unwrap();
+
+			roll_to_signed_open();
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+
+			let paged = mine_full_solution().unwrap();
+			load_signed_for_verification(98, paged.clone());
+			let _ = signed_events_since_last_call();
+
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+			let _ = signed_events_since_last_call();
+			let _ = verifier_events_since_last_call();
+
+			roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Nothing);
+			let _ = verifier_events_since_last_call();
+
+			roll_to_done();
+			MultiBlock::rotate_round();
+
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
+
+			let events = signed_events_since_last_call();
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::FeeRefundFailed(0, 99, _))),
+				"expected FeeRefundFailed when the pot can't pay the fee refund"
+			);
+			assert!(events.iter().any(|e| matches!(e, SignedEvent::Discarded(0, 99))));
+			assert!(!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))));
+			// Full deposit (7) is still returned; the 1-unit fee refund is the part that failed.
+			assert_eq!(balances(99), (100, 0));
+		});
+	}
+
+	#[test]
+	fn slash_burns_deposit_by_default() {
+		// When SignedSlashTarget is None, slashed deposits are burned (credit is dropped).
+		// TotalIssuance must decrease by the slashed amount.
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let invalid_score =
+				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			// 99 registers with 5 deposit (SignedDepositBase) but submits no valid pages.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+
+			let ti_before = Balances::total_issuance();
+
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			// Slashed event emitted and deposit is burned.
+			assert!(signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Slashed(..))));
+
+			let ti_after = Balances::total_issuance();
+			assert!(ti_after < ti_before, "total issuance must decrease when slash is burned");
+		});
+	}
+
+	#[test]
+	fn slash_transfers_to_target_when_configured() {
+		// When SignedSlashTarget is Some(target), slashed deposits are transferred to target
+		// instead of being burned. TotalIssuance must not change.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedSlashTarget::set(Some(POT));
+
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let invalid_score =
+				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+
+			let ti_before = Balances::total_issuance();
+			let target_before = Balances::free_balance(POT);
+
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			let slashed_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Slashed(..)))
+				.collect();
+			assert_eq!(slashed_events.len(), 1, "expected exactly one Slashed event");
+
+			let ti_after = Balances::total_issuance();
+			let target_after = Balances::free_balance(POT);
+
+			assert_eq!(ti_before, ti_after, "total issuance must not change when slash is routed");
+			assert!(target_after > target_before, "slash target balance must increase");
 		});
 	}
 }

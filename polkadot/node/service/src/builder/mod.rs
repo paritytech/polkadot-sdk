@@ -34,6 +34,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use gum::info;
 use mmr_gadget::MmrGadget;
 use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
+use polkadot_collator_protocol::ReputationConfig;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
@@ -42,8 +43,8 @@ use polkadot_node_core_chain_selection::{
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::{IncomingRequest, ReqProtocolNames},
+	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames},
+	request_response::{IncomingRequest, Protocol, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_overseer::{Handle, OverseerConnector};
@@ -98,6 +99,10 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
+	/// Use experimental collator protocol
+	pub experimental_collator_protocol: bool,
+	/// Collator reputation persistence interval. If None, defaults to 600 seconds.
+	pub collator_reputation_persist_interval: Option<Duration>,
 }
 
 /// Completely built polkadot node service.
@@ -209,6 +214,8 @@ where
 					keep_finalized_for,
 					invulnerable_ah_collators,
 					collator_protocol_hold_off,
+					experimental_collator_protocol,
+					collator_reputation_persist_interval,
 				},
 			overseer_connector,
 			partial_components:
@@ -308,8 +315,18 @@ where
 		};
 
 		// validation/collation protocols are enabled only if `Overseer` is enabled
-		let peerset_protocol_names =
-			PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
+		let main_collation_version = if is_parachain_node.is_running_alongside_parachain_node() ||
+			experimental_collator_protocol
+		{
+			None
+		} else {
+			Some(CollationVersion::V3)
+		};
+		let peerset_protocol_names = PeerSetProtocolNames::new_with_main_collation_version(
+			genesis_hash,
+			config.chain_spec.fork_id(),
+			main_collation_version,
+		);
 
 		// If this is a validator or running alongside a parachain node, we need to enable the
 		// networking protocols.
@@ -340,10 +357,13 @@ where
 
 		let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-		let (collation_req_v1_receiver, cfg) =
-			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+		let cfg = Protocol::CollationFetchingV1
+			.get_outbound_only_config::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (collation_req_v2_receiver, cfg) =
+			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (collation_req_v3_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (available_data_req_receiver, cfg) =
@@ -421,6 +441,10 @@ where
 				stagnant_check_interval: Default::default(),
 				stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 			};
+			let reputation_config = ReputationConfig {
+				col_reputation_data: parachains_db::REAL_COLUMNS.col_collator_reputation_data,
+				persist_interval: collator_reputation_persist_interval,
+			};
 
 			// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
 			let fetch_chunks_threshold =
@@ -452,21 +476,25 @@ where
 				fetch_chunks_threshold,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
+				experimental_collator_protocol,
+				reputation_config,
 			})
 		};
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				net_config,
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
 				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
 				import_queue,
 				block_announce_validator_builder: None,
 				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		if config.offchain_worker.enabled {
@@ -521,7 +549,7 @@ where
 						log::warn!(
 						"⚠️  Starting January 2025 the hardware will fail the minimal physical CPU cores requirements {} for role 'Authority',\n\
 						    find out more when this will become mandatory at:\n\
-						    https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						    https://docs.polkadot.com/infrastructure/running-a-validator/requirements/#minimum-hardware-requirements",
 						err
 					);
 					}
@@ -532,7 +560,7 @@ where
 					{
 						log::warn!(
 						"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
-						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						https://docs.polkadot.com/infrastructure/running-a-validator/requirements/#minimum-hardware-requirements",
 						err
 					);
 					}
@@ -618,8 +646,8 @@ where
 						network_service: network.clone(),
 						sync_service: sync_service.clone(),
 						authority_discovery_service,
-						collation_req_v1_receiver,
 						collation_req_v2_receiver,
+						collation_req_v3_receiver,
 						available_data_req_receiver,
 						registry: prometheus_registry.as_ref(),
 						spawner,
@@ -671,13 +699,16 @@ where
 		};
 
 		if role.is_authority() {
-			let proposer = sc_basic_authorship::ProposerFactory::new(
+			let mut proposer = sc_basic_authorship::ProposerFactory::new(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				telemetry.as_ref().map(|x| x.handle()),
 			);
+			// We allow `15MiB` on the node side, but the actual block size limit is defined by the
+			// runtime.
+			proposer.set_default_block_size_limit(15 * 1024 * 1024);
 
 			let client_clone = client.clone();
 			let overseer_handle =

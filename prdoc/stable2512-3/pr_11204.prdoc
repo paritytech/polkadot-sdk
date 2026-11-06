@@ -1,0 +1,14 @@
+title: Upgrade litep2p v0.13.0 -> v0.13.1
+doc:
+- audience: Node Dev
+  description: |-
+    This PR brings litep2p v0.13.1 to polkadot-sdk. The improvements include:
+
+    1. When dialing remote peers, all addresses from the DHT are tried, starting from the public addresses. Before litep2p v0.13.1, only up to 8 addresses were tried, leading to dial failures when due to misconfiguration there was a lot of private addresses in the DHT.
+    2. Protocols are now notified about connected peers before the library user, fixing failures in opening substreams when the user command arrived before the connection event.
+    3. Ping protocol implementation now conforms to the spec. This improves the connection stability between polkadot-sdk and [smoldot](https://github.com/smol-dot/smoldot) dramatically. Before this PR, smoldot always disconnected polkadot-sdk peers every 15 seconds for 5 seconds due to failed pings.
+crates:
+- name: sc-network
+  bump: minor
+- name: sc-network-types
+  bump: minor

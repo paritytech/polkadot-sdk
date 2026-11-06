@@ -50,7 +50,6 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_runtime::traits::Zero;
-use sp_std::vec;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
@@ -96,7 +95,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId: Into<[u8; 32]>> {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -209,10 +208,12 @@ pub mod pallet {
 				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
 				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
 				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported =>
-					Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize =>
-					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::DestinationUnsupported => {
+					Error::<T>::Send(SendError::DestinationUnsupported)
+				},
+				XcmpSendError::ExceedsMaxMessageSize => {
+					Error::<T>::Send(SendError::ExceedsMaxMessageSize)
+				},
 				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
 				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
 			}
@@ -255,7 +256,7 @@ pub mod pallet {
 			// Verify message nonce
 			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
 				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into())
+					return Err(Error::<T>::MaxNonceReached.into());
 				}
 				if envelope.nonce != nonce.saturating_add(1) {
 					Err(Error::<T>::InvalidNonce.into())
@@ -264,20 +265,6 @@ pub mod pallet {
 					Ok(())
 				}
 			})?;
-
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
 
 			// Decode payload into `VersionedMessage`
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
@@ -294,7 +281,24 @@ pub mod pallet {
 			);
 
 			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, fee)?;
+			Self::burn_for_teleport(channel.para_id, &who, fee)?;
+
+			// Reimburse the relayer from the sovereign account of the destination parachain, only
+			// if funds are available. The relayer has already fronted the teleported fee.
+			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
+			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
+			let owed = fee.saturating_add(delivery_cost);
+			let amount = T::Token::reducible_balance(
+				&sovereign_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.min(owed);
+			if !amount.is_zero() {
+				// Best effort attempt to reward relayer if there are funds available.
+				let _ =
+					T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve);
+			}
 
 			// Attempt to send XCM to a dest parachain
 			let message_id = Self::send_xcm(xcm, channel.para_id)?;
@@ -347,12 +351,18 @@ pub mod pallet {
 				.saturating_add(T::PricingParameters::get().rewards.local)
 		}
 
-		/// Burn the amount of the fee embedded into the XCM for teleports
-		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
+		/// Teleport the fee, fronted by the relayer, to the destination parachain.
+		fn burn_for_teleport(
+			dest: ParaId,
+			who: &T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
-			let dest = Location::new(1, [Parachain(para_id.into())]);
-			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
+			let dest = Location::new(1, [Parachain(dest.into())]);
+			let who = who.clone().into();
+			let who = Location::new(0, [AccountId32 { network: None, id: who }]);
+			let fees = (Location::parent(), amount.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -362,7 +372,7 @@ pub mod pallet {
 				TokenError::FundsUnavailable
 			})?;
 			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
-			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
+			T::AssetTransactor::withdraw_asset(&fees, &who, None).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
 					?error,

@@ -89,7 +89,7 @@ mod tests {
 	use relay_utils::HeaderId;
 	use std::sync::Mutex;
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn process_pending_reports_works() {
 		let polled_reports = Mutex::new(vec![]);
 		let finished_reports = Mutex::new(vec![]);

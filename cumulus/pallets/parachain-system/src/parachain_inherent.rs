@@ -50,16 +50,7 @@ use sp_core::{bounded::BoundedSlice, Get};
 /// `InboundMessageId {sent_at: 1, reverse_idx: 0}` points to `msgs[4]`
 /// `InboundMessageId {sent_at: 1, reverse_idx: 3}` points to `msgs[1]`
 /// `InboundMessageId {sent_at: 1, reverse_idx: 4}` points to `msgs[0]`
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Default,
-	sp_runtime::RuntimeDebug,
-	PartialEq,
-	TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct InboundMessageId {
 	/// The block number at which this message was added to the message passing queue
 	/// on the relay chain.
@@ -88,13 +79,7 @@ pub trait InboundMessage {
 
 /// A collection of inbound messages.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct InboundMessagesCollection<Message: InboundMessage> {
 	messages: Vec<Message>,
@@ -157,18 +142,20 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 	}
 }
 
+/// A struct containing some info about the expected size of the abridged inbound messages.
+pub struct AbridgedInboundMessagesSizeInfo {
+	/// The max size of the full messages collection
+	pub max_full_messages_size: usize,
+	/// The max size of the first hashed message
+	pub first_hashed_msg_max_size: usize,
+}
+
 /// A compressed collection of inbound messages.
 ///
 /// The first messages in the collection (up to a limit) contain the full message data.
 /// The messages that exceed that limit are hashed.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct AbridgedInboundMessagesCollection<Message: InboundMessage> {
 	full_messages: Vec<Message>,
@@ -182,29 +169,51 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		(&self.full_messages, &self.hashed_messages)
 	}
 
-	/// Check that the current collection contains as many full messages as possible.
-	///
-	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
-	/// A malicious collator can provide a collection that contains no full messages or fewer
-	/// full messages than possible, leading to censorship.
-	pub fn check_enough_messages_included(&self, collection_name: &str) {
+	/// Check that the current collection contains at least 1 full message if needed.
+	pub fn check_enough_messages_included_basic(&self, collection_name: &str) {
 		if self.hashed_messages.is_empty() {
 			return;
 		}
 
-		// Ideally, we should check that the collection contains as many full messages as possible
-		// without exceeding the max expected size. The worst case scenario is that were the first
-		// message that had to be hashed is a max size message. So in this case, the min expected
-		// size would be `max_expected_size - max_msg_size`. However, there are multiple issues:
-		// 1. The max message size config can change while we still have to process messages with
-		//    the old max message size.
-		// 2. We can't access the max downward message size from the parachain runtime.
-		//
-		// So the safest approach is to check that there is at least 1 full message.
+		// Here we just check that there is at least 1 full message.
 		assert!(
 			self.full_messages.len() >= 1,
-			"[{}] Advancement rule violation: mandatory messages missing",
+			"[{}] Advancement rule violation: full messages missing",
 			collection_name,
+		);
+	}
+
+	/// Check that the current collection contains as many full messages as possible, taking into
+	/// consideration the collection constraints.
+	///
+	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
+	/// A malicious collator can provide a collection that contains no full messages or fewer
+	/// full messages than possible, leading to censorship.
+	pub fn check_enough_messages_included_advanced(
+		&self,
+		collection_name: &str,
+		size_info: AbridgedInboundMessagesSizeInfo,
+	) {
+		// We should check that the collection contains as many full messages as possible
+		// without exceeding the max expected size.
+		let AbridgedInboundMessagesSizeInfo { max_full_messages_size, first_hashed_msg_max_size } =
+			size_info;
+
+		let mut full_messages_size = 0usize;
+		for msg in &self.full_messages {
+			full_messages_size = full_messages_size.saturating_add(msg.data().len());
+		}
+
+		// The worst case scenario is that were the first message that had to be hashed
+		// is a max size message.
+		assert!(
+			full_messages_size.saturating_add(first_hashed_msg_max_size) > max_full_messages_size,
+			"[{}] Advancement rule violation: full messages size smaller than expected. \
+			full msgs size: {}, first hashed msg max size: {}, max full msgs size: {}",
+			collection_name,
+			full_messages_size,
+			first_hashed_msg_max_size,
+			max_full_messages_size
 		);
 	}
 }
@@ -273,6 +282,47 @@ impl InboundMessage for (ParaId, InboundHrmpMessage) {
 	}
 }
 
+/// Similar to [`InboundMessageId`], but also containing the sending parachain id.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
+pub enum InboundHrmpMessageId {
+	Generic(InboundMessageId),
+	Specific {
+		/// The block number at which this message was added to the message passing queue
+		/// on the relay chain.
+		sent_at: BlockNumber,
+		/// The sending parachain id.
+		sender: ParaId,
+		/// The reverse index of the message in the collection of messages sent at `sent_at`
+		/// by `sender`.
+		reverse_idx: u32,
+	},
+}
+
+impl InboundHrmpMessageId {
+	pub fn sent_at(&self) -> BlockNumber {
+		match self {
+			InboundHrmpMessageId::Generic(id) => id.sent_at,
+			InboundHrmpMessageId::Specific { sent_at, .. } => *sent_at,
+		}
+	}
+
+	pub fn sender(&self) -> Option<ParaId> {
+		match self {
+			InboundHrmpMessageId::Generic(_) => None,
+			InboundHrmpMessageId::Specific { sender, .. } => Some(*sender),
+		}
+	}
+
+	pub fn inc_reverse_idx(&mut self) {
+		let reverse_idx = match self {
+			InboundHrmpMessageId::Generic(id) => &mut id.reverse_idx,
+			InboundHrmpMessageId::Specific { reverse_idx, .. } => reverse_idx,
+		};
+
+		*reverse_idx += 1;
+	}
+}
+
 pub type InboundHrmpMessages = InboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
 impl InboundHrmpMessages {
@@ -296,6 +346,39 @@ impl InboundHrmpMessages {
 
 		Self { messages }
 	}
+
+	/// Drop all the messages up to `last_processed_msg`.
+	pub fn drop_hrmp_processed_messages(&mut self, last_processed_msg: &InboundHrmpMessageId) {
+		let (input_sent_at, input_sender, input_reverse_idx) = match last_processed_msg {
+			InboundHrmpMessageId::Generic(id) => {
+				return self.drop_processed_messages(id);
+			},
+			InboundHrmpMessageId::Specific { sent_at, sender, reverse_idx } => {
+				(sent_at, sender, reverse_idx)
+			},
+		};
+
+		let mut last_processed_msg_idx = None;
+		let messages = &mut self.messages;
+		for (idx, (sender, message)) in messages.iter().enumerate().rev() {
+			let sent_at = message.sent_at;
+			if sent_at == *input_sent_at && input_sender == sender {
+				last_processed_msg_idx = idx.checked_sub(*input_reverse_idx as usize);
+				break;
+			}
+			// If we build on the same relay parent twice, we will receive the same messages again
+			// while `last_processed_msg` may have been increased.
+			// Also, if an HRMP channel was closed, the messages from that sender will not be sent,
+			// even if our `last_processed_msg` point to a message from it.
+			if sent_at < *input_sent_at || (sender < input_sender && sent_at == *input_sent_at) {
+				last_processed_msg_idx = Some(idx);
+				break;
+			}
+		}
+		if let Some(last_processed_msg_idx) = last_processed_msg_idx {
+			messages.drain(..=last_processed_msg_idx);
+		}
+	}
 }
 
 pub type AbridgedInboundHrmpMessages =
@@ -313,13 +396,7 @@ impl AbridgedInboundHrmpMessages {
 /// The basic inherent data that is passed by the collator to the parachain runtime.
 /// This data doesn't contain any messages.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct BasicParachainInherentData {
 	pub validation_data: PersistedValidationData,
@@ -331,13 +408,7 @@ pub struct BasicParachainInherentData {
 /// The messages that are passed by the collator to the parachain runtime as part of the
 /// inherent data.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct InboundMessagesData {
 	pub downward_messages: AbridgedInboundDownwardMessages,
@@ -386,38 +457,206 @@ mod tests {
 	}
 
 	#[test]
+	fn drop_hrmp_processed_messages_works() {
+		let msgs_vec = vec![
+			// sent_at: 0
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![1] }),
+			(2.into(), InboundHrmpMessage { sent_at: 0, data: vec![2] }),
+			(2.into(), InboundHrmpMessage { sent_at: 0, data: vec![3] }),
+			// sent_at: 1
+			(0.into(), InboundHrmpMessage { sent_at: 1, data: vec![4] }),
+			(2.into(), InboundHrmpMessage { sent_at: 1, data: vec![5] }),
+			(2.into(), InboundHrmpMessage { sent_at: 1, data: vec![6] }),
+		];
+
+		// until sent_at: 0
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 1.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[2..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 3.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		// until sent_at: 1
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 0.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 0.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 1.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[5..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[6..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 3.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[6..]);
+	}
+
+	#[test]
 	fn drop_processed_messages_works() {
-		let msgs_vec =
-			build_inbound_dm_vec(&[(0, 0), (0, 0), (2, 0), (2, 0), (2, 0), (2, 0), (3, 0)]);
+		let msgs_vec = vec![
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![1] }),
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![2] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![3] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![4] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![5] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![6] }),
+			(0.into(), InboundHrmpMessage { sent_at: 3, data: vec![7] }),
+		];
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 3, reverse_idx: 0 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 3,
+			reverse_idx: 0,
+		}));
 		assert_eq!(msgs.messages, []);
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 0 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 0,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[6..]);
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 1 });
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 1,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[5..]);
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 4 });
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 4,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[2..]);
 
 		// Go back starting from the last message sent at block 2, with 1 more message than the
 		// total number of messages sent at 2.
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 5 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 5,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[1..]);
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 0, reverse_idx: 1 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 0,
+			reverse_idx: 1,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[1..]);
+
 		// Go back starting from the last message sent at block 0, with 1 more message than the
 		// total number of messages sent at 0.
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 0, reverse_idx: 3 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 0,
+			reverse_idx: 3,
+		}));
 		assert_eq!(msgs.messages, msgs_vec);
 	}
 
@@ -514,7 +753,7 @@ mod tests {
 	}
 
 	#[test]
-	fn check_enough_messages_included_works() {
+	fn check_enough_messages_included_basic_works() {
 		let mut messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![(
 				1000.into(),
@@ -526,13 +765,45 @@ mod tests {
 			)],
 		};
 
-		messages.check_enough_messages_included("Test");
+		messages.check_enough_messages_included_basic("Test");
 
 		messages.full_messages = vec![];
-		let result = std::panic::catch_unwind(|| messages.check_enough_messages_included("Test"));
+		let result =
+			std::panic::catch_unwind(|| messages.check_enough_messages_included_basic("Test"));
 		assert!(result.is_err());
 
 		messages.hashed_messages = vec![];
-		messages.check_enough_messages_included("Test");
+		messages.check_enough_messages_included_basic("Test");
+	}
+
+	#[test]
+	fn check_enough_messages_included_advanced_works() {
+		let mixed_messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 0, data: vec![1; 50] },
+			)],
+			hashed_messages: vec![(
+				2000.into(),
+				HashedMessage { sent_at: 1, msg_hash: Default::default() },
+			)],
+		};
+		let result = std::panic::catch_unwind(|| {
+			mixed_messages.check_enough_messages_included_advanced(
+				"Test",
+				AbridgedInboundMessagesSizeInfo {
+					max_full_messages_size: 100,
+					first_hashed_msg_max_size: 50,
+				},
+			)
+		});
+		assert!(result.is_err());
+		mixed_messages.check_enough_messages_included_advanced(
+			"Test",
+			AbridgedInboundMessagesSizeInfo {
+				max_full_messages_size: 100,
+				first_hashed_msg_max_size: 51,
+			},
+		);
 	}
 }

@@ -393,7 +393,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut source_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::SOURCE_NAME),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -424,7 +424,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::TARGET_NAME),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -705,7 +705,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.source_state.clone())
@@ -718,7 +718,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.source_latest_generated_nonce))
@@ -850,7 +850,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.target_state.clone())
@@ -863,7 +863,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_received_nonce))
@@ -891,7 +891,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_confirmed_received_nonce))
@@ -914,7 +914,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			data.receive_messages(maybe_batch_tx, proof);
 			(self.post_tick)(&mut data);
@@ -949,7 +949,7 @@ pub(crate) mod tests {
 		target_post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		exit_signal: impl Future<Output = ()> + 'static + Send,
 	) -> TestClientData {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let source_client = TestSourceClient {
 				data: data.clone(),
 				tick: source_tick,

@@ -1,0 +1,19 @@
+title: '[frame-benchmarking] Refactor pallet benchmarking backend'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactors the FRAME benchmarking infrastructure without changing observable behavior:
+      - Deduplicates the per-`BenchmarkSelector` value extraction in `analysis.rs` behind a single
+        `get_value` helper and tidies the related call sites.
+      - Improves the documentation of `BenchmarkBatchSplitResults` and the
+        `Recording`/`BenchmarkRecording` traits.
+      - Documents the v1 benchmarking macros as soft-deprecated in favor of `v2`. This is a
+        documentation-only deprecation; no `#[deprecated]` attribute is added, so existing v1
+        benchmarks continue to compile without warnings.
+
+crates:
+  - name: frame-benchmarking
+    bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch

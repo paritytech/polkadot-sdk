@@ -4,7 +4,7 @@
 
 use codec::DecodeAll;
 use core::slice::Iter;
-use frame_support::{ensure, BoundedVec};
+use frame_support::{ensure, traits::Contains, BoundedVec};
 use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
@@ -12,7 +12,6 @@ use crate::v2::{
 	ContractCall,
 };
 
-use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
 use sp_runtime::traits::MaybeConvert;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
@@ -57,14 +56,16 @@ macro_rules! match_expression {
 	};
 }
 
-pub struct XcmConverter<'a, ConvertAssetId, Call> {
+pub struct XcmConverter<'a, ConvertAssetId, Call, AllowedAliasOrigin> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
-	_marker: PhantomData<ConvertAssetId>,
+	_marker: PhantomData<(ConvertAssetId, AllowedAliasOrigin)>,
 }
-impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
+impl<'a, ConvertAssetId, Call, AllowedAliasOrigin>
+	XcmConverter<'a, ConvertAssetId, Call, AllowedAliasOrigin>
 where
 	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	AllowedAliasOrigin: Contains<Location>,
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
@@ -131,14 +132,16 @@ where
 
 			// only fungible asset is allowed
 			let (token, amount) = match ena {
-				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
 					match inner_location.unpack() {
-						(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-							Ok((H160(*key), amount)),
+						(0, [AccountKey20 { network, key }]) if self.network_matches(network) => {
+							Ok((H160(*key), amount))
+						},
 						// To allow ether
 						(0, []) => Ok((H160([0; 20]), amount)),
 						_ => Err(AssetResolutionFailed),
-					},
+					}
+				},
 				_ => Err(AssetResolutionFailed),
 			}?;
 
@@ -174,7 +177,8 @@ where
 
 			// Ensure PNA already registered
 			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-			ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+			let expected_asset_id = ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+			ensure!(asset_id == expected_asset_id, InvalidAsset);
 
 			commands.push(Command::MintForeignToken { token_id, recipient, amount });
 		}
@@ -242,6 +246,13 @@ where
 		// Check AliasOrigin.
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
+
+		// Validate the AliasOrigin using the configured AllowedAliasOrigin filter.
+		// This provides a mechanism for the runtime to restrict which origins
+		// are permitted to alias, providing defense-in-depth against
+		// unprivileged alias attempts.
+		ensure!(AllowedAliasOrigin::contains(origin_location), InvalidOrigin);
+
 		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
@@ -284,9 +295,8 @@ where
 		let transact_call = match_expression!(self.peek(), Ok(Transact { call, .. }), call);
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
-			let transact =
-				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
-					.map_err(|_| TransactDecodeFailed)?;
+			let transact = ContractCall::decode_all(&mut transact_call.encoded())
+				.map_err(|_| TransactDecodeFailed)?;
 			match transact {
 				ContractCall::V1 { target, calldata, gas, value } => commands
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),

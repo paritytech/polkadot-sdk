@@ -16,15 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	evm::decode_revert_reason,
-	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test},
 	Code, Config,
+	evm::decode_revert_reason,
+	test_utils::{ALICE, builder::Contract},
+	tests::{ExtBuilder, Test, builder},
 };
 
 use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, Arithmetic, FixtureType};
+use pallet_revive_fixtures::{Arithmetic, FixtureType, compile_module_with_type};
 use test_case::test_case;
 
 #[test_case(FixtureType::Solc)]

@@ -116,6 +116,7 @@ polkadot-collator-protocol = { optional = true, workspace = true, default-featur
 polkadot-dispute-distribution = { optional = true, workspace = true, default-features = true }
 polkadot-gossip-support = { optional = true, workspace = true, default-features = true }
 polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
+polkadot-node-clock = { optional = true, workspace = true, default-features = true }
 polkadot-node-collation-generation = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-approval-voting = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-approval-voting-parallel = { optional = true, workspace = true, default-features = true }
@@ -158,6 +159,7 @@ full-node = [
 	"polkadot-dispute-distribution",
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
+	"polkadot-node-clock",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
 	"polkadot-node-core-approval-voting-parallel",

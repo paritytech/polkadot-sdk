@@ -72,7 +72,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZ
 	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(who) = origin.as_signer() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-				return Err(InvalidTransaction::BadSigner.into())
+				return Err(InvalidTransaction::BadSigner.into());
 			}
 		}
 		Ok((Default::default(), (), origin))

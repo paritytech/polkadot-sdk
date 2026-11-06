@@ -56,7 +56,6 @@ fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>)
 			hash,
 			header,
 			body: Some(Vec::new()),
-			indexed_body: None,
 			justifications,
 			origin: Some(peer_id.into()),
 			allow_missing_state: false,

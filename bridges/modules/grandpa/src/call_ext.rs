@@ -23,6 +23,7 @@ use bp_header_chain::{
 	SubmitFinalityProofInfo,
 };
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -32,12 +33,11 @@ use sp_consensus_grandpa::SetId;
 use sp_runtime::{
 	traits::{CheckedSub, Header, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	RuntimeDebug, SaturatedConversion,
+	SaturatedConversion,
 };
-use sp_std::fmt::Debug;
 
 /// Verified `SubmitFinalityProofInfo<N>`.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct VerifiedSubmitFinalityProofInfo<N: Debug> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,
@@ -154,7 +154,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 					"Cannot finalize obsolete header"
 				);
 
-				return Err(Error::<T, I>::OldHeader)
+				return Err(Error::<T, I>::OldHeader);
 			},
 		};
 
@@ -168,7 +168,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 					"Cannot finalize header signed by unknown authority set"
 				);
 
-				return Err(Error::<T, I>::InvalidAuthoritySetId)
+				return Err(Error::<T, I>::InvalidAuthoritySetId);
 			}
 		}
 
@@ -200,7 +200,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 				justification,
 				None,
 				false,
-			))
+			));
 		} else if let Some(crate::Call::<T, I>::submit_finality_proof_ex {
 			finality_target,
 			justification,
@@ -213,7 +213,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 				justification,
 				Some(*current_set_id),
 				*is_free_execution_expected,
-			))
+			));
 		}
 
 		None
@@ -243,13 +243,14 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 		};
 
 		if Pallet::<T, I>::ensure_not_halted().is_err() {
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		let result = SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info);
 		match result {
-			Ok(improved_by) =>
-				Ok(Some(VerifiedSubmitFinalityProofInfo { base: call_info, improved_by })),
+			Ok(improved_by) => {
+				Ok(Some(VerifiedSubmitFinalityProofInfo { base: call_info, improved_by }))
+			},
 			Err(Error::<T, I>::OldHeader) => Err(InvalidTransaction::Stale.into()),
 			Err(_) => Err(InvalidTransaction::Call.into()),
 		}

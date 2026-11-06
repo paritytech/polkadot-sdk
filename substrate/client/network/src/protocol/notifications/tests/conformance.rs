@@ -371,8 +371,8 @@ async fn libp2p_disconnects_libp2p_substream() {
 
 	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
 
-	// Disarm first timer interval that fires immediately.
-	let mut timer = tokio::time::interval(std::time::Duration::from_secs(5));
+	// Timeout as a safety guard in case the test hangs.
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(60));
 	timer.tick().await;
 
 	let mut sink = None;
@@ -388,7 +388,7 @@ async fn libp2p_disconnects_libp2p_substream() {
 	loop {
 		tokio::select! {
 			_ = timer.tick() => {
-				break;
+				panic!("Test timed out waiting for expected events");
 			}
 
 			event = libp2p_lhs.select_next_some() => {
@@ -487,6 +487,17 @@ async fn libp2p_disconnects_libp2p_substream() {
 				}
 
 			},
+		}
+
+		// Check if all expected events have occurred
+		if open_times == 2 &&
+			notification_count == 4 &&
+			recv_1111 == 2 &&
+			recv_2222 == 2 &&
+			recv_3333 == 2 &&
+			recv_4444 == 2
+		{
+			break;
 		}
 	}
 

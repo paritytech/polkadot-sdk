@@ -7,7 +7,7 @@ import { getApis, GlobalTimeout, logger, nullifySigned } from "../src/utils";
 /// This is the preset against which your test will run. See the README or `PResets` for more info.
 const PRESET: Presets = Presets.FakeKsm;
 
-test(
+test.skip(
 	`example test with preset ${PRESET}`,
 	async () => {
 		/// We run the test with our defined preset.

@@ -21,6 +21,7 @@ sc-network = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
 sp-version = { workspace = true }
 
 async-trait = { workspace = true }

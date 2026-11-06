@@ -144,7 +144,7 @@ where
 	{
 		if let Some(ref best_finalized_number) = self.best_finalized_number {
 			if number <= *best_finalized_number {
-				return Err(Error::Revert)
+				return Err(Error::Revert);
 			}
 		}
 
@@ -155,7 +155,7 @@ where
 			};
 
 		if children.iter().any(|elem| elem.hash == hash) {
-			return Err(Error::Duplicate)
+			return Err(Error::Duplicate);
 		}
 
 		children.push(Node { data, hash, number, children: Default::default() });
@@ -287,7 +287,6 @@ where
 	///
 	/// If a node is found that matches the predicate the returned path should always
 	/// contain at least one index, otherwise `None` is returned.
-	//
 	// WARNING: some users of this method (i.e. consensus epoch changes tree) currently silently
 	// rely on a **post-order DFS** traversal. If we are using instead a top-down traversal method
 	// then the `is_descendent_of` closure, when used after a warp-sync, will end up querying the
@@ -313,7 +312,7 @@ where
 		while root_idx < self.roots.len() {
 			if *number <= self.roots[root_idx].number {
 				root_idx += 1;
-				continue
+				continue;
 			}
 			// The second element in the stack tuple tracks what is the **next** children
 			// index to search into. If we find an ancestor then we stop searching into
@@ -329,7 +328,7 @@ where
 					is_descendent = true;
 					if predicate(&node.data) {
 						found = true;
-						break
+						break;
 					}
 				}
 			}
@@ -337,7 +336,7 @@ where
 			// If the element we are looking for is a descendent of the current root
 			// then we can stop the search.
 			if is_descendent {
-				break
+				break;
 			}
 			root_idx += 1;
 		}
@@ -401,12 +400,12 @@ where
 			for (idx, child) in curr.children.iter().enumerate() {
 				if child.number < *number && is_descendent_of(&child.hash, hash)? {
 					maybe_ancestor_idx = Some(idx);
-					break
+					break;
 				}
 			}
 			let Some(ancestor_idx) = maybe_ancestor_idx else {
 				// Now we are positioned just above block identified by `hash`
-				break
+				break;
 			};
 			// Preserve only the ancestor node, the siblings are removed
 			let mut next_siblings = std::mem::take(&mut curr.children);
@@ -469,19 +468,19 @@ where
 	{
 		if let Some(ref best_finalized_number) = self.best_finalized_number {
 			if number <= *best_finalized_number {
-				return Err(Error::Revert)
+				return Err(Error::Revert);
 			}
 		}
 
 		// check if one of the current roots is being finalized
 		if let Some(root) = self.finalize_root(hash) {
-			return Ok(FinalizationResult::Changed(Some(root)))
+			return Ok(FinalizationResult::Changed(Some(root)));
 		}
 
 		// make sure we're not finalizing a descendent of any root
 		for root in self.roots.iter() {
 			if number > root.number && is_descendent_of(&root.hash, hash)? {
-				return Err(Error::UnfinalizedAncestor)
+				return Err(Error::UnfinalizedAncestor);
 			}
 		}
 
@@ -523,13 +522,13 @@ where
 	{
 		if let Some(ref best_finalized_number) = self.best_finalized_number {
 			if number <= *best_finalized_number {
-				return Err(Error::Revert)
+				return Err(Error::Revert);
 			}
 		}
 
 		// check if one of the current roots is being finalized
 		if let Some(root) = self.finalize_root(hash) {
-			return Ok(FinalizationResult::Changed(Some(root)))
+			return Ok(FinalizationResult::Changed(Some(root)));
 		}
 
 		// we need to:
@@ -552,13 +551,13 @@ where
 
 			// if we have met finalized root - open it and return
 			if is_finalized {
-				return Ok(FinalizationResult::Changed(Some(self.finalize_root_at(idx))))
+				return Ok(FinalizationResult::Changed(Some(self.finalize_root_at(idx))));
 			}
 
 			// if node is descendant of finalized block - just leave it as is
 			if is_descendant {
 				idx += 1;
-				continue
+				continue;
 			}
 
 			// if node is ancestor of finalized block - remove it and continue with children
@@ -566,7 +565,7 @@ where
 				let root = self.roots.swap_remove(idx);
 				self.roots.extend(root.children);
 				changed = true;
-				continue
+				continue;
 			}
 
 			// if node is neither ancestor, nor descendant of the finalized block - remove it
@@ -606,7 +605,7 @@ where
 	{
 		if let Some(ref best_finalized_number) = self.best_finalized_number {
 			if number <= *best_finalized_number {
-				return Err(Error::Revert)
+				return Err(Error::Revert);
 			}
 		}
 
@@ -620,11 +619,11 @@ where
 					if child.number <= number &&
 						(child.hash == *hash || is_descendent_of(&child.hash, hash)?)
 					{
-						return Err(Error::UnfinalizedAncestor)
+						return Err(Error::UnfinalizedAncestor);
 					}
 				}
 
-				return Ok(Some(self.roots.iter().any(|root| root.hash == node.hash)))
+				return Ok(Some(self.roots.iter().any(|root| root.hash == node.hash)));
 			}
 		}
 
@@ -652,7 +651,7 @@ where
 	{
 		if let Some(ref best_finalized_number) = self.best_finalized_number {
 			if number <= *best_finalized_number {
-				return Err(Error::Revert)
+				return Err(Error::Revert);
 			}
 		}
 
@@ -667,12 +666,12 @@ where
 					if child.number <= number &&
 						(child.hash == *hash || is_descendent_of(&child.hash, hash)?)
 					{
-						return Err(Error::UnfinalizedAncestor)
+						return Err(Error::UnfinalizedAncestor);
 					}
 				}
 
 				position = Some(i);
-				break
+				break;
 			}
 		}
 

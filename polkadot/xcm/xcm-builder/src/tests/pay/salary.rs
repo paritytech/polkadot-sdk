@@ -35,7 +35,7 @@ parameter_types! {
 
 type SalaryPayOverXcm = PayOverXcm<
 	Interior,
-	TestMessageSender,
+	XcmConfig,
 	TestQueryHandler<TestConfig, BlockNumber>,
 	Timeout,
 	AccountId,

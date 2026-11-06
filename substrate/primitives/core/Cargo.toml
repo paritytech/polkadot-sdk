@@ -59,10 +59,8 @@ libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
-# k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
+# k256 crate, used for ECDSA secp256k1 operations in both std and no_std
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
-# secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
 sha2 = { optional = true, workspace = true }
@@ -73,8 +71,8 @@ ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-externalities = { workspace = true, default-features = false }
-futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
-dyn-clone = "1.0.17"
+futures = { workspace = true, features = ["alloc"] }
+dyn-clone = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -99,6 +97,7 @@ std = [
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
+	"k256/precomputed-tables",
 	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
@@ -111,8 +110,6 @@ std = [
 	"rand",
 	"scale-info/std",
 	"schnorrkel/std",
-	"secp256k1/global-context",
-	"secp256k1/std",
 	"serde/std",
 	"sha2?/std",
 	"sp-crypto-hashing/std",

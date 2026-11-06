@@ -180,7 +180,7 @@ pub mod test_impl_filter_stack {
 	pub struct BaseFilter;
 	impl Contains<u32> for BaseFilter {
 		fn contains(x: &u32) -> bool {
-			x % 2 == 0
+			x.is_multiple_of(2)
 		}
 	}
 	impl_filter_stack!(

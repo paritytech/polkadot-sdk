@@ -78,76 +78,25 @@ pub fn get_chain_spec_with_extra_endowed(
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+pub fn get_chain_spec(wasm_binary: Option<&[u8]>, id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		wasm_binary.expect("WASM binary was not built, please build it!"),
 	)
 }
 
-/// Get the chain spec for a specific parachain ID.
-pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+/// Get the chain spec for the authority-discovery collator-discovery test.
+///
+/// Uses the `with-authority-discovery` variant WASM which includes `pallet_session` +
+/// `pallet_authority_discovery` and carries a higher `spec_version` (4 vs 2) so that
+/// a `set_code` upgrade from the default WASM triggers the `EnableAuthorityDiscovery`
+/// migration.
+pub fn get_with_authority_discovery_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::relay_parent_offset::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-/// Get the chain spec for a specific parachain ID.
-pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-/// Get the chain spec for a specific parachain ID.
-pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-pub fn get_elastic_scaling_multi_block_slot_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::sync_backing::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
-}
-
-pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::async_backing::WASM_BINARY
+		cumulus_test_runtime::with_authority_discovery::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 	)
 }

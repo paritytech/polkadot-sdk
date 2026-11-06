@@ -92,7 +92,7 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 		unsafe {
 			// 1. `unshare` the user and the mount namespaces.
 			if libc::unshare(libc::CLONE_NEWUSER | libc::CLONE_NEWNS) < 0 {
-				return Err("unshare user and mount namespaces")
+				return Err("unshare user and mount namespaces");
 			}
 
 			// 2. Setup mounts.
@@ -108,7 +108,7 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 				ptr::null(),
 			) < 0
 			{
-				return Err("mount MS_PRIVATE")
+				return Err("mount MS_PRIVATE");
 			}
 			// Ensure that the new root is a mount point.
 			let additional_flags =
@@ -129,18 +129,18 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 				ptr::null(), // ignored when MS_BIND is used
 			) < 0
 			{
-				return Err("mount MS_BIND")
+				return Err("mount MS_BIND");
 			}
 
 			// 3. `pivot_root` to the artifact directory.
 			if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
-				return Err("chdir to worker dir path")
+				return Err("chdir to worker dir path");
 			}
 			if libc::syscall(libc::SYS_pivot_root, cstr_ptr!("."), cstr_ptr!(".")) < 0 {
-				return Err("pivot_root")
+				return Err("pivot_root");
 			}
 			if libc::umount2(cstr_ptr!("."), libc::MNT_DETACH) < 0 {
-				return Err("umount the old root mount point")
+				return Err("umount the old root mount point");
 			}
 		}
 
@@ -153,13 +153,15 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 
 	// Do some assertions.
 	if env::current_dir()? != Path::new("/") {
-		return Err(Error::AssertionFailed("expected current dir after pivot_root to be `/`".into()))
+		return Err(Error::AssertionFailed(
+			"expected current dir after pivot_root to be `/`".into(),
+		));
 	}
 	env::set_current_dir("..")?;
 	if env::current_dir()? != Path::new("/") {
 		return Err(Error::AssertionFailed(
 			"expected not to be able to break out of new root by doing `..`".into(),
-		))
+		));
 	}
 
 	Ok(())

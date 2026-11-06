@@ -1,0 +1,7 @@
+title: 'pallet session: small deduplication'
+doc:
+- audience: Runtime Dev
+  description: 'pallet session: small deduplication'
+crates:
+- name: pallet-session
+  bump: patch

@@ -55,7 +55,7 @@ impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
 
 		// `location` must match the `Location` filter.
 		if !LocationFilter::contains(location) {
-			return false
+			return false;
 		}
 
 		// All `assets` must match at least one of the `AssetFilters`.
@@ -63,7 +63,7 @@ impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
 		assets.iter().all(|asset| {
 			for filter in &filters {
 				if filter.matches(asset) {
-					return true
+					return true;
 				}
 			}
 			false

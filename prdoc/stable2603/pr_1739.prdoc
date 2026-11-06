@@ -1,0 +1,54 @@
+title: 'Require proof for session key registration'
+doc:
+- audience: Node Operator
+  description: |-
+    Node operators will now need to provide a proof when registering their `SessionKeys` on chain.
+    A new rpc `author_rotateKeysWithOwner` is provided to generate the `SessionKeys` plus the `proof`.
+    Both values then need to be feed into `set_keys` as part of the transaction.
+    `author_rotateKeysWithOwner` is a replacement for `author_rotateKeys`.
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: polkadot
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: pallet-session
+  bump: major
+- name: sp-application-crypto
+  bump: major
+- name: sp-runtime
+  bump: major
+- name: sp-session
+  bump: major
+- name: pallet-collator-selection
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: major
+- name: cumulus-pallet-session-benchmarking
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: sp-io
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: revive-dev-runtime
+  bump: major

@@ -113,7 +113,7 @@ impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
 		let is_valgrind_running = valgrind::is_valgrind_running();
 		if !is_valgrind_running && self.cache_misses {
-			return valgrind::relaunch_in_valgrind_mode()
+			return valgrind::relaunch_in_valgrind_mode();
 		}
 
 		let agent_running = if self.profile {

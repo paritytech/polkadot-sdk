@@ -23,7 +23,6 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "256")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod assigner_coretime;
 pub mod configuration;
 pub mod coretime;
 pub mod disputes;
@@ -37,11 +36,10 @@ pub mod origin;
 pub mod paras;
 pub mod paras_inherent;
 pub mod reward_points;
+pub mod runtime_api_impl;
 pub mod scheduler;
 pub mod session_info;
 pub mod shared;
-
-pub mod runtime_api_impl;
 
 mod util;
 

@@ -1,0 +1,14 @@
+title: 'Add relay parent to V3 collation protocol advertisement'
+doc:
+- audience: Node Dev
+  description: |
+    Adds a `relay_parent` field to the V3 collation protocol `AdvertiseCollation` message.
+
+    Also stores the relay parent and advertised descriptor version in pending collations
+    and held-off AssetHub advertisements, so that all sanity checks (including descriptor
+    version mismatch and relay parent mismatch) are correctly applied after fetching.
+crates:
+- name: polkadot-node-network-protocol
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major

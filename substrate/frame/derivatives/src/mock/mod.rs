@@ -167,7 +167,9 @@ impl ContainsPair<Asset, Location> for TrustAssetsFromSiblings {
 		match (asset_location.unpack(), origin.unpack()) {
 			((1, [Parachain(asset_para_id), ..]), (1, [Parachain(origin_para_id)]))
 				if asset_para_id == origin_para_id =>
-				true,
+			{
+				true
+			},
 			_ => false,
 		}
 	}
@@ -208,8 +210,9 @@ pub struct SiblingAssetToReserveLocationConvert;
 impl ConvertLocation<AccountId> for SiblingAssetToReserveLocationConvert {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(para_id), ..]) =>
-				LocationToAccountId::convert_location(&Location::new(1, Parachain(*para_id))),
+			(1, [Parachain(para_id), ..]) => {
+				LocationToAccountId::convert_location(&Location::new(1, Parachain(*para_id)))
+			},
 			_ => None,
 		}
 	}
@@ -423,7 +426,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -442,5 +444,8 @@ impl xcm_executor::Config for XcmConfig {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	let mut ext = sp_io::TestExternalities::new(t);
+	// Events aren't recorded at the genesis block.
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

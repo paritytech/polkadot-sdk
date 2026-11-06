@@ -18,8 +18,74 @@ use crate::{error::InternalValidationError, ArtifactChecksum};
 use codec::{Decode, Encode};
 use polkadot_node_primitives::PoV;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{ExecutorParams, PersistedValidationData};
-use std::time::Duration;
+use polkadot_primitives::{
+	CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, ExecutorParams, Hash,
+	PersistedValidationData,
+};
+use std::{sync::Arc, time::Duration};
+
+/// Contains all context needed to validate a candidate.
+/// This reduces parameter explosion and keeps related data together.
+///
+/// Use this struct when passing validation data through the system. When sending
+/// to the execute worker, use [`ValidationContext::into_execute_request`] to extract
+/// only the data needed by the worker.
+#[derive(Clone, Debug, Encode, Decode)]
+pub struct ValidationContext {
+	/// The candidate receipt being validated
+	pub candidate_receipt: CandidateReceipt,
+	/// Persisted validation data
+	pub pvd: Arc<PersistedValidationData>,
+	/// Proof-of-validity
+	pub pov: Arc<PoV>,
+	/// Execution parameters
+	pub executor_params: ExecutorParams,
+	/// Execution timeout
+	pub exec_timeout: Duration,
+	/// Whether the `CandidateReceiptV3` node feature has ever been seen enabled.
+	///
+	/// During the V3 transition period, this flag determines whether to trust
+	/// `descriptor.version()` or fall back to `descriptor.version_old_rules()`
+	/// for approval/dispute validations.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation`.
+	pub v3_seen: bool,
+}
+
+impl ValidationContext {
+	/// Get the relay parent hash from the candidate descriptor
+	pub fn relay_parent(&self) -> Hash {
+		self.candidate_receipt.descriptor.relay_parent()
+	}
+
+	/// Get the scheduling parent hash, using transition-safe logic.
+	// Note: This uses _for_candidate_validation which is the transition-safe version.
+	// It is used in both backing and approval/dispute contexts.
+	pub fn scheduling_parent(&self) -> Hash {
+		self.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(self.v3_seen)
+	}
+
+	/// Get the effective candidate descriptor version, using transition-safe logic.
+	pub fn descriptor_version(&self) -> CandidateDescriptorVersion {
+		self.candidate_receipt.descriptor.version_for_candidate_validation(self.v3_seen)
+	}
+
+	/// Convert to an ExecuteRequest for sending to the worker.
+	/// This extracts only the data needed by the execute worker process.
+	/// Consumes self since the context is no longer needed after sending to the worker.
+	pub fn into_execute_request(self, artifact_checksum: ArtifactChecksum) -> ExecuteRequest {
+		ExecuteRequest {
+			pvd: (*self.pvd).clone(),
+			pov: (*self.pov).clone(),
+			execution_timeout: self.exec_timeout,
+			artifact_checksum,
+			relay_parent: self.relay_parent(),
+			scheduling_parent: self.scheduling_parent(),
+			descriptor_version: self.descriptor_version(),
+		}
+	}
+}
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
 /// data from the host to the worker.
@@ -29,17 +95,34 @@ pub struct Handshake {
 	pub executor_params: ExecutorParams,
 }
 
-/// A request to execute a PVF
+/// A request to execute a PVF in the worker process.
+///
+/// This is the IPC message sent from the validation host to the execute worker.
+/// It contains only the minimal data needed by the worker to perform validation:
+/// - PVD and PoV to construct ValidationParams for the PVF
+/// - Timeout for execution limits
+/// - Artifact checksum for corruption detection
+/// - Parent hashes for V3+ extension to ValidationParams
+/// - Descriptor version to determine which ValidationParams format to use
+///
+/// Note: This does NOT include the full candidate receipt or other host-side data
+/// that the worker doesn't need.
 #[derive(Encode, Decode)]
 pub struct ExecuteRequest {
-	/// Persisted validation data.
+	/// Persisted validation data
 	pub pvd: PersistedValidationData,
-	/// Proof-of-validity.
+	/// Proof-of-validity
 	pub pov: PoV,
-	/// Execution timeout.
+	/// Execution timeout
 	pub execution_timeout: Duration,
-	/// Checksum of the artifact to execute.
+	/// Checksum of the artifact to execute
 	pub artifact_checksum: ArtifactChecksum,
+	/// The relay parent block hash (for V3+ ValidationParams extension)
+	pub relay_parent: Hash,
+	/// The scheduling parent block hash (for V3+ ValidationParams extension)
+	pub scheduling_parent: Hash,
+	/// The candidate descriptor version (determines ValidationParams format)
+	pub descriptor_version: CandidateDescriptorVersion,
 }
 
 /// The response from the execution worker.

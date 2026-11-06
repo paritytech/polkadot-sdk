@@ -123,19 +123,40 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 
 	let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
-	(quote! {
-		#(#attrs)*
-		#vis #sig {
-			let span = #crate_name::tracing::info_span!(
-				#crate_name::logging::PREFIX_LOG_SPAN,
-				name = #prefix_expr,
-			);
-			let _enter = span.enter();
+	if sig.asyncness.is_some() {
+		// For async functions, use `Instrument::instrument` to properly propagate the span
+		// across `.await` points. Using `span.enter()` in async functions is incorrect because
+		// the guard can be held across `.await` points where the task may migrate between
+		// threads, losing the span from thread-local state.
+		(quote! {
+			#(#attrs)*
+			#vis #sig {
+				let span = #crate_name::tracing::info_span!(
+					#crate_name::logging::PREFIX_LOG_SPAN,
+					name = #prefix_expr,
+				);
 
-			#block
-		}
-	})
-	.into()
+				#crate_name::tracing::Instrument::instrument(async move {
+					#block
+				}, span).await
+			}
+		})
+		.into()
+	} else {
+		(quote! {
+			#(#attrs)*
+			#vis #sig {
+				let span = #crate_name::tracing::info_span!(
+					#crate_name::logging::PREFIX_LOG_SPAN,
+					name = #prefix_expr,
+				);
+				let _enter = span.enter();
+
+				#block
+			}
+		})
+		.into()
+	}
 }
 
 /// Resolve the correct path for sc_tracing:

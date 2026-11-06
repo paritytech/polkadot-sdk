@@ -16,13 +16,14 @@
 // limitations under the License.
 
 use frame_benchmarking::v2::*;
-use frame_support_test::Config;
 use frame_support::parameter_types;
+use frame_support_test::Config;
 
 #[benchmarks]
 mod benches {
 	use super::*;
 
+	#[allow(dead_code)]
 	const MY_CONST: u32 = 100;
 
 	#[allow(dead_code)]
@@ -35,7 +36,7 @@ mod benches {
 	}
 
 	#[benchmark(skip_meta, extra)]
-	fn bench(a: Linear<{MY_CONST * 2}, {my_fn() + MyConst::get()}>) {
+	fn bench(a: Linear<{ MY_CONST * 2 }, { my_fn() + MyConst::get() }>) {
 		let a = 2 + 2;
 		#[block]
 		{}

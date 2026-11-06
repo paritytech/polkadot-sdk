@@ -53,12 +53,14 @@ impl<H, CodecError> From<Box<trie_db::TrieError<H, CodecError>>> for Error<H, Co
 /// Takes as input a destination `db` for decoded node and `encoded`
 /// an iterator of compact encoded nodes.
 ///
+/// The decoded root is always checked against `expected_root`.
+///
 /// Child trie are decoded in order of child trie root present
 /// in the top trie.
 pub fn decode_compact<'a, L, DB, I>(
 	db: &mut DB,
 	encoded: I,
-	expected_root: Option<&TrieHash<L>>,
+	expected_root: &TrieHash<L>,
 ) -> Result<TrieHash<L>, Error<TrieHash<L>, CError<L>>>
 where
 	L: TrieConfiguration,
@@ -68,9 +70,8 @@ where
 	let mut nodes_iter = encoded.into_iter();
 	let (top_root, _nb_used) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
 
-	// Only check root if expected root is passed as argument.
-	if let Some(expected_root) = expected_root.filter(|expected| *expected != &top_root) {
-		return Err(Error::RootMismatch(top_root, *expected_root))
+	if &top_root != expected_root {
+		return Err(Error::RootMismatch(top_root, *expected_root));
 	}
 
 	let mut child_tries = Vec::new();
@@ -90,7 +91,7 @@ where
 						let mut root = TrieHash::<L>::default();
 						// still in a proof so prevent panic
 						if root.as_mut().len() != value.as_slice().len() {
-							return Err(Error::InvalidChildRoot(key, value))
+							return Err(Error::InvalidChildRoot(key, value));
 						}
 						root.as_mut().copy_from_slice(value.as_ref());
 						child_tries.push(root);
@@ -108,7 +109,7 @@ where
 	}
 
 	if !HashDBT::<L::Hash, _>::contains(db, &top_root, EMPTY_PREFIX) {
-		return Err(Error::IncompleteProof)
+		return Err(Error::IncompleteProof);
 	}
 
 	let mut previous_extracted_child_trie = None;
@@ -130,11 +131,11 @@ where
 	if let Some(child_root) = previous_extracted_child_trie {
 		// A child root was read from proof but is not present
 		// in top trie.
-		return Err(Error::ExtraneousChildProof(child_root))
+		return Err(Error::ExtraneousChildProof(child_root));
 	}
 
 	if nodes_iter.next().is_some() {
-		return Err(Error::ExtraneousChildNode)
+		return Err(Error::ExtraneousChildNode);
 	}
 
 	Ok(top_root)
@@ -155,6 +156,7 @@ where
 	L: TrieConfiguration,
 	DB: HashDBT<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
+	let mut seen = trie_db::SeenHashes::<L>::default();
 	let mut child_tries = Vec::new();
 	let mut compact_proof = {
 		let trie = crate::TrieDBBuilder::<L>::new(partial_db, root).build();
@@ -169,7 +171,7 @@ where
 						let mut root = TrieHash::<L>::default();
 						if root.as_mut().len() != value.as_slice().len() {
 							// some child trie root in top trie are not an encoded hash.
-							return Err(Error::InvalidChildRoot(key.to_vec(), value.to_vec()))
+							return Err(Error::InvalidChildRoot(key.to_vec(), value.to_vec()));
 						}
 						root.as_mut().copy_from_slice(value.as_ref());
 						child_tries.push(root);
@@ -185,18 +187,18 @@ where
 			}
 		}
 
-		trie_db::encode_compact::<L>(&trie)?
+		trie_db::encode_compact_skip_duplicates::<L>(&trie, &mut seen)?
 	};
 
 	for child_root in child_tries {
 		if !HashDBT::<L::Hash, _>::contains(partial_db, &child_root, EMPTY_PREFIX) {
 			// child proof are allowed to be missing (unused root can be included
 			// due to trie structure modification).
-			continue
+			continue;
 		}
 
 		let trie = crate::TrieDBBuilder::<L>::new(partial_db, &child_root).build();
-		let child_proof = trie_db::encode_compact::<L>(&trie)?;
+		let child_proof = trie_db::encode_compact_skip_duplicates::<L>(&trie, &mut seen)?;
 
 		compact_proof.extend(child_proof);
 	}
@@ -234,6 +236,60 @@ mod tests {
 		}
 
 		(db, root)
+	}
+
+	#[test]
+	fn values_shared_between_top_and_child_trie_are_deduplicated() {
+		let mut db = MemoryDB::default();
+
+		// A value above `TRIE_VALUE_NODE_THRESHOLD` that is stored as a separate value node
+		// referenced by hash. It is present in the top trie and in a child trie; the
+		// deduplication state must be shared across the per-trie encodings so it is only
+		// emitted once in the whole proof.
+		let shared_value = vec![42u8; 64];
+
+		let mut child_root = Default::default();
+		{
+			let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut child_root).build();
+			trie.insert(b"child_key", &shared_value).expect("Inserts data");
+		}
+
+		let mut root = Default::default();
+		{
+			let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut root).build();
+			trie.insert(b"top_key", &shared_value).expect("Inserts data");
+
+			let mut child_storage_key =
+				sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
+			child_storage_key.extend(b"child1");
+			trie.insert(&child_storage_key, child_root.as_ref()).expect("Inserts data");
+		}
+
+		let compact_proof = encode_compact::<Layout, _>(&db, &root).unwrap();
+
+		// The shared value must only be contained once in the compact proof, even though the
+		// top trie and the child trie are encoded separately.
+		let occurrences = compact_proof
+			.encoded_nodes
+			.iter()
+			.filter(|node| node.as_slice() == shared_value.as_slice())
+			.count();
+		assert_eq!(occurrences, 1);
+
+		// The proof still decodes and gives access to the value through both tries.
+		let mut res_db = MemoryDB::new(&[]);
+		decode_compact::<Layout, _, _>(
+			&mut res_db,
+			compact_proof.iter_compact_encoded_nodes(),
+			&root,
+		)
+		.unwrap();
+
+		let trie = TrieDBBuilder::<Layout>::new(&res_db, &root).build();
+		assert_eq!(trie.get(b"top_key").unwrap().unwrap(), shared_value);
+
+		let child_trie = TrieDBBuilder::<Layout>::new(&res_db, &child_root).build();
+		assert_eq!(child_trie.get(b"child_key").unwrap().unwrap(), shared_value);
 	}
 
 	struct Overlay<'a> {
@@ -398,7 +454,7 @@ mod tests {
 		decode_compact::<Layout, _, _>(
 			&mut res_db,
 			compact_proof.iter_compact_encoded_nodes(),
-			Some(&root),
+			&root,
 		)
 		.unwrap();
 

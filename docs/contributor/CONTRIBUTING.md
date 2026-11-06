@@ -82,7 +82,7 @@ The reviewers are also responsible to check:
 All Pull Requests must contain proper title & description, as described in [Pull Request
 Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
-Pull Requests labelled with ⁠`R0-no-crate-publish-required` are exempt from ⁠prdoc documentation requirements.
+Pull Requests labelled with `R0-no-crate-publish-required` are exempt from prdoc documentation requirements.
 
 See more about `prdoc` [here](./prdoc.md)
 

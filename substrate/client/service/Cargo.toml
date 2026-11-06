@@ -36,6 +36,7 @@ sc-executor = { workspace = true, default-features = true }
 sc-informant = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-bitswap = { workspace = true, default-features = true }
 sc-network-common = { workspace = true, default-features = true }
 sc-network-light = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
@@ -87,3 +88,4 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
+jemalloc-allocator = ["sc-client-db/jemalloc-allocator"]

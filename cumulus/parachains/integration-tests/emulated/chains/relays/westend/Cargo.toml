@@ -28,3 +28,21 @@ westend-runtime-constants = { workspace = true }
 # Cumulus
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"emulated-integration-tests-common/try-runtime",
+	"pallet-staking/try-runtime",
+	"parachains-common/try-runtime",
+	"sp-runtime/try-runtime",
+	"westend-runtime/try-runtime",
+]

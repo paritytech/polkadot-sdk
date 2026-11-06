@@ -95,7 +95,7 @@ impl SpamSlots {
 	) -> bool {
 		let spam_vote_count = self.slots.entry((session, validator)).or_default();
 		if *spam_vote_count >= MAX_SPAM_VOTES {
-			return false
+			return false;
 		}
 		let validators = self.unconfirmed.entry((session, candidate)).or_default();
 

@@ -45,7 +45,7 @@ where
 	let size = NodesUtils::new(proof.leaf_count).size();
 
 	if leaves.len() != proof.leaf_indices.len() {
-		return Err(Error::Verify.log_debug("Proof leaf_indices not same length with leaves"))
+		return Err(Error::Verify.log_debug("Proof leaf_indices not same length with leaves"));
 	}
 
 	let leaves_and_position_data = proof
@@ -104,9 +104,13 @@ where
 		raw_ancestry_proof.prev_peaks.clone(),
 	)
 	.map_err(|e| Error::Verify.log_debug(e))?;
-	raw_ancestry_proof
+
+	let is_valid = raw_ancestry_proof
 		.verify_ancestor(Node::Hash(root), prev_root.clone())
 		.map_err(|e| Error::Verify.log_debug(e))?;
+	if !is_valid {
+		return Err(Error::Verify.log_debug("invalid ancestry proof"));
+	}
 
 	Ok(prev_root.hash())
 }
@@ -156,7 +160,7 @@ where
 		);
 
 		if leaves.len() != proof.leaf_indices.len() {
-			return Err(Error::Verify.log_debug("Proof leaf_indices not same length with leaves"))
+			return Err(Error::Verify.log_debug("Proof leaf_indices not same length with leaves"));
 		}
 
 		let leaves_positions_and_data = proof

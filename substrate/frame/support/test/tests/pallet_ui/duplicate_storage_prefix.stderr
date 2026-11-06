@@ -22,25 +22,25 @@ error: Duplicate storage prefixes found for `CounterForBar`
 36 |     type CounterForBar<T> = StorageValue<_, u16>;
    |          ^^^^^^^^^^^^^
 
-error[E0412]: cannot find type `_GeneratedPrefixForStorageFoo` in this scope
+error[E0425]: cannot find type `_GeneratedPrefixForStorageFoo` in this scope
   --> tests/pallet_ui/duplicate_storage_prefix.rs:29:7
    |
 29 |     type Foo<T> = StorageValue<_, u8>;
    |          ^^^ not found in this scope
 
-error[E0412]: cannot find type `_GeneratedPrefixForStorageNotFoo` in this scope
+error[E0425]: cannot find type `_GeneratedPrefixForStorageNotFoo` in this scope
   --> tests/pallet_ui/duplicate_storage_prefix.rs:33:7
    |
 33 |     type NotFoo<T> = StorageValue<_, u16>;
    |          ^^^^^^ not found in this scope
 
-error[E0412]: cannot find type `_GeneratedPrefixForStorageCounterForBar` in this scope
+error[E0425]: cannot find type `_GeneratedPrefixForStorageCounterForBar` in this scope
   --> tests/pallet_ui/duplicate_storage_prefix.rs:36:7
    |
 36 |     type CounterForBar<T> = StorageValue<_, u16>;
    |          ^^^^^^^^^^^^^ not found in this scope
 
-error[E0412]: cannot find type `_GeneratedPrefixForStorageBar` in this scope
+error[E0425]: cannot find type `_GeneratedPrefixForStorageBar` in this scope
   --> tests/pallet_ui/duplicate_storage_prefix.rs:39:7
    |
 39 |     type Bar<T> = CountedStorageMap<_, Twox64Concat, u16, u16>;

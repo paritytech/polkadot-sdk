@@ -47,7 +47,6 @@
 //! [`CheckMetadataHash`](frame_metadata_hash_extension::CheckMetadataHash) needs to be added to the
 //! list of signed extension:
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]
-//!
 //! > **Note:**
 //! >
 //! > Adding the signed extension changes the encoding of the transaction and adds one extra byte
@@ -73,7 +72,6 @@
 //! The metadata hash generation needs to be enabled when building the wasm binary. The
 //! `substrate-wasm-builder` supports this out of the box:
 #![doc = docify::embed!("../../templates/parachain/runtime/build.rs", template_enable_metadata_hash)]
-//!
 //! > **Note:**
 //! >
 //! > The `metadata-hash` feature needs to be enabled for the `substrate-wasm-builder` to enable the

@@ -75,20 +75,27 @@ impl From<Error> for ErrorObject<'static> {
 		let msg = e.to_string();
 
 		match e {
-			Error::ReachedLimits =>
-				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, None::<()>),
-			Error::InvalidBlock =>
-				ErrorObject::owned(rpc_spec_v2::INVALID_BLOCK_ERROR, msg, None::<()>),
-			Error::InvalidRuntimeCall(_) =>
-				ErrorObject::owned(rpc_spec_v2::INVALID_RUNTIME_CALL, msg, None::<()>),
-			Error::InvalidContinue =>
-				ErrorObject::owned(rpc_spec_v2::INVALID_CONTINUE, msg, None::<()>),
-			Error::InvalidDuplicateHashes =>
-				ErrorObject::owned(rpc_spec_v2::INVALID_DUPLICATE_HASHES, msg, None::<()>),
-			Error::InvalidParam(_) =>
-				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>),
-			Error::InternalError(_) =>
-				ErrorObject::owned(json_rpc_spec::INTERNAL_ERROR, msg, None::<()>),
+			Error::ReachedLimits => {
+				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, None::<()>)
+			},
+			Error::InvalidBlock => {
+				ErrorObject::owned(rpc_spec_v2::INVALID_BLOCK_ERROR, msg, None::<()>)
+			},
+			Error::InvalidRuntimeCall(_) => {
+				ErrorObject::owned(rpc_spec_v2::INVALID_RUNTIME_CALL, msg, None::<()>)
+			},
+			Error::InvalidContinue => {
+				ErrorObject::owned(rpc_spec_v2::INVALID_CONTINUE, msg, None::<()>)
+			},
+			Error::InvalidDuplicateHashes => {
+				ErrorObject::owned(rpc_spec_v2::INVALID_DUPLICATE_HASHES, msg, None::<()>)
+			},
+			Error::InvalidParam(_) => {
+				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>)
+			},
+			Error::InternalError(_) => {
+				ErrorObject::owned(json_rpc_spec::INTERNAL_ERROR, msg, None::<()>)
+			},
 		}
 	}
 }

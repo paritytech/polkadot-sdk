@@ -44,6 +44,7 @@ pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
+pallet-session-benchmarking = { workspace = true, optional = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
 
@@ -94,6 +95,7 @@ std = [
 	"pallet-broker/std",
 	"pallet-message-queue/std",
 	"pallet-mmr?/std",
+	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
@@ -131,6 +133,7 @@ runtime-benchmarks = [
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

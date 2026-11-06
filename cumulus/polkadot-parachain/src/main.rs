@@ -19,9 +19,15 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+#[cfg(target_os = "linux")]
+extern crate polkadot_jemalloc_shim;
+
 mod chain_spec;
 
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+use polkadot_omni_node_lib::{
+	run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+};
 
 struct CliConfig;
 
@@ -46,10 +52,8 @@ impl CliConfigT for CliConfig {
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
-	let config = RunConfig::new(
-		Box::new(chain_spec::RuntimeResolver),
-		Box::new(chain_spec::ChainSpecLoader),
-	);
+	let config =
+		RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(chain_spec::ChainSpecLoader));
 	// This enables polkadot-parachain to support additional subcommands like `export-chain-spec`.
 	// To add more, extend the `ExtraSubcommands` enum in
 	// `cumulus/polkadot-omni-node/lib/src/extra_subcommand` and handle them in

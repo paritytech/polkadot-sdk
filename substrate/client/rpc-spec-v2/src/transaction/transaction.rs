@@ -46,7 +46,7 @@ use std::sync::Arc;
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
 /// An API for transaction RPC calls.
-pub struct Transaction<Pool, Client> {
+pub struct Transaction<Pool: ?Sized, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
@@ -57,7 +57,7 @@ pub struct Transaction<Pool, Client> {
 	metrics: Option<Metrics>,
 }
 
-impl<Pool, Client> Transaction<Pool, Client> {
+impl<Pool: ?Sized, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
 	pub fn new(
 		client: Arc<Client>,
@@ -77,7 +77,7 @@ impl<Pool, Client> Transaction<Pool, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Pool, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
+impl<Pool: ?Sized, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,
@@ -107,7 +107,7 @@ where
 
 					// The transaction is invalid.
 					let _ = sink.send(&event).await;
-					return
+					return;
 				},
 			};
 
@@ -165,17 +165,21 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 	event: TransactionStatus<Hash, BlockHash>,
 ) -> Option<TransactionEvent<BlockHash>> {
 	match event {
-		TransactionStatus::Ready | TransactionStatus::Future =>
-			Some(TransactionEvent::<BlockHash>::Validated),
-		TransactionStatus::InBlock((hash, index)) =>
-			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index }))),
+		TransactionStatus::Ready | TransactionStatus::Future => {
+			Some(TransactionEvent::<BlockHash>::Validated)
+		},
+		TransactionStatus::InBlock((hash, index)) => {
+			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index })))
+		},
 		TransactionStatus::Retracted(_) => Some(TransactionEvent::BestChainBlockIncluded(None)),
-		TransactionStatus::FinalityTimeout(_) =>
+		TransactionStatus::FinalityTimeout(_) => {
 			Some(TransactionEvent::Dropped(TransactionDropped {
 				error: "Maximum number of finality watchers has been reached".into(),
-			})),
-		TransactionStatus::Finalized((hash, index)) =>
-			Some(TransactionEvent::Finalized(TransactionBlock { hash, index })),
+			}))
+		},
+		TransactionStatus::Finalized((hash, index)) => {
+			Some(TransactionEvent::Finalized(TransactionBlock { hash, index }))
+		},
 		TransactionStatus::Usurped(_) => Some(TransactionEvent::Invalid(TransactionError {
 			error: "Extrinsic was rendered invalid by another extrinsic".into(),
 		})),

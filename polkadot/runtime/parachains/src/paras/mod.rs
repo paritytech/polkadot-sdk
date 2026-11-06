@@ -128,11 +128,11 @@ use polkadot_primitives::{
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
 use scale_info::{Type, TypeInfo};
-use sp_core::RuntimeDebug;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
+use Debug;
 
 use serde::{Deserialize, Serialize};
 
@@ -183,7 +183,7 @@ pub struct ParaPastCodeMeta<N> {
 /// If the para is in a "transition state", it is expected that the parachain is
 /// queued in the `ActionsQueue` to transition it into a stable state. Its lifecycle
 /// state will be used to determine the state transition to apply to the para.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum ParaLifecycle {
 	/// Para is new and is onboarding as an on-demand or lease holding Parachain.
 	Onboarding,
@@ -301,7 +301,7 @@ impl<N: Ord + Copy + PartialEq> ParaPastCodeMeta<N> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Serialize,
 	Deserialize,
@@ -317,7 +317,7 @@ pub struct ParaGenesisArgs {
 }
 
 /// Distinguishes between lease holding Parachain and Parathread (on-demand parachain)
-#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Debug)]
 pub enum ParaKind {
 	Parathread,
 	Parachain,
@@ -439,7 +439,7 @@ impl<BlockNumber> PvfCheckCause<BlockNumber> {
 }
 
 /// Specifies what was the outcome of a PVF pre-checking vote.
-#[derive(Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 enum PvfCheckOutcome {
 	Accepted,
 	Rejected,
@@ -1100,12 +1100,12 @@ pub mod pallet {
 					vote.age,
 					&cfg,
 				);
-				return Ok(())
+				return Ok(());
 			}
 
 			if CodeByHash::<T>::contains_key(&code_hash) {
 				// There is no vote, but the code exists. Nothing to do here.
-				return Ok(())
+				return Ok(());
 			}
 
 			// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
@@ -1156,9 +1156,9 @@ pub mod pallet {
 			let validators = shared::ActiveValidatorKeys::<T>::get();
 			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
-				return Err(Error::<T>::PvfCheckStatementStale.into())
+				return Err(Error::<T>::PvfCheckStatementStale.into());
 			} else if stmt.session_index > current_session {
-				return Err(Error::<T>::PvfCheckStatementFuture.into())
+				return Err(Error::<T>::PvfCheckStatementFuture.into());
 			}
 			let validator_index = stmt.validator_index.0 as usize;
 			let validator_public = validators
@@ -1252,7 +1252,7 @@ pub mod pallet {
 
 			let removed = UpgradeCooldowns::<T>::mutate(|cooldowns| {
 				let Some(pos) = cooldowns.iter().position(|(p, _)| p == &para) else {
-					return Ok::<_, DispatchError>(false)
+					return Ok::<_, DispatchError>(false);
 				};
 				let (_, cooldown_until) = cooldowns.remove(pos);
 
@@ -1365,6 +1365,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -1374,17 +1375,18 @@ pub mod pallet {
 				Call::include_pvf_check_statement { stmt, signature } => {
 					let current_session = shared::CurrentSessionIndex::<T>::get();
 					if stmt.session_index < current_session {
-						return InvalidTransaction::Stale.into()
+						return InvalidTransaction::Stale.into();
 					} else if stmt.session_index > current_session {
-						return InvalidTransaction::Future.into()
+						return InvalidTransaction::Future.into();
 					}
 
 					let validator_index = stmt.validator_index.0 as usize;
 					let validators = shared::ActiveValidatorKeys::<T>::get();
 					let validator_public = match validators.get(validator_index) {
 						Some(pk) => pk,
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
 					};
 
 					let signing_payload = stmt.signing_payload();
@@ -1399,10 +1401,12 @@ pub mod pallet {
 
 					match active_vote.has_vote(validator_index) {
 						Some(false) => (),
-						Some(true) =>
-							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+						Some(true) => {
+							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()
+						},
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
 					}
 
 					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
@@ -1417,7 +1421,7 @@ pub mod pallet {
 						.propagate(true)
 						.build()
 				},
-				Call::apply_authorized_force_set_current_code { para, new_code } =>
+				Call::apply_authorized_force_set_current_code { para, new_code } => {
 					match Self::validate_code_is_authorized(new_code, para) {
 						Ok(authorized_code) => {
 							let now = frame_system::Pallet::<T>::block_number();
@@ -1430,9 +1434,11 @@ pub mod pallet {
 								.propagate(true)
 								.build()
 						},
-						Err(_) =>
-							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into(),
-					},
+						Err(_) => {
+							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()
+						},
+					}
+				},
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
@@ -1464,6 +1470,11 @@ const INVALID_TX_UNAUTHORIZED_CODE: u8 = 4;
 /// With this limit the same attack could lead to some parachains ceasing to being able to
 /// communicate via offchain XCMP. Snowbridge will still work as it only cares about `BridgeHub`.
 pub const MAX_PARA_HEADS: usize = 1024;
+
+/// Minimum length for a parachain head to be included by [`Pallet::sorted_para_heads`]; shorter
+/// entries are skipped as a sanity bound. Encoded parachain headers are well above this, so no
+/// real parachain is affected.
+pub const MIN_PARA_HEAD_LEN: usize = 64;
 
 impl<T: Config> Pallet<T> {
 	/// This is a call to schedule code upgrades for parachains which is safe to be called
@@ -1538,8 +1549,11 @@ impl<T: Config> Pallet<T> {
 	/// Get a list of the first [`MAX_PARA_HEADS`] para heads sorted by para_id.
 	/// This method is likely to be removed in the future.
 	pub fn sorted_para_heads() -> Vec<(u32, Vec<u8>)> {
-		let mut heads: Vec<(u32, Vec<u8>)> =
-			Heads::<T>::iter().map(|(id, head)| (id.into(), head.0)).collect();
+		let mut heads: Vec<(u32, Vec<u8>)> = Heads::<T>::iter()
+			.map(|(id, head)| (id.into(), head.0))
+			// Skip undersized heads; see `MIN_PARA_HEAD_LEN`.
+			.filter(|(_id, head_data)| head_data.len() >= MIN_PARA_HEAD_LEN)
+			.collect();
 		heads.sort_by_key(|(id, _)| *id);
 		heads.truncate(MAX_PARA_HEADS);
 		heads
@@ -1562,7 +1576,7 @@ impl<T: Config> Pallet<T> {
 		for para in actions {
 			let lifecycle = ParaLifecycles::<T>::get(&para);
 			match lifecycle {
-				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => { /* Nothing to do... */
+				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => { // Nothing to do...
 				},
 				Some(ParaLifecycle::Onboarding) => {
 					if let Some(genesis_data) = UpcomingParasGenesis::<T>::take(&para) {
@@ -1666,7 +1680,7 @@ impl<T: Config> Pallet<T> {
 		let code_retention_period = config.code_retention_period;
 		if now <= code_retention_period {
 			let weight = T::DbWeight::get().reads_writes(1, 0);
-			return weight
+			return weight;
 		}
 
 		// The height of any changes we no longer should keep around.
@@ -1756,7 +1770,7 @@ impl<T: Config> Pallet<T> {
 						new_code_hash
 					} else {
 						log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-						continue
+						continue;
 					};
 
 					weight += Self::set_current_code(id, new_code_hash, expected_at);
@@ -1848,7 +1862,7 @@ impl<T: Config> Pallet<T> {
 						"The PvfActiveVoteMap is out of sync with PvfActiveVoteList!",
 					);
 					debug_assert!(false);
-					continue
+					continue;
 				},
 			};
 
@@ -2120,7 +2134,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(future_code_hash) = FutureCodeHash::<T>::get(&id) {
 			let active_prechecking = PvfActiveVoteList::<T>::get();
 			if active_prechecking.contains(&future_code_hash) {
-				return Err(Error::<T>::CannotOffboard.into())
+				return Err(Error::<T>::CannotOffboard.into());
 			}
 		}
 
@@ -2145,7 +2159,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		if <T as Config>::QueueFootprinter::message_count(UmpQueueId::Para(id)) != 0 {
-			return Err(Error::<T>::CannotOffboard.into())
+			return Err(Error::<T>::CannotOffboard.into());
 		}
 
 		Ok(())
@@ -2218,7 +2232,7 @@ impl<T: Config> Pallet<T> {
 		let new_code_len = new_code.0.len();
 		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
-			return
+			return;
 		}
 
 		// Enacting this should be prevented by the `can_upgrade_validation_code`
@@ -2232,7 +2246,7 @@ impl<T: Config> Pallet<T> {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			log::warn!(target: LOG_TARGET, "ended up scheduling an upgrade while one is pending",);
-			return
+			return;
 		}
 
 		let code_hash = new_code.hash();
@@ -2248,7 +2262,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"para tried to upgrade to the same code. Abort the upgrade",
 			);
-			return
+			return;
 		}
 
 		// This is the start of the upgrade process. Prevent any further attempts at upgrading.
@@ -2372,7 +2386,7 @@ impl<T: Config> Pallet<T> {
 					new_code_hash
 				} else {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-					return
+					return;
 				};
 
 				Self::set_current_code(id, new_code_hash, expected_at);
@@ -2529,7 +2543,7 @@ impl<T: Config> Pallet<T> {
 		let refs = CodeByHashRefs::<T>::get(code_hash);
 		if refs == 0 {
 			log::error!(target: LOG_TARGET, "Code refs is already zero for {:?}", code_hash);
-			return weight
+			return weight;
 		}
 		if refs <= 1 {
 			weight += T::DbWeight::get().writes(2);

@@ -51,7 +51,6 @@
 //! 5. **Draining** elements happens through the [`Pallet::drain`] iterator. Note that even
 //! *peeking* a value will already remove it.
 #![doc = docify::embed!("src/tests.rs", drain_works)]
-//!
 //! ## Pallet API
 //!
 //! None. Only things to consider is the [`Config`] traits.

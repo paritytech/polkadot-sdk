@@ -25,7 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -313,10 +313,11 @@ impl<T: Config> Pallet<T> {
 		let mut tracker = alloc::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
 			Some((who, amount)) => match tracker.get(&who) {
-				Some(prev_amount) =>
+				Some(prev_amount) => {
 					if amount > *prev_amount {
 						tracker.insert(who, amount);
-					},
+					}
+				},
 				None => {
 					tracker.insert(who, amount);
 				},
@@ -431,12 +432,13 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		Leases::<T>::get(para)
 			.into_iter()
 			.map(|lease| match lease {
-				Some((who, amount)) =>
+				Some((who, amount)) => {
 					if &who == leaser {
 						amount
 					} else {
 						Zero::zero()
-					},
+					}
+				},
 				None => Zero::zero(),
 			})
 			.max()
@@ -1005,6 +1007,7 @@ mod benchmarking {
 
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn force_lease() -> Result<(), BenchmarkError> {

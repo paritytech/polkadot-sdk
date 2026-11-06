@@ -89,7 +89,7 @@ where
 				let exts = span.extensions();
 				if let Some(prefix) = exts.get::<super::layers::Prefix>() {
 					write!(&mut writer, "{}", prefix.as_str())?;
-					break
+					break;
 				}
 			}
 		}

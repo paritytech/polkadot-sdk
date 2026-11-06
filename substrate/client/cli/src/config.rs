@@ -173,7 +173,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		node_key: NodeKeyConfig,
 		default_listen_port: u16,
 	) -> Result<NetworkConfiguration> {
-		let network_config = if let Some(network_params) = self.network_params() {
+		let mut network_config = if let Some(network_params) = self.network_params() {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
@@ -191,6 +191,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		// TODO: Return error here in the next release:
 		// https://github.com/paritytech/polkadot-sdk/issues/5266
 		// if is_validator && network_config.public_addresses.is_empty() {}
+
+		// Validated and completed here, before any consumer clones it.
+		network_config
+			.validate_and_complete_addresses()
+			.map_err(sc_service::Error::from)?;
 
 		Ok(network_config)
 	}
@@ -660,14 +665,15 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger.init()?;
 
 		match fdlimit::raise_fd_limit() {
-			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) => {
 				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
 					warn!(
 						"Low open file descriptor limit configured for the process. \
 						Current value: {:?}, recommended value: {:?}.",
 						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 					);
-				},
+				}
+			},
 			Ok(fdlimit::Outcome::Unsupported) => {
 				// Unsupported platform (non-Linux)
 			},
@@ -693,7 +699,7 @@ pub fn generate_node_name() -> String {
 		let count = node_name.chars().count();
 
 		if count < NODE_NAME_MAX_LENGTH {
-			return node_name
+			return node_name;
 		}
 	}
 }

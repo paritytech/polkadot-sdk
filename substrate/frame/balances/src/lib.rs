@@ -183,7 +183,7 @@ use sp_runtime::{
 		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
 		StaticLookup, Zero,
 	},
-	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
+	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
 
 pub use types::{
@@ -235,13 +235,11 @@ pub mod pallet {
 			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
-			type FreezeIdentifier = Self::RuntimeFreezeReason;
 
 			type DustRemoval = ();
 
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
-			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
@@ -261,8 +259,11 @@ pub mod pallet {
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 
 		/// The overarching freeze reason.
+		///
+		/// This is also the identifier used for [`Freezes`], and its variant count bounds the
+		/// number of freezes an account can hold at any time.
 		#[pallet::no_default_bounds]
-		type RuntimeFreezeReason: VariantCount;
+		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -306,9 +307,6 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
-		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
-
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
 		///
@@ -321,10 +319,6 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
-
-		/// The maximum number of individual freeze locks that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxFreezes: Get<u32>;
 
 		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
 		/// occurs.
@@ -428,7 +422,7 @@ pub mod pallet {
 	/// Defensive/unexpected errors/events.
 	///
 	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
 		/// Balance was altered/dusted during an operation that should have NOT done so.
 		BalanceUpdated,
@@ -457,7 +451,7 @@ pub mod pallet {
 		TooManyReserves,
 		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
-		/// Number of freezes exceed `MaxFreezes`.
+		/// Number of freezes exceed `VariantCountOf<T::RuntimeFreezeReason>`.
 		TooManyFreezes,
 		/// The issuance cannot be modified since it is already deactivated.
 		IssuanceDeactivated,
@@ -471,6 +465,10 @@ pub mod pallet {
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
+	///
+	/// This is not guaranteed to be less than or equal to [`TotalIssuance`]. Total issuance may be
+	/// reduced independently of this value, including while a reversible imbalance is outstanding.
+	/// Active issuance is therefore derived using saturating subtraction.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
@@ -548,7 +546,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+		BoundedVec<
+			IdAmount<T::RuntimeFreezeReason, T::Balance>,
+			VariantCountOf<T::RuntimeFreezeReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -621,12 +622,6 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
-			);
-
-			assert!(
-				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
-				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
-				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
 		}
 
@@ -760,7 +755,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			if who.is_empty() {
-				return Ok(Pays::Yes.into())
+				return Ok(Pays::Yes.into());
 			}
 			let mut upgrade_count = 0;
 			for i in &who {
@@ -855,7 +850,7 @@ pub mod pallet {
 		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
 		/// this `burn` operation will reduce total issuance by the amount _burned_.
 		#[pallet::call_index(10)]
-		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_keep_alive()} else {T::WeightInfo::burn_allow_death()})]
 		pub fn burn(
 			origin: OriginFor<T>,
 			#[pallet::compact] value: T::Balance,
@@ -906,7 +901,7 @@ pub mod pallet {
 		pub fn ensure_upgraded(who: &T::AccountId) -> bool {
 			let mut a = T::AccountStore::get(who);
 			if a.flags.is_new_logic() {
-				return false
+				return false;
 			}
 			a.flags.set_new_logic();
 			if !a.reserved.is_zero() && a.frozen.is_zero() {
@@ -930,7 +925,7 @@ pub mod pallet {
 				Ok(())
 			});
 			Self::deposit_event(Event::Upgraded { who: who.clone() });
-			return true
+			return true;
 		}
 
 		/// Get the free balance of an account.
@@ -1125,19 +1120,16 @@ pub mod pallet {
 				// Evaluates `maybe_dust`, which is `Some` containing the dust to be dropped, iff
 				// some dust should be dropped.
 				//
-				// We should never be dropping if reserved is non-zero. Reserved being non-zero
-				// should imply that we have a consumer ref, so this is economically safe.
+				// We should never be dropping if there are either reserves or freezes since that
+				// implies a consumer ref.
 				let ed = Self::ed();
-				let maybe_dust = if account.free < ed && account.reserved.is_zero() {
+				let maybe_dust = if account.free < ed && !does_consume {
 					if account.free.is_zero() {
 						None
 					} else {
 						Some(account.free)
 					}
 				} else {
-					assert!(
-						account.free.is_zero() || account.free >= ed || !account.reserved.is_zero()
-					);
 					*maybe_account = Some(account);
 					None
 				};
@@ -1174,8 +1166,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
-			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			// The consumer limit might be full, therefore we pass `true` into `mutate_account` to
+			// make sure this cannot fail.
 			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -1187,23 +1179,22 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			match res {
-				Ok((_, None)) => {
-					// expected -- all good.
-				},
-				Ok((_, Some(_dust))) => {
-					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-					defensive!("caused unexpected dusting/balance update.");
-				},
-				_ => {
+			let maybe_dust = match res {
+				Ok((_, maybe_dust)) => maybe_dust,
+				Err(_) => {
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
 					defensive!("errored in mutate_account");
+					None
 				},
-			}
+			};
 
 			match locks.is_empty() {
 				true => Locks::<T, I>::remove(who),
 				false => Locks::<T, I>::insert(who, bounded_locks),
+			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
 
 			if prev_frozen > after_frozen {
@@ -1218,7 +1209,10 @@ pub mod pallet {
 		/// Update the account entry for `who`, given the locks.
 		pub(crate) fn update_freezes(
 			who: &T::AccountId,
-			freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+			freezes: BoundedSlice<
+				IdAmount<T::RuntimeFreezeReason, T::Balance>,
+				VariantCountOf<T::RuntimeFreezeReason>,
+			>,
 		) -> DispatchResult {
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
@@ -1233,15 +1227,17 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			if maybe_dust.is_some() {
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-				defensive!("caused unexpected dusting/balance update.");
-			}
+
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {
 				Freezes::<T, I>::insert(who, freezes);
 			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
+			}
+
 			if prev_frozen > after_frozen {
 				let amount = prev_frozen.saturating_sub(after_frozen);
 				Self::deposit_event(Event::Thawed { who: who.clone(), amount });
@@ -1267,7 +1263,7 @@ pub mod pallet {
 			status: Status,
 		) -> Result<T::Balance, DispatchError> {
 			if value.is_zero() {
-				return Ok(Zero::zero())
+				return Ok(Zero::zero());
 			}
 
 			let max = <Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(
@@ -1282,7 +1278,7 @@ pub mod pallet {
 				return match status {
 					Status::Free => Ok(actual.saturating_sub(Self::unreserve(slashed, actual))),
 					Status::Reserved => Ok(actual),
-				}
+				};
 			}
 
 			let ((_, maybe_dust_1), maybe_dust_2) = Self::try_mutate_account(
@@ -1292,16 +1288,18 @@ pub mod pallet {
 					ensure!(!is_new, Error::<T, I>::DeadAccount);
 					Self::try_mutate_account(slashed, false, |from_account, _| -> DispatchResult {
 						match status {
-							Status::Free =>
+							Status::Free => {
 								to_account.free = to_account
 									.free
 									.checked_add(&actual)
-									.ok_or(ArithmeticError::Overflow)?,
-							Status::Reserved =>
+									.ok_or(ArithmeticError::Overflow)?
+							},
+							Status::Reserved => {
 								to_account.reserved = to_account
 									.reserved
 									.checked_add(&actual)
-									.ok_or(ArithmeticError::Overflow)?,
+									.ok_or(ArithmeticError::Overflow)?
+							},
 						}
 						from_account.reserved.saturating_reduce(actual);
 						Ok(())
@@ -1384,7 +1382,9 @@ pub mod pallet {
 			})?;
 
 			Freezes::<T, I>::iter_keys().try_for_each(|k| {
-				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeFreezeReason::VARIANT_COUNT as usize
+				{
 					Err("Found `Freeze` with too many elements")
 				} else {
 					Ok(())

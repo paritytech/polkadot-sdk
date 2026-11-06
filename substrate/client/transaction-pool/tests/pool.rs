@@ -270,9 +270,9 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.push_block(3, Vec::new(), true);
 	block_on(pool.prune_tags(&api.expect_hash_and_number(3), vec![vec![155]], vec![]));
 	assert_eq!(api.validation_requests().len(), 4);
-	//xt0 was future, it failed (bc of 155 tag conflict) and was removed
+	// xt0 was future, it failed (bc of 155 tag conflict) and was removed
 	assert_eq!(pool.validated_pool().status().ready, 0);
-	//xt1 was ready, it was pruned (bc of 155 tag conflict) but was revalidated and resubmitted
+	// xt1 was ready, it was pruned (bc of 155 tag conflict) but was revalidated and resubmitted
 	// (API does not know about 155).
 	assert_eq!(pool.validated_pool().status().future, 1);
 
@@ -325,7 +325,7 @@ fn should_revalidate_during_maintenance() {
 		.expect("1. Imported");
 	let watcher =
 		block_on(pool.submit_and_watch(api.expect_hash_from_number(0), SOURCE, xt2.clone()))
-			.expect("import"); //todo
+			.expect("import"); // todo
 	assert_eq!(pool.status().ready, 2);
 	assert_eq!(api.validation_requests().len(), 2);
 
@@ -839,7 +839,7 @@ fn resubmit_tx_of_fork_that_is_not_part_of_retracted() {
 
 	// Block D2
 	{
-		//push new best block
+		// push new best block
 		let header = api.push_block(2, vec![], true);
 		let event = block_event_with_retracted(header, d0, api);
 		block_on(pool.maintain(event));
@@ -1354,16 +1354,16 @@ fn switching_fork_multiple_times_works() {
 
 	{
 		let mut stream = futures::executor::block_on_stream(from_alice_watcher);
-		//phase-0
+		// phase-0
 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b1_header.hash(), 0))));
-		//phase-1
+		// phase-1
 		assert_eq!(stream.next(), Some(TransactionStatus::Retracted(b1_header.hash())));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b2_header.hash(), 0))));
-		//phase-2
+		// phase-2
 		assert_eq!(stream.next(), Some(TransactionStatus::Retracted(b2_header.hash())));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b1_header.hash(), 0))));
-		//phase-3
+		// phase-3
 		assert_eq!(stream.next(), Some(TransactionStatus::Retracted(b1_header.hash())));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b2_header.hash(), 0))));
 		assert_eq!(stream.next(), Some(TransactionStatus::Finalized((b2_header.hash(), 0))));
@@ -1372,13 +1372,13 @@ fn switching_fork_multiple_times_works() {
 
 	{
 		let mut stream = futures::executor::block_on_stream(from_bob_watcher);
-		//phase-1
+		// phase-1
 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b2_header.hash(), 1))));
-		//phase-2
+		// phase-2
 		assert_eq!(stream.next(), Some(TransactionStatus::Retracted(b2_header.hash())));
 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
-		//phase-3
+		// phase-3
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b2_header.hash(), 1))));
 		assert_eq!(stream.next(), Some(TransactionStatus::Finalized((b2_header.hash(), 1))));
 		assert_eq!(stream.next(), None);
@@ -1583,21 +1583,21 @@ fn delayed_finalization_does_not_retract() {
 
 	{
 		let mut stream = futures::executor::block_on_stream(from_alice_watcher);
-		//phase-0
+		// phase-0
 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((b1_header.hash(), 0))));
-		//phase-2
+		// phase-2
 		assert_eq!(stream.next(), Some(TransactionStatus::Finalized((b1_header.hash(), 0))));
 		assert_eq!(stream.next(), None);
 	}
 
 	{
 		let mut stream = futures::executor::block_on_stream(from_bob_watcher);
-		//phase-0
+		// phase-0
 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
-		//phase-1
+		// phase-1
 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((c1_header.hash(), 0))));
-		//phase-3
+		// phase-3
 		assert_eq!(stream.next(), Some(TransactionStatus::Finalized((c1_header.hash(), 0))));
 		assert_eq!(stream.next(), None);
 	}

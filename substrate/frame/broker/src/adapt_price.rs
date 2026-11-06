@@ -19,7 +19,7 @@
 
 use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
-use sp_core::{Get, RuntimeDebug};
+use sp_core::Get;
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.
@@ -44,7 +44,7 @@ pub struct SalePerformance<Balance> {
 }
 
 /// Result of `AdaptPrice::adapt_price`.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct AdaptedPrices<Balance> {
 	/// New minimum price to use.
 	pub end_price: Balance,
@@ -121,7 +121,7 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 			return AdaptedPrices {
 				end_price: performance.end_price,
 				target_price: FixedU64::from(10).saturating_mul_int(performance.end_price),
-			}
+			};
 		};
 
 		let price = FixedU64::from_rational(1, 10).saturating_mul_int(sellout_price);

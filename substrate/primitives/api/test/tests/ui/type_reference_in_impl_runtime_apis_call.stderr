@@ -1,23 +1,23 @@
 error[E0603]: struct `RuntimeVersion` is private
-  --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:39:27
-   |
-39 |         fn version() -> sp_api::RuntimeVersion {
-   |                                 ^^^^^^^^^^^^^^ private struct
-   |
+ --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:39:27
+  |
+ 39 |         fn version() -> sp_api::RuntimeVersion {
+    |                                 ^^^^^^^^^^^^^^ private struct
+    |
 note: the struct `RuntimeVersion` is defined here
-  --> $WORKSPACE/substrate/primitives/api/src/lib.rs
-   |
-   | use sp_version::RuntimeVersion;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   --> $WORKSPACE/substrate/primitives/api/src/lib.rs
+    |
+    | use sp_version::RuntimeVersion;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
 help: consider importing this struct instead
-   |
-39  -         fn version() -> sp_api::RuntimeVersion {
-39  +         fn version() -> sp_version::RuntimeVersion {
+    |
+ 39 -         fn version() -> sp_api::RuntimeVersion {
+ 39 +         fn version() -> sp_version::RuntimeVersion {
     |
 help: import `RuntimeVersion` directly
     |
-39  -         fn version() -> sp_api::RuntimeVersion {
-39  +         fn version() -> sp_version::RuntimeVersion {
+ 39 -         fn version() -> sp_api::RuntimeVersion {
+ 39 +         fn version() -> sp_version::RuntimeVersion {
     |
 
 error[E0053]: method `test` has an incompatible type for trait

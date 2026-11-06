@@ -24,13 +24,15 @@ use std::{
 };
 
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_externalities::{decl_extension, TransactionType};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
 	TransactionOutcome,
 };
-use sp_state_machine::{create_proof_check_backend, execution_proof_check_on_trie_backend};
+use sp_state_machine::{
+	create_proof_check_backend, execution_proof_check_on_trie_backend, OverlayedChanges,
+};
 
 use substrate_test_runtime_client::{
 	prelude::*,
@@ -111,21 +113,23 @@ fn record_proof_works() {
 	}
 	.into_unchecked_extrinsic();
 
+	let storage_proof_recorder = ProofRecorder::<Block>::default();
+
 	// Build the block and record proof
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().best_hash)
 		.with_parent_block_number(client.chain_info().best_number)
-		.enable_proof_recording()
+		.with_proof_recorder(storage_proof_recorder.clone())
 		.build()
 		.unwrap();
 	builder.push(transaction.clone()).unwrap();
-	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 
-	let backend = create_proof_check_backend::<HashingFor<Block>>(
-		storage_root,
-		proof.expect("Proof was generated"),
-	)
-	.expect("Creates proof backend.");
+	let (block, _) = builder.build().expect("Bake block").into_inner();
+
+	let proof = storage_proof_recorder.drain_storage_proof();
+
+	let backend = create_proof_check_backend::<HashingFor<Block>>(storage_root, proof)
+		.expect("Creates proof backend.");
 
 	// Use the proof backend to execute `execute_block`.
 	let mut overlay = Default::default();
@@ -137,6 +141,7 @@ fn record_proof_works() {
 		"Core_execute_block",
 		&block.encode(),
 		&runtime_code,
+		substrate_test_runtime_client::runtime::VERSION.state_version(),
 	)
 	.expect("Executes block while using the proof backend");
 }
@@ -273,4 +278,80 @@ fn ensure_transactional_works() {
 	assert_eq!(transaction_tester.started.load(Ordering::Relaxed), 4);
 	assert_eq!(transaction_tester.committed.load(Ordering::Relaxed), 3);
 	assert_eq!(transaction_tester.rolled_back.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn auto_transaction_is_restored_after_execute_in_transaction() {
+	const KEY: &[u8] = b"test";
+
+	let client = TestClientBuilder::new().build();
+	let best_hash = client.chain_info().best_hash;
+
+	for commit in [true, false] {
+		let runtime_api = client.runtime_api();
+		runtime_api.execute_in_transaction(|api| {
+			api.execute_in_transaction(|_| TransactionOutcome::Commit(()));
+
+			if commit {
+				TransactionOutcome::Commit(())
+			} else {
+				TransactionOutcome::Rollback(())
+			}
+		});
+
+		// The explicit scope is fully closed. A failing plain call must be rolled back again.
+		assert!(runtime_api
+			.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], true)
+			.is_err());
+
+		let changes = runtime_api
+			.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
+			.unwrap();
+		assert!(changes.main_storage_changes.is_empty());
+	}
+}
+
+#[test]
+fn failing_call_after_execute_in_transaction_keeps_committed_changes() {
+	const KEY: &[u8] = b"test";
+
+	let client = TestClientBuilder::new().build();
+	let best_hash = client.chain_info().best_hash;
+
+	let runtime_api = client.runtime_api();
+	runtime_api.execute_in_transaction(|api| {
+		api.write_key_value(best_hash, KEY.to_vec(), vec![1], false).unwrap();
+
+		TransactionOutcome::Commit(())
+	});
+
+	// The explicit scope is closed and its changes are committed. A failing plain call must
+	// only discard its own changes.
+	assert!(runtime_api.write_key_value(best_hash, KEY.to_vec(), vec![2], true).is_err());
+
+	let changes = runtime_api
+		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
+		.unwrap();
+	assert_eq!(changes.main_storage_changes, vec![(KEY.to_vec(), Some(vec![1]))]);
+}
+
+#[test]
+fn set_overlayed_changes_is_observed_by_typed_call() {
+	let system_number_key: Vec<u8> = sp_crypto_hashing::twox_128(b"System")
+		.iter()
+		.chain(sp_crypto_hashing::twox_128(b"Number").iter())
+		.copied()
+		.collect();
+
+	let client = TestClientBuilder::new().build();
+	let mut runtime_api = client.runtime_api();
+	let best_hash = client.chain_info().best_hash;
+
+	assert_eq!(runtime_api.get_block_number(best_hash).unwrap(), 0);
+
+	let mut overlayed: OverlayedChanges<HashingFor<Block>> = OverlayedChanges::default();
+	overlayed.set_storage(system_number_key, Some(42u64.encode()));
+	runtime_api.set_overlayed_changes(overlayed);
+
+	assert_eq!(runtime_api.get_block_number(best_hash).unwrap(), 42);
 }

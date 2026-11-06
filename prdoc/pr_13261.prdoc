@@ -1,0 +1,20 @@
+title: Bump PolkaVM from 0.35 to 0.36
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Updates all PolkaVM dependencies (`polkavm`, `polkavm-common`,
+      `polkavm-derive`, `polkavm-linker`) from `0.35.0` to `0.36.0`. The
+      `pallet-revive` fixtures build template follows the workspace pin.
+
+      The orphaned `try_compile_invalid_fixture` helper is removed from
+      `pallet-revive-fixtures`: its only caller was the `sbrk_cannot_be_linked`
+      test that was deleted together with the sbrk fixture in #12523.
+
+crates:
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: major
+  - name: pallet-revive-uapi
+    bump: patch

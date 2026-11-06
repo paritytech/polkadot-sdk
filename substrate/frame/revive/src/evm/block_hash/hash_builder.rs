@@ -20,9 +20,9 @@
 use alloc::vec::Vec;
 use alloy_core::rlp;
 use alloy_trie::{
+	HashBuilder, Nibbles, TrieMask,
 	hash_builder::{HashBuilderValue, HashBuilderValueRef},
 	nodes::RlpNode,
-	HashBuilder, Nibbles, TrieMask,
 };
 use codec::{Decode, Encode};
 use sp_core::H256;
@@ -315,7 +315,7 @@ impl IncrementalHashBuilder {
 	#[cfg(test)]
 	fn process_stats(&mut self, data_len: usize, index: u64) {
 		if self.stats.is_none() {
-			return
+			return;
 		}
 
 		let hb_current_size = self.calculate_current_size();

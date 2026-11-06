@@ -1,0 +1,20 @@
+title: 'statement-store: read affinity topics from a file'
+
+doc:
+- audience: Node Operator
+  description: |-
+    The hidden `--statement-affinity-topics-file <PATH>` flag of the substrate node and the
+    omni-node reads explicit affinity topics from a file, one 32-byte hex topic per line, with
+    blank lines and `#` comments skipped. The topics add to the repeatable
+    `--statement-affinity-topic` flag and take effect only on the experimental v2 DHT
+    statement path.
+
+crates:
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: staging-node-cli
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: major

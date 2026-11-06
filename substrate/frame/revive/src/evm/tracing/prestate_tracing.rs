@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	Code, Config, ExecReturnValue, Key, Pallet, Weight,
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -109,14 +109,14 @@ where
 			// If the address was created and destructed we do not trace it
 			post.retain(|addr, _| {
 				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
-					return false
+					return false;
 				}
 				true
 			});
 
 			pre.retain(|addr, pre_info| {
 				if is_empty(&pre_info) {
-					return false
+					return false;
 				}
 
 				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
@@ -129,7 +129,7 @@ where
 
 				if post_info == pre_info {
 					post.remove(addr);
-					return false
+					return false;
 				}
 
 				if post_info.code == pre_info.code {
@@ -167,7 +167,7 @@ macro_rules! get_entry {
 	($self:expr, $addr:expr) => {
 		if $self.created_addrs.contains(&$addr) {
 			if !$self.config.diff_mode {
-				return
+				return;
 			}
 			$self.trace.1.entry($addr)
 		} else {
@@ -182,9 +182,8 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
-		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
-		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
-		return Some(code.into())
+		let code = Pallet::<T>::code(address);
+		(!code.is_empty()).then(|| code.into())
 	}
 
 	/// Update the prestate info for the given address.
@@ -241,7 +240,7 @@ where
 		&mut self,
 		contract_address: H160,
 		beneficiary_address: H160,
-		_gas_left: Weight,
+		_gas_left: u64,
 		_value: U256,
 	) {
 		self.destructed_addrs.insert(contract_address);
@@ -254,11 +253,12 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
+		code_address: Option<H160>,
 		is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas_limit: u64,
 	) {
 		if is_delegate_call {
 			self.calls.push(self.current_addr());
@@ -266,21 +266,36 @@ where
 			self.calls.push(to);
 		}
 
-		if self.create_code.take().is_some() {
-			self.created_addrs.insert(to);
+		if let Some(code_address) = code_address {
+			self.read_account(code_address);
 		}
 		self.read_account(from);
-		self.read_account(to);
+
+		if self.create_code.take().is_some() {
+			self.created_addrs.insert(to);
+		} else {
+			self.read_account(to);
+		}
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
+	fn exit_child_span_with_error(
+		&mut self,
+		_error: crate::DispatchError,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.calls.pop();
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
-			return
+			return;
 		}
 
 		let code = if self.config.disable_code { None } else { Self::bytecode(&current_addr) };
@@ -303,7 +318,7 @@ where
 			.or_insert_with(|| old_value.map(Into::into));
 
 		if !self.config.diff_mode {
-			return
+			return;
 		}
 
 		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {

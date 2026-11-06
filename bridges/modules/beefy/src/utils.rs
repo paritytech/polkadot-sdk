@@ -75,7 +75,7 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 			if authority.verify(sig, &msg) {
 				missing_signatures = missing_signatures.saturating_sub(1);
 				if missing_signatures == 0 {
-					break
+					break;
 				}
 			} else {
 				tracing::debug!(

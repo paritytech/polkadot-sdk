@@ -20,9 +20,15 @@ use crate::{weights_ext::get_average_page_pos, *};
 use alloc::vec;
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
-use frame_support::{assert_ok, traits::Hooks};
+use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
 use xcm::MAX_INSTRUCTIONS_TO_DECODE;
+
+impl EnqueueXcmpMessagesResult {
+	fn is_ok(&self) -> bool {
+		!self.has_dropped_msgs && !self.has_out_of_weight_msgs
+	}
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -57,12 +63,13 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			assert!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[msg.as_bounded_slice()],
 				true,
 				&mut WeightMeter::new()
-			));
+			)
+			.is_ok());
 		}
 		#[cfg(not(test))]
 		{
@@ -94,12 +101,13 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			assert!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs,
 				true,
 				&mut WeightMeter::new()
-			));
+			)
+			.is_ok());
 		}
 		#[cfg(not(test))]
 		{
@@ -121,23 +129,25 @@ mod benchmarks {
 			mock::EnqueuedMessages::set(vec![]);
 		}
 
-		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+		assert!(Pallet::<T>::enqueue_xcmp_messages(
 			0.into(),
 			&[BoundedVec::try_from(vec![0; n as usize]).unwrap().as_bounded_slice()],
 			true,
 			&mut WeightMeter::new()
-		));
+		)
+		.is_ok());
 
 		#[cfg(not(test))]
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			assert!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[BoundedVec::new().as_bounded_slice()],
 				true,
 				&mut WeightMeter::new()
-			));
+			)
+			.is_ok());
 		}
 		#[cfg(not(test))]
 		{
@@ -172,12 +182,13 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			assert!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
 				true,
 				&mut WeightMeter::new()
-			));
+			)
+			.is_ok());
 		}
 		#[cfg(not(test))]
 		{
@@ -197,7 +208,7 @@ mod benchmarks {
 			});
 		}
 
-		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+		assert!(Pallet::<T>::enqueue_xcmp_messages(
 			0.into(),
 			&[BoundedVec::try_from(vec![
 				0;
@@ -208,7 +219,8 @@ mod benchmarks {
 			.as_bounded_slice()],
 			true,
 			&mut WeightMeter::new()
-		));
+		)
+		.is_ok());
 
 		let mut msgs = vec![];
 		for _i in 0..1000 {
@@ -219,12 +231,13 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			assert!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
 				true,
 				&mut WeightMeter::new()
-			));
+			)
+			.is_ok());
 		}
 		#[cfg(not(test))]
 		{

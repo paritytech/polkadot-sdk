@@ -315,7 +315,7 @@ impl ChainScraper {
 	pub fn process_finalized_block(&mut self, finalized_block_number: &BlockNumber) {
 		// `DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - 1` because
 		// `finalized_block_number`counts to the candidate lifetime.
-		match finalized_block_number.checked_sub(DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - 1)
+		match finalized_block_number.checked_sub(*DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - 1)
 		{
 			Some(key_to_prune) => {
 				self.backed_candidates.remove_up_to_height(&key_to_prune);
@@ -393,13 +393,13 @@ impl ChainScraper {
 	{
 		let target_ancestor = get_finalized_block_number(sender)
 			.await?
-			.saturating_sub(DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION);
+			.saturating_sub(*DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION);
 
 		let mut ancestors = Vec::new();
 
 		// If head_number <= target_ancestor + 1 the ancestry will be empty.
 		if self.last_observed_blocks.get(&head).is_some() || head_number <= target_ancestor + 1 {
-			return Ok(ancestors)
+			return Ok(ancestors);
 		}
 
 		loop {
@@ -416,7 +416,7 @@ impl ChainScraper {
 						hashes.len(),
 						head_number,
 					);
-					return Ok(ancestors)
+					return Ok(ancestors);
 				},
 			};
 			// The reversed order is parent, grandparent, etc. excluding the head.
@@ -429,7 +429,7 @@ impl ChainScraper {
 					block_number <= target_ancestor ||
 					ancestors.len() >= Self::ANCESTRY_SIZE_LIMIT as usize
 				{
-					return Ok(ancestors)
+					return Ok(ancestors);
 				}
 
 				ancestors.push(*hash);
@@ -443,7 +443,7 @@ impl ChainScraper {
 				None => break,
 			}
 		}
-		return Ok(ancestors)
+		return Ok(ancestors);
 	}
 
 	pub fn get_blocks_including_candidate(

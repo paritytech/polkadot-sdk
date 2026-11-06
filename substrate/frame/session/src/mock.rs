@@ -21,6 +21,8 @@ use super::*;
 use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
+
+use codec::Encode;
 use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 use pallet_balances::{self, AccountData};
 use sp_core::crypto::key_types::DUMMY;
@@ -68,6 +70,10 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 			_ => &[],
 		}
 	}
+
+	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+		true
+	}
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -113,7 +119,7 @@ pub struct TestShouldEndSession;
 impl ShouldEndSession<u64> for TestShouldEndSession {
 	fn should_end_session(now: u64) -> bool {
 		let l = SessionLength::get();
-		now % l == 0 ||
+		now.is_multiple_of(l) ||
 			ForceSessionEnd::mutate(|l| {
 				let r = *l;
 				*l = false;
@@ -203,6 +209,10 @@ pub fn before_session_end_called() -> bool {
 
 pub fn reset_before_session_end_called() {
 	BeforeSessionEndCalled::mutate(|b| *b = false);
+}
+
+pub fn create_set_keys_proof(owner: u64, public: &UintAuthorityId) -> Vec<u8> {
+	public.sign(&owner.encode()).unwrap().encode()
 }
 
 parameter_types! {

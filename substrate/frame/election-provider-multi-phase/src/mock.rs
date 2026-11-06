@@ -291,8 +291,8 @@ parameter_types! {
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MockWeightInfo: MockedWeightInfo = MockedWeightInfo::Real;
-	pub static MaxElectingVoters: VoterIndex = u32::max_value();
-	pub static MaxElectableTargets: TargetIndex = TargetIndex::max_value();
+	pub static MaxElectingVoters: VoterIndex = u32::MAX;
+	pub static MaxElectableTargets: TargetIndex = TargetIndex::MAX;
 
 	#[derive(Debug)]
 	pub static MaxWinners: u32 = 200;
@@ -340,8 +340,8 @@ impl ElectionProvider for MockFallback {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -400,10 +400,12 @@ impl MinerConfig for Runtime {
 				(10 as u64).saturating_add((5 as u64).saturating_mul(a as u64)),
 				0,
 			),
-			MockedWeightInfo::Complex =>
-				Weight::from_parts((0 * v + 0 * t + 1000 * a + 0 * d) as u64, 0),
-			MockedWeightInfo::Real =>
-				<() as multi_phase::weights::WeightInfo>::feasibility_check(v, t, a, d),
+			MockedWeightInfo::Complex => {
+				Weight::from_parts((0 * v + 0 * t + 1000 * a + 0 * d) as u64, 0)
+			},
+			MockedWeightInfo::Real => {
+				<() as multi_phase::weights::WeightInfo>::feasibility_check(v, t, a, d)
+			},
 		}
 	}
 }
@@ -497,7 +499,7 @@ impl ElectionDataProvider for StakingMock {
 		if !DataProviderAllowBadData::get() &&
 			bounds.count.map_or(false, |max_len| targets.len() > max_len.0 as usize)
 		{
-			return Err("Targets too big")
+			return Err("Targets too big");
 		}
 
 		Ok(targets)

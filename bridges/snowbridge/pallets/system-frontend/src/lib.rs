@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//!
 //! System frontend pallet that acts as the user-facing control-plane for Snowbridge.
 //!
 //! Some operations are delegated to a backend pallet installed on a remote parachain.
@@ -379,11 +378,11 @@ pub mod pallet {
 				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
 				_ => {
 					tracing::debug!(target: LOG_TARGET, ?fee_asset, "error matching fee asset");
-					return Err(Error::<T>::UnsupportedAsset.into())
+					return Err(Error::<T>::UnsupportedAsset.into());
 				},
 			};
 			if fee_amount == 0 {
-				return Ok(0)
+				return Ok(0);
 			}
 
 			let ether_gained = if *fee_asset_location != ether_location {

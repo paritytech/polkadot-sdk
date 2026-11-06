@@ -223,8 +223,6 @@ pub fn test_authorities() -> Vec<BeefyId> {
 
 #[test]
 fn should_sign_and_verify() {
-	use sp_runtime::traits::Keccak256;
-
 	let set_id = 3;
 	let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 	let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
@@ -236,7 +234,7 @@ fn should_sign_and_verify() {
 		(1, payload1.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in different rounds for
 	// different payloads signed by the same key
@@ -245,7 +243,7 @@ fn should_sign_and_verify() {
 		(2, payload2.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes by different authorities
 	let equivocation_proof = generate_double_voting_proof(
@@ -253,7 +251,7 @@ fn should_sign_and_verify() {
 		(1, payload2.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in different set ids
 	let equivocation_proof = generate_double_voting_proof(
@@ -261,7 +259,7 @@ fn should_sign_and_verify() {
 		(1, payload2.clone(), set_id + 1, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in the same round for
 	// different payloads signed by the same key
@@ -271,7 +269,7 @@ fn should_sign_and_verify() {
 		(1, payload2, set_id, &BeefyKeyring::Bob),
 	);
 	// expect valid equivocation proof
-	assert!(check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(check_double_voting_proof::<_, _>(&equivocation_proof));
 }
 
 trait ReportEquivocationFn:
@@ -389,7 +387,7 @@ fn report_equivocation_current_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);
@@ -486,7 +484,7 @@ fn report_equivocation_old_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);
@@ -730,6 +728,7 @@ fn report_double_voting_invalid_equivocation_proof() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn report_double_voting_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -783,7 +782,7 @@ fn report_double_voting_validate_unsigned_prevents_duplicates() {
 				&call,
 			),
 			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
+				priority: TransactionPriority::MAX,
 				requires: vec![],
 				provides: vec![("BeefyEquivocation", tx_tag).encode()],
 				longevity: ReportLongevity::get(),
@@ -1173,6 +1172,44 @@ fn report_future_block_voting_invalid_equivocation_proof() {
 					&equivocation_keyring,
 				))),
 				key_owner_proof.clone(),
+			),
+			Error::<Test>::InvalidFutureBlockVotingProof,
+		);
+	});
+}
+
+#[test]
+fn report_future_block_voting_invalid_signature() {
+	let authorities = test_authorities();
+
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
+		start_era(1);
+
+		let block_num = System::block_number();
+		let validator_set = Beefy::validator_set().expect(
+			"starting era 1 with configured authorities initializes the BEEFY validator set; qed",
+		);
+		let equivocation_key = &validator_set.validators()[0];
+		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key)
+			.expect("test_authorities returns keys from BeefyKeyring; qed");
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, equivocation_key))
+			.expect("the current validator key is registered in historical session storage; qed");
+
+		let mut equivocation_proof = generate_future_block_voting_proof((
+			block_num + 100,
+			Payload::from_single_entry(MMR_ROOT_ID, vec![42]),
+			validator_set.id(),
+			&equivocation_keyring,
+		));
+		// Alter the signed payload without updating the signature.
+		equivocation_proof.vote.commitment.payload =
+			Payload::from_single_entry(MMR_ROOT_ID, vec![200]);
+
+		assert_err!(
+			Beefy::report_future_block_voting_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proof,
 			),
 			Error::<Test>::InvalidFutureBlockVotingProof,
 		);

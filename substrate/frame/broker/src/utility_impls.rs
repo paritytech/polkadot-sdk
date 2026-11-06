@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
 			region_id.begin = last_committed_timeslice + 1;
 			if region_id.begin >= region.end {
 				Self::deposit_event(Event::RegionDropped { region_id, duration });
-				return Ok(None)
+				return Ok(None);
 			}
 		} else {
 			Workplan::<T>::mutate_extant((region_id.begin, region_id.core), |p| {
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
 			// InstaPoolIo has already accounted for regions that have already ended. Regions ending
 			// this timeslice would have region.end == unpooled_at below.
 			if region.end <= end_timeslice {
-				return
+				return;
 			}
 
 			// Account for the change in `InstaPoolIo` either from the start of the region or from

@@ -1,0 +1,12 @@
+title: 'frame: re-export hashing free functions via sp_io'
+doc:
+- audience: Runtime Dev
+  description: |-
+    After #12158 removed the deprecated `sp_core` hashing re-exports, `frame::hashing`
+    free functions (`blake2_256`, `twox_128`, and friends) were pointed at
+    `sp_crypto_hashing`, which runs as pure wasm. This switches them to `sp_io::hashing`
+    so runtime code that uses FRAME's hashing module goes through host functions
+    instead. Trait helpers (`BlakeTwo256` / `Keccak256`) were already host-backed.
+crates:
+- name: polkadot-sdk-frame
+  bump: minor

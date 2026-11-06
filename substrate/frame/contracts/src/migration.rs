@@ -251,7 +251,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 			);
 			T::Migrations::post_upgrade_step(in_progress_version, state)?;
 			if matches!(status, MigrateResult::Completed) {
-				break
+				break;
 			}
 		}
 
@@ -273,7 +273,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				"{name}: No Migration performed storage_version = latest_version = {:?}",
 				&on_chain_version
 			);
-			return T::WeightInfo::on_runtime_upgrade_noop()
+			return T::WeightInfo::on_runtime_upgrade_noop();
 		}
 
 		// In case a migration is already in progress we create the next migration
@@ -285,7 +285,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				&on_chain_version
 			);
 
-			return T::WeightInfo::on_runtime_upgrade_in_progress()
+			return T::WeightInfo::on_runtime_upgrade_in_progress();
 		}
 
 		log::info!(
@@ -313,7 +313,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		let in_code_version = <Pallet<T>>::in_code_storage_version();
 
 		if on_chain_version == in_code_version {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		log::debug!(
@@ -333,7 +333,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		if !TEST_ALL_STEPS {
-			return Ok(())
+			return Ok(());
 		}
 
 		log::info!(target: LOG_TARGET, "=== POST UPGRADE CHECKS ===");
@@ -391,13 +391,13 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		let name = <Pallet<T>>::name();
 
 		if meter.try_consume(T::WeightInfo::migrate()).is_err() {
-			return MigrateResult::NoMigrationPerformed
+			return MigrateResult::NoMigrationPerformed;
 		}
 
 		MigrationInProgress::<T>::mutate_exists(|progress| {
 			let Some(cursor_before) = progress.as_mut() else {
 				meter.consume(T::WeightInfo::migration_noop());
-				return MigrateResult::NoMigrationInProgress
+				return MigrateResult::NoMigrationInProgress;
 			};
 
 			// if a migration is running it is always upgrading to the next version

@@ -1,0 +1,116 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enforce match_arm_blocks = true for consistent formatting
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Flips `match_arm_blocks` from `false` to `true` in rustfmt configuration to ensure
+      all multi-line match arm bodies are wrapped in braces consistently.
+
+      This is a formatting-only change with no functional impact. It enforces a single
+      valid style for match arms, eliminating ambiguity that caused unnecessary diffs
+      when LLMs generated code with braces.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: none
+  - name: asset-hub-westend-runtime
+    bump: none
+  - name: bp-messages
+    bump: none
+  - name: bp-relayers
+    bump: none
+  - name: bp-runtime
+    bump: none
+  - name: bridge-hub-common
+    bump: none
+  - name: bridge-hub-rococo-runtime
+    bump: none
+  - name: bridge-hub-westend-runtime
+    bump: none
+  - name: collectives-westend-runtime
+    bump: none
+  - name: coretime-westend-runtime
+    bump: none
+  - name: cumulus-ping
+    bump: none
+  - name: emulated-integration-tests-common
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: pallet-assets-precompiles
+    bump: none
+  - name: pallet-bridge-grandpa
+    bump: none
+  - name: pallet-bridge-messages
+    bump: none
+  - name: pallet-bridge-parachains
+    bump: none
+  - name: pallet-bridge-relayers
+    bump: none
+  - name: pallet-contracts
+    bump: none
+  - name: pallet-contracts-mock-network
+    bump: none
+  - name: pallet-derivatives
+    bump: none
+  - name: pallet-election-provider-multi-block
+    bump: none
+  - name: pallet-nfts
+    bump: none
+  - name: pallet-origin-restriction
+    bump: none
+  - name: pallet-people
+    bump: none
+  - name: pallet-revive-eth-rpc
+    bump: none
+  - name: pallet-scored-pool
+    bump: none
+  - name: pallet-staking-async
+    bump: none
+  - name: pallet-uniques
+    bump: none
+  - name: pallet-xcm-bridge-hub
+    bump: none
+  - name: pallet-xcm-precompiles
+    bump: none
+  - name: parachains-runtimes-test-utils
+    bump: none
+  - name: people-westend-runtime
+    bump: none
+  - name: polkadot-omni-node-lib
+    bump: none
+  - name: polkadot-parachain-bin
+    bump: none
+  - name: sc-consensus-manual-seal
+    bump: none
+  - name: sc-consensus-pow
+    bump: none
+  - name: snowbridge-beacon-primitives
+    bump: none
+  - name: snowbridge-core
+    bump: none
+  - name: snowbridge-inbound-queue-primitives
+    bump: none
+  - name: snowbridge-outbound-queue-primitives
+    bump: none
+  - name: snowbridge-pallet-ethereum-client
+    bump: none
+  - name: snowbridge-pallet-inbound-queue
+    bump: none
+  - name: snowbridge-pallet-outbound-queue
+    bump: none
+  - name: snowbridge-pallet-system-frontend
+    bump: none
+  - name: sp-core
+    bump: none
+  - name: sp-crypto-hashing-proc-macro
+    bump: none
+  - name: sp-debug-derive
+    bump: none
+  - name: staging-chain-spec-builder
+    bump: none

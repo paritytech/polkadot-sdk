@@ -44,12 +44,14 @@ impl WeighAssets for AssetFilter {
 					WildFungibility::Fungible => weight,
 					// Magic number 2 has to do with the fact that we could have up to 2 times
 					// MaxAssetsIntoHolding in the worst-case scenario.
-					WildFungibility::NonFungible =>
-						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64),
+					WildFungibility::NonFungible => {
+						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64)
+					},
 				},
 				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
-				AllOfCounted { count, .. } =>
-					weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
+				AllOfCounted { count, .. } => {
+					weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1)))
+				},
 			},
 		}
 	}
@@ -190,8 +192,8 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 		}
 		weight
 	}
-	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
-		XcmGeneric::<Runtime>::claim_asset()
+	fn claim_asset(assets: &Assets, _ticket: &Location) -> Weight {
+		assets.weigh_assets(XcmGeneric::<Runtime>::claim_asset())
 	}
 	fn trap(_code: &u64) -> Weight {
 		XcmGeneric::<Runtime>::trap()

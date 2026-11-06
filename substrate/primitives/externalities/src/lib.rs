@@ -194,8 +194,16 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// This will also update all child storage keys in the top-level storage map.
 	///
-	/// The returned hash is defined by the `Block` and is SCALE encoded.
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8>;
+	/// The returned hash is defined by the `Block` and is SCALE encoded. The trie layout follows
+	/// the state version the externalities were configured with.
+	fn storage_root(&mut self) -> Vec<u8>;
+
+	/// Get the trie root of the current storage map using the given `state_version`.
+	///
+	/// Same as [`Self::storage_root`], but the trie layout follows `state_version` instead of
+	/// the configured state version. Used by the legacy host functions that pass the state
+	/// version explicitly.
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8>;
 
 	/// Get the trie root of a child storage map.
 	///
@@ -203,7 +211,16 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// If the storage root equals the default hash as defined by the trie, the key in the top-level
 	/// storage map will be removed.
-	fn child_storage_root(
+	///
+	/// The trie layout follows the state version the externalities were configured with.
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8>;
+
+	/// Get the trie root of a child storage map using the given `state_version`.
+	///
+	/// Same as [`Self::child_storage_root`], but the trie layout follows `state_version` instead
+	/// of the configured state version. Used by the legacy host functions that pass the state
+	/// version explicitly.
+	fn child_storage_root_with_version(
 		&mut self,
 		child_info: &ChildInfo,
 		state_version: StateVersion,

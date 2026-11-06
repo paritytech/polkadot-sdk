@@ -46,15 +46,13 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::Ss58Codec;
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
-
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
 
-use sp_core::{OpaqueMetadata, RuntimeDebug};
+use sp_core::OpaqueMetadata;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
 	PrefixedMemoryDB, StorageProof,
@@ -74,8 +72,6 @@ use sp_runtime::{
 	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
@@ -133,14 +129,8 @@ fn version() -> RuntimeVersion {
 	VERSION
 }
 
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
-
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct TransferData {
 	pub from: AccountId,
 	pub to: AccountId,
@@ -264,6 +254,8 @@ decl_runtime_apis! {
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool;
 		/// Write the given `value` under the given `key` into the storage and then optional panic.
 		fn write_key_value(key: Vec<u8>, value: Vec<u8>, panic: bool);
+		/// Spin in an infinite loop (for execution-timeout tests).
+		fn spin();
 	}
 }
 
@@ -275,16 +267,8 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-#[derive(
-	Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
-
-impl sp_runtime::traits::Printable for CheckSubstrateCall {
-	fn print(&self) {
-		"CheckSubstrateCall".print()
-	}
-}
 
 impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
@@ -331,8 +315,9 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
 		let v = match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			RuntimeCall::SubstrateTest(ref substrate_test_call) => {
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?
+			},
 			_ => Default::default(),
 		};
 		Ok((v, (), origin))
@@ -364,8 +349,12 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
@@ -422,8 +411,6 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
@@ -481,7 +468,7 @@ fn code_using_trie() -> u64 {
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
 			if t.insert(key, value).is_err() {
-				return 101
+				return 101;
 			}
 		}
 	}
@@ -679,6 +666,13 @@ impl_runtime_apis! {
 				panic!("I'm just following my master");
 			}
 		}
+
+		fn spin() {
+			let mut i = 0u64;
+			loop {
+				i = core::hint::black_box(i).wrapping_add(1);
+			}
+		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -747,8 +741,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(None)
+		fn generate_session_keys(owner: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, None).into()
 		}
 
 		fn decode_session_keys(
@@ -954,11 +948,12 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 		&backend,
 		#[cfg(feature = "std")]
 		None,
+		crate::VERSION.state_version(),
 	);
 	assert!(ext.storage(b"value3").is_some());
-	assert!(ext.storage_root(Default::default()).as_slice() == &root[..]);
+	assert!(ext.storage_root().as_slice() == &root[..]);
 	ext.place_storage(vec![0], Some(vec![1]));
-	assert!(ext.storage_root(Default::default()).as_slice() != &root[..]);
+	assert!(ext.storage_root().as_slice() != &root[..]);
 }
 
 /// Some tests require the hashed keys of the storage. As the values of hashed keys are not trivial
@@ -1181,7 +1176,7 @@ mod tests {
 		// than the heap.
 		let mut runtime_api = client.runtime_api();
 		// This is currently required to allocate the 1024k of memory as configured above.
-		runtime_api.set_call_context(CallContext::Onchain);
+		runtime_api.set_call_context(CallContext::Onchain { import: false });
 		let ret = runtime_api.vec_with_capacity(best_hash, 1048576);
 		assert!(ret.is_err());
 
@@ -1265,6 +1260,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
@@ -1492,8 +1488,8 @@ mod tests {
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
 
-			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
-			// process, add them `keys` to assert against known keys.
+			// following keys are not placed during `<RuntimeGenesisConfig as
+			// BuildGenesisConfig>::build` process, add them `keys` to assert against known keys.
 			keys.push(hex(b":code"));
 			keys.sort();
 
@@ -1559,7 +1555,7 @@ mod tests {
 
 		#[test]
 		fn build_genesis_config_with_patch_json_works() {
-			//this tests shows how to do patching on native side
+			// this tests shows how to do patching on native side
 			sp_tracing::try_init_simple();
 
 			let mut t = BasicExternalities::new_empty();
@@ -1607,7 +1603,7 @@ mod tests {
 				storage.top.get(&array_bytes::hex2bytes(key).unwrap()).unwrap().clone()
 			};
 
-			//SubstrateTest|Authorities
+			// SubstrateTest|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d",
 			);
@@ -1617,7 +1613,7 @@ mod tests {
 			assert_eq!(authority_key_vec[0], Sr25519Keyring::Ferdie.public());
 			assert_eq!(authority_key_vec[1], Sr25519Keyring::Alice.public());
 
-			//Babe|Authorities
+			// Babe|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef",
 			);
@@ -1636,7 +1632,7 @@ mod tests {
 			);
 			assert_eq!(u64::decode(&mut &value[..]).unwrap(), 0);
 
-			//System|ParentHash
+			// System|ParentHash
 			let value: Vec<u8> = get_from_storage(
 				"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc",
 			);

@@ -430,7 +430,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 
 			// early exit if we are not replacing anything.
 			if replace_hashes.is_empty() {
-				return Ok((vec![], vec![]))
+				return Ok((vec![], vec![]));
 			}
 
 			// now check if collective priority is lower than the replacement transaction.
@@ -446,7 +446,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 
 			// bail - the transaction has too low priority to replace the old ones
 			if old_priority >= tx.priority {
-				return Err(error::Error::TooLowPriority { old: old_priority, new: tx.priority })
+				return Err(error::Error::TooLowPriority { old: old_priority, new: tx.priority });
 			}
 
 			// construct a list of unlocked transactions
@@ -547,7 +547,7 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 					?tx_hash,
 					"Skipping invalid child transaction while iterating."
 				);
-				continue
+				continue;
 			}
 
 			let ready = match self.all.get(tx_hash).cloned() {
@@ -573,7 +573,7 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 				}
 			}
 
-			return Some(best.transaction)
+			return Some(best.transaction);
 		}
 	}
 }

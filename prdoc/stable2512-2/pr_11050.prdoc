@@ -1,0 +1,8 @@
+title: 'staking-aync: remove stale prune_era_total_stake'
+doc:
+- audience: Runtime Dev
+  description: "Leftover from #10810 backport. The function was replaced by prune_era_single_entry_cleanups\
+    \ in #10502.\r\n"
+crates:
+- name: pallet-staking-async
+  bump: patch

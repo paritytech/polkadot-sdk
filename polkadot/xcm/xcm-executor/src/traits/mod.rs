@@ -19,7 +19,7 @@
 mod conversion;
 pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
-pub use drop_assets::{ClaimAssets, DropAssets};
+pub use drop_assets::{ClaimAssets, DropAssets, TrapAndClaimAssets};
 mod asset_exchange;
 pub use asset_exchange::AssetExchange;
 mod asset_lock;
@@ -30,9 +30,6 @@ mod export;
 pub use export::{export_xcm, validate_export, ExportXcm};
 mod fee_manager;
 pub use fee_manager::{FeeManager, FeeReason, WaiveDeliveryFees};
-mod filter_asset_location;
-#[allow(deprecated)]
-pub use filter_asset_location::FilterAssetLocation;
 mod token_matching;
 pub use token_matching::{
 	Error, MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
@@ -56,8 +53,6 @@ mod weight;
 pub use event_emitter::EventEmitter;
 
 pub use record_xcm::RecordXcm;
-#[deprecated = "Use `sp_runtime::traits::` instead"]
-pub use sp_runtime::traits::{Identity, TryConvertInto as JustTry};
 pub use weight::{WeightBounds, WeightTrader};
 
 pub mod prelude {
@@ -66,8 +61,6 @@ pub mod prelude {
 		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
 		MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
 		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-		VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+		TrapAndClaimAssets, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
 	};
-	#[allow(deprecated)]
-	pub use super::{Identity, JustTry};
 }

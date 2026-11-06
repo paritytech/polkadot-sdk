@@ -173,6 +173,7 @@ pub trait RuntimeAppPublic: Sized {
 	fn sign<M: AsRef<[u8]>>(&self, msg: &M) -> Option<Self::Signature>;
 
 	/// Verify that the given signature matches the given message using this public key.
+	#[must_use]
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
 	/// Generate proof of legitimacy for the corresponding public key

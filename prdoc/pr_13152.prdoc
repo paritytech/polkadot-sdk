@@ -1,0 +1,13 @@
+title: 'approval-distribution: expand knowledge past duplicate candidates'
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |-
+      Multi-candidate assignments now record knowledge for every candidate even when an earlier
+      candidate is already known. This keeps later candidates available for follow-up approval
+      tracking and preserves existing approval knowledge. No API changes or storage migration
+      are required.
+
+crates:
+  - name: polkadot-approval-distribution
+    bump: patch

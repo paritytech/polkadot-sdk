@@ -23,7 +23,7 @@ use sp_core::traits::CallContext;
 use sp_externalities::Extensions;
 use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::{OverlayedChanges, StorageProof};
-use std::cell::RefCell;
+use std::{cell::RefCell, time::Duration};
 
 use crate::execution_extensions::ExecutionExtensions;
 use sp_api::ProofRecorder;
@@ -81,9 +81,15 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 	/// Extract RuntimeVersion of given block
 	///
 	/// No changes are made.
-	fn runtime_version(&self, at_hash: B::Hash) -> Result<RuntimeVersion, sp_blockchain::Error>;
+	fn runtime_version(
+		&self,
+		at_hash: B::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, sp_blockchain::Error>;
 
 	/// Prove the execution of the given `method`.
+	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	///
 	/// No changes are made.
 	fn prove_execution(
@@ -91,5 +97,6 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		at_hash: B::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), sp_blockchain::Error>;
 }

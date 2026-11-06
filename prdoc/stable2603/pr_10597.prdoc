@@ -1,0 +1,38 @@
+title: 'Introduce pallet-dap-satellite and redirect system burns to DAP'
+doc:
+- audience: Runtime Dev
+  description: |-
+      - Introduce pallet-dap-satellite for system chains (RC, BridgeHub, Coretime, People,
+      Collectives) to collect funds that would otherwise be burned, staging them for periodic
+      transfer to the central DAP on AssetHub.
+      - DAP and DAP satellite  implement `OnUnbalanced<Credit>` to intercept every Credit before
+      it's dropped/burned and resolve it into the buffer account instead.
+      - Redirect all system burns to DAP or DAP satellite on Westend system chains, including
+      tx fees, dust removal, coretime revenue burns and EVM gas rounding burns.
+crates:
+- name: pallet-dap-satellite
+  bump: patch
+- name: pallet-dap
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-revive
+  bump: major
+- name: kitchensink-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: pallet-collator-selection
+  bump: patch

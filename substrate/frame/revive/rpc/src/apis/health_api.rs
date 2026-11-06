@@ -26,7 +26,7 @@ pub trait SystemHealthRpc {
 	#[method(name = "system_health")]
 	async fn system_health(&self) -> RpcResult<Health>;
 
-	///Returns the number of peers currently connected to the client.
+	/// Returns the number of peers currently connected to the client.
 	#[method(name = "net_peerCount")]
 	async fn net_peer_count(&self) -> RpcResult<U64>;
 }

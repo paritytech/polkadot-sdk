@@ -2,7 +2,14 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{
+		tokens::{Fortitude, Precision, Preservation},
+		ConstU32,
+	},
+	weights::IdentityFee,
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -56,7 +63,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1;
+	pub const ExistentialDeposit: u128 = 1_000_000;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -94,6 +101,10 @@ parameter_types! {
 		},
 		fulu: Fork {
 			version: hex!("06000000"),
+			epoch: 80000000001,
+		},
+		gloas: Fork {
+			version: hex!("07000000"),
 			epoch: 80000000001,
 		}
 	};
@@ -185,7 +196,7 @@ impl StaticLookup for MockChannelLookup {
 		if channel_id !=
 			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
-			return None
+			return None;
 		}
 		Some(Channel { agent_id: H256::zero(), para_id: ASSET_HUB_PARAID.into() })
 	}
@@ -201,16 +212,45 @@ impl TransactAsset for SuccessfulTransactor {
 		Ok(())
 	}
 
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		_what: AssetsInHolding,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
+		what: &Asset,
+		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+		let account = match who.unpack() {
+			(0, [AccountId32 { network: None, id }]) => Some((*id).into()),
+			(1, [Parachain(para_id)]) => Some(sibling_sovereign_account::<Test>((*para_id).into())),
+			_ => None,
+		};
+
+		let amount = match (&what.id, &what.fun) {
+			(AssetId(location), Fungible(amount)) if *location == Location::parent() => *amount,
+			_ => return Err(XcmError::AssetNotFound),
+		};
+
+		if let Some(account) = account {
+			Balances::burn_from(
+				&account,
+				amount,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Force,
+			)
+			.map_err(|_| XcmError::FailedToTransactAsset("burn failed"))?;
+		}
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
+	}
+
+	fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 
 	fn internal_transfer_asset(
@@ -218,8 +258,8 @@ impl TransactAsset for SuccessfulTransactor {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+	) -> Result<Asset, XcmError> {
+		Ok(_what.clone())
 	}
 }
 
@@ -295,6 +335,7 @@ pub fn mock_event_log() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000").into(),
+        tx_index: 0,
     }
 }
 
@@ -308,6 +349,7 @@ pub fn mock_event_log_invalid_channel() -> Log {
             hex!("5f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0").into(),
         ],
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
+        tx_index: 0,
     }
 }
 
@@ -324,6 +366,7 @@ pub fn mock_event_log_invalid_gateway() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
+        tx_index: 0,
     }
 }
 

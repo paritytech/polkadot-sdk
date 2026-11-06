@@ -1,0 +1,15 @@
+title: '[FRAME] Bounties return balance and assets on close'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Ensures that bounties that got closed with `close_bounty` will return the maximal possible
+    amount of Native balance and specific relevant Assets.  
+    This fixes an issue where closed bounties would not refund any balance to the treasury because
+    assets were blocking the withdrawal through account references.
+crates:
+- name: pallet-bounties
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: pallet-child-bounties
+  bump: patch

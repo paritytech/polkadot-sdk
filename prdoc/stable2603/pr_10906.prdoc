@@ -1,0 +1,16 @@
+title: 'collator-protocol: Remove stale pending collations from the waiting queue'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR removes the stale pending collations from the waiting queue when the peer that advertised the collation disconnects.
+
+    When the peer reconnects, the peer data is freshly created without any prior information about advertised collations.
+    Then the state-pending collation is picked from the queue. The network request will not be emitted since the `fn fetch_collation`  sees no prior advertisement via `peer_data.has_advertised` and returns `Err(FetchError::NotAdvertised)`.
+
+    To avoid this, remove the stale entries immediately when the peer disconnects.
+
+    Part of the stabilization of:
+    - https://github.com/paritytech/polkadot-sdk/issues/10425
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

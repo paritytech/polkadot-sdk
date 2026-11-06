@@ -1,0 +1,11 @@
+title: '[pallet-broker] add extrinsic to force transfer a region'
+doc:
+- audience: Runtime User
+  description: |-
+    Add an extrinsic to `pallet-broker` which allows a privileged origin (`AdminOrigin` or `Root`) to forcefully transfer a region, ignoring its current owner.
+crates:
+- name: pallet-broker
+  bump: major
+- name: coretime-westend-runtime
+  bump: minor
+  

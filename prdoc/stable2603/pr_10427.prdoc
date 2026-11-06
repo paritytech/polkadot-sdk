@@ -1,0 +1,22 @@
+title: Fix assertion
+doc:
+- audience: Runtime Dev
+  description: "# Description\nAccording to assertion message and comment(\"at least\"\
+    ), `T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be changed into `T::MaxDebugBufferLen::get()\
+    \ >= MIN_DEBUG_BUF_SIZE`\n```rust\n// Debug buffer should at least be large enough\
+    \ to accommodate a simple error message\nconst MIN_DEBUG_BUF_SIZE: u32 = 256;\n\
+    assert!(\n\tT::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,\n\t\"Debug buffer\
+    \ should have minimum size of {} (current setting is {})\",\n\tMIN_DEBUG_BUF_SIZE,\n\
+    \tT::MaxDebugBufferLen::get(),\n);\n```\nFor this assertion, the assertion message\
+    \ indicates assertion will fail when max_storage_size > storage_size_limit,  which\
+    \ means it requires max_storage_size <= storage_size_limit, but assertion predicate\
+    \ is `max_storage_size < storage_size_limit`. Based on the code semantics, assertion\
+    \ predicate should be changed into `max_storage_size <= storage_size_limit`.\n\
+    ```rust\nassert!(\n\tmax_storage_size < storage_size_limit,\n\t\"Maximal storage\
+    \ size {} exceeds the storage limit {}\",\n\tmax_storage_size,\n\tstorage_size_limit\n\
+    );\n```"
+crates:
+- name: pallet-contracts
+  bump: patch
+- name: pallet-revive
+  bump: patch

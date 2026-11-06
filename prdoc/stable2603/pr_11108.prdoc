@@ -1,0 +1,8 @@
+title: 'polkadot-runtime-api-cache: Only cache validation code that exists'
+doc:
+- audience: Node Dev
+  description: |-
+    Otherwise there is the possibility that nodes cache `None` and some later `force_set_code` enacts the code. Then the nodes that have cached `None` do not know that the validation code now actually exists on chain.
+crates:
+- name: polkadot-node-core-runtime-api
+  bump: patch

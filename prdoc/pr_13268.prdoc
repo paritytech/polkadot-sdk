@@ -1,0 +1,13 @@
+title: 'staking-async runtimes: fix treasury payout XCM location and waive its delivery
+  fees'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The parachain runtime hardcoded the treasury's interior location to pallet index 37, copied from the relay runtime, while its Treasury pallet sits at index 96. Derive the index from `PalletInfoAccess` in both staking-async runtimes.
+
+    `PayOverXcm` charges delivery fees from that location before sending the payout XCM. No location converter maps a local pallet location to an account, so the withdrawal failed and every payout errored before leaving the chain. Add the location to `WaivedLocations` in both runtimes.
+crates:
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch

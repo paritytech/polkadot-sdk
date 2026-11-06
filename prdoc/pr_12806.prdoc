@@ -1,0 +1,10 @@
+title: '[pallet-revive] Report precompile code in prestate tracer'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    `debug_traceTransaction` with the `prestateTracer` now reports `code` for builtin and runtime precompiles: the same bytes `eth_getCode` returns for the address, `0x60006000fd` by default. Previously the tracer had no precompile branch and omitted it. Primitive precompiles have an empty code stub and still report no code. No migration is needed.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch

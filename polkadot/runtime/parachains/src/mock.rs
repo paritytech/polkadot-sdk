@@ -17,16 +17,19 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	configuration, coretime, disputes,
+	disputes::slashing as disputes_slashing,
+	dmp, hrmp,
+	hrmp::deposits::{
+		ChannelDepositProvider, DepositAction, DepositChangeRequest, DepositChangeResponse,
+		DepositError, OnDepositSet,
+	},
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler,
-	scheduler::common::AssignmentProvider,
-	session_info, shared, ParaId,
+	paras_inherent, scheduler, session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
@@ -42,19 +45,21 @@ use frame_support::{
 use frame_support_test::TestRandomness;
 use frame_system::{limits, EnsureRoot};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
-	ValidationCode, ValidatorIndex,
+	slashing::DisputesTimeSlot, AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash,
+	DisputeOffenceKind, HrmpChannelId, Moment, SessionIndex, UpwardMessage, ValidationCode,
+	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
-use sp_core::{ConstU32, H256};
+use sp_core::{crypto::KeyTypeId, ConstU32, H256};
 use sp_io::TestExternalities;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
+use sp_staking::offence::OffenceError;
 use std::{
 	cell::RefCell,
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque, HashMap},
+	collections::{btree_map::BTreeMap, HashMap},
 };
 use xcm::{
 	prelude::XcmVersion,
@@ -77,9 +82,7 @@ frame_support::construct_runtime!(
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
-		MockAssigner: mock_assigner,
 		OnDemand: on_demand,
-		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
 		Initializer: initializer,
 		Dmp: dmp,
@@ -87,6 +90,7 @@ frame_support::construct_runtime!(
 		ParachainsOrigin: origin,
 		SessionInfo: session_info,
 		Disputes: disputes,
+		Slashing: disputes_slashing,
 		Babe: pallet_babe,
 	}
 );
@@ -113,7 +117,12 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
 		);
-	pub static BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(u32::MAX, Perbill::from_percent(75));
+	pub static BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(u32::MAX)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = Perbill::from_percent(75) * u32::MAX
+		})
+		.build();
 }
 
 pub type AccountId = u64;
@@ -218,7 +227,7 @@ impl crate::shared::Config for Test {
 impl origin::Config for Test {}
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 /// A very dumb implementation of `EstimateNextSessionRotation`. At the moment of writing, this
@@ -252,7 +261,9 @@ impl crate::paras::Config for Test {
 	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
-impl crate::dmp::Config for Test {}
+impl crate::dmp::Config for Test {
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
@@ -271,7 +282,7 @@ impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
 			Some(v) => xcm.into().into_version(v),
-			None => return Err(()),
+			None => Err(()),
 		}
 	}
 }
@@ -288,9 +299,217 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DepositProvider = MockDepositProvider;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
+}
+
+/// One side of an HRMP channel, whose deposit is held on its own.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum ChannelSide {
+	Sender,
+	Recipient,
+}
+
+/// A remote chain holding the HRMP deposits, see [`MockDepositProvider`].
+#[derive(Default)]
+pub struct RemoteDeposits {
+	/// Whether the deposits are held on the remote chain.
+	pub enabled: bool,
+	/// The free balance of each para on the remote chain.
+	pub free: BTreeMap<ParaId, Balance>,
+	/// What each side of each channel holds on the remote chain.
+	pub held: BTreeMap<(HrmpChannelId, ChannelSide), Balance>,
+	/// The answers sent back by the remote chain, not delivered yet.
+	pub answers: Vec<(DepositChangeRequest, Result<(), DepositError>)>,
+}
+
+thread_local! {
+	pub static REMOTE_DEPOSITS: RefCell<RemoteDeposits> = RefCell::new(Default::default());
+}
+
+/// The requests sent to the remote chain, not processed yet.
+///
+/// Kept in storage, so that the request of a failed call is dropped along with the call, as a
+/// sent message would be.
+const REMOTE_DEPOSIT_REQUESTS: &[u8] = b":mock:remote_deposit_requests";
+
+/// The HRMP deposit provider of the mock.
+///
+/// By default it is the in-pallet provider: deposits are reserved on this chain within the call.
+///
+/// Once [`Self::use_remote_chain`] is called, the deposits are held on a remote chain instead. A
+/// request is queued to the remote chain and answered pending. The remote chain processes the
+/// requests in order for each side of a channel, see [`Self::process_request`], and queues
+/// back an answer, see [`Self::deliver_answer`]. Answers can be delivered in any order, or not
+/// at all. A release is answered applied, but is still queued like any other request.
+///
+/// The remote chain goes by its own records: it moves each side to the request's target.
+pub struct MockDepositProvider;
+
+impl MockDepositProvider {
+	/// Holds the deposits on the remote chain from now on.
+	pub fn use_remote_chain() {
+		REMOTE_DEPOSITS.with(|r| r.borrow_mut().enabled = true);
+	}
+
+	/// Sets the free balance of `para` on the remote chain.
+	pub fn set_remote_free(para: ParaId, balance: Balance) {
+		REMOTE_DEPOSITS.with(|r| r.borrow_mut().free.insert(para, balance));
+	}
+
+	/// The free balance of `para` on the remote chain.
+	pub fn remote_free(para: ParaId) -> Balance {
+		REMOTE_DEPOSITS.with(|r| r.borrow().free.get(&para).copied().unwrap_or_default())
+	}
+
+	/// What `side` of `channel_id` holds on the remote chain.
+	pub fn remote_held(channel_id: &HrmpChannelId, side: ChannelSide) -> Balance {
+		REMOTE_DEPOSITS
+			.with(|r| r.borrow().held.get(&(channel_id.clone(), side)).copied().unwrap_or_default())
+	}
+
+	/// The requests sent to the remote chain, not processed yet.
+	pub fn requests() -> Vec<DepositChangeRequest> {
+		frame_support::storage::unhashed::get_or_default(REMOTE_DEPOSIT_REQUESTS)
+	}
+
+	/// The answers sent back by the remote chain, not delivered yet.
+	pub fn answers() -> Vec<(DepositChangeRequest, Result<(), DepositError>)> {
+		REMOTE_DEPOSITS.with(|r| r.borrow().answers.clone())
+	}
+
+	/// The remote chain processes the request at `index` and queues back its answer, unless it
+	/// is a release. It moves each side to its target, or refuses the request if a para cannot
+	/// cover its side.
+	///
+	/// Panics if an earlier request is for one of its sides: those are processed in order.
+	pub fn process_request(index: usize) {
+		let mut requests = Self::requests();
+		let request = requests.remove(index);
+		for earlier in &requests[..index] {
+			assert!(
+				Self::sides(earlier).all(|side| Self::sides(&request).all(|s| s != side)),
+				"requests for the same side are processed in order"
+			);
+		}
+		frame_support::storage::unhashed::put(REMOTE_DEPOSIT_REQUESTS, &requests);
+
+		let channel_id = request.channel_id.clone();
+		let changes = [
+			(ChannelSide::Sender, channel_id.sender, request.sender),
+			(ChannelSide::Recipient, channel_id.recipient, request.recipient),
+		];
+		REMOTE_DEPOSITS.with(|r| {
+			let mut remote = r.borrow_mut();
+			let covered = changes.iter().all(|(side, para, change)| {
+				let Some(change) = change else { return true };
+				let held = remote.held.get(&(channel_id.clone(), *side)).copied();
+				let free = remote.free.get(para).copied().unwrap_or_default();
+				change.target <= held.unwrap_or_default() + free
+			});
+			let result = if covered {
+				for (side, para, change) in changes {
+					let Some(change) = change else { continue };
+					let held = remote.held.remove(&(channel_id.clone(), side)).unwrap_or_default();
+					let free = remote.free.entry(para).or_default();
+					*free = *free + held - change.target;
+					if change.target > 0 {
+						remote.held.insert((channel_id.clone(), side), change.target);
+					}
+				}
+				Ok(())
+			} else {
+				Err(DepositError::InsufficientFunds)
+			};
+			if request.action != DepositAction::Release {
+				remote.answers.push((request, result));
+			}
+		});
+	}
+
+	/// The remote chain processes all the requests, in order.
+	pub fn process_requests() {
+		while !Self::requests().is_empty() {
+			Self::process_request(0);
+		}
+	}
+
+	/// Delivers the answer at `index` to the pallet.
+	pub fn deliver_answer(index: usize) {
+		let (request, result) = REMOTE_DEPOSITS.with(|r| r.borrow_mut().answers.remove(index));
+		<Hrmp as OnDepositSet>::on_deposit_set(request, result);
+	}
+
+	/// Delivers all the answers, in order.
+	pub fn deliver_answers() {
+		while !Self::answers().is_empty() {
+			Self::deliver_answer(0);
+		}
+	}
+
+	/// Processes all the requests and delivers all the answers, until none is left. Answers may
+	/// send new requests, e.g. to give back a deposit.
+	pub fn settle() {
+		while !Self::requests().is_empty() || !Self::answers().is_empty() {
+			Self::process_requests();
+			Self::deliver_answers();
+		}
+	}
+
+	/// The sides that `request` changes.
+	fn sides(request: &DepositChangeRequest) -> impl Iterator<Item = (HrmpChannelId, ChannelSide)> {
+		let channel_id = request.channel_id.clone();
+		[
+			request.sender.map(|_| (channel_id.clone(), ChannelSide::Sender)),
+			request.recipient.map(|_| (channel_id, ChannelSide::Recipient)),
+		]
+		.into_iter()
+		.flatten()
+	}
+
+	/// Whether a request other than a release for `side` is not answered yet.
+	fn awaits_answer(side: &(HrmpChannelId, ChannelSide)) -> bool {
+		let not_release = |r: &DepositChangeRequest| r.action != DepositAction::Release;
+		let for_side = |r: &DepositChangeRequest| Self::sides(r).any(|s| &s == side);
+		Self::requests().iter().any(|r| not_release(r) && for_side(r)) ||
+			Self::answers().iter().any(|(r, _)| for_side(r))
+	}
+}
+
+impl ChannelDepositProvider for MockDepositProvider {
+	type OnDepositSet = Hrmp;
+
+	fn try_set_deposit(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError> {
+		if !REMOTE_DEPOSITS.with(|r| r.borrow().enabled) {
+			return <Hrmp as ChannelDepositProvider>::try_set_deposit(request);
+		}
+
+		if request.action == DepositAction::Release {
+			Self::push_request(request);
+			return Ok(DepositChangeResponse::Applied);
+		}
+		if Self::sides(&request).any(|side| Self::awaits_answer(&side)) {
+			return Err(DispatchError::Other("a request for this side awaits its answer"));
+		}
+		Self::push_request(request);
+		Ok(DepositChangeResponse::Pending)
+	}
+
+	fn weight_of_try_set_deposit() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl MockDepositProvider {
+	fn push_request(request: DepositChangeRequest) {
+		let mut requests = Self::requests();
+		requests.push(request);
+		frame_support::storage::unhashed::put(REMOTE_DEPOSIT_REQUESTS, &requests);
+	}
 }
 
 impl crate::disputes::Config for Test {
@@ -347,9 +566,163 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 	fn initializer_on_new_session(_: SessionIndex) {}
 }
 
-impl crate::scheduler::Config for Test {
-	type AssignmentProvider = MockAssigner;
+parameter_types! {
+	pub const SlashingReportLongevity: u64 = 100;
 }
+
+thread_local! {
+	pub static MOCK_KEY_OWNERSHIP_PROOFS:
+		RefCell<HashMap<(KeyTypeId, ValidatorId, MockKeyOwnerProof), AccountId>>
+		= RefCell::new(HashMap::new());
+	pub static MOCK_REPORTED_OFFENCES:
+		RefCell<Vec<(DisputesTimeSlot, DisputeOffenceKind, Vec<(AccountId, ())>)>>
+		= RefCell::new(Vec::new());
+	pub static MOCK_KNOWN_OFFENCES: RefCell<Vec<(DisputesTimeSlot, AccountId)>>
+		= RefCell::new(Vec::new());
+	pub static MOCK_REPORT_OFFENCE_RESULT: RefCell<MockReportResult>
+		= const { RefCell::new(MockReportResult::Ok) };
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum MockReportResult {
+	Ok,
+	DuplicateReport,
+	#[allow(dead_code)]
+	Other(u8),
+}
+
+impl MockReportResult {
+	fn as_offence_result(self) -> Result<(), OffenceError> {
+		match self {
+			MockReportResult::Ok => Ok(()),
+			MockReportResult::DuplicateReport => Err(OffenceError::DuplicateReport),
+			MockReportResult::Other(e) => Err(OffenceError::Other(e)),
+		}
+	}
+}
+
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	Hash,
+	Debug,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+)]
+pub struct MockKeyOwnerProof {
+	pub session: SessionIndex,
+	pub validator_count: u32,
+	pub tag: u32,
+}
+
+impl sp_session::GetSessionNumber for MockKeyOwnerProof {
+	fn session(&self) -> SessionIndex {
+		self.session
+	}
+}
+
+impl sp_session::GetValidatorCount for MockKeyOwnerProof {
+	fn validator_count(&self) -> sp_session::ValidatorCount {
+		self.validator_count
+	}
+}
+
+pub struct MockKeyOwnerProofSystem;
+
+impl frame_support::traits::KeyOwnerProofSystem<(KeyTypeId, ValidatorId)>
+	for MockKeyOwnerProofSystem
+{
+	type Proof = MockKeyOwnerProof;
+	type IdentificationTuple = (AccountId, ());
+
+	fn prove(_key: (KeyTypeId, ValidatorId)) -> Option<Self::Proof> {
+		None
+	}
+
+	fn check_proof(
+		key: (KeyTypeId, ValidatorId),
+		proof: Self::Proof,
+	) -> Option<Self::IdentificationTuple> {
+		MOCK_KEY_OWNERSHIP_PROOFS.with(|m| {
+			m.borrow()
+				.get(&(key.0, key.1, proof))
+				.cloned()
+				.map(|account_id| (account_id, ()))
+		})
+	}
+}
+
+pub fn register_mock_key_owner_proof(
+	validator_id: ValidatorId,
+	proof: MockKeyOwnerProof,
+	account_id: AccountId,
+) {
+	MOCK_KEY_OWNERSHIP_PROOFS.with(|m| {
+		m.borrow_mut().insert((PARACHAIN_KEY_TYPE_ID, validator_id, proof), account_id);
+	});
+}
+
+pub fn mock_reported_offences() -> Vec<(DisputesTimeSlot, DisputeOffenceKind, Vec<(AccountId, ())>)>
+{
+	MOCK_REPORTED_OFFENCES.with(|r| r.borrow().clone())
+}
+
+pub fn set_mock_known_offence(time_slot: DisputesTimeSlot, account_id: AccountId) {
+	MOCK_KNOWN_OFFENCES.with(|r| r.borrow_mut().push((time_slot, account_id)));
+}
+
+pub fn set_mock_report_offence_result(result: MockReportResult) {
+	MOCK_REPORT_OFFENCE_RESULT.with(|r| *r.borrow_mut() = result);
+}
+
+pub struct MockHandleReports;
+
+impl crate::disputes::slashing::HandleReports<Test> for MockHandleReports {
+	type ReportLongevity = SlashingReportLongevity;
+
+	fn report_offence(
+		offence: crate::disputes::slashing::SlashingOffence<(AccountId, ())>,
+	) -> Result<(), OffenceError> {
+		let result = MOCK_REPORT_OFFENCE_RESULT.with(|r| *r.borrow()).as_offence_result();
+		if result.is_ok() {
+			MOCK_REPORTED_OFFENCES.with(|r| {
+				r.borrow_mut()
+					.push((offence.time_slot.clone(), offence.kind, offence.offenders));
+			});
+		}
+		result
+	}
+
+	fn is_known_offence(offenders: &[(AccountId, ())], time_slot: &DisputesTimeSlot) -> bool {
+		MOCK_KNOWN_OFFENCES.with(|r| {
+			let known = r.borrow();
+			offenders.iter().any(|(account, _)| {
+				known.iter().any(|(slot, acc)| slot == time_slot && acc == account)
+			})
+		})
+	}
+
+	fn submit_unsigned_slashing_report(
+		_dispute_proof: polkadot_primitives::slashing::DisputeProof,
+		_key_owner_proof: <Test as crate::disputes::slashing::Config>::KeyOwnerProof,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
+}
+
+impl crate::disputes::slashing::Config for Test {
+	type KeyOwnerProof = MockKeyOwnerProof;
+	type KeyOwnerIdentification = (AccountId, ());
+	type KeyOwnerProofSystem = MockKeyOwnerProofSystem;
+	type HandleReports = MockHandleReports;
+	type WeightInfo = crate::disputes::slashing::TestWeightInfo;
+	type BenchmarkingConfig = crate::disputes::slashing::BenchConfig<200>;
+}
+
+impl crate::scheduler::Config for Test {}
 
 pub struct TestMessageQueueWeight;
 impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
@@ -423,8 +796,6 @@ impl on_demand::Config for Test {
 	type PalletId = OnDemandPalletId;
 }
 
-impl assigner_coretime::Config for Test {}
-
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
@@ -488,83 +859,25 @@ impl ValidatorSet<AccountId> for MockValidatorSet {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = ValidatorIdOf;
 	fn session_index() -> SessionIndex {
-		0
+		MOCK_CURRENT_SESSION.with(|s| *s.borrow())
 	}
 	fn validators() -> Vec<Self::ValidatorId> {
 		Vec::new()
 	}
 }
 
+thread_local! {
+	pub static MOCK_CURRENT_SESSION: RefCell<SessionIndex> = const { RefCell::new(0) };
+}
+
+pub fn set_mock_current_session(session: SessionIndex) {
+	MOCK_CURRENT_SESSION.with(|s| *s.borrow_mut() = session);
+}
+
 impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type Identification = ();
 	type IdentificationOf = FoolIdentificationOf;
 }
-
-/// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock
-/// assigner provides bare minimum functionality to test scheduler internals. Since they
-/// have no direct effect on scheduler state, AssignmentProvider functions such as
-/// `push_back_assignment` can be left empty.
-pub mod mock_assigner {
-	use crate::scheduler::common::Assignment;
-
-	use super::*;
-	pub use pallet::*;
-
-	#[frame_support::pallet]
-	pub mod pallet {
-		use super::*;
-
-		#[pallet::pallet]
-		#[pallet::without_storage_info]
-		pub struct Pallet<T>(_);
-
-		#[pallet::config]
-		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
-
-		#[pallet::storage]
-		pub(super) type MockAssignmentQueue<T: Config> =
-			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
-		/// scheduler when filling the claim queue for tests.
-		pub fn add_test_assignment(assignment: Assignment) {
-			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-	}
-
-	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		// With regards to popping_assignments, the scheduler just needs to be tested under
-		// the following two conditions:
-		// 1. An assignment is provided
-		// 2. No assignment is provided
-		// A simple assignment queue populated to fit each test fulfills these needs.
-		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Assignment> {
-			let mut queue: VecDeque<Assignment> = MockAssignmentQueue::<T>::get();
-			let front = queue.pop_front();
-			// Write changes to storage.
-			MockAssignmentQueue::<T>::set(queue);
-			front
-		}
-
-		// We don't care about core affinity in the test assigner
-		fn report_processed(_: Assignment) {}
-
-		fn push_back_assignment(assignment: Assignment) {
-			Self::add_test_assignment(assignment);
-		}
-
-		#[cfg(any(feature = "runtime-benchmarks", test))]
-		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
-			Assignment::Bulk(para_id)
-		}
-
-		fn assignment_duplicated(_: &Assignment) {}
-	}
-}
-
-impl mock_assigner::pallet::Config for Test {}
 
 pub struct FoolIdentificationOf;
 impl sp_runtime::traits::Convert<AccountId, Option<()>> for FoolIdentificationOf {
@@ -651,7 +964,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(required));
 		}
 
 		let mut processed = Processed::get();
@@ -691,6 +1004,7 @@ pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
 
 	BACKING_REWARDS.with(|r| r.borrow_mut().clear());
 	AVAILABILITY_REWARDS.with(|r| r.borrow_mut().clear());
+	REMOTE_DEPOSITS.with(|r| *r.borrow_mut() = Default::default());
 
 	let mut t = state.system.build_storage().unwrap();
 	state.configuration.assimilate_storage(&mut t).unwrap();

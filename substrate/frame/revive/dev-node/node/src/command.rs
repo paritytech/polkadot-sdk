@@ -50,8 +50,9 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
 			"dev" | "" => Box::new(chain_spec::development_chain_spec()?),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		})
 	}
 }
@@ -67,10 +68,6 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
@@ -125,6 +122,10 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			// Enforce dev
 			cli.run.shared_params.dev = true;
 
+			// Increase max_response_size for large trace responses
+			cli.run.rpc_params.rpc_max_response_size =
+				cli.run.rpc_params.rpc_max_response_size.max(50);
+
 			// Pass Default logging settings if none are specified
 			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {
 				cli.run.shared_params.log = "error,sc_rpc_server=info,runtime::revive=debug"
@@ -141,9 +142,10 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
-					sc_network::config::NetworkBackendType::Libp2p =>
+					sc_network::config::NetworkBackendType::Libp2p => {
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
-							.map_err(sc_cli::Error::Service),
+							.map_err(sc_cli::Error::Service)
+					},
 					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
 						sc_network::Litep2pNetworkBackend,
 					>(config, cli.consensus)

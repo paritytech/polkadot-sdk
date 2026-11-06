@@ -26,15 +26,14 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
-	storage::meter::Meter,
+	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, GasMeter, OriginFor, Pallet as Contracts,
-	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -51,12 +50,13 @@ pub struct CallSetup<T: Config> {
 	contract: Contract<T>,
 	dest: T::AccountId,
 	origin: Origin<T>,
-	gas_meter: GasMeter<T>,
-	storage_meter: Meter<T>,
+	transaction_meter: TransactionMeter<T>,
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
 	exec_config: ExecConfig<T>,
+	read_only: bool,
+	delegate_call: bool,
 }
 
 impl<T> Default for CallSetup<T>
@@ -77,8 +77,6 @@ where
 		let contract = Contract::<T>::new(module, vec![]).unwrap();
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
-
-		let storage_meter = Meter::new(default_deposit_limit::<T>());
 
 		#[cfg(feature = "runtime-benchmarks")]
 		{
@@ -101,18 +99,27 @@ where
 			contract,
 			dest,
 			origin,
-			gas_meter: GasMeter::new(Weight::MAX),
-			storage_meter,
+			transaction_meter: TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: default_deposit_limit::<T>(),
+			})
+			.unwrap(),
 			value: 0u32.into(),
 			data: vec![],
 			transient_storage_size: 0,
 			exec_config: ExecConfig::new_substrate_tx(),
+			read_only: false,
+			delegate_call: false,
 		}
 	}
 
 	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
-		self.storage_meter = Meter::new(balance);
+		self.transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: balance,
+		})
+		.unwrap();
 	}
 
 	/// Set the call's origin.
@@ -135,6 +142,16 @@ where
 		self.transient_storage_size = size;
 	}
 
+	/// Set the read-only flag on the call stack frame.
+	pub fn set_read_only(&mut self, read_only: bool) {
+		self.read_only = read_only;
+	}
+
+	/// Mark the call as a delegate call.
+	pub fn set_delegate_call(&mut self, delegate: bool) {
+		self.delegate_call = delegate;
+	}
+
 	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
@@ -150,10 +167,11 @@ where
 		let mut ext = StackExt::bench_new_call(
 			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
-			&mut self.gas_meter,
-			&mut self.storage_meter,
+			&mut self.transaction_meter,
 			self.value,
 			&self.exec_config,
+			self.read_only,
+			self.delegate_call,
 		);
 		if self.transient_storage_size > 0 {
 			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
@@ -259,12 +277,14 @@ where
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
 			U256::zero(),
-			Weight::MAX,
-			default_deposit_limit::<T>(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: default_deposit_limit::<T>(),
+			},
 			Code::Upload(module.code),
 			data,
 			salt,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let address = outcome.result?.addr;
@@ -395,10 +415,18 @@ impl VmBinaryModule {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl VmBinaryModule {
-	// Same as [`Self::sized`] but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::STOP;
-		let code = vec![STOP; size as usize];
+	// Creates EVM init code that deploys `size` bytes of runtime code (all STOP opcodes).
+	// EVM memory is zero-initialized, so RETURN(0, size) produces `size` bytes of 0x00.
+	// The runtime code is what gets stored in PristineCode and loaded on every call.
+	pub fn evm_init_code_for_runtime_size(size: u32) -> Self {
+		use revm::bytecode::opcode::{PUSH1, PUSH3, RETURN};
+		assert!(size <= 0x00FF_FFFF, "size {size} exceeds PUSH3 max (16MiB - 1)");
+		let [_, b1, b2, b3] = size.to_be_bytes();
+		let code = vec![
+			PUSH3, b1, b2, b3, // push runtime code size
+			PUSH1, 0,      // push memory offset 0
+			RETURN, // return `size` bytes from memory as runtime code
+		];
 		Self::new(code)
 	}
 }
@@ -443,13 +471,18 @@ impl VmBinaryModule {
 				// return execution right away without breaking up basic block
 				// SENTINEL is a hard coded syscall that terminates execution
 				0 => writeln!(text, "ecalli {}", crate::SENTINEL).unwrap(),
-				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 =>
-					text.push_str("fallthrough\n"),
+				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 => {
+					text.push_str("fallthrough\n")
+				},
 				_ => text.push_str("a0 = a1 + a2\n"),
 			}
 		}
 		text.push_str("ret\n");
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 
@@ -478,7 +511,11 @@ impl VmBinaryModule {
 		ret
 		"
 		);
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 

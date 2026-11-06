@@ -1,0 +1,11 @@
+title: 'tracing-subscriber: Pin version to prevent ANSI colour code issues'
+doc:
+- audience: Node Dev
+  description: |-
+    Latest version of tracing-subscriber right now doesn't support ASNI colour codes correctly: https://github.com/tokio-rs/tracing/issues/3378
+
+    So, the workaround right now is to pin it to `0.3.19`.
+
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/11030
+crates: []

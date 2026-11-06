@@ -60,7 +60,7 @@ fn sanity_check_teleport_assets_weight() {
 		dest: Box::new(Here.into()),
 		beneficiary: Box::new(Here.into()),
 		assets: Box::new((Here, 200_000).into()),
-		fee_asset_id: Box::new(Here.into()),
+		fee_asset_item: 0,
 		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
@@ -106,9 +106,7 @@ fn check_treasury_pallet_id() {
 mod remote_tests {
 	use super::*;
 	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
+	use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 	use std::env::var;
 
 	#[tokio::test]
@@ -118,21 +116,23 @@ mod remote_tests {
 		}
 
 		sp_tracing::try_init_simple();
-		let transport: Transport =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let mut ext = Builder::<Block>::default()
 			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
 					OnlineConfig {
-						transport,
+						transport_uris: vec![transport_uri.clone()],
 						state_snapshot: Some(state_snapshot),
 						..Default::default()
 					},
 				)
 			} else {
-				Mode::Online(OnlineConfig { transport, ..Default::default() })
+				Mode::Online(OnlineConfig {
+					transport_uris: vec![transport_uri],
+					..Default::default()
+				})
 			})
 			.build()
 			.await
@@ -212,4 +212,21 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn treasury_location_delivery_fees_are_waived() {
+	use xcm_executor::traits::{FeeManager, FeeReason};
+
+	// GIVEN the location `PayOverXcm` charges treasury payout delivery fees from
+	let treasury = xcm_config::TreasuryLocation::get();
+
+	// WHEN the fee manager decides whether to charge it
+	let waived = <xcm_config::XcmConfig as xcm_executor::Config>::FeeManager::is_waived(
+		Some(&treasury),
+		FeeReason::ChargeFees,
+	);
+
+	// THEN it is waived, as no account backs that location
+	assert!(waived);
 }

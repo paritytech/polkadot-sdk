@@ -1,0 +1,55 @@
+title: 'pallet-validator-collators: relay-chain validators as system chain collators'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds `pallet-validator-collators`, a second session manager for system chains. It stores the
+    validator set Asset Hub announces for each era and returns its validators with registered
+    keys as collators, next to `pallet-collator-selection` through `UnionSessionManager`, a new
+    combinator in `pallet-session` that merges the sets of two session managers. A new set forces
+    two session rotations so it takes effect within two blocks.
+
+    Adds `pallet-validator-set-announcer`, which runs on Asset Hub only. It applies the set of
+    each era locally and sends it once to each configured system chain through a
+    runtime-provided sender, reporting every send with an event. It holds no storage and does
+    not retry, since the next era sends the full set again.
+
+    `pallet-staking-async` gains the `OnEraStart` config item, called with the validators of
+    each era when it becomes active. Use `()` to keep the previous behaviour.
+    storage read and write per era.
+
+    People Westend uses the receiver, and Asset Hub Westend uses both pallets. Asset Hub
+    announces every new era to itself and to People. The pallet and call index of People's
+    `set_validators` are hard-coded on Asset Hub, and the two runtimes share the validator
+    bound.
+crates:
+- name: pallet-validator-collators
+  bump: major
+- name: pallet-validator-set-announcer
+  bump: major
+# `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
+- name: pallet-staking-async
+  bump: major
+# `build_transact_xcm` takes an `OriginKind`.
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-session
+  bump: minor
+# Adding the pallets changes the runtimes' public `PalletInstancesInfo` type.
+- name: asset-hub-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: testnet-parachains-constants
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: none
+- name: pallet-ahm-test
+  bump: none
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none
+- name: polkadot-sdk
+  bump: minor

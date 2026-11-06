@@ -16,13 +16,21 @@
 // limitations under the License.
 
 use crate::{
+	signed::RewardSource,
 	verifier::{Config, Event, FeasibilityError, Pallet, Status, StatusStorage},
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionProvider, NposSolution};
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungible::{Inspect, Mutate},
+};
+use sp_runtime::traits::Saturating;
 use sp_std::prelude::*;
+
+/// The currency configured on the signed pallet, which is what reward payouts are drawn from.
+type SignedCurrencyOf<T> = <T as crate::signed::Config>::Currency;
 
 #[benchmarks(where
 	T: crate::Config + crate::signed::Config + crate::unsigned::Config,
@@ -39,7 +47,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_valid_non_terminal() -> Result<(), BenchmarkError> {
+	fn verification_valid_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -51,15 +59,13 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp() - 1));
 
@@ -67,7 +73,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_valid_terminal() -> Result<(), BenchmarkError> {
+	fn verification_valid_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -79,17 +85,28 @@ mod benchmarks {
 		);
 
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
+
+		// Accepting the solution pays the winner out of `RewardSource`, which holds nothing in
+		// genesis. Fund it so the measured path is the transfer that production takes every era,
+		// rather than the failed-transfer-then-defer fallback. The payout is `RewardBase` plus the
+		// submission's accrued fee, so fund generously; the measured work does not depend on how
+		// much the source holds.
+		if let Some(source) = <T as crate::signed::Config>::RewardSource::account() {
+			let funds = <T as crate::signed::Config>::RewardBase::get()
+				.saturating_mul(2u32.into())
+				.saturating_add(SignedCurrencyOf::<T>::minimum_balance());
+			SignedCurrencyOf::<T>::mint_into(&source, funds)?;
+		}
+
 		// roll to before the last page of verification
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		for _ in 0..(T::Pages::get() - 1) {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we must have verified all pages by now, minus the last one.
@@ -101,7 +118,7 @@ mod benchmarks {
 		// verify the last page.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are done
@@ -116,7 +133,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_invalid_terminal() -> Result<(), BenchmarkError> {
+	fn verification_invalid_terminal() -> Result<(), BenchmarkError> {
 		// this is the verification of the current page + removing all of the previously valid
 		// pages. The worst case is therefore when the last page is invalid, for example the final
 		// score.
@@ -137,13 +154,11 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		// verify all pages, except for the last one.
 		for i in 0..T::Pages::get() - 1 {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 			assert_eq!(
 				StatusStorage::<T>::get(),
 				Status::Ongoing(crate::Pallet::<T>::msp() - 1 - i)
@@ -159,7 +174,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset.
@@ -177,7 +192,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_invalid_non_terminal(
+	fn verification_invalid_non_terminal(
 		// number of valid pages that have been verified, before we verify the non-terminal invalid
 		// page.
 		v: Linear<0, { T::Pages::get() - 1 }>,
@@ -206,15 +221,13 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// we should be ready to go
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 
 		// validate the the parameterized number of valid pages.
 		for _ in 0..v {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are still ready to continue
@@ -223,7 +236,7 @@ mod benchmarks {
 		// verify one page, which will be invalid.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset, because this page was invalid.

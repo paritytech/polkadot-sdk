@@ -21,7 +21,7 @@ use crate::{
 	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
 	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
+	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, Lookup, OpaqueKeys, StaticLookup},
 	DispatchResultWithInfo, KeyTypeId, OpaqueExtrinsic,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
@@ -53,6 +53,12 @@ use std::{cell::RefCell, fmt::Debug};
 	TypeInfo,
 )]
 pub struct UintAuthorityId(pub u64);
+
+impl core::fmt::Display for UintAuthorityId {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Display::fmt(&self.0, f)
+	}
+}
 
 impl From<u64> for UintAuthorityId {
 	fn from(id: u64) -> Self {
@@ -125,12 +131,12 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
 	}
 
-	fn generate_proof_of_possession(&mut self, _owner: &[u8]) -> Option<Self::Signature> {
-		None
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::Signature> {
+		Some(TestSignature(self.0, owner.to_vec()))
 	}
 
-	fn verify_proof_of_possession(&self, _owner: &[u8], _pop: &Self::Signature) -> bool {
-		false
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool {
+		traits::Verify::verify(pop, owner, &self.0)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -152,6 +158,10 @@ impl OpaqueKeys for UintAuthorityId {
 	fn get<T: Decode>(&self, _: KeyTypeId) -> Option<T> {
 		self.using_encoded(|mut x| T::decode(&mut x)).ok()
 	}
+
+	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+		true
+	}
 }
 
 impl traits::IdentifyAccount for UintAuthorityId {
@@ -159,6 +169,28 @@ impl traits::IdentifyAccount for UintAuthorityId {
 
 	fn into_account(self) -> Self::AccountId {
 		self.0
+	}
+}
+
+impl StaticLookup for UintAuthorityId {
+	type Source = Self;
+	type Target = u64;
+
+	fn lookup(s: Self::Source) -> Result<Self::Target, traits::LookupError> {
+		Ok(s.0)
+	}
+
+	fn unlookup(t: Self::Target) -> Self::Source {
+		Self(t)
+	}
+}
+
+impl Lookup for UintAuthorityId {
+	type Source = Self;
+	type Target = u64;
+
+	fn lookup(&self, s: Self::Source) -> Result<Self::Target, traits::LookupError> {
+		Ok(s.0)
 	}
 }
 

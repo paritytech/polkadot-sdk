@@ -21,7 +21,6 @@ use crate::{MessageNonce, UnrewardedRelayer};
 use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,
@@ -38,7 +37,7 @@ use sp_std::{
 /// - storage proof of the inbound lane state;
 ///
 /// - lane id.
-#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, LaneId> {
 	/// Hash of the bridge header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
@@ -108,7 +107,7 @@ impl<LaneId> OnMessagesDelivered<LaneId> for () {
 }
 
 /// Send message artifacts.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub struct SendMessageArtifacts {
 	/// Nonce of the message.
 	pub nonce: MessageNonce,

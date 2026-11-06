@@ -47,6 +47,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
@@ -59,6 +60,9 @@ pub type HostFunctions =
 pub type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
+	// These host functions are not available on Polkadot and subject to breaking changes.
+	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -81,7 +85,7 @@ type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
 >;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -177,13 +181,14 @@ pub fn create_extrinsic(
 pub fn new_partial(
 	config: &Configuration,
 	mixnet_config: Option<&sc_mixnet::Config>,
+	statement_store_config: sc_statement_store::Config,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -226,6 +231,7 @@ pub fn new_partial(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			vec![Arc::new(grandpa::GrandpaPruningFilter)],
 		)?;
 	let client = Arc::new(client);
 
@@ -236,16 +242,14 @@ pub fn new_partial(
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let (grandpa_block_import, grandpa_link) = grandpa::block_import(
 		client.clone(),
@@ -299,11 +303,11 @@ pub fn new_partial(
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&config.data_path,
-		Default::default(),
+		statement_store_config,
 		client.clone(),
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 
@@ -355,9 +359,12 @@ pub fn new_partial(
 						beefy_best_block_stream: beefy_rpc_links
 							.from_voter_best_beefy_stream
 							.clone(),
+						subscription_executor: subscription_executor.clone(),
+					},
+					statement_store_deps: node_rpc::StatementStoreDeps {
+						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},
-					statement_store: rpc_statement_store.clone(),
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),
 				};
@@ -398,7 +405,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -408,6 +415,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
+	statement_store_config: sc_statement_store::Config,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -438,6 +446,10 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		})
 		.flatten();
 
+	let statement_network_workers = statement_store_config.network_workers;
+	let statement_rate_limit = statement_store_config.rate_limit;
+	let statement_v2dht_config = statement_store_config.v2dht.clone();
+
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -448,7 +460,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		transaction_pool,
 		other:
 			(rpc_builder, import_setup, rpc_setup, mut telemetry, statement_store, mixnet_api_backend),
-	} = new_partial(&config, mixnet_config.as_ref())?;
+	} = new_partial(&config, mixnet_config.as_ref(), statement_store_config)?;
 
 	let metrics = N::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
@@ -496,14 +508,16 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	net_config.add_notification_protocol(beefy_notification_config);
 	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
-	let (statement_handler_proto, statement_config) =
+	let (statement_handler_proto, statement_notification_config) =
 		sc_network_statement::StatementHandlerPrototype::new::<_, _, N>(
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
+			&net_config.network_config,
+			statement_v2dht_config.as_ref(),
 		);
-	net_config.add_notification_protocol(statement_config);
+	net_config.add_notification_protocol(statement_notification_config);
 
 	let mixnet_protocol_name =
 		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
@@ -524,18 +538,20 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
+			gap_sync_body_policy: None,
 		})?;
 
 	if let Some(mixnet_config) = mixnet_config {
@@ -598,13 +614,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	(with_startup_data)(&block_import, &babe_link);
 
 	if let sc_service::config::Role::Authority { .. } = &role {
-		let proposer = sc_basic_authorship::ProposerFactory::new(
+		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
+		proposer.set_default_block_size_limit(15 * 1024 * 1024);
 
 		let client_clone = client.clone();
 		let slot_duration = babe_link.config().slot_duration();
@@ -631,6 +648,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 						sp_transaction_storage_proof::registration::new_data_provider(
 							&*client_clone,
 							&parent,
+							// Use `unwrap_or` in case the runtime api is not available.
+							client_clone.runtime_api().retention_period(parent).unwrap_or(100800),
 						)?;
 
 					Ok((slot, timestamp, storage_proof))
@@ -786,7 +805,15 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_store.clone(),
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
+		statement_network_workers,
+		statement_rate_limit,
+		statement_v2dht_config,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),
@@ -831,12 +858,32 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
+	let statement_store_config = sc_statement_store::Config {
+		max_total_statements: cli.statement_store_max_total_statements,
+		max_total_size: cli.statement_store_max_total_size,
+		purge_after_sec: cli.statement_store_purge_after_sec,
+		network_workers: cli.statement_network_workers,
+		rate_limit: cli.statement_rate_limit,
+		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
+			affinity_topics: cli.statement_affinity_topics.clone(),
+			affinity_topics_file: cli.statement_affinity_topics_file.clone(),
+			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
+			bloom_seed: cli.statement_bloom_seed,
+			replication_factor: cli.statement_replication_factor,
+			gossip_target: cli.statement_gossip_target,
+			dht_affinity_max_size: cli.statement_store_max_dht_affinity_size,
+			transient_max_size: cli.statement_store_max_transient_size,
+			in_peers: cli.statement_in_peers,
+		}),
+	};
+
 	let task_manager = match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
 				mixnet_config,
 				cli.no_hardware_benchmarks,
+				statement_store_config,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -847,6 +894,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				config,
 				mixnet_config,
 				cli.no_hardware_benchmarks,
+				statement_store_config,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -875,7 +923,7 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
-	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -884,7 +932,7 @@ mod tests {
 	use sc_service_test::TestNetNode;
 	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
-	use sp_core::crypto::Pair;
+	use sp_core::{crypto::Pair, traits::CallContext};
 	use sp_inherents::InherentDataProvider;
 	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
@@ -934,6 +982,7 @@ mod tests {
 						config,
 						None,
 						false,
+						Default::default(),
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -1018,10 +1067,14 @@ mod tests {
 					let proposer = proposer_factory.init(&parent_header).await.unwrap();
 					Proposer::propose(
 						proposer,
-						inherent_data,
-						digest,
-						std::time::Duration::from_secs(1),
-						None,
+						sp_consensus::ProposeArgs {
+							inherent_data,
+							inherent_digests: digest,
+							max_duration: std::time::Duration::from_secs(1),
+							block_size_limit: None,
+							storage_proof_recorder: None,
+							extra_extensions: Default::default(),
+						},
 					)
 					.await
 				})
@@ -1059,7 +1112,10 @@ mod tests {
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
 				let best_hash = service.client().chain_info().best_hash;
 				let (spec_version, transaction_version) = {
-					let version = service.client().runtime_version_at(best_hash).unwrap();
+					let version = service
+						.client()
+						.runtime_version_at(best_hash, CallContext::Offchain)
+						.unwrap();
 					(version.spec_version, version.transaction_version)
 				};
 				let signer = charlie.clone();
@@ -1145,6 +1201,7 @@ mod tests {
 						config,
 						None,
 						false,
+						Default::default(),
 						|_, _| (),
 					)?;
 				Ok(sc_service_test::TestNetComponents::new(

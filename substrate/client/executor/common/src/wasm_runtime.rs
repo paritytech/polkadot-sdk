@@ -20,6 +20,8 @@
 
 use crate::error::Error;
 
+use std::time::Duration;
+
 pub use sc_allocator::AllocationStats;
 
 /// Default heap allocation strategy.
@@ -33,8 +35,13 @@ pub const DEFAULT_HEAP_ALLOC_PAGES: u32 = 2048;
 ///
 /// This can be implemented by an execution engine.
 pub trait WasmModule: Sync + Send {
-	/// Create a new instance.
-	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error>;
+	/// Create a new instance with the given heap allocation strategy.
+	///
+	/// The `heap_alloc_strategy` determines the memory limits applied to this instance.
+	fn new_instance(
+		&self,
+		heap_alloc_strategy: HeapAllocStrategy,
+	) -> Result<Box<dyn WasmInstance>, Error>;
 }
 
 /// A trait that defines an abstract wasm module instance.
@@ -69,6 +76,26 @@ pub trait WasmInstance: Send {
 	fn call_export(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
 		self.call(method.into(), data)
 	}
+
+	/// Call a method on this WASM instance, interrupting execution once `timeout` has elapsed.
+	///
+	/// Before execution, instance is reset.
+	///
+	/// Returns the encoded result on success. Fails with [`Error::ExecutionTimeout`] on timeout,
+	/// or with [`Error::ExecutionTimeoutUnsupported`] if the module was not compiled with support
+	/// for execution timeouts.
+	fn call_with_timeout(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		timeout: Duration,
+	) -> Result<Vec<u8>, Error>;
+
+	/// Update the heap allocation strategy for subsequent calls.
+	///
+	/// This is used when an instance is reused from a pool but the caller needs
+	/// a different memory limit than what the instance was originally created with.
+	fn set_heap_alloc_strategy(&mut self, _heap_alloc_strategy: HeapAllocStrategy) {}
 }
 
 /// Defines the heap pages allocation strategy the wasm runtime should use.
@@ -95,4 +122,21 @@ pub enum HeapAllocStrategy {
 		/// by WASM (4GB).
 		maximum_pages: Option<u32>,
 	},
+}
+
+impl HeapAllocStrategy {
+	/// Double this heap allocation strategy.
+	pub const fn double(self) -> Self {
+		match self {
+			Self::Static { extra_pages } => {
+				Self::Static { extra_pages: extra_pages.saturating_mul(2) }
+			},
+			Self::Dynamic { maximum_pages } => Self::Dynamic {
+				maximum_pages: match maximum_pages {
+					Some(p) => Some(p.saturating_mul(2)),
+					None => None,
+				},
+			},
+		}
+	}
 }

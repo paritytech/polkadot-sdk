@@ -33,6 +33,8 @@ pub trait VoteTally<Votes, Class> {
 	/// (e.g. conviction, ranks, etc.).
 	fn support(&self, class: Class) -> Perbill;
 	/// Returns the approval ratio (positive to total votes) for the tally.
+	///
+	/// If no votes have been cast (i.e. `ayes + nays == 0`), it should resolve to `0%`.
 	fn approval(&self, class: Class) -> Perbill;
 	/// Returns an instance of the tally representing a unanimous approval, for benchmarking
 	/// purposes.
@@ -120,10 +122,10 @@ pub trait Polling<Tally> {
 	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()>;
 
 	/// The maximum amount of ongoing polls within any single class. By default it practically
-	/// unlimited (`u32::max_value()`).
+	/// unlimited (`u32::MAX`).
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
-		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+		(Self::classes().into_iter().next().expect("Always one class"), u32::MAX)
 	}
 }
 

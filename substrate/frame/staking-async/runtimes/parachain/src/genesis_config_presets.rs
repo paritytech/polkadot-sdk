@@ -17,7 +17,7 @@
 
 //! # Staking Async Runtime genesis config presets
 
-use crate::*;
+use crate::{staking::DapPalletId, *};
 use alloc::{
 	string::{String, ToString},
 	vec,
@@ -29,6 +29,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::AccountIdConversion;
 use sp_staking::StakerStatus;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
@@ -58,10 +59,15 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 		root,
 		id,
 	} = params;
+	let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
+	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
+	// `Preservation::Preserve`, so it needs spendable balance above ED, sized in rounds of
+	// `RewardBase` rather than tracking whatever endowment a preset picked.
+	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED + crate::staking::RewardBase::get() * 1_000));
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
-		},
+		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
@@ -144,7 +150,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			staking_async_parachain_genesis(params, id.to_string())
 		},
 		"fake-dot" => {
-			params.validator_count = 500;
+			params.validator_count = 600;
 			params.dev_stakers = Some((2_500, 25_000));
 			staking_async_parachain_genesis(params, id.to_string())
 		},

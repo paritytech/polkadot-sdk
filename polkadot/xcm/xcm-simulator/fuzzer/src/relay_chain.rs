@@ -136,7 +136,6 @@ impl Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -193,6 +192,7 @@ parameter_types! {
 }
 
 /// Message processor to handle any messages that were enqueued into the `MessageQueue` pallet.
+#[allow(dead_code)]
 pub struct MessageProcessor;
 impl ProcessMessage for MessageProcessor {
 	type Origin = AggregateMessageOrigin;

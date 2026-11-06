@@ -307,7 +307,7 @@ fn prepare_pjr_input<AccountId: IdentifierT>(
 			for t in ts {
 				if edges.iter().any(|e| e.who == t) {
 					// duplicate edge.
-					continue
+					continue;
 				}
 
 				if let Some(idx) = candidates_index.get(&t) {

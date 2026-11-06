@@ -82,10 +82,12 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 		<T as Config>::Extension: Default,
 	)]
 mod benchmarks {
+	use codec::Compact;
+
 	use super::*;
 
 	#[benchmark]
-	fn bare_dispatch() {
+	fn bare_dispatch(n: Linear<8, 100>) {
 		let meta_call = frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let meta_ext = T::Extension::default();
 		let meta_ext_weight = meta_ext.weight(&meta_call);
@@ -103,10 +105,22 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		let origin: <T as frame_system::Config>::RuntimeOrigin =
 			frame_system::RawOrigin::Signed(caller).into();
-		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
+		let call = Call::<T>::dispatch {
+			meta_tx: Box::new(meta_tx.clone()),
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+		};
+
+		// Encoded size of meta tx is 4 bytes, 4 bytes is size of u16 compact number with max value
+		// 0xffff.
+		let length_of_compact_vec = ((n - 4) / 4) as usize;
+		let mut compact_vec = Vec::<Compact<u16>>::with_capacity(length_of_compact_vec);
+		for _ in 0..length_of_compact_vec {
+			compact_vec.push(Compact::from(0xffff));
+		}
 
 		#[block]
 		{
+			let _ = compact_vec.encode();
 			let _ = call.dispatch_bypass_filter(origin);
 		}
 

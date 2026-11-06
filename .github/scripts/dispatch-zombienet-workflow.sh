@@ -111,11 +111,12 @@ while [[ $MAX_RESULT_CNT -eq -1 || $RESULT_CNT -lt $MAX_RESULT_CNT ]]; do
   TRIGGER_CNT=$(( TRIGGER_CNT + 1 ))
   dbg "Triggering #$TRIGGER_CNT workflow $WORKFLOW_FILE (branch: $BRANCH)"
 
+  CMD_ARGS=(gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH")
   if [[ -n "$TEST_PATTERN" ]]; then
-    gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH" -f test_pattern="$TEST_PATTERN"
-  else
-    gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH"
+    CMD_ARGS+=(-f "test_pattern=$TEST_PATTERN")
   fi
+  dbg "Dispatch command: ${CMD_ARGS[*]}"
+  "${CMD_ARGS[@]}"
 
   dbg "Sleeping 60s"
   sleep 60

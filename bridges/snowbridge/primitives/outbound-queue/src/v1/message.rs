@@ -2,18 +2,18 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V1 primitives
 
-use crate::{OperatingMode, SendError, SendMessageFeeProvider};
+use crate::{dispatch_gas, OperatingMode, SendError, SendMessageFeeProvider};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use ethabi::Token;
 use scale_info::TypeInfo;
 use snowbridge_core::{pricing::UD60x18, ChannelId};
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::{RuntimeDebug, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_std::{borrow::ToOwned, vec, vec::Vec};
 
 /// Enqueued outbound messages need to be versioned to prevent data corruption
 /// or loss after forkless runtime upgrades
-#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VersionedQueuedMessage {
 	V1(QueuedMessage),
@@ -36,7 +36,7 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 }
 
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
-#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct Message {
 	/// ID for this message. One will be automatically generated if not provided.
@@ -53,7 +53,7 @@ pub struct Message {
 }
 
 /// A command which is executable by the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum Command {
 	/// Execute a sub-command within an agent for a consensus system in Polkadot
@@ -152,14 +152,16 @@ impl Command {
 				Token::FixedBytes(agent_id.as_bytes().to_owned()),
 				Token::Bytes(command.abi_encode()),
 			])]),
-			Command::Upgrade { impl_address, impl_code_hash, initializer, .. } =>
+			Command::Upgrade { impl_address, impl_code_hash, initializer, .. } => {
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::Address(*impl_address),
 					Token::FixedBytes(impl_code_hash.as_bytes().to_owned()),
 					initializer.clone().map_or(Token::Bytes(vec![]), |i| Token::Bytes(i.params)),
-				])]),
-			Command::SetOperatingMode { mode } =>
-				ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
+				])])
+			},
+			Command::SetOperatingMode { mode } => {
+				ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])])
+			},
 			Command::SetTokenTransferFees {
 				create_asset_xcm,
 				transfer_asset_xcm,
@@ -169,39 +171,43 @@ impl Command {
 				Token::Uint(U256::from(*transfer_asset_xcm)),
 				Token::Uint(*register_token),
 			])]),
-			Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =>
+			Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } => {
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::Uint(exchange_rate.clone().into_inner()),
 					Token::Uint(U256::from(*delivery_cost)),
 					Token::Uint(multiplier.clone().into_inner()),
-				])]),
-			Command::UnlockNativeToken { agent_id, token, recipient, amount } =>
+				])])
+			},
+			Command::UnlockNativeToken { agent_id, token, recipient, amount } => {
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::FixedBytes(agent_id.as_bytes().to_owned()),
 					Token::Address(*token),
 					Token::Address(*recipient),
 					Token::Uint(U256::from(*amount)),
-				])]),
-			Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+				])])
+			},
+			Command::RegisterForeignToken { token_id, name, symbol, decimals } => {
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::FixedBytes(token_id.as_bytes().to_owned()),
 					Token::String(name.to_owned()),
 					Token::String(symbol.to_owned()),
 					Token::Uint(U256::from(*decimals)),
-				])]),
-			Command::MintForeignToken { token_id, recipient, amount } =>
+				])])
+			},
+			Command::MintForeignToken { token_id, recipient, amount } => {
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::FixedBytes(token_id.as_bytes().to_owned()),
 					Token::Address(*recipient),
 					Token::Uint(U256::from(*amount)),
-				])]),
+				])])
+			},
 		}
 	}
 }
 
 /// Representation of a call to the initializer of an implementation contract.
 /// The initializer has the following ABI signature: `initialize(bytes)`.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Initializer {
 	/// ABI-encoded params of type `bytes` to pass to the initializer
 	pub params: Vec<u8>,
@@ -210,7 +216,7 @@ pub struct Initializer {
 }
 
 /// A Sub-command executable within an agent
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum AgentExecuteCommand {
 	/// Transfer ERC20 tokens
@@ -247,7 +253,7 @@ impl AgentExecuteCommand {
 }
 
 /// Message which is awaiting processing in the MessageQueue pallet
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct QueuedMessage {
 	/// Message ID
@@ -258,7 +264,7 @@ pub struct QueuedMessage {
 	pub command: Command,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 /// Fee for delivering message
 pub struct Fee<Balance>
@@ -323,48 +329,36 @@ pub trait GasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
 }
 
-/// A meter that assigns a constant amount of gas for the execution of a command
+/// A meter that assigns a constant amount of gas for the execution of a command.
 ///
-/// The gas figures are extracted from this report:
-/// > forge test --match-path test/Gateway.t.sol --gas-report
-///
-/// A healthy buffer is added on top of these figures to account for:
-/// * The EIP-150 63/64 rule
-/// * Future EVM upgrades that may increase gas cost
+/// The ceilings live in [`crate::dispatch_gas`].
 pub struct ConstantGasMeter;
 
 impl GasMeter for ConstantGasMeter {
-	// The base transaction cost, which includes:
-	// 21_000 transaction cost, roughly worst case 64_000 for calldata, and 100_000
-	// for message verification
+	// Intrinsic gas, calldata and verification: about 120_000 for a real `submitV1` on
+	// Glamsterdam. Plus the smallest dispatch ceiling, it also covers the EIP-7976 calldata floor
+	// up to about 3.8 KB.
 	const MAXIMUM_BASE_GAS: u64 = 185_000;
 
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
-			Command::SetOperatingMode { .. } => 40_000,
+			Command::SetOperatingMode { .. } => dispatch_gas::SET_OPERATING_MODE,
 			Command::AgentExecute { command, .. } => match command {
 				// Execute IERC20.transferFrom
-				//
-				// Worst-case assumptions are important:
-				// * No gas refund for clearing storage slot of source account in ERC20 contract
-				// * Assume dest account in ERC20 contract does not yet have a storage slot
-				// * ERC20.transferFrom possibly does other business logic besides updating balances
-				AgentExecuteCommand::TransferToken { .. } => 200_000,
+				AgentExecuteCommand::TransferToken { .. } => dispatch_gas::TRANSFER_TOKEN,
 			},
 			Command::Upgrade { initializer, .. } => {
 				let initializer_max_gas = match *initializer {
 					Some(Initializer { maximum_required_gas, .. }) => maximum_required_gas,
 					None => 0,
 				};
-				// total maximum gas must also include the gas used for updating the proxy before
-				// the the initializer is called.
-				50_000 + initializer_max_gas
+				dispatch_gas::UPGRADE_BASE + initializer_max_gas
 			},
-			Command::SetTokenTransferFees { .. } => 60_000,
-			Command::SetPricingParameters { .. } => 60_000,
-			Command::UnlockNativeToken { .. } => 200_000,
-			Command::RegisterForeignToken { .. } => 1_200_000,
-			Command::MintForeignToken { .. } => 100_000,
+			Command::SetTokenTransferFees { .. } => dispatch_gas::SET_TOKEN_TRANSFER_FEES,
+			Command::SetPricingParameters { .. } => dispatch_gas::SET_PRICING_PARAMETERS,
+			Command::UnlockNativeToken { .. } => dispatch_gas::UNLOCK_NATIVE_TOKEN,
+			Command::RegisterForeignToken { .. } => dispatch_gas::REGISTER_FOREIGN_TOKEN,
+			Command::MintForeignToken { .. } => dispatch_gas::MINT_FOREIGN_TOKEN,
 		}
 	}
 }

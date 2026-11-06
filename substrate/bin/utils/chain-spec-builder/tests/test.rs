@@ -32,6 +32,13 @@ const DUMMY_PATH: &str = "fake-runtime-path";
 
 const OUTPUT_FILE: &str = "/tmp/chain_spec_builder.test_output_file.json";
 
+const BOOTNODE_0: &str =
+	"/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf";
+const BOOTNODE_1: &str =
+	"/dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg";
+const BOOTNODE_2: &str =
+	"/ip4/198.51.100.19/tcp/30333/p2p/12D3KooWAdyiVAaeGdtBt6vn5zVetwA4z4qfm9Fi2QCSykN1wTBJ";
+
 // Used for running commands visually pleasing in doc tests.
 macro_rules! bash(
 	( chain-spec-builder $($a:tt)* ) => {{
@@ -85,6 +92,32 @@ fn assert_output_eq_expected(overwrite_code: bool, output_suffix: &str, expected
 	}
 	let expected: serde_json::Value =
 		serde_json::from_reader(File::open(expected_path).unwrap()).unwrap();
+
+	assert_eq!(expected, output);
+
+	std::fs::remove_file(path).expect("Failed to delete file");
+}
+
+/// Asserts that the JSON in output file matches the JSON in expected file, except for the boot
+/// nodes, which shall match the given ones.
+///
+/// The boot nodes commands shall not alter any other part of the chain specification, so the
+/// expected file is the chain specification they were given as an input.
+fn assert_output_eq_expected_with_bootnodes(
+	overwrite_code: bool,
+	output_suffix: &str,
+	expected_path: &str,
+	bootnodes: &[&str],
+) {
+	let path = OUTPUT_FILE.to_string() + output_suffix;
+	let mut output: serde_json::Value =
+		serde_json::from_reader(File::open(path.clone()).unwrap()).unwrap();
+	if overwrite_code {
+		update_code_in_json_chain_spec(&mut output, &vec![1, 2, 3]);
+	}
+	let mut expected: serde_json::Value =
+		serde_json::from_reader(File::open(expected_path).unwrap()).unwrap();
+	expected["bootNodes"] = serde_json::json!(bootnodes);
 
 	assert_eq!(expected, output);
 
@@ -256,6 +289,141 @@ fn test_create_with_properties() {
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_properties.json");
 }
 
+#[test]
+fn test_add_bootnodes() {
+	const SUFFIX: &str = "12";
+	let builder = get_builder(
+		SUFFIX,
+		vec!["bootnodes", "add", "tests/input/chain_spec_plain.json", BOOTNODE_0, BOOTNODE_1],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		false,
+		SUFFIX,
+		"tests/input/chain_spec_plain.json",
+		&[BOOTNODE_0, BOOTNODE_1],
+	);
+}
+
+#[test]
+fn test_add_bootnodes_raw() {
+	const SUFFIX: &str = "13";
+	let builder = get_builder(
+		SUFFIX,
+		vec!["bootnodes", "add", "tests/input/chain_spec_raw.json", BOOTNODE_0],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		false,
+		SUFFIX,
+		"tests/input/chain_spec_raw.json",
+		&[BOOTNODE_0],
+	);
+}
+
+#[test]
+fn test_add_bootnodes_appends_and_skips_the_existing_ones() {
+	const SUFFIX: &str = "14";
+	// `BOOTNODE_1` is already stored, so only `BOOTNODE_2` is appended, at the end of the list.
+	let builder = get_builder(
+		SUFFIX,
+		vec![
+			"bootnodes",
+			"add",
+			"tests/input/chain_spec_plain_with_bootnodes.json",
+			BOOTNODE_1,
+			BOOTNODE_2,
+		],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		false,
+		SUFFIX,
+		"tests/input/chain_spec_plain_with_bootnodes.json",
+		&[BOOTNODE_0, BOOTNODE_1, BOOTNODE_2],
+	);
+}
+
+#[test]
+fn test_remove_bootnodes() {
+	const SUFFIX: &str = "15";
+	// `BOOTNODE_2` is not stored in the given chain spec, it shall be ignored.
+	let builder = get_builder(
+		SUFFIX,
+		vec![
+			"bootnodes",
+			"remove",
+			"tests/input/chain_spec_plain_with_bootnodes.json",
+			BOOTNODE_0,
+			BOOTNODE_2,
+		],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		false,
+		SUFFIX,
+		"tests/input/chain_spec_plain_with_bootnodes.json",
+		&[BOOTNODE_1],
+	);
+}
+
+#[test]
+fn test_remove_all_bootnodes() {
+	const SUFFIX: &str = "16";
+	let builder = get_builder(
+		SUFFIX,
+		vec!["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json", "--all"],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		false,
+		SUFFIX,
+		"tests/input/chain_spec_plain_with_bootnodes.json",
+		&[],
+	);
+}
+
+#[test]
+fn test_create_with_bootnodes() {
+	const SUFFIX: &str = "17";
+	let bootnodes = format!("{BOOTNODE_0},{BOOTNODE_1}");
+	let mut builder = get_builder(
+		SUFFIX,
+		vec!["create", "-r", DUMMY_PATH, "--bootnodes", bootnodes.as_str(), "default"],
+	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
+	builder.run().unwrap();
+	assert_output_eq_expected_with_bootnodes(
+		true,
+		SUFFIX,
+		"tests/expected/create_default.json",
+		&[BOOTNODE_0, BOOTNODE_1],
+	);
+}
+
+#[test]
+fn test_bootnodes_shall_contain_the_peer_id() {
+	assert!(ChainSpecBuilder::try_parse_from(vec![
+		"dummy",
+		"bootnodes",
+		"add",
+		"tests/input/chain_spec_plain.json",
+		"/dns/node-0.example.com/tcp/30333",
+	])
+	.is_err());
+}
+
+#[test]
+fn test_bootnodes_command_is_also_available_in_the_singular() {
+	assert!(ChainSpecBuilder::try_parse_from(vec![
+		"dummy",
+		"bootnode",
+		"list",
+		"tests/input/chain_spec_plain.json",
+	])
+	.is_ok());
+}
+
 #[docify::export_content]
 fn cmd_create_default(runtime_path: &str) -> String {
 	bash!(
@@ -415,5 +583,53 @@ fn create_full_raw() {
 		),
 		"tests/expected/doc/create_full_raw.json",
 		true,
+	);
+}
+
+#[docify::export_content]
+fn cmd_add_bootnodes(chain_spec_path: &str) -> String {
+	bash!(
+		chain-spec-builder -c "/dev/stdout" bootnodes add $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+	)
+}
+
+#[test]
+fn add_bootnodes() {
+	doc_assert(
+		cmd_add_bootnodes("tests/input/chain_spec_plain.json"),
+		"tests/expected/doc/add_bootnodes.json",
+		false,
+	);
+}
+
+#[docify::export_content]
+fn cmd_remove_bootnodes(chain_spec_path: &str) -> String {
+	bash!(
+		chain-spec-builder -c "/dev/stdout" bootnodes remove $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+	)
+}
+
+#[test]
+fn remove_bootnodes() {
+	doc_assert(
+		cmd_remove_bootnodes("tests/input/chain_spec_plain_with_bootnodes.json"),
+		"tests/expected/doc/remove_bootnodes.json",
+		false,
+	);
+}
+
+#[docify::export_content]
+fn cmd_list_bootnodes(chain_spec_path: &str) -> String {
+	bash!(
+		chain-spec-builder bootnodes list $chain_spec_path
+	)
+}
+
+#[test]
+fn list_bootnodes() {
+	doc_assert(
+		cmd_list_bootnodes("tests/input/chain_spec_plain_with_bootnodes.json"),
+		"tests/expected/doc/list_bootnodes.json",
+		false,
 	);
 }

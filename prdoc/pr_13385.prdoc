@@ -1,0 +1,9 @@
+title: "backing: reject out-of-bounds core indices"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Reject candidate statements that resolve to a core index equal to the
+      number of availability cores.
+crates:
+  - name: polkadot-node-core-backing
+    bump: patch

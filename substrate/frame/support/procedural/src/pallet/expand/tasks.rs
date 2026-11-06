@@ -200,7 +200,7 @@ impl TasksDef {
 					}
 				}
 
-				#[allow(unused_variables)]
+				#[allow(unused_variables, unused_assignments)]
 				fn weight(&self) -> #frame_support::pallet_prelude::Weight {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights,)*

@@ -93,8 +93,9 @@ impl Check {
 	pub fn is_approved(&self, max_assignment_tick: Tick) -> bool {
 		match *self {
 			Check::Unapproved => false,
-			Check::Approved(_, last_assignment_tick) =>
-				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick),
+			Check::Approved(_, last_assignment_tick) => {
+				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick)
+			},
 			Check::ApprovedOneThird => true,
 		}
 	}
@@ -118,7 +119,7 @@ pub fn check_approval(
 	// honest node approves, the candidate should be approved.
 	let approvals = candidate.approvals();
 	if 3 * approvals.count_ones() > approvals.len() {
-		return Check::ApprovedOneThird
+		return Check::ApprovedOneThird;
 	}
 
 	match required {
@@ -208,7 +209,7 @@ impl State {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
@@ -223,7 +224,7 @@ impl State {
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// We're pending more assignments and should look at more tranches.
@@ -236,7 +237,7 @@ impl State {
 					// during the initial assignment-gathering phase, we want to accept assignments
 					// from any tranche. Note that honest validators will still not broadcast their
 					// assignment until it is time to do so, regardless of this value.
-					maximum_broadcast: DelayTranche::max_value(),
+					maximum_broadcast: DelayTranche::MAX,
 					clock_drift,
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
@@ -387,7 +388,7 @@ fn count_no_shows(
 			let has_approved = if let Some(approved) = approvals.get(v_index.0 as usize) {
 				*approved
 			} else {
-				return false
+				return false;
 			};
 
 			let is_no_show = !has_approved && no_show_at <= drifted_tick_now;
@@ -513,8 +514,8 @@ mod tests {
 
 	#[test]
 	fn pending_is_not_approved() {
-		let candidate = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
+		let candidate = CandidateEntry::from_v2(
+			approval_db::v2::CandidateEntry {
 				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
@@ -543,13 +544,13 @@ mod tests {
 				clock_drift: 0,
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 	}
 
 	#[test]
 	fn exact_takes_only_assignments_up_to() {
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
+		let mut candidate: CandidateEntry = CandidateEntry::from_v2(
+			approval_db::v2::CandidateEntry {
 				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
@@ -595,7 +596,7 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 		assert!(!check_approval(
 			&candidate,
 			&approval_entry,
@@ -606,7 +607,7 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 		assert!(check_approval(
 			&candidate,
 			&approval_entry,
@@ -617,13 +618,13 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 	}
 
 	#[test]
 	fn one_honest_node_always_approves() {
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
+		let mut candidate: CandidateEntry = CandidateEntry::from_v2(
+			approval_db::v2::CandidateEntry {
 				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
@@ -674,26 +675,24 @@ mod tests {
 		};
 
 		assert!(!check_approval(&candidate, &approval_entry, RequiredTranches::All,)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
-		assert!(!check_approval(&candidate, &approval_entry, exact_all.clone(),)
-			.is_approved(Tick::max_value()));
+		assert!(
+			!check_approval(&candidate, &approval_entry, exact_all.clone(),).is_approved(Tick::MAX)
+		);
 
 		assert!(!check_approval(&candidate, &approval_entry, pending_all.clone(),)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
 		// This creates a set of 4/10 approvals, which is always an approval.
 		candidate.mark_approval(ValidatorIndex(3));
 
 		assert!(check_approval(&candidate, &approval_entry, RequiredTranches::All,)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
-		assert!(
-			check_approval(&candidate, &approval_entry, exact_all,).is_approved(Tick::max_value())
-		);
+		assert!(check_approval(&candidate, &approval_entry, exact_all,).is_approved(Tick::MAX));
 
-		assert!(check_approval(&candidate, &approval_entry, pending_all,)
-			.is_approved(Tick::max_value()));
+		assert!(check_approval(&candidate, &approval_entry, pending_all,).is_approved(Tick::MAX));
 	}
 
 	#[test]
@@ -778,7 +777,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: Some(block_tick + no_show_duration),
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -823,7 +822,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 11,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -1117,8 +1116,8 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 3;
 
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
+		let mut candidate: CandidateEntry = CandidateEntry::from_v2(
+			approval_db::v2::CandidateEntry {
 				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
@@ -1163,7 +1162,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 10,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -1445,7 +1444,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 0,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);

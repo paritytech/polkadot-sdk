@@ -1,0 +1,11 @@
+title: 'Remove Bandersnatch SW form from host calls'
+doc:
+- audience: Runtime Dev
+  description: |
+    Remove the Short Weierstrass (SW) form host calls for Ed-on-BLS12-381-Bandersnatch curve,
+    aligning with RFC-0163 which only specifies TE form host calls for this curve.
+    SW form operations are still available but will be computed entirely within the runtime.
+    Alternatively, users can map SW to TE representations to leverage the remaining TE host calls.
+crates:
+- name: sp-crypto-ec-utils
+  bump: major

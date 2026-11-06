@@ -1,0 +1,8 @@
+title: '[XCMP/HRMP] fix `last_processed_block` update'
+doc:
+- audience: Runtime Dev
+  description: We need to take into consideration the unprocessed messages as well
+    when updating the `last_processed_block`
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

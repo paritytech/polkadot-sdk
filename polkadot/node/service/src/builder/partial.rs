@@ -19,11 +19,13 @@
 #![cfg(feature = "full-node")]
 
 use crate::{
-	fake_runtime_api::RuntimeApi, grandpa_support, relay_chain_selection, Error, FullBackend,
-	FullClient, IdentifyVariant, GRANDPA_JUSTIFICATION_PERIOD,
+	grandpa_support, relay_chain_selection, Error, FullBackend, FullClient, IdentifyVariant,
+	GRANDPA_JUSTIFICATION_PERIOD,
 };
 use polkadot_primitives::Block;
-use sc_consensus_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
+use sc_consensus_grandpa::{
+	FinalityProofProvider as GrandpaFinalityProofProvider, GrandpaPruningFilter,
+};
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::{Configuration, Error as SubstrateServiceError, KeystoreContainer, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
@@ -50,7 +52,7 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 	FullBackend,
 	ChainSelection,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	(
 		Box<
 			dyn Fn(
@@ -120,12 +122,14 @@ pub(crate) fn new_partial_basics(
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			&config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	// Use GrandpaPruningFilter to preserve blocks with GRANDPA justifications during
+	// pruning. This is required for warp sync to work on pruned nodes.
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts(
+		&config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+		vec![Arc::new(GrandpaPruningFilter)],
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -150,16 +154,14 @@ pub(crate) fn new_partial<ChainSelection>(
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
 		grandpa_support::kusama_hard_forks()

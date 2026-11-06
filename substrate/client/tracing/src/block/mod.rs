@@ -63,6 +63,20 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// The execution should be done sync on the same thread, because the caller will register
 	/// special tracing collectors.
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
+
+	/// Run `method` re-enacting `block` at its parent state, with a proof-size recorder registered
+	/// and `block`'s stored recording replayed when available; returns the SCALE-encoded result.
+	/// `call_data` is the complete SCALE-encoded argument list, passed through verbatim.
+	///
+	/// The default implementation errors: nodes that do not record proof size do not need it.
+	fn call_recorded(
+		&self,
+		_block: Block::Hash,
+		_method: &str,
+		_call_data: &[u8],
+	) -> sp_blockchain::Result<Vec<u8>> {
+		Err(sp_blockchain::Error::Application(Box::new(CallRecordedUnsupported)))
+	}
 }
 
 /// Default implementation of [`ExecuteBlock`].
@@ -95,6 +109,12 @@ where
 
 /// Tracing Block Result type alias
 pub type TraceBlockResult<T> = Result<T, Error>;
+
+/// Typed marker returned by the default [`TracingExecuteBlock::call_recorded`], letting callers
+/// recognise "this node has no proof-recording hook" by downcast and map it to their own error.
+#[derive(Debug, thiserror::Error)]
+#[error("Recorded runtime calls are not supported by this node")]
+pub struct CallRecordedUnsupported;
 
 /// Tracing Block error
 #[derive(Debug, thiserror::Error)]
@@ -135,12 +155,12 @@ impl BlockSubscriber {
 impl Subscriber for BlockSubscriber {
 	fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
 		if !metadata.is_span() && metadata.fields().field(REQUIRED_EVENT_FIELD).is_none() {
-			return false
+			return false;
 		}
 
 		for (target, level) in &self.targets {
 			if metadata.level() <= level && metadata.target().starts_with(target) {
-				return true
+				return true;
 			}
 		}
 
@@ -244,12 +264,7 @@ where
 		}
 	}
 
-	/// Execute block, record all spans and events belonging to `Self::targets`
-	/// and filter out events which do not have keys starting with one of the
-	/// prefixes in `Self::storage_keys`.
-	pub fn trace_block(&self) -> TraceBlockResult<TraceBlockResponse> {
-		tracing::debug!(target: "state_tracing", "Tracing block: {}", self.block);
-		// Prepare the block
+	fn prepared_block(&self) -> TraceBlockResult<Block> {
 		let mut header = self
 			.client
 			.header(self.block)
@@ -261,11 +276,18 @@ where
 			.map_err(Error::InvalidBlockId)?
 			.ok_or_else(|| Error::MissingBlockComponent("Extrinsics not found".to_string()))?;
 		tracing::debug!(target: "state_tracing", "Found {} extrinsics", extrinsics.len());
-		let parent_hash = *header.parent_hash();
-		// Remove all `Seal`s as they are added by the consensus engines after building the block.
-		// On import they are normally removed by the consensus engine.
+
 		header.digest_mut().logs.retain(|d| d.as_seal().is_none());
-		let block = Block::new(header, extrinsics);
+		Ok(Block::new(header, extrinsics))
+	}
+
+	/// Execute block, record all spans and events belonging to `Self::targets`
+	/// and filter out events which do not have keys starting with one of the
+	/// prefixes in `Self::storage_keys`.
+	pub fn trace_block(&self) -> TraceBlockResult<TraceBlockResponse> {
+		tracing::debug!(target: "state_tracing", "Tracing block: {}", self.block);
+		let block = self.prepared_block()?;
+		let parent_hash = *block.header().parent_hash();
 
 		let targets = if let Some(t) = &self.targets { t } else { DEFAULT_TARGETS };
 		let block_subscriber = BlockSubscriber::new(targets);
@@ -286,7 +308,7 @@ where
 			}) {
 				return Err(Error::Dispatch(format!(
 					"Failed to collect traces and execute block: {e:?}"
-				)))
+				)));
 			}
 		}
 
@@ -307,16 +329,7 @@ where
 			.lock()
 			.drain(..)
 			.filter(|e| {
-				self.storage_keys
-					.as_ref()
-					.map(|keys| event_values_filter(e, "key", keys))
-					.unwrap_or(false)
-			})
-			.filter(|e| {
-				self.methods
-					.as_ref()
-					.map(|methods| event_values_filter(e, "method", methods))
-					.unwrap_or(false)
+				event_matches_filters(e, self.storage_keys.as_deref(), self.methods.as_deref())
 			})
 			.map(|s| s.into())
 			.collect();
@@ -334,7 +347,25 @@ where
 	}
 }
 
+fn event_matches_filters(
+	event: &TraceEvent,
+	storage_keys: Option<&str>,
+	methods: Option<&str>,
+) -> bool {
+	storage_keys
+		.map(|keys| event_values_filter(event, "key", keys))
+		.unwrap_or(false) &&
+		methods
+			.map(|methods| event_values_filter(event, "method", methods))
+			.unwrap_or(false)
+}
+
+/// An empty string keeps every event, including those without the filtered field.
 fn event_values_filter(event: &TraceEvent, filter_kind: &str, values: &str) -> bool {
+	if values.is_empty() {
+		return true;
+	}
+
 	event
 		.values
 		.string_values
@@ -361,7 +392,7 @@ fn patch_and_filter(mut span: SpanDatum, targets: &str) -> Option<Span> {
 			span.target = t;
 		}
 		if !check_target(targets, &span.target, &span.level) {
-			return None
+			return None;
 		}
 	}
 
@@ -372,7 +403,7 @@ fn patch_and_filter(mut span: SpanDatum, targets: &str) -> Option<Span> {
 fn check_target(targets: &str, target: &str, level: &Level) -> bool {
 	for (t, l) in targets.split(',').map(crate::parse_target) {
 		if target.starts_with(t.as_str()) && level <= &l {
-			return true
+			return true;
 		}
 	}
 
@@ -383,5 +414,110 @@ fn block_id_as_string<T: BlockT>(block_id: BlockId<T>) -> String {
 	match block_id {
 		BlockId::Hash(h) => HexDisplay::from(&h.encode()).to_string(),
 		BlockId::Number(n) => HexDisplay::from(&n.encode()).to_string(),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn trace_event(name: &str, method: &str, key: Option<&str>) -> TraceEvent {
+		let mut values = Values::default();
+		values.string_values.insert("method".into(), method.into());
+		if let Some(key) = key {
+			values.string_values.insert("key".into(), key.into());
+		}
+		TraceEvent {
+			name: name.into(),
+			target: "state".into(),
+			level: Level::TRACE,
+			values,
+			parent_id: None,
+		}
+	}
+
+	#[test]
+	fn empty_key_filter_keeps_keyless_events() {
+		for method in [
+			"ClearPrefix",
+			"ChildKill",
+			"ChildClearPrefix",
+			"StorageRoot",
+			"ChildStorageRoot",
+			"IndexTransaction",
+			"RenewTransactionIndex",
+		] {
+			assert!(
+				event_values_filter(&trace_event("storage", method, None), "key", ""),
+				"{method}"
+			);
+		}
+	}
+
+	#[test]
+	fn empty_key_filter_keeps_call_events() {
+		// StateMachine::execute emits a Call event with a method but no storage key.
+		let event = trace_event("Call", "Core_execute_block", None);
+		assert!(event_values_filter(&event, "key", ""));
+		assert!(!event_values_filter(&event, "key", "aabb"));
+	}
+
+	#[test]
+	fn key_and_method_filters_are_combined() {
+		let events = [
+			trace_event("storage", "Put", Some("aabbcc")),
+			trace_event("storage", "Get", Some("aabbdd")),
+			trace_event("storage", "Put", Some("ddeeff")),
+			trace_event("Call", "Core_execute_block", None),
+		];
+		for (keys, methods, expected) in [
+			("", "", vec!["Put", "Get", "Put", "Core_execute_block"]),
+			("aabb", "Put", vec!["Put"]),
+			("aabb", "", vec!["Put", "Get"]),
+			("", "Core_", vec!["Core_execute_block"]),
+			("aabb", "Core_", vec![]),
+			("", "Get,Core_", vec!["Get", "Core_execute_block"]),
+		] {
+			let actual: Vec<_> = events
+				.iter()
+				.filter(|e| event_matches_filters(e, Some(keys), Some(methods)))
+				.map(|e| e.values.string_values["method"].as_str())
+				.collect();
+			assert_eq!(actual, expected, "keys={keys:?}, methods={methods:?}");
+		}
+	}
+
+	#[test]
+	fn omitted_key_or_method_filter_drops_events() {
+		let events = [
+			trace_event("storage", "Put", Some("aabbcc")),
+			trace_event("Call", "Core_execute_block", None),
+		];
+		for (keys, methods) in [(None, Some("")), (Some(""), None), (None, None)] {
+			for event in &events {
+				assert!(!event_matches_filters(event, keys, methods));
+			}
+		}
+	}
+
+	#[test]
+	fn non_empty_key_filter_matches_only_key_prefixes() {
+		let event = trace_event("storage", "Put", Some("aabbcc"));
+		assert!(event_values_filter(&event, "key", "aabb"));
+		assert!(event_values_filter(&event, "key", "dd,aabb"));
+		assert!(!event_values_filter(&event, "key", "bb"));
+		assert!(!event_values_filter(&trace_event("storage", "ClearPrefix", None), "key", "aabb"));
+	}
+
+	#[test]
+	fn empty_method_filter_keeps_events_without_method() {
+		let mut event = trace_event("storage", "ClearPrefix", None);
+		assert!(event_values_filter(&event, "method", ""));
+		assert!(event_values_filter(&event, "method", "ClearPrefix"));
+		assert!(!event_values_filter(&event, "method", "Put"));
+
+		event.values.string_values.remove("method");
+		assert!(event_values_filter(&event, "method", ""));
+		assert!(!event_values_filter(&event, "method", "ClearPrefix"));
 	}
 }

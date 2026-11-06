@@ -20,7 +20,7 @@ use chain_spec_builder::ChainSpecBuilder;
 use clap::Parser;
 use staging_chain_spec_builder as chain_spec_builder;
 
-//avoid error message escaping
+// avoid error message escaping
 fn main() {
 	match inner_main() {
 		Err(e) => eprintln!("{}", format!("{e}")),

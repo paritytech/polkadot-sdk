@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::AssetsInHolding;
 use xcm::prelude::*;
 
 /// Handle stuff to do with taking fees in certain XCM instructions.
@@ -23,7 +24,7 @@ pub trait FeeManager {
 
 	/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	fn handle_fee(fee: Assets, context: Option<&XcmContext>, r: FeeReason);
+	fn handle_fee(paid_fee: AssetsInHolding, context: Option<&XcmContext>, r: FeeReason);
 }
 
 /// Context under which a fee is paid.
@@ -58,7 +59,7 @@ impl FeeManager for () {
 		false
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 pub struct WaiveDeliveryFees;
@@ -68,5 +69,5 @@ impl FeeManager for WaiveDeliveryFees {
 		true
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }

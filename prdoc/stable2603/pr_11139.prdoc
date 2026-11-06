@@ -1,0 +1,18 @@
+title: 'make subscription return statement event instead of bytes'
+doc:
+- audience: Node Dev
+  description: |
+    Changes the statement subscription RPC to return `StatementEvent` instead of raw `Bytes`.
+    When a subscription is initiated, the endpoint now sends NewStatements event batches
+    with matching statements already in the store. If there are not statements in the store
+    an empty batch is sent.
+
+crates:
+- name: sp-statement-store
+  bump: minor
+- name: sc-statement-store
+  bump: minor
+- name: sc-rpc
+  bump: minor
+- name: sc-rpc-api
+  bump: minor

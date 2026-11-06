@@ -118,12 +118,7 @@
 //! --toolchain nightly-2024-12-26`.
 
 use prerequisites::DummyCrate;
-use std::{
-	env, fs,
-	io::BufRead,
-	path::{Path, PathBuf},
-	process::Command,
-};
+use std::{env, fs, io::BufRead, path::Path, process::Command};
 use version::Version;
 
 mod builder;
@@ -188,14 +183,18 @@ fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
 }
 
 /// Copy `src` to `dst` if the `dst` does not exist or is different.
-fn copy_file_if_changed(src: PathBuf, dst: PathBuf) {
-	let src_file = fs::read_to_string(&src).ok();
-	let dst_file = fs::read_to_string(&dst).ok();
+fn copy_file_if_changed(src: &Path, dst: &Path) -> bool {
+	let src_file = fs::read(src).ok();
+	let dst_file = fs::read(dst).ok();
 
 	if src_file != dst_file {
 		fs::copy(&src, &dst).unwrap_or_else(|_| {
 			panic!("Copying `{}` to `{}` can not fail; qed", src.display(), dst.display())
 		});
+
+		true
+	} else {
+		false
 	}
 }
 
@@ -238,7 +237,7 @@ fn get_rustup_command(target: RuntimeTarget) -> Option<CargoCommand> {
 		let cmd = CargoCommand::new_with_args("rustup", &["run", &rustup_version, "cargo"]);
 
 		if !cmd.supports_substrate_runtime_env(target) {
-			continue
+			continue;
 		}
 
 		let Some(cargo_version) = cmd.version() else { continue };
@@ -326,13 +325,28 @@ impl CargoCommand {
 		// compiler. For "more" information, see:
 		// https://github.com/rust-lang/rust/blob/fa0f7d0080d8e7e9eb20aa9cbf8013f96c81287f/src/libsyntax/feature_gate/check.rs#L891
 		if env::var("RUSTC_BOOTSTRAP").is_ok() {
-			return true
+			return true;
 		}
 
 		let Some(version) = self.version() else { return false };
 
 		// Check if major and minor are greater or equal than 1.68 or this is a nightly.
 		version.major > 1 || (version.major == 1 && version.minor >= 68) || version.is_nightly
+	}
+
+	/// Returns whether this cargo accepts the `-Z json-target-spec` flag.
+	///
+	/// Newer cargo requires the flag to be opted into for any `--target=*.json` invocation,
+	/// older cargo rejects it as unknown. It landed partway through the 1.95 cycle, so a
+	/// toolchain from early in that cycle reports 1.95 while its cargo does not know the
+	/// flag yet: no version comparison can express this, hence the probe.
+	fn supports_json_target_spec(&self) -> bool {
+		// `-Z` flags are nightly-only, so make a stable cargo answer as a nightly would.
+		self.command()
+			.env("RUSTC_BOOTSTRAP", "1")
+			.args(["-Z", "help"])
+			.output()
+			.is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains("json-target-spec"))
 	}
 
 	/// Returns whether this version of the toolchain supports the `wasm32v1-none` target.
@@ -433,14 +447,17 @@ impl RuntimeTarget {
 	/// Figures out the target parameter value for rustc.
 	fn rustc_target(self, cargo_command: &CargoCommand) -> String {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
+				}
+			},
 			RuntimeTarget::Riscv => {
-				let path = polkavm_linker::target_json_32_path().expect("riscv not found");
+				let mut args = polkavm_linker::TargetJsonArgs::default();
+				args.is_64_bit = true;
+				let path = polkavm_linker::target_json_path(args).expect("riscv not found");
 				path.into_os_string().into_string().unwrap()
 			},
 		}
@@ -449,13 +466,14 @@ impl RuntimeTarget {
 	/// Figures out the target directory name used by cargo.
 	fn rustc_target_dir(self, cargo_command: &CargoCommand) -> &'static str {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
-			RuntimeTarget::Riscv => "riscv32emac-unknown-none-polkavm",
+				}
+			},
+			RuntimeTarget::Riscv => "riscv64emac-unknown-none-polkavm",
 		}
 	}
 

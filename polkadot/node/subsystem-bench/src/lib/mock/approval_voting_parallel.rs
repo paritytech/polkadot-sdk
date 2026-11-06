@@ -47,10 +47,11 @@ impl MockApprovalVotingParallel {
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx) => {
 						gum::debug!(target: LOG_TARGET, "GetApprovalSignaturesForCandidate for candidate {:?}", hash);

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migrations to version [`4.0.0`], as denoted by the changelog.
+//! Migrations to version `4.0.0`, as denoted by the changelog.
 
 use super::super::LOG_TARGET;
 use frame_support::{
@@ -39,7 +39,7 @@ pub fn migrate<T: crate::Config, N: AsRef<str>>(new_pallet_name: N) -> Weight {
 			target: LOG_TARGET,
 			"New pallet name is equal to the old prefix. No migration needs to be done.",
 		);
-		return Weight::zero()
+		return Weight::zero();
 	}
 	let storage_version = StorageVersion::get::<crate::Pallet<T>>();
 	log::info!(

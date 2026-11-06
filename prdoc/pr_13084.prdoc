@@ -1,0 +1,19 @@
+
+title: 'Registrar: Scaffolding'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Lays out the protocol for the registrar calls that are not implemented yet. The message
+      types, call signatures and response routing are in place; the bodies are stubbed with
+      `TODO(ahm-v2)` and land in follow-ups.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major

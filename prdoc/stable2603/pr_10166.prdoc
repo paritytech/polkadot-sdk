@@ -1,0 +1,98 @@
+title: Implement general gas tracking
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR implements [the general gas tracking spec](https://shade-verse-e97.notion.site/Revive-Resource-Management-2928532a7ab5808381b4e688fcc58838?pvs=74).
+
+    This PR ballooned into something much bigger than I expected. Many of the changes are due to the fact that all tests and a lot of the other logic has some touch points with the resource management logic. Most of the actual changes in logic are just in the folder `metering` of pallet-revive.
+
+    The main changes are that
+    - Metering now works differently depending on whether the transaction as a whole defines weight and deposit limits ("Substrate execution mode") or just an Ethereum gas limit ("Ethereum execution mode"). The Ethereum execution mode is used for all `eth_transact` extrinsics.
+    - There is a third resource (in addition to weight and storage deposits): Ethereum gas. In the Ethereum execution mode this is a shared resource (consumable through weight and through storage deposits).
+
+    ## Metering logic
+    Almost all changes in this PR are confined to the folder `metering` of pallet-revive. Before this PR there were two meters: a weight meter and a gas meter. They have now been combined into a main meter called `ResourceMeter`. Outside code only interacts with the `ResourceMeter` and not individually with the gas or storage meter. The reason is that in Ethereum execution mode gas is a shared resource and interacting with one meter influences the limits of the other meter.
+
+    Here are some finer points:
+    - The previous code of the gas and deposit meters has been moved to the `metering` folder
+    - Since outside code interacts only with the `ResourceMeter`, most functions now don't use a separate gas meter and deposit meter anymore but just a `ResourceMeter`
+    - Similar to the two two kinds of deposits meters (`Root` and `Nested`), there are two kind of `ResourceMeter`: the top-level `TransactionMeter` used at the beginning of a transaction and a `FrameMeter` used once per frame
+    - The limits of a `TransactionMeter` are specified through the `TransactionLimits` type, which distinguishes between Substrate and Ethereum execution mode.
+    - The limits of a `FrameMeter` is specified through the type `CallResources`, which can either be a) no limits (e.g., in the case of contract creation), or b) a weight and deposit, or c) a gas limit.
+    - The top level name of functions in the meters has been changed to be a bit more explicit about their purpose.
+      - This applied particularly to the methods at the end of the lifecycle:
+        - `enforce_limit` has been renamed to `finalize` as that describes the semantics better
+        - `try_into_deposit` has been renamed to `execute_postponed_deposits`
+    - For absorbing a frame meter into its parent meter, there are two different absorption functions:
+      - `absorb_weight_meter_only`: when a frame reverts. In this case we ignore all storage deposits from the reverting frame. We still need to absorb the observed maximum deposit so that we determine the correct maximum deposit during dry running.
+      - `absorb_all_meters`: when a frame was successful
+    - The weight meter now has an `effective_weight_limit`, which needs to be recalculated whenever the deposit meter changes and is for optimization purposes.
+    - The limits of the gas meter and deposit meters are now an `Option<...>`. When it is `None`, then this represents unlimited meters and this is only used for Ethereum style executions (the meters are not really unlimited, there will be a gas limit that effectively limits the resource usages of the weight and deposit meters).
+    - In the weight meters, the `sync_to_executor` and `sync_from_executor` are a bit simplified and there is no need for `engine_fuel_left` anymore.
+
+    ## Other Changes
+    - The old name `gas` for weights has been consistently replaced by `weight`
+    - `eth_call` and `eth_instantiate_with_code` now take a `weight_limit` (used to ensure that weight does not exceed the max extrinsic weight) and an `eth_gas_limit` (the new externally defined limit)
+    - The numeric calculation in `compute_max_integer_quotient` and `compute_max_integer_pair_quotient` (defined in `substrate/frame/revive/src/evm/frees.rs`) are meant to divide a number by the next fee multiplier
+    - The call tracer does not take a `GasMapper` anymore as it will now be fed directly with the Ethereum gas values instead of weights
+    - Re-entrancy protection now has three modes: no protection, `Strict` protection and `AllowNext`
+      - `AllowNext` allows to re-enter the same contract but only for the next frame. This is required to implement reentrancy protection for simple transfers with call stipends
+      - For `Strict` protection we set `allows_reentry` of the caller to `false` before the creation of the new frame, for `AllowNext` we to it after the creation
+    - We define the max block gas as `u64::MAX` (as discussed with @pgherveou)
+    - I now calculate the maximal required storage deposits during dry running (called `max_storage_deposit` in the deposit meter). For example, if a transaction encounters a storage deposit that is later refunded, then the total storage deposit is zero. However, the caller needs to provide enough resources so that temporarily the execution does not run out of gas and terminates the call prematurely.
+    - The function `try_upload_code` now always takes a meter and records the storage deposit charge there
+    - In this PR I added logic to correctly handle call stipends (this fixes https://github.com/paritytech/contract-issues/issues/215)
+
+    ## Fixes
+    This fixes a couple of issues
+    - fixes https://github.com/paritytech/contract-issues/issues/215
+    - fixes https://github.com/paritytech/polkadot-sdk/issues/8362
+    - fixes https://github.com/paritytech-secops/srlabs_findings/issues/589
+    - fixes https://github.com/paritytech/contract-issues/issues/197
+    - fixes https://github.com/paritytech/contract-issues/issues/208
+    - fixes https://github.com/paritytech/contract-issues/issues/212
+
+    ## TODOs
+    * [x] Ignore deposit refunds for dry running
+    * [x] Properly enforce weight limits
+    * [x] Fix gas mapping in the tracer
+    * [x] Fix (?) gas mapping in block storage (`with_ethereum_context`)
+    * [x] Check dry running logic again, and create_call, also in `ExecConfig`
+    * [x] Introduce `SignedGas`
+    * [x] use `effective_gas_price` instead of next fee multiplier
+      * TBD, also see https://github.com/paritytech/polkadot-sdk/pull/10148#pullrequestreview-3407403361
+    * [x] ensure that deducted amount is `effective_gas_price` * used gas
+      * this has already been addressed in https://github.com/paritytech/polkadot-sdk/pull/10148
+    * [x] check logic of `ensure_not_overdrawn`
+    * [x] Optimize calculations
+    * [x] Check whether rounding is done correctly
+    * [x] add debug logging
+    * [x] Scale gas amounts charged in revm
+      * this has been addressed in another PR: https://github.com/paritytech/polkadot-sdk/pull/10393
+
+    Other TODOs
+    * [x] fix tests and benchmarks
+    * [x] add new tests
+    * [x] add code docs
+    * [x] resolve merge conflicts
+    * [ ] run benchmarks
+    * [x] add PR description
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: assets-common
+  bump: patch
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-xcm-precompiles
+  bump: patch

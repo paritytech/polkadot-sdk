@@ -84,7 +84,7 @@ impl FindEquivocations<TestFinalityProof, TestFinalityVerificationContext, TestE
 			// Get the equivocations from the source proofs, in order to make sure
 			// that they are correctly provided.
 			if let Some(proof) = source_proofs.iter().find(|proof| proof.0 == synced_proof.0) {
-				return Ok(proof.1.clone())
+				return Ok(proof.1.clone());
 			}
 		}
 

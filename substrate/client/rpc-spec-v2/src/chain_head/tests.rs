@@ -174,6 +174,10 @@ async fn setup_api() -> (
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::NewBlock(_)
 	);
 	assert_matches!(
@@ -273,6 +277,13 @@ async fn follow_subscription_produces_blocks() {
 	});
 	assert_eq!(event, expected);
 
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
+	});
+	assert_eq!(event, expected);
+
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
 		.with_parent_block_number(0)
@@ -342,7 +353,7 @@ async fn follow_with_runtime() {
 		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
-		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
+		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",2],\
 		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"systemVersion\":1}";
 
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
@@ -354,6 +365,13 @@ async fn follow_with_runtime() {
 		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime,
 		with_runtime: false,
+	});
+	pretty_assertions::assert_eq!(event, expected);
+
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
 	});
 	pretty_assertions::assert_eq!(event, expected);
 
@@ -659,6 +677,10 @@ async fn call_runtime_without_flag() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -1391,6 +1413,10 @@ async fn separate_operation_ids_for_subscriptions() {
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub_first).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_first).await,
 		FollowEvent::NewBlock(_)
 	);
 	assert_matches!(
@@ -1401,6 +1427,10 @@ async fn separate_operation_ids_for_subscriptions() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
@@ -1628,6 +1658,10 @@ async fn follow_exceeding_pinned_blocks() {
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::NewBlock(_)
 	);
 	assert_matches!(
@@ -1705,6 +1739,10 @@ async fn follow_with_unpin() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -1812,6 +1850,10 @@ async fn unpin_duplicate_hashes() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -1942,6 +1984,10 @@ async fn follow_with_multiple_unpin_hashes() {
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::NewBlock(_)
 	);
 	assert_matches!(
@@ -2052,6 +2098,13 @@ async fn follow_prune_best_block() {
 		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -2322,6 +2375,12 @@ async fn follow_forks_pruned_block() {
 		],
 		finalized_block_runtime: None,
 		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_3_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -2684,6 +2743,10 @@ async fn pin_block_references() {
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::NewBlock(_)
 	);
 	assert_matches!(
@@ -2870,7 +2933,7 @@ async fn follow_finalized_before_new_block() {
 }
 
 #[tokio::test]
-async fn ensure_operation_limits_works() {
+async fn operation_limit_bounds_concurrency_not_items() {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
 		&child_info,
@@ -2880,7 +2943,10 @@ async fn ensure_operation_limits_works() {
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	// Configure the chainHead with maximum 1 ongoing operations.
+	// A single permit, against a four-item query below. `reserve_at_most` takes what is
+	// available so a request larger than the remaining capacity is
+	// still admitted, and it still delivers every item: the limit bounds how many operations
+	// run concurrently, never the size or the result of any one of them.
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
@@ -2900,20 +2966,25 @@ async fn ensure_operation_limits_works() {
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = BlockBuilderBuilder::new(&*client)
+	// Import a block with a value at `KEY`, so every query item has a result to deliver.
+	let mut builder = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
 		.with_parent_block_number(0)
 		.build()
-		.unwrap()
-		.build()
-		.unwrap()
-		.block;
+		.unwrap();
+	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -2924,9 +2995,7 @@ async fn ensure_operation_limits_works() {
 		FollowEvent::BestBlockChanged(_)
 	);
 
-	let block_hash = format!("{:?}", block.header.hash());
 	let key = hex_string(&KEY);
-
 	let items = vec![
 		StorageQuery {
 			key: key.clone(),
@@ -2956,38 +3025,35 @@ async fn ensure_operation_limits_works() {
 		.unwrap();
 	let operation_id = match response {
 		MethodResponse::Started(started) => {
-			// Check discarded items.
+			// Admitted on one permit, and nothing is dropped to fit.
 			assert_eq!(started.discarded_items, Some(0));
 			started.operation_id
 		},
-		MethodResponse::LimitReached => panic!("Expected started response"),
-	};
-	// No value associated with the provided key.
-	assert_matches!(
-			get_next_event::<FollowEvent<String>>(&mut sub).await,
-			FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
-	);
-
-	// The storage is finished and capacity must be released.
-	let alice_id = Sr25519Keyring::Alice.to_account_id();
-	// Hex encoded scale encoded bytes representing the call parameters.
-	let call_parameters = hex_string(&alice_id.encode());
-	let response: MethodResponse = api
-		.call(
-			"chainHead_v1_call",
-			[&sub_id, &block_hash, "AccountNonceApi_account_nonce", &call_parameters],
-		)
-		.await
-		.unwrap();
-	let operation_id = match response {
-		MethodResponse::Started(started) => started.operation_id,
-		MethodResponse::LimitReached => panic!("Expected started response"),
+		MethodResponse::LimitReached => {
+			panic!("a query larger than the remaining capacity must still be admitted")
+		},
 	};
 
-	// Response propagated to `chainHead_follow`.
-	assert_matches!(
+	// All four items are delivered, in query order, then the operation completes.
+	let expected_hash = format!("{:?}", Blake2Hasher::hash(&VALUE));
+	let expected_value = hex_string(&VALUE);
+	for expected in [
+		StorageResultType::Hash(expected_hash.clone()),
+		StorageResultType::Hash(expected_hash),
+		StorageResultType::Value(expected_value.clone()),
+		StorageResultType::Value(expected_value),
+	] {
+		assert_matches!(
 			get_next_event::<FollowEvent<String>>(&mut sub).await,
-			FollowEvent::OperationCallDone(done) if done.operation_id == operation_id && done.output == "0x0000000000000000"
+			FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
+				res.items.len() == 1 &&
+				res.items[0].key == key &&
+				res.items[0].result == expected
+		);
+	}
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
 	);
 }
 
@@ -3041,6 +3107,10 @@ async fn storage_is_backpressured() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -3177,6 +3247,10 @@ async fn stop_storage_operation() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -3335,16 +3409,18 @@ async fn storage_closest_merkle_value() {
 
 		loop {
 			match get_next_event::<FollowEvent<String>>(&mut sub).await {
-				FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id =>
+				FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id => {
 					for res in res.items {
 						let value = match res.result {
 							StorageResultType::ClosestDescendantMerkleValue(value) => value,
 							_ => panic!("Unexpected StorageResultType"),
 						};
 						merkle_values.insert(res.key, value);
-					},
-				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id =>
-					break,
+					}
+				},
+				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id => {
+					break
+				},
 				_ => panic!("Unexpected event"),
 			}
 		}
@@ -3473,6 +3549,10 @@ async fn chain_head_stop_all_subscriptions() {
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
 	);
 
 	// Import 6 blocks in total to trigger the suspension distance.
@@ -3742,6 +3822,13 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
+	});
+	assert_eq!(event, expected);
+
 	// Block tree:
 	//
 	// finalized -> block 1 -> block 2 -> block 3
@@ -3908,6 +3995,13 @@ async fn follow_report_best_block_of_a_known_block() {
 		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -4127,6 +4221,13 @@ async fn follow_event_with_unknown_parent() {
 		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Then the best block
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", finalized_hash),
 	});
 	assert_eq!(event, expected);
 

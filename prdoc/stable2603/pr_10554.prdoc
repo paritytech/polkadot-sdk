@@ -1,0 +1,14 @@
+title: '[pallet-revive] add EVM gas call syscalls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds two new syscalls for calls accepting EVM gas instead of Weight and Deposit.
+
+    This is an important change for the initial release as it will align PVM contracts closer to EVM (the problem can't be solved in the Solidity compiler).
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

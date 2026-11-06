@@ -23,8 +23,8 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators,
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
-	PenpalALocation, PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
-	PenpalBLocation, PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
+	PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount,
+	PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount,
 	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
@@ -69,18 +69,22 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: collators::invulnerables()
+				.iter()
+				.cloned()
+				.map(|(acc, _, _)| acc)
+				.collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
 		session: asset_hub_westend_runtime::SessionConfig {
 			keys: collators::invulnerables()
 				.into_iter()
-				.map(|(acc, aura)| {
+				.map(|(acc, aura, authority_discovery)| {
 					(
-						acc.clone(),                                     // account id
-						acc,                                             // validator id
-						asset_hub_westend_runtime::SessionKeys { aura }, // session keys
+						acc.clone(), // account id
+						acc,         // validator id
+						asset_hub_westend_runtime::SessionKeys { aura, authority_discovery },
 					)
 				})
 				.collect(),
@@ -99,16 +103,19 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
+				// Penpals' native asset representation
+				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), true, ED),
+				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), true, ED),
 				// PenpalA's teleportable asset representation
 				(
-					PenpalATeleportableAssetLocation::get(),
+					PenpalAPen2TeleportableAssetLocation::get(),
 					PenpalASiblingSovereignAccount::get(),
 					false,
 					ED,
 				),
 				// PenpalB's teleportable asset representation
 				(
-					PenpalBTeleportableAssetLocation::get(),
+					PenpalBPen2TeleportableAssetLocation::get(),
 					PenpalBSiblingSovereignAccount::get(),
 					false,
 					ED,
@@ -135,12 +142,14 @@ pub fn genesis() -> Storage {
 				),
 			],
 			reserves: vec![
+				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
+				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(
-					PenpalATeleportableAssetLocation::get(),
+					PenpalAPen2TeleportableAssetLocation::get(),
 					vec![(PenpalALocation::get(), true).into()],
 				),
 				(
-					PenpalBTeleportableAssetLocation::get(),
+					PenpalBPen2TeleportableAssetLocation::get(),
 					vec![(PenpalBLocation::get(), true).into()],
 				),
 				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),

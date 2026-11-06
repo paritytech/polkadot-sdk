@@ -17,6 +17,7 @@
 
 //! Mock file for offences benchmarking.
 
+use codec::Encode;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -101,6 +102,14 @@ impl pallet_session::Config for Test {
 	type KeyDeposit = ();
 }
 
+impl pallet_session_benchmarking::Config for Test {
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+		let keys = SessionKeys::generate(&owner.encode(), None);
+
+		(keys.keys, keys.proof.encode())
+	}
+}
+
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
@@ -171,19 +180,34 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<T> frame_system::offchain::CreateBare<T> for Test
+impl<T> frame_system::offchain::CreateTransaction<T> for Test
 where
 	RuntimeCall: From<T>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
+	type Extension = (frame_system::AuthorizeCall<Test>,);
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<T> frame_system::offchain::CreateAuthorizedTransaction<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	fn create_extension() -> Self::Extension {
+		(frame_system::AuthorizeCall::<Test>::new(),)
 	}
 }
 
 impl crate::Config for Test {}
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u32,
+	RuntimeCall,
+	u64,
+	(frame_system::AuthorizeCall<Test>,),
+>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -192,7 +216,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		Session: pallet_session,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Offences: pallet_offences::{Pallet, Storage, Event},
 		Historical: pallet_session_historical::{Pallet, Event<T>},
 	}

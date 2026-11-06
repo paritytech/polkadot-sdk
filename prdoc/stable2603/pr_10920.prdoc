@@ -1,0 +1,17 @@
+title: '[pallet-revive] Fix storage deposit refunds in nested contract calls'
+doc:
+- audience: Runtime Dev
+  description: "fixes https://github.com/paritytech/contract-issues/issues/213 where\
+    \ storage deposit refunds failed in nested/reentrant calls.\n\nProblem\nStorage\
+    \ refunds were calculated incorrectly when a contract allocated storage, then\
+    \ performed a nested call that cleared it. Pending storage changes lived only\
+    \ in the parent FrameMeter, so child frames could not see them and refunds were\
+    \ skipped.\n\nSolution\nApply pending storage deposit changes to a cloned ContractInfo\
+    \ before creating nested frames. This makes the parent\u2019s storage state visible\
+    \ to child frames during refund calculation.\n\nImplementation\n- Added apply_pending_changes_to_contract()\
+    \ to apply pending diffs to ContractInfo\n- Added apply_pending_storage_changes()\
+    \ wrapper on FrameMeter\n- Applied pending storage changes before nested frame\
+    \ creation in exec.rs (3 locations)"
+crates:
+- name: pallet-revive
+  bump: patch

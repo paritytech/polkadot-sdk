@@ -1,0 +1,8 @@
+title: Add kick_member to Society pallet
+doc:
+- audience: Runtime Dev
+  description: Adds a kick_member extrinsic to pallet-society, callable by the Founder,
+    that removes a member, slashes its payouts and returns them to the society pot.
+crates:
+- name: pallet-society
+  bump: minor

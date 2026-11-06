@@ -200,34 +200,48 @@ impl From<Keyring> for Pair {
 impl From<Keyring> for [u8; 32] {
 	fn from(k: Keyring) -> Self {
 		match k {
-			Keyring::Alice =>
-				hex2array!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"),
-			Keyring::Bob =>
-				hex2array!("8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"),
-			Keyring::Charlie =>
-				hex2array!("90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22"),
-			Keyring::Dave =>
-				hex2array!("306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20"),
-			Keyring::Eve =>
-				hex2array!("e659a7a1628cdd93febc04a4e0646ea20e9f5f0ce097d9a05290d4a9e054df4e"),
-			Keyring::Ferdie =>
-				hex2array!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c"),
-			Keyring::AliceStash =>
-				hex2array!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f"),
-			Keyring::BobStash =>
-				hex2array!("fe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e"),
-			Keyring::CharlieStash =>
-				hex2array!("1e07379407fecc4b89eb7dbd287c2c781cfb1907a96947a3eb18e4f8e7198625"),
-			Keyring::DaveStash =>
-				hex2array!("e860f1b1c7227f7c22602f53f15af80747814dffd839719731ee3bba6edc126c"),
-			Keyring::EveStash =>
-				hex2array!("8ac59e11963af19174d0b94d5d78041c233f55d2e19324665bafdfb62925af2d"),
-			Keyring::FerdieStash =>
-				hex2array!("101191192fc877c24d725b337120fa3edc63d227bbc92705db1e2cb65f56981a"),
-			Keyring::One =>
-				hex2array!("ac859f8a216eeb1b320b4c76d118da3d7407fa523484d0a980126d3b4d0d220a"),
-			Keyring::Two =>
-				hex2array!("1254f7017f0b8347ce7ab14f96d818802e7e9e0c0d1b7c9acb3c726b080e7a03"),
+			Keyring::Alice => {
+				hex2array!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d")
+			},
+			Keyring::Bob => {
+				hex2array!("8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48")
+			},
+			Keyring::Charlie => {
+				hex2array!("90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22")
+			},
+			Keyring::Dave => {
+				hex2array!("306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20")
+			},
+			Keyring::Eve => {
+				hex2array!("e659a7a1628cdd93febc04a4e0646ea20e9f5f0ce097d9a05290d4a9e054df4e")
+			},
+			Keyring::Ferdie => {
+				hex2array!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c")
+			},
+			Keyring::AliceStash => {
+				hex2array!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f")
+			},
+			Keyring::BobStash => {
+				hex2array!("fe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e")
+			},
+			Keyring::CharlieStash => {
+				hex2array!("1e07379407fecc4b89eb7dbd287c2c781cfb1907a96947a3eb18e4f8e7198625")
+			},
+			Keyring::DaveStash => {
+				hex2array!("e860f1b1c7227f7c22602f53f15af80747814dffd839719731ee3bba6edc126c")
+			},
+			Keyring::EveStash => {
+				hex2array!("8ac59e11963af19174d0b94d5d78041c233f55d2e19324665bafdfb62925af2d")
+			},
+			Keyring::FerdieStash => {
+				hex2array!("101191192fc877c24d725b337120fa3edc63d227bbc92705db1e2cb65f56981a")
+			},
+			Keyring::One => {
+				hex2array!("ac859f8a216eeb1b320b4c76d118da3d7407fa523484d0a980126d3b4d0d220a")
+			},
+			Keyring::Two => {
+				hex2array!("1254f7017f0b8347ce7ab14f96d818802e7e9e0c0d1b7c9acb3c726b080e7a03")
+			},
 		}
 	}
 }

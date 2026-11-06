@@ -66,19 +66,6 @@ pub trait Backend {
 		I: IntoIterator<Item = BackendWriteOp>;
 }
 
-/// A read only backend to enable db migration from version 1 of DB.
-pub trait V1ReadBackend: Backend {
-	/// Load a candidate entry from the DB with scheme version 1.
-	fn load_candidate_entry_v1(
-		&self,
-		candidate_hash: &CandidateHash,
-		candidate_index: CandidateIndex,
-	) -> SubsystemResult<Option<CandidateEntry>>;
-
-	/// Load a block entry from the DB with scheme version 1.
-	fn load_block_entry_v1(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
-}
-
 /// A read only backend to enable db migration from version 2 of DB.
 pub trait V2ReadBackend: Backend {
 	/// Load a candidate entry from the DB with scheme version 1.
@@ -159,7 +146,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub fn load_blocks_at_height(&self, height: &BlockNumber) -> SubsystemResult<Vec<Hash>> {
 		if let Some(val) = self.blocks_at_height.get(&height) {
-			return Ok(val.clone().unwrap_or_default())
+			return Ok(val.clone().unwrap_or_default());
 		}
 
 		self.inner.load_blocks_at_height(height)
@@ -167,7 +154,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub fn load_block_entry(&self, hash: &Hash) -> SubsystemResult<Option<BlockEntry>> {
 		if let Some(val) = self.block_entries.get(&hash) {
-			return Ok(val.clone())
+			return Ok(val.clone());
 		}
 
 		self.inner.load_block_entry(hash)
@@ -178,7 +165,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 		candidate_hash: &CandidateHash,
 	) -> SubsystemResult<Option<CandidateEntry>> {
 		if let Some(val) = self.candidate_entries.get(&candidate_hash) {
-			return Ok(val.clone())
+			return Ok(val.clone());
 		}
 
 		self.inner.load_candidate_entry(candidate_hash)

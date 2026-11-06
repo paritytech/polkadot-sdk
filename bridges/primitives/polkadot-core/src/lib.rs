@@ -65,7 +65,7 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 
 /// Reasonable number of headers in the `votes_ancestries` on Polkadot-like chains.
 ///
-/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
+/// See `bp_header_chain::ChainWithGrandpa` for more details.
 ///
 /// This value comes from recent (December, 2023) Kusama and Polkadot headers. There are no
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
@@ -76,7 +76,7 @@ pub const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 /// Average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
 ///
-/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
+/// See `bp_header_chain::ChainWithGrandpa` for more details.
 ///
 /// This value comes from recent (December, 2023) Kusama headers. Most of headers are `327` bytes
 /// there, but let's have some reserve and make it 1024.
@@ -84,7 +84,7 @@ pub const AVERAGE_HEADER_SIZE: u32 = 1024;
 
 /// Approximate maximal header size on Polkadot-like chains.
 ///
-/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
+/// See `bp_header_chain::ChainWithGrandpa` for more details.
 ///
 /// This value comes from recent (December, 2023) Kusama headers. Maximal header is a mandatory
 /// header. In its SCALE-encoded form it is `113407` bytes. Let's have some reserve here.
@@ -132,10 +132,12 @@ parameter_types! {
 	/// All Polkadot-like chains have maximal block size set to 5MB.
 	///
 	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		5 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	/// All Polkadot-like chains have the same block weights.
 	///
 	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
