@@ -36,7 +36,7 @@
 //!
 //! [`MaxCollators`] optionally caps how many validators are returned. Governance can start with a
 //! low cap and raise it in steps, or lower it again, to roll out validator collators gradually.
-//! Under a cap the pallet draws the validators at random at the first forced rotation after a set
+//! The pallet draws the validators at random at the first forced rotation after a set
 //! arrives or the cap changes, and returns them until the next draw. The draw shuffles the whole
 //! set with a seed made of the genesis hash, the era and the relay chain epoch randomness cached in
 //! [`EpochRandomness`], then keeps the first validators with registered keys up to the cap. Every
@@ -233,15 +233,15 @@ pub mod pallet {
 	#[frame_support::stored]
 	#[derive(Copy)]
 	pub enum CollatorDraw {
-		/// No validator.
+		/// Every validator with registered keys.
 		#[codec(index = 0)]
-		None,
+		All,
 		/// Up to this many validators with registered keys.
 		#[codec(index = 1)]
 		UpTo(u32),
-		/// Every validator with registered keys.
+		/// No validator.
 		#[codec(index = 2)]
-		All,
+		None,
 	}
 
 	impl CollatorDraw {
@@ -363,7 +363,7 @@ pub mod pallet {
 	/// the cap so that the merged list, invulnerables and candidates included, keeps a
 	/// session-change header within that limit.
 	///
-	/// Under a cap the validators are drawn at random, see [`DrawnCollators`].
+	/// The validators are drawn at random, see [`DrawnCollators`].
 	///
 	/// A change with a stored set forces two rotations. The first draws [`DrawnCollators`] again
 	/// from the stored set, so the drawn validators can change. The change is in force two blocks
@@ -375,7 +375,7 @@ pub mod pallet {
 	/// The collators last returned to pallet-session, taken from [`ExternalValidatorSet`].
 	///
 	/// Written at every session rotation, and holds only validators that had registered keys at
-	/// that rotation. Under a cap it is the draw made at the first rotation after a set arrives or
+	/// that rotation. It is the draw made at the first rotation after a set arrives or
 	/// the cap changes, and each later rotation returns it again without the validators that have
 	/// removed their keys since. `None` when the last rotation returned no list, as before the
 	/// first set arrives.

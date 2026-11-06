@@ -10,9 +10,10 @@ doc:
     `MaxCollators` stores a `CollatorDraw` with `DefaultMaxCollators` as default, and
     `set_max_collators` takes one.
 
-    The new migration `MigrateV0ToV1` rewrites a cap stored as `u32` as `UpTo(cap)`. Without a
-    stored cap, `MaxCollators` reads `DefaultMaxCollators`, and when a validator set is stored the
-    migration draws the collators again under it, as `set_max_collators` does.
+    The new migration `MigrateV0ToV1` rewrites a cap stored as `u32` as `UpTo(cap)`. A cap stored
+    as `Option<u32>` already reads as the `CollatorDraw` of the same meaning and is left as it is.
+    Without a stored cap, `MaxCollators` reads `DefaultMaxCollators`, and when a validator set is
+    stored the migration draws the collators again under it, as `set_max_collators` does.
 
     Asset Hub Westend and People Westend run the migration.
 crates:

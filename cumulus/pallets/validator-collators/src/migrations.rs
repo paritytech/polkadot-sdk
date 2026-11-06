@@ -33,65 +33,72 @@ pub mod v1 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
 	use alloc::vec::Vec;
-	#[cfg(feature = "try-runtime")]
 	use codec::DecodeAll;
-	#[cfg(feature = "try-runtime")]
 	use frame_support::storage::unhashed;
 
-	#[cfg(feature = "try-runtime")]
-	mod v0 {
-		use super::*;
-
-		/// [`MaxCollators`] in version 0, a `u32` with no value meaning no cap.
-		#[frame_support::storage_alias]
-		pub type MaxCollators<T: Config> = StorageValue<Pallet<T>, u32>;
-	}
-
 	/// Rewrites a cap stored as a `u32` as [`CollatorDraw::UpTo`].
+	///
+	/// A stored `Option<u32>` already reads as the [`CollatorDraw`] of the same meaning, so it is
+	/// left as it is.
 	///
 	/// Without a stored cap, [`MaxCollators`] reads [`Config::DefaultMaxCollators`]. When a
 	/// validator set is stored, it sets [`PendingRotation`] to [`RotationState::AwaitingQueue`], so
 	/// the set is drawn again under the default, as [`Pallet::set_max_collators`] does.
 	pub struct VersionUncheckedMigrateV0ToV1<T>(PhantomData<T>);
 
+	/// The cap if the stored bytes are exactly a `u32`.
+	fn u32_cap(raw: &[u8]) -> Option<u32> {
+		u32::decode_all(&mut &raw[..]).ok()
+	}
+
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			match MaxCollators::<T>::translate::<u32, _>(|old| old.map(CollatorDraw::UpTo)) {
-				Ok(Some(_)) => T::DbWeight::get().reads_writes(1, 1),
-				Ok(None) if ExternalValidatorSet::<T>::exists() => {
+			match unhashed::get_raw(&MaxCollators::<T>::hashed_key()) {
+				Some(raw) => match u32_cap(&raw) {
+					Some(cap) => {
+						MaxCollators::<T>::put(CollatorDraw::UpTo(cap));
+						T::DbWeight::get().reads_writes(1, 1)
+					},
+					None => {
+						if CollatorDraw::decode_all(&mut &raw[..]).is_err() {
+							log::error!(target: LOG_TARGET, "MaxCollators does not decode");
+						}
+						T::DbWeight::get().reads(1)
+					},
+				},
+				None if ExternalValidatorSet::<T>::exists() => {
 					PendingRotation::<T>::put(RotationState::AwaitingQueue);
-					T::DbWeight::get().reads_writes(2, 2)
+					T::DbWeight::get().reads_writes(2, 1)
 				},
-				Ok(None) => T::DbWeight::get().reads_writes(2, 1),
-				Err(()) => {
-					log::error!(target: LOG_TARGET, "MaxCollators does not decode as a u32");
-					T::DbWeight::get().reads(1)
-				},
+				None => T::DbWeight::get().reads(2),
 			}
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let cap = v0::MaxCollators::<T>::get();
-			let redraw = cap.is_none() && ExternalValidatorSet::<T>::exists();
-			Ok((cap, redraw).encode())
+			let raw = unhashed::get_raw(&MaxCollators::<T>::hashed_key());
+			let redraw = raw.is_none() && ExternalValidatorSet::<T>::exists();
+			Ok((raw, redraw).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let (cap, redraw) = <(Option<u32>, bool)>::decode(&mut &state[..])
+			let (before, redraw) = <(Option<Vec<u8>>, bool)>::decode(&mut &state[..])
 				.map_err(|_| "the pre-upgrade state does not decode")?;
-			// A cap left as a `u32` can read as the default, so the stored bytes are checked too.
-			if let Some(raw) = unhashed::get_raw(&MaxCollators::<T>::hashed_key()) {
+			let after = unhashed::get_raw(&MaxCollators::<T>::hashed_key());
+			match before.as_deref().and_then(u32_cap) {
+				Some(cap) => ensure!(
+					MaxCollators::<T>::get() == CollatorDraw::UpTo(cap),
+					"the u32 cap is not kept"
+				),
+				None => ensure!(after == before, "MaxCollators changed in the migration"),
+			}
+			if let Some(after) = after {
 				ensure!(
-					CollatorDraw::decode_all(&mut &raw[..]).is_ok(),
+					CollatorDraw::decode_all(&mut &after[..]).is_ok(),
 					"MaxCollators does not decode as a CollatorDraw"
 				);
 			}
-			ensure!(
-				cap.is_none_or(|cap| MaxCollators::<T>::get() == CollatorDraw::UpTo(cap)),
-				"MaxCollators changed in the migration"
-			);
 			ensure!(
 				!redraw || PendingRotation::<T>::get() == RotationState::AwaitingQueue,
 				"the set is not drawn again under the default cap"

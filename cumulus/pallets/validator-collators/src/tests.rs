@@ -307,7 +307,7 @@ fn received_validator_without_keys_is_not_a_collator() {
 }
 
 #[test]
-fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
+fn set_changes_and_key_removals_reach_the_session_validators_at_the_next_rotations() {
 	build_and_execute(|| {
 		// GIVEN the era 1 set of 10, 11 and 12 is enacted while only 10 and 11 have keys
 		initialize_to_block(1);
@@ -461,6 +461,7 @@ fn cap_counts_only_validators_with_keys_and_not_the_other_collators() {
 		(CollatorDraw::None, 0),
 		(CollatorDraw::UpTo(1), 1),
 		(CollatorDraw::UpTo(2), 2),
+		(CollatorDraw::UpTo(10), 3),
 		(CollatorDraw::All, 3),
 	];
 	for (cap, count) in cases {
@@ -856,8 +857,7 @@ fn migration_to_v1_keeps_a_cap_stored_as_u32() {
 			assert_eq!(drawn(), Some(expected.clone()));
 			unhashed::put_raw(&MaxCollators::<Test>::hashed_key(), &cap.encode());
 			// AND read as `CollatorDraw`, the stored cap is lost
-			let misread = if cap == 0 { CollatorDraw::None } else { CollatorDraw::All };
-			assert_eq!(MaxCollators::<Test>::get(), misread);
+			assert_eq!(MaxCollators::<Test>::get(), CollatorDraw::All);
 
 			// WHEN the migration runs
 			migrate_to_v1();
@@ -871,6 +871,35 @@ fn migration_to_v1_keeps_a_cap_stored_as_u32() {
 				Session::validators(),
 				[1, 2].into_iter().chain(expected).collect::<Vec<_>>()
 			);
+		});
+	}
+}
+
+#[test]
+fn migration_to_v1_leaves_a_cap_stored_as_option_u32() {
+	// (stored `Option<u32>`, what it reads as)
+	let cases = [
+		(None::<u32>, CollatorDraw::All),
+		(Some(0), CollatorDraw::UpTo(0)),
+		(Some(3), CollatorDraw::UpTo(3)),
+	];
+	for (cap, expected) in cases {
+		build_and_execute(|| {
+			// GIVEN a default of no validator, a stored set, and a cap stored as `Option<u32>`
+			DefaultMaxCollators::set(CollatorDraw::None);
+			initialize_to_block(1);
+			assert_ok!(receive(1, vec![10, 11]));
+			initialize_to_block(3);
+			let raw = cap.encode();
+			unhashed::put_raw(&MaxCollators::<Test>::hashed_key(), &raw);
+
+			// WHEN the migration runs
+			migrate_to_v1();
+
+			// THEN the stored bytes are kept, read as the same cap, and no rotation is forced
+			assert_eq!(unhashed::get_raw(&MaxCollators::<Test>::hashed_key()), Some(raw));
+			assert_eq!(MaxCollators::<Test>::get(), expected, "cap {cap:?}");
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
 		});
 	}
 }

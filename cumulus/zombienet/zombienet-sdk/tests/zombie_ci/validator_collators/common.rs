@@ -244,7 +244,7 @@ fn election_phase_entries() -> Vec<(Vec<u8>, Vec<u8>)> {
 /// The `All` variant of `pallet_validator_collators::CollatorDraw`, with the same encoding.
 #[derive(Encode)]
 enum CollatorDraw {
-	#[codec(index = 2)]
+	#[codec(index = 0)]
 	All,
 }
 
