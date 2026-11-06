@@ -231,8 +231,8 @@ fn dry_run_matches_extrinsic(fixture_type: FixtureType) {
 fn redeploy_after_terminate_in_batch_keeps_storage(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("StoreAndTerminate", fixture_type).unwrap();
 
-	// Paying the deposit in PGAS leaves no `NativeDepositOf` rows, so nothing blocks the redeploy
-	// until `on_idle` runs.
+	// The first deploy terminates in its constructor. Paying the deposit in PGAS leaves no
+	// `NativeDepositOf` rows, so nothing blocks the redeploy until `on_idle` runs.
 	ExtBuilder::default()
 		.with_pgas_balances(vec![(ALICE, FUNDS)])
 		.build()
@@ -254,11 +254,7 @@ fn redeploy_after_terminate_in_batch_keeps_storage(fixture_type: FixtureType) {
 				&ALICE,
 				RuntimeCall::Utility(pallet_utility::Call::batch_all {
 					calls: vec![
-						instantiate(&code, 0, Some(salt)),
-						call(
-							StoreAndTerminate::terminateCall { beneficiary: ALICE_ADDR.0.into() }
-								.abi_encode()
-						),
+						instantiate(&code, 1, Some(salt)),
 						instantiate(&code, 0, Some(salt)),
 						call(
 							StoreAndTerminate::storeCall {

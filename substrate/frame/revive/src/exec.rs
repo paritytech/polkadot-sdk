@@ -18,8 +18,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts, SubstrateTxSigner, TrieId,
-	Pallet as Contracts, RuntimeCosts,
+	Pallet as Contracts, RuntimeCosts, SubstrateTxSigner,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,

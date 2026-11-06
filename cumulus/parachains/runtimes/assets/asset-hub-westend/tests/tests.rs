@@ -3857,7 +3857,6 @@ mod revive_trace_reclaim {
 	}
 }
 
-<<<<<<< HEAD
 #[test]
 fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	use cumulus_primitives_core::{
@@ -3871,7 +3870,8 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	let keys = Runtime::keys_to_prove().keys;
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
-=======
+}
+
 // The meta transaction signer's deploy uses the nonce its own `CheckNonce` consumed, as the
 // `instantiate` dry run for that signer predicts, and the relayer's deploy later in the same
 // extrinsic still uses the relayer's.
@@ -3971,7 +3971,6 @@ fn meta_tx_signer_and_relayer_deploy_at_their_tx_nonces() {
 		)));
 		assert_eq!(System::account_nonce(&relayer_id), relayer_nonce + 1);
 	});
->>>>>>> 31402fd3b5 (address reviews)
 }
 
 // `fast-runtime` shortens the era, not the expected era duration.

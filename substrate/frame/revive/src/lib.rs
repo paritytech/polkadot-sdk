@@ -1776,8 +1776,6 @@ pub mod pallet {
 				// `SetOrigin` does not record the signer of an eth transaction, as its own calls
 				// into the pallet are told about the consumed nonce by `ExecConfig::bump_nonce`.
 				SubstrateTxSigner::<T>::put(&signer);
-				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
-				SubstrateTxSigner::<T>::kill();
 				let mut call_result =
 					call.dispatch(RawOrigin::Signed(signer).into()).and_then(|post_info| {
 						match block_storage::ensure_receipt_within_limit::<T>() {
@@ -1785,6 +1783,7 @@ pub mod pallet {
 							Err(error) => Err(DispatchErrorWithPostInfo { post_info, error }),
 						}
 					});
+				SubstrateTxSigner::<T>::kill();
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
