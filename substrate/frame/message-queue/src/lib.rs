@@ -1099,7 +1099,10 @@ impl<T: Config> Pallet<T> {
 		ensure!(!is_processed, Error::<T>::AlreadyProcessed);
 		use MessageExecutionStatus::*;
 		let mut weight_counter = WeightMeter::with_limit(weight_limit);
-		match Self::process_message_payload(
+		// Store these for the case that `process_message_payload` is recursive.
+		Pages::<T>::insert(&origin, page_index, page.clone());
+		BookStateFor::<T>::insert(&origin, &book_state);
+		let match_res = Self::process_message_payload(
 			origin.clone(),
 			page_index,
 			index,
@@ -1108,7 +1111,22 @@ impl<T: Config> Pallet<T> {
 			Weight::MAX,
 			// ^^^ We never recognise it as permanently overweight, since that would result in an
 			// additional overweight event being deposited.
-		) {
+		);
+		// And restore them afterwards to see the changes of a recursive call.
+		book_state = BookStateFor::<T>::get(&origin);
+		if let Some(new_page) = Pages::<T>::get(&origin, page_index) {
+			page = new_page;
+		} else {
+			// `enqueue_message` (the only allowed recursive call) only ever appends to the end of
+			// the page, so the page cannot legitimately have been removed here.
+			defensive!("page must exist since we just inserted it and recursive calls only append");
+			return Err(Error::<T>::TemporarilyUnprocessable);
+		}
+		// If a recursive `enqueue_message` was processed in the meantime, re-reading the page
+		// means the `is_processed` flag we are about to settle may already be set (e.g. if the
+		// page was otherwise manipulated). `note_processed_at_pos` is a no-op in that case and the
+		// book/page counters are updated exactly once.
+		match match_res {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
 			StackLimitReached | Unprocessable { permanent: false } => {
 				Err(Error::<T>::TemporarilyUnprocessable)
