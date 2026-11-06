@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793882401489,
+  "lastUpdate": 1793956244862,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141911,6 +141911,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2869893298,
             "range": "± 43135876",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "228917acb2a1f175500e3ca8f7689ffd854900a1",
+          "message": "pallet-validator-collators: store MaxCollators as CollatorDraw (#13734)\n\n#13710 changed `MaxCollators` from an optional `u32` to an `Option<u32>`\nwith `DefaultMaxCollators` as default, without a migration.\n\nThis PR stores `MaxCollators` as a new enum `CollatorDraw`, still with\n`DefaultMaxCollators` as default:\n\n- `All` (index 0): every validator with registered keys.\n- `UpTo(n)` (index 1): up to `n` validators with registered keys.\n- `None` (index 2): no validator is drawn.\n\nThe indices make an `Option<u32>` written by #13710 keep its meaning, in\nstorage and in calls: `None` (`0x00`) reads as `All` and `Some(n)` as\n`UpTo(n)`.\n\nEvery variant draws at random, so collators are in drawn order and a\nvalidator that registers keys after the draw joins at the next set or\ncap change. Asset Hub Westend and People Westend default to `None`.\n\nIt also adds storage version 1 and `migrations::v1::MigrateV0ToV1`, to\nrun on Asset Hub Westend and People Westend. It must ship in the same\nAsset Hub Westend upgrade as #13710.\n\nThe migration handles three cases:\n\n- A cap stored as `u32`, exactly 4 bytes. Read as `CollatorDraw` it is\nmisread, so the migration rewrites it as `UpTo(cap)`.\n- A cap stored as `Option<u32>` by #13710. It already reads as the same\n`CollatorDraw` and is left as it is.\n- No stored cap. The default replaces \"no cap\", but the collators drawn\nbefore the upgrade (if any) stay in place. When a set is stored, the\nmigration sets `PendingRotation` to `AwaitingQueue`, as\n`set_max_collators` does, so the set is drawn again under the default.\n\n## Note on Westend Asset Hub\n\nThe `u32` and no-cap cases showed up on Westend Asset Hub, which still\nruns a runtime without #13710 after 2026-11-04 runtime upgrade:\n\n1. The first validator set arrived at block `18999262` and 5 validators\nwith session keys were drawn without a cap (see\nhttps://github.com/paritytech/metanode/issues/46#issuecomment-6653108369).\n2. check-runtime-migration e.g. on #13722 then failed on the 2026-11-05\nsnapshot (block `19005749`), with `\"ValidatorCollators\" try_state checks\nfailed: Other(\"more collators are drawn than the cap allows\")` see\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/41992109446/job/127127335164).\nWith #13710 the cap read as the default `Some(0)`, while the 5 collators\nstayed drawn.\n3. `set_max_collators(Some(0))` via sudo at block `19008348` cleared the\ndraw. It stored the cap as a u32 `0`. #13710 alone reads it as `None`\n(no cap), so every validator with session keys would collate again. This\nPR rewrites it as `UpTo(0)`.\n\nChains that add the pallet fresh are not affected: FRAME writes storage\nversion 1 and the migration is skipped so we will be good on Polkadot.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-06T07:53:45Z",
+          "tree_id": "c8e73d0d36006b198fa2995e7a0d86b0af1b26fd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/228917acb2a1f175500e3ca8f7689ffd854900a1"
+        },
+        "date": 1793956213957,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20597382,
+            "range": "± 106120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20711322,
+            "range": "± 181237",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22264567,
+            "range": "± 112828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26424423,
+            "range": "± 256427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59024677,
+            "range": "± 720997",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367432727,
+            "range": "± 7569188",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2894617410,
+            "range": "± 47804530",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17645486,
+            "range": "± 163709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17848138,
+            "range": "± 157147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18722940,
+            "range": "± 180161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23557913,
+            "range": "± 459947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61820125,
+            "range": "± 356760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357744342,
+            "range": "± 2995948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2757736595,
+            "range": "± 24525717",
             "unit": "ns/iter"
           }
         ]
