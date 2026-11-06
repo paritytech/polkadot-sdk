@@ -98,6 +98,15 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 	}
 }
 
+/// Split a block's upward messages as `validate_block` does: the messages before the first
+/// `UMP_SEPARATOR`, and the signals after it, with every further separator dropped.
+fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+	let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
+	let messages = parts.next().unwrap_or(&[]).to_vec();
+	let signals = parts.next().unwrap_or(&[]).iter().filter(|m| !m.is_empty()).cloned().collect();
+	(messages, signals)
+}
+
 impl<Block, BS, RA> CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
@@ -105,11 +114,6 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
-	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-		let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
-		(parts.next().unwrap_or(&[]).to_vec(), parts.next().unwrap_or(&[]).to_vec())
-	}
-
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
@@ -267,7 +271,7 @@ where
 				.ok()
 				.flatten()?;
 
-			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
+			let (messages, signals) = split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
 			upward_message_signals.extend(signals);
@@ -415,5 +419,32 @@ where
 			proof,
 			scheduling_proof,
 		)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::split_at_separator;
+
+	#[test]
+	fn split_at_separator_matches_validate_block() {
+		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
+		// No separator: everything is a message.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), b.clone()]),
+			(vec![a.clone(), b.clone()], vec![])
+		);
+		// Messages before the first separator, signals after it.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
+			(vec![a.clone()], vec![b.clone(), c.clone()]),
+		);
+		// Every further separator is dropped, as `validate_block` drops it, not kept as a signal.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), vec![], vec![], c.clone()]),
+			(vec![a], vec![b, c]),
+		);
+		// A separator with nothing after it yields no signals.
+		assert_eq!(split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 }
