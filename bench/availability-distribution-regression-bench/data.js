@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793957128887,
+  "lastUpdate": 1793979841548,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "663c3f687e6d31d6fd094695ba334a8bce973203",
-          "message": "eth-rpc: single-pass event processing for receipt extraction (#11777)\n\n## Summary\n\n- Process block events in a single pass instead of re-scanning per\nextrinsic, reducing O(N×E) to O(E)\n- Merge two integration tests into one that validates revert and logs\nare correctly attributed within the same block\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T16:11:26Z",
-          "tree_id": "260159d8472b0034e3ff65ecee0d324991ffae87",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/663c3f687e6d31d6fd094695ba334a8bce973203"
-        },
-        "date": 1776794128825,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007159784906666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14610966707333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02407439892666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009396950839999979,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025318555319999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1f01611601988e5c60f65be1309e3f5d2fff952",
+          "message": " preflight: count scheduled and manual runs as changed (#13751)\n\nSince #13611, `changes_rust` is empty when no relevant file changed.\nBefore, it was the string `'false'`, which GitHub treats as true.\nScheduled and manual runs have no diff, so `changed-files` checks\nmaster's last commit, and whether their jobs run depends on what that\ncommit touched.\n\nExample: On 2026-11-06 the last commit before the 05:00 run was #13732\n(`review-trigger.yml` only). `check-runtime-migration` skipped\n`prepare-snapshots` and master got no daily snapshot.\n\n`changes_rust` is now `'true'` for `schedule` and `workflow_dispatch`\nevents.\n\nAffected workflows: `check-runtime-migration`,\n`check-runtime-compatibility` and `tests-evm`",
+          "timestamp": "2026-11-06T13:22:47Z",
+          "tree_id": "45590750f73503d3268fc3c4f084ce1566b846fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1f01611601988e5c60f65be1309e3f5d2fff952"
+        },
+        "date": 1793979813780,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14190777199333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025002573500000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007236719366666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009741382386666657,
             "unit": "seconds"
           }
         ]
