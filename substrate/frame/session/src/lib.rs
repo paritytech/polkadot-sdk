@@ -138,12 +138,12 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
-use scale_info::TypeInfo;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
