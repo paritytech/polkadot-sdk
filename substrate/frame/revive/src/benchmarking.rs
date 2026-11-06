@@ -4545,6 +4545,39 @@ mod benchmarks {
 		);
 	}
 
+	/// One iteration of the v4 step that clears the pallet account's [`NativeDepositOf`] rows
+	/// before phase 1 rebuilds them.
+	///
+	/// Seeds three rows and removes the first before the measured block, so the benched
+	/// iteration resumes from the cursor past a row already removed in the same block, removes
+	/// the second, and leaves the third in place.
+	#[benchmark]
+	fn v4_clear_code_credit_step() {
+		use crate::migrations::v4;
+
+		let pallet_account = Pallet::<T>::account_id();
+		let _ = NativeDepositOf::<T>::clear_prefix(&pallet_account, u32::MAX, None);
+		let deposit: BalanceOf<T> = 1_000u32.into();
+		for seed in ["a", "b", "c"] {
+			NativeDepositOf::<T>::insert(
+				&pallet_account,
+				&account::<T::AccountId>(seed, 0, 0),
+				deposit,
+			);
+		}
+		let cursor = v4::Migration::<T>::step_once(Some(v4::Cursor::ClearCodeCredits(None)));
+		assert!(matches!(cursor, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
+
+		let next;
+		#[block]
+		{
+			next = v4::Migration::<T>::step_once(cursor);
+		}
+
+		assert!(matches!(next, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
+		assert_eq!(NativeDepositOf::<T>::iter_prefix(&pallet_account).count(), 1);
+	}
+
 	/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
 	///
 	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
