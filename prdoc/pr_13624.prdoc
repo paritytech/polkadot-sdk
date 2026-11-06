@@ -32,10 +32,12 @@ doc:
     Ref time per PolkaVM gas, the largest of nine measurements:
 
     - `instr_load_chain_<m>(r)` for `m` in `0..8` runs `r` iterations of dependent 8 byte loads.
-      They follow a random cycle through all memory a contract can address, and the CPU caches
-      are evicted before the call. Variant `m` places every value at the `m`-th of the 8 offsets
-      modulo 64 an 8 byte aligned host buffer can give it, so in one variant every load spans
-      two cache lines. Each slope is divided by the gas of one iteration.
+      They follow a random cycle through 2048 slots 128 bytes apart, which stays in the L2 but
+      not in the L1 data cache of the reference hardware, and `r` goes around the cycle several
+      times. Contract memory is priced as L2 resident. Variant `m` places every value at the
+      `m`-th of the 8 offsets modulo 64 an 8 byte aligned host buffer can give it, so in one
+      variant every load spans two cache lines. Each slope is divided by the gas of one
+      iteration.
     - `instr_indirect_jump(r)` runs `r` laps of indirect jumps through a random cycle of 20000
       compiled basic blocks. Its slope is divided by the gas of one lap.
     - The pallet's `integrity_test` asserts that the derived ref time per gas is not zero.
@@ -75,8 +77,8 @@ doc:
     - With the `runtime-benchmarks` feature, `PreparedCall` gains `memory_map`, `write_memory`,
       `set_reg` and `reset_interpreter_cache`. `VmBinaryModule` in `call_builder` gains
       `with_entry_block`, `with_branch_blocks`, `with_code_bytes`, `with_load_chain`,
-      `with_indirect_jump_cycle`, `BRANCH_BLOCKS`, `MAX_CODE_BYTES` and `MAX_DATA_BYTES`, and
-      loses `instr`.
+      `with_indirect_jump_cycle`, `BRANCH_BLOCKS`, `MAX_CODE_BYTES`, `LOAD_CHAIN_SLOTS` and
+      `LOAD_CHAIN_SLOT_BYTES`, and loses `instr`.
     - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink` and `Reverter`
       Solidity contracts.
 
@@ -94,7 +96,7 @@ doc:
 - audience: Runtime User
   description: |-
     The ref time charged per PolkaVM gas changes with the new weights. It covers the more
-    expensive of dependent loads from uncached memory and indirect jumps between compiled
+    expensive of dependent loads from the L2 cache and indirect jumps between compiled
     basic blocks. On Asset Hub Westend one gas costs `<new>` ps of ref time, against `<old>` ps
     before.
 

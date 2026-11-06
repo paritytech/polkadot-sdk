@@ -28,7 +28,6 @@ use crate::{
 	},
 	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
 	limits::{self, EVM_STACK_LIMIT},
-	metering::LOAD_CHAIN_GAS,
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
@@ -156,35 +155,31 @@ fn evict_caches() {
 	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 }
 
-/// The distance between two slots of the `instr_load_chain_<m>` benchmarks in bytes.
-const LOAD_CHAIN_SLOT_BYTES: u32 = 256;
-
-/// The number of slots of the `instr_load_chain_<m>` benchmarks.
-const LOAD_CHAIN_SLOTS: u32 = VmBinaryModule::MAX_DATA_BYTES / LOAD_CHAIN_SLOT_BYTES;
-
-/// The most iterations of the `instr_load_chain_<m>` benchmarks: one pass over the slots.
-const LOAD_CHAIN_ITERATIONS: u32 = LOAD_CHAIN_SLOTS / (LOAD_CHAIN_GAS - 3);
+/// The most iterations of the `instr_load_chain_<m>` benchmarks.
+///
+/// An iteration makes `LOAD_CHAIN_GAS - 3` loads, so the largest `r` goes around the cycle of
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots several times.
+const LOAD_CHAIN_ITERATIONS: u32 = 20;
 
 /// Prepares the call of the `instr_load_chain_<m>` benchmark for variant `m` and `r` iterations.
 ///
-/// Each iteration runs [`LOAD_CHAIN_GAS`] gas: the loop condition, a basic block of dependent 8
-/// byte loads, the counter increment and the jump back (see
-/// [`VmBinaryModule::with_load_chain`]). The loads follow a random cyclic permutation of slots
-/// over all of [`VmBinaryModule::MAX_DATA_BYTES`], the read-write data of the contract and the
-/// most memory a contract can address. The slots are 256 bytes apart and each value lies within
-/// its slot, so no two loads read the same 128 bytes. Every value is at
-/// `LOAD_CHAIN_SLOT_OFFSET - 8 * m` in its slot, so in one of the variants every load spans two
-/// host cache lines (see the comment on `LOAD_CHAIN_SLOT_OFFSET` below). `r` stays within one
-/// pass over the slots, and the CPU caches are evicted before the call (see
-/// [`evict_all_caches`]). On the reference hardware every load therefore misses the caches and
-/// waits for the previous one.
+/// Each iteration runs [`crate::metering::LOAD_CHAIN_GAS`] gas: the loop condition, a basic block
+/// of dependent 8 byte loads, the counter increment and the jump back (see
+/// [`VmBinaryModule::with_load_chain`]). The loads follow a random cycle through the
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots of the contract's read-write data, and `r` may go
+/// around the cycle several times. Every value is at `LOAD_CHAIN_SLOT_OFFSET - 8 * m` in its
+/// slot, so in one of the variants every load spans two host cache lines (see the comment on
+/// `LOAD_CHAIN_SLOT_OFFSET` below). Writing the chain brings it into the CPU caches, where it
+/// stays in the L2 but not in the L1 data cache of the reference hardware (see
+/// [`VmBinaryModule::LOAD_CHAIN_SLOTS`]). Every load therefore waits for the previous one to
+/// come from the L2 cache, which is where the cost per gas assumes contract memory to be.
 ///
 /// `r` starts at 1: the interpreter compiles the loop body when execution first enters it, which
 /// `r = 0` never does. With every `r` running at least one iteration, compiling the loop is in
 /// the intercept and the slope is one iteration over compiled code.
 ///
 /// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope of every variant by
-/// [`LOAD_CHAIN_GAS`] and takes the largest.
+/// [`crate::metering::LOAD_CHAIN_GAS`] and takes the largest.
 fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u32) {
 	// The largest offset of the 8 byte value in a slot. Variant `m` puts the value of every slot
 	// at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
@@ -193,17 +188,21 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 	// The interpreter keeps the read-write data in a byte vector, whose host address is only
 	// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
 	// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
-	// 64, so for any 8 byte aligned host address exactly one variant has every load span two
-	// cache lines. This relies on all 8 variants placing the read-write data at the same host
-	// address, which holds because they run the same setup with the same allocations.
-	const LOAD_CHAIN_SLOT_OFFSET: u32 = 124;
+	// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
+	// exactly one variant has every load span two cache lines. This relies on all 8 variants
+	// placing the read-write data at the same host address, which holds because they run the same
+	// setup with the same allocations. Every value ends within the first 68 bytes of its slot, so
+	// values of different slots do not overlap.
+	const LOAD_CHAIN_SLOT_OFFSET: u32 = 60;
 
+	let slots = VmBinaryModule::LOAD_CHAIN_SLOTS;
+	let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
 	let base = prepared.memory_map().rw_data_address();
 	let offset = LOAD_CHAIN_SLOT_OFFSET - 8 * m;
-	let address = |slot: u32| base + slot * LOAD_CHAIN_SLOT_BYTES + offset;
-	let mut order: Vec<u32> = (0..LOAD_CHAIN_SLOTS).collect();
+	let address = |slot: u32| base + slot * slot_bytes + offset;
+	let mut order: Vec<u32> = (0..slots).collect();
 	order.shuffle(&mut Pcg64::seed_from_u64(1337));
-	let mut memory = vec![0u8; VmBinaryModule::MAX_DATA_BYTES as usize];
+	let mut memory = vec![0u8; (slots * slot_bytes) as usize];
 	for (k, &slot) in order.iter().enumerate() {
 		let next = order[(k + 1) % order.len()];
 		let at = (address(slot) - base) as usize;
@@ -212,19 +211,6 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 	prepared.write_memory(base, &memory).unwrap();
 	prepared.set_reg(polkavm::Reg::A0, address(order[0]).into());
 	prepared.set_reg(polkavm::Reg::A1, r.into());
-	evict_all_caches();
-}
-
-/// Pushes the data a benchmark set up out of all CPU caches by writing unrelated memory.
-///
-/// Writes 64 MiB, more than the last level cache a core of the reference hardware can use:
-/// up to 60 MB on Ice Lake Xeons and 32 MiB per CCD on Zen 3 EPYCs. The runtime allocator
-/// limits one allocation to 32 MiB, so the memory is four 16 MiB allocations that are alive
-/// at the same time.
-fn evict_all_caches() {
-	const CHUNK_BYTES: usize = 16 * 1024 * 1024;
-	let chunks: Vec<Vec<u8>> = (0..4).map(|_| vec![1u8; CHUNK_BYTES]).collect();
-	core::hint::black_box(&chunks);
 }
 
 /// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
@@ -4450,8 +4436,8 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `124` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `60` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_0(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4465,8 +4451,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `116` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `52` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_1(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4480,8 +4466,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `108` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `44` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_2(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4495,8 +4481,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `100` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `36` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_3(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4510,8 +4496,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `92` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `28` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_4(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4525,8 +4511,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `84` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `20` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_5(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4540,8 +4526,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `76` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `12` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_6(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4555,8 +4541,8 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures one gas of dependent loads from uncached memory, with every value at offset
-	/// `68` in its slot (see [`prepare_load_chain`]).
+	/// Measures one gas of dependent loads from the L2 cache, with every value at offset `4` in
+	/// its slot (see [`prepare_load_chain`]).
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_load_chain_7(r: Linear<1, LOAD_CHAIN_ITERATIONS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_load_chain());
@@ -4584,8 +4570,7 @@ mod benchmarks {
 	/// execution next enters it. A block is therefore cold only right after its compilation,
 	/// which `interpreter_compile_per_block` and `interpreter_compile_per_instruction` measure
 	/// and the interpreter charges every time it compiles a block, and later jumps to it find it
-	/// compiled. Data is different: it survives calls without being touched, which is why the
-	/// `instr_load_chain_<m>` benchmarks measure loads from uncached memory.
+	/// compiled.
 	///
 	/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope by
 	/// [`crate::metering::INDIRECT_JUMP_GAS`].
@@ -4595,7 +4580,6 @@ mod benchmarks {
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());
 		prepared.set_reg(polkavm::Reg::A1, r.into());
-		evict_all_caches();
 
 		#[block]
 		{

@@ -548,14 +548,23 @@ impl VmBinaryModule {
 		Self::from_assembly(&text)
 	}
 
-	/// The read-write memory a contract with less than one page of code can declare.
+	/// The number of slots in the chain of addresses of [`Self::with_load_chain`].
 	///
-	/// [`limits::code::BASELINE_MEMORY_LIMIT`] bounds the size of the code blob plus the
-	/// zero-initialized parts of the read-only data, the read-write data and the stack, each
-	/// rounded up to `PAGE_SIZE`. Initialized data is part of the blob. Contracts cannot grow
-	/// their memory at runtime, so this is all the memory a contract can address next to one
-	/// page of code.
-	pub const MAX_DATA_BYTES: u32 = limits::code::BASELINE_MEMORY_LIMIT - limits::PAGE_SIZE;
+	/// With slots [`Self::LOAD_CHAIN_SLOT_BYTES`] apart, the chain stays in the L2 but not in the
+	/// L1 data cache of the reference hardware: Intel Ice Lake (48 KiB L1D of 12 ways, 1.25 MiB
+	/// L2 of 20 ways) and AMD Zen 3 (32 KiB L1D of 8 ways, 512 KiB L2 of 8 ways), all with 64
+	/// byte lines, 64 L1D sets and 1024 L2 sets. A load touches one line, or two in the
+	/// benchmark variant where every load spans two lines. With slots two lines apart, the 2048
+	/// lines (128 KiB) of the other variants map to every other set and the 4096 lines (256 KiB)
+	/// of the spanning variant to every set. Either way each L1D set in use receives 64 lines
+	/// against at most 12 ways, and each L2 set on average 4, half the ways of the Zen 3 L2. The
+	/// L2 is indexed by physical address, so the actual count per set varies around that.
+	pub const LOAD_CHAIN_SLOTS: u32 = 2048;
+
+	/// The distance between two slots of [`Self::with_load_chain`] in bytes.
+	///
+	/// Two 64 byte cache lines; see [`Self::LOAD_CHAIN_SLOTS`].
+	pub const LOAD_CHAIN_SLOT_BYTES: u32 = 128;
 
 	/// A contract whose `call` export runs `a1` iterations of `LOAD_CHAIN_GAS - 3` dependent
 	/// loads.
@@ -563,12 +572,12 @@ impl VmBinaryModule {
 	/// An iteration is the branch `jump @done if t0 == a1`, then one basic block of loads
 	/// `a0 = u64 [a0]`, `t0 = t0 + 1` and `jump @loop`. Each load reads the address of the next
 	/// one, so it cannot start before the previous load has finished. The contract declares
-	/// [`Self::MAX_DATA_BYTES`] of read-write data. The caller writes the chain of addresses
-	/// into it and sets `a0` to the first address.
+	/// [`Self::LOAD_CHAIN_SLOTS`] slots of [`Self::LOAD_CHAIN_SLOT_BYTES`] as read-write data.
+	/// The caller writes the chain of addresses into it and sets `a0` to the first address.
 	pub fn with_load_chain() -> Self {
 		let mut text = alloc::format!(
 			"%rw_data_size = {}\npub @deploy:\nret\npub @call:\n@loop:\njump @done if t0 == a1\n",
-			Self::MAX_DATA_BYTES,
+			Self::LOAD_CHAIN_SLOTS * Self::LOAD_CHAIN_SLOT_BYTES,
 		);
 		for _ in 3..crate::metering::LOAD_CHAIN_GAS {
 			text.push_str("a0 = u64 [a0]\n");

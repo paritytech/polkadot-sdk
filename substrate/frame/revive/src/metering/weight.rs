@@ -69,10 +69,12 @@ impl<T: Config> EngineMeter<T> {
 	/// instructions that cost one gas each, so the slope of one iteration divided by its gas is
 	/// the time of one gas:
 	///
-	/// - `instr_load_chain_<m>` for `m` in `0..8`: dependent 8 byte loads from memory that is not
-	///   cached, over all memory a contract can address. The variants place the values at the 8
-	///   offsets modulo 64 an 8 byte aligned host buffer can give them, so in one variant every
-	///   load spans two cache lines. The slope of one iteration is divided by [`LOAD_CHAIN_GAS`].
+	/// - `instr_load_chain_<m>` for `m` in `0..8`: dependent 8 byte loads through a random cycle
+	///   that stays in the L2 but not in the L1 data cache of the reference hardware, the cache
+	///   level the cost per gas assumes contract memory to be in. The variants place the values at
+	///   the 8 offsets modulo 64 an 8 byte aligned host buffer can give them, so in one variant
+	///   every load spans two cache lines. The slope of one iteration is divided by
+	///   [`LOAD_CHAIN_GAS`].
 	/// - `instr_indirect_jump`: indirect jumps through a random cycle of compiled basic blocks. The
 	///   slope of one lap is divided by [`INDIRECT_JUMP_GAS`].
 	pub fn ref_time_per_fuel() -> u64 {
