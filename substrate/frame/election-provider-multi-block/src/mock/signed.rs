@@ -68,6 +68,7 @@ impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
 
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
+	pub static SignedDepositBaseIncrease: Balance = 0;
 	pub static SignedDepositPerPage: Balance = 1;
 	pub static InvulnerableDeposit: Balance = 7;
 	pub static SignedMaxSubmissions: u32 = 3;
@@ -75,11 +76,35 @@ parameter_types! {
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
 	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
+<<<<<<< HEAD
+=======
+	pub static SignedRewardSource: Option<AccountId> = None;
+	pub static SignedSlashTarget: Option<AccountId> = None;
+}
+
+/// A base deposit that grows with the number of submitters already in the queue.
+pub struct MockDepositBase;
+impl signed_pallet::CalculateBaseDeposit<Balance> for MockDepositBase {
+	fn calculate_base_deposit(existing_submitters: usize) -> Balance {
+		SignedDepositBase::get() + SignedDepositBaseIncrease::get() * existing_submitters as Balance
+	}
+}
+
+/// Routes slashed deposits to [`SignedSlashTarget`] if set, otherwise drops (burns) them.
+pub struct MockSlash;
+impl OnUnbalanced<Credit<AccountId, Balances>> for MockSlash {
+	fn on_unbalanced(credit: Credit<AccountId, Balances>) {
+		if let Some(target) = SignedSlashTarget::get() {
+			let _ = Balances::resolve(&target, credit).map_err(|c| drop(c));
+		}
+		// else: `credit` is dropped here.
+	}
+>>>>>>> 22b4d05 (EPMB: determine the signed base deposit at registration (#13722))
 }
 
 impl crate::signed::Config for Runtime {
 	type Currency = Balances;
-	type DepositBase = SignedDepositBase;
+	type DepositBase = MockDepositBase;
 	type DepositPerPage = SignedDepositPerPage;
 	type InvulnerableDeposit = InvulnerableDeposit;
 	type EstimateCallFee = FixedCallFee;
