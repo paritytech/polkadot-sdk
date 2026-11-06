@@ -1295,8 +1295,11 @@ where
 				},
 			}
 		};
+		// The verifier moved the seal to `post_digests`, but the runtime checks the seal of both
+		// headers in an equivocation proof, so the proof must be built from sealed headers.
+		let header = block.post_header();
 		if let Err(err) = self
-			.check_and_report_equivocation(slot_now, slot, &block.header, &author, &block.origin)
+			.check_and_report_equivocation(slot_now, slot, &header, &author, &block.origin)
 			.await
 		{
 			warn!(

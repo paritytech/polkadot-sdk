@@ -1,0 +1,13 @@
+title: 'fix(sc-consensus-babe): keep the seal on headers used for equivocation reports'
+doc:
+  - audience: Node Dev
+    description: |
+      BABE equivocation proofs were built from headers without their seal: block import checks for
+      equivocations after verification has moved the seal into `post_digests`. The runtime verifies
+      the seal of both headers, so every report failed with `InvalidEquivocationProof`.
+
+      Block import now passes the sealed header, as the block is stored, to equivocation detection.
+      No API or runtime change.
+crates:
+  - name: sc-consensus-babe
+    bump: patch
