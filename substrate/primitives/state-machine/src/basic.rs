@@ -279,6 +279,10 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
+	fn storage_append_v2(&mut self, key: Vec<u8>, element: Vec<u8>) {
+		self.overlay.append_storage_clearing_root_cache(key, element, Default::default);
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
 		self.storage_root_with_version(self.state_version)
 	}
@@ -327,6 +331,20 @@ impl Externalities for BasicExternalities {
 			empty_child_trie_root::<LayoutV1<Blake2Hasher>>()
 		}
 		.encode()
+	}
+
+	fn child_storage_root_v3(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8> {
+		// Same as `child_storage_root_with_version`: `BasicExternalities` computes child roots
+		// from its overlay without writing them back and never caches a root.
+		self.child_storage_root_with_version(child_info, state_version)
+	}
+
+	fn record_proof_for_dirty_keys(&mut self) {
+		unimplemented!("record_proof_for_dirty_keys not supported for Basic")
 	}
 
 	fn storage_start_transaction(&mut self) {

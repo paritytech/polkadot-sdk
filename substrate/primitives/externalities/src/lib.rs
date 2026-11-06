@@ -205,6 +205,13 @@ pub trait Externalities: ExtensionStore {
 	/// version explicitly.
 	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8>;
 
+	/// Computes the PoV size as result of storage root calculation.
+	///
+	/// This records trie node accesses that would occur during storage root computation,
+	/// updating the proof recorder's size estimate. Used by PoV reclaim to account for
+	/// the storage root calculation overhead in block weight estimation.
+	fn record_proof_for_dirty_keys(&mut self);
+
 	/// Get the trie root of a child storage map.
 	///
 	/// This will also update the value of the child storage keys in the top-level storage map.
@@ -226,11 +233,37 @@ pub trait Externalities: ExtensionStore {
 		state_version: StateVersion,
 	) -> Vec<u8>;
 
+	/// Get the trie root of a child storage map using the given `state_version`, without
+	/// writing to the top-level storage map.
+	///
+	/// Body of `default_child_storage::root` version 3. It fixes two things in versions 1 and 2,
+	/// [`Self::child_storage_root_with_version`]. After a mid-block storage root they return a
+	/// stale root. Before one they write the root into the top-level overlay. Versions 1 and 2
+	/// stay as they are.
+	///
+	/// The rollout of version 3 is described in the crate docs of
+	/// `cumulus-primitives-proof-size-hostfunction`.
+	fn child_storage_root_v3(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8>;
+
 	/// Append storage item.
 	///
 	/// This assumes specific format of the storage item. Also there is no way to undo this
 	/// operation.
 	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>);
+
+	/// Append storage item and drop the storage root cached by an earlier [`Self::storage_root`].
+	///
+	/// Body of `storage::append` version 2. It fixes an append after a mid-block storage root.
+	/// Version 1, [`Self::storage_append`], keeps the cached root. The block then commits a root
+	/// and a storage transaction that miss the append.
+	///
+	/// Version 1 must stay as it is. The rollout of version 2 is described in the crate docs of
+	/// `cumulus-primitives-proof-size-hostfunction`.
+	fn storage_append_v2(&mut self, key: Vec<u8>, value: Vec<u8>);
 
 	/// Start a new nested transaction.
 	///
