@@ -25,13 +25,38 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
+  # The Westend chains can run newer runtimes than the (un)stable release branches, which would make
+  # the check run a downgrade. Skip it for runs on or into such a branch.
+  release-branch:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: check
+        env:
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref || github.ref_name }}
+        run: |
+          if [[ "${BASE_REF#refs/heads/}" =~ ^(un)?stable[0-9]{4}$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Prepare snapshots for all networks. Runs before the actual migration checks.
   # For scheduled runs: always create fresh snapshots.
   # For PRs: use cached snapshots if available, create if not.
   prepare-snapshots:
     runs-on: ubuntu-latest
+<<<<<<< HEAD
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
+=======
+    needs: [preflight, release-branch]
+    if: ${{ (needs.preflight.outputs.changes_rust || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.release-branch.outputs.skip != 'true' }}
+    permissions:
+      # Delete superseded snapshot caches.
+      actions: write
+>>>>>>> a3683d3f (check-runtime-migration: skip on stable and unstable branches (#13748))
     strategy:
       fail-fast: false
       matrix:
@@ -109,9 +134,9 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' }}
+    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' && needs.release-branch.outputs.skip != 'true' }}
     timeout-minutes: 120
-    needs: [preflight, prepare-snapshots]
+    needs: [preflight, release-branch, prepare-snapshots]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
@@ -200,7 +225,11 @@ jobs:
     runs-on: ubuntu-latest
     name: All runtime migrations passed
     # If any new job gets added, be sure to add it to this array
+<<<<<<< HEAD
     needs: [check-runtime-migration]
+=======
+    needs: [preflight, release-branch, prepare-snapshots, check-runtime-migration]
+>>>>>>> a3683d3f (check-runtime-migration: skip on stable and unstable branches (#13748))
     if: always() && !cancelled() && github.event_name != 'schedule'
     steps:
       - run: |
