@@ -151,5 +151,46 @@ mod benchmarks {
 		}
 	}
 
+	/// Dropping a para from the registry, which is where the whole cost of this sits.
+	#[benchmark]
+	fn receive_deregister() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+		let message =
+			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: 0 });
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Setting a head. Dominated by the head data.
+	#[benchmark]
+	fn receive_set_current_head(
+		h: Linear<0, { T::MaxHeadDataSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// Any registered para will do; this is the only registry setup the trait offers.
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+			para_id: PARA_ID,
+			message_id: 0,
+			head: alloc::vec![2u8; h as usize],
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		frame_system::Pallet::<T>::assert_last_event(
+			<T as Config>::RuntimeEvent::from(Event::<T>::HeadUpdated {
+				para_id: PARA_ID,
+				message_id: 0,
+			})
+			.into(),
+		);
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -78,22 +78,14 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
+		// The call that creates the frame already pays for the info.
 		#[cfg(feature = "runtime-benchmarks")]
-		{
-			// Whitelist contract account, as it is already accounted for in the call benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
-			);
-
-			// Whitelist the contract's contractInfo as it is already accounted for in the call
-			// benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
-					&contract.account_id,
-				))
-				.into(),
-			);
-		}
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				&contract.account_id,
+			))
+			.into(),
+		);
 
 		Self {
 			contract,

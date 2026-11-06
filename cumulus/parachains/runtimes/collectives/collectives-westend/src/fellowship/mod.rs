@@ -265,7 +265,7 @@ parameter_types! {
 		testnet_parachains_constants::westend::account::FELLOWSHIP_TREASURY_PALLET_ID;
 	pub const HundredPercent: Permill = Permill::from_percent(100);
 	pub const Burn: Permill = Permill::from_percent(0);
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();

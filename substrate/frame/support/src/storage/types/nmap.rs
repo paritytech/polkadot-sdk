@@ -814,7 +814,7 @@ mod test {
 
 			A::insert((3,), 10);
 			A::insert((4,), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3,)), false);
 			assert_eq!(A::contains_key((4,)), false);
 
@@ -879,7 +879,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3,)), None);
 			WithLen::append((0,), 10);
 			assert_eq!(WithLen::decode_len((0,)), Some(1));
@@ -1024,7 +1024,7 @@ mod test {
 
 			A::insert((3, 30), 10);
 			A::insert((4, 40), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3, 30)), false);
 			assert_eq!(A::contains_key((4, 40)), false);
 
@@ -1095,7 +1095,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30)), None);
 			WithLen::append((0, 100), 10);
 			assert_eq!(WithLen::decode_len((0, 100)), Some(1));
@@ -1270,7 +1270,7 @@ mod test {
 
 			A::insert((3, 30, 300), 10);
 			A::insert((4, 40, 400), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3, 30, 300)), false);
 			assert_eq!(A::contains_key((4, 40, 400)), false);
 
@@ -1348,7 +1348,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30, 300)), None);
 			WithLen::append((0, 100, 1000), 10);
 			assert_eq!(WithLen::decode_len((0, 100, 1000)), Some(1));

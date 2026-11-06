@@ -153,7 +153,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	fn try_origin(outer: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(outer.clone()).and_then(|o| {
 			match o {
-				frame_system::RawOrigin::Root => Ok(u64::max_value()),
+				frame_system::RawOrigin::Root => Ok(u64::MAX),
 				frame_system::RawOrigin::Signed(10) => Ok(5),
 				frame_system::RawOrigin::Signed(11) => Ok(10),
 				frame_system::RawOrigin::Signed(12) => Ok(20),

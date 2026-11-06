@@ -74,7 +74,8 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
+	EnsureWithSuccess,
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
@@ -992,7 +993,7 @@ impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 pub struct U256ToBalance;
 impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	fn convert(n: sp_core::U256) -> Balance {
-		n.try_into().unwrap_or(Balance::max_value())
+		n.try_into().unwrap_or(Balance::MAX)
 	}
 }
 
@@ -1316,7 +1317,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
@@ -1601,9 +1602,9 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -2287,7 +2288,9 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
+	// Opt into permissionless dispatch.
+	type DispatchWhitelistedOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;
 	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
@@ -2683,6 +2686,30 @@ parameter_types! {
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
 	pub const RegistrationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+	// No parachain-system here, so a fixed stand-in for the relay chain's host configuration.
+	pub storage RegistrarHostConfig: Option<polkadot_primitives::AbridgedHostConfiguration> =
+		Some(polkadot_primitives::AbridgedHostConfiguration {
+			max_code_size: 3 * 1024 * 1024,
+			max_head_data_size: 1024 * 1024,
+			max_upward_queue_count: 0,
+			max_upward_queue_size: 0,
+			max_upward_message_size: 0,
+			max_upward_message_num_per_candidate: 0,
+			hrmp_max_message_num_per_candidate: 0,
+			validation_upgrade_cooldown: 0,
+			validation_upgrade_delay: 0,
+			async_backing_params: polkadot_primitives::AsyncBackingParams {
+				allowed_ancestry_len: 0,
+				max_candidate_depth: 0,
+			},
+		});
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_registrar_para::BenchmarkHelper for RegistrarHostConfig {
+	fn set_host_configuration(config: polkadot_primitives::AbridgedHostConfiguration) {
+		RegistrarHostConfig::set(&Some(config));
+	}
 }
 
 impl pallet_registrar_para::Config for Runtime {
@@ -2701,17 +2728,25 @@ impl pallet_registrar_para::Config for Runtime {
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
 	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
-	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
-	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type HostConfiguration = RegistrarHostConfig;
 	type PendingDeadline = ConstU32<600>;
 	type BlockNumberProvider = System;
 	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = RegistrarHostConfig;
 }
 
-/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+/// A registrar that accepts everything; only which ids it holds is modelled, not the paras stack.
 pub struct AcceptingRegistrar;
+
+impl AcceptingRegistrar {
+	fn key(para_id: registrar_primitives::ParaId) -> Vec<u8> {
+		(b"AcceptingRegistrar", para_id).encode()
+	}
+}
 
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
@@ -2720,20 +2755,30 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
-	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
-		false
+	fn is_registered(para_id: registrar_primitives::ParaId) -> bool {
+		frame_support::storage::unhashed::exists(&Self::key(para_id))
 	}
 
 	fn register(
 		_manager: AccountId,
-		_para_id: registrar_primitives::ParaId,
+		para_id: registrar_primitives::ParaId,
 		_genesis_head: Vec<u8>,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
 		Ok(())
 	}
 
-	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+	fn deregister(para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::kill(&Self::key(para_id));
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
 		Ok(())
 	}
 
