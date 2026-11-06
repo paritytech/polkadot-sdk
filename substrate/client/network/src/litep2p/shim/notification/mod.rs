@@ -341,7 +341,12 @@ impl NotificationService for NotificationProtocol {
 						error,
 					} => {
 						log::trace!(target: LOG_TARGET, "{}: open failure for {peer:?}", self.protocol);
-						self.peerset.report_substream_open_failure(peer.into(), error);
+
+						if self.peerset.report_substream_open_failure(peer.into(), error) {
+							return Some(SubstrateNotificationEvent::NotificationStreamOpenFailure {
+								peer: peer.into(),
+							});
+						}
 					}
 					NotificationEvent::NotificationReceived {
 						peer,

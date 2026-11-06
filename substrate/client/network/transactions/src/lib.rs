@@ -362,6 +362,7 @@ where
 				let _peer = self.peers.remove(&peer);
 				debug_assert!(_peer.is_some());
 			},
+			NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				if let Ok(m) =
 					<Transactions<B::Extrinsic> as Decode>::decode(&mut notification.as_ref())

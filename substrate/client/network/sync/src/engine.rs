@@ -847,6 +847,7 @@ where
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				self.on_sync_peer_disconnected(peer);
 			},
+			NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				if !self.peers.contains_key(&peer) {
 					log::error!(

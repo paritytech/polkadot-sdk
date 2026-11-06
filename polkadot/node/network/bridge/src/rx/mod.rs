@@ -372,6 +372,7 @@ async fn handle_validation_message<AD>(
 
 			dispatch_validation_events_to_all(events, sender, &metrics).await;
 		},
+		NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 	}
 }
 
@@ -642,6 +643,7 @@ async fn handle_collation_message<AD>(
 
 			dispatch_collation_events_to_all(events, sender).await;
 		},
+		NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 	}
 }
 
