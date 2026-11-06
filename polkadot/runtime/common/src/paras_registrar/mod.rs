@@ -291,6 +291,9 @@ pub mod pallet {
 		///
 		/// The deposit taken can be specified for this registration. Any `ParaId`
 		/// can be registered, including sub-1000 IDs which are System Parachains.
+		///
+		/// Deprecated where registration runs through `pallet-registrar-para`: use its
+		/// `force_register` there, since a para registered here is unknown to that pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_register())]
 		pub fn force_register(
@@ -677,13 +680,17 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		Ok(())
 	}
 
-	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): validate the head data length against the active configuration.
-		Err(())
+	fn check_head_data(head_len: u32) -> Result<(), ()> {
+		let max = configuration::ActiveConfig::<T>::get().max_head_data_size;
+		if head_len <= max {
+			Ok(())
+		} else {
+			Err(())
+		}
 	}
 
-	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
-		// TODO(ahm-v2): set the para's current head.
+	fn set_current_head(para_id: u32, head: Vec<u8>) {
+		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
 	}
 
 	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
