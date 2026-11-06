@@ -224,6 +224,7 @@ pub fn advance_to(b: u64) {
 		System::set_block_number(System::block_number() + 1);
 		TestCoretimeProvider::bump();
 		Broker::on_initialize(System::block_number());
+		Broker::do_try_state().expect("All invariants must hold at every block");
 	}
 }
 
@@ -344,7 +345,9 @@ impl TestExt {
 	pub fn execute_with<R>(self, f: impl Fn() -> R) -> R {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Broker::do_configure(self.0));
-			f()
+			let r = f();
+			Broker::do_try_state().expect("All invariants must hold after a test");
+			r
 		})
 	}
 }
