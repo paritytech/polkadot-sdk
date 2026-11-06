@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793982755350,
+  "lastUpdate": 1793991224070,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95ae463f8443cd479a1c997e66a43208e7aea47a",
-          "message": "eth-rpc: skip receipt extraction for finalized blocks already processed as best (#11801)\n\n### Motivation\nBoth the best and finalized block subscriptions extract receipts\nindependently, so every block is processed twice. This skips redundant\nextraction on the finalized path when the block was already handled by\nthe best block subscription.\n\n### Summary\n- Skip redundant receipt extraction on finalized blocks already\nprocessed by the best block subscription\n- Read logs from DB for skipped blocks only when log subscribers exist\n- Refactor: extract process_block helper, parse_log_row shared function,\nadvance_sync_head\n- Add unit tests for get_processed_eth_block_hash and\nlogs_by_block_number\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-22T04:54:04Z",
-          "tree_id": "7d5d5473cf691d29518871b5472bdcdecddd8467",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/95ae463f8443cd479a1c997e66a43208e7aea47a"
-        },
-        "date": 1776838411608,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12731508966666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.808945989100005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13151576613333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f0a5d8b7ba3162c99b0384444be521be3427f328",
+          "message": "Uniques/NFTs: make ownership transafer fail if deposit cannot be moved (#13742)\n\nPort of https://github.com/paritytech/polkadot-sdk/pull/12366 to these\ntwo pallets.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-11-06T16:57:57Z",
+          "tree_id": "716310467d138ca86024c53557fd87d398a03828",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0a5d8b7ba3162c99b0384444be521be3427f328"
+        },
+        "date": 1793991195341,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13534836430000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.802583462400001,
             "unit": "seconds"
           }
         ]
