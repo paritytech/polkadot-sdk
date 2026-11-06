@@ -23,7 +23,8 @@ use crate::{
 	evm::{PrestateTracer, PrestateTracerConfig},
 	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
-		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeEvent, RuntimeOrigin, System, Test,
+		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
@@ -46,6 +47,7 @@ use revm::bytecode::opcode::*;
 mod arithmetic;
 mod bitwise;
 mod block_info;
+mod cold_hot;
 mod contract;
 mod control;
 mod host;
@@ -97,6 +99,23 @@ fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
 		EXTCODECOPY,
 		STOP,
 	])
+}
+
+/// Returns the error the Ethereum transaction failed with.
+fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
+	System::events().into_iter().find_map(|record| match record.event {
+		// Benchmark builds emit this event for successful transactions too, so it is not a failure.
+		#[cfg(feature = "runtime-benchmarks")]
+		RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error })
+			if dispatch_error == crate::Error::<Test>::BenchmarkingError.into() =>
+		{
+			None
+		},
+		RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
+			Some(dispatch_error)
+		},
+		_ => None,
+	})
 }
 
 #[test]
@@ -1722,6 +1741,7 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 /// the transaction's, not the block's synthetic one for logs emitted outside any ethereum
 /// transaction.
 mod emitter_logs {
+	use super::eth_extrinsic_revert;
 	use crate::{
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Origin, Pallet,
 		evm::{block_hash::LogsBloom, fees::InfoT},
@@ -1775,16 +1795,6 @@ mod emitter_logs {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	fn bloom_of(contract: H160, topic: H256) -> [u8; 256] {
@@ -2090,6 +2100,7 @@ mod emitter_logs {
 /// receipt, for a Solc and a Resolc build of the same contract and for logs mirrored from outside
 /// any frame.
 mod receipt_size_limit {
+	use super::eth_extrinsic_revert;
 	use crate::{
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, EthTransactError, Origin,
 		Pallet, RUNTIME_PALLETS_ADDR, RuntimeCosts, WeightToken,
@@ -2128,7 +2139,7 @@ mod receipt_size_limit {
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
-	use sp_runtime::{DispatchError, traits::Dispatchable};
+	use sp_runtime::traits::Dispatchable;
 	use test_case::test_case;
 
 	/// The data of a log without topics that takes up 65,536 bytes of the receipt: 32 of them
@@ -2190,16 +2201,6 @@ mod receipt_size_limit {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	/// Finalize the block holding a single ethereum transaction and return that transaction's

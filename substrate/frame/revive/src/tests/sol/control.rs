@@ -245,7 +245,7 @@ fn stop_works() {
 
 #[test]
 fn invalid_works() {
-	let expected_gas = 12_345_000_u64;
+	let expected_gas = 100_000_000_u64;
 	let runtime_code: Vec<u8> = vec![vec![INVALID]].into_iter().flatten().collect();
 	let code = make_initcode_from_runtime_code(&runtime_code);
 

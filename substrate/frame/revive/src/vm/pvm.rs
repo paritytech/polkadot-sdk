@@ -22,13 +22,14 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::StorageOp,
+	access_list::{CallItems, InstantiateItems, StorageOp},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
+	vm::{adjust_instantiate_registration_charge, charge_call_transfer},
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -293,15 +294,6 @@ enum CallType {
 	DelegateCall,
 }
 
-impl CallType {
-	fn cost(&self) -> RuntimeCosts {
-		match self {
-			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
-		}
-	}
-}
-
 /// This is only appropriate when writing out data of constant size that does not depend on user
 /// input. In this case the costs for this copy was already charged as part of the token at
 /// the beginning of the API entry point.
@@ -507,27 +499,24 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let cost =
+			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
-			// Don't warm the slot on a failed validation as the storage was not accessed.
-			let access_kind =
-				StorageAccessKind::new(transient, || self.ext.peek_storage_access(&key));
-			self.charge_gas(RuntimeCosts::SetStorage {
-				new_bytes: value_len,
-				old_bytes: max_size,
-				kind: access_kind,
-			})?;
+			// The failing write leaves the access list unchanged, so it prepays no rollback.
+			let access_kind = StorageAccessKind::new(transient, || {
+				self.ext
+					.warmth_of(self.ext.slot_access(&key, StorageOp::Write))
+					.to_non_revertible()
+			});
+			self.charge_gas(cost(access_kind))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
 		});
-		let charged = self.charge_gas(RuntimeCosts::SetStorage {
-			new_bytes: value_len,
-			old_bytes: max_size,
-			kind: access_kind,
-		})?;
+		let charged = self.charge_gas(cost(access_kind))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
@@ -560,7 +549,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -590,7 +579,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Read)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Read))
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
@@ -665,10 +654,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?;
 			},
-			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
-			None => self.charge_gas(call_type.cost())?,
+			Some(_) => {
+				self.charge_gas(RuntimeCosts::PrecompileBase)?;
+			},
+			None => {
+				let warmth = self
+					.ext
+					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
+				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
+			},
 		};
 
 		// we do check this in exec.rs but we want to error out early
@@ -704,9 +700,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer: Pallet::<E::T>::has_dust(value),
-					})?;
+					charge_call_transfer(self.ext, callee, value, precompile.is_some())?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
@@ -804,6 +798,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.reset_interpreter_cache();
 
+		let worst_case_registration_charge = self.charge_gas(
+			RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
+		)?;
 		match self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
@@ -813,6 +810,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					adjust_instantiate_registration_charge(
+						self.ext,
+						worst_case_registration_charge,
+						Some(address),
+					);
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -820,6 +822,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						true,
 						already_charged,
 					)?;
+				} else {
+					adjust_instantiate_registration_charge(
+						self.ext,
+						worst_case_registration_charge,
+						None,
+					);
 				}
 				let output = mem::take(self.ext.last_frame_output_mut());
 				let write_result = self.write_sandbox_output(
@@ -834,7 +842,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(super::exec_error_into_return_code::<E>(err)?),
+			Err(err) => {
+				adjust_instantiate_registration_charge(
+					self.ext,
+					worst_case_registration_charge,
+					None,
+				);
+				Ok(super::exec_error_into_return_code::<E>(err)?)
+			},
 		}
 	}
 }
