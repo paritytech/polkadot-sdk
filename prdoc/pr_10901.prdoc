@@ -1,0 +1,68 @@
+title: "frame-system: require explicit weight info in production default configs"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `frame_system::Config::SystemWeightInfo` and
+      `frame_system::Config::ExtensionsWeightInfo` no longer have a default in the
+      production presets `SolochainDefaultConfig`, `ParaChainDefaultConfig` and
+      `RelayChainDefaultConfig`. Runtimes deriving their `frame_system::Config` from
+      one of these presets via `#[derive_impl(...)]` must now set both types
+      explicitly:
+
+      ```rust
+      #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
+      impl frame_system::Config for Runtime {
+          // Prefer weights benchmarked for your own runtime over `()`.
+          type SystemWeightInfo = ();
+          type ExtensionsWeightInfo = ();
+          // ...
+      }
+      ```
+
+      Previously these types silently defaulted to `()`, which resolves to the
+      Substrate reference weights benchmarked for a *different* runtime. This is
+      almost never correct in production and was an error-prone default (see issue
+      #10758).
+
+      `TestDefaultConfig` is intentionally left unchanged: it still defaults both
+      weights to `()`, so test mocks deriving from it do not need to be updated.
+  - audience: Runtime Dev
+    description: |
+      `#[register_default_impl]` and `#[derive_impl]` now honour
+      `#[pallet::no_default]` when it is placed on an item *inside* a registered
+      default impl. Such an item stays part of the default impl (so it remains a
+      complete trait implementation) but is no longer copied into impls that derive
+      from it, forcing downstream users to set the type explicitly. This already
+      matched the documented behaviour of `derive_impl`; it is now actually
+      enforced.
+
+crates:
+  - name: frame-system
+    bump: major
+  - name: frame-support-procedural
+    bump: minor
+  - name: frame-support-test
+    bump: none
+  - name: kitchensink-runtime
+    bump: none
+  - name: cumulus-test-runtime
+    bump: none
+  - name: glutton-westend-runtime
+    bump: none
+  - name: polkadot-test-runtime
+    bump: none
+  - name: revive-dev-runtime
+    bump: none
+  - name: minimal-template-runtime
+    bump: none
+  - name: parachain-template-runtime
+    bump: none
+  - name: solochain-template-runtime
+    bump: none
+  - name: chain-spec-guide-runtime
+    bump: none
+  - name: polkadot-sdk-docs-first-runtime
+    bump: none
+  - name: polkadot-sdk-docs
+    bump: none
