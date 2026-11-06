@@ -2832,3 +2832,83 @@ fn self_delegation_traps_on_call() {
 		assert_err!(result.result, <Error<Test>>::ContractTrapped);
 	});
 }
+
+/// EIP-684: CREATE2 onto an address that holds a delegation entry must fail and leave the
+/// entry untouched, whether the delegation is active or already cleared.
+#[test]
+fn instantiate_onto_delegated_eoa_is_rejected() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	for clear in [false, true] {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+			let target = builder::bare_instantiate(Code::Upload(counter_code.clone()))
+				.salt(Some([1; 32]))
+				.build_and_unwrap_contract();
+
+			// Not reachable without an address collision, so force it.
+			let salt = [2; 32];
+			let authority = crate::address::create2(&ALICE_ADDR, &counter_code, &[], &salt);
+			AccountInfo::<Test>::set_delegation(&authority, Some(target.addr), &ALICE).unwrap();
+			if clear {
+				AccountInfo::<Test>::set_delegation(&authority, None, &ALICE).unwrap();
+			}
+			let before = crate::AccountInfoOf::<Test>::get(authority);
+			assert!(matches!(
+				before,
+				Some(AccountInfo { account_type: AccountType::DelegatedEOA { .. }, .. })
+			));
+
+			let result = builder::bare_instantiate(Code::Upload(counter_code.clone()))
+				.salt(Some(salt))
+				.build()
+				.result;
+			assert_err!(result, <Error<Test>>::DuplicateContract);
+			assert_eq!(crate::AccountInfoOf::<Test>::get(authority), before);
+		});
+	}
+}
+
+/// EIP-684: an address with a nonzero nonce is taken even if it has no code.
+#[test]
+fn instantiate_onto_address_with_nonce_is_rejected() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		let salt = [3; 32];
+		let addr = crate::address::create2(&ALICE_ADDR, &counter_code, &[], &salt);
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
+			&account_id,
+			Contracts::min_balance(),
+		);
+		frame_system::Account::<Test>::mutate(&account_id, |a| a.nonce = 1);
+
+		let result = builder::bare_instantiate(Code::Upload(counter_code))
+			.salt(Some(salt))
+			.build()
+			.result;
+		assert_err!(result, <Error<Test>>::DuplicateContract);
+		assert!(!AccountInfo::<Test>::is_contract(&addr));
+	});
+}
+
+/// A funded address with nonce zero and no code is still a valid CREATE2 destination.
+#[test]
+fn instantiate_onto_funded_empty_address_works() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		let salt = [4; 32];
+		let addr = crate::address::create2(&ALICE_ADDR, &counter_code, &[], &salt);
+		assert_ok!(Contracts::set_evm_balance(&addr, U256::from(1_000_000_000u64)));
+
+		let deployed = builder::bare_instantiate(Code::Upload(counter_code))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+		assert_eq!(deployed.addr, addr);
+		assert!(AccountInfo::<Test>::is_contract(&addr));
+	});
+}
