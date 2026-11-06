@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793990526527,
+  "lastUpdate": 1793993794147,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -254399,6 +254399,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2523712452,
             "range": "± 53087477",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "22b4d05268e46ca7a19de71a6be502b839ccfecb",
+          "message": "EPMB: determine the signed base deposit at registration (#13722)\n\nThe base deposit of a signed submission was re-computed from the current\nqueue length on every `submit_page`, so the held amount changed with\nregistrations made by other accounts after the submitter registered. A\nsubmitter also counted itself, so storing a page raised its base one\nstep of `DepositBase` above the registration price.\n\nCharge the base deposit once, at `register`, and store it in\n`SubmissionMetadata` as `base`. On every page change the held deposit\nbecomes that base plus the per-page deposit of the stored pages, so a\nlater change of the per-page price or of invulnerable status never takes\nit below the base.\n\nNotes:\n- `CalculatePageDeposit::calculate_page_deposit` no longer takes the\nnumber of existing submitters.\n- The signed pallet moves to storage version 1.\n`signed::migrations::v1::MigrateV0ToV1` derives `base` for stored\nsubmissions, at least the lowest base deposit for the account's current\nstatus and at most the held deposit. It is wired into asset-hub-westend.\nOther runtimes (Polkadot and Kusama Asset Hub) need to add it.\n- try-state checks that every submission holds at least its base.",
+          "timestamp": "2026-11-06T17:45:55Z",
+          "tree_id": "02dfd87c7f4e6f3fe56ebc035d37fa5baca3a5a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b4d05268e46ca7a19de71a6be502b839ccfecb"
+        },
+        "date": 1793993759615,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4103367,
+            "range": "± 33473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 298512,
+            "range": "± 2313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4198504,
+            "range": "± 25211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 371799,
+            "range": "± 1863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4693020,
+            "range": "± 22564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 890322,
+            "range": "± 8585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10450694,
+            "range": "± 51076",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4877188,
+            "range": "± 54375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44238703,
+            "range": "± 499339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37581452,
+            "range": "± 485866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 347788006,
+            "range": "± 1641848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 296200190,
+            "range": "± 1698725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2545235996,
+            "range": "± 6919053",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2286660241,
+            "range": "± 12080193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3425296,
+            "range": "± 45079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1883185,
+            "range": "± 9837",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3533180,
+            "range": "± 25302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1974601,
+            "range": "± 10812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4168652,
+            "range": "± 33698",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2271034,
+            "range": "± 16507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7900563,
+            "range": "± 75939",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5306866,
+            "range": "± 40154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37740489,
+            "range": "± 205105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36722459,
+            "range": "± 421883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 315479608,
+            "range": "± 1900814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285165869,
+            "range": "± 2088941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2489803698,
+            "range": "± 20452213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2676768923,
+            "range": "± 67722583",
             "unit": "ns/iter"
           }
         ]
