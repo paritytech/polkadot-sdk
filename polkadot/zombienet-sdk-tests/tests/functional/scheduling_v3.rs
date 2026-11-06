@@ -22,7 +22,7 @@ use zombienet_sdk::{
 
 use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
-const RELAY_LOG_ARGS: &str = "-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug";
+const RELAY_LOG_ARGS: &str = "-lparachain=debug,runtime=debug,basic-authorship=debug";
 
 /// Test that spawns a relay chain with 2 parachains:
 /// - a V2 parachain with async backing

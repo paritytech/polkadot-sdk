@@ -2,8 +2,9 @@ title: Make the collator protocol revamp the default implementation (on Polkadot
 doc:
 - audience: Node Dev
   description: |-
-    Make the collator protocol revamp the default validator side collator protocol implementation for
-    Polkadot and all other chainspecs.
+    The collator protocol revamp is now the default validator side collator protocol implementation
+    on all chains. Previously it was enabled by default only on Kusama. With this change Polkadot
+    validators will run the revamped protocol.
 
     Pass `--experimental-collator-protocol=false` to the binary to use the legacy implementation.
 crates:
