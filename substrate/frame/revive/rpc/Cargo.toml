@@ -46,6 +46,7 @@ serde = { workspace = true, default-features = true, features = [
 	"derive",
 ] }
 serde_json = { workspace = true }
+serde_with = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
