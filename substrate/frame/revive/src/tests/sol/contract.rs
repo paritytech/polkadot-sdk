@@ -96,6 +96,73 @@ fn staticcall_works(caller_type: FixtureType, callee_type: FixtureType) {
 	});
 }
 
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn modexp_with_empty_modulus_is_charged(caller_type: FixtureType) {
+	use crate::{
+		evm::CallTracer,
+		metering::{SignedGas, Token},
+		tracing::trace,
+		vm::RuntimeCosts,
+	};
+
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let modexp = H160::from_low_u64_be(5);
+
+	// 32 byte base and exponent with an empty modulus. EIP-2565 prices a zero exponent at 200
+	// gas and an all-0xff one at 1360.
+	let input = |exp_byte: u8| {
+		let mut input = vec![0u8; 96];
+		input[31] = 32;
+		input[63] = 32;
+		input.extend([0xff; 32]);
+		input.extend([exp_byte; 32]);
+		input
+	};
+	let to_eth_gas = |gas: u64| {
+		let fee = <Test as Config>::FeeInfo::weight_to_fee_average(&Token::<Test>::weight(
+			&RuntimeCosts::Modexp(gas),
+		));
+		SignedGas::<Test>::from_weight_fee(fee).to_ethereum_gas().unwrap() as u64
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let static_call = |data: Vec<u8>, gas: u64| {
+			let mut tracer = CallTracer::new(Default::default());
+			let result = trace(&mut tracer, || {
+				builder::bare_call(caller_addr)
+					.data(
+						Caller::staticCallCall {
+							_callee: modexp.0.into(),
+							_data: data.into(),
+							_gas: gas,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result()
+			});
+			let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+			(result, tracer.collect_trace().unwrap().calls[0].gas_used)
+		};
+
+		for (exp_byte, gas) in [(0x00, 200), (0xff, 1360)] {
+			let (result, gas_used) = static_call(input(exp_byte), u64::MAX);
+			assert!(result.success);
+			assert!(result.output.is_empty());
+			assert_eq!(gas_used, to_eth_gas(gas));
+		}
+
+		// Enough for the 200 gas input but not for the 1360 gas one.
+		assert!(static_call(input(0x00), 10_000_000).0.success);
+		assert!(!static_call(input(0xff), 10_000_000).0.success);
+	});
+}
+
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
