@@ -1,0 +1,14 @@
+title: 'xcm-executor: trap leftover fees after failed surplus refunds'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Preserve leftover fee assets during final XCM cleanup when a surplus-weight
+      refund cannot fit into the holding register. These assets now reach the
+      configured asset trap instead of being dropped with the executor.
+      Leftover fees are trapped separately from holding to avoid enlarging
+      an already-full trap receipt.
+      Existing refund-overflow handling is unchanged. No API changes or storage
+      migration are required.
+crates:
+  - name: staging-xcm-executor
+    bump: patch

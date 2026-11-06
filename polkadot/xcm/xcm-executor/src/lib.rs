@@ -398,23 +398,28 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		drop(self.trader);
 
 		let mut weight_used = xcm_weight.saturating_sub(self.total_surplus);
+		let claimer = self
+			.asset_claimer
+			.as_ref()
+			.or(self.context.origin.as_ref())
+			.unwrap_or(&self.original_origin);
 
-		if !self.holding.is_empty() {
+		// A failed surplus refund may leave fees behind. Trap the registers separately so
+		// leftover fees do not enlarge an already-full holding register's trap receipt.
+		for assets in [self.holding, self.fees] {
+			if assets.is_empty() {
+				continue;
+			}
 			tracing::trace!(
 				target: "xcm::post_process",
-				holding_register = ?self.holding,
+				?assets,
 				context = ?self.context,
 				original_origin = ?self.original_origin,
-				"Trapping assets in holding register",
+				"Trapping leftover assets",
 			);
-			let claimer = self
-				.asset_claimer
-				.as_ref()
-				.or(self.context.origin.as_ref())
-				.unwrap_or(&self.original_origin);
-			let trap_weight = Config::AssetTrap::drop_assets(claimer, self.holding, &self.context);
+			let trap_weight = Config::AssetTrap::drop_assets(claimer, assets, &self.context);
 			weight_used.saturating_accrue(trap_weight);
-		};
+		}
 
 		match self.error {
 			None => Outcome::Complete { used: weight_used },

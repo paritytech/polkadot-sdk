@@ -106,6 +106,7 @@ impl<C> WeightBounds<C> for TestWeigher {
 thread_local! {
 	pub static ASSETS: RefCell<BTreeMap<Location, AssetsInHolding>> = RefCell::new(BTreeMap::new());
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static TRAPPED_ASSET_BATCHES: RefCell<Vec<Vec<Asset>>> = RefCell::new(Vec::new());
 }
 
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
@@ -272,6 +273,9 @@ pub const TRAPPED_ASSETS: [u8; 32] = [255; 32];
 pub struct TestAssetTrap;
 impl DropAssets for TestAssetTrap {
 	fn drop_assets(_origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
+		TRAPPED_ASSET_BATCHES.with(|batches| {
+			batches.borrow_mut().push(assets.assets_iter().collect());
+		});
 		ASSETS.with(|a| {
 			a.borrow_mut()
 				.entry(TRAPPED_ASSETS.into())
