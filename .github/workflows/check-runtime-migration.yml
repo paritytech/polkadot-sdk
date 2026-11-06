@@ -25,15 +25,31 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
+  # The Westend chains can run newer runtimes than the (un)stable release branches, which would make
+  # the check run a downgrade. Skip it for PRs from this repository into such a branch.
+  release-branch:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: check
+        env:
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        run: |
+          if [[ "${BASE_REF#refs/heads/}" =~ ^(un)?stable[0-9]{4}$ && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Prepare snapshots for all networks. Runs before the actual migration checks.
   # For scheduled runs: always create fresh snapshots.
   # For PRs: use cached snapshots if available, create if not.
-  # Skipped on (un)stable release branches: the Westend chains can run newer runtimes than these
-  # branches, which would make the check run a downgrade.
   prepare-snapshots:
     runs-on: ubuntu-latest
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust && !contains(github.base_ref, 'stable') && !contains(github.event.merge_group.base_ref, 'stable') }}
+    needs: [preflight, release-branch]
+    if: ${{ needs.preflight.outputs.changes_rust && needs.release-branch.outputs.skip != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -111,9 +127,9 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' && !contains(github.base_ref, 'stable') && !contains(github.event.merge_group.base_ref, 'stable') }}
+    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' && needs.release-branch.outputs.skip != 'true' }}
     timeout-minutes: 120
-    needs: [preflight, prepare-snapshots]
+    needs: [preflight, release-branch, prepare-snapshots]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
@@ -202,7 +218,7 @@ jobs:
     runs-on: ubuntu-latest
     name: All runtime migrations passed
     # If any new job gets added, be sure to add it to this array
-    needs: [preflight, check-runtime-migration]
+    needs: [preflight, release-branch, check-runtime-migration]
     if: always() && !cancelled() && github.event_name != 'schedule'
     steps:
       - run: |
