@@ -26,6 +26,170 @@ use sp_core::H256;
 mod benchmarks {
 	use super::*;
 
+    #[benchmark]
+    fn on_new_session_changed_n(n: Linear<1, 256>) {
+        // Build a validator set of size `n` with dummy accounts and authority ids.
+        let validators_owned: Vec<(T::AccountId, AuthorityId)> = (0..n)
+            .map(|i| {
+                let acc = account("val", i, 0);
+                let mut raw = [0u8; 32];
+                raw[0] = i as u8;
+                let auth_id = AuthorityId::from_raw(raw);
+                (acc, auth_id)
+            })
+            .collect();
+
+        // Convert into the expected iterator item type: (&AccountId, AuthorityId).
+        let validators_ref: Vec<(&T::AccountId, AuthorityId)> =
+            validators_owned.iter().map(|(a, k)| (a, k.clone())).collect();
+
+        #[block]
+        {
+            <Pallet<T> as frame_support::traits::OneSessionHandler<T::AccountId>>::on_new_session(
+                true,
+                validators_ref.iter().cloned(),
+                // Reuse the same iterator for queued validators; it is ignored by GRANDPA.
+                validators_ref.iter().cloned(),
+            );
+        }
+
+        // Touch a storage item to keep the optimizer honest.
+        let _ = CurrentSetId::<T>::get();
+    }
+
+    #[benchmark]
+    fn on_new_session_unchanged() {
+        // Small fixed validator set to exercise the unchanged path (changed = false).
+        let n: u32 = 4;
+        let validators_owned: Vec<(T::AccountId, AuthorityId)> = (0..n)
+            .map(|i| {
+                let acc = account("val", i, 0);
+                let mut raw = [0u8; 32];
+                raw[0] = i as u8;
+                let auth_id = AuthorityId::from_raw(raw);
+                (acc, auth_id)
+            })
+            .collect();
+
+        let validators_ref: Vec<(&T::AccountId, AuthorityId)> =
+            validators_owned.iter().map(|(a, k)| (a, k.clone())).collect();
+
+        #[block]
+        {
+            <Pallet<T> as frame_support::traits::OneSessionHandler<T::AccountId>>::on_new_session(
+                false,
+                validators_ref.iter().cloned(),
+                validators_ref.iter().cloned(),
+            );
+        }
+
+        let _ = CurrentSetId::<T>::get();
+    }
+
+    #[benchmark]
+    fn on_new_session_stalled() {
+        // Prepare a moderate validator set.
+        let n: u32 = 32;
+        let validators_owned: Vec<(T::AccountId, AuthorityId)> = (0..n)
+            .map(|i| {
+                let acc = account("val", i, 0);
+                let mut raw = [0u8; 32];
+                raw[0] = i as u8;
+                let auth_id = AuthorityId::from_raw(raw);
+                (acc, auth_id)
+            })
+            .collect();
+
+        let validators_ref: Vec<(&T::AccountId, AuthorityId)> =
+            validators_owned.iter().map(|(a, k)| (a, k.clone())).collect();
+
+        // Set the stalled flag via the dispatchable outside of the measured block.
+        let delay = 1000u32.into();
+        let best_finalized_block_number = 1u32.into();
+        let _ = Pallet::<T>::note_stalled(
+            RawOrigin::Root.into(),
+            delay,
+            best_finalized_block_number,
+        );
+
+        #[block]
+        {
+            // Use changed = false to specifically exercise the stalled branch.
+            <Pallet<T> as frame_support::traits::OneSessionHandler<T::AccountId>>::on_new_session(
+                false,
+                validators_ref.iter().cloned(),
+                validators_ref.iter().cloned(),
+            );
+        }
+
+        // Verify stalled flag is cleared after take().
+        assert!(Stalled::<T>::get().is_none());
+    }
+
+    #[benchmark]
+    fn on_new_session_pruning_boundary() {
+        // Prepare a validator set; size is moderate but not critical for pruning branch.
+        let n: u32 = 16;
+        let validators_owned: Vec<(T::AccountId, AuthorityId)> = (0..n)
+            .map(|i| {
+                let acc = account("val", i, 0);
+                let mut raw = [0u8; 32];
+                raw[0] = i as u8;
+                let auth_id = AuthorityId::from_raw(raw);
+                (acc, auth_id)
+            })
+            .collect();
+
+        let validators_ref: Vec<(&T::AccountId, AuthorityId)> =
+            validators_owned.iter().map(|(a, k)| (a, k.clone())).collect();
+
+        // Set CurrentSetId just before the pruning threshold and pre-insert the oldest entry
+        // so that the removal path does real work.
+        let max_entries = T::MaxSetIdSessionEntries::get().max(1);
+        CurrentSetId::<T>::put(max_entries - 1);
+        SetIdSession::<T>::insert(0, &pallet_session::Pallet::<T>::current_index());
+
+        #[block]
+        {
+            <Pallet<T> as frame_support::traits::OneSessionHandler<T::AccountId>>::on_new_session(
+                true,
+                validators_ref.iter().cloned(),
+                validators_ref.iter().cloned(),
+            );
+        }
+
+        // After increment, pruning should have removed key 0 when threshold is reached.
+        if T::MaxSetIdSessionEntries::get().max(1) > 0 {
+            assert!(!SetIdSession::<T>::contains_key(0));
+        }
+    }
+
+    #[benchmark]
+    fn on_genesis_session_n(n: Linear<1, 256>) {
+        let validators_owned: Vec<(T::AccountId, AuthorityId)> = (0..n)
+            .map(|i| {
+                let acc = account("val", i, 0);
+                let mut raw = [0u8; 32];
+                raw[0] = i as u8;
+                let auth_id = AuthorityId::from_raw(raw);
+                (acc, auth_id)
+            })
+            .collect();
+
+        let validators_ref: Vec<(&T::AccountId, AuthorityId)> =
+            validators_owned.iter().map(|(a, k)| (a, k.clone())).collect();
+
+        #[block]
+        {
+            <Pallet<T> as frame_support::traits::OneSessionHandler<T::AccountId>>::on_genesis_session(
+                validators_ref.iter().cloned(),
+            );
+        }
+
+        // Touch a storage item to avoid elimination.
+        let _ = CurrentSetId::<T>::get();
+    }
+
 	#[benchmark]
 	fn check_equivocation_proof(x: Linear<0, 1>) {
 		// NOTE: generated with the test below `test_generate_equivocation_report_blob`.
