@@ -73,8 +73,8 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 	/// Whether the PGAS asset is registered. Always `true` for backends without PGAS support.
 	///
-	/// Checked by the v4 migration before it starts, so it fails instead of completing with
-	/// nothing converted.
+	/// Checked by the v4 migration's `pre_upgrade`, so `try-runtime` rejects a runtime that would
+	/// run v4 with nothing to convert to.
 	fn pgas_asset_exists() -> bool {
 		true
 	}

@@ -26,11 +26,13 @@
 //! that enabled `PGasDeposit` before running this migration (and so already recorded some
 //! native code deposits) ends up with each owner credited exactly once.
 //!
-//! [`crate::CodeInfoOf`] does not record which asset paid a code deposit, so phase 1 credits
-//! every code deposit as native. If any code deposit was already paid in PGAS, those owners
-//! would be refunded native out of other uploaders' deposits. The migration therefore fails
-//! before changing anything when the pallet account holds PGAS under
-//! `CodeUploadDepositReserve`: v4 must run before the first PGAS-paid code upload.
+//! [`crate::CodeInfoOf`] does not record which asset paid a code deposit, so the rebuild above is
+//! only correct while every code deposit was paid in native. When the pallet account already
+//! holds PGAS under `CodeUploadDepositReserve` (code uploaded in PGAS after `PGasDeposit` was
+//! enabled), phase 1 instead handles the pallet account like phase 2 handles a contract: its
+//! existing rows, written for native paid after the switch, stay as they are, and the native hold
+//! they do not account for (code uploaded before the switch) is swapped to PGAS. Every code
+//! deposit without a row is then refunded from PGAS, and the native hold matches the rows exactly.
 //!
 //! Phase 2 iterates [`crate::AccountInfoOf`] and for each contract burns the part of the native
 //! `StorageDepositReserve` hold not recorded in the contract's [`crate::NativeDepositOf`] rows,
@@ -46,6 +48,12 @@
 //!
 //! Phases 1 and 2 are skipped when [`crate::Config::Deposit`] does not support PGAS (i.e. the
 //! default `()` backend); only phase 3 runs in that case.
+//!
+//! The migration never fails on chain: a failed multi-block migration is handled by the
+//! runtime's `FailedMigrationHandler`, which commonly freezes the chain. A swap to PGAS that
+//! fails (for example because the PGAS asset is not registered) rolls back, is logged, and leaves
+//! that account on native. `pre_upgrade` rejects a missing PGAS asset and `post_upgrade` rejects
+//! any account left on native, so `try-runtime` catches both before the runtime ships.
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{
@@ -119,40 +127,18 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			<T as Config>::WeightInfo::v4_clear_code_credit_step().saturating_add(code_step);
 		let contract_step = <T as Config>::WeightInfo::v4_contract_step();
 		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
-		// On a fresh run, the PGAS checks below read the asset and two holds before the first step.
-		let check_pgas = cursor.is_none() && T::Deposit::SUPPORTS_PGAS;
-		let check_weight =
-			if check_pgas { T::DbWeight::get().reads(3) } else { Default::default() };
-		let required = clear_step
-			.max(contract_step)
-			.max(deletion_queue_step)
-			.saturating_add(check_weight);
+		// The first step reads the pallet account's two code-deposit holds to pick between
+		// rebuilding its rows and swapping its unrecorded native, which costs a contract step.
+		let first_step = clear_step.max(contract_step).saturating_add(T::DbWeight::get().reads(2));
+		let required = first_step.max(deletion_queue_step);
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		// On a fresh run, refuse to start without the PGAS asset (phase 2 could convert nothing)
-		// or with PGAS-paid code deposits (phase 1 would credit them as native).
-		if check_pgas {
-			meter.consume(check_weight);
-			if !T::Deposit::pgas_asset_exists() {
-				log::error!(target: LOG_TARGET, "v4: the PGAS asset is not registered");
-				return Err(SteppedMigrationError::Failed);
-			}
-			let pgas_held = Self::pgas_code_deposits();
-			if !pgas_held.is_zero() {
-				log::error!(
-					target: LOG_TARGET,
-					"v4: pallet account holds {pgas_held:?} PGAS in code deposits; phase 1 would \
-					 credit them as native",
-				);
-				return Err(SteppedMigrationError::Failed);
-			}
-		}
-
 		loop {
 			let step_weight = match &cursor {
-				None | Some(Cursor::ClearCodeCredits(_)) => clear_step,
+				None => first_step,
+				Some(Cursor::ClearCodeCredits(_)) => clear_step,
 				Some(Cursor::CodeUpload(_)) => code_step,
 				Some(Cursor::Contract(_)) => contract_step,
 				Some(Cursor::DeletionQueue(_)) => deletion_queue_step,
@@ -161,10 +147,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				break;
 			}
 			let (next, rows_read) = Self::step_once_counting_rows(cursor);
-			// Phase 2 reads every `NativeDepositOf` row of the contract; charge those reads
+			// Swapping reads every `NativeDepositOf` row of the account; charge those reads
 			// after the fact, since their number is only known once read.
 			meter.consume(Self::native_row_reads(rows_read));
-			cursor = next?;
+			cursor = next;
 			if cursor.is_none() {
 				break;
 			}
@@ -176,19 +162,26 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::deposit_payment::Deposit;
 
+		// The pallet account's rows expected after phase 1, whether phase 1 swaps its unrecorded
+		// native instead of rebuilding them, and its code-deposit hold.
+		let pallet_account = Pallet::<T>::account_id();
+		let code_hold =
+			T::Deposit::total_on_hold(HoldReason::CodeUploadDepositReserve, &pallet_account);
 		let mut per_owner: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
+		let mut swap_code = false;
 		if T::Deposit::SUPPORTS_PGAS {
 			frame_support::ensure!(
 				T::Deposit::pgas_asset_exists(),
 				"v4: the PGAS asset is not registered; phase 2 would convert nothing",
 			);
-			frame_support::ensure!(
-				Self::pgas_code_deposits().is_zero(),
-				"v4: the pallet account holds PGAS code deposits; v4 would credit them as native",
-			);
-			for (_hash, info) in CodeInfoOf::<T>::iter() {
-				let entry = per_owner.entry(info.owner().clone()).or_default();
-				*entry = entry.saturating_add(info.deposit());
+			swap_code = !Self::pgas_code_deposits().is_zero();
+			if swap_code {
+				per_owner = NativeDepositOf::<T>::iter_prefix(&pallet_account).collect();
+			} else {
+				for (_hash, info) in CodeInfoOf::<T>::iter() {
+					let entry = per_owner.entry(info.owner().clone()).or_default();
+					*entry = entry.saturating_add(info.deposit());
+				}
 			}
 		}
 
@@ -215,21 +208,25 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				})
 				.collect();
 
-		Ok((per_owner, per_contract, deletion_queue).encode())
+		Ok((per_owner, swap_code, code_hold, per_contract, deletion_queue).encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::deposit_payment::Deposit;
 
-		let (per_owner, per_contract, deletion_queue) = <(
-			BTreeMap<T::AccountId, BalanceOf<T>>,
-			BTreeMap<H160, (BalanceOf<T>, BalanceOf<T>)>,
-			BTreeMap<u32, DeletionQueueItem<T>>,
-		)>::decode(&mut &prev[..])
-		.expect("Failed to decode pre_upgrade state");
+		let (per_owner, swap_code, code_hold, per_contract, deletion_queue) =
+			<(
+				BTreeMap<T::AccountId, BalanceOf<T>>,
+				bool,
+				BalanceOf<T>,
+				BTreeMap<H160, (BalanceOf<T>, BalanceOf<T>)>,
+				BTreeMap<u32, DeletionQueueItem<T>>,
+			)>::decode(&mut &prev[..])
+			.expect("Failed to decode pre_upgrade state");
 
-		// Phase 1 rebuilds the pallet account's rows from `CodeInfoOf` alone.
+		// Phase 1 either rebuilds the pallet account's rows from `CodeInfoOf` alone or, when it
+		// swaps the unrecorded native, keeps the rows it found.
 		let pallet_account = Pallet::<T>::account_id();
 		for (owner, got) in NativeDepositOf::<T>::iter_prefix(&pallet_account) {
 			if !per_owner.contains_key(&owner) {
@@ -247,26 +244,31 @@ impl<T: Config> SteppedMigration for Migration<T> {
 					target: LOG_TARGET,
 					"v4: NativeDepositOf[pallet][{owner:?}] = {got:?}, expected {expected:?}",
 				);
-				return Err(
-					"v4: pallet-account NativeDepositOf row does not match CodeInfoOf".into()
-				);
+				return Err("v4: pallet-account NativeDepositOf row does not match".into());
 			}
 		}
 		{
 			use frame_support::traits::fungible::InspectHold;
 
+			let reason = HoldReason::CodeUploadDepositReserve;
+			let total = T::Deposit::total_on_hold(reason, &pallet_account);
+			if total != code_hold {
+				log::error!(
+					target: LOG_TARGET,
+					"v4: pallet account code deposits changed: {total:?} != pre-migration {code_hold:?}",
+				);
+				return Err("v4: pallet account code deposits changed".into());
+			}
 			// `remove_code` refunds these rows from the native hold with `Precision::Exact`.
+			// After a swap the native hold is exactly the rows; a skipped swap leaves more.
 			let credited = Self::recorded_native(&pallet_account).0;
-			let native = T::Currency::balance_on_hold(
-				&HoldReason::CodeUploadDepositReserve.into(),
-				&pallet_account,
-			);
-			if credited > native {
+			let native = T::Currency::balance_on_hold(&reason.into(), &pallet_account);
+			if credited > native || (swap_code && credited != native) {
 				log::error!(
 					target: LOG_TARGET,
 					"v4: pallet account credits {credited:?} native code deposits but holds {native:?}",
 				);
-				return Err("v4: pallet account credits more native than it holds".into());
+				return Err("v4: pallet account native code deposits do not match its rows".into());
 			}
 		}
 
@@ -333,16 +335,12 @@ impl<T: Config> Migration<T> {
 	/// Run a single iteration of the migration's inner loop, returning the next cursor or
 	/// `None` if the migration is complete.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn step_once(
-		cursor: Option<CursorOf<T>>,
-	) -> Result<Option<CursorOf<T>>, SteppedMigrationError> {
+	pub(crate) fn step_once(cursor: Option<CursorOf<T>>) -> Option<CursorOf<T>> {
 		Self::step_once_counting_rows(cursor).0
 	}
 
-	/// [`Self::step_once`], also returning how many [`NativeDepositOf`] rows phase 2 read.
-	fn step_once_counting_rows(
-		cursor: Option<CursorOf<T>>,
-	) -> (Result<Option<CursorOf<T>>, SteppedMigrationError>, u32) {
+	/// [`Self::step_once`], also returning how many [`NativeDepositOf`] rows a swap read.
+	fn step_once_counting_rows(cursor: Option<CursorOf<T>>) -> (Option<CursorOf<T>>, u32) {
 		let mut rows_read = 0;
 		let next = Self::step_once_inner(cursor, &mut rows_read);
 		(next, rows_read)
@@ -383,14 +381,11 @@ impl<T: Config> Migration<T> {
 		T::Deposit::total_on_hold(reason, &pallet_account).saturating_sub(native)
 	}
 
-	fn step_once_inner(
-		cursor: Option<CursorOf<T>>,
-		rows_read: &mut u32,
-	) -> Result<Option<CursorOf<T>>, SteppedMigrationError> {
+	fn step_once_inner(cursor: Option<CursorOf<T>>, rows_read: &mut u32) -> Option<CursorOf<T>> {
 		// Without PGAS support phases 1 and 2 are no-ops, so skip straight to phase 3.
 		// Forced on under `runtime-benchmarks` so per-phase weights are still measured.
 		if !T::Deposit::SUPPORTS_PGAS && !cfg!(feature = "runtime-benchmarks") {
-			return Ok(match cursor {
+			return match cursor {
 				None |
 				Some(Cursor::ClearCodeCredits(_)) |
 				Some(Cursor::CodeUpload(_)) |
@@ -399,10 +394,14 @@ impl<T: Config> Migration<T> {
 					Some(next) => Some(Cursor::DeletionQueue(Some(next))),
 					None => None,
 				},
-			});
+			};
 		}
 
-		Ok(match cursor {
+		match cursor {
+			None if !Self::pgas_code_deposits().is_zero() => {
+				Self::swap_unrecorded_code_deposits(rows_read);
+				Some(Cursor::Contract(None))
+			},
 			None | Some(Cursor::ClearCodeCredits(None)) => {
 				match Self::clear_one_code_credit(None) {
 					Some(owner) => Some(Cursor::ClearCodeCredits(Some(owner))),
@@ -414,7 +413,7 @@ impl<T: Config> Migration<T> {
 				None => Self::step_1_code_upload(None),
 			},
 			Some(Cursor::CodeUpload(last)) => Self::step_1_code_upload(Some(last)),
-			Some(Cursor::Contract(last)) => Some(match Self::step_2_contract(last, rows_read)? {
+			Some(Cursor::Contract(last)) => Some(match Self::step_2_contract(last, rows_read) {
 				Some(next) => Cursor::Contract(Some(next)),
 				None => Cursor::DeletionQueue(None),
 			}),
@@ -422,7 +421,50 @@ impl<T: Config> Migration<T> {
 				Some(next) => Some(Cursor::DeletionQueue(Some(next))),
 				None => None,
 			},
-		})
+		}
+	}
+
+	/// Swap the part of `who`'s native hold under `reason` that its [`NativeDepositOf`] rows do
+	/// not account for to PGAS, leaving the rows and the native they are owed in place.
+	///
+	/// The rows were written by `PGasDeposit` for native paid after it was enabled, and
+	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
+	/// native would leave those payers unable to be refunded. A failed swap rolls back and is
+	/// logged, leaving `who` on native; `post_upgrade` reports it. `rows_read` is increased by
+	/// the number of rows read.
+	fn swap_unrecorded_native(reason: HoldReason, who: &T::AccountId, rows_read: &mut u32) {
+		use frame_support::traits::fungible::InspectHold;
+
+		let held = T::Currency::balance_on_hold(&reason.into(), who);
+		let (owed_native, rows) = Self::recorded_native(who);
+		*rows_read = rows_read.saturating_add(rows);
+		if owed_native > held {
+			log::warn!(
+				target: LOG_TARGET,
+				"v4: {who:?} records {owed_native:?} native owed under {reason:?} but holds {held:?}",
+			);
+		}
+		let to_swap = held.saturating_sub(owed_native);
+		if let Err(err) = T::Deposit::migrate_native_to_pgas(reason, who, to_swap) {
+			log::error!(
+				target: LOG_TARGET,
+				"v4: failed to migrate native -> PGAS {reason:?} deposit of {who:?}: {err:?}",
+			);
+		}
+	}
+
+	/// Phase 1 when the pallet account already holds PGAS code deposits.
+	///
+	/// [`CodeInfoOf`] does not record which asset paid, so the rows cannot be rebuilt from it.
+	/// The existing rows are correct (written for native code deposits paid after the switch),
+	/// and every code deposit without a row was paid either in native before the switch or in
+	/// PGAS after it. Swapping the unrecorded native to PGAS refunds all of those from PGAS.
+	fn swap_unrecorded_code_deposits(rows_read: &mut u32) {
+		Self::swap_unrecorded_native(
+			HoldReason::CodeUploadDepositReserve,
+			&Pallet::<T>::account_id(),
+			rows_read,
+		);
 	}
 
 	/// Before phase 1: remove the pallet account's next [`NativeDepositOf`] row after `last`.
@@ -462,56 +504,20 @@ impl<T: Config> Migration<T> {
 		Some(Cursor::CodeUpload(hash))
 	}
 
-	/// Phase 2: hand the next contract to [`Deposit::migrate_native_to_pgas`]. EOAs are
-	/// skipped but still advance the cursor.
-	///
-	/// A failed swap fails the whole migration. The swap rolls back, so logging and moving on
-	/// would let v4 complete and be recorded with the contract still on native, and it would
-	/// never run again (e.g. when the PGAS asset is not registered yet).
-	///
-	/// Only the native hold not recorded in the contract's [`NativeDepositOf`] rows is swapped.
-	/// The rows were written by `PGasDeposit` for native paid after it was enabled, and
-	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
-	/// native would leave those payers unable to free storage. `rows_read` is increased by the
-	/// number of rows read.
-	fn step_2_contract(
-		last: Option<H160>,
-		rows_read: &mut u32,
-	) -> Result<Option<H160>, SteppedMigrationError> {
-		use frame_support::traits::fungible::InspectHold;
-
+	/// Phase 2: swap the next contract's unrecorded native storage deposit to PGAS with
+	/// [`Self::swap_unrecorded_native`]. EOAs are skipped but still advance the cursor.
+	fn step_2_contract(last: Option<H160>, rows_read: &mut u32) -> Option<H160> {
 		let mut iter = match last {
 			Some(last) => AccountInfoOf::<T>::iter_from(AccountInfoOf::<T>::hashed_key_for(last)),
 			None => AccountInfoOf::<T>::iter(),
 		};
 
-		let Some((addr, info)) = iter.next() else { return Ok(None) };
+		let (addr, info) = iter.next()?;
 		if matches!(info.account_type, AccountType::Contract(_)) {
 			let contract = T::AddressMapper::to_account_id(&addr);
-			let held =
-				T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract);
-			let (owed_native, rows) = Self::recorded_native(&contract);
-			*rows_read = rows_read.saturating_add(rows);
-			if owed_native > held {
-				log::warn!(
-					target: LOG_TARGET,
-					"v4: contract {addr:?} records {owed_native:?} native owed but holds {held:?}",
-				);
-			}
-			let to_swap = held.saturating_sub(owed_native);
-			if let Err(err) = T::Deposit::migrate_native_to_pgas(
-				HoldReason::StorageDepositReserve,
-				&contract,
-				to_swap,
-			) {
-				log::error!(
-					target: LOG_TARGET,
-					"v4: failed to migrate native -> PGAS deposit for contract {addr:?}: {err:?}",
-				);
-				return Err(SteppedMigrationError::Failed);
-			}
+			Self::swap_unrecorded_native(HoldReason::StorageDepositReserve, &contract, rows_read);
 		}
-		Ok(Some(addr))
+		Some(addr)
 	}
 
 	/// Phase 3: rewrite the next [`DeletionQueue`] slot from the old `TrieId`-only layout
@@ -675,44 +681,87 @@ mod tests {
 		});
 	}
 
-	/// Code paid in PGAS has no native behind it, but phase 1 would credit it as native and
-	/// `remove_code` would pay it from other uploaders' native deposits. v4 refuses to start.
-	#[test]
-	fn phase_one_fails_when_code_deposits_were_paid_in_pgas() {
+	/// Seeds the pallet account as a chain that enabled `PGasDeposit` before v4 leaves it: code
+	/// paid in native before the switch (no row), in native after it (row), and in PGAS after it
+	/// (no row, held in PGAS).
+	fn seed_code_uploads_paid_in_both(
+		legacy_owner: &AccountId32,
+		native_owner: &AccountId32,
+		pgas_owner: &AccountId32,
+	) {
 		use frame_support::traits::tokens::fungibles::{
 			Inspect as _, Mutate as _, MutateHold as _,
 		};
 
+		let pallet_account = Pallet::<Test>::account_id();
+		seed_code_upload(H256::repeat_byte(0xAA), legacy_owner.clone(), 1_000);
+		seed_code_upload(H256::repeat_byte(0xAB), native_owner.clone(), 500);
+		NativeDepositOf::<Test>::insert(&pallet_account, native_owner, 500);
+
+		let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
+		Assets::mint_into(PGasAssetId::get(), &pallet_account, pgas_ed + 400).unwrap();
+		AssetsHolder::hold(
+			PGasAssetId::get(),
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+			400,
+		)
+		.unwrap();
+		CodeInfoOf::<Test>::insert(
+			H256::repeat_byte(0xBB),
+			CodeInfo::<Test>::new_with_deposit(pgas_owner.clone(), 400),
+		);
+	}
+
+	/// `CodeInfoOf` cannot tell code paid in PGAS from code paid in native before the switch, so
+	/// rebuilding the rows would credit PGAS-paid code as native. Instead v4 keeps the existing
+	/// rows and swaps the unrecorded native to PGAS, and every owner can remove their code.
+	#[test]
+	fn phase_one_swaps_unrecorded_code_deposits_when_some_were_paid_in_pgas() {
+		use frame_support::traits::tokens::fungibles::InspectHold;
+
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			let pallet_account = Pallet::<Test>::account_id();
-			let native_owner = AccountId32::new([1; 32]);
-			let pgas_owner = AccountId32::new([2; 32]);
-			seed_code_upload(H256::repeat_byte(0xAA), native_owner.clone(), 1_000);
+			let legacy_owner = AccountId32::new([1; 32]);
+			let native_owner = AccountId32::new([2; 32]);
+			let pgas_owner = AccountId32::new([3; 32]);
+			for owner in [&legacy_owner, &native_owner, &pgas_owner] {
+				<Test as Config>::Currency::set_balance(owner, 1_000_000);
+			}
+			seed_code_uploads_paid_in_both(&legacy_owner, &native_owner, &pgas_owner);
 
-			// Uploaded after the switch and paid in PGAS: no native, no row.
-			let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
-			Assets::mint_into(PGasAssetId::get(), &pallet_account, pgas_ed + 400).unwrap();
-			AssetsHolder::hold(
-				PGasAssetId::get(),
-				&HoldReason::CodeUploadDepositReserve.into(),
-				&pallet_account,
-				400,
-			)
-			.unwrap();
-			CodeInfoOf::<Test>::insert(
-				H256::repeat_byte(0xBB),
-				CodeInfo::<Test>::new_with_deposit(pgas_owner.clone(), 400),
+			V4::run_to_completion();
+
+			let reason = HoldReason::CodeUploadDepositReserve;
+			assert_eq!(NativeDepositOf::<Test>::iter_prefix(&pallet_account).count(), 1);
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &native_owner), 500);
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(&reason.into(), &pallet_account),
+				500,
 			);
-			NativeDepositOf::<Test>::insert(&pallet_account, &native_owner, 1_000);
+			assert_eq!(
+				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &pallet_account),
+				1_400,
+			);
 
-			assert!(matches!(
-				V4::step(None, &mut WeightMeter::new()),
-				Err(SteppedMigrationError::Failed)
-			));
-
-			// Nothing was cleared or credited.
-			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &native_owner), 1_000);
-			assert!(!NativeDepositOf::<Test>::contains_key(&pallet_account, &pgas_owner));
+			// Every owner can remove their code; the native owner is refunded in native.
+			let free_before = <Test as Config>::Currency::balance(&native_owner);
+			for (owner, hash) in [
+				(&legacy_owner, H256::repeat_byte(0xAA)),
+				(&pgas_owner, H256::repeat_byte(0xBB)),
+				(&native_owner, H256::repeat_byte(0xAB)),
+			] {
+				assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(owner.clone()), hash));
+			}
+			assert_eq!(<Test as Config>::Currency::balance(&native_owner), free_before + 500);
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(&reason.into(), &pallet_account),
+				0,
+			);
+			assert_eq!(
+				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &pallet_account),
+				0,
+			);
 		});
 	}
 
@@ -870,10 +919,11 @@ mod tests {
 		});
 	}
 
-	/// Running v4 before the PGAS asset is registered fails instead of completing with nothing
-	/// converted. Every contract keeps its native storage deposit and no currency is burned.
+	/// Running v4 before the PGAS asset is registered does not fail on chain, which could freeze
+	/// it: every swap rolls back and is logged, v4 completes, and every contract keeps its native
+	/// storage deposit with no currency burned. `pre_upgrade` rejects this state instead.
 	#[test]
-	fn phase_two_without_pgas_asset_fails_and_keeps_native_deposits() {
+	fn phase_two_without_pgas_asset_completes_and_keeps_native_deposits() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			pallet_assets::Asset::<Test>::remove(PGasAssetId::get());
 
@@ -893,7 +943,7 @@ mod tests {
 					other => break other,
 				}
 			};
-			assert_eq!(result, Err(SteppedMigrationError::Failed));
+			assert_eq!(result, Ok(None));
 
 			for (address, deposit) in [(c1, 700), (c2, 1_300)] {
 				let contract = <Test as Config>::AddressMapper::to_account_id(&address);
@@ -1190,6 +1240,37 @@ mod tests {
 			assert_ok!(V4::post_upgrade(state.clone()));
 
 			NativeDepositOf::<Test>::insert(&pallet_account, AccountId32::new([3; 32]), 100);
+			assert!(V4::post_upgrade(state).is_err());
+		});
+	}
+
+	/// `pre_upgrade` and `post_upgrade` pass when the pallet account already holds PGAS code
+	/// deposits, and `post_upgrade` rejects native code deposits beyond what the rows owe.
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn try_runtime_checks_pass_with_pgas_code_deposits_and_catch_extra_native() {
+		use frame_support::traits::fungible::{Mutate as _, MutateHold as _};
+
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let pallet_account = Pallet::<Test>::account_id();
+			seed_code_uploads_paid_in_both(
+				&AccountId32::new([1; 32]),
+				&AccountId32::new([2; 32]),
+				&AccountId32::new([3; 32]),
+			);
+
+			let state = V4::pre_upgrade().unwrap();
+			V4::run_to_completion();
+			assert_ok!(V4::post_upgrade(state.clone()));
+
+			// Native held for code beyond what the rows owe.
+			<Test as Config>::Currency::mint_into(&pallet_account, 100).unwrap();
+			<Test as Config>::Currency::hold(
+				&HoldReason::CodeUploadDepositReserve.into(),
+				&pallet_account,
+				100,
+			)
+			.unwrap();
 			assert!(V4::post_upgrade(state).is_err());
 		});
 	}

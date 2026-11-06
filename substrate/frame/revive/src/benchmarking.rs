@@ -4283,7 +4283,7 @@ mod benchmarks {
 			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
 		);
 
-		let first = match v4::Migration::<T>::step_once(None).unwrap() {
+		let first = match v4::Migration::<T>::step_once(None) {
 			Some(v4::Cursor::CodeUpload(h)) => h,
 			other => panic!("expected CodeUpload cursor, got {other:?}"),
 		};
@@ -4321,14 +4321,13 @@ mod benchmarks {
 				deposit,
 			);
 		}
-		let cursor =
-			v4::Migration::<T>::step_once(Some(v4::Cursor::ClearCodeCredits(None))).unwrap();
+		let cursor = v4::Migration::<T>::step_once(Some(v4::Cursor::ClearCodeCredits(None)));
 		assert!(matches!(cursor, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
 
 		let next;
 		#[block]
 		{
-			next = v4::Migration::<T>::step_once(cursor).unwrap();
+			next = v4::Migration::<T>::step_once(cursor);
 		}
 
 		assert!(matches!(next, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
@@ -4370,7 +4369,7 @@ mod benchmarks {
 			.unwrap();
 		}
 
-		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))).unwrap() {
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {
 			Some(v4::Cursor::Contract(Some(addr))) => addr,
 			other => panic!("expected Contract cursor, got {other:?}"),
 		};
@@ -4415,11 +4414,10 @@ mod benchmarks {
 		v4::old::DeletionQueue::<T>::insert(0u32, trie_a);
 		v4::old::DeletionQueue::<T>::insert(1u32, trie_b);
 
-		let first =
-			match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))).unwrap() {
-				Some(v4::Cursor::DeletionQueue(Some(key))) => key,
-				other => panic!("expected DeletionQueue cursor, got {other:?}"),
-			};
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
+			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
+			other => panic!("expected DeletionQueue cursor, got {other:?}"),
+		};
 		let cursor = Some(v4::Cursor::DeletionQueue(Some(first)));
 
 		#[block]
