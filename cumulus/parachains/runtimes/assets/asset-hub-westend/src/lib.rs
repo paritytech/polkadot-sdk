@@ -1924,6 +1924,8 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
+	// Stores the registration base deposit of every signed election submission.
+	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

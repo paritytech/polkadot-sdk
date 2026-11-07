@@ -68,6 +68,7 @@ impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
 
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
+	pub static SignedDepositBaseIncrease: Balance = 0;
 	pub static SignedDepositPerPage: Balance = 1;
 	pub static InvulnerableDeposit: Balance = 7;
 	pub static SignedMaxSubmissions: u32 = 3;
@@ -77,9 +78,17 @@ parameter_types! {
 	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
 }
 
+/// A base deposit that grows with the number of submitters already in the queue.
+pub struct MockDepositBase;
+impl signed_pallet::CalculateBaseDeposit<Balance> for MockDepositBase {
+	fn calculate_base_deposit(existing_submitters: usize) -> Balance {
+		SignedDepositBase::get() + SignedDepositBaseIncrease::get() * existing_submitters as Balance
+	}
+}
+
 impl crate::signed::Config for Runtime {
 	type Currency = Balances;
-	type DepositBase = SignedDepositBase;
+	type DepositBase = MockDepositBase;
 	type DepositPerPage = SignedDepositPerPage;
 	type InvulnerableDeposit = InvulnerableDeposit;
 	type EstimateCallFee = FixedCallFee;
