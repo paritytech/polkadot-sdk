@@ -137,7 +137,7 @@ pub mod pallet {
 				roles::Inspect as FungiblesRolesInspect, Inspect as FungiblesInspect,
 				Mutate as FungiblesMutate,
 			},
-			tokens::{Fortitude, Precision, Preservation},
+			tokens::{DepositConsequence, Fortitude, Precision, Preservation, Provenance},
 			CallerTrait, Consideration, EnsureOriginWithArg, Footprint, OriginTrait,
 		},
 		PalletId,
@@ -655,6 +655,8 @@ pub mod pallet {
 		/// An admin origin was supplied that cannot be used as an authority, such as the system
 		/// `None` origin.
 		InvalidAdminOrigin,
+		/// The PSM reserve account cannot receive the external asset.
+		ReserveCannotReceive,
 	}
 
 	#[pallet::call]
@@ -671,7 +673,8 @@ pub mod pallet {
 		/// `internal_asset`'s PSM reserve account, then mints `internal_asset` to the
 		/// caller minus the minting fee. The fee is calculated using ceiling rounding
 		/// (`mul_ceil`), ensuring the protocol never undercharges. The fee is
-		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance.
+		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance, and waived
+		/// if that account cannot receive it.
 		///
 		/// ## Parameters
 		///
@@ -728,6 +731,16 @@ pub mod pallet {
 			let fee_rate = MintingFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
 			let fee = fee_rate.mul_ceil(internal_equivalent);
+			// Waive the fee if the fee destination cannot receive it, so it never blocks swaps.
+			let fee = match T::Fungibles::can_deposit(
+				internal_asset.clone(),
+				&info.fee_destination,
+				fee,
+				Provenance::Minted,
+			) {
+				DepositConsequence::Success => fee,
+				_ => Zero::zero(),
+			};
 			let internal_to_user = internal_equivalent.saturating_sub(fee);
 
 			let current_total_psm_debt = Self::total_psm_debt(&internal_asset);
@@ -776,8 +789,9 @@ pub mod pallet {
 		/// ## Details
 		///
 		/// Burns `internal_amount` of `internal_asset` from the caller minus fee (transferred
-		/// to the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
-		/// amount in `external_asset` from the PSM reserve to the caller. The fee is
+		/// to the instance's [`PsmInfo::fee_destination`], or waived if that account cannot
+		/// receive it), then transfers the resulting amount in `external_asset` from the PSM
+		/// reserve to the caller. The fee is
 		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
 		/// undercharges. Redemptions use the decimals snapshotted when the PSM/external pair
 		/// was registered, allowing existing positions to unwind even if live metadata later
@@ -830,7 +844,17 @@ pub mod pallet {
 
 			let fee_rate = RedemptionFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
-			let mut fee = fee_rate.mul_ceil(internal_amount);
+			let fee = fee_rate.mul_ceil(internal_amount);
+			// Waive the fee if the fee destination cannot receive it, so it never blocks swaps.
+			let mut fee = match T::Fungibles::can_deposit(
+				internal_asset.clone(),
+				&info.fee_destination,
+				fee,
+				Provenance::Extant,
+			) {
+				DepositConsequence::Success => fee,
+				_ => Zero::zero(),
+			};
 			let internal_net = internal_amount.saturating_sub(fee);
 
 			let external_out =
@@ -856,12 +880,21 @@ pub mod pallet {
 			}
 
 			// `burn_from` would also burn a remainder below `min_balance`, which this pair's debt
-			// may not cover. Send it to the fee destination along with the fee instead.
+			// may not cover. Send it to the fee destination along with the fee instead, if the fee
+			// destination can receive it.
 			let remainder = T::Fungibles::balance(internal_asset.clone(), &who)
 				.saturating_sub(fee.saturating_add(effective_internal_net));
 
-			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) {
-				fee.saturating_accrue(remainder);
+			let with_remainder = fee.saturating_add(remainder);
+			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) &&
+				T::Fungibles::can_deposit(
+					internal_asset.clone(),
+					&info.fee_destination,
+					with_remainder,
+					Provenance::Extant,
+				) == DepositConsequence::Success
+			{
+				fee = with_remainder;
 			}
 
 			if !fee.is_zero() {
@@ -932,7 +965,8 @@ pub mod pallet {
 		///   fungibles backend; must not already have a PSM registered.
 		/// - `full_admin`: Origin granted full management of the new PSM.
 		/// - `emergency_admin`: Origin granted emergency management of the new PSM.
-		/// - `fee_destination`: Account that will receive mint/redeem fees.
+		/// - `fee_destination`: Account that will receive mint/redeem fees. Fees are waived while
+		///   it cannot receive the internal asset.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
 		/// - `min_swap_amount`: Minimum swap amount for this instance, in internal-asset units.
 		///   Must be non-zero.
@@ -1001,14 +1035,6 @@ pub mod pallet {
 					deposit,
 				},
 			);
-			// Acquire a provider reference on the reserve account and the fee destination for the
-			// lifetime of this PSM, so they can hold non-sufficient assets (external collateral /
-			// minted fees). Released in `remove_psm`. Unconditional (rather than
-			// `ensure_account_exists`) so the inc/dec is symmetric even when an account already
-			// exists or is shared across PSMs.
-			frame_system::Pallet::<T>::inc_providers(&Self::psm_account(&internal_asset));
-			frame_system::Pallet::<T>::inc_providers(&fee_destination);
-
 			Self::deposit_event(Event::PsmCreated {
 				internal_asset,
 				full_admin: Box::new(full_admin),
@@ -1058,12 +1084,6 @@ pub mod pallet {
 
 			Psm::<T>::remove(&internal_asset);
 			PsmAdmin::<T>::remove(&internal_asset);
-
-			// Release the provider references acquired in `create_psm`. Reaps each account when
-			// empty; a `ConsumerRemaining` error just means it still holds funds and must stay
-			// alive, so the result is intentionally discarded.
-			frame_system::Pallet::<T>::dec_providers(&Self::psm_account(&internal_asset)).ok();
-			frame_system::Pallet::<T>::dec_providers(&info.fee_destination).ok();
 
 			Self::deposit_event(Event::PsmRemoved { internal_asset });
 			Ok(())
@@ -1303,6 +1323,10 @@ pub mod pallet {
 		/// Snapshots the external asset's live decimals at registration time and
 		/// increments [`PsmInfo::external_count`].
 		///
+		/// The reserve account ([`Pallet::reserve_account`]) must already be able to receive
+		/// `external_asset`. For a non-sufficient asset, create its asset account first (e.g. via
+		/// `touch_other`).
+		///
 		/// ## Dispatch Origin
 		///
 		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
@@ -1322,6 +1346,8 @@ pub mod pallet {
 		///   fungibles backend.
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
 		///   [`MAX_DECIMALS_DIFF`].
+		/// - [`Error::ReserveCannotReceive`]: If the reserve account cannot receive
+		///   `external_asset`.
 		///
 		/// ## Events
 		///
@@ -1349,6 +1375,16 @@ pub mod pallet {
 			ensure!(
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
+			);
+
+			ensure!(
+				T::Fungibles::can_deposit(
+					external_asset.clone(),
+					&Self::psm_account(&internal_asset),
+					T::Fungibles::minimum_balance(external_asset.clone()),
+					Provenance::Extant,
+				) == DepositConsequence::Success,
+				Error::<T>::ReserveCannotReceive
 			);
 
 			ExternalAssets::<T>::insert(
@@ -1508,6 +1544,14 @@ pub mod pallet {
 				new_admin: Box::new(new_admin),
 			});
 			Ok(())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// The reserve account of the PSM instance for `internal_asset`.
+		pub fn reserve_account(internal_asset: T::AssetId) -> T::AccountId {
+			Self::psm_account(&internal_asset)
 		}
 	}
 
