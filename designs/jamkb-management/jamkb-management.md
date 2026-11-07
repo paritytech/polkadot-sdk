@@ -94,8 +94,8 @@ It can drift in two cases:
 - The Parachain Service does not record an incoming transfer: it cannot pay
   for its queue entry, or its processing fails. The funds stay on the
   Parachain Service and Asset Hub does not see them.
-- A failure entry is lost before Asset Hub reads it, because `parachain_log`
-  was overwritten. Asset Hub settles a transfer that never happened.
+- A failure entry is lost before Asset Hub reads it, because it was evicted
+  from `parachain_log`. Asset Hub settles a transfer that never happened.
 
 The first is detected from the Parachain Service balance (§3.4) and fixed
 by governance with `force_transfer`; the second is prevented by the
@@ -198,9 +198,9 @@ account. On failure the pallet undoes what the call did, unless the payload
 says otherwise.
 
 To resolve operations, the pallet receives each operation's outcome from the
-parachain-system pallet (§3.4): the block that the message was sent in and
-the `parachain_log` entries. A failure entry marks it `Failed`, otherwise it
-is `Confirmed` (§5.1). The operations are settled in `on_poll` within its
+parachain-system pallet (§3.4): the timeslot it was accumulated at and its
+`parachain_log` entries. A failure entry marks it `Failed`, otherwise it is
+`Confirmed` (§5.1). The operations are settled in `on_poll` within its
 weight budget. A failed settlement is retried by `settle` only. At most
 `MAX_UNSETTLED_OPERATIONS` operations are unsettled; past the limit a call
 that records one is rejected with `TooManyOperations`.
@@ -265,13 +265,11 @@ type OperationId = u64;
 /// A JAM service index.
 type ServiceId = u32;
 
-/// A JAM timeslot.
+/// A JAM timeslot. All times and durations of the pallet are in timeslots.
 type Timeslot = u32;
-/// An Asset Hub block number.
-type BlockNumber = u32;
 
 /// Added to the lease end (`reclaim`, §4.3).
-const LEASE_GRACE_PERIOD: BlockNumber;
+const LEASE_GRACE_PERIOD: Timeslot;
 
 /// The cap on a target's accepted leases: those in `Delivering`, `Delivered`
 /// or `Reclaiming`.
@@ -317,21 +315,22 @@ struct Allocation {
     /// unsettled `Increase`s.
     amount: Balance,
     state: AllocationState,
-    delivered_at: Option<BlockNumber>,
-                                      // the block the delivery was sent in.
-                                      // A lease ends at
+    delivered_at: Option<Timeslot>,
+                                      // the timeslot the delivery was
+                                      // accumulated at. A lease ends at
                                       // `delivered_at + duration`
     approver: Option<AccountId>,      // the signing account or contract;
                                       // `None`: governance, for a permanent
                                       // release
-    valid_from: BlockNumber,          // `accept_lease` and `execute_release`
-                                      // are rejected before this block
-    expires_at: BlockNumber,          // `accept_lease` and `execute_release`
-                                      // are rejected from this block on
+    valid_from: Timeslot,             // `accept_lease` and `execute_release`
+                                      // are rejected before this timeslot
+    expires_at: Timeslot,             // `valid_from + valid_for`;
+                                      // `accept_lease` and `execute_release`
+                                      // are rejected from this timeslot on
 }
 
 enum AllocationMode {
-    Lease { duration: BlockNumber },
+    Lease { duration: Timeslot },
     Permanent { memo: [u8; 128] },    // the memo of the release (§5.2)
 }
 
@@ -354,9 +353,9 @@ struct Operation {
     id: OperationId,                  // unique operation Id (§5.1)
     payload: OperationPayload,
     state: OperationState,
-    submitted_at: Option<BlockNumber>,
-                                      // the block the messages were sent in;
-                                      // unset until reported (§3.4)
+    accumulated_at: Option<Timeslot>,
+                                      // the timeslot it was accumulated at
+                                      // (§3.4); unset until reported
 }
 
 /// The operation's data payload.
@@ -368,7 +367,7 @@ enum OperationPayload {
     /// gas of §5.2.
     ///
     /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
-    /// set to the operation's `submitted_at`; for a release, the held units
+    /// set to the operation's `accumulated_at`; for a release, the held units
     /// move from custody to the `released` account.
     Delivery {
         allocation: AllocationId,
@@ -401,7 +400,7 @@ enum OperationPayload {
     ///
     /// Confirmed: `amount` is released from the hold and the allocation's
     /// amount falls by `amount`; a fully returned lease moves to `Closed`.
-    /// Failed: a `Reclaim` whose `submitted_at` is past the lease end and
+    /// Failed: a `Reclaim` whose `accumulated_at` is past the lease end and
     /// `LEASE_GRACE_PERIOD` moves a `Delivered` lease to `Reclaiming`;
     /// otherwise the lease keeps its state.
     Reclaim {
@@ -444,7 +443,7 @@ enum OperationPayload {
     /// One `Forget { target: Service(target), hash, len }`.
     ///
     /// Confirmed and Failed: no further state change. `ForgetAgainAt { due }`
-    /// gives the timeslot of the second call.
+    /// gives the timeslot after which a second call expunges.
     Forget {
         target: ServiceId,
         hash: Hash,
@@ -555,11 +554,11 @@ enum Event {
     Attested { anchor: Anchor, released: Balance },
     ReleaseApproved { id: AllocationId, target: ServiceId, amount: Balance },
     LeaseOffered { id: AllocationId, target: ServiceId, amount: Balance,
-                   duration: BlockNumber },
+                   duration: Timeslot },
     AllocationCancelled { id: AllocationId },
     LeaseClosed { id: AllocationId, amount: Balance },
     LeaseIncreased { id: AllocationId, additional: Balance },
-    LeaseExtended { id: AllocationId, duration: BlockNumber },
+    LeaseExtended { id: AllocationId, duration: Timeslot },
     /// `allocation` is `None` for a redemption, a refund, a move or a recovery
     /// operation.
     OperationRequested { id: OperationId, allocation: Option<AllocationId> },
@@ -634,10 +633,10 @@ fn grant(beneficiary: AccountId, amount: Balance);
 /// Approves a permanent release to `target`. Origin: governance (Root).
 /// Records `Allocation{mode: Permanent { memo }, state: Approved}` and holds
 /// `amount` on custody (§3.3). `memo` goes to `target` unchanged (§5.2).
-/// `valid_from` `None` means the current block. Rejected when `target` is the
-/// Parachain Service.
+/// `valid_from` `None` means the current timeslot. Rejected when `target` is
+/// the Parachain Service.
 fn approve_release(target: ServiceId, amount: Balance, memo: [u8; 128],
-                   valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+                   valid_from: Option<Timeslot>, valid_for: Timeslot);
 
 /// Executes an approved release. Origin: any signed account. Legal while
 /// the allocation is `Approved`. Moves the allocation to `Delivering` and
@@ -655,10 +654,10 @@ fn redeem(amount: Balance, target: ServiceId, memo: [u8; 128]);
 /// Offers a lease of `amount` to `target` for `duration`. Origin: a token
 /// holder. Records `Allocation{mode: Lease, state: Approved}` and holds
 /// `amount` on the approver's account (§3.3). `valid_from` `None` means the
-/// current block. Rejected if the target has no service account or is the
+/// current timeslot. Rejected if the target has no service account or is the
 /// Parachain Service.
-fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
-               valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+fn offer_lease(target: ServiceId, amount: Balance, duration: Timeslot,
+               valid_from: Option<Timeslot>, valid_for: Timeslot);
 
 /// Accepts an offered lease. Origin: the target's service account
 /// (`ServiceAccounts`). Legal while the allocation is `Approved`. Rejected
@@ -675,7 +674,7 @@ fn increase_lease(id: AllocationId, additional: Balance);
 /// Sets the lease's `duration`. Origin: the lease's approver. Legal while the
 /// lease is `Delivered` and within its term. Rejected unless `duration` is
 /// greater than the current one.
-fn extend_lease(id: AllocationId, duration: BlockNumber);
+fn extend_lease(id: AllocationId, duration: Timeslot);
 
 /// Takes `amount` of the leased units back from the target. Origin: any
 /// signed account past the lease end and `LEASE_GRACE_PERIOD`, or the
@@ -716,7 +715,7 @@ fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 /// Releases a solicited preimage of the target. Origin: the target's service
 /// account or governance. Legal while a lease on the target is `Reclaiming`
 /// and the target is recorded frozen. A provided preimage is expunged by a
-/// second call more than `C_expungeperiod` timeslots after the first
+/// second call accumulated after the `due` of the first's `ForgetAgainAt`
 /// (Parachain Service design §6.1). Records a `Forget` operation.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
@@ -821,7 +820,7 @@ interface IJamkb {
         external returns (uint64 opId);
 
     // -- Lease --
-    /// `validFrom` 0 means the current block.
+    /// `validFrom` 0 means the current timeslot.
     function offerLease(uint32 target, uint128 amount, uint32 duration,
                         uint32 validFrom, uint32 validFor)
         external returns (uint64 allocationId);
@@ -866,6 +865,7 @@ interface IJamkb {
     function recoveryDeposit() external view returns (uint128);
     function recoveryDepositPerKey() external view returns (uint128);
     function maxKeysPerPage() external view returns (uint32);
+    function currentTimeslot() external view returns (uint32);
 }
 ```
 
@@ -930,9 +930,12 @@ through `send_upward_message` within the limits below.
 
 The transport layer responsibilities:
 
-- the outcome of each operation: the block that sent it and its
-  `parachain_log` entries, reported once, in send order, in the block whose
-  anchor first covers it;
+- the current timeslot: the timeslot of the block's anchor, not lower than
+  the parent's;
+- the outcome of each operation: once, in send order, in the first block
+  whose anchor has the sending block accumulated, with its `AccumulateLog`
+  events from the log entries past the parent's anchor;
+  `accumulated_at`, the timeslot it was accumulated at (§7.7);
 - `incoming_transfers` delivered as whole buckets, up to the number
   `pallet-jamkb` can process; a bucket not processed is delivered again;
 - `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
@@ -1232,8 +1235,8 @@ bytes is missing.
    enum ForgetOutcome {
        /// The preimage is expunged.
        Expunged,
-       /// The preimage is unrequested; a second `Forget` from the carried
-       /// timeslot expunges it.
+       /// The preimage is unrequested; a second `Forget` accumulated after
+       /// the carried timeslot expunges it.
        AgainAt(Timeslot),
        /// The service never requested the preimage.
        NotRequested,
@@ -1285,10 +1288,15 @@ bytes is missing.
    /// Each sender has its own budget share.
    type SenderId = u8;
    /// The id a `TransferOut` or `CreateService` carries, echoed by the
-   /// Parachain Service in `TransferFailed` and `ServiceCreation`.
+   /// Parachain Service in `TransferFailed` and `ServiceCreation`. Unique
+   /// and never reused.
    type MessageId = u64;
    /// One atomic batch of upward messages.
    type OperationId = u64;
+
+   /// Implemented by parachain-system: the current timeslot (§3.4), as a
+   /// `BlockNumberProvider<BlockNumber = Timeslot>`.
+   type TimeslotProvider;
 
    /// Implemented by parachain-system. An operation's messages are sent in
    /// one block, in the order the sender queued them. An operation is in
@@ -1309,14 +1317,14 @@ bytes is missing.
    /// Implemented by each sender. Called by parachain-system.
    trait OnJamOutcome {
        /// Operation `id` of `sender` was accumulated. Once per operation,
-       /// in send order. `sent_at` is the block that carried its messages;
-       /// `entries` are its `parachain_log` entries, at most one per
-       /// message. A sender gets only the outcomes of its own operations.
-       /// It cannot fail and charges what it writes to `meter`.
+       /// in send order. `accumulated_at` is the timeslot it was accumulated
+       /// at; `entries` are its `parachain_log` entries, at most
+       /// one per message. A sender gets only the outcomes of its own
+       /// operations. It cannot fail and charges what it writes to `meter`.
        fn on_outcome(
            sender: SenderId,
            id: OperationId,
-           sent_at: BlockNumber,
+           accumulated_at: Timeslot,
            entries: &[AccumulateLog],
            meter: &mut WeightMeter,
        );
