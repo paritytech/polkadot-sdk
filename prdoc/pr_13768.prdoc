@@ -1,0 +1,9 @@
+title: 'sc-client-db: recheck header after caching metadata'
+doc:
+- audience: Node Dev
+  description: |-
+    `BlockchainDb::header_metadata` now rechecks the database after caching metadata on a cache
+    miss, so a header removed concurrently by `remove_leaf_block` is never re-cached.
+crates:
+- name: sc-client-db
+  bump: patch

@@ -875,18 +875,27 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 	) -> Result<CachedHeaderMetadata<Block>, Self::Error> {
 		self.header_metadata_cache.header_metadata(hash).map_or_else(
 			|| {
-				self.header(hash)?
-					.map(|header| {
-						let header_metadata = CachedHeaderMetadata::from(&header);
-						self.header_metadata_cache
-							.insert_header_metadata(header_metadata.hash, header_metadata.clone());
-						header_metadata
-					})
-					.ok_or_else(|| {
-						ClientError::UnknownBlock(format!(
-							"Header was not found in the database: {hash:?}",
-						))
-					})
+				if let Some(header) = self.header(hash)? {
+					let header_metadata = CachedHeaderMetadata::from(&header);
+					self.header_metadata_cache
+						.insert_header_metadata(header_metadata.hash, header_metadata.clone());
+					// `remove_leaf_block` may have deleted the header after it was read above.
+					// Recheck the database so a removed header is never re-cached.
+					if utils::read_header::<Block>(
+						&*self.db,
+						columns::KEY_LOOKUP,
+						columns::HEADER,
+						BlockId::<Block>::Hash(hash),
+					)?
+					.is_some()
+					{
+						return Ok(header_metadata);
+					}
+					self.remove_header_metadata(hash);
+				}
+				Err(ClientError::UnknownBlock(format!(
+					"Header was not found in the database: {hash:?}",
+				)))
 			},
 			Ok,
 		)
@@ -5427,6 +5436,35 @@ pub(crate) mod tests {
 		assert!(backend.blockchain().header(blocks[1]).unwrap().is_none());
 		assert_eq!(backend.blockchain().leaves().unwrap(), vec![best_hash]);
 		assert_eq!(backend.blockchain().children(blocks[0]).unwrap(), vec![best_hash]);
+	}
+
+	#[test]
+	fn header_metadata_does_not_recache_removed_leaf() {
+		let backend = Backend::<Block>::new_test(10, 10);
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let block1 = insert_header(&backend, 1, block0, None, Default::default());
+		let best_hash = insert_header(&backend, 1, block0, None, sp_core::H256::random());
+		assert_eq!(backend.blockchain().info().best_hash, best_hash);
+
+		// Control: an existing header's metadata is read from the database and cached.
+		backend.blockchain.remove_header_metadata(best_hash);
+		let metadata = backend.blockchain.header_metadata(best_hash).unwrap();
+		assert_eq!((metadata.hash, metadata.number), (best_hash, 1));
+		assert!(backend.blockchain.header_metadata_cache.header_metadata(best_hash).is_some());
+
+		// Simulate a reader that read `block1` before `remove_leaf_block` committed and
+		// inserts its metadata after the caches were cleared.
+		let header = backend.blockchain().header(block1).unwrap();
+		backend.remove_leaf_block(block1).unwrap();
+		cache_header(&mut backend.blockchain.header_cache.lock(), block1, header);
+
+		for _ in 0..2 {
+			assert!(matches!(
+				backend.blockchain.header_metadata(block1),
+				Err(sp_blockchain::Error::UnknownBlock(_))
+			));
+			assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_none());
+		}
 	}
 
 	#[test]
