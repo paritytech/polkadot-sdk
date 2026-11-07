@@ -1,0 +1,56 @@
+title: 'pallet-revive: bound storage deposit refunds by the held deposit'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A refund for removed contract storage is now bounded by the storage deposit the contract
+    holds above its base deposit. The refund is still computed pro rata from the item and byte
+    deposits recorded in the contract's `ContractInfo`, but at the end of the call stack at most
+    the contract's `StorageDepositReserve` hold minus its `storage_base_deposit` is released. The
+    base deposit stays on hold until the contract is terminated. The bound uses
+    `Deposit::total_on_hold`, which for `PGasDeposit` is the sum of the native and PGAS holds.
+
+    `Origin::Root` pays no storage deposit, so a contract it instantiates now records a base
+    deposit of zero, and all of the slot deposits signed callers pay for it can be refunded.
+    Contracts instantiated by `Origin::Root` before this change keep the base deposit recorded in
+    their `ContractInfo`, although it was never held. For them, up to that amount of the slot
+    deposits paid by signed callers stays on hold until the contract is terminated. There is no
+    migration: `ContractInfo` does not record who instantiated a contract, so these contracts
+    cannot be identified.
+
+    The storage deposit reported by `bare_call`, `bare_instantiate`, dry runs and Ethereum
+    receipts is now the amount released from the contracts' holds. After the refunds are paid,
+    the deposit limit, or the Ethereum gas limit, is checked again before any charge is paid, and
+    the call fails with `StorageDepositNotEnoughFunds` if it is exceeded. The deposit consumed
+    rises there when a refund is not released in full.
+
+    `PGasDeposit::refund_all` now returns the amount released from the contract's holds,
+    including the burned part of the PGAS hold, as documented on `Deposit::refund_all`.
+    Previously it returned the native part and only the PGAS share credited to the destination.
+    The amounts credited and burned are unchanged.
+
+    With the native deposit backend (`()`), refunds within the deposit held above the base
+    deposit are unchanged. With `PGasDeposit`, an origin that is not entitled to the native part
+    of a refund can see a smaller reported refund, and its deposit limit is enforced against the
+    amount released from the hold. Previously the full requested refund was reported and counted
+    against the limit although only part of it was released.
+
+    No migration, configuration or runtime integration change is needed.
+- audience: Runtime User
+  description: |-
+    The refund for removed contract storage is bounded by the deposit the contract holds above
+    its base deposit, and the storage deposit reported for a call is the amount that was released
+    from the contracts' holds. Refunds within the deposit held above the base deposit are
+    unchanged. On runtimes using `PGasDeposit`, an origin that is not entitled to the native part
+    of a refund can see a smaller reported refund, and its storage deposit limit is enforced
+    against the amount released from the hold. A call whose limit is exceeded this way fails with
+    `StorageDepositNotEnoughFunds`. On runtimes using `PGasDeposit`, the deposit limit is checked
+    against the charges minus the deposit released from the holds, while the origin is credited
+    only `RefundPercent` of a released PGAS hold. The limit therefore does not cap the origin's
+    out-of-pocket PGAS cost when its call releases PGAS deposits by clearing storage.
+    Contracts instantiated by `Origin::Root` record a base deposit of zero, so storage deposits
+    paid for them are refunded in full.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
