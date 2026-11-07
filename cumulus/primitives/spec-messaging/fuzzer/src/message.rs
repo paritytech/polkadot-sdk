@@ -38,8 +38,8 @@ use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_messages, ChannelMessage, MmrExtensionProof, MessagePosition, MessagesRequest,
-	MessagesResponse, MessagingInherentData, MmrFrontier, Register, StreamId, StreamProof,
+	verify_messages, ChannelMessage, MessagePosition, MessagesRequest, MessagesResponse,
+	MessagingInherentData, MmrExtensionProof, MmrFrontier, Register, StreamId, StreamProof,
 	StreamsRoot, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
