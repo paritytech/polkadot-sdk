@@ -216,4 +216,26 @@ mod benchmarks {
 		crate::integration_tests::new_test_ext(),
 		crate::integration_tests::Test,
 	);
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use crate::integration_tests::{new_test_ext, Test};
+
+		#[test]
+		fn schedule_code_upgrade_works_below_max_code_size() {
+			let mut ext = new_test_ext();
+			// Runtimes such as the fellowship runtimes configure `max_code_size` below
+			// `MAX_CODE_SIZE`. Commit it so that it survives the wipe between benchmark runs.
+			ext.execute_with(|| {
+				configuration::ActiveConfig::<Test>::mutate(|config| {
+					config.max_code_size = MAX_CODE_SIZE / 2
+				})
+			});
+			ext.commit_all().unwrap();
+			ext.execute_with(|| {
+				assert_ok!(Registrar::<Test>::test_benchmark_schedule_code_upgrade());
+			});
+		}
+	}
 }
