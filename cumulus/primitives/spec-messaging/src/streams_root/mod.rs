@@ -21,23 +21,15 @@
 //! `Provides`, and a receiver proves the streams it consumed against it, without a sender-state
 //! proof.
 //!
-//! # Why a keyed trie
-//!
-//! The trie is keyed by [`StreamId::to_bytes`], so a proof is a walk driven by the key:
-//! verification recomputes the leaf from the caller's `StreamId` and takes each branch direction
-//! from that key's bits. A proof built for stream A cannot verify as stream B. Requires-lift
-//! synthesis depends on this, since lifts are matched to the consumption record's streams by
-//! position. A positional Merkle tree does not give it. Patricia compression also keeps proofs
-//! `O(log S)` in the number of streams rather than `O(64)` in the key width.
+//! The key drives the walk, so a proof cannot be moved to another stream
+//! ([`streams_root_from_proof`]).
 //!
 //! Roles: the sender builds the root ([`streams_root`]) and its node serves proofs
 //! ([`gen_stream_proof`]), checking its own header digest ([`read_streams_root`]); a receiver's
 //! lift walks a proof up to the committed root ([`streams_root_from_proof`]).
-//!
-//! A leaf hash binds the full key, an inner hash its split bit.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::Hash;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec, Digest, DigestItem};
@@ -46,16 +38,31 @@ use crate::{
 	stream::StreamId, SpecHasher, SPMS_ENGINE_ID, STREAM_ID_LEN, TREE_INNER_TAG, TREE_LEAF_TAG,
 };
 
+mod cache;
+
+pub use cache::{
+	gen_stream_proof_from_nodes, update_tree_leaf, InnerNode, NodeKey, NodeLookup, NodeStore,
+	StreamsTree, TreeChild, TreeError, TreeRootEntry,
+};
+
 /// Bit width of a `StreamId` key (the Patricia trie's maximum depth).
 const KEY_BITS: usize = STREAM_ID_LEN * 8;
 
 /// The sender's per-block stream commitment root. Defined relay-side and re-exported here.
 pub use polkadot_primitives::StreamsRoot;
 
-/// One step of a trie walk. The branch direction is not stored; verification takes it from the
-/// proven key's bit at `split_bit`.
+/// One step of a trie walk. The branch direction is not stored.
 #[derive(
-	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
 )]
 pub struct TreeStep {
 	/// Key-bit index this node branches on, `0..KEY_BITS` with `0` the MSB. Part of the inner-node
@@ -65,9 +72,17 @@ pub struct TreeStep {
 }
 
 /// A membership proof that `(stream, stream_root)` is committed under a `StreamsRoot`. Served by
-/// the sender, verified by the receiver. Carries no leaf index; the key drives the walk.
+/// the sender, verified by the receiver.
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
 )]
 pub struct StreamProof {
 	/// Branch steps leaf to root, split bits strictly decreasing. Empty for a single-stream tree.
@@ -80,7 +95,7 @@ fn bit(key: &[u8; STREAM_ID_LEN], i: usize) -> bool {
 	(key[i >> 3] >> (7 - (i & 7))) & 1 == 1
 }
 
-/// First bit index (from the MSB) at which two distinct keys differ. Callers guarantee `a != b`.
+/// First bit index (from the MSB, 0..64) at which two keys differ; returns 64 if identical.
 fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usize {
 	(u64::from_be_bytes(*a) ^ u64::from_be_bytes(*b)).leading_zeros() as usize
 }
@@ -138,8 +153,8 @@ fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)>
 /// side. Takes a `BTreeMap` so keys are unique; duplicates would reach `first_diverging_bit` with
 /// identical keys.
 ///
-/// TODO(spec-msg): update one changed stream in O(log S) instead of rebuilding in O(S); the sender
-/// pallet rebuilds this every touched block over all its streams.
+/// For incremental updates in `O(log S)` without rebuilding from scratch in `O(S)`, see
+/// [`update_tree_leaf`] and [`StreamsTree`].
 pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
 	let entries = keyed(entries);
 	if entries.is_empty() {
@@ -208,8 +223,7 @@ pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
 /// Fold a membership proof for `(stream, stream_root)` up to the `StreamsRoot` it implies, or
 /// `None` on a malformed step. Callers compare the root themselves (the requires-lift records it,
 /// the fetch checks it against `under`). Each branch direction is `stream`'s bit at `split_bit`, so
-/// a proof built for another stream folds the siblings on the wrong sides and yields a different
-/// root.
+/// a proof built for another stream yields a different root.
 pub fn streams_root_from_proof(
 	stream: StreamId,
 	stream_root: Hash,
@@ -231,7 +245,6 @@ pub fn streams_root_from_proof(
 			return None;
 		}
 		prev = Some(step.split_bit);
-		// The branch direction is the proven key's bit at `split_bit`. This is the key binding.
 		node = if bit(&key, split_bit) {
 			hash_inner(step.split_bit, &step.sibling, &node)
 		} else {
@@ -244,7 +257,7 @@ pub fn streams_root_from_proof(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_utils::ch;
+	use crate::{test_utils::ch, PrivateKind};
 	use sp_core::H256;
 
 	fn root(b: u8) -> Hash {
@@ -343,6 +356,25 @@ mod tests {
 	}
 
 	#[test]
+	fn a_full_depth_proof_round_trips_and_verifies() {
+		// A neighbour at every bit gives `stream` the deepest possible path.
+		let stream = StreamId::Private { kind: PrivateKind::new(0x80).unwrap(), body: [0; 7] };
+		let mut map = BTreeMap::from([(stream, root(1))]);
+		for bit in 0..KEY_BITS {
+			let mut key = stream.to_bytes();
+			key[bit / 8] ^= 0x80 >> (bit % 8);
+			map.insert(StreamId::from_bytes(key).unwrap(), root(2));
+		}
+
+		let tree = StreamsTree::from_entries(&map);
+		let (r, proof) = tree.gen_stream_proof(stream).unwrap();
+		assert_eq!(proof.steps.len(), KEY_BITS);
+		let decoded = StreamProof::decode_all(&mut &proof.encode()[..]).unwrap();
+		assert!(verify_stream_membership(r, stream, root(1), &decoded));
+		assert_eq!(Some(r), streams_root(&map));
+	}
+
+	#[test]
 	fn absent_stream_has_no_proof() {
 		assert!(gen_stream_proof(&entries(), ch(9999)).is_none());
 	}
@@ -408,5 +440,171 @@ mod tests {
 		// Other engines' items are not counted against it.
 		let foreign = DigestItem::Consensus(*b"AURA", vec![0; 32]);
 		assert_eq!(read_streams_root(&digest(vec![foreign, spms(r.encode())])), Some(r));
+	}
+
+	#[test]
+	fn streams_tree_matches_from_scratch_streams_root() {
+		let map = entries();
+		let tree = StreamsTree::from_entries(&map);
+		assert_eq!(tree.root(), streams_root(&map));
+
+		// Check proof generation from tree
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+	}
+
+	#[test]
+	fn streams_tree_incremental_updates() {
+		let mut map = BTreeMap::new();
+		let mut tree = StreamsTree::new();
+		assert!(tree.is_empty());
+		assert_eq!(tree.root(), None);
+
+		// Insert 100 streams incrementally
+		for i in 0..100u32 {
+			let stream = ch(1000 + i);
+			let r = root(i as u8);
+			map.insert(stream, r);
+			let tree_root = tree.insert(stream, r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+			assert_eq!(tree.root(), Some(tree_root));
+		}
+
+		// Update 50 existing streams with new roots
+		for i in (0..100u32).step_by(2) {
+			let stream = ch(1000 + i);
+			let new_r = root((i + 17) as u8);
+			map.insert(stream, new_r);
+			let tree_root = tree.insert(stream, new_r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+			assert_eq!(tree.root(), Some(tree_root));
+		}
+
+		// Verify proofs for all 100 streams
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+	}
+
+	#[test]
+	fn a_cyclic_or_out_of_range_node_is_corrupt_not_an_endless_walk() {
+		let (mut entry, mut store) = (None, BTreeMap::new());
+		for stream in [ch(1000), ch(1001)] {
+			update_tree_leaf(&mut entry, stream, root(0x1), &mut store).unwrap();
+		}
+		let Some(TreeRootEntry::Node { key, .. }) = entry else { panic!("two streams") };
+
+		// The root's children point back at the root.
+		let mut node = store[&key];
+		(node.left_child, node.right_child) = (TreeChild::Node { key }, TreeChild::Node { key });
+		let mut cyclic = BTreeMap::from([(key, node)]);
+		let mut e = entry;
+		assert_eq!(
+			update_tree_leaf(&mut e, ch(1000), root(0x2), &mut cyclic),
+			Err(TreeError::CorruptNode(key))
+		);
+		assert_eq!(gen_stream_proof_from_nodes(&entry, ch(1000), &cyclic), None);
+
+		// A split bit past the key width would index the key out of bounds.
+		let wide = NodeKey { prefix: key.prefix, prefix_len: KEY_BITS as u8 };
+		let mut node = store[&key];
+		node.split_bit = KEY_BITS as u8;
+		let mut out_of_range = BTreeMap::from([(wide, node)]);
+		let mut e = Some(TreeRootEntry::Node { key: wide, root_hash: root(0x1) });
+		assert_eq!(
+			update_tree_leaf(&mut e, ch(1002), root(0x2), &mut out_of_range),
+			Err(TreeError::CorruptNode(wide))
+		);
+	}
+
+	#[test]
+	fn missing_node_returns_error() {
+		// Tree with an entry pointing to a missing inner node
+		let node_key = NodeKey::new(&ch(1000).to_bytes(), 10);
+		let mut root_entry = Some(TreeRootEntry::Node { key: node_key, root_hash: root(0x1) });
+		let mut empty_store = BTreeMap::new();
+		let before = root_entry;
+		let res = update_tree_leaf(&mut root_entry, ch(1001), root(0x2), &mut empty_store);
+		assert_eq!(res, Err(TreeError::MissingNode(node_key)));
+		assert_eq!(root_entry, before);
+		assert!(empty_store.is_empty());
+	}
+
+	#[test]
+	fn differential_fuzz_random_tree_insertions_and_updates() {
+		let mut seed = 0x85EB_CA6B_472C_1A55u64;
+		let mut rng = || {
+			seed ^= seed << 13;
+			seed ^= seed >> 7;
+			seed ^= seed << 17;
+			seed
+		};
+
+		let mut map = BTreeMap::new();
+		let mut tree = StreamsTree::new();
+
+		// Narrow field ranges give keys that split inside the kind, recipient and domain bytes.
+		let random_stream = |x: u64| match x % 3 {
+			0 => StreamId::Channel {
+				recipient: (((x >> 8) % 64) as u32).into(),
+				domain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u16 % 4,
+			},
+			1 => StreamId::Ack {
+				recipient: (((x >> 8) % 64) as u32).into(),
+				domain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u16 % 4,
+			},
+			_ => StreamId::Broadcast {
+				domain: (x >> 8) as u16 % 4,
+				subdomain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u32 % 64,
+			},
+		};
+
+		// Insert 200 streams with pseudo-random keys and values
+		for _ in 0..200 {
+			let stream = random_stream(rng());
+			let r = Hash::from_low_u64_be(rng());
+			map.insert(stream, r);
+			let tree_root = tree.insert(stream, r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+		}
+
+		// Mutate 100 random streams
+		let keys: Vec<_> = map.keys().copied().collect();
+		for _ in 0..100 {
+			let idx = (rng() as usize) % keys.len();
+			let stream = keys[idx];
+			let new_r = Hash::from_low_u64_be(rng());
+			map.insert(stream, new_r);
+			let tree_root = tree.insert(stream, new_r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+		}
+
+		// Verify every proof
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+
+		// The cached layout does not depend on insertion order.
+		let mut reversed = StreamsTree::new();
+		for (stream, sr) in map.iter().rev() {
+			reversed.insert(*stream, *sr).unwrap();
+		}
+		assert_eq!(reversed, tree);
 	}
 }
