@@ -1,0 +1,21 @@
+title: Add `is_sufficient` to the `fungibles::Inspect` trait
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds an `is_sufficient` method to the `fungibles::Inspect` trait, reporting whether an asset is
+    sufficient. The method has a default implementation returning `false`, so the change is
+    non-breaking; however, implementations which track sufficiency should override it. It is
+    implemented for `pallet-assets` (reading the asset's `is_sufficient` flag, and forwarded by the
+    `pallet-assets-freezer` and `pallet-assets-holder` wrappers) and forwarded through
+    `fungibles::UnionOf` and the right branch of `fungible::UnionOf`. The left (`fungible`) branch
+    of `fungible::UnionOf` reports `false`, as the `fungible` trait family carries no sufficiency
+    information.
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-assets
+  bump: minor
+- name: pallet-assets-freezer
+  bump: minor
+- name: pallet-assets-holder
+  bump: minor
