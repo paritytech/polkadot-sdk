@@ -1924,21 +1924,8 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
-<<<<<<< HEAD
-=======
-	// unreleased
-	// Appends a placeholder authority-discovery key to every collator's session keys.
-	ad_migration::AppendAuthorityDiscoveryKeys<
-		Runtime,
-		AdMigrationVersion,
-		ad_migration::KeysTranslator,
-	>,
-	// unreleased
 	// Stores the registration base deposit of every signed election submission.
 	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
-	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
-	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
->>>>>>> 22b4d05 (EPMB: determine the signed base deposit at registration (#13722))
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

@@ -494,7 +494,7 @@ mod calls {
 			roll_to_full_verification();
 
 			// THEN it is rewarded, and its full deposit is released.
-			let reward = SignedRewardBase::get() + fee.min(max_fee_refund());
+			let reward = SignedRewardBase::get() + fee;
 			assert!(signed_events().contains(&SignedEvent::Rewarded(0, 999, reward)));
 			assert_eq!(balances(999), (9 + reward, 0));
 		});
@@ -1518,55 +1518,6 @@ mod invulnerables {
 	}
 
 	#[test]
-<<<<<<< HEAD
-=======
-	fn discarded_invulnerable_fee_refund_is_bounded_by_max_fee_refund() {
-		ExtBuilder::signed().build_and_execute(|| {
-			// GIVEN an invulnerable with an accrued fee above the bound.
-			make_invulnerable(99);
-			roll_to_signed_open();
-
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
-			for _ in 0..6 {
-				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
-				assert_ok!(SignedPallet::submit_page(
-					RuntimeOrigin::signed(99),
-					0,
-					Some(Default::default())
-				));
-			}
-			assert!(
-				Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee > max_fee_refund(),
-				"the bound must actually bind for this test to mean anything"
-			);
-
-			// a stronger solution wins the round, so 99 is discarded rather than rewarded.
-			load_signed_for_verification(98, mine_full_solution().unwrap());
-			roll_to_signed_validation_open();
-			roll_to_full_verification();
-			roll_to_done();
-			MultiBlock::rotate_round();
-			assert!(signed_events_since_last_call().contains(&Event::Rewarded(
-				0,
-				98,
-				SignedRewardBase::get() + max_fee_refund()
-			)));
-
-			// WHEN they clear their discarded submission.
-			assert_ok!(SignedPallet::clear_old_round_data(
-				RuntimeOrigin::signed(99),
-				0,
-				Pages::get()
-			));
-
-			// THEN they are discarded, their deposit is returned in full, and the fee refund is
-			// the bound.
-			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
-			assert_eq!(balances(99), (100 + max_fee_refund(), 0));
-		})
-	}
-
-	#[test]
 	fn invulnerable_status_change_mid_round_only_moves_page_deposit() {
 		ExtBuilder::signed().build_and_execute(|| {
 			// GIVEN a base deposit that grows with the number of queued submitters.
@@ -1651,7 +1602,6 @@ mod invulnerables {
 	}
 
 	#[test]
->>>>>>> 22b4d05 (EPMB: determine the signed base deposit at registration (#13722))
 	fn removing_from_invulnerables_affects_future_submissions() {
 		ExtBuilder::signed().build_and_execute(|| {
 			// Initially make invulnerable
