@@ -620,10 +620,6 @@ pub use pallet_oracle;
 #[cfg(feature = "pallet-oracle-runtime-api")]
 pub use pallet_oracle_runtime_api;
 
-/// Pallet to give some execution allowance for some origins.
-#[cfg(feature = "pallet-origin-restriction")]
-pub use pallet_origin_restriction;
-
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;

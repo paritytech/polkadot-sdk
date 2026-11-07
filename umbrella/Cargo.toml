@@ -127,7 +127,6 @@ std = [
 	"pallet-on-demand-para?/std",
 	"pallet-oracle-runtime-api?/std",
 	"pallet-oracle?/std",
-	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
 	"pallet-pgas-allowance?/std",
@@ -327,7 +326,6 @@ runtime-benchmarks = [
 	"pallet-offences?/runtime-benchmarks",
 	"pallet-on-demand-para?/runtime-benchmarks",
 	"pallet-oracle?/runtime-benchmarks",
-	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
 	"pallet-pgas-allowance?/runtime-benchmarks",
@@ -479,7 +477,6 @@ try-runtime = [
 	"pallet-offences?/try-runtime",
 	"pallet-on-demand-para?/try-runtime",
 	"pallet-oracle?/try-runtime",
-	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
 	"pallet-pgas-allowance?/try-runtime",
@@ -705,7 +702,6 @@ runtime-full = [
 	"pallet-on-demand-para",
 	"pallet-oracle",
 	"pallet-oracle-runtime-api",
-	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
 	"pallet-pgas-allowance",
@@ -1669,11 +1665,6 @@ path = "../substrate/frame/honzon/oracle"
 default-features = false
 optional = true
 path = "../substrate/frame/honzon/oracle/runtime-api"
-
-[dependencies.pallet-origin-restriction]
-default-features = false
-optional = true
-path = "../substrate/frame/origin-restriction"
 
 [dependencies.pallet-paged-list]
 default-features = false

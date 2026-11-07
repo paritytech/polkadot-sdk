@@ -424,7 +424,6 @@ members = [
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/on-demand",
-	"substrate/frame/origin-restriction",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
