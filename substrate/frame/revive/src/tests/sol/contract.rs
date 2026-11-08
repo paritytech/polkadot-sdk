@@ -1174,14 +1174,14 @@ mod eip_150 {
 		}
 	}
 
-	/// Runs `input` on `contract` with exactly the limits a dry run returned, in the mode of
-	/// `limits`, and returns the output.
+	/// Runs `input` on `contract` with exactly the limits a dry run returned, and returns the
+	/// output.
 	fn call_with_estimated_limits(
 		contract: H160,
 		input: Vec<u8>,
-		limits: &TransactionLimits<Test>,
+		mode: &TransactionLimits<Test>,
 	) -> Vec<u8> {
-		match limits {
+		match mode {
 			TransactionLimits::EthereumGas { .. } => {
 				eth_transact_with_estimated_gas(contract, input)
 			},
@@ -1318,18 +1318,17 @@ mod eip_150 {
 			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
 			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
 			let catch_block_ran = |value: u64| {
-				builder::bare_call(caller_addr)
+				let result = builder::bare_call(caller_addr)
 					.data(
 						CatchInvalid::tryPayableInvalidCall { callee: callee_addr.0.into(), value }
 							.abi_encode(),
 					)
 					.transaction_limits(limits.clone())
-					.build()
-					.result
-					.map(|output| {
-						CatchInvalid::tryPayableInvalidCall::abi_decode_returns(&output.data)
-							.unwrap()
-					})
+					.build();
+				assert_used_at_least_63_64_of_the_limit(&result, &limits);
+				result.result.map(|output| {
+					CatchInvalid::tryPayableInvalidCall::abi_decode_returns(&output.data).unwrap()
+				})
 			};
 
 			assert_eq!(
@@ -1444,12 +1443,6 @@ mod eip_150 {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
-			// The dry run estimates gas for about the whole weight limit, and the transaction pays
-			// the fee for all of it up front; twice that also covers the length fee and deposit.
-			let max_fee = <Test as Config>::FeeInfo::weight_to_fee(
-				&Pallet::<Test>::evm_max_extrinsic_weight(),
-			);
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 2 * max_fee);
 			let calls = vec![
 				Multicall3::Call3 {
 					target: callee_addr.0.into(),

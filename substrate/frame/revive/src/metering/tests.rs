@@ -2079,8 +2079,10 @@ mod nesting {
 			},
 		];
 
-		for (i, CallCase { caller, call_resources, expected_without_rule, expected_with_rule }) in
-			cases.into_iter().enumerate()
+		for (
+			case_index,
+			CallCase { caller, call_resources, expected_without_rule, expected_with_rule },
+		) in cases.into_iter().enumerate()
 		{
 			let expected = match eip_150_rule {
 				eip_150::Rule::Skip => expected_without_rule,
@@ -2121,7 +2123,7 @@ mod nesting {
 					assert_eq!(
 						caller.gas_left.div_ceil(gas_scale),
 						transaction_meter.eth_gas_left().unwrap(),
-						"caller gas_left mismatch in test case {i}"
+						"caller gas_left mismatch in test case {case_index}"
 					);
 
 					let scaled_call_resources = match call_resources {
@@ -2138,32 +2140,32 @@ mod nesting {
 					assert_eq!(
 						Some(SignedGas::Positive(expected.gas_left)),
 						ethereum_execution::gas_left(&nested, &eth_tx_info),
-						"exact gas_left mismatch in test case {i}"
+						"exact gas_left mismatch in test case {case_index}"
 					);
 					assert_eq!(
 						expected.gas_left.div_ceil(gas_scale),
 						nested.eth_gas_left().unwrap(),
-						"gas_left mismatch in test case {i}"
+						"gas_left mismatch in test case {case_index}"
 					);
 					assert_eq!(
 						expected.weight_left,
 						nested.weight_left().unwrap(),
-						"weight_left mismatch in test case {i}"
+						"weight_left mismatch in test case {case_index}"
 					);
 					assert_eq!(
 						expected.deposit_left,
 						nested.deposit_left().unwrap(),
-						"deposit_left mismatch in test case {i}"
+						"deposit_left mismatch in test case {case_index}"
 					);
 					assert_eq!(
 						signed_gas(expected.total_consumed_gas),
 						ethereum_execution::total_consumed_gas(&nested, &eth_tx_info),
-						"exact total_consumed_gas mismatch in test case {i}"
+						"exact total_consumed_gas mismatch in test case {case_index}"
 					);
 					assert_eq!(
 						(expected.total_consumed_gas.max(0) as u128).div_ceil(gas_scale),
 						nested.total_consumed_gas(),
-						"total_consumed_gas mismatch in test case {i}"
+						"total_consumed_gas mismatch in test case {case_index}"
 					);
 				});
 		}
@@ -2532,7 +2534,9 @@ mod nesting {
 			},
 		];
 
-		for (i, ChargesCase { caller, requested_gas, steps }) in cases.into_iter().enumerate() {
+		for (case_index, ChargesCase { caller, requested_gas, steps }) in
+			cases.into_iter().enumerate()
+		{
 			ExtBuilder::default()
 				.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 				.build()
@@ -2567,7 +2571,7 @@ mod nesting {
 					assert_eq!(
 						caller.gas_left.div_ceil(gas_scale),
 						transaction_meter.eth_gas_left().unwrap(),
-						"caller gas_left mismatch in test case {i}"
+						"caller gas_left mismatch in test case {case_index}"
 					);
 
 					let mut nested = new_frame_meter(
@@ -2580,9 +2584,10 @@ mod nesting {
 					)
 					.unwrap();
 
-					for (j, Step { charge, expected_without_rule, expected_with_rule }) in
+					for (step_index, Step { charge, expected_without_rule, expected_with_rule }) in
 						steps.into_iter().enumerate()
 					{
+						let case_and_step = format!("test case {case_index}, step {step_index}");
 						let expected = match eip_150_rule {
 							eip_150::Rule::Skip => expected_without_rule,
 							eip_150::Rule::Apply => expected_with_rule,
@@ -2603,39 +2608,39 @@ mod nesting {
 						};
 
 						if let Some(expected) = expected {
-							assert!(is_ok, "charge failed in test case {i}, step {j}");
+							assert!(is_ok, "charge failed in {case_and_step}");
 							assert_eq!(
 								Some(SignedGas::Positive(expected.gas_left)),
 								ethereum_execution::gas_left(&nested, &eth_tx_info),
-								"exact gas_left mismatch in test case {i}, step {j}"
+								"exact gas_left mismatch in {case_and_step}"
 							);
 							assert_eq!(
 								expected.gas_left.div_ceil(gas_scale),
 								nested.eth_gas_left().unwrap(),
-								"gas_left mismatch in test case {i}, step {j}"
+								"gas_left mismatch in {case_and_step}"
 							);
 							assert_eq!(
 								expected.weight_left,
 								nested.weight_left().unwrap(),
-								"weight_left mismatch in test case {i}, step {j}"
+								"weight_left mismatch in {case_and_step}"
 							);
 							assert_eq!(
 								expected.deposit_left,
 								nested.deposit_left().unwrap(),
-								"deposit_left mismatch in test case {i}, step {j}"
+								"deposit_left mismatch in {case_and_step}"
 							);
 							assert_eq!(
 								signed_gas(expected.total_consumed_gas),
 								ethereum_execution::total_consumed_gas(&nested, &eth_tx_info),
-								"exact total_consumed_gas mismatch in test case {i}, step {j}"
+								"exact total_consumed_gas mismatch in {case_and_step}"
 							);
 							assert_eq!(
 								(expected.total_consumed_gas.max(0) as u128).div_ceil(gas_scale),
 								nested.total_consumed_gas(),
-								"total_consumed_gas mismatch in test case {i}, step {j}"
+								"total_consumed_gas mismatch in {case_and_step}"
 							);
 						} else {
-							assert!(!is_ok, "expected failure in test case {i}, step {j}");
+							assert!(!is_ok, "expected failure in {case_and_step}");
 						}
 					}
 				});
@@ -3016,6 +3021,27 @@ fn substrate_execution_value_call_without_gas_gets_only_the_stipend(stipends_lef
 			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
 			.unwrap();
 		assert_eq!(callee_meter.weight_left().unwrap(), stipend_weight);
+	});
+}
+
+/// A call that asks for less gas than its 63/64 share gets the gas it asks for.
+#[test]
+fn substrate_execution_call_gets_the_gas_it_asks_for_below_its_share() {
+	ExtBuilder::default().build().execute_with(|| {
+		let weight_limit = Weight::from_parts(WEIGHT_LIMIT.ref_time(), 0);
+		let root_meter =
+			TransactionMeter::<Test>::new_from_limits(weight_limit, 1_000_000).unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
+		let gas_given_for = |requested_gas: BalanceOf<Test>| {
+			caller_meter
+				.new_nested(&CallResources::Ethereum { gas: requested_gas, add_stipend: false })
+				.unwrap()
+				.eth_gas_left()
+				.unwrap()
+		};
+
+		let requested_gas = gas_given_for(u64::MAX.into()) / 2;
+		assert_eq!(gas_given_for(requested_gas), requested_gas);
 	});
 }
 
