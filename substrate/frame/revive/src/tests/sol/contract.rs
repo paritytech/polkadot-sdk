@@ -1466,6 +1466,50 @@ mod eip_150 {
 		});
 	}
 
+	/// A dry run with a gas limit succeeds when a callee uses up its gas and its caller then pays a
+	/// storage deposit from the gas it kept. The transaction with the same gas limit succeeds too.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc]
+	)]
+	fn dry_run_with_gas_succeeds_when_caller_pays_deposit_from_kept_gas(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+	) {
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, caller_addr] = deploy([callee_code, caller_code]);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+			let tx = GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(caller_addr),
+				input: CatchInvalid::tryInvalidCall { callee: callee_addr.0.into() }
+					.abi_encode()
+					.into(),
+				gas: Some(ETH_GAS_LIMIT.into()),
+				..Default::default()
+			};
+
+			assert_ok!(without_commit(|| Pallet::<Test>::dry_run_eth_transact(
+				tx.clone(),
+				None,
+				true,
+				None
+			)));
+			// The dry run accepted this gas limit, so the transaction must succeed with it too.
+			assert_ok!(dispatch_eth_transaction(tx));
+			let caught = builder::bare_call(caller_addr)
+				.data(CatchInvalid::caughtCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert!(
+				CatchInvalid::caughtCall::abi_decode_returns(&caught.data).unwrap(),
+				"the catch block must write to storage"
+			);
+		});
+	}
+
 	/// A nested call succeeds when its caller runs with exactly the limits a dry run returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
