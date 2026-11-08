@@ -35,8 +35,62 @@ fn psm_max_asset_debt(asset_id: u32) -> u128 {
 	crate::Pallet::<Test>::max_asset_debt(&INTERNAL_ASSET_ID, &asset_id, &info)
 }
 
+/// Point the test PSM's fees at an account that cannot receive them: a fresh account with no
+/// existential deposit, and a non-sufficient internal asset.
+fn set_unreachable_fee_destination() -> AccountId {
+	let fee_destination = AccountId::new([42; 32]);
+	assert_ok!(Assets::force_asset_status(
+		RuntimeOrigin::root(),
+		INTERNAL_ASSET_ID,
+		ALICE,
+		ALICE,
+		ALICE,
+		ALICE,
+		1,
+		false,
+		false,
+	));
+	crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+		if let Some(info) = maybe.as_mut() {
+			info.fee_destination = fee_destination.clone();
+		}
+	});
+	fee_destination
+}
+
 mod mint {
 	use super::*;
+
+	#[test]
+	fn fee_waived_when_fee_destination_cannot_receive_it() {
+		new_test_ext().execute_with(|| {
+			let fee_destination = set_unreachable_fee_destination();
+			let mint_amount = 1000 * INTERNAL_UNIT;
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				mint_amount,
+				Permill::from_percent(1)
+			));
+
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), mint_amount);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, fee_destination), 0);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), mint_amount);
+			System::assert_has_event(
+				Event::<Test>::Minted {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					external_consumed: mint_amount,
+					internal_received: mint_amount,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+		});
+	}
 
 	#[test]
 	fn success_basic() {
@@ -384,6 +438,49 @@ mod mint {
 
 mod redeem {
 	use super::*;
+
+	#[test]
+	fn fee_waived_when_fee_destination_cannot_receive_it() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
+			));
+			let fee_destination = set_unreachable_fee_destination();
+			let redeem_amount = 500 * INTERNAL_UNIT;
+			let alice_internal_before = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				redeem_amount,
+				Permill::from_percent(1)
+			));
+
+			assert_eq!(
+				get_asset_balance(INTERNAL_ASSET_ID, ALICE),
+				alice_internal_before - redeem_amount
+			);
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before + redeem_amount);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, fee_destination), 0);
+			System::assert_has_event(
+				Event::<Test>::Redeemed {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: redeem_amount,
+					external_received: redeem_amount,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+		});
+	}
 
 	#[test]
 	fn success_basic() {
@@ -829,6 +926,57 @@ mod redeem {
 		});
 	}
 
+	/// If the fee destination cannot receive the dust, it is burned and the debt drops by it too.
+	#[test]
+	fn redeem_burns_dust_when_fee_destination_cannot_receive_it() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::from_percent(1),
+			));
+			let fee_destination = set_unreachable_fee_destination();
+			let min_balance = 10_000;
+			pallet_assets::Asset::<Test>::mutate(INTERNAL_ASSET_ID, |details| {
+				details.as_mut().expect("internal asset exists in the mock; qed").min_balance =
+					min_balance
+			});
+			let dust = min_balance / 2;
+			let redeem = get_asset_balance(INTERNAL_ASSET_ID, ALICE) - dust;
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				redeem,
+				Permill::from_percent(1),
+			));
+
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 0);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, fee_destination), 0);
+			assert_eq!(
+				<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::total_issuance(
+					INTERNAL_ASSET_ID
+				),
+				crate::Pallet::<Test>::total_psm_debt(&INTERNAL_ASSET_ID)
+			);
+			System::assert_has_event(
+				Event::<Test>::Redeemed {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: redeem + dust,
+					external_received: redeem,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
 	/// Dust minted against another external asset is sent to the fee destination instead of being
 	/// burned, since the redeemed pair's debt cannot absorb it.
 	#[test]
@@ -1266,7 +1414,7 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
 			// Asset with 8 decimals vs internal's 6 — within MAX_DECIMALS_DIFF.
-			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), new_asset, ALICE, true, 1));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
 				new_asset,
@@ -1329,6 +1477,36 @@ mod governance {
 				Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, new_asset),
 				Error::<Test>::DecimalsRangeExceeded
 			);
+		});
+	}
+
+	#[test]
+	fn add_external_asset_requires_reserve_to_receive_asset() {
+		new_test_ext().execute_with(|| {
+			// A non-sufficient asset.
+			let new_asset = 99u32;
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				new_asset,
+				b"Test Asset".to_vec(),
+				b"TST".to_vec(),
+				6
+			));
+
+			assert_noop!(
+				Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, new_asset),
+				Error::<Test>::ReserveCannotReceive
+			);
+
+			let reserve = Psm::reserve_account(INTERNAL_ASSET_ID);
+			assert_eq!(reserve, psm_account());
+			assert_ok!(Assets::touch_other(RuntimeOrigin::signed(ALICE), new_asset, reserve));
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
 		});
 	}
 
@@ -3523,6 +3701,8 @@ mod admin {
 
 	/// A fresh internal asset id with no PSM installed by the mock.
 	const NEW_INTERNAL: u32 = 50;
+	/// A non-sufficient asset, used to try to attach asset accounts to PSM accounts.
+	const JUNK_ASSET: u32 = 51;
 	/// Minimum swap amount used when creating PSMs in these tests.
 	const DEFAULT_MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 
@@ -3532,6 +3712,10 @@ mod admin {
 
 	fn signed_origin(who: AccountId) -> OriginCaller {
 		frame_system::RawOrigin::<AccountId>::Signed(who).into()
+	}
+
+	fn none_origin() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::None.into()
 	}
 
 	#[test]
@@ -3771,34 +3955,33 @@ mod admin {
 	}
 
 	#[test]
-	fn create_psm_then_remove_releases_provider_refs() {
+	fn create_psm_does_not_provide_for_fee_destination() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
-			let psm = crate::Pallet::<Test>::psm_account(&NEW_INTERNAL);
-			let psm_before = frame_system::Account::<Test>::get(&psm).providers;
-			let fee_before = frame_system::Account::<Test>::get(&INSURANCE_FUND).providers;
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), JUNK_ASSET, ALICE, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(ALICE), JUNK_ASSET, ALICE, 10));
+			let fee_destination = AccountId::new([42; 32]);
 
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
 				Box::new(signed_origin(ALICE)),
 				Box::new(signed_origin(ALICE)),
-				INSURANCE_FUND,
+				fee_destination.clone(),
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
 			));
-			// create_psm acquired one provider reference on each of the reserve account and the
-			// fee destination.
-			assert_eq!(frame_system::Account::<Test>::get(&psm).providers, psm_before + 1);
-			assert_eq!(
-				frame_system::Account::<Test>::get(&INSURANCE_FUND).providers,
-				fee_before + 1
-			);
 
-			assert_ok!(Psm::remove_psm(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
-			// remove_psm released both — net zero, no provider leak across the lifecycle.
-			assert_eq!(frame_system::Account::<Test>::get(&psm).providers, psm_before);
-			assert_eq!(frame_system::Account::<Test>::get(&INSURANCE_FUND).providers, fee_before);
+			// No provider is created, so nobody can attach non-sufficient assets to the fee
+			// destination or the reserve account without paying for the account.
+			let psm = crate::Pallet::<Test>::psm_account(&NEW_INTERNAL);
+			for who in [fee_destination, psm] {
+				assert!(!frame_system::Account::<Test>::contains_key(&who));
+				assert_noop!(
+					Assets::transfer(RuntimeOrigin::signed(ALICE), JUNK_ASSET, who, 1),
+					TokenError::CannotCreate
+				);
+			}
 		});
 	}
 
@@ -4015,6 +4198,92 @@ mod admin {
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
 				signed_origin(EMERGENCY_ACCOUNT)
 			);
+		});
+	}
+	#[test]
+	fn create_psm_rejects_none_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			// The `None` origin carries no authority, so it must never become an admin.
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(none_origin()),
+					Box::new(signed_origin(ALICE)),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(signed_origin(ALICE)),
+					Box::new(none_origin()),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert!(crate::PsmAdmin::<Test>::get(NEW_INTERNAL).is_none());
+		});
+	}
+
+	#[test]
+	fn set_admin_rejects_none_origin() {
+		new_test_ext().execute_with(|| {
+			// The pre-installed test PSM's full_admin is Root.
+			assert_noop!(
+				Psm::set_full_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::set_emergency_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			let admin = crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			assert_eq!(admin.full_admin, root_origin());
+			assert_eq!(admin.emergency_admin, signed_origin(EMERGENCY_ACCOUNT));
+		});
+	}
+
+	#[test]
+	fn none_origin_never_authorises_even_against_a_none_admin() {
+		new_test_ext().execute_with(|| {
+			// Bypass the setters to model a `None` admin stored before they rejected it.
+			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				let admin = maybe.as_mut().expect("PSM installed by the mock");
+				admin.full_admin = none_origin();
+				admin.emergency_admin = none_origin();
+			});
+			let fee_before = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+
+			assert_noop!(
+				Psm::set_minting_fee(
+					RuntimeOrigin::none(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(5),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::none(), INTERNAL_ASSET_ID),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), fee_before);
 		});
 	}
 }
