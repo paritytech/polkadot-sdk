@@ -613,7 +613,8 @@ impl<T: Config> TransactionMeter<T> {
 
 	/// Execute all postponed storage deposit operations.
 	///
-	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded.
+	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded. The
+	/// limit is checked again after the refunds, since paying them can raise the deposit consumed.
 	pub fn execute_postponed_deposits(
 		&mut self,
 		origin: &Origin<T>,
@@ -639,7 +640,15 @@ impl<T: Config> TransactionMeter<T> {
 			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
 		}
 
-		self.deposit.execute_postponed_deposits(origin, exec_config)
+		// Paying the refunds can increase the deposit consumed: the refunds recorded for a
+		// terminated contract are dropped and a refund can be released only in part. Check the
+		// limit again before any charge is paid.
+		self.deposit.execute_postponed_refunds(origin, exec_config)?;
+		if self.deposit_left().is_none() {
+			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
+		}
+
+		self.deposit.execute_postponed_charges(origin, exec_config)
 	}
 
 	/// Mark a contract as terminated
