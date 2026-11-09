@@ -255,7 +255,7 @@ pub mod pallet {
 			elapsed_millis: u64,
 		},
 		/// An unexpected/defensive event was triggered.
-		Unexpected(UnexpectedKind<AssetKindOf<T>>),
+		Unexpected(UnexpectedKind<AssetKindOf<T>, AssetsBalanceOf<T>>),
 		/// Asset allocation was updated via governance.
 		AssetAllocationUpdated {
 			/// The new asset allocation map.
@@ -265,7 +265,7 @@ pub mod pallet {
 
 	/// Defensive/unexpected errors/events.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
-	pub enum UnexpectedKind<AssetKind> {
+	pub enum UnexpectedKind<AssetKind, AssetsBalance> {
 		/// Failed to mint issuance.
 		MintFailed,
 		/// Elapsed time was clamped at the safety ceiling.
@@ -277,8 +277,12 @@ pub mod pallet {
 		},
 		/// A transfer during the distribution failed.
 		DistributionTransferFailed {
-			/// An asset for which the transfer failed.
+			/// The asset for which the transfer failed.
 			asset: AssetKind,
+			/// The destination of the failed transfer.
+			destination: BudgetKey,
+			/// The amount that was attempted to be transfered.
+			amount: AssetsBalance,
 		},
 	}
 
@@ -698,7 +702,11 @@ pub mod pallet {
 
 					if result.is_err() {
 						Self::deposit_event(Event::Unexpected(
-							UnexpectedKind::DistributionTransferFailed { asset: asset.clone() },
+							UnexpectedKind::DistributionTransferFailed {
+								asset: asset.clone(),
+								destination: key.clone(),
+								amount,
+							},
 						));
 					} else {
 						total_distributed.saturating_accrue(amount);

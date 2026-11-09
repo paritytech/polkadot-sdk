@@ -23,6 +23,7 @@ use crate::{
 		account_id, build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime,
 		NativeAndAssets, RuntimeOrigin, System, Test,
 	},
+	tests::key,
 	Event,
 };
 use frame_support::{
@@ -38,11 +39,6 @@ fn advance_time_and_drip(elapsed_ms: u64) {
 	let now = MockTime::get();
 	MockTime::set(now + elapsed_ms);
 	Dap::drip_issuance();
-}
-
-fn event_count(event: Event<Test>) -> usize {
-	let event: <Test as frame_system::Config>::RuntimeEvent = event.into();
-	System::events().into_iter().filter(|e| e.event == event).count()
 }
 
 #[test]
@@ -194,11 +190,21 @@ fn asset_distribution_fails_with_event_when_there_are_not_enough_funds() {
 		// Nothing was distributed, so only +100 from the budget.
 		assert_eq!(buffer_before + 100, Balances::balance(&buffer));
 
-		assert_eq!(
-			event_count(Event::<Test>::Unexpected(
-				crate::UnexpectedKind::DistributionTransferFailed { asset: NativeOrWithId::Native },
-			)),
-			2
+		System::assert_has_event(
+			Event::<Test>::Unexpected(crate::UnexpectedKind::DistributionTransferFailed {
+				asset: NativeOrWithId::Native,
+				amount: 60_000 * 10,
+				destination: key(b"buffer"),
+			})
+			.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::Unexpected(crate::UnexpectedKind::DistributionTransferFailed {
+				asset: NativeOrWithId::Native,
+				amount: 60_000 * 60,
+				destination: key(b"staker_rewards"),
+			})
+			.into(),
 		);
 
 		System::reset_events();
@@ -217,13 +223,21 @@ fn asset_distribution_fails_with_event_when_there_are_not_enough_funds() {
 		assert_eq!(incentive_before, balance_of_asset(10, &incentive_pot));
 		assert_eq!(buffer_before, balance_of_asset(10, &buffer));
 
-		assert_eq!(
-			event_count(Event::<Test>::Unexpected(
-				crate::UnexpectedKind::DistributionTransferFailed {
-					asset: NativeOrWithId::WithId(10),
-				},
-			)),
-			2
+		System::assert_has_event(
+			Event::<Test>::Unexpected(crate::UnexpectedKind::DistributionTransferFailed {
+				asset: NativeOrWithId::WithId(10),
+				amount: 60_000 * 10,
+				destination: key(b"validator_incentive"),
+			})
+			.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::Unexpected(crate::UnexpectedKind::DistributionTransferFailed {
+				asset: NativeOrWithId::WithId(10),
+				amount: 60_000 * 20,
+				destination: key(b"staker_rewards"),
+			})
+			.into(),
 		);
 	});
 }
