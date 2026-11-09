@@ -87,8 +87,8 @@ use frame_support::{
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
-	StakerRewardCalculator,
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, ServiceKind,
+	SessionIndex, StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -101,6 +101,7 @@ use sp_staking::{
 /// [`ErasStakersOverview`]
 /// [`ErasValidatorReward`]
 /// [`ErasRewardPoints`]
+/// [`ErasRewardPointsByService`]
 /// [`ErasTotalStake`]
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
@@ -128,7 +129,7 @@ impl<T: Config> Eras<T> {
 		};
 
 		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
-		if Self::get_reward_points_for_validator(era, validator).is_zero() {
+		if Self::get_total_reward_points_for_validator(era, validator).is_zero() {
 			return false;
 		}
 
@@ -412,17 +413,22 @@ impl<T: Config> Eras<T> {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
-	/// Add reward points to validators using their stash account ID.
+	/// Add reward points earned for `service` to validators using their stash account ID.
+	///
+	/// Points are added to [`ErasRewardPoints`] of the active era, and every entry recorded there
+	/// is also added to [`ErasRewardPointsByService`] under `service`.
 	///
 	/// As a side effect, accumulates `weight × points` into [`ErasSumWeightedPoints`] for the
 	/// active era, where `weight` is the validator's [`ErasValidatorIncentiveWeight`]. This
 	/// keeps the denominator of the weighted-points share up to date without iterating every
 	/// validator at payout time.
 	pub(crate) fn reward_active_era(
+		service: ServiceKind,
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			let mut sum_weighted_points_delta: BalanceOf<T> = Zero::zero();
+			let mut recorded_points = Vec::new();
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
 					let weight =
@@ -437,7 +443,11 @@ impl<T: Config> Eras<T> {
 						None => {
 							// not much we can do -- validators should always be less than
 							// `MaxValidatorSet`.
-							era_rewards.individual.try_insert(validator, points).defensive().is_ok()
+							era_rewards
+								.individual
+								.try_insert(validator.clone(), points)
+								.defensive()
+								.is_ok()
 						},
 					};
 
@@ -450,10 +460,35 @@ impl<T: Config> Eras<T> {
 							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
 						);
 					}
+					if recorded {
+						recorded_points.push((validator, points));
+					}
 
 					era_rewards.total.saturating_accrue(points);
 				}
 			});
+			if !recorded_points.is_empty() {
+				ErasRewardPointsByService::<T>::mutate(active_era.index, service, |by_service| {
+					for (validator, points) in recorded_points {
+						let recorded = match by_service.individual.get_mut(&validator) {
+							Some(individual) => {
+								individual.saturating_accrue(points);
+								true
+							},
+							// The accounts of a service are a subset of the tally's, under the same
+							// bound.
+							None => by_service
+								.individual
+								.try_insert(validator, points)
+								.defensive()
+								.is_ok(),
+						};
+						if recorded {
+							by_service.total.saturating_accrue(points);
+						}
+					}
+				});
+			}
 			if !sum_weighted_points_delta.is_zero() {
 				ErasSumWeightedPoints::<T>::mutate(active_era.index, |sum| {
 					*sum = sum.saturating_add(sum_weighted_points_delta);
@@ -466,12 +501,41 @@ impl<T: Config> Eras<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
 
-	pub(crate) fn get_reward_points_for_validator(
+	pub(crate) fn get_total_reward_points_for_validator(
 		era: EraIndex,
 		validator: &T::AccountId,
 	) -> RewardPoint {
 		let points = ErasRewardPoints::<T>::get(era);
 		points.individual.get(validator).copied().unwrap_or_default()
+	}
+
+	/// The points of `validator` in `era` per service.
+	///
+	/// Points of the tally not recorded per service count as
+	/// [`ServiceKind::RelayConsensus`]: they are from before points were recorded per
+	/// service, when only the relay chain session report credited points.
+	pub(crate) fn get_reward_points_by_service_for_validator(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> Vec<(ServiceKind, RewardPoint)> {
+		let tally = Self::get_total_reward_points_for_validator(era, validator);
+		// At most one entry per `ServiceKind`.
+		let mut points = ErasRewardPointsByService::<T>::iter_prefix(era)
+			.filter_map(|(service, points)| {
+				points.individual.get(validator).map(|points| (service, *points))
+			})
+			.collect::<Vec<_>>();
+		let recorded = points
+			.iter()
+			.fold(RewardPoint::zero(), |sum, (_, points)| sum.saturating_add(*points));
+		let unrecorded = tally.saturating_sub(recorded);
+		if !unrecorded.is_zero() {
+			match points.iter_mut().find(|(service, _)| *service == ServiceKind::RelayConsensus) {
+				Some((_, points)) => points.saturating_accrue(unrecorded),
+				None => points.push((ServiceKind::RelayConsensus, unrecorded)),
+			}
+		}
+		points
 	}
 
 	/// Whether era `era` uses the weighted-points incentive-share formula
@@ -560,9 +624,10 @@ impl<T: Config> Eras<T> {
 		// these two are only populated conditionally, so we only check them for lack of existence
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
+		let e8 = ErasRewardPointsByService::<T>::iter_prefix_values(era).count() != 0;
 
 		// Check if era info is consistent - if not, era is in partial pruning state
-		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+		if !vec![e0, e1, e2, e3, e4, e6, e7, e8].windows(2).all(|w| w[0] == w[1]) {
 			return Err("era info absence not consistent - partial pruning state".into());
 		}
 
@@ -590,6 +655,7 @@ impl<T: Config> Eras<T> {
 			if Self::uses_weighted_points(e) {
 				Self::check_sum_weighted_points_consistency(e)?;
 			}
+			Self::check_reward_points_by_service_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -618,6 +684,43 @@ impl<T: Config> Eras<T> {
 			 stored vs computed individual weights do not match"
 		);
 
+		Ok(())
+	}
+
+	/// Verify that the points of each service never exceed the tally in [`ErasRewardPoints`].
+	///
+	/// Only bounds are checked. The tally can hold points not recorded per service.
+	pub(crate) fn check_reward_points_by_service_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		let tally = ErasRewardPoints::<T>::get(era);
+		let mut sum_per_account = alloc::collections::BTreeMap::<T::AccountId, RewardPoint>::new();
+		let mut sum_of_totals: RewardPoint = 0;
+		for by_service in ErasRewardPointsByService::<T>::iter_prefix_values(era) {
+			let sum_of_individual = by_service
+				.individual
+				.values()
+				.fold(0 as RewardPoint, |acc, points| acc.saturating_add(*points));
+			ensure!(
+				by_service.total == sum_of_individual,
+				"the total of a service is not the sum of its entries"
+			);
+			sum_of_totals.saturating_accrue(by_service.total);
+			for (who, points) in by_service.individual {
+				ensure!(
+					tally.individual.contains_key(&who),
+					"an account has points of a service but none in the tally"
+				);
+				sum_per_account.entry(who).or_default().saturating_accrue(points);
+			}
+		}
+		ensure!(
+			sum_per_account
+				.iter()
+				.all(|(who, points)| tally.individual.get(who).is_some_and(|t| points <= t)),
+			"the points of an account per service exceed its points in the tally"
+		);
+		ensure!(sum_of_totals <= tally.total, "the points per service exceed the tally's total");
 		Ok(())
 	}
 

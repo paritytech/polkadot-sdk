@@ -20,10 +20,12 @@ use emulated_integration_tests_common::{
 	xcm_emulator::{pallet_aura, polkadot_primitives::AuthorityDiscoveryId},
 };
 use pallet_staking_async::OnEraStart;
+use pallet_validator_collators::{CollatorDraw, DrawnCollators};
 use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+use sp_staking::ServiceKind;
 use westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime;
 
 fn use_memory_keystore() {
@@ -70,29 +72,45 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	let bob = Sr25519Keyring::Bob.to_account_id();
 	let charlie = Sr25519Keyring::Charlie.to_account_id();
 	let validators = vec![alice.clone(), bob.clone(), charlie];
-	// The validators follow the invulnerables in account order.
 	let mut with_keys = vec![alice.clone(), bob.clone()];
 	with_keys.sort();
-	let expected = invulnerables()
-		.into_iter()
-		.map(|(who, _, _)| who)
-		.chain(with_keys.clone())
-		.collect::<Vec<_>>();
-	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
-		let aura_of =
-			|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
+	// The validators follow the invulnerables in drawn order.
+	let expected = |drawn: &[AccountId]| {
 		invulnerables()
 			.into_iter()
-			.map(|(_, aura, _)| aura)
-			.chain(with_keys.iter().map(aura_of))
+			.map(|(who, _, _)| who)
+			.chain(drawn.iter().cloned())
 			.collect::<Vec<_>>()
 	};
+	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
+		let alice = alice.clone();
+		move |drawn: &[AccountId]| {
+			let aura_of =
+				|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
+			invulnerables()
+				.into_iter()
+				.map(|(_, aura, _)| aura)
+				.chain(drawn.iter().map(aura_of))
+				.collect::<Vec<_>>()
+		}
+	};
 
-	// GIVEN Alice and Bob registered collator keys on both chains and Charlie did not
+	// GIVEN Alice and Bob registered collator keys on both chains, Charlie did not, and root
+	// removed the default cap of zero
 	let asset_hub_authorities = AssetHubWestend::execute_with(|| {
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			CollatorDraw::All,
+		));
 		expected_authorities(register_keys_on_asset_hub(&alice), register_keys_on_asset_hub(&bob))
 	});
 	let people_authorities = PeopleWestend::execute_with(|| {
+		type Runtime = <PeopleWestend as Chain>::Runtime;
+		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			CollatorDraw::All,
+		));
 		expected_authorities(register_keys_on_people(&alice), register_keys_on_people(&bob))
 	});
 	let people_session_before = PeopleWestend::execute_with(|| {
@@ -102,6 +120,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	// WHEN Asset Hub starts era 1 with Alice, Bob and Charlie
 	let asset_hub_session_before = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
 		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
 		assert_expected_events!(
 			AssetHubWestend,
@@ -120,7 +139,9 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 				pallet_validator_set_announcer::Event::AnnouncementFailed { .. }
 			)
 		)));
-		pallet_session::Pallet::<<AssetHubWestend as Chain>::Runtime>::current_index()
+		// AND both chains record the arrival of the set to time the report before the era end
+		assert!(pallet_validator_collators::ExternalSetReceivedAt::<Runtime>::get().is_some());
+		pallet_session::Pallet::<Runtime>::current_index()
 	});
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
@@ -132,6 +153,8 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 				) => {},
 			]
 		);
+		type Runtime = <PeopleWestend as Chain>::Runtime;
+		assert!(pallet_validator_collators::ExternalSetReceivedAt::<Runtime>::get().is_some());
 	});
 
 	// THEN after two forced rotations both chains collate with the invulnerables, Alice and Bob
@@ -140,21 +163,29 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	AssetHubWestend::execute_with(|| {});
 	AssetHubWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<AssetHubWestend as Chain>::Runtime>;
+		let drawn = DrawnCollators::<<AssetHubWestend as Chain>::Runtime>::get().unwrap().collators;
+		let mut sorted = drawn.to_vec();
+		sorted.sort();
+		assert_eq!(sorted, with_keys);
 		assert_eq!(Session::current_index(), asset_hub_session_before + 2);
-		assert_eq!(Session::validators(), expected);
+		assert_eq!(Session::validators(), expected(&drawn));
 		assert_eq!(
 			pallet_aura::Authorities::<<AssetHubWestend as Chain>::Runtime>::get().into_inner(),
-			asset_hub_authorities
+			asset_hub_authorities(&drawn)
 		);
 	});
 	PeopleWestend::execute_with(|| {});
 	PeopleWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<PeopleWestend as Chain>::Runtime>;
+		let drawn = DrawnCollators::<<PeopleWestend as Chain>::Runtime>::get().unwrap().collators;
+		let mut sorted = drawn.to_vec();
+		sorted.sort();
+		assert_eq!(sorted, with_keys);
 		assert_eq!(Session::current_index(), people_session_before + 2);
-		assert_eq!(Session::validators(), expected);
+		assert_eq!(Session::validators(), expected(&drawn));
 		assert_eq!(
 			pallet_aura::Authorities::<<PeopleWestend as Chain>::Runtime>::get().into_inner(),
-			people_authorities
+			people_authorities(&drawn)
 		);
 	});
 }
@@ -172,7 +203,10 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 	PeopleWestend::execute_with(|| {
 		register_keys_on_people(&alice);
 		register_keys_on_people(&bob);
-		assert_ok!(ValidatorCollators::set_max_collators(RuntimeOrigin::root(), Some(1)));
+		assert_ok!(ValidatorCollators::set_max_collators(
+			RuntimeOrigin::root(),
+			CollatorDraw::UpTo(1)
+		));
 	});
 
 	// WHEN a set with both arrives
@@ -193,8 +227,8 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 	// `OnSystemEvent`, which is a zero value in the emulator's relay state proof
 	let drawn = PeopleWestend::execute_with(|| {
 		assert_eq!(pallet_validator_collators::EpochRandomness::<Runtime>::get(), Some([0; 32]));
-		let drawn = pallet_validator_collators::Collators::<Runtime>::get()
-			.map(|drawn| drawn.validators.into_inner())
+		let drawn = pallet_validator_collators::DrawnCollators::<Runtime>::get()
+			.map(|drawn| drawn.collators.into_inner())
 			.unwrap_or_default();
 		assert_eq!(drawn.len(), 1);
 		assert!(drawn[0] == alice || drawn[0] == bob);
@@ -203,8 +237,13 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::CollatorsDrawn { era: 1, validators }
-				) => { validators: *validators == drawn, },
+					pallet_validator_collators::Event::CollatorsDrawn {
+						era: 1,
+						external_len: 2,
+						drawn_len: 1,
+						new_external: true,
+					}
+				) => {},
 			]
 		);
 		drawn
@@ -235,4 +274,158 @@ fn asset_hub_caches_the_relay_epoch_randomness_from_the_next_block() {
 	// THEN the pallet, wired as `OnSystemEvent`, caches the randomness, which is a zero value in
 	// the emulator's relay state proof
 	AssetHubWestend::execute_with(|| assert_eq!(EpochRandomness::get(), Some([0; 32])));
+}
+
+#[test]
+fn people_reports_authored_blocks_to_asset_hub() {
+	type AssetHubRuntime = <AssetHubWestend as Chain>::Runtime;
+	type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+	type PeopleValidatorCollators = pallet_validator_collators::Pallet<PeopleRuntime>;
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+	let invulnerable = invulnerables()[0].0.clone();
+	let people = PeopleWestend::para_id();
+
+	// GIVEN era 1 is active on Asset Hub with Alice exposed, and People's blocks earn 5 points
+	AssetHubWestend::execute_with(|| {
+		pallet_staking_async::ActiveEra::<AssetHubRuntime>::put(
+			pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+		);
+		pallet_staking_async::session_rotation::Eras::<AssetHubRuntime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(pallet_staking_async_points_converter::Pallet::<AssetHubRuntime>::set_points_per_service(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			people,
+			ServiceKind::Collation,
+			5,
+		));
+	});
+
+	// AND People stores the set of Alice and Bob, Alice authored 3 blocks, Bob 1 and an
+	// invulnerable 2, and the next block is a report block. People drops the invulnerable, which
+	// is not in its set, and Asset Hub drops Bob, who is in People's set but not exposed.
+	PeopleWestend::execute_with(|| {
+		assert_ok!(PeopleValidatorCollators::set_validators(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			1,
+			[alice.clone(), bob.clone()]
+				.into_iter()
+				.collect::<std::collections::BTreeSet<_>>()
+				.try_into()
+				.unwrap(),
+		));
+		let note = |who: &AccountId, blocks: u32| {
+			(0..blocks).for_each(|_| {
+				<PeopleValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+					who.clone(),
+				)
+			})
+		};
+		note(&alice, 3);
+		note(&bob, 1);
+		note(&invulnerable, 2);
+		let next = <PeopleWestend as Chain>::System::block_number() + 1;
+		assert_ok!(PeopleValidatorCollators::set_report_period(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			next,
+		));
+	});
+
+	// WHEN People reaches the report block, whose `on_poll` the emulator does not run
+	PeopleWestend::execute_with(|| {
+		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		<PeopleValidatorCollators as frame_support::traits::Hooks<_>>::on_poll(
+			<PeopleWestend as Chain>::System::block_number(),
+			&mut frame_support::weights::WeightMeter::new(),
+		);
+		assert_expected_events!(
+			PeopleWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::BlocksReported { reported: 2, .. }
+				) => {},
+			]
+		);
+		assert_eq!(pallet_validator_collators::AuthoredBlocks::<PeopleRuntime>::count(), 0);
+	});
+
+	// THEN Asset Hub credits Alice's blocks with People's points per service, drops Bob's and
+	// credits nobody else
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::StakingPointsConverter(
+					pallet_staking_async_points_converter::Event::BlocksCredited { source, blocks: 4 }
+				) => { source: *source == people, },
+				RuntimeEvent::Staking(
+					pallet_staking_async::Event::ServicePointsCredited {
+						service: ServiceKind::Collation,
+						era: 1,
+						credited: 1,
+						dropped: 1,
+					}
+				) => {},
+			]
+		);
+		let points = pallet_staking_async::ErasRewardPoints::<AssetHubRuntime>::get(1);
+		assert_eq!(points.individual.into_iter().collect::<Vec<_>>(), vec![(alice.clone(), 15)]);
+		assert_eq!(points.total, 15);
+		// AND they are recorded as collation points only
+		let by_service = |service| {
+			let points =
+				pallet_staking_async::ErasRewardPointsByService::<AssetHubRuntime>::get(1, service);
+			(points.total, points.individual.into_iter().collect::<Vec<_>>())
+		};
+		assert_eq!(by_service(ServiceKind::Collation), (15, vec![(alice, 15)]));
+		assert_eq!(by_service(ServiceKind::RelayConsensus), (0, vec![]));
+	});
+}
+
+#[test]
+fn people_report_call_decodes_on_asset_hub() {
+	// GIVEN the largest call People sends to report blocks
+	type MaxEntries =
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxValidators;
+	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
+	let blocks = (0..max_entries)
+		.map(|i| {
+			let mut account = [0u8; 32];
+			account[..4].copy_from_slice(&i.to_le_bytes());
+			(AccountId::from(account), i + 1)
+		})
+		.collect::<Vec<_>>();
+	let encoded = people_westend_runtime::ReportBlocksToAssetHub::encoded_call(&blocks);
+	// WHEN Asset Hub decodes it
+	let call = <asset_hub_westend_runtime::RuntimeCall as codec::Decode>::decode(&mut &encoded[..]);
+	// THEN it is `report_authored_blocks` of `pallet-staking-async-points-converter` with the
+	// same entries
+	match call {
+		Ok(asset_hub_westend_runtime::RuntimeCall::StakingPointsConverter(
+			pallet_staking_async_points_converter::Call::report_authored_blocks { blocks: decoded },
+		)) => assert_eq!(decoded, blocks),
+		other => panic!("People's report decodes on Asset Hub as {other:?}"),
+	}
+}
+
+#[test]
+fn people_full_report_fits_the_message_queue_of_asset_hub() {
+	// GIVEN the largest report People sends, all credited
+	type MaxEntries =
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxValidators;
+	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
+	let message = asset_hub_westend_runtime::StakingPointsConverter::report_authored_blocks_weight(
+		max_entries,
+	);
+	// WHEN Asset Hub processes it from its message queue
+	// THEN it fits the service weight, so it is not set aside as overweight
+	let service_weight = asset_hub_westend_runtime::MessageQueueServiceWeight::get();
+	assert!(
+		service_weight.all_gte(message),
+		"a full report of {max_entries} entries weighs {message:?}",
+	);
 }
