@@ -324,8 +324,8 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
-	/// Queue for backfilling blocks missed during subscription reconnects and finalized
-	/// blocks whose processing failed.
+	/// Queue for backfilling blocks missed during subscription reconnects and, in archive
+	/// mode, finalized blocks whose processing failed.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
@@ -338,8 +338,8 @@ pub(crate) struct GapFillRequest {
 	pub to_inclusive: SubstrateBlockNumber,
 }
 
-/// Queues gap-fill requests for blocks missed during subscription reconnects and for
-/// finalized blocks whose processing failed.
+/// Queues gap-fill requests for blocks missed during subscription reconnects and, in archive
+/// mode, for finalized blocks whose processing failed.
 #[derive(Clone)]
 pub(crate) struct SubscriptionGapQueue {
 	/// Sender half of the gap-fill queue.
@@ -353,11 +353,12 @@ pub(crate) struct SubscriptionGapQueue {
 
 impl SubscriptionGapQueue {
 	pub(crate) fn new() -> (Self, mpsc::Receiver<GapFillRequest>) {
-		// Reconnects produce one request per missed range and failed finalized blocks one
-		// request each, served by a single consumer that holds a failing request for its
-		// whole retry schedule. A request that does not fit is dropped but stays pending,
-		// which freezes the sync head exactly as an abandoned fill does; the restart's
-		// backward sync then re-indexes the dropped range like any other gap.
+		// Reconnects produce one request per missed range and, in archive mode, failed
+		// finalized blocks one request each, served by a single consumer that holds a
+		// failing request for its whole retry schedule. A request that does not fit is
+		// dropped but stays pending, which freezes the sync head exactly as an abandoned
+		// fill does; the restart's backward sync then re-indexes the dropped range like any
+		// other gap.
 		let (tx, rx) = mpsc::channel(32);
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
@@ -647,7 +648,8 @@ impl Client {
 						block.hash(),
 					);
 					if subscription_type == SubscriptionType::FinalizedBlocks &&
-						last_finalized_seen.is_none()
+						last_finalized_seen.is_none() &&
+						self.is_archive
 					{
 						self.subscription_gap_queue.queue(block.number(), block.number());
 						last_finalized_seen = Some(block.number());
