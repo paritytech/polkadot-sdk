@@ -3387,10 +3387,10 @@ mod benchmarks {
 
 			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
 			interpreter
-			.memory
-			.resize(0, init_code.len(), interpreter.ext)
-			.continue_value()
-			.expect("the init code fits the memory limit and the setup weight budget; qed");
+				.memory
+				.resize(0, init_code.len(), interpreter.ext)
+				.continue_value()
+				.expect("the init code fits the memory limit and the setup weight budget; qed");
 			let salt = U256::from(42u64);
 			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
 			let new_contract_addr =
