@@ -358,15 +358,6 @@ fn reward_to_stake_works() {
 
 			// Bypass logic and change current exposure
 			Eras::<T>::upsert_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
-			<Ledger<T>>::insert(
-				&20,
-				StakingLedgerInspect {
-					stash: 21,
-					total: 69,
-					active: 69,
-					unlocking: Default::default(),
-				},
-			);
 
 			// Compute total payout now for whole duration as other parameter won't change
 			let validator_payout_0 = validator_payout_for(time_per_era());
@@ -395,11 +386,6 @@ fn reward_to_stake_works() {
 				Staking::eras_stakers(active_era(), &21).total,
 				2000 + validator_payout_0 / 2
 			);
-
-			// Restore valid state so build_and_execute post-check passes.
-			// The test manually inserted a Ledger entry for account 20 without a paired
-			// Bonded/Payee entry, which breaks the count invariant in check_payees.
-			<Ledger<T>>::remove(&20);
 		});
 }
 
