@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793996823489,
+  "lastUpdate": 1794217515554,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95ae463f8443cd479a1c997e66a43208e7aea47a",
-          "message": "eth-rpc: skip receipt extraction for finalized blocks already processed as best (#11801)\n\n### Motivation\nBoth the best and finalized block subscriptions extract receipts\nindependently, so every block is processed twice. This skips redundant\nextraction on the finalized path when the block was already handled by\nthe best block subscription.\n\n### Summary\n- Skip redundant receipt extraction on finalized blocks already\nprocessed by the best block subscription\n- Read logs from DB for skipped blocks only when log subscribers exist\n- Refactor: extract process_block helper, parse_log_row shared function,\nadvance_sync_head\n- Add unit tests for get_processed_eth_block_hash and\nlogs_by_block_number\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-22T04:54:04Z",
-          "tree_id": "7d5d5473cf691d29518871b5472bdcdecddd8467",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/95ae463f8443cd479a1c997e66a43208e7aea47a"
-        },
-        "date": 1776838442343,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00948071366666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023921985539999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14500045174000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007227425813333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14201554159333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a0cc2e744941a5c55160ee847f2fc8711d507f7",
+          "message": "Remove the stale pallet-people and pallet-dummy-dim crates (#13585)\n\nPer @gui1117 on #13513: pallet-people's development continued in\nparitytech/individuality-community, nothing in this repo or in\npolkadot-fellows/runtimes depends on it anymore (People Polkadot pulls\n`indiv-pallet-people`/`indiv-pallet-people-lite` from that repo\ninstead). `pallet-dummy-dim` only existed to depend on `pallet-people`\nand has no other dependents.\n\nRemoves both crates entirely rather than just flagging them stale, since\nnothing uses them. `cargo metadata`, `zepter run check`, and `cargo\ncheck -p polkadot-sdk` all pass clean after the removal.\n\nCloses #13513\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T08:12:30Z",
+          "tree_id": "245301cbf092feed90374fb1281726cbb17be7b2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a0cc2e744941a5c55160ee847f2fc8711d507f7"
+        },
+        "date": 1794217481242,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025054193880000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14215217020000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007799609966666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009812459979999986,
             "unit": "seconds"
           }
         ]
