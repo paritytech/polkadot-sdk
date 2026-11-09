@@ -226,8 +226,8 @@ pub enum MessageToParaV1 {
 	},
 	/// Answer a [`MessageToRelayV1::SetCurrentHead`].
 	///
-	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
-	/// a refusal here means the two have drifted apart.
+	/// The parachain checks that it holds the para and that the head fits its own mirror of the
+	/// relay chain's limits first, so a refusal here means the two have drifted apart.
 	#[codec(index = 5)]
 	SetHeadResponse {
 		/// The para id the answer is about.
@@ -269,7 +269,9 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
-	// Index 2 is reserved for `NotRegistered`, which lands with the deregister flow.
+	/// The relay chain does not know this para id, e.g. a deregistration overtook the request.
+	#[codec(index = 2)]
+	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
@@ -277,6 +279,9 @@ pub enum FailureReason {
 	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
+	/// The head data is larger than the relay chain accepts.
+	#[codec(index = 5)]
+	HeadDataTooLarge,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.

@@ -65,7 +65,7 @@ pub struct Def {
 	pub genesis_config: Option<genesis_config::GenesisConfigDef>,
 	pub genesis_build: Option<genesis_build::GenesisBuildDef>,
 	pub validate_unsigned: Option<validate_unsigned::ValidateUnsignedDef>,
-	pub extra_constants: Option<extra_constants::ExtraConstantsDef>,
+	pub extra_constants: Vec<extra_constants::ExtraConstantsDef>,
 	pub composites: Vec<composite::CompositeDef>,
 	pub type_values: Vec<type_value::TypeValueDef>,
 	pub frame_system: syn::Path,
@@ -102,7 +102,7 @@ impl Def {
 		let mut genesis_config = None;
 		let mut genesis_build = None;
 		let mut validate_unsigned = None;
-		let mut extra_constants = None;
+		let mut extra_constants = vec![];
 		let mut storages = vec![];
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
@@ -185,8 +185,7 @@ impl Def {
 				Some(PalletAttr::TypeValue(span)) =>
 					type_values.push(type_value::TypeValueDef::try_from(span, index, item)?),
 				Some(PalletAttr::ExtraConstants(_)) =>
-					extra_constants =
-						Some(extra_constants::ExtraConstantsDef::try_from(item)?),
+					extra_constants.push(extra_constants::ExtraConstantsDef::try_from(item)?),
 				Some(PalletAttr::Composite(span)) => {
 					let composite =
 						composite::CompositeDef::try_from(span, &frame_support, item)?;
@@ -395,7 +394,7 @@ impl Def {
 		if let Some(genesis_build) = &self.genesis_build {
 			genesis_build.instances.as_ref().map(|i| instances.extend_from_slice(&i));
 		}
-		if let Some(extra_constants) = &self.extra_constants {
+		for extra_constants in &self.extra_constants {
 			instances.extend_from_slice(&extra_constants.instances[..]);
 		}
 		if let Some(task_enum) = &self.task_enum {
