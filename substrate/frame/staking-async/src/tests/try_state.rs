@@ -124,6 +124,45 @@ fn last_validator_era_can_be_one_greater_than_active_era() {
 }
 
 #[test]
+fn try_state_bad_last_validator_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let era = active_era();
+		assert_ok!(Staking::do_try_state(System::block_number()));
+
+		let (validator, _) = ErasStakersOverview::<T>::iter_prefix(era).next().unwrap();
+		let original = LastValidatorEra::<T>::get(&validator);
+		let expected = Err(sp_runtime::DispatchError::Other(
+			"LastValidatorEra must be the active era or the active era + 1",
+		));
+
+		// Neither the active era nor the next one: try-state must fail.
+		LastValidatorEra::<T>::insert(&validator, era - 1);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+		LastValidatorEra::<T>::insert(&validator, era + 2);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+
+		// Restore valid state so build_and_execute post-check passes.
+		LastValidatorEra::<T>::set(&validator, original);
+	});
+}
+
+#[test]
+fn last_validator_era_absent_after_force_unstake_is_valid() {
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let era = active_era();
+		let (validator, _) = ErasStakersOverview::<T>::iter_prefix(era).next().unwrap();
+
+		// `kill_stash` removes `LastValidatorEra`, but the active era's exposure stays.
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), validator, 0));
+		assert!(LastValidatorEra::<T>::get(&validator).is_none());
+		assert!(ErasStakersOverview::<T>::get(era, &validator).is_some());
+		assert_ok!(Staking::do_try_state(System::block_number()));
+	});
+}
+
+#[test]
 fn try_state_bad_eras_total_stake() {
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(2);
