@@ -272,16 +272,20 @@ mod deprecate_controller_call {
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
 				let ctlr: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
+				let total = (10 + ctlr).into();
 
 				Ledger::<Test>::insert(
 					ctlr,
 					StakingLedger {
 						controller: None,
-						total: (10 + ctlr).into(),
-						active: (10 + ctlr).into(),
+						total,
+						active: total,
 						..StakingLedger::default_from(stash)
 					},
 				);
+				// Back the ledger with a matching hold so it is not `LockCorrupted`.
+				asset::set_stakeable_balance::<Test>(&stash, total);
+				assert_ok!(asset::update_stake::<Test>(&stash, total));
 				Bonded::<Test>::insert(stash, ctlr);
 				Payee::<Test>::insert(stash, RewardDestination::Staked);
 
@@ -332,6 +336,10 @@ mod deprecate_controller_call {
 				// Check `active` and `total` values match the original ledger set by controller.
 				assert_eq!(ledger_updated.active, (10 + ctlr).into());
 				assert_eq!(ledger_updated.total, (10 + ctlr).into());
+
+				// The ledgers this test leaves behind must be consistent: the post-test
+				// try-state only logs a bad bond state, so it does not catch this.
+				assert_eq!(Staking::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 			}
 		})
 	}
