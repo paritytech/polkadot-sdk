@@ -238,7 +238,7 @@ fn bond_extra_controller_bad_state_works() {
 		// TODO: remove this BadState, we should no longer have it at all.
 		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<T>::BadState);
 
-		// Restore valid state so build_and_execute post-check passes.
+		// Restore the original bond so the test leaves no bad state behind.
 		Bonded::<T>::insert(31, 31);
 	})
 }

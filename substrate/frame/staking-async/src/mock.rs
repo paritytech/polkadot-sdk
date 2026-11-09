@@ -1060,17 +1060,16 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
 }
 
-/// Reverses [`setup_double_bonded_ledgers`] by removing all `Bonded`, `Ledger`, `Payee`
-/// and stake entries for the four accounts it touches. Idempotent — safe to call after
-/// further mutations (e.g. `set_controller`, `deprecate_controller_batch`) on those
-/// accounts. Used by tests that intentionally construct a double-bonded state so the
-/// post-test invariant check can pass.
+/// Removes the `Bonded`, `Ledger`, `Payee` and staking hold entries that
+/// [`setup_double_bonded_ledgers`] creates for its four accounts (the minted free balance
+/// stays). Idempotent, so it is safe to call after further mutations on those accounts. Used by
+/// tests that leave those ledgers corrupted, so the post-test invariant check can pass.
 pub(crate) fn cleanup_double_bonded_ledgers() {
 	for who in [333u64, 444, 555, 777] {
 		Bonded::<Test>::remove(who);
 		Ledger::<Test>::remove(who);
 		Payee::<Test>::remove(who);
-		let _ = asset::kill_stake::<Test>(&who);
+		assert_ok!(asset::kill_stake::<Test>(&who));
 	}
 }
 
