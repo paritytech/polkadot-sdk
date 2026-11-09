@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794241905283,
+  "lastUpdate": 1794249040926,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429432898aa850850e12f313f4442cbd95f134c4",
-          "message": "asset-conversion precompile: expose getReserves (#11817)\n\n## Summary\n- Add `getReserves(bytes asset1, bytes asset2)` view function to the\nasset-conversion precompile, returning the reserve balances of both\ntokens in the pool\n- This exposes `pallet_asset_conversion::Pallet::get_reserves()` to\nEVM/PVM contracts and frontends via the precompile interface\n\n## Motivation\nThe precompile already exposes `quoteExactTokensForTokens` and\n`quoteTokensForExactTokens`, which allow contracts to estimate swap\noutputs. However, there is no way to query the raw pool reserves\ndirectly. This forces frontends and contracts to probe with arbitrary\namounts to infer pool state. Exposing `getReserves` gives direct access\nto pool balances, enabling:\n- DEX UIs to display pool composition and depth\n- Contracts to make routing decisions based on actual liquidity\n- Parity with Uniswap V2's `getReserves` interface that Solidity\ndevelopers expect\n\n## Test plan\n- [x] `get_reserves_works` — verifies correct reserve values for an\nexisting pool\n- [x] `get_reserves_fails_for_nonexistent_pool` — verifies revert for\nmissing pool\n- [x] All 23 existing tests continue to pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T10:20:24Z",
-          "tree_id": "1c7080e3b20a8c09d50a59cfd6b96594321d37c9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/429432898aa850850e12f313f4442cbd95f134c4"
-        },
-        "date": 1776944548088,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1351544036333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.011433561300002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.779547100400002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "126017c64858e318e800838deabdc79fe2232880",
+          "message": "AHMv2 HRMP: part2: impl async provider (#13548)\n\nImplement the HRMP para and HRMP relay pallets. HRMP relay forwards the\ndeposit request and answer and HRMP para applies the requests and\nanswers back.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T16:44:33Z",
+          "tree_id": "f3197e4d6474d0e9d078fa62be9abfcadafcf3ff",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/126017c64858e318e800838deabdc79fe2232880"
+        },
+        "date": 1794249005550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.851193509899998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12127781876666666,
             "unit": "seconds"
           }
         ]
