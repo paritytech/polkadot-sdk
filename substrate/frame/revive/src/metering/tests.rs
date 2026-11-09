@@ -196,28 +196,23 @@ fn test_validate_and_get_stipend() {
 	use super::math::validate_and_get_stipend;
 
 	ExtBuilder::default().build().execute_with(|| {
-		// With enough weight, should succeed and return stipend
 		let stipend = validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
 
-		// With exactly stipend weight, should succeed
 		let result = validate_and_get_stipend::<Test>(stipend);
 		assert!(result.is_ok());
 
-		// With less than stipend (in ref_time), should fail
 		if stipend.ref_time() > 0 {
 			let insufficient = Weight::from_parts(stipend.ref_time() - 1, stipend.proof_size());
 			let result = validate_and_get_stipend::<Test>(insufficient);
 			assert!(result.is_err());
 		}
 
-		// With less than stipend (in proof_size), should fail
 		if stipend.proof_size() > 0 {
 			let insufficient = Weight::from_parts(stipend.ref_time(), stipend.proof_size() - 1);
 			let result = validate_and_get_stipend::<Test>(insufficient);
 			assert!(result.is_err());
 		}
 
-		// With zero weight, should fail (assuming stipend > 0)
 		if stipend.ref_time() > 0 || stipend.proof_size() > 0 {
 			let result = validate_and_get_stipend::<Test>(Weight::zero());
 			assert!(result.is_err());
@@ -3096,6 +3091,81 @@ fn weight_required_for_a_value_call_is_the_least_limit_covering_the_callee(
 		assert!(
 			!caller_limit_covers_callee(caller_weight_required - Weight::from_parts(1, 0)),
 			"less ref_time than the weight required must not suffice"
+		);
+	});
+}
+
+/// A value call from a frame that is over its deposit limit and has less than one stipend of
+/// weight left fails with `StorageDepositLimitExhausted`, not `OutOfGas`.
+#[test_case(
+	TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX }
+	; "substrate execution"
+)]
+#[test_case(
+	TransactionLimits::EthereumGas {
+		eth_gas_limit: u64::MAX.into(),
+		weight_limit: Weight::MAX,
+		eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+		authorization_deposit: Default::default(),
+	}
+	; "ethereum execution"
+)]
+fn value_call_checks_the_deposit_limit_before_the_stipend(
+	transaction_limits: TransactionLimits<Test>,
+) {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let deposit_limit = 1_000;
+		let mut caller_meter = TransactionMeter::<Test>::new(transaction_limits)
+			.unwrap()
+			.new_nested(&CallResources::NoLimits)
+			.unwrap()
+			.new_nested(&CallResources::WeightDeposit {
+				weight: stipend_weight - Weight::from_parts(1, 0),
+				deposit_limit,
+			})
+			.unwrap();
+		caller_meter.charge_deposit(&StorageDeposit::Charge(deposit_limit + 1)).unwrap();
+
+		assert_eq!(
+			caller_meter
+				.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
+				.err(),
+			Some(Error::<Test>::StorageDepositLimitExhausted.into())
+		);
+	});
+}
+
+/// A call from a frame that has run out of gas and is over its deposit limit fails with
+/// `OutOfGas`, not `StorageDepositLimitExhausted`.
+#[test]
+fn ethereum_execution_call_checks_the_gas_before_the_deposit_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let deposit_limit = 1_000;
+		let mut caller_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: Weight::MAX,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap()
+		.new_nested(&CallResources::NoLimits)
+		.unwrap()
+		.new_nested(&CallResources::WeightDeposit {
+			weight: Weight::from_parts(10_000, 0),
+			deposit_limit,
+		})
+		.unwrap();
+		// A nested frame records a charge even when it fails, so the caller is both out of gas
+		// and over its deposit limit.
+		assert_eq!(
+			caller_meter.charge_deposit(&StorageDeposit::Charge(u64::MAX.into())),
+			Err(Error::<Test>::OutOfGas.into())
+		);
+
+		assert_eq!(
+			caller_meter.new_nested(&CallResources::NoLimits).err(),
+			Some(Error::<Test>::OutOfGas.into())
 		);
 	});
 }

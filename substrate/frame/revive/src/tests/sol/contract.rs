@@ -1543,7 +1543,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	fn dry_run_estimates_suffice_for_transaction_with_nested_call(
+	fn dry_run_estimates_suffice_for_nested_call(
 		caller_type: FixtureType,
 		callee_type: FixtureType,
 		limits: TransactionLimits<Test>,
@@ -1576,7 +1576,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	fn dry_run_estimates_suffice_for_transaction_with_value_transfer(
+	fn dry_run_estimates_suffice_for_value_transfer(
 		caller_type: FixtureType,
 		limits: TransactionLimits<Test>,
 	) {
@@ -1598,7 +1598,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	fn dry_run_estimates_suffice_for_transaction_with_value_call_writing_storage(
+	fn dry_run_estimates_suffice_for_value_call_writing_storage(
 		caller_type: FixtureType,
 		receiver_type: FixtureType,
 		limits: TransactionLimits<Test>,
@@ -1701,7 +1701,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	fn dry_run_estimates_suffice_for_transaction_writing_after_refund(
+	fn dry_run_estimates_suffice_for_writing_after_refund(
 		caller_type: FixtureType,
 		callee_type: FixtureType,
 		limits: TransactionLimits<Test>,
@@ -1732,7 +1732,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	fn dry_run_estimates_suffice_for_transaction_with_reentrant_refund(
+	fn dry_run_estimates_suffice_for_reentrant_refund(
 		storage_type: FixtureType,
 		proxy_type: FixtureType,
 		limits: TransactionLimits<Test>,

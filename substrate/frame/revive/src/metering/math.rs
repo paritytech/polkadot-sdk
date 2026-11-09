@@ -23,7 +23,7 @@ use super::{
 use crate::vm::{RuntimeCosts, evm::EVMGas};
 use core::{marker::PhantomData, num::NonZero};
 use eip_150::{BalanceEip150, WeightEip150};
-use num_traits::{One, Zero};
+use num_traits::{Bounded, One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
 
@@ -505,7 +505,6 @@ pub mod ethereum_execution {
 
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
-
 		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
 		let weight_limit_left_before_rule = meter
@@ -513,11 +512,23 @@ pub mod ethereum_execution {
 			.weight_limit
 			.checked_sub(&self_consumed_weight)
 			.ok_or(<Error<T>>::OutOfGas)?;
+		// Checked before the deposit limit, so that a call from a frame that ran out of gas fails
+		// with `OutOfGas` even when the frame is also over its deposit limit.
+		let weight_left_before_rule = eth_tx_info
+			.weight_remaining(&meter.max_total_gas, &total_consumed_weight, &total_consumed_deposit)
+			.ok_or(<Error<T>>::OutOfGas)?
+			.min(weight_limit_left_before_rule);
+
+		let deposit_limit_left = match meter.deposit.limit {
+			Some(deposit_limit) => self_consumed_deposit
+				.available(&deposit_limit)
+				.map(|left| S::EIP_150_RULE.apply::<BalanceEip150<T>>(left))
+				.ok_or(<Error<T>>::StorageDepositLimitExhausted)?,
+			None => BalanceOf::<T>::max_value(),
+		};
 
 		let (stipend_weight, stipend_gas) = match limit {
 			CallResources::Ethereum { add_stipend: true, .. } => {
-				let weight_left_before_rule =
-					self::weight_left(meter, eth_tx_info).ok_or(<Error<T>>::OutOfGas)?;
 				let stipend_weight = validate_and_get_stipend::<T>(weight_left_before_rule)?;
 				// The gas the stipend adds to the fee, which can be less than its own price because
 				// the weight part of the fee is the larger of the ref_time and proof-size costs.
@@ -538,37 +549,19 @@ pub mod ethereum_execution {
 			.apply_eip_150(S::EIP_150_RULE);
 		let max_total_gas = total_gas_consumption.saturating_add(&remaining_gas);
 
-		let weight_left = {
-			let unbounded_weight_left = eth_tx_info
-				.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
-				.ok_or(<Error<T>>::OutOfGas)?;
-			let weight_limit_left = S::EIP_150_RULE.apply::<WeightEip150>(
+		let weight_left = eth_tx_info
+			.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
+			.ok_or(<Error<T>>::OutOfGas)?
+			.min(S::EIP_150_RULE.apply::<WeightEip150>(
 				weight_limit_left_before_rule.saturating_sub(stipend_weight),
-			);
+			));
 
-			unbounded_weight_left.min(weight_limit_left)
-		};
-
-		let deposit_left = {
-			// The stipend's gas can pay for storage deposit too.
-			let Some(unbounded_deposit_left) =
-				remaining_gas.saturating_add(&stipend_gas).to_adjusted_deposit_charge()
-			else {
-				return Err(<Error<T>>::OutOfGas.into());
-			};
-
-			match meter.deposit.limit {
-				Some(deposit_limit) => {
-					let deposit_limit_left = self_consumed_deposit
-						.available(&deposit_limit)
-						.map(|left| S::EIP_150_RULE.apply::<BalanceEip150<T>>(left))
-						.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
-
-					unbounded_deposit_left.min(deposit_limit_left)
-				},
-				None => unbounded_deposit_left,
-			}
-		};
+		// The stipend's gas can pay for storage deposit too.
+		let deposit_left = remaining_gas
+			.saturating_add(&stipend_gas)
+			.to_adjusted_deposit_charge()
+			.ok_or(<Error<T>>::OutOfGas)?
+			.min(deposit_limit_left);
 
 		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit) = {
 			match limit {
