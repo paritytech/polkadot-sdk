@@ -119,10 +119,12 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	}
 
 	/// Wraps `call` into a single call that dispatches it. Used only in benchmarks.
+	///
+	/// Defaults to [`Self::batch_call`] with `call` as the only element.
 	fn wrap_call(
-		_call: <Self as crate::Config>::RuntimeCall,
+		call: <Self as crate::Config>::RuntimeCall,
 	) -> Option<<Self as crate::Config>::RuntimeCall> {
-		None
+		Self::batch_call(vec![call])
 	}
 }
 

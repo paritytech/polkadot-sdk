@@ -3,7 +3,10 @@ doc:
 - audience: Runtime Dev
   description: |-
     Improves the `weigh_message` benchmark. Adds `pallet_xcm::benchmarking::Config::wrap_call`,
-    which you can override if you have a pallet that dispatches a single inner call.
+    which defaults to `batch_call` with a single call. You can override it if you have a call
+    that dispatches a single inner call.
 crates:
 - name: pallet-xcm
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
