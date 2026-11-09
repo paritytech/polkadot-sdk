@@ -148,14 +148,14 @@ fn item_config_from_disabled_settings(settings: BitFlags<ItemSetting>) -> ItemCo
 
 #[test]
 fn basic_setup_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(items(), vec![]);
 	});
 }
 
 #[test]
 fn basic_minting_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -178,7 +178,7 @@ fn basic_minting_should_work() {
 
 #[test]
 fn lifecycle_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::make_free_balance_be(&account(2), 100);
 		assert_ok!(Nfts::create(
@@ -273,7 +273,7 @@ fn lifecycle_should_work() {
 
 #[test]
 fn destroy_with_bad_witness_should_not_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
@@ -295,7 +295,7 @@ fn destroy_with_bad_witness_should_not_work() {
 
 #[test]
 fn destroy_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
@@ -329,7 +329,7 @@ fn destroy_should_work() {
 
 #[test]
 fn mint_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -462,7 +462,7 @@ fn mint_should_work() {
 
 #[test]
 fn transfer_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -519,7 +519,7 @@ fn transfer_should_work() {
 
 #[test]
 fn locking_transfer_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -554,7 +554,7 @@ fn locking_transfer_should_work() {
 
 #[test]
 fn origin_guards_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -605,7 +605,7 @@ fn origin_guards_should_work() {
 
 #[test]
 fn transfer_owner_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::make_free_balance_be(&account(2), 100);
 		Balances::make_free_balance_be(&account(3), 100);
@@ -731,7 +731,7 @@ fn force_collection_owner_fails_when_deposit_is_locked() {
 
 #[test]
 fn set_team_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -801,7 +801,7 @@ fn set_team_should_work() {
 
 #[test]
 fn set_collection_metadata_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Cannot add metadata to unknown item
 		assert_noop!(
 			Nfts::set_collection_metadata(RuntimeOrigin::signed(account(1)), 0, bvec![0u8; 20]),
@@ -892,7 +892,7 @@ fn set_collection_metadata_should_work() {
 
 #[test]
 fn set_item_metadata_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 30);
 
 		// Cannot add metadata to unknown item
@@ -963,7 +963,7 @@ fn set_item_metadata_should_work() {
 
 #[test]
 fn set_collection_owner_attributes_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 
 		assert_ok!(Nfts::force_create(
@@ -1053,7 +1053,7 @@ fn set_collection_owner_attributes_should_work() {
 
 #[test]
 fn set_collection_system_attributes_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 
 		assert_ok!(Nfts::force_create(
@@ -1133,7 +1133,7 @@ fn set_collection_system_attributes_should_work() {
 
 #[test]
 fn set_item_owner_attributes_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::make_free_balance_be(&account(2), 100);
 		Balances::make_free_balance_be(&account(3), 100);
@@ -1318,7 +1318,7 @@ fn set_item_owner_attributes_should_work() {
 
 #[test]
 fn set_external_account_attributes_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::make_free_balance_be(&account(2), 100);
 
@@ -1403,7 +1403,7 @@ fn set_external_account_attributes_should_work() {
 
 #[test]
 fn validate_deposit_required_setting() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::make_free_balance_be(&account(2), 100);
 		Balances::make_free_balance_be(&account(3), 100);
@@ -1492,7 +1492,7 @@ fn validate_deposit_required_setting() {
 
 #[test]
 fn set_attribute_should_respect_lock() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 
 		assert_ok!(Nfts::force_create(
@@ -1597,7 +1597,7 @@ fn set_attribute_should_respect_lock() {
 
 #[test]
 fn preserve_config_for_frozen_items() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 
 		assert_ok!(Nfts::force_create(
@@ -1653,7 +1653,7 @@ fn preserve_config_for_frozen_items() {
 
 #[test]
 fn force_update_collection_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 
 		assert_ok!(Nfts::force_create(
@@ -1770,7 +1770,7 @@ fn force_update_collection_should_work() {
 
 #[test]
 fn burn_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&account(1), 100);
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1819,7 +1819,7 @@ fn burn_works() {
 
 #[test]
 fn approval_lifecycle_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -1888,7 +1888,7 @@ fn approval_lifecycle_works() {
 
 #[test]
 fn cancel_approval_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -1963,7 +1963,7 @@ fn cancel_approval_works() {
 
 #[test]
 fn approving_multiple_accounts_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2019,7 +2019,7 @@ fn approving_multiple_accounts_works() {
 
 #[test]
 fn approvals_limit_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2052,7 +2052,7 @@ fn approvals_limit_works() {
 
 #[test]
 fn approval_deadline_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(0);
 		assert!(System::block_number().is_zero());
 
@@ -2104,7 +2104,7 @@ fn approval_deadline_works() {
 
 #[test]
 fn cancel_approval_works_with_admin() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2148,7 +2148,7 @@ fn cancel_approval_works_with_admin() {
 
 #[test]
 fn cancel_approval_works_with_force() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2192,7 +2192,7 @@ fn cancel_approval_works_with_force() {
 
 #[test]
 fn clear_all_transfer_approvals_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2248,7 +2248,7 @@ fn clear_all_transfer_approvals_works() {
 
 #[test]
 fn max_supply_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let collection_id = 0;
 		let user_id = account(1);
 		let max_supply = 1;
@@ -2345,7 +2345,7 @@ fn max_supply_should_work() {
 
 #[test]
 fn mint_settings_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let collection_id = 0;
 		let user_id = account(1);
 		let item_id = 0;
@@ -2404,7 +2404,7 @@ fn mint_settings_should_work() {
 
 #[test]
 fn set_price_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_id = account(1);
 		let collection_id = 0;
 		let item_1 = 1;
@@ -2509,7 +2509,7 @@ fn set_price_should_work() {
 
 #[test]
 fn buy_item_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1 = account(1);
 		let user_2 = account(2);
 		let user_3 = account(3);
@@ -2682,7 +2682,7 @@ fn buy_item_should_work() {
 
 #[test]
 fn pay_tips_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1 = account(1);
 		let user_2 = account(2);
 		let user_3 = account(3);
@@ -2737,7 +2737,7 @@ fn pay_tips_should_work() {
 
 #[test]
 fn create_cancel_swap_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(1);
 		let user_id = account(1);
 		let collection_id = 0;
@@ -2886,7 +2886,7 @@ fn create_cancel_swap_should_work() {
 
 #[test]
 fn claim_swap_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(1);
 		let user_1 = account(1);
 		let user_2 = account(2);
@@ -3015,7 +3015,7 @@ fn claim_swap_should_work() {
 				item_2,
 				collection_id,
 				item_1,
-				Some(PriceWithDirection { amount: price + 1, direction: price_direction.clone() }), // wrong price
+				Some(PriceWithDirection { amount: price + 1, direction: price_direction.clone() }), /* wrong price */
 			),
 			Error::<Test>::UnknownSwap
 		);
@@ -3026,7 +3026,7 @@ fn claim_swap_should_work() {
 				item_2,
 				collection_id,
 				item_1,
-				Some(PriceWithDirection { amount: price, direction: PriceDirection::Send }), // wrong direction
+				Some(PriceWithDirection { amount: price, direction: PriceDirection::Send }), /* wrong direction */
 			),
 			Error::<Test>::UnknownSwap
 		);
@@ -3100,7 +3100,7 @@ fn claim_swap_should_work() {
 
 #[test]
 fn various_collection_settings() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// when we set only one value it's required to call .into() on it
 		let config =
 			collection_config_from_disabled_settings(CollectionSetting::TransferableItems.into());
@@ -3130,7 +3130,7 @@ fn various_collection_settings() {
 
 #[test]
 fn collection_locking_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_id = account(1);
 		let collection_id = 0;
 
@@ -3183,7 +3183,7 @@ fn collection_locking_should_work() {
 
 #[test]
 fn pallet_level_feature_flags_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Features::set(&PalletFeatures::from_disabled(
 			PalletFeature::Trading | PalletFeature::Approvals | PalletFeature::Attributes,
 		));
@@ -3251,7 +3251,7 @@ fn pallet_level_feature_flags_should_work() {
 
 #[test]
 fn group_roles_by_account_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(Nfts::group_roles_by_account(vec![]), vec![]);
 
 		let account_to_role = Nfts::group_roles_by_account(vec![
@@ -3281,7 +3281,7 @@ fn group_roles_by_account_should_work() {
 
 #[test]
 fn add_remove_item_attributes_approval_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1 = account(1);
 		let user_2 = account(2);
 		let user_3 = account(3);
@@ -3349,7 +3349,7 @@ fn add_remove_item_attributes_approval_should_work() {
 
 #[test]
 fn validate_signature() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1_pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let user_1_signer = MultiSigner::Sr25519(user_1_pair.public());
 		let user_1 = user_1_signer.clone().into_account();
@@ -3378,7 +3378,7 @@ fn validate_signature() {
 
 #[test]
 fn pre_signed_mints_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_0 = account(0);
 		let user_1_pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let user_1_signer = MultiSigner::Sr25519(user_1_pair.public());
@@ -3550,7 +3550,7 @@ fn pre_signed_mints_should_work() {
 
 #[test]
 fn pre_signed_attributes_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1_pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let user_1_signer = MultiSigner::Sr25519(user_1_pair.public());
 		let user_1 = user_1_signer.clone().into_account();
@@ -3858,7 +3858,7 @@ fn pre_signed_attributes_should_work() {
 
 #[test]
 fn basic_create_collection_with_id_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Nfts::create_collection_with_id(
 				0u32,
@@ -3896,7 +3896,7 @@ fn basic_create_collection_with_id_should_work() {
 
 #[test]
 fn clear_collection_metadata_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Start with an account with 100 tokens, 10 of which are reserved
 		Balances::make_free_balance_be(&account(1), 100);
 		Balances::reserve(&account(1), 10).unwrap();
