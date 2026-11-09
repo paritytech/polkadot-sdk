@@ -782,10 +782,8 @@ mod electable_stashes {
 				))
 			);
 
-			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
-			// stashes this test injected outside an election.
+			// Restore `MaxValidatorSet` so the post-test check passes.
 			MaxValidatorSet::set(max_validator_set_before);
-			ElectableStashes::<Test>::kill();
 		})
 	}
 
@@ -821,10 +819,8 @@ mod electable_stashes {
 				))
 			);
 
-			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
-			// stashes this test injected outside an election.
+			// Restore `MaxValidatorSet` so the post-test check passes.
 			MaxValidatorSet::set(max_validator_set_before);
-			ElectableStashes::<Test>::kill();
 		})
 	}
 
@@ -870,10 +866,8 @@ mod electable_stashes {
 				))
 			);
 
-			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
-			// stashes this test injected outside an election.
+			// Restore `MaxValidatorSet` so the post-test check passes.
 			MaxValidatorSet::set(max_validator_set_before);
-			ElectableStashes::<Test>::kill();
 		})
 	}
 }

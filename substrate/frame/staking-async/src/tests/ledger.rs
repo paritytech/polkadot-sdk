@@ -129,7 +129,7 @@ fn get_ledger_bad_state_fails() {
 			Err(Error::<Test>::BadState.into())
 		);
 
-		// Restore valid state so build_and_execute post-check passes.
+		// Remove the corrupted fixture so the post-test check passes.
 		cleanup_double_bonded_ledgers();
 	})
 }
@@ -572,7 +572,7 @@ mod ledger_recovery {
 
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-			// Restore valid state so build_and_execute post-check passes.
+			// Remove the corrupted fixture so the post-test check passes.
 			cleanup_double_bonded_ledgers();
 		})
 	}
@@ -631,7 +631,7 @@ mod ledger_recovery {
 
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-			// Restore valid state so build_and_execute post-check passes.
+			// Remove the corrupted fixture so the post-test check passes.
 			cleanup_double_bonded_ledgers();
 		})
 	}
@@ -665,7 +665,7 @@ mod ledger_recovery {
 				LedgerIntegrityState::LockCorrupted
 			);
 
-			// Restore valid state so build_and_execute post-check passes.
+			// Remove the corrupted fixture so the post-test check passes.
 			cleanup_double_bonded_ledgers();
 		})
 	}

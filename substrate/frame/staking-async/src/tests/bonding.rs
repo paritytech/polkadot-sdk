@@ -237,9 +237,12 @@ fn bond_extra_controller_bad_state_works() {
 		// if the ledger is in this bad state, the `bond_extra` should fail.
 		// TODO: remove this BadState, we should no longer have it at all.
 		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<T>::BadState);
+		assert_eq!(Staking::inspect_bond_state(&31), Ok(LedgerIntegrityState::Corrupted));
 
-		// Restore the original bond so the test leaves no bad state behind.
+		// Restore the original bond so the test leaves no bad state behind. try-state only logs
+		// this corruption, so check the restore here.
 		Bonded::<T>::insert(31, 31);
+		assert_eq!(Staking::inspect_bond_state(&31), Ok(LedgerIntegrityState::Ok));
 	})
 }
 
