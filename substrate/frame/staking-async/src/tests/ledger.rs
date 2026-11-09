@@ -123,6 +123,12 @@ fn get_ledger_bad_state_fails() {
 		// controller (444) is now bonding a ledger with a different stash (444, not 333).
 		assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
 
+		// try-state rejects the corrupted bond.
+		assert_eq!(
+			Staking::do_try_state(System::block_number()),
+			Err(Error::<Test>::BadState.into())
+		);
+
 		// Restore valid state so build_and_execute post-check passes.
 		cleanup_double_bonded_ledgers();
 	})
@@ -253,9 +259,6 @@ fn set_controller_with_bad_state_fails() {
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(555)), Error::<Test>::BadState);
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(444)), Error::<Test>::BadState);
 		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-
-		// Restore valid state so build_and_execute post-check passes.
-		cleanup_double_bonded_ledgers();
 	})
 }
 
@@ -490,9 +493,6 @@ mod deprecate_controller_call {
 				*staking_events().last().unwrap(),
 				Event::ControllerBatchDeprecated { failures: 2 }
 			);
-
-			// Restore valid state so build_and_execute post-check passes.
-			cleanup_double_bonded_ledgers();
 		})
 	}
 }
@@ -514,9 +514,6 @@ mod ledger_recovery {
 
 			// double bonded but not corrupted.
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-
-			// Restore valid state so build_and_execute post-check passes.
-			cleanup_double_bonded_ledgers();
 		})
 	}
 

@@ -774,7 +774,16 @@ mod electable_stashes {
 				vec![1, 2, 3, 4]
 			);
 
-			// Restore valid state so build_and_execute post-check passes.
+			// try-state rejects a `MaxValidatorSet` below the per-page winner bound.
+			assert_eq!(
+				Staking::do_try_state(System::block_number()),
+				Err(sp_runtime::DispatchError::Other(
+					"max validators should be higher than per page bounds"
+				))
+			);
+
+			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
+			// stashes this test injected outside an election.
 			MaxValidatorSet::set(max_validator_set_before);
 			ElectableStashes::<Test>::kill();
 		})
@@ -804,7 +813,16 @@ mod electable_stashes {
 				vec![1, 2, 3, 4, 5]
 			);
 
-			// Restore valid state so build_and_execute post-check passes.
+			// try-state rejects a `MaxValidatorSet` below the per-page winner bound.
+			assert_eq!(
+				Staking::do_try_state(System::block_number()),
+				Err(sp_runtime::DispatchError::Other(
+					"max validators should be higher than per page bounds"
+				))
+			);
+
+			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
+			// stashes this test injected outside an election.
 			MaxValidatorSet::set(max_validator_set_before);
 			ElectableStashes::<Test>::kill();
 		})
@@ -844,7 +862,16 @@ mod electable_stashes {
 			assert!(!exposure_exists(3, 1));
 			assert!(!exposure_exists(4, 1));
 
-			// Restore valid state so build_and_execute post-check passes.
+			// try-state rejects a `MaxValidatorSet` below the per-page winner bound.
+			assert_eq!(
+				Staking::do_try_state(System::block_number()),
+				Err(sp_runtime::DispatchError::Other(
+					"max validators should be higher than per page bounds"
+				))
+			);
+
+			// Restore `MaxValidatorSet` so the post-test check passes, and clear the electable
+			// stashes this test injected outside an election.
 			MaxValidatorSet::set(max_validator_set_before);
 			ElectableStashes::<Test>::kill();
 		})
