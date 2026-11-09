@@ -645,10 +645,13 @@ where
 		let res = self.inner.import(hash, number, header, &is_descendent_of);
 
 		match res {
-			Ok(_) | Err(fork_tree::Error::Duplicate) => {
+			Ok(_) => {
 				self.epochs.insert((hash, number), epoch);
 				Ok(())
 			},
+			// ForkTree keeps the original node unchanged on a duplicate; skip the map
+			// update too so the two stores stay in sync.
+			Err(fork_tree::Error::Duplicate) => Ok(()),
 			Err(e) => Err(e),
 		}
 	}
@@ -1151,5 +1154,43 @@ mod tests {
 		let mut list: Vec<_> = epoch_changes.inner.iter().map(|e| e.0).collect();
 		list.sort();
 		assert_eq!(list, vec![b"A", b"G", b"L"]);
+	}
+
+	#[test]
+	fn duplicate_import_does_not_desync_epoch_map() {
+		let is_descendent_of = |_: &Hash, _: &Hash| -> Result<bool, TestError> { Ok(true) };
+
+		let mut epoch_changes = EpochChanges::<_, _, Epoch>::new();
+
+		let epoch_a = PersistedEpoch::Regular(Epoch { start_slot: 100, duration: 100 });
+		let epoch_b = PersistedEpoch::Regular(Epoch { start_slot: 200, duration: 100 });
+
+		// First import — ForkTree node and epochs map both record epoch_a.
+		epoch_changes
+			.import(
+				&is_descendent_of,
+				*b"A",
+				1,
+				Default::default(),
+				IncrementedEpoch(epoch_a.clone()),
+			)
+			.unwrap();
+
+		// Duplicate import with different epoch data — must be a no-op for both stores.
+		epoch_changes
+			.import(&is_descendent_of, *b"A", 1, Default::default(), IncrementedEpoch(epoch_b))
+			.unwrap();
+
+		// epochs map must still hold epoch_a (start_slot=100); overwriting it would desync from
+		// ForkTree. PersistedEpoch doesn't derive PartialEq, so check the inner field directly.
+		let stored = epoch_changes.epochs.get(&(*b"A", 1u64)).expect("entry must exist");
+		let PersistedEpoch::Regular(inner) = stored else {
+			panic!("expected PersistedEpoch::Regular");
+		};
+		assert_eq!(
+			inner.start_slot, 100,
+			"duplicate import must not overwrite existing epoch entry"
+		);
+		assert_eq!(inner.duration, 100);
 	}
 }

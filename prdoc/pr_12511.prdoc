@@ -1,0 +1,19 @@
+title: '[RWF] `sc-consensus-epochs`: fix ForkTree/epoch-map desync on duplicate import'
+doc:
+- audience: Node Dev
+  description: "Fixes #12461.\n\n### Problem\n\n`EpochChanges::import` kept two stores\
+    \ in lockstep \u2014 a `ForkTree` of `PersistedEpochHeader` values and a `BTreeMap`\
+    \ of full `PersistedEpoch` data. When `ForkTree::import` returned `Err(Duplicate)`,\
+    \ the tree left its existing node untouched (original header intact). However,\
+    \ the previous match arm collapsed `Ok(_)` and `Err(Duplicate)` together and unconditionally\
+    \ called `self.epochs.insert(...)`, overwriting the original epoch entry with\
+    \ whatever data was passed in the second import call.\n\nThe result: `ForkTree`\
+    \ held a node header from epoch A while `self.epochs` held epoch B. Any lookup\
+    \ that crosses both stores (e.g. `epoch_data_for_child_of`) would then return\
+    \ inconsistent data.\n\n### Fix\n\nSeparate the two match arms. On `Err(Duplicate)`,\
+    \ skip `epochs.insert` and return `Ok(())` \u2014 making a duplicate import a\
+    \ true no-op for both stores.\n\nA unit test `duplicate_import_does_not_desync_epoch_map`\
+    \ pins this behaviour."
+crates:
+- name: sc-consensus-epochs
+  bump: patch
