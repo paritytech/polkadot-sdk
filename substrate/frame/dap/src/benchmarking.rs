@@ -80,7 +80,7 @@ mod benchmarks {
 		allocations
 	}
 
-	fn mint_to_buffer<T: Config>(asset: AssetKindOf<T>, amount: BalanceOf<T>) {
+	fn mint_to_buffer<T: Config>(asset: AssetKindOf<T>, amount: AssetsBalanceOf<T>) {
 		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::buffer_account(), amount));
 	}
 
@@ -130,10 +130,11 @@ mod benchmarks {
 
 		for i in asset_allocations.keys() {
 			let cadence = T::IssuanceCadence::get();
-			let cadence_as_balance: T::Balance = SaturatedConversion::saturated_from(cadence);
+			let cadence_as_balance: AssetsBalanceOf<T> =
+				SaturatedConversion::saturated_from(cadence);
 			let to_mint = T::Assets::minimum_balance(i.clone())
-				.saturating_mul(cadence_as_balance.saturating_add(T::Balance::from(1u32)))
-				.saturating_mul(T::Balance::from(1_000_000_000u32));
+				.saturating_mul(cadence_as_balance.saturating_add(AssetsBalanceOf::<T>::from(1u32)))
+				.saturating_mul(AssetsBalanceOf::<T>::from(1_000_000_000u32));
 
 			mint_to_buffer::<T>(i.clone(), to_mint);
 		}
@@ -156,8 +157,8 @@ mod benchmarks {
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 
 		for i in asset_allocations.keys() {
-			let elapsed_millis_as_balance: T::Balance = (elapsed_millis as u32).into();
-			let recipients_len: T::Balance = (recipients.len() as u32).into();
+			let elapsed_millis_as_balance: AssetsBalanceOf<T> = (elapsed_millis as u32).into();
+			let recipients_len: AssetsBalanceOf<T> = (recipients.len() as u32).into();
 			let minimum_balance = T::Assets::minimum_balance(i.clone());
 
 			assert_has_event::<T>(Event::AssetDistributed {

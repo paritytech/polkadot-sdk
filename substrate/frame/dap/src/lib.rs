@@ -67,7 +67,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
-			ItemOf, Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
+			Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
 		},
 		fungibles::{Balanced, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
@@ -76,6 +76,7 @@ use frame_support::{
 	weights::WeightMeter,
 	PalletId,
 };
+use frame_system::pallet_prelude::AccountIdFor;
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
 use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
@@ -88,24 +89,21 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
-/// Type alias for balance.
-pub type BalanceOf<T> = <T as Config>::Balance;
+/// Type alias for the issued currency balance.
+pub type IssuedCurrencyBalanceOf<T> =
+	<<T as Config>::IssuedCurrency as FungibleInspect<AccountIdFor<T>>>::Balance;
+
+/// Type alias for the assets balance.
+pub type AssetsBalanceOf<T> = <<T as Config>::Assets as Inspect<AccountIdFor<T>>>::Balance;
 
 /// Type alias for asset kind.
-pub type AssetKindOf<T> = <T as Config>::AssetKind;
-
-/// Type alias for the native currency as a part of the [`Config::Assets`].
-pub type NativeCurrencyOf<T> = ItemOf<
-	<T as Config>::Assets,
-	<T as Config>::NativeCurrencyAssetId,
-	<T as frame_system::Config>::AccountId,
->;
+pub type AssetKindOf<T> = <<T as Config>::Assets as Inspect<AccountIdFor<T>>>::AssetId;
 
 /// Type alias for the native asset allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
 type AssetAllocationMapOf<T> =
-	AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>, <T as Config>::MaxDistributableAssets>;
+	AssetAllocationMap<AssetKindOf<T>, AssetsBalanceOf<T>, <T as Config>::MaxDistributableAssets>;
 
 /// Type alias for the non-native assets allocation map.
 pub type AssetAllocationMap<AssetKind, Balance, MaxDistributableAssets> =
@@ -138,10 +136,8 @@ pub trait BenchmarkHelper<AccountId, AssetKind> {
 pub mod pallet {
 	use super::*;
 	use crate::weights::WeightInfo;
-	use frame_support::{
-		sp_runtime::traits::AccountIdConversion,
-		traits::{tokens::Balance, StorageVersion},
-	};
+	use codec::FullCodec;
+	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
@@ -152,16 +148,19 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>>
+	where
+		AssetKindOf<Self>: FullCodec + Ord,
+	{
+		/// The currency type (new fungible traits).
+		type IssuedCurrency: FungibleInspect<Self::AccountId>
+			+ FungibleMutate<Self::AccountId>
+			+ FungibleUnbalanced<Self::AccountId>
+			+ FungibleBalanced<Self::AccountId>;
+
 		/// The pallet ID used to derive the buffer account.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-
-		/// A single balance type for all(native and non-native) assets.
-		type Balance: Balance;
-
-		/// Type of asset. It must include both native asset and non-native assets.
-		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
 
 		/// Registry of assets. It must include both native asset and non-native assets.
 		///
@@ -174,24 +173,20 @@ pub mod pallet {
 		/// 	...
 		/// }
 		/// ```
-		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
+		type Assets: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>;
 
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::AssetKind>;
-
-		/// Asset kind of the native currency.
-		#[pallet::constant]
-		type NativeCurrencyAssetId: Get<Self::AssetKind>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, AssetKindOf<Self>>;
 
 		/// Maximum number of assets that can be distributed.
 		#[pallet::constant]
 		type MaxDistributableAssets: Get<u32>;
 
 		/// Issuance curve: computes how much to mint given total issuance and elapsed time.
-		type IssuanceCurve: IssuanceCurve<BalanceOf<Self>>;
+		type IssuanceCurve: IssuanceCurve<IssuedCurrencyBalanceOf<Self>>;
 
 		/// Registered budget recipients. Each element provides a unique key and pot account.
 		///
@@ -236,7 +231,7 @@ pub mod pallet {
 		/// Inflation dripped and distributed to budget recipients.
 		IssuanceMinted {
 			/// Total amount minted in this drip.
-			total_minted: BalanceOf<T>,
+			total_minted: IssuedCurrencyBalanceOf<T>,
 			/// Elapsed time (ms) since last drip.
 			elapsed_millis: u64,
 		},
@@ -248,14 +243,14 @@ pub mod pallet {
 		/// Funds were drained from the staging account into the DAP buffer.
 		StagingDrained {
 			/// Amount drained.
-			amount: BalanceOf<T>,
+			amount: IssuedCurrencyBalanceOf<T>,
 		},
 		/// Assets are distributed to their recipients.
 		AssetDistributed {
 			/// Asset that was distributed.
 			asset: AssetKindOf<T>,
 			/// Total amount transferred in this distribution.
-			amount: BalanceOf<T>,
+			amount: AssetsBalanceOf<T>,
 			/// Elapsed time (ms) since last distribution.
 			elapsed_millis: u64,
 		},
@@ -344,7 +339,7 @@ pub mod pallet {
 			}
 
 			let staging_account = Self::staging_account();
-			let available = NativeCurrencyOf::<T>::reducible_balance(
+			let available = T::IssuedCurrency::reducible_balance(
 				&staging_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -361,7 +356,7 @@ pub mod pallet {
 			}
 
 			let buffer = Self::buffer_account();
-			if NativeCurrencyOf::<T>::transfer(
+			if T::IssuedCurrency::transfer(
 				&staging_account,
 				&buffer,
 				available,
@@ -507,13 +502,13 @@ pub mod pallet {
 		}
 
 		/// Deactivate funds on buffer inflow.
-		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
+		pub(crate) fn deactivate_buffer_funds(amount: IssuedCurrencyBalanceOf<T>) {
+			T::IssuedCurrency::deactivate(amount);
 		}
 
 		/// Reactivate funds on buffer withdrawal.
-		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
-			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
+		pub(crate) fn reactivate_buffer_funds(amount: IssuedCurrencyBalanceOf<T>) {
+			T::IssuedCurrency::reactivate(amount);
 		}
 
 		/// Set the budget allocation map.
@@ -543,18 +538,19 @@ pub mod pallet {
 			for (asset, allocations) in &allocations {
 				ensure!(T::Assets::asset_exists(asset.clone()), Error::<T>::AssetDoesntExist);
 
-				ensure!(
-					T::NativeCurrencyAssetId::get() == *asset ||
-						T::Assets::is_sufficient(asset.clone()),
-					Error::<T>::AssetIsNotSufficient
-				);
+				// TODO: Reintroduce.
+				// ensure!(
+				// 	T::NativeCurrencyAssetId::get() == *asset ||
+				// 		T::Assets::is_sufficient(asset.clone()),
+				// 	Error::<T>::AssetIsNotSufficient
+				// );
 
 				let min_balance = T::Assets::minimum_balance(asset.clone());
 				for (key, amount) in allocations {
 					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
 					ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution);
 
-					let cadence = SaturatedConversion::saturated_into::<BalanceOf<T>>(
+					let cadence = SaturatedConversion::saturated_into::<AssetsBalanceOf<T>>(
 						T::IssuanceCadence::get().max(1),
 					);
 					ensure!(
@@ -626,7 +622,7 @@ pub mod pallet {
 		}
 
 		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
-			let total_issuance = NativeCurrencyOf::<T>::total_issuance();
+			let total_issuance = T::IssuedCurrency::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
@@ -642,14 +638,14 @@ pub mod pallet {
 				);
 				return;
 			}
-			let mut total_minted = BalanceOf::<T>::zero();
+			let mut total_minted = IssuedCurrencyBalanceOf::<T>::zero();
 
 			let buffer = Self::buffer_account();
 			for (key, account) in recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = NativeCurrencyOf::<T>::mint_into(account, amount) {
+					if let Err(_) = T::IssuedCurrency::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -678,11 +674,12 @@ pub mod pallet {
 
 		pub(crate) fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
 			let buffer = Self::buffer_account();
-			let elapsed_as_balance = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
+			let elapsed_as_balance =
+				SaturatedConversion::saturated_into::<AssetsBalanceOf<T>>(elapsed);
 
 			let allocations = AssetAllocation::<T>::get();
 			for (asset, allocations) in allocations {
-				let mut total_distributed = BalanceOf::<T>::zero();
+				let mut total_distributed = AssetsBalanceOf::<T>::zero();
 
 				for (key, account) in recipients {
 					let Some(allocation) = allocations.get(key).copied() else {
@@ -705,9 +702,7 @@ pub mod pallet {
 						));
 					} else {
 						total_distributed.saturating_accrue(amount);
-						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
-							Self::reactivate_buffer_funds(amount);
-						}
+						// TODO: Reactivate the funds if it's the native asset?
 					}
 				}
 
@@ -847,7 +842,7 @@ pub struct DapLegacyAdapter<T, C>(core::marker::PhantomData<(T, C)>);
 
 impl<T: Config, C> OnUnbalanced<LegacyNegativeImbalance<T::AccountId, C>> for DapLegacyAdapter<T, C>
 where
-	C: Currency<T::AccountId, Balance = BalanceOf<T>>,
+	C: Currency<T::AccountId, Balance = IssuedCurrencyBalanceOf<T>>,
 {
 	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
 		let staging = Pallet::<T>::staging_account();

@@ -398,12 +398,10 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 }
 
 impl pallet_dap::Config for Runtime {
-	type Balance = Balance;
+	type IssuedCurrency = Balances;
 	type Assets = NativeAndAssets;
-	type AssetKind = NativeOrWithId<u32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
-	type NativeCurrencyAssetId = NativeCurrencyAssetId;
 	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = IssuanceCurve;

@@ -25,7 +25,7 @@ mod on_unbalanced;
 
 use crate::{
 	mock::{account_id, AccountId, NativeAndAssets, Test},
-	AssetAllocationMapOf, AssetKindOf, BalanceOf, BudgetAllocationMap, SingleAssetAllocation,
+	AssetAllocationMapOf, AssetKindOf, AssetsBalanceOf, BudgetAllocationMap, SingleAssetAllocation,
 };
 use frame_support::{
 	assert_ok,
@@ -51,7 +51,7 @@ fn budget_map(entries: &[(&[u8], u32)]) -> BudgetAllocationMap {
 }
 
 fn asset_allocations(
-	entries: &[(AssetKindOf<Test>, &[(&[u8], BalanceOf<Test>)])],
+	entries: &[(AssetKindOf<Test>, &[(&[u8], AssetsBalanceOf<Test>)])],
 ) -> AssetAllocationMapOf<Test> {
 	let mut map = BoundedBTreeMap::new();
 

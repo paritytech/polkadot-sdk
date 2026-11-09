@@ -503,7 +503,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapNativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const DapMaxDistributableAssets: u32 = 1;
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 60_000;
@@ -540,12 +539,10 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 }
 
 impl pallet_dap::Config for Runtime {
-	type Balance = Balance;
+	type IssuedCurrency = Balances;
 	type Assets = NativeAndAssets;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
-	type AssetKind = NativeOrWithId<u32>;
-	type NativeCurrencyAssetId = DapNativeCurrencyAssetId;
 	type MaxDistributableAssets = DapMaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = PolkadotIssuanceCurve;
