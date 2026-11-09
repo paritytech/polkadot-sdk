@@ -54,6 +54,11 @@ sp_api::decl_runtime_apis! {
 		) -> alloc::vec::Vec<<Block as BlockT>::Extrinsic>;
 
 		/// Check that the inherents are valid. The inherent data will vary from chain to chain.
-		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: InherentData) -> CheckInherentsResult;
+		// `#[encode_like]` so that callers holding a `Block` do not have to convert it first.
+		// Kept out of the doc comment, as that ends up in the runtime metadata.
+		fn check_inherents(
+			#[encode_like] block: <Block as BlockT>::LazyBlock,
+			data: InherentData,
+		) -> CheckInherentsResult;
 	}
 }

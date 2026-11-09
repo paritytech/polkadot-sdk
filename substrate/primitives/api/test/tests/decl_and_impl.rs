@@ -74,6 +74,10 @@ decl_runtime_apis! {
 		fn staging_one();
 	}
 
+	pub trait ApiWithEncodeLikeParam {
+		/// `data` accepts anything encoding like a `Vec<u8>`, `other` keeps its declared type.
+		fn encode_like_param(#[encode_like] data: Vec<u8>, other: u64) -> u64;
+	}
 }
 
 impl_runtime_apis! {
@@ -135,6 +139,12 @@ impl_runtime_apis! {
 		fn staging_one() {}
 	}
 
+	impl self::ApiWithEncodeLikeParam<Block> for Runtime {
+		fn encode_like_param(data: Vec<u8>, other: u64) -> u64 {
+			data.len() as u64 + other
+		}
+	}
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> sp_version::RuntimeVersion {
 			unimplemented!()
@@ -186,6 +196,12 @@ mock_impl_runtime_apis! {
 	impl ApiWithCustomVersion<Block> for MockApi {
 		fn same_name() {}
 	}
+
+	impl ApiWithEncodeLikeParam<Block> for MockApi {
+		fn encode_like_param(#[encode_like] data: Vec<u8>, other: u64) -> u64 {
+			data.len() as u64 + other
+		}
+	}
 }
 
 type TestClient = substrate_test_runtime_client::client::Client<
@@ -214,6 +230,24 @@ fn test_client_side_function_signature() {
 		&RuntimeApiImpl<Block, TestClient>,
 		<Block as BlockT>::Hash,
 	) -> Result<String, ApiError> = RuntimeApiImpl::<Block, TestClient>::same_name_before_version_2;
+
+	// The parameter that is not marked with `#[encode_like]` keeps its declared type.
+	let _encode_like_param: fn(
+		&RuntimeApiImpl<Block, TestClient>,
+		<Block as BlockT>::Hash,
+		Vec<u8>,
+		u64,
+	) -> Result<u64, ApiError> = RuntimeApiImpl::<Block, TestClient>::encode_like_param;
+}
+
+#[test]
+fn encode_like_param_accepts_anything_with_the_same_encoding() {
+	let mock = MockApi { block: None };
+	let at = Hash::repeat_byte(0x0f);
+
+	// `&[u8]` encodes like `Vec<u8>`, so it is accepted without being converted first.
+	assert_eq!(5, mock.encode_like_param(at, &[1u8, 2, 3][..], 2).unwrap());
+	assert_eq!(5, mock.encode_like_param(at, vec![1u8, 2, 3], 2).unwrap());
 }
 
 #[test]
