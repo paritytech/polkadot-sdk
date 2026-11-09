@@ -1,0 +1,29 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "`try-runtime`: Add `StateDiffGuard` to record state difference and guard against unexpected storage changes"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds a `StateDiffGuard` helper struct that records the state difference between 
+      its initialization and drop. It can be used to guard against unexpected storage changes 
+      and also for recording the state difference for testing, debugging, and other purposes.
+
+      Example:
+
+      ```rust
+          let _guard = StateDiffGuard::builder()
+            .must_change(SomeMap::<T>::storage_info())
+            .must_not_change(SomeDoubleMap::<T>::storage_info())
+            .can_not_change(GuardSubject::AnythingElse)
+            .build();
+
+      // do something that may change the storage
+
+      // the guard will panic if the storage is changed unexpectedly at the end of the scope
+      ```
+
+crates:
+  - name: frame-support
+    bump: minor
