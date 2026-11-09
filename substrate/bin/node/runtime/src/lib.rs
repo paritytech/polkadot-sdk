@@ -2740,8 +2740,14 @@ impl pallet_registrar_para::Config for Runtime {
 	type BenchmarkHelper = RegistrarHostConfig;
 }
 
-/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+/// A registrar that accepts everything; only which ids it holds is modelled, not the paras stack.
 pub struct AcceptingRegistrar;
+
+impl AcceptingRegistrar {
+	fn key(para_id: registrar_primitives::ParaId) -> Vec<u8> {
+		(b"AcceptingRegistrar", para_id).encode()
+	}
+}
 
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
@@ -2750,27 +2756,30 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
-	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
-		false
+	fn is_registered(para_id: registrar_primitives::ParaId) -> bool {
+		frame_support::storage::unhashed::exists(&Self::key(para_id))
 	}
 
 	fn register(
 		_manager: AccountId,
-		_para_id: registrar_primitives::ParaId,
+		para_id: registrar_primitives::ParaId,
 		_genesis_head: Vec<u8>,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
 		Ok(())
 	}
 
-	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+	fn deregister(para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::kill(&Self::key(para_id));
 		Ok(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn setup_worst_case_deregister(
-		_para_id: registrar_primitives::ParaId,
+		para_id: registrar_primitives::ParaId,
 	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
 		Ok(())
 	}
 
