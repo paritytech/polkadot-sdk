@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794217565654,
+  "lastUpdate": 1794241999478,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "52bb5ba83b1fca4a9127ebda188cfcc53cf49773",
-          "message": "statement-store: Remove double peer state clean up on flooding and add zombienet tests (#11701)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11535: covers\nflooding detection.\n\nFixed a bug with double peer state cleanup. The initial purpose was to\nadd flooding e2e tests, but the tests revealed a bug in the rate-limit\nmechanics: the peer was attempted to be removed twice.\n\nAdded two zombienet integration tests that verify statement-store\nflooding detection:\n\n- Sustained-rate flooding — submits statements continuously against a\nrate-limited node. Verifies the\nnode accepts early batches (token bucket not yet exhausted) then\ntriggers flooding detection as tokens\ndrain.\n- Burst flooding — submits a large batch at once against a tightly\nrate-limited node. Verifies immediate\n flooding detection with zero statements accepted.\n\nAlso refactors common test helpers to allow spawning custom network\nconfigurations for the flooding\ntests.\n\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:14:21Z",
-          "tree_id": "c62694fc30c295da247c3515559369a4ae688fe7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bb5ba83b1fca4a9127ebda188cfcc53cf49773"
-        },
-        "date": 1776811963910,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.71,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000273681,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002357495,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000273681,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9538101073199994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.440986409639985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.815976755219999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005266548339999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.872483316409999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8319177863000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.2499155758728255,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7592554255699621,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002357495,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.679696348799945,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.406236615052745,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "82dd732b0659dbb594de8262646dac6ed94f7e66",
+          "message": "build(deps): bump wasmtime from 36.0.14 to 36.0.19 (#13568)\n\nBumps [wasmtime](https://github.com/bytecodealliance/wasmtime) from\n36.0.14 to 36.0.19.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/releases\">wasmtime's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v36.0.19</h2>\n<h2>36.0.19</h2>\n<p>Released 2026-10-19.</p>\n<h3>Fixed</h3>\n<ul>\n<li>wasi-http: Guests can add conflicting content lengths to messages\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-r8xh-cgf7-392j\">GHSA-r8xh-cgf7-392j</a></li>\n<li>Cranelift backend on aarch64 can jump to incorrect target on large\nWasm <code>br_table</code> instruction\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-mghf-wjfp-p5xm\">GHSA-mghf-wjfp-p5xm</a></li>\n<li>Bit-packing in Cranelift compiler causes silent overflow and\nmiscompilation\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-897f-g5gm-fmxm\">GHSA-897f-g5gm-fmxm</a></li>\n</ul>\n<h2>v36.0.18</h2>\n<h2>36.0.18</h2>\n<p>Released 2026-10-14.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>Component-model handle tables are capped only per instance and\ncharged to no limit.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-q554-3cjc-rx7p\">GHSA-q554-3cjc-rx7p</a></p>\n</li>\n<li>\n<p>Filesystem sandbox escape when renaming symlinks with trailing\nslashes.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-m9f7-9w4p-gv38\">GHSA-m9f7-9w4p-gv38</a></p>\n</li>\n<li>\n<p>Guests can send absolute-form HTTP requests to different hosts.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-5qpp-g3j2-8frx\">GHSA-5qpp-g3j2-8frx</a></p>\n</li>\n</ul>\n<h2>v36.0.17</h2>\n<h2>36.0.17</h2>\n<p>Released 2026-10-02.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>WASI preview 0 implementation of <code>poll_oneoff</code> circumvents\nfuel consumption.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j366-h8gg-77pm\">GHSA-j366-h8gg-77pm</a></p>\n</li>\n<li>\n<p>Excessive allocated memory on the host when guests don't have stdio.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-gqmc-89g8-p25r\">GHSA-gqmc-89g8-p25r</a></p>\n</li>\n<li>\n<p><code>fd_readdir</code> copies uninitialized struct padding into\nguest memory.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-96f6-r43r-8c24\">GHSA-96f6-r43r-8c24</a></p>\n</li>\n</ul>\n<h2>v36.0.16</h2>\n<h2>36.0.16</h2>\n<p>Released 2026-09-24.</p>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/blob/v36.0.19/RELEASES.md\">wasmtime's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>36.0.19</h2>\n<p>Released 2026-10-19.</p>\n<h3>Fixed</h3>\n<ul>\n<li>wasi-http: Guests can add conflicting content lengths to messages\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-r8xh-cgf7-392j\">GHSA-r8xh-cgf7-392j</a></li>\n<li>Cranelift backend on aarch64 can jump to incorrect target on large\nWasm <code>br_table</code> instruction\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-mghf-wjfp-p5xm\">GHSA-mghf-wjfp-p5xm</a></li>\n<li>Bit-packing in Cranelift compiler causes silent overflow and\nmiscompilation\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-897f-g5gm-fmxm\">GHSA-897f-g5gm-fmxm</a></li>\n</ul>\n<hr />\n<h2>36.0.18</h2>\n<p>Released 2026-10-14.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>Component-model handle tables are capped only per instance and\ncharged to no limit.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-q554-3cjc-rx7p\">GHSA-q554-3cjc-rx7p</a></p>\n</li>\n<li>\n<p>Filesystem sandbox escape when renaming symlinks with trailing\nslashes.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-m9f7-9w4p-gv38\">GHSA-m9f7-9w4p-gv38</a></p>\n</li>\n<li>\n<p>Guests can send absolute-form HTTP requests to different hosts.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-5qpp-g3j2-8frx\">GHSA-5qpp-g3j2-8frx</a></p>\n</li>\n</ul>\n<hr />\n<h2>36.0.17</h2>\n<p>Released 2026-10-02.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>WASI preview 0 implementation of <code>poll_oneoff</code> circumvents\nfuel consumption.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j366-h8gg-77pm\">GHSA-j366-h8gg-77pm</a></p>\n</li>\n<li>\n<p>Excessive allocated memory on the host when guests don't have stdio.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-gqmc-89g8-p25r\">GHSA-gqmc-89g8-p25r</a></p>\n</li>\n<li>\n<p><code>fd_readdir</code> copies uninitialized struct padding into\nguest memory.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-96f6-r43r-8c24\">GHSA-96f6-r43r-8c24</a></p>\n</li>\n</ul>\n<hr />\n<h2>36.0.16</h2>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/0d6b8ead4e94b0ce76f925611b831b56570aef94\"><code>0d6b8ea</code></a>\nRelease Wasmtime 36.0.19 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14815\">#14815</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/f517bd6e890c7c1291ab9fe05d8cc0c9f11e56aa\"><code>f517bd6</code></a>\nSecurity fixes for release 36.0.19 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14818\">#14818</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/c90f2dd4b712703c52e834c08f42e882ee278ba5\"><code>c90f2dd</code></a>\nRelease Wasmtime 36.0.18 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14724\">#14724</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/b9fb444e797f0ae56af04c60b755c569f3088090\"><code>b9fb444</code></a>\n[36.0.x] Combined backports for today's security release (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14719\">#14719</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/6af7d8627023282e7404fdd7f080e517ed1d92db\"><code>6af7d86</code></a>\nUpdate logic for finding the run for a release (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14494\">#14494</a>)\n(<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14500\">#14500</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5cbcb3944d300349cdb1d9da268dc142d8227ff4\"><code>5cbcb39</code></a>\nRelease Wasmtime 36.0.17 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14472\">#14472</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/9c67625348747df5568825503d723a5c3f438319\"><code>9c67625</code></a>\n[36.0.x] Combined fixes/backports (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14470\">#14470</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5cd4bf51aad8ae193823d35a05bfa97dd8dc3f11\"><code>5cd4bf5</code></a>\nRelease Wasmtime 36.0.16 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14402\">#14402</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5e047946d6056659cbe1f42f8299308d9ffcddfb\"><code>5e04794</code></a>\nFix three vulnerabilities in Wasmtime v36. (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14404\">#14404</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/bd5bdfb1d573842a4c6340573b49e626ab1a0308\"><code>bd5bdfb</code></a>\nFix release notes (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14311\">#14311</a>)</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/bytecodealliance/wasmtime/compare/v36.0.14...v36.0.19\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=wasmtime&package-manager=cargo&previous-version=36.0.14&new-version=36.0.19)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T14:41:49Z",
+          "tree_id": "c2c9634aee5419915d510deb08741b57763e3ff8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/82dd732b0659dbb594de8262646dac6ed94f7e66"
+        },
+        "date": 1794241964469,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.020000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001806898,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017607899999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.726672729280001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8299824378800063,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3375019248200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.513292983032629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.716090661310001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7782019386399996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005066219730000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001806898,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.142547432580011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017607899999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.74903152092,
             "unit": "seconds"
           }
         ]
