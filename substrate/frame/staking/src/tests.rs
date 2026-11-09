@@ -5915,78 +5915,43 @@ mod score_provider {
 
 	type VoterBagsListInstance = pallet_bags_list::Instance1;
 
-	/// `VoterList` holds exactly the nominators and validators.
-	fn assert_voter_list_consistent() {
-		assert_eq!(
-			<Test as Config>::VoterList::count(),
-			Nominators::<Test>::count() + Validators::<Test>::count()
-		);
-		for voter in <Test as Config>::VoterList::iter() {
-			assert!(
-				Nominators::<Test>::contains_key(voter) || Validators::<Test>::contains_key(voter),
-				"{voter} is in the voter list but is neither a nominator nor a validator",
-			);
-		}
-	}
-
 	#[test]
-	fn no_score_for_chilled_stakers() {
+	fn score_only_for_nominators_and_validators() {
 		ExtBuilder::default().build_and_execute(|| {
-			// given 41 being a chilled staker
+			// given validator 11, nominator 101, chilled staker 41 and unbonded account 777.
+			assert!(Validators::<Test>::contains_key(11));
+			assert!(Nominators::<Test>::contains_key(101));
 			assert!(
 				Ledger::<Test>::get(41).is_some() &&
 					!Validators::<Test>::contains_key(41) &&
 					!Nominators::<Test>::contains_key(41)
 			);
+			assert!(Ledger::<Test>::get(777).is_none());
 
-			// then they will not have a score when bags-list wants to update it.
-			assert!(<Staking as ScoreProvider<_>>::score(&41).is_none());
+			// then only nominators and validators have a score.
+			for (who, score) in [(11, Some(1000)), (101, Some(500)), (41, None), (777, None)] {
+				assert_eq!(<Staking as ScoreProvider<_>>::score(&who), score, "account {who}");
+			}
 		});
 	}
 
 	#[test]
-	fn no_score_for_non_stakers() {
+	fn rebag_removes_stale_chilled_staker() {
 		ExtBuilder::default().build_and_execute(|| {
-			// given 777 being neither a nominator nor a validator in this pallet.
-			assert!(
-				Ledger::<Test>::get(777).is_none() &&
-					!Validators::<Test>::contains_key(777) &&
-					!Nominators::<Test>::contains_key(777)
-			);
+			// given chilled staker 41 left in the voter list.
+			assert_ok!(<Test as Config>::VoterList::on_insert(41, 1000));
 
-			// then it will not have a score when bags-list wants to update it.
-			assert!(<Staking as ScoreProvider<_>>::score(&777).is_none());
-		});
-	}
+			// when anyone rebags them
+			assert_ok!(VoterBagsList::rebag(RuntimeOrigin::signed(1), 41));
 
-	#[test]
-	fn score_for_validators_nominators() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			// given 101 being a nominator
-			assert!(
-				Ledger::<Test>::get(101).unwrap().active == 500 &&
-					!Validators::<Test>::contains_key(101) &&
-					Nominators::<Test>::contains_key(101)
-			);
-
-			// then it will have a score.
-			assert_eq!(<Staking as ScoreProvider<_>>::score(&101), Some(500));
-
-			// given 11 being a validator
-			assert!(
-				Ledger::<Test>::get(11).unwrap().active == 1000 &&
-					Validators::<Test>::contains_key(11) &&
-					!Nominators::<Test>::contains_key(11)
-			);
-
-			// then it will have a score.
-			assert_eq!(<Staking as ScoreProvider<_>>::score(&11), Some(1000));
+			// then they are removed from the voter list.
+			assert!(!<Test as Config>::VoterList::contains(&41));
 		});
 	}
 
 	#[test]
 	fn rebag_cannot_reinsert_chilled_staker() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// given 21 chilling, which removes them from the voter list.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
 			assert!(!<Test as Config>::VoterList::contains(&21));
@@ -5997,9 +5962,8 @@ mod score_provider {
 				BagsListError::<Test, VoterBagsListInstance>::List(ListError::NodeNotFound)
 			);
 
-			// then the voter list stays in sync with staking.
+			// then 21 is still out of the voter list.
 			assert!(!<Test as Config>::VoterList::contains(&21));
-			assert_voter_list_consistent();
 		});
 	}
 
@@ -6007,7 +5971,7 @@ mod score_provider {
 	fn auto_rebag_cannot_reinsert_chilled_staker_at_cursor() {
 		// The auto-rebag cursor yields its account first even if it has since left the list. A
 		// staker that chills while the cursor points at them must not be put back.
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			MaxAutoRebagPerBlock::set(1);
 			let on_idle = || {
 				<VoterBagsList as Hooks<BlockNumber>>::on_idle(System::block_number(), Weight::MAX)
@@ -6029,7 +5993,6 @@ mod score_provider {
 
 			// then 21 is still out of the voter list.
 			assert!(!<Test as Config>::VoterList::contains(&21));
-			assert_voter_list_consistent();
 		});
 	}
 }

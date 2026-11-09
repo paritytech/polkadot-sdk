@@ -1,0 +1,11 @@
+title: 'Staking: Chill stakers should not have a score'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `ScoreProvider::score` now returns `None` for a bonded stash that is neither a nominator nor
+    a validator, matching `pallet-staking-async`. `pallet-bags-list` can no longer re-insert a
+    chilled staker into `VoterList` through `rebag` or the `on_idle` auto-rebag. A chilled staker
+    already in `VoterList` is removed on its next `rebag` or auto-rebag.
+crates:
+- name: pallet-staking
+  bump: patch
