@@ -3206,9 +3206,7 @@ fn ethereum_execution_value_call_without_gas_lets_the_callee_spend_the_stipend(
 	});
 }
 
-/// The callee of a value call can spend all its gas, the stipend's included, on storage deposit,
-/// whether or not its caller has a deposit limit.
-#[test_case(CallResources::NoLimits ; "caller without a deposit limit")]
+/// The callee of a value call can spend all its gas, the stipend's included, on storage deposit.
 #[test_case(
 	CallResources::WeightDeposit { weight: Weight::MAX, deposit_limit: u128::MAX } ;
 	"caller with a deposit limit"

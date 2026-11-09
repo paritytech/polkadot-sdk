@@ -14,11 +14,9 @@ doc:
     The 63/64 rule also applies to calls to the System precompile, so `ISystem.weightLeft()` now
     returns the weight left without the part the calling contract keeps.
 
-    Even when the callee uses up its whole gas limit, the caller now keeps 1/64 of its remaining
-    gas, or of what is left after the stipend for a call that gets one. As on Ethereum, this lets
-    Solidity contracts handle the failure, for example with a `try`/`catch` around a call or
-    contract creation whose callee runs out of gas, or with Multicall3's `aggregate3`, which
-    continues after a failed call.
+    As on Ethereum, the part the caller keeps lets Solidity contracts handle a callee that runs out
+    of gas, for example with a `try`/`catch` around a call or contract creation, or with
+    Multicall3's `aggregate3`, which continues after a failed call.
 
     In Ethereum mode, a call stipend now gives the callee the gas that the stipend's weight adds to
     the transaction's fee, instead of the price of that weight on its own. The weight part of a
@@ -30,11 +28,12 @@ doc:
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
-    `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs, not counting its
-    stipend. Hence, the result of `eth_estimateGas` does too.
+    `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs beyond its stipend.
+    So does the result of `eth_estimateGas`, which still suffices for the transaction to succeed.
 
     A dry run also no longer reports a `max_storage_deposit` that is too low when a contract
-    frees storage and then makes a call that reenters it.
+    frees storage and then makes a call that reenters it, or, in Substrate mode, when a call
+    writes storage that an earlier call freed.
 
     An Ethereum dry run now runs the call with at most the maximum `eth_transact` weight minus the
     transaction's base weight, instead of the whole maximum, so that the weight it reports leaves
@@ -46,8 +45,8 @@ doc:
     estimated again, and to limits set to what a dry run or an earlier transaction consumed, for
     example a `weight_limit` set to `weight_consumed`, a `storage_deposit_limit` set to
     `storage_deposit`, or a gas limit set to a receipt's `gasUsed`. The limits should be set from
-    a dry run's `weight_required`, `max_storage_deposit` and `eth_gas` instead, or from
-    `eth_estimateGas`.
+    a dry run's `weight_required`, `max_storage_deposit` and `eth_gas` fields instead, or from the
+    result of `eth_estimateGas`.
 - audience: Runtime Dev
   description: |-
     `ResourceMeter::new_nested` now applies the 63/64 rule to the limits of the frame it creates

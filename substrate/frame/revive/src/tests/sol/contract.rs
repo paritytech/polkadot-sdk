@@ -910,7 +910,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			deposit_limit: deposit_limit::<Test>(),
 			gas_divisor: 1,
 			callee_input: Callee::consumeAllReftimeCall {}.abi_encode(),
-			// Callee reverts (out of gas), but caller has 1/64 of full gas for cleanup
+			// The callee runs out of gas, and the caller keeps 1/64 of what it had left.
 			result: Ok(false),
 			is_store_call: false,
 		},
@@ -1210,7 +1210,7 @@ mod eip_150 {
 		caller: H160,
 		receiver: H160,
 		gas: u64,
-		limits: &TransactionLimits<Test>,
+		mode: &TransactionLimits<Test>,
 	) {
 		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller);
 		let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
@@ -1224,7 +1224,7 @@ mod eip_150 {
 		.abi_encode();
 
 		let receiver_balance = Pallet::<Test>::evm_balance(&receiver);
-		let output = call_with_estimated_limits(caller, input, limits);
+		let output = call_with_estimated_limits(caller, input, mode);
 		assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 		assert_eq!(Pallet::<Test>::evm_balance(&receiver), receiver_balance + value);
 	}
@@ -1546,7 +1546,7 @@ mod eip_150 {
 	fn dry_run_estimates_suffice_for_nested_call(
 		caller_type: FixtureType,
 		callee_type: FixtureType,
-		limits: TransactionLimits<Test>,
+		mode: TransactionLimits<Test>,
 	) {
 		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
@@ -1561,7 +1561,7 @@ mod eip_150 {
 			}
 			.abi_encode();
 
-			let output = call_with_estimated_limits(caller_addr, input, &limits);
+			let output = call_with_estimated_limits(caller_addr, input, &mode);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 			let stored = builder::bare_call(callee_addr)
 				.data(Callee::storedCall {}.abi_encode())
@@ -1578,7 +1578,7 @@ mod eip_150 {
 	)]
 	fn dry_run_estimates_suffice_for_value_transfer(
 		caller_type: FixtureType,
-		limits: TransactionLimits<Test>,
+		mode: TransactionLimits<Test>,
 	) {
 		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 		// An EVM receiver, so the test does not depend on how much PVM code fits in the stipend.
@@ -1587,7 +1587,7 @@ mod eip_150 {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
-			assert_value_call_with_estimated_limits(caller_addr, receiver_addr, 0, &limits);
+			assert_value_call_with_estimated_limits(caller_addr, receiver_addr, 0, &mode);
 		});
 	}
 
@@ -1601,7 +1601,7 @@ mod eip_150 {
 	fn dry_run_estimates_suffice_for_value_call_writing_storage(
 		caller_type: FixtureType,
 		receiver_type: FixtureType,
-		limits: TransactionLimits<Test>,
+		mode: TransactionLimits<Test>,
 	) {
 		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 		let (receiver_code, _) =
@@ -1614,7 +1614,7 @@ mod eip_150 {
 				receiver_addr,
 				// A PVM value call with gas `u64::MAX` gets no stipend.
 				u64::MAX - 1,
-				&limits,
+				&mode,
 			);
 			let counter = builder::bare_call(receiver_addr)
 				.data(ComplexReceiver::counterCall {}.abi_encode())
@@ -1629,10 +1629,14 @@ mod eip_150 {
 	/// A value call without a gas limit of its own gets the stipend, as one with the highest
 	/// explicit gas limit does.
 	#[test_matrix(
-		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	#[ignore = "a PVM value call with gas u64::MAX gets no stipend"]
+	#[test_matrix(
+		[FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+		=> ignore["a PVM value call with gas u64::MAX gets no stipend"]
+	)]
 	fn value_call_without_gas_limit_gets_the_stipend(
 		caller_type: FixtureType,
 		limits: TransactionLimits<Test>,
@@ -1704,7 +1708,7 @@ mod eip_150 {
 	fn dry_run_estimates_suffice_for_writing_after_refund(
 		caller_type: FixtureType,
 		callee_type: FixtureType,
-		limits: TransactionLimits<Test>,
+		mode: TransactionLimits<Test>,
 	) {
 		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
@@ -1719,7 +1723,7 @@ mod eip_150 {
 			let output = call_with_estimated_limits(
 				multicall_addr,
 				Multicall3::aggregate3Call { calls }.abi_encode(),
-				&limits,
+				&mode,
 			);
 			assert_aggregate3_calls_succeeded(&output);
 		});
@@ -1735,7 +1739,7 @@ mod eip_150 {
 	fn dry_run_estimates_suffice_for_reentrant_refund(
 		storage_type: FixtureType,
 		proxy_type: FixtureType,
-		limits: TransactionLimits<Test>,
+		mode: TransactionLimits<Test>,
 	) {
 		let (storage_code, _) = compile_module_with_type("ReentryStorage", storage_type).unwrap();
 		let (proxy_code, _) = compile_module_with_type("ReentryProxy", proxy_type).unwrap();
@@ -1744,8 +1748,7 @@ mod eip_150 {
 			let [storage_addr, proxy_addr] = deploy([storage_code, proxy_code]);
 			// In Ethereum mode, a transaction's gas pays for both its weight and its storage
 			// deposits. With the default `DepositPerByte`, the missing deposit is too small to run
-			// the transaction out of gas. The value set here is still below that of Asset Hub on
-			// Polkadot and Kusama, and far below it relative to weight fees.
+			// the transaction out of gas.
 			with_parameter(DepositPerByte::get, DepositPerByte::set, 70_000, || {
 				builder::bare_call(storage_addr)
 					.data(ReentryStorage::writeS0Call {}.abi_encode())
@@ -1757,14 +1760,14 @@ mod eip_150 {
 					storage_addr,
 					ReentryStorage::writeFreeAndRewriteViaCall { proxy: proxy_addr.0.into() }
 						.abi_encode(),
-					&limits,
+					&mode,
 				);
 			});
 		});
 	}
 
-	/// A refund from an earlier call pays for a later call's storage, so the dry run only adds the
-	/// part the caller keeps for that call.
+	/// In an Ethereum dry run, a refund from an earlier call pays for a later call's storage, so
+	/// the dry run only adds the part the caller keeps for that call.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc]

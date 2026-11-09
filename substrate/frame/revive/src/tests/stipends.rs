@@ -173,8 +173,8 @@ fn call_stipends_cover_own_balance_reads_and_evm_events(
 }
 
 /// In Ethereum mode, the receiver of a value call without gas gets as gas what the stipend's weight
-/// adds to the transaction's fee: the cost of the stipend's proof size when proof size is the
-/// larger cost of the transaction, and the cost of its ref_time when ref_time is.
+/// adds to the transaction's fee, which is more when ref_time is the larger cost of the
+/// transaction than when proof size is.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn value_call_receiver_gets_more_gas_when_ref_time_costs_more(caller_type: FixtureType) {
