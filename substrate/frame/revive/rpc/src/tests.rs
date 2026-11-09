@@ -3918,6 +3918,9 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 			.is_some()
 	})
 	.await?;
+	// The second fill marks itself done right after writing that block; give it time, so
+	// the remaining pending count can only belong to the failed first request.
+	tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 	assert!(queue.has_pending(), "failed gap fill must keep the sync head from advancing");
 
 	Ok(())
