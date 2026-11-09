@@ -114,7 +114,6 @@ module main {
   /// exercising that check.
   pure def buildPackage(
     curHead: HeadData,
-    paraId: ParaId,
     candidate: ParachainCandidate,
     m1: UpwardMessage,
     m2: UpwardMessage,
@@ -131,9 +130,9 @@ module main {
       else if (numMsgs == 1) List(m1)
       else List(m1, m2)
     val pkg: WorkPackage =
-      if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
-      else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
-      else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
+      if (itemCount == 0) { items: List() }
+      else if (itemCount == 1) { items: List(candidate) }
+      else { items: List(candidate, candidate) }
     val parentCalls =
       if (staleParent) List(SetParentHeadHash(headHash(StaleParentHead)))
       else if (declParent) List(SetParentHeadHash(headHash(curHead)))
@@ -177,7 +176,6 @@ module main {
     // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
     // yields a work error with no digest at all.
     nondet wp1CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
-    nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
       wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash)
     )
@@ -206,7 +204,7 @@ module main {
     // Accumulate (§5.1 step 1) regardless.
     val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
-      wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
+      wp1Head, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadCall, wp1HeadFirst, wp1CodeEnd,
       wp1StaleParent
     )
@@ -214,7 +212,7 @@ module main {
       result:
         if (wp1IsJamSkip) WorkErr
         else refine(
-          svc, wp1.pkg, wp1NoParasPrefix, wp1.calls, lookupAnchor1
+          svc, wp1.pkg, wp1.calls, lookupAnchor1
         )[0],
       authTrace: wp1AuthTrace
     }
@@ -223,7 +221,6 @@ module main {
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
     nondet wp2CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
-    nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
       wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash)
     )
@@ -242,7 +239,7 @@ module main {
       if (wp2Para == wp1Para) wp1Head + 1
       else if (svc.isLive(wp2Para)) svc.paraInfo(wp2Para).headData else 0
     val wp2 = buildPackage(
-      wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
+      wp2Head, wp2Candidate, wp2M1, wp2M2,
       wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadCall, wp2HeadFirst, wp2CodeEnd,
       wp2StaleParent
     )
@@ -250,7 +247,7 @@ module main {
       result:
         if (wp2IsJamSkip) WorkErr
         else refine(
-          svc, wp2.pkg, wp2NoParasPrefix, wp2.calls, lookupAnchor2
+          svc, wp2.pkg, wp2.calls, lookupAnchor2
         )[0],
       authTrace: wp2AuthTrace
     }
@@ -387,14 +384,15 @@ module main {
     val pi = s.paraInfo(para_id)
     val base = Set(
       {
+        paraId: para_id,
         validationCode:
           { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
       },
-      { validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
+      { paraId: para_id, validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
     )
     match pi.announcedUpgrade {
       | None => base
-      | Some(ref) => base.union(Set({ validationCode: ref }))
+      | Some(ref) => base.union(Set({ paraId: para_id, validationCode: ref }))
     }
   }
 

@@ -4,8 +4,8 @@
 // deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
-// - The `paraId` of each work-item is sourced from the authorizer config's
-// `authorized_paras` prefix, not from the extrinsic.
+// - The `paraId` of each work-item is taken from its `ParachainCandidate`. The
+//   authorizer checks it (§7.2), the service does not.
 // - The validation code must call `set_parent_head_hash` and `set_head` exactly once.
 // - Refine returns `Err(ValidationCodeLookupFailed)` iff `historical_lookup` for the
 // candidate's `validation_code` returns None.
@@ -21,12 +21,11 @@ module refine {
 
   /// The work-item payload: one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
+    paraId: ParaId,
     validationCode: ValidationCodeRef
   }
 
   type WorkPackage = {
-    // Authorizer config prefix binding work-item index → ParaId (design §3.2, §7.2).
-    authorizedParas: List[ParaId],
     // One candidate per work item. Currently `length(items) == 1` per design §3.2.
     items: List[ParachainCandidate]
   }
@@ -299,35 +298,23 @@ module refine {
 
   /// Per-work-package Refine entry point (§4.1).
   ///
-  /// Every package-level failure panics, because `para_id` is only authoritative
-  /// from §4.1 step 2 onward and a `RefineLog` with no para to land in is
-  /// useless. Otherwise each item is refined via `refineItem`, with its
-  /// `para_id` sourced from `authorized_paras`.
+  /// A package that is not single-item (§3.2) panics, because it has no single
+  /// `para_id` to attribute a `RefineLog` to. Otherwise the item is refined via
+  /// `refineItem` with its own `para_id`.
   ///
   /// Single-item packages only (per §3.2): `calls` are the host calls of that
   /// item's validation code.
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
-  // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
-  // so the service cannot source a `para_id` from it (§4.1 step 1).
-  authParasPrefixMissing: bool,
     calls: List[CodeCall],
     lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
-    // Package-level failures are settled before §4.1 step 2 fixes an
-    // authoritative `para_id`, so none can name a para to log against and all
-    // panic (§4.2): a missing `Vec<ParaId>` prefix, a package that is not
-    // single-item (§3.2), and an `authorized_paras` length that disagrees with
-    // the item count. A config that will not decode at all never gets here:
-    // `is_authorized` fails on it first, so it never becomes a work report (§7).
-    if (authParasPrefixMissing
-        or pkg.items.length() != 1
-        or pkg.authorizedParas.length() != pkg.items.length())
+    if (pkg.items.length() != 1)
       List(WorkErr)
     else
       match refineItem(
-        s, pkg.authorizedParas[0], pkg.items[0],
+        s, pkg.items[0].paraId, pkg.items[0],
         calls, lookupAnchor
       ) {
         | Some(d) => List(WorkOk(d))

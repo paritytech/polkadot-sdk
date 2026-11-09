@@ -16,21 +16,20 @@ module refine_test {
   /// head-declaration check rather than failing the whole invocation earlier.
   run refineInvalidHeadDeclarationTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val parentOnly =
-      refine(initialState, pkg, false, List(SetParentHeadHash(headHash(0))), 0)[0]
+      refine(initialState, pkg, List(SetParentHeadHash(headHash(0))), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, List(SetHead(1)), 0)[0]
+      refine(initialState, pkg, List(SetHead(1)), 0)[0]
     val neither =
-      refine(initialState, pkg, false, List(), 0)[0]
+      refine(initialState, pkg, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, List()), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, List()), 0)[0]
     // Declaring a head twice is as invalid as not declaring it.
-    val headTwice = refine(initialState, pkg, false,
+    val headTwice = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(SetHead(1)), 0)[0]
-    val parentTwice = refine(initialState, pkg, false,
+    val parentTwice = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(SetParentHeadHash(headHash(0))), 0)[0]
     val invalidHead = refineCallsErr(initialState, CoretimeParaId, InvalidHeadDeclaration)
     all {
@@ -59,16 +58,15 @@ module refine_test {
   /// budget: the count cap, not the byte budget, must be the reason.
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, over), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, over), 0)[0]
     val atCapOut =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, atCap), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, atCap), 0)[0]
     val tooMany = refineCallsErr(initialState, CoretimeParaId, TooManyUpwardMessages)
     all {
       assert(over.length() == 1025),
@@ -144,12 +142,11 @@ module refine_test {
   run codeFailureModesTest = {
     val para = CoretimeParaId
     val pkg: WorkPackage = {
-      authorizedParas: List(para),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: para, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val reported = refine(initialState, pkg, false,
+    val reported = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(ReportError(42)), 0)[0]
-    val panicked = refine(initialState, pkg, false,
+    val panicked = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(Panic), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
@@ -175,14 +172,13 @@ module refine_test {
   /// the most disposable eviction rank (§5.1).
   run headDataTooLargeTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val withParent =
-      refine(initialState, pkg, false,
+      refine(initialState, pkg,
         List(SetParentHeadHash(headHash(0)), SetHeadOversized), 0)[0]
     val withoutParent =
-      refine(initialState, pkg, false, List(SetHeadOversized), 0)[0]
+      refine(initialState, pkg, List(SetHeadOversized), 0)[0]
     val tooLarge = refineCallsErr(initialState, CoretimeParaId, HeadDataTooLarge)
     all {
       assert(withParent == tooLarge),

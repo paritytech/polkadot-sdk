@@ -187,34 +187,24 @@ module accumulate_test {
     }
   }
 
-  /// §4.1 step 1 / §4.2: every package-level failure panics, because none has an
-  /// authoritative `para_id` to attribute a `RefineLog` to. A work error carries
-  /// no digest, so nothing is logged for any of them.
+  /// §3.2 / §4.2: a package that is not single-item panics, because it has no
+  /// single `para_id` to attribute a `RefineLog` to. A work error carries no
+  /// digest, so nothing is logged for it.
   run packageLevelFailuresPanicTest = {
-    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } }
-    val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
-    // Two items: not single-item (§3.2).
-    val twoItems: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId),
-      items: List(wi, wi)
+    val wi = {
+      paraId: CoretimeParaId,
+      validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }
     }
-    // Config length disagrees with the item count.
-    val mismatch: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId),
-      items: List(wi)
-    }
-    // No para named at all: the old code fabricated `MkParaId(0)` here.
-    val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
-    pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
-      refine(initialState, pkg, noPrefix, wellFormedCalls(headHash(0), 1, List()), 0)[0]
+    val good: WorkPackage = { items: List(wi) }
+    val twoItems: WorkPackage = { items: List(wi, wi) }
+    val noItems: WorkPackage = { items: List() }
+    pure def go(pkg: WorkPackage): WorkExecResult =
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, List()), 0)[0]
     all {
-      // Config carries no `Vec<ParaId>` prefix, so no para can be sourced.
-      assert(go(good, true) == WorkErr),
-      assert(go(twoItems, false) == WorkErr),
-      assert(go(mismatch, false) == WorkErr),
-      assert(go(noParas, false) == WorkErr),
-      // The same package without those faults still refines to a digest.
-      assert(isOkDigest(go(good, false))),
+      assert(go(twoItems) == WorkErr),
+      assert(go(noItems) == WorkErr),
+      // The same package with a single item still refines to a digest.
+      assert(isOkDigest(go(good))),
       init
     }
   }

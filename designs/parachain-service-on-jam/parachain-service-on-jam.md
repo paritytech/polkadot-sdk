@@ -505,6 +505,8 @@ carries the validation code hash, and the **PoV** is passed as a work-item extri
 
 ```rust
 struct ParachainCandidate {
+    /// The parachain this candidate is for. See §7.2.
+    para_id: ParaId,
     /// The hash of the currently active validation code. See §4.1.
     validation_code: ValidationCodeHash,
 }
@@ -512,13 +514,6 @@ struct ParachainCandidate {
 
 Initially, each work package will contain a single work item (one parachain candidate).
 Support for multiple items per package may be added later.
-
-The `ParaId` for each work item is **not** stored in the work item itself. Instead, it is
-sourced from the authorizer config, which is pinned by the Coretime chain (see §7.2). The
-Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
-length matches the number of work items in the package, so that work item `item_index` is
-authoritatively bound to `authorized_paras[item_index]`. Refine reads this prefix via
-`fetch` and uses it to populate `ParachainWorkDigest.para_id`.
 
 ### 3.3 Work Digest
 
@@ -686,20 +681,19 @@ work-report is limited to **48 KiB** by the Gray Paper.
 Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
-1. Reads the authorizer config via `fetch` and decodes the `authorized_paras`
-   prefix (§3.2). If the config is not prefixed with a `Vec<ParaId>`, Refine panics (§3.3)
-   instead of logging, because there is no authoritative `para_id` to attribute an entry to.
-2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
-3. Decodes the `ParachainCandidate` from the work item payload. If the payload fails to
-   decode, Refine panics (§3.3).
-4. Fetches the validation code via `historical_lookup` (using `validation_code`).
+1. Decodes the `ParachainCandidate` from the work item payload. If the payload fails to
+   decode, Refine panics (§3.3) instead of logging, because there is no `para_id` to
+   attribute an entry to.
+2. Takes `para_id = ParachainCandidate.para_id` as the parachain for this item. The
+   authorizer has already checked that the work package may carry it (§3.2, §7.2).
+3. Fetches the validation code via `historical_lookup` (using `validation_code`).
    If the lookup returns `None` (the preimage isn't available in the service's
    store at the lookup-anchor), aborts with `Err(RefineLog::ValidationCodeLookupFailed)`.
-5. Instantiates a child PVM with the validation code.
-6. Executes the validation code (the `jam_validate_block` call).
-7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
-   authoritative `para_id` (see §4.2).
-8. Checks that the encoded digest (head data + upward messages) plus the
+4. Instantiates a child PVM with the validation code.
+5. Executes the validation code (the `jam_validate_block` call).
+6. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and
+   `para_id` (see §4.2).
+7. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget. If not, aborts with
    `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
@@ -1574,8 +1568,9 @@ starting with `A`.
 ### 7.2 Authorizer Design: AURA Example
 
 Each parachain supplies its own authorizer, and the Parachain Service does not prescribe
-one. Its only constraint is that the authorizer's config blob begins with a `Vec<ParaId>`
-matching the work package's items (§3.2).
+one. Its only obligation is to check that every work item addressed to the Parachain
+Service carries a `ParachainCandidate.para_id` it is allowed to authorize, as recorded in
+its own config (§3.2).
 
 The AURA-style collator-set authorizer below is **only an illustration** that a
 parachain authorizer is feasible. It is not part of this design, and a real implementation
@@ -1591,8 +1586,8 @@ The config encodes the parachain's collator set and slot timing:
 
 ```rust
 struct AuthorizerConfig {
-    /// Authoritative `ParaId` for each work item in the package, in the same
-    /// order as `WorkPackage.workitems`.
+    /// The `ParaId` for each work item in the package, in the same order as
+    /// `WorkPackage.workitems`.
     authorized_paras: Vec<ParaId>,
     /// Root of a binary Merkle trie over the collator public keys.
     /// Leaf index == collator index in the set.
@@ -1640,14 +1635,10 @@ struct AuthorizationToken {
 5. Verify `collator_proof` against `collator_set_root` at leaf `collator_index`,
    confirming `collator_key` is the expected collator for this slot.
 6. Verify `signature` over the work package hash using `collator_key`.
-7. Return a trace carrying the `collator_key`.
-
-#### Parachain Service Enforcement
-
-Independently of the authorizer code, the Parachain Service's **Refine wrapper** enforces:
-
-- The config blob starts with the `Vec<ParaId>` (`authorized_paras`).
-- `len(authorized_paras) == len(workitems)`, rejecting the package otherwise.
+7. Reject the package unless it has exactly `len(authorized_paras)` work items, each
+   addressed to the Parachain Service, and for every work item `i` the `para_id` of its
+   decoded `ParachainCandidate` equals `authorized_paras[i]`.
+8. Return a trace carrying the `collator_key`.
 
 #### Anchor Selection and Slot Claiming
 

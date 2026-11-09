@@ -58,12 +58,11 @@ module support {
     val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
-        authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
+        items: List({ paraId: p._1, validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false,
+          svc, pkg,
           wellFormedCalls(headHash(pi.headData), pi.headData + 1, p._3), 0
         )[0],
         authTrace: 0
@@ -207,12 +206,11 @@ module support {
   ): bool = {
     val blockNow = now + 1
     val pkg: WorkPackage = {
-      authorizedParas: List(paraId),
-      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen } })
+      items: List({ paraId: paraId, validationCode: { hash: codeHash, len: FixedCodeLen } })
     }
     val wr: WorkResult = {
       result: refine(
-        svc, pkg, false,
+        svc, pkg,
         wellFormedCalls(headHash(StaleParentHead), StaleParentHead, msgs), 0
       )[0],
       authTrace: 0
@@ -280,10 +278,9 @@ module support {
     s: ParachainServiceState, caller: ParaId, calls: List[CodeCall]
   ): WorkExecResult = {
     val pkg: WorkPackage = {
-      authorizedParas: List(caller),
-      items: List({ validationCode: activeCandidateCode(s, caller) })
+      items: List({ paraId: caller, validationCode: activeCandidateCode(s, caller) })
     }
-    refine(s, pkg, false, calls, 0)[0]
+    refine(s, pkg, calls, 0)[0]
   }
 
   /// What `refineCalls` returns when Refine fails with `e`.
