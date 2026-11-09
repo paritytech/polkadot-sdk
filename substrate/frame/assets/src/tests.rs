@@ -347,7 +347,7 @@ fn refunding_frozen_with_deposit_works() {
 }
 
 #[test]
-fn refunding_blocked_account_should_fail() {
+fn refunding_blocked_account_keeps_it_blocked() {
 	build_and_execute(|| {
 		// 1 will be an admin and freezer
 		// 2 will be a blocked account
@@ -358,22 +358,68 @@ fn refunding_blocked_account_should_fail() {
 		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
-		// a blocked holder can neither burn its balance nor remove the blocked entry
-		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::Frozen);
-		assert_eq!(Assets::balance(0, 2), 50);
-		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
-		assert_eq!(Balances::reserved_balance(&2), 10);
-		// still blocked with a zero balance
-		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
-		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 2, 50));
-		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
-		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, false), Error::<Test>::Frozen);
-		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
-		// thawing restores the refund
-		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
-		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, false));
-		assert!(!Account::<Test>::contains_key(0, &2));
+
+		// the balance is burned and the deposit returned, but the entry stays blocked
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Assets::balance(0, 2), 0);
+		assert_eq!(Assets::total_supply(0), 50);
 		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 2);
+
+		assert_noop!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+		assert_noop!(Assets::touch(RuntimeOrigin::signed(2), 0), Error::<Test>::AlreadyExists);
+		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::NoDeposit);
+		assert_noop!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::NoAccount);
+
+		// thawing removes the entry
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
+	});
+}
+
+#[test]
+fn refunding_blocked_account_releases_forced_consumer_reference() {
+	build_and_execute(|| {
+		// 1 mints into 2 without its consent, creating a consumer reference, and blocks it
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(System::consumers(&2), 1);
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(System::consumers(&2), 0);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1), TokenError::Blocked);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(System::consumers(&2), 0);
+	});
+}
+
+#[test]
+fn thawing_refunded_blocked_account_with_freeze_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		set_frozen_balance(0, 2, 1);
+		assert_noop!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::ContainsFreezes);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+
+		clear_frozen_balance(0, 2);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
 	});
 }
 

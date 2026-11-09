@@ -187,6 +187,16 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	pub extra: Extra,
 }
 
+impl<Balance: Zero, DepositBalance, Extra, AccountId>
+	AssetAccount<Balance, DepositBalance, Extra, AccountId>
+{
+	/// Returns `true` if the account holds nothing and no longer references its owner, as left
+	/// behind by refunding a blocked account.
+	pub fn is_tombstone(&self) -> bool {
+		self.balance.is_zero() && matches!(self.reason, ExistenceReason::DepositRefunded)
+	}
+}
+
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Default, Debug, MaxEncodedLen, TypeInfo)]
 pub struct AssetMetadata<DepositBalance, BoundedString> {
 	/// The balance deposited for this metadata.
