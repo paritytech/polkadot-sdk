@@ -205,6 +205,14 @@ impl AffinityFilter {
 	}
 }
 
+impl PartialEq for AffinityFilter {
+	fn eq(&self, other: &Self) -> bool {
+		self.seed == other.seed &&
+			self.bloom.num_hashes() == other.bloom.num_hashes() &&
+			self.bloom.as_slice() == other.bloom.as_slice()
+	}
+}
+
 impl Encode for AffinityFilter {
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		let encoded = EncodedBloomFilter {
