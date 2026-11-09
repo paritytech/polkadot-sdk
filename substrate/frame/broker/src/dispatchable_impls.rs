@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
 		// Remove this region from the pool in case it has been assigned provisionally. If we get
 		// this far then it is still in `Regions` and thus could only have been pooled
 		// provisionally.
-		Self::force_unpool_region(region_id, &region, &status);
+		Self::force_unpool_region(region_id, &status);
 
 		// Overwrite the previous region with its new end and create a new region for the second
 		// part of the partition.
@@ -303,7 +303,7 @@ impl<T: Config> Pallet<T> {
 		// Remove this region from the pool in case it has been assigned provisionally. If we get
 		// this far then it is still in `Regions` and thus could only have been pooled
 		// provisionally.
-		Self::unpool_region_keeping_elapsed(region_id, &region, &status);
+		Self::force_unpool_region(region_id, &status);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
 			// get this far then it is still in `Regions` and thus could only have been pooled
 			// provisionally. The contribution is keyed by the original id, as `utilize` moves the
 			// begin forward once the region has started.
-			Self::unpool_region_keeping_elapsed(original_region_id, &region, &status);
+			Self::force_unpool_region(original_region_id, &status);
 
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
 			// Remove this region from the pool in case it has been pooled provisionally, so that
 			// pooling it again does not count it twice. The contribution is keyed by the original
 			// id, as `utilize` moves the begin forward once the region has started.
-			Self::unpool_region_keeping_elapsed(original_region_id, &region, &status);
+			Self::force_unpool_region(original_region_id, &status);
 
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
@@ -418,7 +418,8 @@ impl<T: Config> Pallet<T> {
 				let size = region_id.mask.count_ones() as i32;
 				InstaPoolIo::<T>::mutate(region_id.begin, |a| a.private.saturating_accrue(size));
 				InstaPoolIo::<T>::mutate(region.end, |a| a.private.saturating_reduce(size));
-				let record = ContributionRecord { length: duration, payee };
+				let record =
+					ContributionRecord { claimed_until: region_id.begin, end: region.end, payee };
 				InstaPoolContribution::<T>::insert(&region_id, record);
 			}
 
@@ -430,27 +431,23 @@ impl<T: Config> Pallet<T> {
 	/// Returns the number of timeslices whose history was checked: the consumed ones plus the
 	/// one that stopped the claim.
 	pub(crate) fn do_claim_revenue(
-		mut region: RegionId,
+		region: RegionId,
 		max_timeslices: Timeslice,
 	) -> Result<Timeslice, DispatchError> {
 		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
-		let first = region.begin;
 		let mut contribution =
 			InstaPoolContribution::<T>::get(region).ok_or(Error::<T>::UnknownContribution)?;
-		// A claim moves the contribution to a later `begin`, while the provisional region keeps
-		// its id. Unpooling it would then miss the contribution and count the region twice.
-		ensure!(!Regions::<T>::contains_key(region), Error::<T>::StillProvisional);
-		InstaPoolContribution::<T>::remove(region);
+		let first = contribution.claimed_until;
 		let contributed_parts = region.mask.count_ones();
 
 		Self::deposit_event(Event::RevenueClaimBegun { region, max_timeslices });
 
 		let mut payout = BalanceOf::<T>::zero();
-		let last = region.begin + contribution.length.min(max_timeslices);
+		let last = contribution.end.min(first.saturating_add(max_timeslices));
 		let last_committed_timeslice = Status::<T>::get()
 			.map(|status| status.last_committed_timeslice)
 			.unwrap_or_default();
-		for r in region.begin..last {
+		for r in first..last {
 			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
 				// History exists for every committed timeslice, so a missing entry at or before
 				// the last committed one was dropped after `contribution_timeout` and its revenue
@@ -458,14 +455,12 @@ impl<T: Config> Pallet<T> {
 				if r > last_committed_timeslice {
 					break;
 				}
-				region.begin = r + 1;
-				contribution.length.saturating_dec();
+				contribution.claimed_until = r + 1;
 				continue;
 			};
 			let Some(total_payout) = pool_record.maybe_payout else { break };
 
-			region.begin = r + 1;
-			contribution.length.saturating_dec();
+			contribution.claimed_until = r + 1;
 
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
@@ -487,20 +482,23 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if contribution.length > 0 {
+		let remaining = contribution.claimed_until < contribution.end;
+		if remaining {
 			InstaPoolContribution::<T>::insert(region, &contribution);
+		} else {
+			InstaPoolContribution::<T>::remove(region);
 		}
-		// The steps above removed the contribution and reduced the stored payouts. If the
+		// The steps above updated the contribution and reduced the stored payouts. If the
 		// transfer fails, the error must revert them. The storage changes and the payment
 		// must both happen, or neither.
 		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
-		let next = if contribution.length > 0 { Some(region) } else { None };
+		let next = if remaining { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
 			amount: payout,
 			next,
 		});
-		Ok(region.begin.saturating_sub(first).saturating_add(1))
+		Ok(contribution.claimed_until.saturating_sub(first).saturating_add(1))
 	}
 
 	pub(crate) fn do_purchase_credit(
@@ -532,9 +530,8 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let contrib =
 			InstaPoolContribution::<T>::get(&region_id).ok_or(Error::<T>::UnknownContribution)?;
-		let end = region_id.begin.saturating_add(contrib.length);
 		ensure!(
-			status.last_timeslice >= end.saturating_add(config.contribution_timeout),
+			status.last_timeslice >= contrib.end.saturating_add(config.contribution_timeout),
 			Error::<T>::StillValid
 		);
 		InstaPoolContribution::<T>::remove(region_id);

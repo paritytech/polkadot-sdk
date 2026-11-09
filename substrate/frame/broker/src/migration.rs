@@ -554,6 +554,58 @@ pub mod v5 {
 	}
 }
 
+pub mod v6 {
+	use super::*;
+
+	/// Pre-v6 `ContributionRecord`: the claim progress was encoded in the key's `begin`.
+	#[derive(Encode, Decode)]
+	struct OldContributionRecord<AccountId> {
+		length: Timeslice,
+		payee: AccountId,
+	}
+
+	/// Stores the claim progress and end of each contribution explicitly, so the key no longer
+	/// changes when revenue is claimed.
+	pub struct MigrateToV6Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut count = 0u64;
+			InstaPoolContribution::<T>::translate::<OldContributionRecord<T::AccountId>, _>(
+				|region_id, old| {
+					count.saturating_inc();
+					Some(ContributionRecord {
+						claimed_until: region_id.begin,
+						end: region_id.begin.saturating_add(old.length),
+						payee: old.payee,
+					})
+				},
+			);
+
+			log::info!(
+				target: LOG_TARGET,
+				"Storage migration v6 for pallet-broker finished, migrated {count} contributions.",
+			);
+
+			T::DbWeight::get().reads_writes(count, count)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok((InstaPoolContribution::<T>::iter_keys().count() as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = InstaPoolContribution::<T>::iter_values().count() as u32;
+
+			ensure!(old_count == new_count, "Contribution count should not change");
+			Ok(())
+		}
+	}
+}
+
 /// Migrate the pallet storage from `0` to `1`.
 pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 	0,
@@ -591,6 +643,14 @@ pub type MigrateV4ToV5<T, FirstSaleRegion> = frame_support::migrations::Versione
 	4,
 	5,
 	v5::MigrateToV5Impl<T, FirstSaleRegion>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub type MigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
+	5,
+	6,
+	v6::MigrateToV6Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

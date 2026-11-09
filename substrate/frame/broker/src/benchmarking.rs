@@ -559,7 +559,6 @@ mod benches {
 		m: Linear<1, { new_config_record::<T>().region_length }>,
 	) -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
-		let core = sale_data.first_core;
 
 		advance_to::<T>(2);
 
@@ -607,15 +606,7 @@ mod benches {
 			Event::RevenueClaimPaid {
 				who: recipient,
 				amount: total_payout,
-				next: if m < new_config_record::<T>().region_length {
-					Some(RegionId {
-						begin: region.begin.saturating_add(m),
-						core,
-						mask: CoreMask::complete(),
-					})
-				} else {
-					None
-				},
+				next: if m < new_config_record::<T>().region_length { Some(region) } else { None },
 			}
 			.into(),
 		);

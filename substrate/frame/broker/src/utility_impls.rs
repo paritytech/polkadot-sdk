@@ -139,56 +139,33 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Remove a region from on-demand pool contributions. Useful in cases where it was pooled
-	// provisionally and it is being redispatched (partition). The whole contribution is removed,
-	// including any timeslices which have already elapsed.
+	// provisionally and it is being redispatched (partition/interlace/assign/pool).
 	//
-	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
-	// read. No-op for regions which have not been pooled.
-	pub(crate) fn force_unpool_region(
-		region_id: RegionId,
-		region: &RegionRecordOf<T>,
-		status: &StatusRecord,
-	) {
-		// We don't care if this fails or not, just that it is removed if present. This is to
-		// account for the case where a region is pooled provisionally and redispatched.
-		if InstaPoolContribution::<T>::take(region_id).is_some() {
-			// `InstaPoolHistory` is calculated from the `InstaPoolIo` one timeslice in advance.
-			// Therefore we need to schedule this for the timeslice after that.
-			let end_timeslice = status.last_committed_timeslice + 1;
+	// The timeslices which have already elapsed were counted in the pool, so they stay in the
+	// contribution and can still be claimed. No-op for regions which have not been pooled or whose
+	// contribution has already ended, so it is safe to call more than once.
+	pub(crate) fn force_unpool_region(region_id: RegionId, status: &StatusRecord) {
+		let Some(mut contribution) = InstaPoolContribution::<T>::get(region_id) else { return };
 
-			// InstaPoolIo has already accounted for regions that have already ended. Regions ending
-			// this timeslice would have region.end == unpooled_at below.
-			if region.end <= end_timeslice {
-				return;
-			}
-
-			// Account for the change in `InstaPoolIo` either from the start of the region or from
-			// the current timeslice if we are already part-way through the region.
-			let size = region_id.mask.count_ones() as i32;
-			let unpooled_at = end_timeslice.max(region_id.begin);
-			InstaPoolIo::<T>::mutate(unpooled_at, |a| a.private.saturating_reduce(size));
-			InstaPoolIo::<T>::mutate(region.end, |a| a.private.saturating_accrue(size));
-
-			Self::deposit_event(Event::<T>::RegionUnpooled { region_id, when: unpooled_at });
-		};
-	}
-
-	// Like `force_unpool_region`, but the timeslices which have already elapsed were counted in
-	// the pool, so that part of the contribution is kept under `region_id`, where it can be
-	// claimed. Only for regions which no longer use `region_id` (pool/assign/interlace).
-	pub(crate) fn unpool_region_keeping_elapsed(
-		region_id: RegionId,
-		region: &RegionRecordOf<T>,
-		status: &StatusRecord,
-	) {
-		let Some(contribution) = InstaPoolContribution::<T>::get(region_id) else { return };
-		Self::force_unpool_region(region_id, region, status);
-
-		let elapsed_until = (status.last_committed_timeslice + 1).min(region.end);
-		let length = elapsed_until.saturating_sub(region_id.begin);
-		if length > 0 {
-			let record = ContributionRecord { length, payee: contribution.payee };
-			InstaPoolContribution::<T>::insert(region_id, record);
+		// `InstaPoolHistory` is calculated from the `InstaPoolIo` one timeslice in advance.
+		// Therefore we need to schedule this for the timeslice after that. If the region has not
+		// started yet, it is removed from its beginning.
+		let unpooled_at = (status.last_committed_timeslice + 1).max(region_id.begin);
+		if unpooled_at >= contribution.end {
+			return;
 		}
+
+		let size = region_id.mask.count_ones() as i32;
+		InstaPoolIo::<T>::mutate(unpooled_at, |a| a.private.saturating_reduce(size));
+		InstaPoolIo::<T>::mutate(contribution.end, |a| a.private.saturating_accrue(size));
+
+		contribution.end = unpooled_at;
+		if contribution.claimed_until < contribution.end {
+			InstaPoolContribution::<T>::insert(region_id, &contribution);
+		} else {
+			InstaPoolContribution::<T>::remove(region_id);
+		}
+
+		Self::deposit_event(Event::<T>::RegionUnpooled { region_id, when: unpooled_at });
 	}
 }
