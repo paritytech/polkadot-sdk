@@ -174,6 +174,8 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		if !self.settings.signers.contains(&report.signer) {
 			return reject(cost::UNKNOWN_SIGNER, "unknown_signer");
 		}
+		// TODO: drop a report the pool already holds a same or newer anchor for before verifying
+		// it. A peer replaying a real report makes this node verify signatures without penalty.
 		if !report.verify_signature() {
 			return reject(cost::BAD_SIGNATURE, "bad_signature");
 		}

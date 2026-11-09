@@ -250,6 +250,10 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					Some(NotificationStreamOpened { peer, .. }) => targets.opened(peer),
 					Some(NotificationStreamClosed { peer }) => targets.closed(&peer),
 					Some(ValidateInboundSubstream { result_tx, .. }) => {
+						// TODO: any peer can take the inbound slots signers need. Accept only peers
+						// whose authority discovery keys are in the collator set: look them up with
+						// `get_authority_ids_by_peer_id` and answer `result_tx` after the lookup. A
+						// collator not discovered yet would be refused until the next lookup.
 						let _ = result_tx.send(ValidationResult::Accept);
 					},
 					None => {
