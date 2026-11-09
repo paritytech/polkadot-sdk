@@ -768,12 +768,16 @@ impl<T: Config> EthTxInfo<T> {
 		consumed_weight: &Weight,
 		consumed_deposit: &DepositOf<T>,
 	) -> SignedGas<T> {
+		self.deposit_gas_consumption(consumed_deposit)
+			.saturating_add(&self.weight_gas_consumption(consumed_weight))
+	}
+
+	/// Returns the gas that `consumed_deposit` and the transaction's fixed fee cost.
+	fn deposit_gas_consumption(&self, consumed_deposit: &DepositOf<T>) -> SignedGas<T> {
 		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
 		let deposit_and_fixed_fee =
 			consumed_deposit.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
-		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
-
-		deposit_gas.saturating_add(&self.weight_gas_consumption(consumed_weight))
+		SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee)
 	}
 
 	/// Returns the gas that `consumed_weight` and the transaction's extra weight cost.
@@ -804,12 +808,22 @@ impl<T: Config> EthTxInfo<T> {
 		total_weight_consumption: &Weight,
 		total_deposit_consumption: &DepositOf<T>,
 	) -> Option<Weight> {
-		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
-		let deposit_and_fixed_fee =
-			total_deposit_consumption.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
-		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
+		self.weight_remaining_with_deposit_gas(
+			max_total_gas,
+			total_weight_consumption,
+			&self.deposit_gas_consumption(total_deposit_consumption),
+		)
+	}
 
-		let consumable_fee = max_total_gas.saturating_sub(&deposit_gas).to_weight_fee()?;
+	/// Returns what `weight_remaining` returns, given the gas that the consumed deposit and the
+	/// fixed fee cost.
+	fn weight_remaining_with_deposit_gas(
+		&self,
+		max_total_gas: &SignedGas<T>,
+		total_weight_consumption: &Weight,
+		deposit_gas_consumption: &SignedGas<T>,
+	) -> Option<Weight> {
+		let consumable_fee = max_total_gas.saturating_sub(deposit_gas_consumption).to_weight_fee()?;
 
 		T::FeeInfo::fee_to_weight(consumable_fee)
 			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))
