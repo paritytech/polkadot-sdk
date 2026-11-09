@@ -73,9 +73,9 @@ mod benchmarks {
 		Pallet::<T>::do_receive_validator_set(0, stored)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, None);
+		_(origin as T::RuntimeOrigin, CollatorDraw::UpTo(max));
 
-		assert_eq!(MaxCollators::<T>::get(), None);
+		assert_eq!(MaxCollators::<T>::get(), CollatorDraw::UpTo(max));
 		assert_eq!(PendingRotation::<T>::get(), RotationState::AwaitingQueue);
 		Ok(())
 	}

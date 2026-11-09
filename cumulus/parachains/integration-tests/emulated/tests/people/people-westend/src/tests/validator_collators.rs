@@ -20,6 +20,7 @@ use emulated_integration_tests_common::{
 	xcm_emulator::{pallet_aura, polkadot_primitives::AuthorityDiscoveryId},
 };
 use pallet_staking_async::OnEraStart;
+use pallet_validator_collators::{CollatorDraw, DrawnCollators};
 use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
@@ -71,22 +72,27 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	let bob = Sr25519Keyring::Bob.to_account_id();
 	let charlie = Sr25519Keyring::Charlie.to_account_id();
 	let validators = vec![alice.clone(), bob.clone(), charlie];
-	// The validators follow the invulnerables in account order.
 	let mut with_keys = vec![alice.clone(), bob.clone()];
 	with_keys.sort();
-	let expected = invulnerables()
-		.into_iter()
-		.map(|(who, _, _)| who)
-		.chain(with_keys.clone())
-		.collect::<Vec<_>>();
-	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
-		let aura_of =
-			|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
+	// The validators follow the invulnerables in drawn order.
+	let expected = |drawn: &[AccountId]| {
 		invulnerables()
 			.into_iter()
-			.map(|(_, aura, _)| aura)
-			.chain(with_keys.iter().map(aura_of))
+			.map(|(who, _, _)| who)
+			.chain(drawn.iter().cloned())
 			.collect::<Vec<_>>()
+	};
+	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
+		let alice = alice.clone();
+		move |drawn: &[AccountId]| {
+			let aura_of =
+				|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
+			invulnerables()
+				.into_iter()
+				.map(|(_, aura, _)| aura)
+				.chain(drawn.iter().map(aura_of))
+				.collect::<Vec<_>>()
+		}
 	};
 
 	// GIVEN Alice and Bob registered collator keys on both chains, Charlie did not, and root
@@ -95,7 +101,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		type Runtime = <AssetHubWestend as Chain>::Runtime;
 		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
 			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
-			None,
+			CollatorDraw::All,
 		));
 		expected_authorities(register_keys_on_asset_hub(&alice), register_keys_on_asset_hub(&bob))
 	});
@@ -103,7 +109,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		type Runtime = <PeopleWestend as Chain>::Runtime;
 		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
 			<PeopleWestend as Chain>::RuntimeOrigin::root(),
-			None,
+			CollatorDraw::All,
 		));
 		expected_authorities(register_keys_on_people(&alice), register_keys_on_people(&bob))
 	});
@@ -157,21 +163,29 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	AssetHubWestend::execute_with(|| {});
 	AssetHubWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<AssetHubWestend as Chain>::Runtime>;
+		let drawn = DrawnCollators::<<AssetHubWestend as Chain>::Runtime>::get().unwrap().collators;
+		let mut sorted = drawn.to_vec();
+		sorted.sort();
+		assert_eq!(sorted, with_keys);
 		assert_eq!(Session::current_index(), asset_hub_session_before + 2);
-		assert_eq!(Session::validators(), expected);
+		assert_eq!(Session::validators(), expected(&drawn));
 		assert_eq!(
 			pallet_aura::Authorities::<<AssetHubWestend as Chain>::Runtime>::get().into_inner(),
-			asset_hub_authorities
+			asset_hub_authorities(&drawn)
 		);
 	});
 	PeopleWestend::execute_with(|| {});
 	PeopleWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<PeopleWestend as Chain>::Runtime>;
+		let drawn = DrawnCollators::<<PeopleWestend as Chain>::Runtime>::get().unwrap().collators;
+		let mut sorted = drawn.to_vec();
+		sorted.sort();
+		assert_eq!(sorted, with_keys);
 		assert_eq!(Session::current_index(), people_session_before + 2);
-		assert_eq!(Session::validators(), expected);
+		assert_eq!(Session::validators(), expected(&drawn));
 		assert_eq!(
 			pallet_aura::Authorities::<<PeopleWestend as Chain>::Runtime>::get().into_inner(),
-			people_authorities
+			people_authorities(&drawn)
 		);
 	});
 }
@@ -189,7 +203,10 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 	PeopleWestend::execute_with(|| {
 		register_keys_on_people(&alice);
 		register_keys_on_people(&bob);
-		assert_ok!(ValidatorCollators::set_max_collators(RuntimeOrigin::root(), Some(1)));
+		assert_ok!(ValidatorCollators::set_max_collators(
+			RuntimeOrigin::root(),
+			CollatorDraw::UpTo(1)
+		));
 	});
 
 	// WHEN a set with both arrives
