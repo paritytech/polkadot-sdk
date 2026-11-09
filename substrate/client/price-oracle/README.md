@@ -17,7 +17,7 @@ blocks it authors.
 exchanges ──HTTPS──▶ fetcher
                         │ bodies
                         ▼
-              runtime `parse` ──prices──▶ runtime `aggregate`
+              runtime `parse` ──outputs──▶ runtime `aggregate`
                                                   │ quotes
                                                   ▼
                               keystore ──sign──▶ SignedPriceReport
@@ -52,9 +52,10 @@ effect without restart, with a floor of 500 ms.
    interval minus 200 ms. Each request has its own timeout and response size cap. A market
    whose queries did not all succeed by the deadline is dropped for this tick.
 3. **Parse**: as soon as all responses of one market are in, call `parse` for it.
-4. **Aggregate**: at the deadline, one call to `aggregate`, which returns every registered pair
-   with its votes, quorum and price if it reached the quorum. A pair below its quorum is warned
-   about. No priced pair means nothing to sign this tick.
+4. **Aggregate**: at the deadline, one call to `aggregate` with the market outputs and the state
+   the runtime returned last tick. It returns every registered pair with its inputs, quorum, price
+   if it has one, a note, and the state for the next tick. The node keeps the state in memory
+   for the next tick only, without reading it.
 5. **Sign** a `PriceReport` with the local key, anchored to the best block number and the
    node's clock at signing.
 6. **Publish**: insert into the pool and send to the recipients.
@@ -62,7 +63,7 @@ effect without restart, with a floor of 500 ms.
 A tick is skipped while the node is major syncing, while the previous tick is still running,
 and while the runtime does not implement the API. A skipped tick stops only the node's own
 report. Reports from peers are still received under the rules of the last tick, except while
-the node is syncing, when they are dropped.
+the node is syncing.
 
 ## Fetcher
 
@@ -88,9 +89,8 @@ that author next, and nothing is forwarded.
 Every tick, the service asks its `ReportRecipients` for the addresses of the coming authors and
 reserves them on the protocol, so the network keeps a substream open to each. The signed report
 is sent to every recipient whose substream is open at that moment. An author therefore receives
-the reports of all signers directly, and a signer talks to a handful of peers. The protocol
-accepts inbound substreams from anyone, with slots for 512 peers, and dials only the reserved
-ones.
+the reports of all signers directly, and a signer talks to a handful of peers. The protocol dials
+only the reserved peers, and accepts an inbound substream from any peer.
 
 `polkadot-omni-node` sends to the authors of the Aura slot of the best block and the next
 three, with the authorities from the best block. The authors are found through the parachain's
@@ -100,26 +100,23 @@ as `cumulus-client-collator-discovery` requires.
 Every incoming message is validated. A message is rejected, and the sending peer's reputation
 lowered, if it does not decode, is anchored before a window, comes from a signer outside the
 accepted set, or carries an invalid signature, in that order, so the signature is checked last.
-A report the pool declines as superseded is ignored without penalty. Anything else is pooled
-and rewarded.
+A report the pool declines as superseded, which a sender repeating itself produces, is ignored
+without penalty. Anything else is pooled and rewarded.
 
 A report is within the windows if its block is at most `report_window` behind the tick's block
 and its timestamp at most `report_window_ms` behind the node's clock. Blocks and timestamps ahead
 are accepted: a peer may be ahead of this node, and the runtime rejects blocks ahead of the block
-including them. The node's clock is used rather than the chain's time, which lags behind and
-freezes when the relay chain stalls. The signer set, the tick's block and the windows form a
-snapshot the tick loop replaces once per tick, so validation never calls the runtime on the
-network path. While the node is major syncing or cannot read the rules from
-the runtime, the snapshot is cleared and incoming reports are ignored without judging the
-sender.
+including them. The node's clock is used rather than the chain's time, which lags behind. The signer
+set, the tick's block and the windows form a snapshot the tick loop replaces once per tick, so
+validation never calls the runtime on the network path.
 
 ## Pool
 
-`ReportPool` holds one report per signer, shared by the tick loop and the
-inherent data provider. A report replaces the signer's previous one if its anchor is greater or
-equal, comparing blocks first, then timestamps: at equal anchors nothing tells which is fresher,
-so the last received wins. The tick loop prunes reports that fell out of either window. Reading for a block removes nothing, so a report not
-included in one block stays available for the next.
+`ReportPool` holds one report per signer, shared by the tick loop and the inherent data provider.
+A report replaces the signer's previous one if its anchor is greater or equal, comparing blocks
+first, then timestamps: at equal anchors the last received wins. The tick loop prunes reports that
+fell out of either window. Reading for a block removes nothing, so a report not included in one
+block stays available for the next.
 
 ## Inherent data
 
@@ -134,9 +131,3 @@ is unavailable, the block is authored without oracle data.
 
 The local key is the first accepted signer whose private key the keystore holds, looked up every
 tick so key rotation and set changes need no restart.
-
-## Open points
-
-- The acceptance rules do not bound how far ahead of the current anchor a report may be.
-- The service stops if the notification stream ends, rather than recovering.
-- A recipient still being dialed when the report is ready misses it; nothing is retried.

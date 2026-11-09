@@ -29,6 +29,7 @@ mod tests;
 pub mod weights;
 
 use alloc::{collections::BTreeMap, vec::Vec};
+use codec::DecodeAll;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{PricePoint, PriceProvider, UnixTime},
@@ -38,8 +39,8 @@ use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError};
 use sp_price_oracle::{
 	inherents::{PriceOracleInherentDataExt, INHERENT_IDENTIFIER},
 	market::{Market, MarketId, QueryTag, VenueId},
-	runtime_api::ParseError,
-	Anchor, PairAggregate, PairId, Price, Quote, SignedPriceReport,
+	runtime_api::{MarketOutput, ParseError, PricingState},
+	Anchor, PairAggregate, PairId, Price, SignedPriceReport,
 };
 use sp_runtime::{
 	traits::{BlockNumberProvider, SaturatedConversion},
@@ -121,8 +122,8 @@ impl<B: BlockNumberProvider, T: UnixTime> AnchorProvider for (B, T) {
 	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 )]
 pub struct PairConfig {
-	/// How many market votes an oracle node needs to quote the pair. Used by the nodes, not by
-	/// the on-chain vote.
+	/// The fewest markets an oracle node needs to quote the pair. What counts as one is up to
+	/// [`Config::MarketPricing`]. Used by the nodes, not by the on-chain vote.
 	pub market_quorum: u32,
 }
 
@@ -575,10 +576,11 @@ impl<T: Config> Pallet<T> {
 		id: MarketId,
 		responses: Vec<(QueryTag, Vec<u8>)>,
 		now_ms: u64,
-	) -> Result<Price, ParseError> {
+	) -> Result<MarketOutput, ParseError> {
 		let err = |s: &str| ParseError(s.as_bytes().to_vec());
 		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown market"))?;
 		crate::parse_market::<T::MarketPricing>(&market, responses, now_ms)
+			.map(|output| MarketOutput(output.encode()))
 	}
 
 	/// Anchor of the latest vote on chain, per signer. Lets block authors skip reports that are
@@ -596,18 +598,34 @@ impl<T: Config> Pallet<T> {
 		latest.into_iter().collect()
 	}
 
-	/// Aggregate market prices into pair prices, one entry per registered pair.
+	/// Aggregate market outputs into pair prices, one entry per registered pair, and the state
+	/// for the next tick.
+	///
+	/// Outputs of unknown markets and outputs that do not decode are left out. A state that does
+	/// not decode is taken as the default.
 	///
 	/// Backs [`PriceOracleApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleApi::aggregate).
-	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<PairAggregate> {
-		let markets = prices
+	pub fn aggregate_markets(
+		outputs: Vec<(MarketId, MarketOutput)>,
+		state: PricingState,
+	) -> (Vec<PairAggregate>, PricingState) {
+		type Output<T> = <<T as Config>::MarketPricing as MarketPricing>::Output;
+		type State<T> = <<T as Config>::MarketPricing as MarketPricing>::State;
+
+		let markets = outputs
 			.into_iter()
-			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))
+			.filter_map(|(id, output)| {
+				let pair = Markets::<T>::get(id)?.pair;
+				Some((pair, Output::<T>::decode_all(&mut &output.0[..]).ok()?))
+			})
 			.collect();
+		let state = State::<T>::decode_all(&mut &state.0[..]).unwrap_or_default();
 		let pairs: Vec<PairId> = Pairs::<T>::iter_keys().collect();
 		let cross_rates = |pair| CrossRates::<T>::get(pair).into_inner();
 		let quorum = |pair| Pairs::<T>::get(pair).map_or(u32::MAX, |c| c.market_quorum);
-		pricing::aggregate(markets, &pairs, cross_rates, quorum)
+		let (aggregates, state) =
+			T::MarketPricing::aggregate(markets, &pairs, cross_rates, quorum, state);
+		(aggregates, PricingState(state.encode()))
 	}
 }
 
@@ -619,7 +637,7 @@ pub fn parse_market<P: MarketPricing>(
 	market: &StoredMarket<P::Params>,
 	responses: Vec<(QueryTag, Vec<u8>)>,
 	now_ms: u64,
-) -> Result<Price, ParseError> {
+) -> Result<P::Output, ParseError> {
 	let err = |s: &str| ParseError(s.as_bytes().to_vec());
 
 	let queries = P::queries(&market.pricing);

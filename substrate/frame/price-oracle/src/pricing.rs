@@ -14,21 +14,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Price arithmetic of the pallet: how markets are priced, reading decimals, and aggregating
-//! market prices into pair prices.
+//! How markets are priced, and the price arithmetic of the pallet: reading decimals and medians.
 
 use crate::registry::StoredQuery;
-use alloc::{collections::BTreeMap, vec::Vec};
-use codec::MaxEncodedLen;
+use alloc::vec::Vec;
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::Parameter;
-use sp_price_oracle::{market::QueryTag, PairAggregate, PairId, Price, Quote};
-use sp_runtime::traits::{CheckedMul, Member, Zero};
+use sp_price_oracle::{market::QueryTag, PairAggregate, PairId, Price};
+use sp_runtime::traits::{Member, Zero};
 
-/// How markets are priced.
+/// How markets are priced, and how their outputs are aggregated into pair prices.
 pub trait MarketPricing {
 	/// The pricing parameters, stored with each market.
 	type Params: Member + Parameter + MaxEncodedLen;
+
+	/// What pricing a market gives.
+	type Output: Encode + Decode;
+
+	/// What is kept from one tick to the next, such as the last prices. A node holds it for the
+	/// next tick only; it is the default when the node's last tick did not report, and after a
+	/// restart.
+	type State: Encode + Decode + Default;
 
 	/// Why a market could not be priced.
 	type Error: Debug;
@@ -46,55 +53,23 @@ pub trait MarketPricing {
 		params: &Self::Params,
 		responses: &[(QueryTag, Vec<u8>)],
 		now_ms: u64,
-	) -> Result<Price, Self::Error>;
-}
+	) -> Result<Self::Output, Self::Error>;
 
-/// Aggregate market quotes into one quote per pair.
-///
-/// Every market gets one vote. A pair's votes are the prices of the markets quoting it directly,
-/// plus, for every `(source, rate)` in `cross_rates(pair)`, the prices of the `source` markets
-/// multiplied by the median of the direct `rate` prices. The price of a pair is the median of
-/// its votes.
-///
-/// A pair has a price only with at least `quorum(pair)` votes, both when it is reported and when
-/// it is used as a `rate`. Returns one entry per pair in `pairs`, priced or not.
-pub fn aggregate(
-	markets: Vec<Quote>,
-	pairs: &[PairId],
-	cross_rates: impl Fn(PairId) -> Vec<(PairId, PairId)>,
-	quorum: impl Fn(PairId) -> u32,
-) -> Vec<PairAggregate> {
-	// Direct votes per pair, one per market.
-	let mut direct: BTreeMap<PairId, Vec<Price>> = BTreeMap::new();
-	for Quote { pair, price } in markets {
-		direct.entry(pair).or_default().push(price);
-	}
-	let priced = |pair: PairId, mut votes: Vec<Price>| -> Option<Price> {
-		if (votes.len() as u32) < quorum(pair) {
-			return None;
-		}
-		median(&mut votes)
-	};
-	let direct_median = |pair: PairId| priced(pair, direct.get(&pair)?.clone());
-
-	pairs
-		.iter()
-		.map(|&pair| {
-			let mut votes: Vec<Price> = direct.get(&pair).cloned().unwrap_or_default();
-			for (source, rate) in cross_rates(pair) {
-				let (Some(sources), Some(rate)) = (direct.get(&source), direct_median(rate)) else {
-					continue;
-				};
-				votes.extend(sources.iter().filter_map(|price| price.checked_mul(&rate)));
-			}
-			PairAggregate {
-				pair,
-				votes: votes.len() as u32,
-				quorum: quorum(pair),
-				price: priced(pair, votes),
-			}
-		})
-		.collect()
+	/// Price the pairs from the outputs of their markets.
+	///
+	/// `markets` holds the output of every priced market, with the pair the market quotes.
+	/// Returns one entry for every pair in `pairs`, priced or not, and the state for the next
+	/// tick.
+	///
+	/// `cross_rates(pair)` lists the `(source, rate)` pairs such that `pair = source * rate`, and
+	/// `quorum(pair)` is the pair's market quorum.
+	fn aggregate(
+		markets: Vec<(PairId, Self::Output)>,
+		pairs: &[PairId],
+		cross_rates: impl Fn(PairId) -> Vec<(PairId, PairId)>,
+		quorum: impl Fn(PairId) -> u32,
+		state: Self::State,
+	) -> (Vec<PairAggregate>, Self::State);
 }
 
 /// Parse a non-negative decimal number such as `4.206`, `12`, `.5` or `1e-3` into a [`Price`].
@@ -309,140 +284,5 @@ mod median_tests {
 			median(&mut [Price::from_inner(u128::MAX), Price::from_inner(u128::MAX)]),
 			Some(Price::from_inner(u128::MAX))
 		);
-	}
-}
-
-#[cfg(test)]
-mod aggregate_tests {
-	use super::*;
-
-	const DOT_USDT: PairId = PairId(1);
-	const DOT_USD: PairId = PairId(2);
-	const USDT_USD: PairId = PairId(3);
-	const PAIRS: &[PairId] = &[DOT_USDT, DOT_USD, USDT_USD];
-
-	fn cross_rates(pair: PairId) -> Vec<(PairId, PairId)> {
-		if pair == DOT_USD {
-			vec![(DOT_USDT, USDT_USD)]
-		} else {
-			vec![]
-		}
-	}
-	fn no_quorum(_: PairId) -> u32 {
-		1
-	}
-	fn p(s: &str) -> Price {
-		parse_decimal(s).unwrap()
-	}
-	fn q(pair: PairId, price: &str) -> Quote {
-		Quote { pair, price: p(price) }
-	}
-	fn price(aggregates: &[PairAggregate], pair: PairId) -> Option<Price> {
-		aggregates.iter().find(|a| a.pair == pair).and_then(|a| a.price)
-	}
-
-	#[test]
-	fn direct_pairs_take_the_median_over_markets() {
-		let aggregates = aggregate(
-			vec![q(DOT_USDT, "4.0"), q(DOT_USDT, "4.2"), q(DOT_USDT, "9")],
-			PAIRS,
-			cross_rates,
-			no_quorum,
-		);
-		assert_eq!(price(&aggregates, DOT_USDT), Some(p("4.2")));
-		assert_eq!(price(&aggregates, DOT_USD), None);
-		assert_eq!(price(&aggregates, USDT_USD), None);
-	}
-
-	#[test]
-	fn derived_pair_pools_direct_and_converted_votes() {
-		let aggregates = aggregate(
-			vec![
-				q(DOT_USDT, "4.0"),
-				q(DOT_USDT, "4.0"),
-				q(DOT_USD, "5.0"),
-				q(USDT_USD, "0.5"),
-				q(USDT_USD, "0.5"),
-			],
-			PAIRS,
-			cross_rates,
-			no_quorum,
-		);
-		// Pool: 4.0 * 0.5, 4.0 * 0.5, 5.0 -> median 2.0.
-		assert_eq!(price(&aggregates, DOT_USD), Some(p("2.0")));
-		assert_eq!(price(&aggregates, USDT_USD), Some(p("0.5")));
-	}
-
-	#[test]
-	fn no_rate_means_no_cross_rate() {
-		let aggregates =
-			aggregate(vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0")], PAIRS, cross_rates, no_quorum);
-		// Only the direct DOT/USD vote remains.
-		assert_eq!(price(&aggregates, DOT_USD), Some(p("5.0")));
-	}
-
-	#[test]
-	fn every_market_votes() {
-		let aggregates = aggregate(
-			vec![q(DOT_USDT, "4.0"), q(DOT_USDT, "9.0"), q(DOT_USDT, "5.0")],
-			PAIRS,
-			cross_rates,
-			no_quorum,
-		);
-		// Votes: 4.0, 5.0, 9.0 -> 5.0.
-		assert_eq!(price(&aggregates, DOT_USDT), Some(p("5.0")));
-	}
-
-	#[test]
-	fn direct_and_converted_markets_both_vote() {
-		let aggregates = aggregate(
-			vec![q(DOT_USDT, "4.0"), q(DOT_USD, "7.0"), q(USDT_USD, "1.0")],
-			PAIRS,
-			cross_rates,
-			no_quorum,
-		);
-		// Votes: 7.0 direct, 4.0 * 1.0 converted -> 5.5.
-		assert_eq!(price(&aggregates, DOT_USD), Some(p("5.5")));
-	}
-
-	#[test]
-	fn pairs_below_quorum_are_not_priced() {
-		let markets = vec![q(DOT_USDT, "4.0"), q(DOT_USDT, "5.0"), q(USDT_USD, "1.0")];
-		let quorum = |pair| if pair == DOT_USDT { 2 } else { 3 };
-		let aggregates = aggregate(markets, PAIRS, |_| vec![], quorum);
-		// DOT/USDT has exactly its quorum of 2, USDT/USD has 1 of 3.
-		assert_eq!(
-			aggregates,
-			vec![
-				PairAggregate { pair: DOT_USDT, votes: 2, quorum: 2, price: Some(p("4.5")) },
-				PairAggregate { pair: DOT_USD, votes: 0, quorum: 3, price: None },
-				PairAggregate { pair: USDT_USD, votes: 1, quorum: 3, price: None },
-			]
-		);
-	}
-
-	#[test]
-	fn converted_votes_count_towards_quorum() {
-		let markets = vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0"), q(USDT_USD, "1.0")];
-		let quorum = |pair| if pair == DOT_USD { 2 } else { 1 };
-		let aggregates = aggregate(markets, PAIRS, cross_rates, quorum);
-		// Votes: 5.0 direct, 4.0 * 1.0 converted -> 4.5.
-		assert_eq!(price(&aggregates, DOT_USD), Some(p("4.5")));
-	}
-
-	#[test]
-	fn rate_below_quorum_means_no_cross_rate() {
-		let markets = vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0"), q(USDT_USD, "1.0")];
-		let quorum = |pair| if pair == USDT_USD { 2 } else { 1 };
-		let aggregates = aggregate(markets, PAIRS, cross_rates, quorum);
-		// USDT/USD has 1 of 2 votes, so only the direct DOT/USD vote remains.
-		assert_eq!(price(&aggregates, DOT_USD), Some(p("5.0")));
-		assert_eq!(price(&aggregates, USDT_USD), None);
-	}
-
-	#[test]
-	fn unknown_pairs_are_not_reported() {
-		let aggregates = aggregate(vec![q(PairId(99), "1")], PAIRS, cross_rates, no_quorum);
-		assert!(aggregates.iter().all(|a| a.pair != PairId(99) && a.price.is_none()));
 	}
 }

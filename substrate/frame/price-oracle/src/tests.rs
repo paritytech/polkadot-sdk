@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	traits::{ConstU32, Hooks},
 };
-use sp_price_oracle::PriceReport;
+use sp_price_oracle::{PriceReport, Quote};
 use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;

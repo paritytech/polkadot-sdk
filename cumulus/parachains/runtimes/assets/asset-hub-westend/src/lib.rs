@@ -3207,14 +3207,21 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			market: sp_price_oracle::market::MarketId,
 			responses: Vec<(sp_price_oracle::market::QueryTag, Vec<u8>)>,
 			now_ms: u64,
-		) -> Result<sp_price_oracle::Price, sp_price_oracle::runtime_api::ParseError> {
+		) -> Result<
+			sp_price_oracle::runtime_api::MarketOutput,
+			sp_price_oracle::runtime_api::ParseError,
+		> {
 			PriceOracle::parse_market(market, responses, now_ms)
 		}
 
 		fn aggregate(
-			prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
-		) -> Vec<sp_price_oracle::PairAggregate> {
-			PriceOracle::aggregate_markets(prices)
+			outputs: Vec<(
+				sp_price_oracle::market::MarketId,
+				sp_price_oracle::runtime_api::MarketOutput,
+			)>,
+			state: sp_price_oracle::runtime_api::PricingState,
+		) -> (Vec<sp_price_oracle::PairAggregate>, sp_price_oracle::runtime_api::PricingState) {
+			PriceOracle::aggregate_markets(outputs, state)
 		}
 	}
 );

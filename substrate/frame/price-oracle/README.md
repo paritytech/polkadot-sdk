@@ -4,12 +4,12 @@ On-chain prices of asset pairs, such as DOT/USD, computed from data the block pr
 chain fetch from exchanges. The pallet stores what to fetch, prices the fetched data through
 runtime APIs, and aggregates the prices the nodes sign and report. Each accepted signer holds one
 vote per pair, and the price of a pair is the median of its votes once enough signers have
-reported. Governance registers exchanges, pairs and markets, and can pause the pallet without a
+reported. Governance registers exchanges, pairs and markets, and can pause a pair without a
 runtime upgrade. Consumers read prices through `frame_support::traits::PriceProvider`.
 
-How a market is priced is up to the runtime. The pallet ships one method, order book pricing.
+How a market is priced is up to the runtime. The pallet ships one method, the execution band.
 
-## Position in the stack
+## Data flow
 
 ```text
 governance ──venues, pairs, markets──▶ storage
@@ -49,12 +49,13 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 - **Report**: the pair prices one signer computed in one pass over the markets, signed and
   anchored.
 - **Anchor**: when a report was made: the height of the signer's best block and the signer's
-  clock. It orders the reports of a signer, block first, and expires old ones.
+  clock. Of two reports of a signer, the one with the higher block is newer, and at the same block
+  the one with the later time. Anchors also expire old reports.
 - **Vote**: the latest price one signer reported for one pair. A pair holds at most one vote per
   signer.
-- **Quorum**: the number of votes a pair needs to have a price. There are two. The market quorum
-  of a pair is applied by a node before reporting the pair, and the signer quorum of `Params` is
-  applied by the pallet before publishing it.
+- **Quorum**: what a pair needs to have a price. There are two. The market quorum of a pair is the
+  fewest markets a node needs before reporting the pair, and the signer quorum of `Params` is the
+  fewest votes the pallet needs before publishing it.
 
 ## How it works
 
@@ -82,7 +83,7 @@ USDT/USD rate:
 
 ```text
 set_venue(BINANCE, Venue { name: "Binance" })
-set_pair(DOT_USDT, PairConfig { market_quorum: 3 }) // needs 3 market votes
+set_pair(DOT_USDT, PairConfig { market_quorum: 3 }) // needs 3 markets
 set_pair(USDT_USD, PairConfig { market_quorum: 2 })
 set_pair(DOT_USD, PairConfig { market_quorum: 3 })
 set_cross_rates(DOT_USD, [(DOT_USDT, USDT_USD)])    // DOT/USD = DOT/USDT * USDT/USD
@@ -95,7 +96,9 @@ Nothing is reported or published until the parameters are set.
 ## Pricing a market
 
 The pricing method is a type implementing `MarketPricing`. From the parameters stored with a
-market, it defines the queries to fetch, and prices the market from their responses. Before
+market, it defines the queries to fetch, and prices the market from their responses. It also
+aggregates the market outputs into pair prices, and may keep a state from one tick to the next,
+such as the last prices. The node holds that state between ticks without reading it. Before
 pricing, the pallet only checks that each response belongs to one of the market's queries and is
 not larger than the query allows.
 
@@ -107,21 +110,27 @@ impl pallet_price_oracle::Config for Runtime {
 ```
 
 A runtime can bring its own method, for example one that reads the last price from a ticker
-response, with the path to the price field as its parameters.
+response.
 
-### Order book pricing
+## Execution band pricing
 
-`order_book::OrderBookPricing` prices a market at the impact mid of its order book. That is the
-average of the prices at which `impact_size` quote units are bought from the asks and sold into
-the bids. Amounts quoted in contracts are first converted to base asset units with the market's
-`contract_size`.
+The pallet ships one pricing method, the execution band, as `order_book::OrderBookPricing`. The
+algorithm is described step by step in the docs of the `order_book` module. In short:
 
-A market is not priced if it fails one of its `HealthLimits`:
+- Each market gives an interval: the average prices at which `impact_size` quote units are sold
+  into the bids, the lower edge, and bought from the asks, the upper edge. A side that cannot fill
+  has no edge. A market is left out if its book is empty, crossed or its trades are stale; a wide
+  spread does not leave it out.
+- A pair's band is the median of its markets' lower edges, `L`, and the median of their upper
+  edges, `U`, if it has at least its market quorum of markets and more than half of them fill each
+  side. The markets of a cross rate count with both edges multiplied by this tick's price of the
+  rate.
+- The price is the node's previous price if that is inside the band, otherwise the nearest edge of
+  the band. Without a previous price, it is the middle of the band. A pair without a band is left
+  out of the report and keeps its previous price. The previous prices are the pricing state,
+  which the node passes from each tick to the next.
 
-- its best bid is not below its best ask,
-- its spread relative to the mid exceeds `max_spread`,
-- its latest trade is older than `max_trade_age_ms`,
-- or a side of the book cannot fill `impact_size`.
+### Reading responses
 
 Each response is read with the `ResponseSchema` of its query, a path into the JSON document plus
 the layout of an order book level or the timestamp field of a trade. Any malformed element
@@ -135,19 +144,11 @@ ResponseSchema::OrderBook { bids: ["bids"], asks: ["asks"], layout: Array { pric
 
 The `pallet-price-oracle-venues` crate has tested market definitions for well-known exchanges.
 
-## Aggregating markets into pairs
-
-Every priced market is one vote for its pair. A pair with cross rates also gets one vote per
-market of each `source` pair, multiplied by the median price of the `rate` pair. A rate is taken
-from its own markets only. A pair is reported with the median of its votes if it has at least
-its market quorum, and is left out of the report otherwise.
-
-For example, with two DOT/USDT markets at 4.00 and 4.02, a USDT/USD price of 0.999 and one DOT/USD
-market at 4.01, DOT/USD has the votes 3.996, 4.01598 and 4.01, and is reported at 4.01.
-
 ## Processing reports
 
-The block author's reports arrive in the mandatory inherent `process_reports`, once per block.
+The block author includes the inherent `process_reports` with the reports it collected in every
+block it builds, possibly with none. It is an operational inherent, not a mandatory one: a block
+without it is valid, and processing happens at most once per block.
 Nothing is processed while `Params` is unset or processing is paused. A report is ignored if it
 is not live, if its signer is not in `Signers::signers()`, or if its signature does not verify.
 Of several reports of one signer in a block, the one with the highest anchor is kept. At equal
@@ -171,10 +172,3 @@ number of `BlockNumberProvider` and the number of votes. When the price differs 
 one, `PriceUpdated` is emitted and `OnPriceUpdate` is called, unless publishing is paused. The
 inherent fails only if it carries more reports than `MaxSigners` or comes twice in a block; the
 block stays valid either way. Rejected reports are counted in `ReportsProcessed`.
-
-## Open points
-
-- When the chain's time freezes too, as after a relay chain stall on a parachain, votes made
-  before the stall look fresh in the first blocks after it. Honest block authors leave such
-  reports out by their own clock; a dishonest one can include them until the chain's time catches
-  up.

@@ -45,7 +45,7 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_price_oracle::runtime_api::PriceOracleApi;
+use sp_price_oracle::runtime_api::{PriceOracleApi, PricingState};
 use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
 use std::sync::Arc;
 use tick::{benefit::GOOD_REPORT, run_tick, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
@@ -139,6 +139,8 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
+	// The pricing state the last tick returned, for the next tick only.
+	let mut pricing_state = PricingState::default();
 	let mut api_missing_logged = false;
 	let mut no_signer_logged = false;
 
@@ -152,6 +154,8 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					metrics.on_tick(TickOutcome::Overrun);
 					continue;
 				}
+				// The state is for the next tick only: a tick that does not report drops it.
+				let state = std::mem::take(&mut pricing_state);
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
 					metrics.on_tick(TickOutcome::Syncing);
@@ -197,6 +201,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					pool.clone(),
 					metrics.clone(),
 					setup.clone(),
+					state,
 				)
 				.boxed()
 				.fuse();
@@ -207,7 +212,10 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				// The tick finished: send the signed report, if it produced one, to every
 				// recipient reachable now.
 				let encoded = match result {
-					Ok(encoded) => encoded,
+					Ok((encoded, state)) => {
+						pricing_state = state;
+						encoded
+					},
 					Err(outcome) => {
 						metrics.on_tick(outcome);
 						continue;

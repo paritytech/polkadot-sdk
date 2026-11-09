@@ -689,9 +689,11 @@ fn market(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use pallet_price_oracle::{order_book::OrderBookPricing, pricing::parse_decimal};
+	use pallet_price_oracle::{
+		order_book::{Interval, OrderBookPricing},
+		pricing::parse_decimal,
+	};
 	use sp_price_oracle::runtime_api::ParseError;
-	use sp_runtime::Permill;
 
 	/// 2026-09-17T10:00:00Z. The fixtures were recorded in the two hours before it, with the
 	/// recorded asset trading near 1 USDT.
@@ -712,18 +714,14 @@ mod tests {
 	}
 
 	fn limits() -> HealthLimits {
-		HealthLimits {
-			max_spread: Permill::from_percent(1),
-			max_trade_age_ms: MAX_TRADE_AGE_MS,
-			impact_size: p("5000"),
-		}
+		HealthLimits { max_trade_age_ms: MAX_TRADE_AGE_MS, impact_size: p("5000") }
 	}
 
 	fn parse_market(
 		market: &StoredMarket<OrderBookParams>,
 		responses: Vec<(QueryTag, Vec<u8>)>,
 		now_ms: u64,
-	) -> Result<Price, ParseError> {
+	) -> Result<Interval, ParseError> {
 		pallet_price_oracle::parse_market::<OrderBookPricing>(market, responses, now_ms)
 	}
 
@@ -732,11 +730,15 @@ mod tests {
 		vec![(BOOK, book.to_vec()), (TRADES, trades.to_vec())]
 	}
 
-	/// Price `market` from its recorded responses. The price must be near 1 USDT, and the
+	/// Price `market` from its recorded responses. Both sides must fill, near 1 USDT, and the
 	/// market must turn stale once the recorded trade is older than allowed.
 	fn assert_prices(market: &StoredMarket<OrderBookParams>, book: &[u8], trades: &[u8]) {
-		let price = parse_market(market, responses(book, trades), NOW_MS).unwrap();
-		assert!(price > p("0.95") && price < p("1.05"), "unexpected price {price:?}");
+		let interval = parse_market(market, responses(book, trades), NOW_MS).unwrap();
+		let (Some(lower), Some(upper)) = (interval.lower, interval.upper) else {
+			panic!("a side does not fill: {interval:?}");
+		};
+		assert!(lower <= upper, "crossed interval {interval:?}");
+		assert!(lower > p("0.95") && upper < p("1.05"), "unexpected interval {interval:?}");
 
 		let later = NOW_MS + MAX_TRADE_AGE_MS as u64 + 1;
 		let stale = parse_market(market, responses(book, trades), later);
@@ -850,6 +852,6 @@ mod tests {
 		market.pricing.contract_size = p("0.001");
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
 		let thin = parse_market(&market, responses, NOW_MS);
-		assert_eq!(thin, Err(ParseError(b"Unhealthy(BookTooThin)".to_vec())));
+		assert_eq!(thin, Ok(Interval { lower: None, upper: None }));
 	}
 }

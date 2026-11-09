@@ -25,16 +25,16 @@ use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
 	order_book::{HealthLimits, OrderBookParams, OrderBookPricing},
 	parse_market,
-	pricing::{self, parse_decimal},
+	pricing::parse_decimal,
 	registry::StoredMarket,
+	MarketPricing,
 };
 use pallet_price_oracle_venues as venues;
 use sc_price_oracle::fetcher::{Fetcher, MarketFailure};
 use sp_price_oracle::{
 	market::{MarketId, VenueId},
-	PairId, Price, Quote,
+	PairId, Price,
 };
-use sp_runtime::Permill;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{Duration, Instant};
 
@@ -50,11 +50,7 @@ fn p(s: &str) -> Price {
 }
 
 fn limits() -> HealthLimits {
-	HealthLimits {
-		max_spread: Permill::from_percent(1),
-		max_trade_age_ms: 5 * 60 * 1_000,
-		impact_size: p("10000"),
-	}
+	HealthLimits { max_trade_age_ms: 5 * 60 * 1_000, impact_size: p("10000") }
 }
 
 /// One market per constructor in [`pallet_price_oracle_venues`].
@@ -106,12 +102,12 @@ async fn venues_are_fetched_and_priced() {
 	let (failures, fetched) = futures::join!(fetch, wait);
 
 	let now = now_ms();
-	let mut prices = Vec::new();
+	let mut intervals = Vec::new();
 	let mut missing = Vec::new();
 	fetched.into_iter().for_each(|r| {
 		let (name, market) = &stored[r.market.0 as usize];
 		match parse_market::<OrderBookPricing>(market, r.responses, now) {
-			Ok(price) => prices.push(Quote { pair: market.pair, price }),
+			Ok(interval) => intervals.push((market.pair, interval)),
 			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
 		}
 	});
@@ -119,9 +115,10 @@ async fn venues_are_fetched_and_priced() {
 		missing.push((stored[id.0 as usize].0, fetch_reason(failure)));
 	});
 
-	let n = prices.len();
+	let n = intervals.len();
 	let m = stored.len();
-	let aggregates = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| 1);
+	let (aggregates, _) =
+		OrderBookPricing::aggregate(intervals, &[PAIR], |_| Vec::new(), |_| 1, Default::default());
 	match aggregates.first().and_then(|a| a.price) {
 		Some(price) => println!("{n}/{m} priced  {price}"),
 		None => println!("{n}/{m} priced"),

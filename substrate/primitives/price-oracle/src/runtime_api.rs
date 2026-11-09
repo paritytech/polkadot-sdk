@@ -19,7 +19,7 @@
 
 use crate::{
 	market::{Market, MarketId, QueryTag},
-	Anchor, PairAggregate, Price, Settings,
+	Anchor, PairAggregate, Settings,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -28,6 +28,16 @@ use scale_info::TypeInfo;
 /// Reason a market could not be priced from the responses to its queries.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct ParseError(pub Vec<u8>);
+
+/// What pricing a market gave, for [`PriceOracleApi::aggregate`]. Only the runtime reads it.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct MarketOutput(pub Vec<u8>);
+
+/// What the pricing method keeps from one tick to the next, such as the last prices. The node
+/// holds it for the next tick only, but only the runtime reads it. Empty when the node's last
+/// tick did not report, and after a restart.
+#[derive(Clone, PartialEq, Eq, Debug, Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct PricingState(pub Vec<u8>);
 
 sp_api::decl_runtime_apis! {
 	/// What an oracle node needs from the runtime.
@@ -46,9 +56,12 @@ sp_api::decl_runtime_apis! {
 			market: MarketId,
 			responses: Vec<(QueryTag, Vec<u8>)>,
 			now_ms: u64,
-		) -> Result<Price, ParseError>;
-		/// Turn market prices into pair prices, one entry per registered pair. The pairs with a
-		/// price are the ones to report.
-		fn aggregate(prices: Vec<(MarketId, Price)>) -> Vec<PairAggregate>;
+		) -> Result<MarketOutput, ParseError>;
+		/// Turn market outputs into pair prices, one entry per registered pair, and the state for
+		/// the next tick. The pairs with a price are the ones to report.
+		fn aggregate(
+			outputs: Vec<(MarketId, MarketOutput)>,
+			state: PricingState,
+		) -> (Vec<PairAggregate>, PricingState);
 	}
 }

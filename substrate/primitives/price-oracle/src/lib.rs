@@ -106,29 +106,20 @@ pub struct Quote {
 	pub price: Price,
 }
 
-/// The outcome of aggregating one pair: its votes against its quorum, and its price if the
-/// votes reached the quorum.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-)]
+/// The outcome of aggregating one pair: its inputs against its quorum, and its price if it has
+/// one this tick.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct PairAggregate {
 	/// The pair being priced.
 	pub pair: PairId,
-	/// The votes the pair got, direct and converted.
-	pub votes: u32,
-	/// The votes the pair needs to be priced.
+	/// The inputs the pair got, such as the markets it is priced from.
+	pub inputs: u32,
+	/// The inputs the pair needs to be priced.
 	pub quorum: u32,
-	/// The price of the pair, `None` if the votes did not reach the quorum.
+	/// The price to report, `None` if the pair has none this tick.
 	pub price: Option<Price>,
+	/// Why the pair has no price, or other detail for the logs, as text.
+	pub note: Vec<u8>,
 }
 
 /// The rules a node follows for a tick: who may sign, how old a report may be, how often to

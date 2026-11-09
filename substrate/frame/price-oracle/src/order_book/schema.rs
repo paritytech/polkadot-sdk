@@ -142,7 +142,6 @@ pub enum ResponseSchemaError {
 	PathNotFound,
 	NotAnArray,
 	MalformedLevel,
-	EmptySide,
 	MalformedTime,
 	NoTrades,
 }
@@ -196,31 +195,29 @@ fn follow<'a>(mut value: &'a Value, path: &Path) -> Result<&'a Value, ResponseSc
 	Ok(value)
 }
 
-/// Read all levels of one side. Any malformed level fails the side.
+/// Read all levels of one side. A side may be empty. Any malformed level fails the side.
 fn read_levels(side: &Value, layout: &LevelLayout) -> Result<Vec<Level>, ResponseSchemaError> {
 	let rows = side.as_array().ok_or(ResponseSchemaError::NotAnArray)?;
-	if rows.is_empty() {
-		return Err(ResponseSchemaError::EmptySide);
+	rows.iter().filter_map(|row| read_level(row, layout).transpose()).collect()
+}
+
+/// Read one level, `None` if it has no amount. A level without a price is malformed.
+fn read_level(row: &Value, layout: &LevelLayout) -> Result<Option<Level>, ResponseSchemaError> {
+	let (price, amount) = match layout {
+		LevelLayout::Array { price, amount } => {
+			(row.get(*price as usize), row.get(*amount as usize))
+		},
+		LevelLayout::Object { price, amount } => (
+			core::str::from_utf8(price).ok().and_then(|k| row.get(k)),
+			core::str::from_utf8(amount).ok().and_then(|k| row.get(k)),
+		),
+	};
+	let price = read_number(price.ok_or(ResponseSchemaError::MalformedLevel)?)?;
+	let amount = read_number(amount.ok_or(ResponseSchemaError::MalformedLevel)?)?;
+	if price.is_zero() {
+		return Err(ResponseSchemaError::MalformedLevel);
 	}
-	rows.iter()
-		.map(|row| {
-			let (price, amount) = match layout {
-				LevelLayout::Array { price, amount } => {
-					(row.get(*price as usize), row.get(*amount as usize))
-				},
-				LevelLayout::Object { price, amount } => (
-					core::str::from_utf8(price).ok().and_then(|k| row.get(k)),
-					core::str::from_utf8(amount).ok().and_then(|k| row.get(k)),
-				),
-			};
-			let price = read_number(price.ok_or(ResponseSchemaError::MalformedLevel)?)?;
-			let amount = read_number(amount.ok_or(ResponseSchemaError::MalformedLevel)?)?;
-			if price.is_zero() || amount.is_zero() {
-				return Err(ResponseSchemaError::MalformedLevel);
-			}
-			Ok(Level { price, amount })
-		})
-		.collect()
+	Ok((!amount.is_zero()).then_some(Level { price, amount }))
 }
 
 /// A non-negative decimal given as a JSON number or as a string.
@@ -361,11 +358,23 @@ mod tests {
 			binance_book().read(br#"{"bids":[["0","10"]],"asks":[["4.01","1"]]}"#),
 			Err(ResponseSchemaError::MalformedLevel)
 		);
-		assert_eq!(
-			binance_book().read(br#"{"bids":[],"asks":[["4.01","1"]]}"#),
-			Err(ResponseSchemaError::EmptySide)
-		);
 		assert_eq!(binance_book().read(br#"{"asks":[]}"#), Err(ResponseSchemaError::PathNotFound));
+	}
+
+	#[test]
+	fn empty_sides_and_levels_without_amount() {
+		let read = |body: &[u8]| {
+			let Parsed::OrderBook(book) = binance_book().read(body).unwrap() else { panic!() };
+			book
+		};
+		// An empty side is read as empty.
+		let book = read(br#"{"bids":[],"asks":[["4.01","1"]]}"#);
+		assert!(book.bids.is_empty());
+		assert_eq!(book.asks, vec![Level { price: p("4.01"), amount: p("1") }]);
+		// A level with no amount is left out, even the best one.
+		let book = read(br#"{"bids":[["4.00","0"],["3.99","2"]],"asks":[["4.01","0"]]}"#);
+		assert_eq!(book.bids, vec![Level { price: p("3.99"), amount: p("2") }]);
+		assert!(book.asks.is_empty());
 		assert_eq!(binance_book().read(b"not json"), Err(ResponseSchemaError::NotJson));
 	}
 

@@ -292,13 +292,20 @@ macro_rules! impl_node_runtime_apis {
 					_market: sp_price_oracle::market::MarketId,
 					_responses: Vec<(sp_price_oracle::market::QueryTag, Vec<u8>)>,
 					_now_ms: u64,
-				) -> Result<sp_price_oracle::Price, sp_price_oracle::runtime_api::ParseError> {
+				) -> Result<
+					sp_price_oracle::runtime_api::MarketOutput,
+					sp_price_oracle::runtime_api::ParseError,
+				> {
 					unimplemented!()
 				}
 
 				fn aggregate(
-					_prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
-				) -> Vec<sp_price_oracle::PairAggregate> {
+					_outputs: Vec<(
+						sp_price_oracle::market::MarketId,
+						sp_price_oracle::runtime_api::MarketOutput,
+					)>,
+					_state: sp_price_oracle::runtime_api::PricingState,
+				) -> (Vec<sp_price_oracle::PairAggregate>, sp_price_oracle::runtime_api::PricingState) {
 					unimplemented!()
 				}
 			}
