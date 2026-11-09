@@ -336,6 +336,9 @@ pub struct Client {
 pub(crate) struct GapFillRequest {
 	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
+	/// Hash of `from_inclusive` when the producer knows it. A one-block request is resolved
+	/// by hash, so a retracted sibling still cached as the best block is not indexed instead.
+	pub from_hash: Option<H256>,
 }
 
 /// Queues gap-fill requests for blocks missed during subscription reconnects and, in archive
@@ -373,9 +376,23 @@ impl SubscriptionGapQueue {
 
 	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`.
 	pub fn queue(&self, from_inclusive: SubstrateBlockNumber, to_inclusive: SubstrateBlockNumber) {
+		self.send(GapFillRequest { from_inclusive, to_inclusive, from_hash: None });
+	}
+
+	/// Queue a gap-fill for the single block `number` with hash `hash`.
+	pub fn queue_block(&self, number: SubstrateBlockNumber, hash: H256) {
+		self.send(GapFillRequest {
+			from_inclusive: number,
+			to_inclusive: number,
+			from_hash: Some(hash),
+		});
+	}
+
+	fn send(&self, request: GapFillRequest) {
+		let GapFillRequest { from_inclusive, to_inclusive, .. } = request;
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
-		match self.tx.try_send(GapFillRequest { from_inclusive, to_inclusive }) {
+		match self.tx.try_send(request) {
 			Ok(_) => {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
@@ -652,7 +669,7 @@ impl Client {
 						last_finalized_seen.is_none() &&
 						self.is_archive
 					{
-						self.subscription_gap_queue.queue(block.number(), block.number());
+						self.subscription_gap_queue.queue_block(block.number(), block.hash());
 						last_finalized_seen = Some(block.number());
 					}
 					continue;
@@ -663,6 +680,7 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.block_number();
+			let block_hash = block.block_hash();
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
@@ -682,7 +700,7 @@ impl Client {
 				// head, and rows the gap filler writes bypass its eviction, so there the block
 				// stays unindexed.
 				if subscription_type == SubscriptionType::FinalizedBlocks && self.is_archive {
-					self.subscription_gap_queue.queue(block_number, block_number);
+					self.subscription_gap_queue.queue_block(block_number, block_hash);
 				}
 			} else {
 				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");

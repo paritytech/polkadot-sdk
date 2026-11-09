@@ -89,6 +89,9 @@ const GAP_FILL_BACKOFF: Duration = Duration::from_secs(2);
 struct BackwardSyncRange {
 	from: SubstrateBlockNumber,
 	to: SubstrateBlockNumber,
+	/// Hash of `from`; when set, the range starts from that exact block instead of whatever
+	/// block the provider resolves `from` to.
+	from_hash: Option<H256>,
 	/// Set `Head` label after syncing the first block.
 	set_head: bool,
 	/// Checkpoint `Tail` label periodically and at end.
@@ -225,6 +228,7 @@ impl Client {
 		self.sync_backward_range(BackwardSyncRange {
 			from: latest_finalized,
 			to: first_evm,
+			from_hash: None,
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
@@ -249,6 +253,7 @@ impl Client {
 				self.sync_backward_range(BackwardSyncRange {
 					from: latest_finalized.block_number,
 					to: head.block_number.saturating_add(1),
+					from_hash: None,
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
@@ -270,6 +275,7 @@ impl Client {
 				self.sync_backward_range(BackwardSyncRange {
 					from: tail.block_number.saturating_sub(1),
 					to: first_evm,
+					from_hash: None,
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
@@ -293,6 +299,7 @@ impl Client {
 		BackwardSyncRange {
 			from,
 			to,
+			from_hash,
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
@@ -305,11 +312,11 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
 
-		let mut block = self
-			.block_provider()
-			.block_by_number(from)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
+		let mut block = match from_hash {
+			Some(hash) => self.block_provider().block_by_hash(&hash).await?,
+			None => self.block_provider().block_by_number(from).await?,
+		}
+		.ok_or(ClientError::BlockNotFound)?;
 
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
@@ -444,7 +451,7 @@ impl Client {
 	/// the same block and the label stays where it is.
 	pub(crate) async fn fill_subscription_gap(
 		&self,
-		GapFillRequest { from_inclusive, to_inclusive }: GapFillRequest,
+		GapFillRequest { from_inclusive, to_inclusive, from_hash }: GapFillRequest,
 		max_attempts: u32,
 		backoff: Duration,
 	) {
@@ -454,6 +461,7 @@ impl Client {
 			self.sync_backward_range(BackwardSyncRange {
 				from: from_inclusive,
 				to: to_inclusive,
+				from_hash,
 				set_head: false,
 				checkpoint_tail: false,
 				persist_first_evm_block: false,

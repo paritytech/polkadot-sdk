@@ -3878,7 +3878,7 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 
 	sync_client
 		.fill_subscription_gap(
-			GapFillRequest { from_inclusive: current - 1, to_inclusive: last + 1 },
+			GapFillRequest { from_inclusive: current - 1, to_inclusive: last + 1, from_hash: None },
 			2,
 			tokio::time::Duration::ZERO,
 		)
@@ -3904,7 +3904,7 @@ async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Re
 			.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| {
 				let seen = bg_seen.clone();
 				async move {
-					seen.lock().unwrap().push(block.block_number());
+					seen.lock().unwrap().push((block.block_number(), block.block_hash()));
 					Err(crate::client::ClientError::BlockNotFound)
 				}
 			})
@@ -3919,8 +3919,9 @@ async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Re
 		request.from_inclusive, request.to_inclusive,
 		"a failed finalized block is queued on its own"
 	);
+	let from_hash = request.from_hash.expect("a one-block request carries the block hash");
 	assert!(
-		seen.lock().unwrap().contains(&request.from_inclusive),
+		seen.lock().unwrap().contains(&(request.from_inclusive, from_hash)),
 		"the queued block #{} is one the callback failed on",
 		request.from_inclusive
 	);
