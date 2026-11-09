@@ -739,6 +739,15 @@ impl RetentionTrack {
 		matches!(self, RetentionTrack::Persistent)
 	}
 
+	/// Name of the track, used as the `track` label in metrics.
+	fn label(&self) -> &'static str {
+		match self {
+			RetentionTrack::Transient => "transient",
+			RetentionTrack::ExplicitOnly => "explicit",
+			RetentionTrack::Persistent => "persistent",
+		}
+	}
+
 	/// The reason the track's statements are kept for, as named in logs.
 	fn reason(&self) -> &'static str {
 		match self {
@@ -2576,14 +2585,14 @@ impl Store {
 			},
 		};
 
-		let (active_count, expired_count, total_size, capacity_statements, capacity_bytes) = {
+		let (active_count, expired_count, totals, capacity_statements, capacity_bytes) = {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
 			(
 				submit_index.statement_count(),
 				submit_index.evicted_count,
-				submit_index.total_size(),
+				submit_index.totals,
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
 			)
@@ -2597,7 +2606,17 @@ impl Store {
 
 		self.metrics.report(|metrics| {
 			metrics.statements_total.set(active_count as u64);
-			metrics.bytes_total.set(total_size as u64);
+			metrics.bytes_total.set(totals.size() as u64);
+			for track in [
+				RetentionTrack::Transient,
+				RetentionTrack::ExplicitOnly,
+				RetentionTrack::Persistent,
+			] {
+				metrics
+					.bytes_by_retention
+					.with_label_values(&[track.label()])
+					.set(totals.track_size(track) as u64);
+			}
 			metrics.accounts_total.set(accounts_count as u64);
 			metrics.expired_total.set(expired_count as u64);
 			metrics.held_statements.set(held_count as u64);
@@ -3936,9 +3955,9 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error, QueryIndex,
-		Resubmission, RetentionReasonMask, RetentionTrack, Store, StoreTotals, V2DhtConfig,
-		INDEX_EMPTY_VALUE, KEY_VERSION,
+		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error,
+		PrometheusMetrics, PrometheusRegistry, QueryIndex, Resubmission, RetentionReasonMask,
+		RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE, KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -5206,6 +5225,30 @@ mod tests {
 
 		store.remove_by(statements[0].account_id().unwrap()).unwrap();
 		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
+	}
+
+	#[test]
+	fn maintenance_reports_the_bytes_of_each_retention_track() {
+		let (mut store, _temp) = test_store();
+		store.metrics = PrometheusMetrics::new(Some(&PrometheusRegistry::new()));
+		let reported = |store: &Store, track: RetentionTrack| {
+			let mut value = None;
+			store.metrics.report(|metrics| {
+				value = Some(metrics.bytes_by_retention.with_label_values(&[track.label()]).get())
+			});
+			value.expect("the test registers metrics")
+		};
+		let statements = submit_one_statement_per_track(&store);
+
+		store.maintain();
+		assert_eq!(reported(&store, RetentionTrack::Transient), 10);
+		assert_eq!(reported(&store, RetentionTrack::ExplicitOnly), 20);
+		assert_eq!(reported(&store, RetentionTrack::Persistent), 30);
+
+		store.remove(&statements[1].hash()).unwrap();
+		store.maintain();
+		assert_eq!(reported(&store, RetentionTrack::ExplicitOnly), 0);
+		assert_eq!(reported(&store, RetentionTrack::Persistent), 30);
 	}
 
 	#[test]

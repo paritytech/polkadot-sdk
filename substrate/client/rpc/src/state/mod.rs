@@ -230,9 +230,11 @@ where
 
 	fn storage_keys(
 		&self,
+		ext: &Extensions,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Vec<StorageKey>, Error> {
+		check_if_safe(ext)?;
 		self.backend.storage_keys(block, key_prefix).map_err(Into::into)
 	}
 
@@ -453,10 +455,12 @@ where
 {
 	fn storage_keys(
 		&self,
+		ext: &Extensions,
 		storage_key: PrefixedStorageKey,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Vec<StorageKey>, Error> {
+		check_if_safe(ext)?;
 		self.backend.storage_keys(block, storage_key, key_prefix).map_err(Into::into)
 	}
 
