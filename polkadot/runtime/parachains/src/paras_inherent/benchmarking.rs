@@ -26,6 +26,9 @@ use polkadot_primitives::{node_features::FeatureIndex, GroupIndex};
 
 use crate::builder::BenchBuilder;
 
+/// Upper bound of what a backed candidate encodes besides its code upgrade and head data.
+const CODE_UPGRADE_CANDIDATE_OVERHEAD: u32 = 4 * 1024;
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -198,8 +201,17 @@ mod benchmarks {
 		)
 		.unwrap();
 
-		// For now we always assume worst case code size. In the future we could vary over this.
-		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
+		let config = crate::configuration::ActiveConfig::<T>::get();
+
+		// The inherent caps its proof size at the block length, so assume the worst case code
+		// size that still fits into a block.
+		let max_block_size = *<T as frame_system::Config>::BlockLength::get()
+			.max
+			.get(DispatchClass::Mandatory);
+		// The head data is `max_head_data_size` bytes in the worst case.
+		let candidate_overhead =
+			config.max_head_data_size.saturating_add(CODE_UPGRADE_CANDIDATE_OVERHEAD);
+		let v = config.max_code_size.min(max_block_size.saturating_sub(candidate_overhead));
 
 		let cores_with_backed: BTreeMap<_, _> =
 			vec![(0, BenchBuilder::<T>::fallback_min_backing_votes())].into_iter().collect();
@@ -223,6 +235,14 @@ mod benchmarks {
 		benchmark.bitfields.clear();
 		benchmark.disputes.clear();
 		crate::paras::benchmarking::generate_disordered_upgrades::<T>();
+
+		// Otherwise `apply_weight_limit` drops the candidate and `enter` fails with
+		// `InherentDataFilteredDuringExecution`.
+		assert!(
+			backed_candidates_weight::<T>(&benchmark.backed_candidates).proof_size() <=
+				max_block_size as u64,
+			"code upgrade candidate does not fit into the block",
+		);
 
 		#[extrinsic_call]
 		enter(RawOrigin::None, benchmark);
@@ -255,5 +275,26 @@ mod benchmarks {
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
 		crate::mock::Test
+	}
+
+	#[cfg(test)]
+	mod block_length_tests {
+		use super::*;
+		use crate::mock::{new_test_ext, Test};
+		use frame_support::assert_ok;
+
+		// The benchmark used to build a `max_code_size` upgrade, which does not fit into a block
+		// of the same size.
+		#[test]
+		fn code_upgrade_benchmark_works_with_block_length_of_max_code_size() {
+			new_test_ext(Default::default()).execute_with(|| {
+				let max_code_size = configuration::ActiveConfig::<Test>::get().max_code_size;
+				crate::mock::BlockLength::set(
+					frame_system::limits::BlockLength::builder().max_length(max_code_size).build(),
+				);
+
+				assert_ok!(Pallet::<Test>::test_benchmark_enter_backed_candidate_code_upgrade());
+			});
+		}
 	}
 }
