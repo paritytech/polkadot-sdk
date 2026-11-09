@@ -169,7 +169,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type Slash = Dap;
 	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
@@ -289,8 +289,8 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = DapUnbalancedAdapter<Runtime, Balances>;
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type RewardRemainder = Dap;
+	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -312,7 +312,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = ConstBool<true>;
-	type UnclaimedRewardHandler = DapUnbalancedAdapter<Runtime, Balances>;
+	type UnclaimedRewardHandler = Dap;
 	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
@@ -584,7 +584,7 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
-	type OnSlash = DapUnbalancedAdapter<Runtime, Balances>;
+	type OnSlash = Dap<Runtime, Balances>;
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;

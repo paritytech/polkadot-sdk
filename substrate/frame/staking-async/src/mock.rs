@@ -588,7 +588,7 @@ impl Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = DisableMintingMode;
-	type UnclaimedRewardHandler = DapUnbalancedAdapter<Test, Balances>;
+	type UnclaimedRewardHandler = Dap<Test, Balances>;
 	type RewardPots = SequentialTest;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type MaxPruningItems = MaxPruningItems;
@@ -597,7 +597,7 @@ impl Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type Slash = Dap<Runtime, Balances>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
 	type IsValidatorInactive = ();

@@ -451,7 +451,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, ConstU32<1>>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type Slash = Dap<Runtime, Balances>;
 	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
@@ -494,7 +494,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type EventListeners = ();
 	type Reward = ();
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type Slash = Dap<Runtime, Balances>;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxPruningItems = MaxPruningItems;
 

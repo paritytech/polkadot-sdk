@@ -252,7 +252,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = DapUnbalancedAdapter<Runtime, Balances>;
+	type DustRemoval = Dap;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -734,7 +734,7 @@ impl pallet_recovery::Config for Runtime {
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
 	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
-	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
+	type Slash = Dap;
 }
 
 parameter_types! {
@@ -873,8 +873,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } |
-						RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -961,8 +960,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					c,
 					RuntimeCall::Staking(..) |
 						RuntimeCall::StakingRcClient(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
@@ -1425,7 +1423,7 @@ impl pallet_revive::Config for Runtime {
 	type DebugEnabled = ConstBool<{ cfg!(revive_debug) }>;
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
-	type OnBurn = DapUnbalancedAdapter<Runtime, Balances>;
+	type OnBurn = Dap;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,
