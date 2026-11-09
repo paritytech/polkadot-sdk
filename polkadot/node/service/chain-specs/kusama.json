@@ -14,7 +14,9 @@
     "/dns/ksm-bootnode.stakeworld.io/tcp/30301/ws/p2p/12D3KooWFRin7WWVS6RgUsSpkfUHSv4tfGKnr2zJPmf1pbMv118H",
     "/dns/ksm-bootnode.stakeworld.io/tcp/30302/wss/p2p/12D3KooWFRin7WWVS6RgUsSpkfUHSv4tfGKnr2zJPmf1pbMv118H",
     "/dns/boot-kusama.luckyfriday.io/tcp/443/wss/p2p/12D3KooWS1Lu6DmK8YHSvkErpxpcXmk14vG6y4KVEFEkd9g62PP8",
-    "/dns4/kusama-0.boot.onfinality.io/tcp/27682/ws/p2p/12D3KooWFrwFo7ry3dEuFwhehGSSN96a5Xdzxot7SWfXeSbhELAe"
+    "/dns4/kusama-0.boot.onfinality.io/tcp/27682/ws/p2p/12D3KooWFrwFo7ry3dEuFwhehGSSN96a5Xdzxot7SWfXeSbhELAe",
+    "/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA",
+    "/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA"
   ],
   "telemetryEndpoints": [
     [
