@@ -539,12 +539,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
-	/// Used for historic sync where fork detection is unnecessary.
+	/// Used for historic sync where fork detection is unnecessary. A block that is already
+	/// indexed is skipped before its receipts are extracted, so a re-walk of an indexed range
+	/// costs one lookup per block.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
+		if self.get_ethereum_hash(&block.block_hash()).await.is_some() {
+			return Ok(());
+		}
 		let receipts = self
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
