@@ -59,6 +59,12 @@ pub trait ProvideInherent {
 	/// * [`Self::is_inherent`] returns true.
 	///
 	/// NOTE: This is currently only checked by block producers, not all full nodes.
+	#[deprecated(
+		note = "This method is deprecated and will be removed in a future release. \
+			Each inherent should always be included in every block. If the inherent data \
+			is optional, wrap the inner data in an `Option` instead. \
+			See https://github.com/paritytech/polkadot-sdk/issues/3662"
+	)]
 	fn is_inherent_required(_: &InherentData) -> Result<Option<Self::Error>, Self::Error> {
 		Ok(None)
 	}
