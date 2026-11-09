@@ -448,6 +448,11 @@ pub mod pallet {
 				)
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	/// Invalid transaction custom error. Returned when validators_len field in heartbeat is
@@ -741,6 +746,81 @@ impl<T: Config> Pallet<T> {
 		let bounded_keys = WeakBoundedVec::<_, T::MaxKeys>::try_from(keys)
 			.expect("More than the maximum number of keys provided");
 		Keys::<T>::put(bounded_keys);
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_keys()?;
+		Self::try_state_received_heartbeats()?;
+		Self::try_state_authored_blocks()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The number of authorities that may issue a heartbeat must not exceed `MaxKeys`. `Keys` is
+	///   only weakly bounded, so a session with more authorities is truncated instead of being
+	///   rejected.
+	fn try_state_keys() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			Keys::<T>::decode_len().unwrap_or_default() as u32 <= T::MaxKeys::get(),
+			"`Keys` must not hold more authorities than `MaxKeys`"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A heartbeat is only ever received for the current session, since the heartbeats of a
+	///   session are removed in `on_before_session_ending`.
+	/// * A heartbeat is issued by an authority of the current session, i.e. its index is a valid
+	///   index into `Keys`.
+	fn try_state_received_heartbeats() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_session = T::ValidatorSet::session_index();
+		let keys_len = Keys::<T>::decode_len().unwrap_or_default() as u32;
+
+		for (session, authority_index, _) in ReceivedHeartbeats::<T>::iter() {
+			ensure!(
+				session == current_session,
+				"`ReceivedHeartbeats` must not hold a heartbeat of a past session"
+			);
+			ensure!(
+				authority_index < keys_len,
+				"`ReceivedHeartbeats` must not hold a heartbeat of an unknown authority"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A block is only ever authored in the current session, since the authored blocks of a
+	///   session are removed in `on_before_session_ending`.
+	/// * An authority that has an entry in `AuthoredBlocks` has authored at least one block, as the
+	///   entry is only created when a block is authored.
+	fn try_state_authored_blocks() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_session = T::ValidatorSet::session_index();
+
+		for (session, _, authored_blocks) in AuthoredBlocks::<T>::iter() {
+			ensure!(
+				session == current_session,
+				"`AuthoredBlocks` must not hold the authored blocks of a past session"
+			);
+			ensure!(
+				authored_blocks > 0,
+				"`AuthoredBlocks` must not hold an authority that has not authored a block"
+			);
+		}
+
+		Ok(())
 	}
 }
 
