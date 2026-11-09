@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793996980201,
+  "lastUpdate": 1794217666045,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9",
-          "message": "eth-rpc: Bulk INSERT/DELETE and commit per-block writes atomically (#11726)\n\n### Summary\n\n- Query SQLite's max variable limit at startup and use it to chunk bulk\nINSERTs and DELETEs, avoiding bind-parameter overflows\n- Replace per-row individual inserts with batched bulk inserts\n- Commit transaction hashes, logs, and block mapping in a single SQLite\ntransaction per block, same for deletes\n- Use `INSERT OR REPLACE` for logs (previously plain INSERT) to match\ntransaction_hashes and prevent UNIQUE constraint failures if the EXISTS\ndedup guard is bypassed\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T09:42:37Z",
-          "tree_id": "4a66e89e5d744d17c7e6be0dd29e0999f2436304",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9"
-        },
-        "date": 1776772576743,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009261085629999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00964676502,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00265622546,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0024955517399999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a0cc2e744941a5c55160ee847f2fc8711d507f7",
+          "message": "Remove the stale pallet-people and pallet-dummy-dim crates (#13585)\n\nPer @gui1117 on #13513: pallet-people's development continued in\nparitytech/individuality-community, nothing in this repo or in\npolkadot-fellows/runtimes depends on it anymore (People Polkadot pulls\n`indiv-pallet-people`/`indiv-pallet-people-lite` from that repo\ninstead). `pallet-dummy-dim` only existed to depend on `pallet-people`\nand has no other dependents.\n\nRemoves both crates entirely rather than just flagging them stale, since\nnothing uses them. `cargo metadata`, `zepter run check`, and `cargo\ncheck -p polkadot-sdk` all pass clean after the removal.\n\nCloses #13513\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T08:12:30Z",
+          "tree_id": "245301cbf092feed90374fb1281726cbb17be7b2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a0cc2e744941a5c55160ee847f2fc8711d507f7"
+        },
+        "date": 1794217631510,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026315716999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00970178001999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011378392399999996,
             "unit": "seconds"
           }
         ]
