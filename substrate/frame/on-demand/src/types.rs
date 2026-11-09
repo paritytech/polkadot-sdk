@@ -46,6 +46,7 @@ pub struct PriceParameters<Balance> {
 	pub order_cap: u32,
 	/// The number of outstanding orders assumed to be drained per Relay-chain block, per pool
 	/// core.
+	/// ATTENTION: If overestimated, it could lead to lost orders. (#13777)
 	pub drain_rate_per_block: u32,
 	/// The spot price increase per outstanding order in the queue.
 	pub price_step: Perbill,
