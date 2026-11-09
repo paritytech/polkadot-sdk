@@ -451,6 +451,33 @@ fn migration_v5_reconstructs_sale_index_from_region_begin() {
 }
 
 #[test]
+fn migration_v6_stores_claim_progress_and_end() {
+	use crate::migration::v6::{MigrateToV6Impl, OldContributionRecord};
+	use frame_support::{storage::unhashed, traits::UncheckedOnRuntimeUpgrade};
+
+	TestExt::new().execute_with(|| {
+		let fresh = RegionId { begin: 4, core: 0, mask: CoreMask::complete() };
+		// Before v6, a claim moved the contribution to a later `begin` and shortened it.
+		let claimed = RegionId { begin: 5, core: 1, mask: CoreMask::complete() };
+		for (region_id, length) in [(fresh, 3), (claimed, 2)] {
+			let key = InstaPoolContribution::<Test>::hashed_key_for(region_id);
+			unhashed::put(&key, &OldContributionRecord { length, payee: 2u64 });
+		}
+
+		let _ = <MigrateToV6Impl<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(fresh),
+			Some(ContributionRecord { claimed_until: 4, end: 7, payee: 2 })
+		);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(claimed),
+			Some(ContributionRecord { claimed_until: 5, end: 7, payee: 2 })
+		);
+	});
+}
+
+#[test]
 fn migration_v5_defaults_sale_index_when_configuration_missing() {
 	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;

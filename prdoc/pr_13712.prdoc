@@ -1,13 +1,19 @@
-title: 'pallet-broker: fix double counting when re-pooling an active region'
+title: 'pallet-broker: fix double counting of provisionally pooled regions'
 doc:
 - audience: [Runtime Dev, Runtime User]
   description: |-
-    Fixes ways a region could be counted twice in the instantaneous pool.
+    A provisionally pooled region could be counted twice in the instantaneous pool after it was
+    re-pooled, assigned, partitioned or interlaced, because its contribution was not found under
+    the region id.
 
-    Re-pooling or assigning a region that has already started now removes its old pool entry.
-    Revenue can no longer be claimed while a region is pooled provisionally, as a claim moves
-    the pool entry and re-pooling afterwards would miss it. When a started region is re-pooled
-    or assigned, revenue for the timeslices that already passed stays claimable.
+    `ContributionRecord` now stores `claimed_until` and `end` instead of `length`, and the
+    contribution keeps its key for its whole lifetime. Claiming revenue no longer moves it, so
+    `RevenueClaimPaid::next` is always the claimed region id. Unpooling cuts `end` to the current
+    timeslice, so revenue for the timeslices that already passed stays claimable.
+
+    Runtimes must run `pallet_broker::migration::MigrateV5ToV6`.
 crates:
 - name: pallet-broker
   bump: major
+- name: coretime-westend-runtime
+  bump: minor

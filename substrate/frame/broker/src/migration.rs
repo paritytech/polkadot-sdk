@@ -559,9 +559,9 @@ pub mod v6 {
 
 	/// Pre-v6 `ContributionRecord`: the claim progress was encoded in the key's `begin`.
 	#[derive(Encode, Decode)]
-	struct OldContributionRecord<AccountId> {
-		length: Timeslice,
-		payee: AccountId,
+	pub(crate) struct OldContributionRecord<AccountId> {
+		pub length: Timeslice,
+		pub payee: AccountId,
 	}
 
 	/// Stores the claim progress and end of each contribution explicitly, so the key no longer
