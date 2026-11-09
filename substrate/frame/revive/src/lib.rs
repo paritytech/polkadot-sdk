@@ -2571,7 +2571,8 @@ impl<T: Config> Pallet<T> {
 			// adds its base weight on top, so the limit leaves room for it.
 			weight_limit: Self::evm_max_extrinsic_weight()
 				.saturating_sub(base_info.total_weight())
-				// The transaction's own limit, which an authorization refund does not raise.
+				// The transaction sets the call's weight limit before its authorizations run, so
+				// their refund does not give the call more weight. The dry run uses the same limit.
 				.min(call_info.weight_limit),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 			authorization_deposit: actual_auth_deposit,

@@ -1158,6 +1158,23 @@ mod eip_150 {
 		tracer.collect_trace().unwrap().output.0
 	}
 
+	/// Returns `aggregate3` calls to `callee`: the first uses up its gas and fails, the second
+	/// returns 42.
+	fn drain_then_echo_calls(callee: H160) -> Vec<Multicall3::Call3> {
+		vec![
+			Multicall3::Call3 {
+				target: callee.0.into(),
+				allowFailure: true,
+				callData: Callee::invalidCall {}.abi_encode().into(),
+			},
+			Multicall3::Call3 {
+				target: callee.0.into(),
+				allowFailure: false,
+				callData: Callee::echoCall { _data: 42 }.abi_encode().into(),
+			},
+		]
+	}
+
 	/// Runs `input` on `contract` with exactly the limits a dry run returned, and returns the
 	/// output.
 	fn call_with_estimated_limits(
@@ -1342,8 +1359,8 @@ mod eip_150 {
 		});
 	}
 
-	/// A value call without a gas limit of its own gets the stipend, as one with the highest
-	/// explicit gas limit does.
+	/// A value call without a gas limit of its own (gas `u64::MAX`) gets as much gas as one with
+	/// the highest explicit limit (`u64::MAX - 1`).
 	#[test_matrix(
 		[FixtureType::Solc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
@@ -1353,7 +1370,7 @@ mod eip_150 {
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 		=> ignore["a PVM value call with gas u64::MAX gets no stipend"]
 	)]
-	fn value_call_without_gas_limit_gets_the_stipend(
+	fn value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit(
 		caller_type: FixtureType,
 		limits: TransactionLimits<Test>,
 	) {
@@ -1567,23 +1584,46 @@ mod eip_150 {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
-			let calls = vec![
-				Multicall3::Call3 {
-					target: callee_addr.0.into(),
-					allowFailure: true,
-					callData: Callee::invalidCall {}.abi_encode().into(),
-				},
-				Multicall3::Call3 {
-					target: callee_addr.0.into(),
-					allowFailure: false,
-					callData: Callee::echoCall { _data: 42 }.abi_encode().into(),
-				},
-			];
+			let calls = drain_then_echo_calls(callee_addr);
 			let output = eth_transact_with_estimated_gas(
 				multicall_addr,
 				Multicall3::aggregate3Call { calls }.abi_encode(),
 			);
 
+			let results = Multicall3::aggregate3Call::abi_decode_returns(&output).unwrap();
+			assert!(!results[0].success, "the first call must use up its gas and fail");
+			assert_eq!(Callee::echoCall::abi_decode_returns(&results[1].returnData).unwrap(), 42);
+		});
+	}
+
+	/// `eth_estimate_gas` returns a gas limit with which the transaction succeeds when a call made
+	/// by `aggregate3` uses up its gas.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc]
+	)]
+	fn eth_estimate_gas_suffices_when_aggregate3_call_drains_its_gas(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+	) {
+		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
+			let calls = drain_then_echo_calls(callee_addr);
+			let tx = GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(multicall_addr),
+				input: Multicall3::aggregate3Call { calls }.abi_encode().into(),
+				..Default::default()
+			};
+			let gas = Pallet::<Test>::eth_estimate_gas(tx.clone(), None, None).unwrap();
+			let tx = GenericTransaction { gas: Some(gas), ..tx };
+			let mut tracer = CallTracer::default();
+			assert_ok!(trace(&mut tracer, || dispatch_eth_transaction(tx)));
+
+			let output = tracer.collect_trace().unwrap().output.0;
 			let results = Multicall3::aggregate3Call::abi_decode_returns(&output).unwrap();
 			assert!(!results[0].success, "the first call must use up its gas and fail");
 			assert_eq!(Callee::echoCall::abi_decode_returns(&results[1].returnData).unwrap(), 42);
@@ -1641,7 +1681,7 @@ mod eip_150 {
 	/// limit from the gas that is left. Skipping the authorization refunds part of the precharge,
 	/// but the call's limit stays the same.
 	#[test]
-	fn dry_run_with_skipped_authorization_leaves_no_more_weight_than_the_transaction() {
+	fn dry_run_with_skipped_authorization_gives_at_most_the_transaction_weight() {
 		let (code, _) = compile_module_with_type("WeightLeft", FixtureType::Solc).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
