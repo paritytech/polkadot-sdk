@@ -30,17 +30,16 @@ doc:
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
-    `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs. Hence, the result of
-    `eth_estimateGas` does too.
+    `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs, not counting its
+    stipend. Hence, the result of `eth_estimateGas` does too.
 
     A dry run also no longer reports a `max_storage_deposit` that is too low when a contract
     frees storage and then makes a call that reenters it.
 
     An Ethereum dry run now runs the call with at most the maximum `eth_transact` weight minus the
     transaction's base weight, instead of the whole maximum, so that the weight it reports leaves
-    room for the base weight also when a nested call without a stipend uses up its share. A call
-    that needs more weight than that now runs out of gas in the dry run, as it does in a
-    transaction.
+    room for the base weight also when a nested call uses up its share. A call that needs more
+    weight than that now runs out of gas in the dry run, as it does in a transaction.
 
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be

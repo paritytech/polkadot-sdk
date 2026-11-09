@@ -146,6 +146,8 @@ pub struct WeightMeter<T: Config> {
 	engine_meter: EngineMeter<T>,
 	/// EIP-150 63/64 peak tracking for dry-run weight estimation.
 	eip_150_peak: Peak<WeightEip150>,
+	/// The call stipend this meter got on top of its 63/64 share (zero without one).
+	stipend: Weight,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -153,13 +155,15 @@ pub struct WeightMeter<T: Config> {
 
 impl<T: Config> WeightMeter<T> {
 	pub fn new(weight_limit: Weight, stipend: Option<Weight>) -> Self {
+		let stipend = stipend.unwrap_or_default();
 		WeightMeter {
 			weight_limit,
 			effective_weight_limit: weight_limit,
 			weight_consumed: Default::default(),
-			weight_consumed_highest: stipend.unwrap_or_default(),
+			weight_consumed_highest: stipend,
 			engine_meter: EngineMeter::new(),
 			eip_150_peak: Default::default(),
+			stipend,
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -192,7 +196,7 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// `rule` must be the `State::EIP_150_RULE` of the meter that created this one.
 	fn eip_150_total_overhead(&self, rule: eip_150::Rule) -> Weight {
-		self.eip_150_peak.total_overhead(self.weight_required(), rule)
+		self.eip_150_peak.total_overhead(self.weight_required(), rule, self.stipend)
 	}
 
 	/// Account for used weight.

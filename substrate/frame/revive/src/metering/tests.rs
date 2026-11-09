@@ -47,7 +47,7 @@ use pallet_revive_fixtures::{
 	StorageSlots, StorageSlotsFactory, compile_module_with_type,
 };
 use sp_runtime::{DispatchError, FixedU128, StateVersion, Weight};
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
 
 /// A trivial token that charges the specified number of weight units.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -3042,6 +3042,61 @@ fn substrate_execution_call_gets_the_gas_it_asks_for_below_its_share() {
 
 		let requested_gas = gas_given_for(u64::MAX.into()) / 2;
 		assert_eq!(gas_given_for(requested_gas), requested_gas);
+	});
+}
+
+/// A caller's weight required after a value call is the least weight limit with which the
+/// callee gets the weight it requires.
+#[test_matrix(
+	[
+		|weight_limit| TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit: 1_000 },
+		|weight_limit| TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		}
+	],
+	[0, 10, 100]
+)]
+fn weight_required_for_a_value_call_is_the_least_limit_covering_the_callee(
+	transaction_limits: fn(Weight) -> TransactionLimits<Test>,
+	stipends_used: u64,
+) {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let value_call_resources =
+			CallResources::<Test>::Ethereum { gas: u64::MAX.into(), add_stipend: true };
+		let new_caller_meter = |weight_limit| {
+			TransactionMeter::<Test>::new(transaction_limits(weight_limit))
+				.unwrap()
+				.new_nested(&CallResources::NoLimits)
+				.unwrap()
+		};
+
+		// A high enough weight limit so that the callee's charge succeeds in every case tested.
+		let mut caller_meter = new_caller_meter(stipend_weight * 1000);
+		let mut callee_meter = caller_meter.new_nested(&value_call_resources).unwrap();
+		callee_meter
+			.charge_weight_token(TestToken(stipend_weight.ref_time() * stipends_used, 0))
+			.unwrap();
+		let callee_weight_required = callee_meter.weight_required();
+		caller_meter.absorb_weight_meter_only(callee_meter);
+		let caller_weight_required = caller_meter.weight_required();
+
+		let caller_limit_covers_callee = |weight_limit| {
+			new_caller_meter(weight_limit).new_nested(&value_call_resources).is_ok_and(
+				|callee_meter| callee_meter.weight_left().unwrap().all_gte(callee_weight_required),
+			)
+		};
+		assert!(
+			caller_limit_covers_callee(caller_weight_required),
+			"the weight required must suffice"
+		);
+		assert!(
+			!caller_limit_covers_callee(caller_weight_required - Weight::from_parts(1, 0)),
+			"less ref_time than the weight required must not suffice"
+		);
 	});
 }
 

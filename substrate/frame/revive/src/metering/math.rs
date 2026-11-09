@@ -83,14 +83,22 @@ pub mod eip_150 {
 		/// Returns the total EIP-150 63/64 overhead stored in this peak.
 		///
 		/// `required` is what the call and its subcalls needed, without the resources retained
-		/// under the 63/64 rule, and `rule` is the rule the call was created under.
-		pub fn total_overhead(&self, required: R::Amount, rule: Rule) -> R::Amount {
+		/// under the 63/64 rule, `rule` is the rule the call was created under, and `stipend` is
+		/// what the call got on top of its 63/64 share.
+		pub fn total_overhead(
+			&self,
+			required: R::Amount,
+			rule: Rule,
+			stipend: R::Amount,
+		) -> R::Amount {
 			let needed_at_boundary = R::max(self.value, required);
 			let children_overhead = R::saturating_sub(needed_at_boundary, required);
 			match rule {
 				Rule::Skip => children_overhead,
 				Rule::Apply => {
-					R::saturating_add(children_overhead, R::overhead(needed_at_boundary))
+					// The stipend is set aside before the 63/64 rule, so it adds no overhead.
+					let needed_beyond_stipend = R::saturating_sub(needed_at_boundary, stipend);
+					R::saturating_add(children_overhead, R::overhead(needed_beyond_stipend))
 				},
 			}
 		}

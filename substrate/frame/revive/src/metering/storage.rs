@@ -411,7 +411,8 @@ where
 	///
 	/// `rule` must be the `State::EIP_150_RULE` of the meter that created this one.
 	fn eip_150_total_overhead(&self, rule: eip_150::Rule) -> BalanceOf<T> {
-		self.eip_150_peak.total_overhead(self.max_charged().charge_or_zero(), rule)
+		self.eip_150_peak
+			.total_overhead(self.max_charged().charge_or_zero(), rule, Zero::zero())
 	}
 
 	/// The amount of balance still available from the current meter.

@@ -1295,7 +1295,7 @@ mod eip_150 {
 	)]
 	fn caller_has_gas_left_in_catch_after_value_call_hits_invalid(
 		caller_type: FixtureType,
-		limits: fn(Weight) -> TransactionLimits<Test>,
+		transaction_limits: fn(Weight) -> TransactionLimits<Test>,
 	) {
 		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
 		// The caller's backend decides the stipend; the callee only uses up its gas.
@@ -1313,7 +1313,8 @@ mod eip_150 {
 				.weight_left()
 				.unwrap();
 			// The stipend's ref_time is bigger than the 1/64 the caller keeps.
-			let limits = limits((stipend_weight * 32).set_proof_size(WEIGHT_LIMIT.proof_size()));
+			let limits =
+				transaction_limits((stipend_weight * 32).set_proof_size(WEIGHT_LIMIT.proof_size()));
 			let [callee_addr, caller_addr] = deploy([callee_code, caller_code]);
 			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
 			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
@@ -1506,6 +1507,32 @@ mod eip_150 {
 			assert!(
 				CatchInvalid::caughtCall::abi_decode_returns(&caught.data).unwrap(),
 				"the catch block must write to storage"
+			);
+		});
+	}
+
+	/// A dry run without a gas limit succeeds when the callee of a value call uses up its gas, and
+	/// the transaction succeeds with the gas the dry run returned.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn dry_run_without_gas_succeeds_when_value_call_drains_its_gas(caller_type: FixtureType) {
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+		let (callee_code, _) =
+			compile_module_with_type("PayableInvalid", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, caller_addr] = deploy([callee_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+
+			let output = eth_transact_with_estimated_gas(
+				caller_addr,
+				CatchInvalid::tryPayableInvalidCall { callee: callee_addr.0.into(), value: 1 }
+					.abi_encode(),
+			);
+			assert!(
+				CatchInvalid::tryPayableInvalidCall::abi_decode_returns(&output).unwrap(),
+				"the catch block must run"
 			);
 		});
 	}
