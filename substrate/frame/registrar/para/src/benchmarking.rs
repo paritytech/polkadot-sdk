@@ -292,5 +292,20 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Asking for a new head. Dominated by shipping the head data to the relay chain.
+	#[benchmark]
+	fn set_current_head(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id, alloc::vec![2u8; h as usize]);
+
+		assert_eq!(NextMessageId::<T>::get(), 2);
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
