@@ -139,8 +139,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Remove a region from on-demand pool contributions. Useful in cases where it was pooled
-	// provisionally and it is being redispatched (partition/interlace). The whole contribution is
-	// removed, including any timeslices which have already elapsed.
+	// provisionally and it is being redispatched (partition). The whole contribution is removed,
+	// including any timeslices which have already elapsed.
 	//
 	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
 	// read. No-op for regions which have not been pooled.
@@ -173,24 +173,22 @@ impl<T: Config> Pallet<T> {
 		};
 	}
 
-	// Unpool a provisionally pooled region which `utilize` moved from `original_region_id` to
-	// `region_id`. The timeslices which have already elapsed were counted in the pool, so that
-	// part of the contribution is kept under the original id, where it can be claimed.
-	pub(crate) fn unpool_utilized_region(
-		original_region_id: RegionId,
+	// Like `force_unpool_region`, but the timeslices which have already elapsed were counted in
+	// the pool, so that part of the contribution is kept under `region_id`, where it can be
+	// claimed. Only for regions which no longer use `region_id` (pool/assign/interlace).
+	pub(crate) fn unpool_region_keeping_elapsed(
 		region_id: RegionId,
 		region: &RegionRecordOf<T>,
 		status: &StatusRecord,
 	) {
-		let Some(contribution) = InstaPoolContribution::<T>::get(original_region_id) else {
-			return;
-		};
-		Self::force_unpool_region(original_region_id, region, status);
+		let Some(contribution) = InstaPoolContribution::<T>::get(region_id) else { return };
+		Self::force_unpool_region(region_id, region, status);
 
-		let length = region_id.begin.saturating_sub(original_region_id.begin);
+		let elapsed_until = (status.last_committed_timeslice + 1).min(region.end);
+		let length = elapsed_until.saturating_sub(region_id.begin);
 		if length > 0 {
 			let record = ContributionRecord { length, payee: contribution.payee };
-			InstaPoolContribution::<T>::insert(original_region_id, record);
+			InstaPoolContribution::<T>::insert(region_id, record);
 		}
 	}
 }

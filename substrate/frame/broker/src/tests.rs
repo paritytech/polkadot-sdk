@@ -1325,6 +1325,29 @@ fn provisionally_pooled_region_revenue_is_claimable_after_repooling() {
 }
 
 #[test]
+fn provisionally_pooled_region_revenue_is_claimable_after_drop() {
+	TestExt::new().region_length(10).endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		advance_to(22);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+
+		// The region has ended, but it is still pooled provisionally until it is dropped.
+		advance_to(42);
+		assert_noop!(Broker::do_claim_revenue(region_id, 10), Error::<Test>::StillProvisional);
+
+		assert_ok!(Broker::do_drop_region(region_id));
+		assert_ok!(Broker::do_claim_revenue(region_id, 10));
+		assert_eq!(balance(2), 10);
+		assert_eq!(pot(), 0);
+	});
+}
+
+#[test]
 fn assigning_provisionally_pooled_region_after_begin_unpools_it() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
@@ -1332,16 +1355,51 @@ fn assigning_provisionally_pooled_region_after_begin_unpools_it() {
 
 		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 
 		// Assigning once the region has started removes it from the pool. The elapsed timeslices
 		// stay pooled under the original id.
 		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		assert_ok!(Broker::do_assign(region_id, None, 1000, Final));
 		assert_eq!(InstaPoolContribution::<Test>::get(region_id).unwrap().length, 2);
 		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 1);
 
 		advance_to(14);
 		assert_eq!(InstaPoolHistory::<Test>::get(6).unwrap().private_contributions, 0);
+
+		// The elapsed timeslices can be claimed.
+		assert_ok!(Broker::do_claim_revenue(region_id, 2));
+		assert_eq!(balance(2), 10);
+		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn interlacing_provisionally_pooled_region_after_begin_keeps_elapsed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+
+		// Interlacing once the region has started removes it from the pool. The elapsed
+		// timeslices stay pooled under the original id.
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		assert_ok!(Broker::do_interlace(region_id, None, CoreMask::from_chunk(0, 40)));
+		assert_eq!(InstaPoolContribution::<Test>::get(region_id).unwrap().length, 2);
+		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 1);
+
+		advance_to(14);
+		assert_eq!(InstaPoolHistory::<Test>::get(6).unwrap().private_contributions, 0);
+
+		// The elapsed timeslices can be claimed.
+		assert_ok!(Broker::do_claim_revenue(region_id, 2));
+		assert_eq!(balance(2), 10);
+		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 0);
 	});
 }
 

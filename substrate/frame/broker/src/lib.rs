@@ -844,7 +844,9 @@ pub mod pallet {
 		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
 		///   reported; the remainder can be claimed once it has been.
 		///
-		/// Revenue cannot be claimed while the Region is still pooled provisionally.
+		/// Revenue cannot be claimed while the Region is still pooled provisionally. Pooling it
+		/// again makes the elapsed part claimable, and `drop_region` makes all of it claimable
+		/// once the Region has ended.
 		///
 		/// The fee is waived only if at least one timeslice was processed, and the weight of the
 		/// timeslices that were not processed is refunded.

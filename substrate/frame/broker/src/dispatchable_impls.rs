@@ -303,7 +303,7 @@ impl<T: Config> Pallet<T> {
 		// Remove this region from the pool in case it has been assigned provisionally. If we get
 		// this far then it is still in `Regions` and thus could only have been pooled
 		// provisionally.
-		Self::force_unpool_region(region_id, &region, &status);
+		Self::unpool_region_keeping_elapsed(region_id, &region, &status);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
 			// get this far then it is still in `Regions` and thus could only have been pooled
 			// provisionally. The contribution is keyed by the original id, as `utilize` moves the
 			// begin forward once the region has started.
-			Self::unpool_utilized_region(original_region_id, region_id, &region, &status);
+			Self::unpool_region_keeping_elapsed(original_region_id, &region, &status);
 
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
 			// Remove this region from the pool in case it has been pooled provisionally, so that
 			// pooling it again does not count it twice. The contribution is keyed by the original
 			// id, as `utilize` moves the begin forward once the region has started.
-			Self::unpool_utilized_region(original_region_id, region_id, &region, &status);
+			Self::unpool_region_keeping_elapsed(original_region_id, &region, &status);
 
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
