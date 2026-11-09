@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793996873842,
+  "lastUpdate": 1794217565654,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d1ad712f881477a0991cb0003d4646b3da6817f4",
-          "message": "statement-store: fix metrics accuracy (#11838)\n\n# Description\n\nFixes accuracy gaps and clarify help text in statement store and network\nmetrics.\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:05:32Z",
-          "tree_id": "48b5bc5ad345f7ae8e73cc8409cdad067cbf23e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1ad712f881477a0991cb0003d4646b3da6817f4"
-        },
-        "date": 1776807333717,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.579999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005443525679999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.446859661079987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022895850000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020646630000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.435295811623114,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020646630000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.81492854281,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.71719713725993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.867247850090001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8432334116499995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022895850000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9507102605100015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7887738854399424,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.362192612530005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a0cc2e744941a5c55160ee847f2fc8711d507f7",
+          "message": "Remove the stale pallet-people and pallet-dummy-dim crates (#13585)\n\nPer @gui1117 on #13513: pallet-people's development continued in\nparitytech/individuality-community, nothing in this repo or in\npolkadot-fellows/runtimes depends on it anymore (People Polkadot pulls\n`indiv-pallet-people`/`indiv-pallet-people-lite` from that repo\ninstead). `pallet-dummy-dim` only existed to depend on `pallet-people`\nand has no other dependents.\n\nRemoves both crates entirely rather than just flagging them stale, since\nnothing uses them. `cargo metadata`, `zepter run check`, and `cargo\ncheck -p polkadot-sdk` all pass clean after the removal.\n\nCloses #13513\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T08:12:30Z",
+          "tree_id": "245301cbf092feed90374fb1281726cbb17be7b2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a0cc2e744941a5c55160ee847f2fc8711d507f7"
+        },
+        "date": 1794217530849,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.17,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.76532127506,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.74520910918,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005789692880000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7568857133099995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001833892,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.356134551599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.221919237520009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001833892,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002079589,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002079589,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7943936713200147,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.798185224170001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.406236615052745,
             "unit": "seconds"
           }
         ]
