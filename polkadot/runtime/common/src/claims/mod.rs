@@ -35,12 +35,12 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		AsSystemOriginSigner, AsTransactionAuthorizedOrigin, CheckedSub, DispatchInfoOf,
+		AsSystemOriginSigner, AsTransactionAuthorizedOrigin, BadOrigin, CheckedSub, DispatchInfoOf,
 		Dispatchable, Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
-		ValidTransaction,
+		TransactionValidityWithRefund, ValidTransaction,
 	},
 };
 
@@ -315,9 +315,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Make a claim to collect your DOTs.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
 		///
-		/// Unsigned Validation:
+		/// Authorization:
 		/// A call to claim is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -333,18 +333,22 @@ pub mod pallet {
 		///
 		/// <weight>
 		/// The weight of this call is invariant over the input parameters.
-		/// Weight includes logic to validate unsigned `claim` call.
+		/// Weight includes the authorization logic of the `claim` call.
 		///
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim())]
+		// The `claim` weight is benchmarked with its authorization included, so the authorization
+		// is not charged a second time here.
+		#[pallet::weight_of_authorize(Weight::zero())]
+		#[pallet::authorize(Self::authorize_claim)]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			Self::ensure_none_or_authorized(origin)?;
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
@@ -393,9 +397,9 @@ pub mod pallet {
 
 		/// Make a claim to collect your DOTs by signing a statement.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
 		///
-		/// Unsigned Validation:
+		/// Authorization:
 		/// A call to `claim_attest` is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -414,19 +418,23 @@ pub mod pallet {
 		///
 		/// <weight>
 		/// The weight of this call is invariant over the input parameters.
-		/// Weight includes logic to validate unsigned `claim_attest` call.
+		/// Weight includes the authorization logic of the `claim_attest` call.
 		///
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_attest())]
+		// The `claim_attest` weight is benchmarked with its authorization included, so the
+		// authorization is not charged a second time here.
+		#[pallet::weight_of_authorize(Weight::zero())]
+		#[pallet::authorize(Self::authorize_claim_attest)]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 			statement: Vec<u8>,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			Self::ensure_none_or_authorized(origin)?;
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
@@ -498,38 +506,74 @@ pub mod pallet {
 		}
 	}
 
+	// TODO: remove once claim tooling submits general transactions (polkadot-js/api#6276,
+	// polkadot-js/apps#12446, polkadot-api/polkadot-api#760); `#[pallet::authorize]` on `claim`
+	// and `claim_attest` then covers every claim.
 	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			match call {
+				Call::claim { dest, ethereum_signature } => {
+					Self::validate_claim(dest, ethereum_signature, None)
+				},
+				Call::claim_attest { dest, ethereum_signature, statement } => {
+					Self::validate_claim(dest, ethereum_signature, Some(statement))
+				},
+				_ => Err(InvalidTransaction::Call.into()),
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Accepts a bare transaction (`None`) and a general transaction (`Authorized`).
+		fn ensure_none_or_authorized(origin: OriginFor<T>) -> Result<(), BadOrigin> {
+			match origin.into() {
+				Ok(frame_system::RawOrigin::None) | Ok(frame_system::RawOrigin::Authorized) => {
+					Ok(())
+				},
+				_ => Err(BadOrigin),
+			}
+		}
+
+		/// Authorization logic for the [`Call::claim`] call.
+		fn authorize_claim(
+			_source: TransactionSource,
+			dest: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+		) -> TransactionValidityWithRefund {
+			Self::validate_claim(dest, ethereum_signature, None)
+				.map(|validity| (validity, Weight::zero()))
+		}
+
+		/// Authorization logic for the [`Call::claim_attest`] call.
+		fn authorize_claim_attest(
+			_source: TransactionSource,
+			dest: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+			statement: &Vec<u8>,
+		) -> TransactionValidityWithRefund {
+			Self::validate_claim(dest, ethereum_signature, Some(statement))
+				.map(|validity| (validity, Weight::zero()))
+		}
+
+		/// Checks that `ethereum_signature` signs `dest` (and `maybe_statement`, when given) for an
+		/// address that holds a claim, and that the statement matches the one the claim requires.
+		fn validate_claim(
+			dest: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+			maybe_statement: Option<&[u8]>,
+		) -> TransactionValidity {
 			const PRIORITY: u64 = 100;
 
-			let (maybe_signer, maybe_statement) = match call {
-				// <weight>
-				// The weight of this logic is included in the `claim` dispatchable.
-				// </weight>
-				Call::claim { dest: account, ethereum_signature } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(Self::eth_recover(&ethereum_signature, &data, &[][..]), None)
-				},
-				// <weight>
-				// The weight of this logic is included in the `claim_attest` dispatchable.
-				// </weight>
-				Call::claim_attest { dest: account, ethereum_signature, statement } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(
-						Self::eth_recover(&ethereum_signature, &data, &statement),
-						Some(statement.as_slice()),
-					)
-				},
-				_ => return Err(InvalidTransaction::Call.into()),
-			};
-
-			let signer = maybe_signer.ok_or(InvalidTransaction::Custom(
-				ValidityError::InvalidEthereumSignature.into(),
-			))?;
+			let data = dest.using_encoded(to_ascii_hex);
+			let signer =
+				Self::eth_recover(ethereum_signature, &data, maybe_statement.unwrap_or(&[]))
+					.ok_or(InvalidTransaction::Custom(
+						ValidityError::InvalidEthereumSignature.into(),
+					))?;
 
 			let e = InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into());
 			ensure!(Claims::<T>::contains_key(&signer), e);
