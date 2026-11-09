@@ -396,7 +396,8 @@ pub mod pallet {
 			who: T::AccountId,
 			/// The total amount of revenue claimed and paid.
 			amount: BalanceOf<T>,
-			/// The next region which should be claimed for the continuation of this contribution.
+			/// The region to claim again to continue this contribution, or `None` once it is fully
+			/// claimed.
 			next: Option<RegionId>,
 		},
 		/// Some Instantaneous Coretime Pool credit has been purchased.
