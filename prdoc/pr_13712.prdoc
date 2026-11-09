@@ -1,0 +1,13 @@
+title: 'pallet-broker: fix double counting when re-pooling an active region'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Fixes ways a region could be counted twice in the instantaneous pool.
+
+    Re-pooling or assigning a region that has already started now removes its old pool entry.
+    Revenue can no longer be claimed while a region is pooled provisionally, as a claim moves
+    the pool entry and re-pooling afterwards would miss it. When a started region is re-pooled
+    or assigned, revenue for the timeslices that already passed stays claimable.
+crates:
+- name: pallet-broker
+  bump: major
