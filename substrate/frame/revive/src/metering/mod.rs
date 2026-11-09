@@ -122,6 +122,31 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
+/// What a meter has left, has consumed and requires.
+#[derive(DebugNoBound)]
+struct ResourceSummary<T: Config> {
+	weight_left: Option<Weight>,
+	deposit_left: Option<BalanceOf<T>>,
+	weight_consumed: Weight,
+	deposit_consumed: DepositOf<T>,
+	weight_required: Weight,
+	deposit_required: DepositOf<T>,
+}
+
+impl<T: Config> ResourceSummary<T> {
+	/// Builds the summary of `meter`.
+	fn new<S: State>(meter: &ResourceMeter<T, S>) -> Self {
+		Self {
+			weight_left: meter.weight_left(),
+			deposit_left: meter.deposit_left(),
+			weight_consumed: meter.weight_consumed(),
+			deposit_consumed: meter.deposit_consumed(),
+			weight_required: meter.weight_required(),
+			deposit_required: meter.deposit_required(),
+		}
+	}
+}
+
 /// Parameters required to construct a root [`TransactionMeter`].
 ///
 /// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
@@ -177,10 +202,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
 				limit={limit:?}, \
+				eip_150_rule={:?}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
 				deposit_consumed={:?}",
+			S::EIP_150_RULE,
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
@@ -227,25 +254,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb weight meter only: \
-				parent_weight_left={:?}, \
-				parent_deposit_left={:?}, \
-				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}, \
-				parent_eip_150_peak={:?}, \
-				child_weight_left={:?}, \
-				child_deposit_left={:?}, \
-				child_weight_consumed={:?}, \
-				child_deposit_consumed={:?}",
-			self.weight_left(),
-			self.deposit_left(),
-			self.weight_consumed(),
-			self.deposit_consumed(),
-			self.weight.eip_150_peak(),
-			other.weight_left(),
-			other.deposit_left(),
-			other.weight_consumed(),
-			other.deposit_consumed(),
+			"Absorb weight meter only: parent={:?}, child={:?}",
+			ResourceSummary::new(self),
+			ResourceSummary::new(&other),
 		);
 
 		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
@@ -253,17 +264,8 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb weight meter done: \
-				parent_weight_left={:?}, \
-				parent_deposit_left={:?}, \
-				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}, \
-				parent_eip_150_peak={:?}",
-			self.weight_left(),
-			self.deposit_left(),
-			self.weight_consumed(),
-			self.deposit_consumed(),
-			self.weight.eip_150_peak(),
+			"Absorb weight meter done: parent={:?}",
+			ResourceSummary::new(self),
 		);
 	}
 
@@ -276,25 +278,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	) {
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb all meters: \
-				parent_weight_left={:?}, \
-				parent_deposit_left={:?}, \
-				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}, \
-				parent_eip_150_peak={:?}, \
-				child_weight_left={:?}, \
-				child_deposit_left={:?}, \
-				child_weight_consumed={:?}, \
-				child_deposit_consumed={:?}",
-			self.weight_left(),
-			self.deposit_left(),
-			self.weight_consumed(),
-			self.deposit_consumed(),
-			self.weight.eip_150_peak(),
-			other.weight_left(),
-			other.deposit_left(),
-			other.weight_consumed(),
-			other.deposit_consumed(),
+			"Absorb all meters: parent={:?}, child={:?}",
+			ResourceSummary::new(self),
+			ResourceSummary::new(&other),
 		);
 
 		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
@@ -305,17 +291,8 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb all meters done: \
-				parent_weight_left={:?}, \
-				parent_deposit_left={:?}, \
-				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}, \
-				parent_eip_150_peak={:?}",
-			self.weight_left(),
-			self.deposit_left(),
-			self.weight_consumed(),
-			self.deposit_consumed(),
-			self.weight.eip_150_peak(),
+			"Absorb all meters done: parent={:?}",
+			ResourceSummary::new(self),
 		);
 	}
 
@@ -768,12 +745,12 @@ impl<T: Config> EthTxInfo<T> {
 		consumed_weight: &Weight,
 		consumed_deposit: &DepositOf<T>,
 	) -> SignedGas<T> {
-		self.deposit_gas_consumption(consumed_deposit)
+		self.deposit_and_fixed_fee_gas(consumed_deposit)
 			.saturating_add(&self.weight_gas_consumption(consumed_weight))
 	}
 
 	/// Returns the gas that `consumed_deposit` and the transaction's fixed fee cost.
-	fn deposit_gas_consumption(&self, consumed_deposit: &DepositOf<T>) -> SignedGas<T> {
+	fn deposit_and_fixed_fee_gas(&self, consumed_deposit: &DepositOf<T>) -> SignedGas<T> {
 		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
 		let deposit_and_fixed_fee =
 			consumed_deposit.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
@@ -808,22 +785,23 @@ impl<T: Config> EthTxInfo<T> {
 		total_weight_consumption: &Weight,
 		total_deposit_consumption: &DepositOf<T>,
 	) -> Option<Weight> {
-		self.weight_remaining_with_deposit_gas(
+		self.weight_remaining_with_deposit_and_fixed_fee_gas(
 			max_total_gas,
 			total_weight_consumption,
-			&self.deposit_gas_consumption(total_deposit_consumption),
+			&self.deposit_and_fixed_fee_gas(total_deposit_consumption),
 		)
 	}
 
 	/// Returns what `weight_remaining` returns, given the gas that the consumed deposit and the
 	/// fixed fee cost.
-	fn weight_remaining_with_deposit_gas(
+	fn weight_remaining_with_deposit_and_fixed_fee_gas(
 		&self,
 		max_total_gas: &SignedGas<T>,
 		total_weight_consumption: &Weight,
-		deposit_gas_consumption: &SignedGas<T>,
+		deposit_and_fixed_fee_gas: &SignedGas<T>,
 	) -> Option<Weight> {
-		let consumable_fee = max_total_gas.saturating_sub(deposit_gas_consumption).to_weight_fee()?;
+		let consumable_fee =
+			max_total_gas.saturating_sub(deposit_and_fixed_fee_gas).to_weight_fee()?;
 
 		T::FeeInfo::fee_to_weight(consumable_fee)
 			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))

@@ -392,7 +392,8 @@ where
 	/// Raises the 63/64 peak to the deposit this meter needed for `child`, if that is higher.
 	fn update_eip_150_peak(&mut self, child: &RawMeter<T, E, Nested>) {
 		// Without a deposit limit, the child can use a refund the caller received before the call.
-		// With a limit, the child never gets more than that limit, so a net refund counts as zero.
+		// With a limit, a refund cannot raise the child's limit, which is capped at this meter's
+		// limit, so a net refund counts as zero.
 		let consumed_before_call = match self.limit {
 			Some(_) => Deposit::Charge(child.parent_consumed.charge_or_zero()),
 			None => child.parent_consumed.clone(),

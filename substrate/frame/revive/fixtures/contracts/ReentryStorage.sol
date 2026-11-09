@@ -47,18 +47,16 @@ contract ReentryStorage {
 		IReentryProxy(proxy).bounceWriteS0(address(this));
 	}
 
-	/// One write, to `s1`.
+	function writeS0() external {
+		s0 = 1;
+	}
+
 	function writeS1() external {
 		s1 = 1;
 	}
 
 	/// The empty frame that gets reentered.
 	function noop() external {}
-
-	/// One write, to `s0`.
-	function writeS0() external {
-		s0 = 1;
-	}
 }
 
 /// Intermediary used to reach `ReentryStorage` transitively (X -> Y -> X).

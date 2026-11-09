@@ -1157,23 +1157,6 @@ mod eip_150 {
 		tracer.collect_trace().unwrap().output.0
 	}
 
-	/// Returns an `aggregate3` call that stores `data` in `callee`.
-	fn store_call3(callee: H160, data: u64) -> Multicall3::Call3 {
-		Multicall3::Call3 {
-			target: callee.0.into(),
-			allowFailure: true,
-			callData: Callee::storeCall { _data: data }.abi_encode().into(),
-		}
-	}
-
-	/// Asserts that every call of an `aggregate3` run succeeded, naming the first that did not.
-	fn assert_aggregate3_calls_succeeded(output: &[u8]) {
-		let results = Multicall3::aggregate3Call::abi_decode_returns(output).unwrap();
-		for (index, result) in results.iter().enumerate() {
-			assert!(result.success, "call {index} failed, returning {:?}", result.returnData);
-		}
-	}
-
 	/// Runs `input` on `contract` with exactly the limits a dry run returned, and returns the
 	/// output.
 	fn call_with_estimated_limits(
@@ -1227,6 +1210,23 @@ mod eip_150 {
 		let output = call_with_estimated_limits(caller, input, mode);
 		assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 		assert_eq!(Pallet::<Test>::evm_balance(&receiver), receiver_balance + value);
+	}
+
+	/// Returns an `aggregate3` call that stores `data` in `callee`.
+	fn store_call3(callee: H160, data: u64) -> Multicall3::Call3 {
+		Multicall3::Call3 {
+			target: callee.0.into(),
+			allowFailure: true,
+			callData: Callee::storeCall { _data: data }.abi_encode().into(),
+		}
+	}
+
+	/// Asserts that every call of an `aggregate3` run succeeded, naming the first that did not.
+	fn assert_aggregate3_calls_succeeded(output: &[u8]) {
+		let results = Multicall3::aggregate3Call::abi_decode_returns(output).unwrap();
+		for (index, result) in results.iter().enumerate() {
+			assert!(result.success, "call {index} failed, returning {:?}", result.returnData);
+		}
 	}
 
 	/// Asserts that `result` used at least 63/64 of its weight limit or, in Ethereum mode, of its
@@ -1341,6 +1341,53 @@ mod eip_150 {
 		});
 	}
 
+	/// A value call without a gas limit of its own gets the stipend, as one with the highest
+	/// explicit gas limit does.
+	#[test_matrix(
+		[FixtureType::Solc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	#[test_matrix(
+		[FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+		=> ignore["a PVM value call with gas u64::MAX gets no stipend"]
+	)]
+	fn value_call_without_gas_limit_gets_the_stipend(
+		caller_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		// The caller's backend decides the stipend; the receiver only reports the gas it gets.
+		let (receiver_code, _) =
+			compile_module_with_type("GasLeftReceiver", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let receiver_gas_left = |gas: u64| {
+				let output = builder::bare_call(caller_addr)
+					.data(
+						Caller::normalCall {
+							_callee: receiver_addr.0.into(),
+							_value: 1,
+							_data: GasLeftReceiver::gasLeftCall {}.abi_encode().into(),
+							_gas: gas,
+						}
+						.abi_encode(),
+					)
+					.transaction_limits(limits.clone())
+					.build_and_unwrap_result();
+				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
+				assert!(call.success, "the call with gas {gas} failed");
+				GasLeftReceiver::gasLeftCall::abi_decode_returns(&call.output).unwrap()
+			};
+
+			// Both gas limits exceed the 63/64 share, so each call gets the share plus the stipend.
+			assert_eq!(receiver_gas_left(u64::MAX), receiver_gas_left(u64::MAX - 1));
+		});
+	}
+
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
@@ -1427,6 +1474,81 @@ mod eip_150 {
 			assert!(!results[0].success);
 			assert_eq!(Callee::echoCall::abi_decode_returns(&results[1].returnData).unwrap(), 42);
 		});
+	}
+
+	/// A forwarder that checks `gasleft()` after the call, like OpenZeppelin's `ERC2771Forwarder`,
+	/// accepts a transaction that leaves its callee the requested gas and rejects one that does
+	/// not.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc]
+	)]
+	fn forwarder_detects_callee_getting_less_than_requested_gas(
+		forwarder_type: FixtureType,
+		callee_type: FixtureType,
+	) {
+		let (forwarder_code, _) = compile_module_with_type("Forwarder", forwarder_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, forwarder_addr] = deploy([callee_code, forwarder_code]);
+			// A tenth of the default gas, to shorten the time spent in the callee's endless loop.
+			let requested_gas = ETH_GAS_LIMIT / 10;
+			let forward = |eth_gas_limit| {
+				builder::bare_call(forwarder_addr)
+					.data(
+						Forwarder::forwardCall {
+							target: callee_addr.0.into(),
+							data: Callee::consumeAllReftimeCall {}.abi_encode().into(),
+							requestedGas: requested_gas,
+						}
+						.abi_encode(),
+					)
+					.transaction_limits(ethereum_limits(eth_gas_limit, WEIGHT_LIMIT))
+					.build()
+					.result
+			};
+
+			// Enough gas for the callee to get the requested gas.
+			let output = forward(2 * requested_gas).unwrap();
+			assert!(!output.did_revert());
+			assert!(
+				!Forwarder::forwardCall::abi_decode_returns(&output.data).unwrap(),
+				"the forwarded call must run out of gas"
+			);
+
+			// Too little for that, so the forwarder hits INVALID.
+			let rejected = forward(requested_gas);
+			if forwarder_type == FixtureType::Solc {
+				assert_err!(rejected, Error::<Test>::InvalidInstruction);
+			} else {
+				// resolc compiles INVALID to a revert that uses up all gas.
+				assert!(rejected.unwrap().did_revert(), "the forwarder must revert");
+			}
+		});
+	}
+
+	/// A call to the System precompile gets 63/64 of the weight its caller has left.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn system_precompile_call_gets_63_64_of_the_weight_left(caller_type: FixtureType) {
+		let (code, _) = compile_module_with_type("WeightLeft", caller_type).unwrap();
+		let weight_left = |limit| {
+			ExtBuilder::default().build().execute_with(|| {
+				let [addr] = deploy([code.clone()]);
+				let output = builder::bare_call(addr)
+					.data(WeightLeft::weightLeftCall {}.abi_encode())
+					.transaction_limits(substrate_limits(Weight::from_all(limit)))
+					.build_and_unwrap_result();
+				let WeightLeft::weightLeftReturn { refTime: ref_time, proofSize: proof_size } =
+					WeightLeft::weightLeftCall::abi_decode_returns(&output.data).unwrap();
+				Weight::from_parts(ref_time, proof_size)
+			})
+		};
+
+		// Doubling the weight limit gives the call 63/64 of `limit` more weight.
+		let limit = 64_000_000_000; // A multiple of 64, so 63/64 of it is exact.
+		assert_eq!(weight_left(2 * limit) - weight_left(limit), Weight::from_all(limit * 63 / 64));
 	}
 
 	/// A dry run without a gas limit succeeds when a call made by `aggregate3` uses up its gas,
@@ -1537,7 +1659,8 @@ mod eip_150 {
 		});
 	}
 
-	/// A nested call succeeds when its caller runs with exactly the limits a dry run returned.
+	/// A nested call succeeds when the contract making it is called with the limits a dry run
+	/// returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc],
@@ -1570,8 +1693,8 @@ mod eip_150 {
 		});
 	}
 
-	/// A value transfer without gas gets only the stipend, and succeeds when its caller runs with
-	/// exactly the limits a dry run returned.
+	/// A value transfer without gas gets only the stipend, and succeeds when the contract making
+	/// it is called with the limits a dry run returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
@@ -1591,8 +1714,8 @@ mod eip_150 {
 		});
 	}
 
-	/// A value call that forwards gas to a callee that writes storage succeeds when its caller runs
-	/// with exactly the limits a dry run returned.
+	/// A value call that forwards gas to a callee that writes storage succeeds when the contract
+	/// making it is called with the limits a dry run returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc],
@@ -1626,80 +1749,8 @@ mod eip_150 {
 		});
 	}
 
-	/// A value call without a gas limit of its own gets the stipend, as one with the highest
-	/// explicit gas limit does.
-	#[test_matrix(
-		[FixtureType::Solc],
-		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
-	)]
-	#[test_matrix(
-		[FixtureType::Resolc],
-		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
-		=> ignore["a PVM value call with gas u64::MAX gets no stipend"]
-	)]
-	fn value_call_without_gas_limit_gets_the_stipend(
-		caller_type: FixtureType,
-		limits: TransactionLimits<Test>,
-	) {
-		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-		// The caller's backend decides the stipend; the receiver only reports the gas it gets.
-		let (receiver_code, _) =
-			compile_module_with_type("GasLeftReceiver", FixtureType::Solc).unwrap();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
-			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
-			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
-			let receiver_gas_left = |gas: u64| {
-				let output = builder::bare_call(caller_addr)
-					.data(
-						Caller::normalCall {
-							_callee: receiver_addr.0.into(),
-							_value: 1,
-							_data: GasLeftReceiver::gasLeftCall {}.abi_encode().into(),
-							_gas: gas,
-						}
-						.abi_encode(),
-					)
-					.transaction_limits(limits.clone())
-					.build_and_unwrap_result();
-				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
-				assert!(call.success, "the call with gas {gas} failed");
-				GasLeftReceiver::gasLeftCall::abi_decode_returns(&call.output).unwrap()
-			};
-
-			// Both gas limits exceed the 63/64 share, so each call gets the share plus the stipend.
-			assert_eq!(receiver_gas_left(u64::MAX), receiver_gas_left(u64::MAX - 1));
-		});
-	}
-
-	/// A call to the System precompile gets 63/64 of each weight dimension its caller has left, as
-	/// other nested calls do.
-	#[test_case(FixtureType::Solc)]
-	#[test_case(FixtureType::Resolc)]
-	fn system_precompile_call_gets_63_64_of_the_weight_left(caller_type: FixtureType) {
-		let (code, _) = compile_module_with_type("WeightLeft", caller_type).unwrap();
-		let weight_left = |limit| {
-			ExtBuilder::default().build().execute_with(|| {
-				let [addr] = deploy([code.clone()]);
-				let output = builder::bare_call(addr)
-					.data(WeightLeft::weightLeftCall {}.abi_encode())
-					.transaction_limits(substrate_limits(Weight::from_all(limit)))
-					.build_and_unwrap_result();
-				let WeightLeft::weightLeftReturn { refTime: ref_time, proofSize: proof_size } =
-					WeightLeft::weightLeftCall::abi_decode_returns(&output.data).unwrap();
-				Weight::from_parts(ref_time, proof_size)
-			})
-		};
-
-		// The caller spends the same before the call under both limits, so the call gets exactly
-		// 63/64 of the extra weight.
-		let limit = 64_000_000_000;
-		assert_eq!(weight_left(2 * limit) - weight_left(limit), Weight::from_all(limit * 63 / 64));
-	}
-
-	/// A call that writes storage after an earlier call freed the same amount succeeds when its
-	/// caller runs with exactly the limits a dry run returned.
+	/// A call that writes storage after an earlier call freed the same amount succeeds when the
+	/// contract making both is called with the limits a dry run returned.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc],
@@ -1772,7 +1823,7 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc]
 	)]
-	fn earlier_deposit_refund_pays_for_later_charges_in_dry_run(
+	fn dry_run_estimates_count_an_earlier_refund_in_ethereum_mode(
 		caller_type: FixtureType,
 		callee_type: FixtureType,
 	) {
@@ -1809,58 +1860,6 @@ mod eip_150 {
 				without_refund.max_storage_deposit - without_refund.storage_deposit,
 				"the refund from freeing the slot must pay for writing it again",
 			);
-		});
-	}
-
-	/// A forwarder that checks `gasleft()` after the call, like OpenZeppelin's `ERC2771Forwarder`,
-	/// accepts a transaction that leaves its callee the requested gas and rejects one that does
-	/// not.
-	#[test_matrix(
-		[FixtureType::Solc, FixtureType::Resolc],
-		[FixtureType::Solc, FixtureType::Resolc]
-	)]
-	fn forwarder_detects_callee_getting_less_than_requested_gas(
-		forwarder_type: FixtureType,
-		callee_type: FixtureType,
-	) {
-		let (forwarder_code, _) = compile_module_with_type("Forwarder", forwarder_type).unwrap();
-		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let [callee_addr, forwarder_addr] = deploy([callee_code, forwarder_code]);
-			// A tenth of the default gas, to shorten the time spent in the callee's endless loop.
-			let requested_gas = ETH_GAS_LIMIT / 10;
-			let forward = |eth_gas_limit| {
-				builder::bare_call(forwarder_addr)
-					.data(
-						Forwarder::forwardCall {
-							target: callee_addr.0.into(),
-							data: Callee::consumeAllReftimeCall {}.abi_encode().into(),
-							requestedGas: requested_gas,
-						}
-						.abi_encode(),
-					)
-					.transaction_limits(ethereum_limits(eth_gas_limit, WEIGHT_LIMIT))
-					.build()
-					.result
-			};
-
-			// Enough gas for the callee to get the requested gas.
-			let output = forward(2 * requested_gas).unwrap();
-			assert!(!output.did_revert());
-			assert!(
-				!Forwarder::forwardCall::abi_decode_returns(&output.data).unwrap(),
-				"the forwarded call must run out of gas"
-			);
-
-			// Too little for that, so the forwarder hits INVALID.
-			let rejected = forward(requested_gas);
-			if forwarder_type == FixtureType::Solc {
-				assert_err!(rejected, Error::<Test>::InvalidInstruction);
-			} else {
-				// resolc compiles INVALID to a revert that uses up all gas.
-				assert!(rejected.unwrap().did_revert(), "the forwarder must revert");
-			}
 		});
 	}
 }

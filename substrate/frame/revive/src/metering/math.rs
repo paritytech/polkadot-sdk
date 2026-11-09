@@ -503,9 +503,11 @@ pub mod ethereum_execution {
 			total_consumed_deposit,
 		) = meter.consumed_resources();
 
-		let deposit_gas_consumption = eth_tx_info.deposit_gas_consumption(&total_consumed_deposit);
+		let deposit_and_fixed_fee_gas =
+			eth_tx_info.deposit_and_fixed_fee_gas(&total_consumed_deposit);
 		let weight_gas_consumption = eth_tx_info.weight_gas_consumption(&total_consumed_weight);
-		let total_gas_consumption = deposit_gas_consumption.saturating_add(&weight_gas_consumption);
+		let total_gas_consumption =
+			deposit_and_fixed_fee_gas.saturating_add(&weight_gas_consumption);
 		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
 		let weight_limit_left_before_rule = meter
@@ -516,10 +518,10 @@ pub mod ethereum_execution {
 		// Checked before the deposit limit, so that a call from a frame that ran out of gas fails
 		// with `OutOfGas` even when the frame is also over its deposit limit.
 		let weight_left_before_rule = eth_tx_info
-			.weight_remaining_with_deposit_gas(
+			.weight_remaining_with_deposit_and_fixed_fee_gas(
 				&meter.max_total_gas,
 				&total_consumed_weight,
-				&deposit_gas_consumption,
+				&deposit_and_fixed_fee_gas,
 			)
 			.ok_or(<Error<T>>::OutOfGas)?
 			.min(weight_limit_left_before_rule);
@@ -555,10 +557,10 @@ pub mod ethereum_execution {
 		let max_total_gas = total_gas_consumption.saturating_add(&remaining_gas);
 
 		let weight_left = eth_tx_info
-			.weight_remaining_with_deposit_gas(
+			.weight_remaining_with_deposit_and_fixed_fee_gas(
 				&max_total_gas,
 				&total_consumed_weight,
-				&deposit_gas_consumption,
+				&deposit_and_fixed_fee_gas,
 			)
 			.ok_or(<Error<T>>::OutOfGas)?
 			.min(S::EIP_150_RULE.apply::<WeightEip150>(

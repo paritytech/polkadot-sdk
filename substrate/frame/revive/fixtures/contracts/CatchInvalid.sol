@@ -35,6 +35,8 @@ contract CatchInvalid {
         }
     }
 
+    // Returns whether the catch block ran instead of storing it, so that a caller left with too
+    // little gas for a storage write can still report it.
     function tryPayableInvalid(address callee, uint64 value) external returns (bool) {
         try PayableInvalid(callee).invalid{value: value}() {} catch {
             return true;

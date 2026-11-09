@@ -158,13 +158,13 @@ mod eip_150 {
 	fn call_without_subcalls_has_no_peak() {
 		let mut meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
 		// Before any charge, the peak, the required weight and the overhead are all zero.
-		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.eip_150_peak.get(), Weight::zero());
 		assert_eq!(meter.weight_required(), Weight::zero());
 		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
 
 		meter.charge(SimpleToken(6300)).unwrap();
 		// Without subcalls, a meter has no peak and requires only what it consumed.
-		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.eip_150_peak.get(), Weight::zero());
 		assert_eq!(meter.weight_required(), Weight::from_parts(6300, 0));
 		// As the transaction's first call, nothing is kept back for it. As a nested call, its
 		// caller keeps ceil(6300/63) = 100.
@@ -218,7 +218,7 @@ mod eip_150 {
 				"{}",
 				case.description,
 			);
-			assert_eq!(parent_meter.eip_150_peak(), peak, "{}", case.description);
+			assert_eq!(parent_meter.eip_150_peak.get(), peak, "{}", case.description);
 			assert_eq!(parent_meter.weight_required_with_eip_150(), peak, "{}", case.description);
 			assert_eq!(
 				parent_meter.eip_150_total_overhead(Rule::Skip),
@@ -244,7 +244,7 @@ mod eip_150 {
 		second_level_meter.charge(SimpleToken(6300)).unwrap();
 
 		// second_level_meter is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
-		assert_eq!(second_level_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(second_level_meter.eip_150_peak.get(), Weight::zero());
 		assert_eq!(second_level_meter.weight_required(), Weight::from_parts(6300, 0));
 		assert_eq!(
 			second_level_meter.eip_150_total_overhead(Rule::Apply),
@@ -254,7 +254,7 @@ mod eip_150 {
 		first_level_meter.absorb_nested(second_level_meter, Rule::Apply);
 
 		// first_level_meter: peak_at_subcall = 2000 + 6300 + 100 = 8400
-		assert_eq!(first_level_meter.eip_150_peak(), Weight::from_parts(8400, 0));
+		assert_eq!(first_level_meter.eip_150_peak.get(), Weight::from_parts(8400, 0));
 		assert_eq!(first_level_meter.weight_required(), Weight::from_parts(8300, 0));
 		// children_overhead = 8400 - 8300 = 100, ceil(8400/63) = 134, total = 234
 		assert_eq!(
@@ -265,7 +265,7 @@ mod eip_150 {
 		first_call_meter.absorb_nested(first_level_meter, Rule::Apply);
 
 		// first_call_meter: peak_at_subcall = 1000 + 8300 + 234 = 9534
-		assert_eq!(first_call_meter.eip_150_peak(), Weight::from_parts(9534, 0));
+		assert_eq!(first_call_meter.eip_150_peak.get(), Weight::from_parts(9534, 0));
 		assert_eq!(first_call_meter.weight_required(), Weight::from_parts(9300, 0));
 		assert_eq!(first_call_meter.weight_required_with_eip_150(), Weight::from_parts(9534, 0));
 		// The transaction's first call: overhead = peak - weight_required = 234
@@ -285,14 +285,14 @@ mod eip_150 {
 		parent_meter.absorb_nested(first_child_meter, Rule::Apply);
 		// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
 		assert_eq!(parent_meter.weight_required(), Weight::from_parts(3500, 0));
-		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		assert_eq!(parent_meter.eip_150_peak.get(), Weight::from_parts(3548, 0));
 		// The transaction's first call: overhead = peak - weight_required = 48
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(48, 0));
 
 		parent_meter.charge(SimpleToken(700)).unwrap();
 		// consumed = 4200, past the peak (3548), so the overhead drops to 0
 		assert_eq!(parent_meter.weight_required(), Weight::from_parts(4200, 0));
-		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		assert_eq!(parent_meter.eip_150_peak.get(), Weight::from_parts(3548, 0));
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
 
 		// Second child
@@ -301,7 +301,7 @@ mod eip_150 {
 		second_child_meter.charge(SimpleToken(1000)).unwrap();
 		// Subcall leaf: no children, overhead = ceil(1000/63) = 16
 		assert_eq!(second_child_meter.weight_required(), Weight::from_parts(1000, 0));
-		assert_eq!(second_child_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(second_child_meter.eip_150_peak.get(), Weight::zero());
 		assert_eq!(
 			second_child_meter.eip_150_total_overhead(Rule::Apply),
 			Weight::from_parts(16, 0),
@@ -311,7 +311,7 @@ mod eip_150 {
 
 		// peak = max(3548, 4200 + 1000 + 16) = 5216
 		assert_eq!(parent_meter.weight_required(), Weight::from_parts(5200, 0));
-		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(5216, 0));
+		assert_eq!(parent_meter.eip_150_peak.get(), Weight::from_parts(5216, 0));
 		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(5216, 0));
 		// The transaction's first call: overhead = peak - weight_required = 16
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(16, 0));
@@ -336,7 +336,7 @@ mod eip_150 {
 		parent_meter.absorb_nested(second_child_meter, Rule::Apply);
 
 		assert_eq!(parent_meter.weight_required(), Weight::from_parts(6810, 0));
-		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(6900, 0));
+		assert_eq!(parent_meter.eip_150_peak.get(), Weight::from_parts(6900, 0));
 		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(6900, 0));
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(90, 0));
 	}

@@ -296,11 +296,6 @@ impl<T: Config> WeightMeter<T> {
 		self.weight_required().max(self.eip_150_peak.get())
 	}
 
-	/// Returns the 63/64 weight peak.
-	pub fn eip_150_peak(&self) -> Weight {
-		self.eip_150_peak.get()
-	}
-
 	/// Returns how much weight was spent
 	pub fn weight_consumed(&self) -> Weight {
 		self.weight_consumed
