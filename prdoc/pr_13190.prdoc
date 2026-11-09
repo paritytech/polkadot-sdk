@@ -122,9 +122,10 @@ doc:
     gas costs change. The exact prices depend on the weights of each
     runtime.
 
-    Most EVM op-codes cost more. `JUMP`, `JUMPI`, `NOT`, `EXP` with small
-    exponents, long `MCOPY` copies, and short non-zero `CALLDATACOPY`,
-    `CODECOPY` and `RETURNDATACOPY` copies are cheaper.
+    Some EVM op-codes cost more. Depending on the runtime and inputs,
+    `JUMP`, `JUMPI`, `NOT`, `EXP` with small exponents, long `MCOPY`
+    copies, and short non-zero `CALLDATACOPY`, `CODECOPY` and
+    `RETURNDATACOPY` copies can cost less.
 
     Existing contracts do not need migration or redeployment. Re-estimate
     gas limits after the runtime upgrade; calls using previous limits
