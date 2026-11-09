@@ -13586,25 +13586,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-dummy-dim"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-people",
- "parity-scale-codec",
- "scale-info",
- "sp-api 26.0.0",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "verifiable",
-]
-
-[[package]]
 name = "pallet-election-provider-e2e-test"
 version = "1.0.0"
 dependencies = [
@@ -14437,23 +14418,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-origin-restriction"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "scale-info",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
 name = "pallet-paged-list"
 version = "0.6.0"
 dependencies = [
@@ -14500,24 +14464,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
-]
-
-[[package]]
-name = "pallet-people"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "verifiable",
 ]
 
 [[package]]
@@ -18173,7 +18119,6 @@ dependencies = [
  "pallet-democracy",
  "pallet-derivatives",
  "pallet-dev-mode",
- "pallet-dummy-dim",
  "pallet-election-provider-multi-block",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -18207,10 +18152,8 @@ dependencies = [
  "pallet-on-demand-para",
  "pallet-oracle",
  "pallet-oracle-runtime-api",
- "pallet-origin-restriction",
  "pallet-paged-list",
  "pallet-parameters",
- "pallet-people",
  "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
@@ -29981,7 +29924,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorrkel 0.10.2",
- "spin 0.9.8",
 ]
 
 [[package]]
