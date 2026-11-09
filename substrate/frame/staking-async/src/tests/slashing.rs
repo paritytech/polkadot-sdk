@@ -314,6 +314,121 @@ fn subsequent_reports_pay_out_reward_based_on_net_slash() {
 }
 
 #[test]
+fn late_report_gets_decayed_reward() {
+	ExtBuilder::default()
+		.nominate(false)
+		.bonding_duration(10)
+		.slash_reward_decay_window(4)
+		.build_and_execute(|| {
+			// Given: an offence of era 1 that is only reported in era 3, 2 eras late.
+			assert_eq!(SlashRewardFraction::<T>::get(), Perbill::from_percent(10));
+			assert_eq!(Staking::eras_stakers(1, &11).total, 1000);
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			let initial_balance_1 = asset::total_balance::<T>(&1);
+
+			// When
+			add_slash_in_era_with_reporters(11, 1, Perbill::from_percent(50), vec![1]);
+			Session::roll_next();
+
+			// Then: the slash is applied in full.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 11,
+						fraction: Perbill::from_percent(50)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: 500 },
+				]
+			);
+
+			// but the reporter only gets half of the 10% reward: (4 - 2) / 4 * 10% * 500.
+			assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + 25);
+		});
+}
+
+#[test]
+fn late_report_decays_reward_of_nominator_slash() {
+	ExtBuilder::default()
+		.bonding_duration(10)
+		.slash_reward_decay_window(4)
+		.build_and_execute(|| {
+			// Given: an offence of era 1, with 101 exposed to 11, reported in era 3.
+			assert_eq!(
+				Staking::eras_stakers(1, &11),
+				Exposure {
+					total: 1250,
+					own: 1000,
+					others: vec![IndividualExposure { who: 101, value: 250 }]
+				}
+			);
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			let initial_balance_1 = asset::total_balance::<T>(&1);
+
+			// When
+			add_slash_in_era_with_reporters(11, 1, Perbill::from_percent(40), vec![1]);
+			Session::roll_next();
+
+			// Then: both the validator and the nominator are slashed in full.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 11,
+						fraction: Perbill::from_percent(40)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: 400 },
+					Event::Slashed { staker: 101, amount: 100 },
+				]
+			);
+
+			// and the reporter gets 5% instead of 10% of both slashes.
+			assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + 20 + 5);
+		});
+}
+
+#[test]
+fn report_after_decay_window_gets_no_reward() {
+	ExtBuilder::default()
+		.nominate(false)
+		.bonding_duration(10)
+		.slash_reward_decay_window(2)
+		.build_and_execute(|| {
+			// Given: an offence of era 1 that is only reported in era 3, as late as the window.
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			let initial_balance_1 = asset::total_balance::<T>(&1);
+
+			// When
+			add_slash_in_era_with_reporters(11, 1, Perbill::from_percent(50), vec![1]);
+			Session::roll_next();
+
+			// Then: the offence is still slashed in full.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 11,
+						fraction: Perbill::from_percent(50)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: 500 },
+				]
+			);
+
+			// but the reporter gets nothing.
+			assert_eq!(asset::total_balance::<T>(&1), initial_balance_1);
+		});
+}
+
+#[test]
 fn deferred_slashes_are_deferred() {
 	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
 		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
@@ -1031,8 +1146,8 @@ fn remove_deferred() {
 						own: 50,
 						others: bounded_vec![(101, 12)],
 						reporter: None,
-						// 10% of the slash
-						payout: (50 + 12) / 10
+						// reported 1 era late, so 3/4 of 10% of each slash: 3.75 + 0.9, rounded.
+						payout: 4 + 1
 					}
 				),
 			]

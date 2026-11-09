@@ -43,7 +43,8 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
 	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
+	ProcessingOffence, SlashRewardDecay, SlashRewardFraction, UnappliedSlash, UnappliedSlashes,
+	WeightInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -70,8 +71,10 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
 	/// The era where the offence occurred.
 	pub(crate) offence_era: EraIndex,
-	/// The maximum percentage of a slash that ever gets paid out.
-	/// This is f_inf in the paper.
+	/// The percentage of the slash that is paid out to the reporter.
+	///
+	/// This is [`SlashRewardFraction`] (f_inf in the paper), scaled by
+	/// [`Config::SlashRewardDecay`] for how late the offence was reported.
 	pub(crate) reward_proportion: Perbill,
 }
 
@@ -175,6 +178,16 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 	next_offence.map(|(v, o)| (oldest_era, v, o))
 }
 
+/// The proportion of the slash paid to the reporter of an offence that happened in `offence_era`
+/// and was reported in `reported_era`.
+///
+/// This is [`SlashRewardFraction`], scaled by [`Config::SlashRewardDecay`] for the number of eras
+/// between the two.
+fn reward_proportion<T: Config>(offence_era: EraIndex, reported_era: EraIndex) -> Perbill {
+	let elapsed = reported_era.saturating_sub(offence_era);
+	T::SlashRewardDecay::reward_portion(elapsed) * SlashRewardFraction::<T>::get()
+}
+
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
 	// We do manual weight tracking for early-returns, and use benchmarks for the final two
@@ -198,7 +211,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 	);
 
 	add_db_reads_writes(1, 0);
-	let reward_proportion = SlashRewardFraction::<T>::get();
+	let reward_proportion = reward_proportion::<T>(offence_era, offence_record.reported_era);
 
 	add_db_reads_writes(2, 0);
 	let Some(exposure) =
@@ -349,7 +362,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	);
 
 	add_db_reads_writes(1, 0);
-	let reward_proportion = SlashRewardFraction::<T>::get();
+	let reward_proportion = reward_proportion::<T>(offence_era, offence_record.reported_era);
 
 	add_db_reads_writes(2, 0);
 	let Some(validator_exposure) = <ErasStakersOverview<T>>::get(&offence_era, &offender) else {

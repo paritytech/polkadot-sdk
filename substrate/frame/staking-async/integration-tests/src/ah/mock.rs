@@ -492,6 +492,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
+	type SlashRewardDecay = ();
 	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;

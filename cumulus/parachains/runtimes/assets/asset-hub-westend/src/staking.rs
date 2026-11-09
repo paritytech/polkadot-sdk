@@ -333,6 +333,7 @@ impl pallet_staking_async::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type SlashRewardDecay = ();
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
