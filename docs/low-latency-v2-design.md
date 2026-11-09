@@ -11,11 +11,13 @@
 
 ### Version History
 
+<!-- markdownlint-disable MD013 -->
 | Version | Changes |
 |---------|---------|
 | 1.2 | **Replay protection for `SignedSchedulingInfo`.** Wrapped the signed fields into an explicit `SchedulingInfoPayload` that commits to `internal_scheduling_parent` and `claim_queue_offset`. Without binding the ISP into the signed payload, a signature produced in one scheduling context could be replayed under a different `header_chain` whose derived ISP elects the same collator. PVF verification step 5 updated to check `payload.internal_scheduling_parent` equals the derived ISP and `payload.claim_queue_offset` is within the runtime maximum. |
 | 1.1 | **Scheduling parent: last finished slot instead of active leaf.** The original design required the scheduling parent to be an active leaf. This does not work as intended as in reality both are slot/time-based and race each other, so the active leaf of the current slot may not exist yet. Fixed to require the relay chain block of the last *finished* slot instead, which gives the collator a full 6s time window. Affected sections: [Backing Group Selection](#backing-group-selectionlast-finished-slot), scheduling parent diagrams, threat mitigations. |
 | 1.0 | Initial version. |
+<!-- markdownlint-enable MD013 -->
 
 ---
 
@@ -169,7 +171,7 @@ Roughly in the order of severity/likelihood:
   pending availability at session boundaries
 - **Relay chain block going overweight** (candidates get dropped)—most likely to
   happen on parachain runtime upgrades
-- **Configuration Changes**: 
+- **Configuration Changes**:
   1. Very rare
   2. Only causing problems, if the new configuration is not compatible with the
      old one
@@ -378,6 +380,7 @@ the execution step.
 
 #### Comparison
 
+<!-- markdownlint-disable MD013 -->
 | Dimension | Acknowledgements (Chosen) | Inclusion Lists |
 |-----------|---------------------------|-----------------|
 | **Latency** | ~100ms (achievable block time) | Potentially <100ms |
@@ -389,6 +392,7 @@ the execution step.
 | **MEV Resistance** | Better (strong enforcement) | Worse (collusion possible, limited punishment) |
 | **Complexity** | Moderate | High ("blocks" on top of blocks) |
 | **Synergy with Basti Blocks** | Excellent (makes them valuable) | Poor (renders Basti blocks redundant) |
+<!-- markdownlint-enable MD013 -->
 
 #### Why Inclusion Lists Were Not Chosen
 
@@ -659,9 +663,12 @@ will look much more closely into this in the scheduling parent section.
 
 #### Messages
 
-This is the one thing we get from the relay chain context which is the most problematic with regards to relay parent age. If we build on finalized relay chain blocks, this means we are adding >18s to the messaging latency.
+This is the one thing we get from the relay chain context which is the most problematic with regards to relay
+parent age. If we build on finalized relay chain blocks, this means we are adding >18s to the messaging latency.
 
-This is the biggest downside of using older relay parents and needs to be mitigated for the solution to be practical. This is why this design should go hand-in-hand with the introduction of [speculative messaging](speculative-messaging-design.md).
+This is the biggest downside of using older relay parents and needs to be mitigated for the solution to be
+practical. This is why this design should go hand-in-hand with the introduction of
+[speculative messaging](speculative-messaging-design.md).
 
 #### Randomness
 
@@ -1258,12 +1265,12 @@ block for rewards. This is far from perfect, but might still make sense:
    more assurance, that you won’t get slashed. This should really not be
    necessary to begin with, but more certainty will hardly come before even the
    next block has been produced. Thus delaying this little bit seems hardly
-   worth the trouble. 
+   worth the trouble.
 2. At least on slot boundaries, you don’t necessarily know exactly when exactly
    the next author will produce a block (especially with dynamic block times),
    thus by delaying your acknowledgment, you will risk not getting it in. Also
    the block producer might legitimately decide to not put your acknowledgement
-   in, if it came late. 
+   in, if it came late.
 3. We can enforce transmission of the acknowledgement to at least the next
    collator, by only granting rewards for your acknowledgments, if all necessary
    acknowledgments are provided. 4. With many collators and all of them
@@ -1276,11 +1283,11 @@ Limitations: If we enforce having received acknowledgements for a block, by the
 time we build the next block to get rewards, we limit how fast we can go with
 blocks. Obvious mitigations:
 
-1. Still accept acknowledgments in some later block (with some limit). 
+1. Still accept acknowledgments in some later block (with some limit).
 2. Don’t do rewards for acknowledgements. There is little incentive to alter the
    client and this kind of protocol violation of not doing acknowledgements and
    it is relatively harmless (only service degradation): Misbehaving nodes can
-   be dealt with by governance. 
+   be dealt with by governance.
 
 # Punishments/Enforcing the rules for a canonical chain
 {#punishments/enforcing-the-rules-for-a-canonical-chain}
@@ -1289,12 +1296,14 @@ With acknowledgements and decoupling in place, we can hold collators accountable
 
 ## Offenses {#offenses}
 
+<!-- markdownlint-disable MD013 -->
 | Offense # | Description | Violated Rule | Proof Required | Severity |
 |-----------|-------------|---------------|----------------|----------|
 | **1** | Direct equivocation: Produce two blocks in the same slot with the same parent | Illegal to produce multiple blocks with same parent in same slot | Two blocks with same slot, same parent, different hashes, both signed by collator | High - Clear malicious intent |
 | **2** | Acknowledge two blocks with the same parent | Rule 3: Will not acknowledge any other block with the same parent | Two acknowledgement signatures for different blocks with same parent | High - Breaking canonical chain commitment |
 | **3** | Acknowledge a child block you built, then build a conflicting child | Rules 1b + 3: Cannot build conflicting block after acknowledging parent | ACK for parent block + conflicting child block produced afterward | High - Fork after commitment |
 | **4** | Acknowledge a block from previous slot, then build conflicting block with same parent | Ensure Block Submission: Must resubmit acknowledged blocks, not replace them | ACK for block from previous slot + conflicting block with same parent | High - Censorship/replacement attack |
+<!-- markdownlint-enable MD013 -->
 
 ## Punishment {#punishment}
 
@@ -1306,12 +1315,12 @@ honest misbehavior (in the absence of bugs of course).
 Recommendation would be to roll out with minor punishments, e.g. only losing out
 on rewards for the era and monitor exactly any punishments from occurring. Once
 we gain enough confidence that misbehavior never occurs in practice, we can ramp
-up. 
-   
+up.
+
 Given the above list of offenses, it becomes clear that there is always exactly
 one collator misbehaving that can be punished, thus the economic security is
 limited to the stake of a single collator, regardless of how many
-acknowledgement signatures have been received. 
+acknowledgement signatures have been received.
 
 More acknowledgements are still useful as they increase confidence for bad
 network conditions. This is because each collator acknowledging a block, made a
@@ -1323,7 +1332,7 @@ offense (4).
 All the above offenses should be easily provable to the parachain runtime. We
 will define a challenge window (number of blocks) within which a proof of an
 offense must be submitted. For that window the runtime should keep around any
-information necessary for proofs to be verified. 
+information necessary for proofs to be verified.
 
 The duration of the challenge window should be as large as possible to make
 censorship attempts costly, but should be at least long enough that all
@@ -1340,7 +1349,7 @@ risk of any punishment. I don’t actually see any realistic reason why this
 recovery would ever be necessary (all acknowledging collators would need to
 somehow have forgotten about the block or we have a bug and the relay chain does
 not accept the candidate for some reason), but it is worth mentioning that it
-exists. 
+exists.
 
 # Speculative Messaging {#speculative-messaging-1}
 
@@ -1369,7 +1378,7 @@ low-latency chains provide a very unique and exceptionally powerful combination,
 that I am not aware of anyone else is building:
 
 Trustless and decentralized low latency confirmations combined with basically
-instant trustless messaging latency to other chains. 
+instant trustless messaging latency to other chains.
 
 # Implementation Details {#implementation-details}
 
@@ -1382,7 +1391,7 @@ finding out whether a particular block/candidate is known by the validators
 already. We will introduce a request/response protocol where collators can ask
 validators for candidates in prospective parachains. Having a request for all
 para header hashes currently live/in-flight on validators for a particular
-parachain should do the trick. 
+parachain should do the trick.
 
 Requests on this protocol should take collator reputation into account. If that
 protocol gets spammed, we should prefer requests from peers with good/existing
@@ -1395,7 +1404,7 @@ To maximise chances, e.g. in the event of connectivity issues, attacks and
 acknowledging collators, will also prepare the exact same collation as the
 original author (building the POV and the candidate) and advertise it to
 backers. All collators who acknowledged should advertise the collation as they
-are otherwise susceptible to censorship attacks. 
+are otherwise susceptible to censorship attacks.
 
 ## Relay Chain {#relay-chain-1}
 
@@ -1404,10 +1413,10 @@ are otherwise susceptible to censorship attacks.
 We need to allow much older relay parents and we do have certain checks in the
 relay chain runtime about the relay parent of a candidate:
 
-- Basic: Is the relay parent even part of this chain? 
+- Basic: Is the relay parent even part of this chain?
 - What is the block number \- used for determining the water mark, checking the
-  advancement rule, … 
-- Storage root \- for verifying the persisted validation data. 
+  advancement rule, …
+- Storage root \- for verifying the persisted validation data.
 
 Solution: Just store data for more relay parents. E.g. similarly to how we store
 *all* included candidates for the last 6 sessions
@@ -1424,7 +1433,7 @@ should suffice for “perfect” confidence:
 
 1. We rotate backing groups every 10 blocks, thus you get a chance to try every
    backing group several times before the relay parent goes out of scope. With ⅔
-   honest, censoring is not possible. 
+   honest, censoring is not possible.
 2. For that limit to ever cause problems in practice, we would need to be in a
    situation where the parachain can not submit a collation in 14\_400 relay
    chain blocks, while the relay chain is making progress. Thus the relay chain
@@ -1446,7 +1455,7 @@ should suffice for “perfect” confidence:
    caused by either a bug or an attack. For a bug, we should indeed be able to
    rollout a fix within 24 hours (node side), for an attack: We need to invest
    in network hardening and defense \- a blockchain that can easily be 100%
-   DOSed for 24 hours, is hardly “unstoppable”. 
+   DOSed for 24 hours, is hardly “unstoppable”.
 
 # Threats {#threats}
 
@@ -1459,7 +1468,7 @@ improvements outside of the scope of this document.
 No acknowledgements by design. Fetching directly from backers can help, but is
 susceptible to DOS. E.g. even with the collator protocol revamp \- all collators
 will have a good reputation and could all try to fetch from the backers,
-delaying delivery to the next block author (enough). 
+delaying delivery to the next block author (enough).
 
 **Note on collator protocol resilience with v3 semantics**: The [collator
 protocol revamp](https://github.com/paritytech/polkadot-sdk/issues/616) improves
@@ -1485,13 +1494,13 @@ Mitigations:
 
 - Pre-PVF: Backers can prefer delivering POVs to the next eligible block author
   \- proven by a Pre-PVF. The Pre-PVF would be the same entry point as we use in
-  the POV for providing scheduling information. 
+  the POV for providing scheduling information.
 - Determine submission/collation rights only by the relay chain block of the
   last finished slot: This allows forcing block submissions on a timely basis,
   otherwise one loses the submission right and it is the next block producers
   turn to submit collations. Strict last-finished-slot handling also makes
   Pre-PVF checks more effective, as then really only legitimate requests will be
-  prioritized. 
+  prioritized.
 
 ## Submit different block {#submit-different-block}
 
@@ -1514,7 +1523,7 @@ are a non-issue for (low-latency) parachains:
 
 - Low-latency is based on acknowledgements. Here we are enforcing to only sign
   off one canonical chain. Acknowledging two blocks with the same parent is
-  illegal and will be punished. 
+  illegal and will be punished.
 - For non low-latency: We have fork selection via the relay chain, therefore it
   does not matter if collators build on multiple forks as we are guaranteed
   still that only one of them will survive.
@@ -1547,7 +1556,7 @@ Takeaways from
 
 - Attestations are introduced to make the network more stable with regards to
   reorgs, than by simply using the longest chain rule, with regards to network
-  latency. 
+  latency.
 
 Shedding a bit more light on the problem:
 
@@ -1571,7 +1580,7 @@ What do we get out of these for Polkadot and low-latency parachains? First our
 acknowledgements are similar in nature to Ethereum attestations and we might run
 into similar problems long-term. In particular it might become profitable to
 delay a block, so long that it becomes tough for the next block producer to
-still build on it, without losing out on block production opportunities itself. 
+still build on it, without losing out on block production opportunities itself.
 
 The actual problem with the slot to ping ratio seems to come from the assumption
 that one produces one block per slot. Then of course too short slot times can
@@ -1580,7 +1589,7 @@ miss its own slot.
 
 All of these problems are greatly mitigated by breaking the one slot \- one
 block assumption and making collators produce multiple blocks per slot. What
-seems to be problematic is short slot times, not so much short block times. 
+seems to be problematic is short slot times, not so much short block times.
 
 The question now becomes, why is Ethereum not considering multiple blocks per
 slot?
@@ -1592,14 +1601,14 @@ problematic, but rather short slot times. This can easily be resolved by
 authoring multiple blocks per slot, but what are the downsides here?
 
 1. Proving and punishing equivocations becomes more complex: The simple rule,
-   equivocation \== multiple blocks per slot obviously no longer applies. 
+   equivocation \== multiple blocks per slot obviously no longer applies.
 2. A single block producer stays in control of the chain for longer.
 
 ### Constant per-block overhead {#constant-per-block-overhead}
 
-- Header 
+- Header
 - Proof \- not an issue with Basti blocks, as proof will be per POV not per
-  block. 
+  block.
 - on-initialize/on-finalize
 
 According to Basti constant overhead is low. We should be well below 10ms with
@@ -1611,7 +1620,7 @@ regards to execution time.
 
 Takeaways:
 
-- Batch merkelization \- work with changesets in between for better efficiency. 
+- Batch merkelization \- work with changesets in between for better efficiency.
 - They seem very much to rely on a centralized sequencer. E.g. the possibility
   that the current sequencer was not able to submit the block the the L1, is not
   even considered. Which is fine, if there is only one sequencer \- as it will
@@ -1636,7 +1645,7 @@ Takeaways:
    base \- if we have fast blocks, by the time the block is built there is no
    further MEV capability. There actually exists a related problem with block
    authors authoring multiple blocks in a slot: It might be beneficial to build
-   less blocks (delay) to maximise MEV. 
+   less blocks (delay) to maximise MEV.
 
 ## Raptor Cast & Turbine {#raptor-cast-&-turbine}
 
@@ -1662,7 +1671,7 @@ Takeaways:
 
 Preconfirmations are coming from L1 block proposers \- they commit to submitting
 an L2 bundle later. The first article is quite hand-wavy, lot’s of unanswered
-questions. Definitely a very complex system with hard to enforce guarantees. 
+questions. Definitely a very complex system with hard to enforce guarantees.
 
 The second article makes it immediately more clear how it works and what
 problems it solves. E.g. getting a confirmation from the L1 validator should
@@ -1670,13 +1679,13 @@ help with censorship resistance. The concept exploits that everything is
 Ethereum and everyone \- including validators understand Ethereum transactions.
 An L1/0 transaction level confirmation on Polkadot is definitely not that
 straight forward as parachains are heterogeneous and their transactions unknown
-to the validators. 
+to the validators.
 
 Is there a lot to be gained by getting the confirmation from the L1/0? I think
 in Ethereum’s case it makes sense for the following reasons:
 
 1. It could indeed help with censorship resistance, especially given centralized
-   rollup sequencers. 
+   rollup sequencers.
 2. They need a way to extract value out of the L2s into the L1.
 
 Major downsides:
