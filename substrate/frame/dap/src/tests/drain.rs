@@ -40,48 +40,7 @@ fn native_balance(account: &AccountId) -> u64 {
 }
 
 #[test]
-fn deposited_assets_are_drained() {
-	build_and_execute(true, || {
-		System::set_block_number(1);
-
-		create_asset(9);
-		create_asset(10);
-
-		let budget_allocations = budget_map(&[(b"buffer", 100)]);
-		let asset_allocations =
-			asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"validator_incentive", 10)])]);
-		assert_ok!(Dap::set_allocations(
-			RuntimeOrigin::root(),
-			Some(budget_allocations),
-			Some(asset_allocations.clone())
-		));
-
-		let staging = Dap::staging_account();
-		let buffer = Dap::buffer_account();
-
-		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(9), &staging, 50));
-		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));
-
-		assert_eq!(balance_of_asset(9, &buffer), 0);
-		assert_eq!(balance_of_asset(10, &buffer), 0);
-
-		Dap::on_idle(0, Weight::MAX);
-
-		assert_eq!(balance_of_asset(9, &buffer), 0);
-		assert_eq!(balance_of_asset(9, &staging), 50);
-
-		// Minimum balance on the asset is set to 1.
-		assert_eq!(balance_of_asset(10, &buffer), 100 - 1);
-		assert_eq!(balance_of_asset(10, &staging), 1);
-
-		System::assert_has_event(
-			Event::<Test>::StagingDrained { asset: NativeOrWithId::WithId(10), amount: 99 }.into(),
-		);
-	});
-}
-
-#[test]
-fn native_asset_is_also_drained() {
+fn native_asset_is_drained() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
@@ -101,52 +60,6 @@ fn native_asset_is_also_drained() {
 		assert_eq!(native_balance(&buffer), 1_000);
 		assert_eq!(native_balance(&staging), 0);
 
-		System::assert_has_event(
-			Event::<Test>::StagingDrained { amount: 1_000, asset: NativeOrWithId::Native }.into(),
-		);
-	});
-}
-
-#[test]
-fn on_idle_doesnt_fail_when_native_asset_is_in_asset_distribution_map() {
-	build_and_execute(true, || {
-		System::set_block_number(1);
-
-		create_asset(10);
-
-		let budget_allocations = budget_map(&[(b"buffer", 100)]);
-		let asset_allocations = asset_allocations(&[
-			(NativeOrWithId::Native, &[(b"validator_incentive", 10)]),
-			(NativeOrWithId::WithId(10), &[(b"validator_incentive", 10)]),
-		]);
-		assert_ok!(Dap::set_allocations(
-			RuntimeOrigin::root(),
-			Some(budget_allocations),
-			Some(asset_allocations)
-		));
-
-		let staging = Dap::staging_account();
-		let buffer = Dap::buffer_account();
-
-		assert_ok!(Balances::mint_into(&staging, 1_000));
-		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));
-
-		assert_eq!(balance_of_asset(10, &buffer), 0);
-		assert_eq!(native_balance(&buffer), 0);
-
-		Dap::on_idle(0, Weight::MAX);
-
-		assert_eq!(native_balance(&buffer), 1_000);
-		assert_eq!(native_balance(&staging), 0);
-		// Minimum balance on the asset is set to 1.
-		assert_eq!(balance_of_asset(10, &buffer), 100 - 1);
-		assert_eq!(balance_of_asset(10, &staging), 1);
-
-		System::assert_has_event(
-			Event::<Test>::StagingDrained { asset: NativeOrWithId::WithId(10), amount: 99 }.into(),
-		);
-		System::assert_has_event(
-			Event::<Test>::StagingDrained { asset: NativeOrWithId::Native, amount: 1_000 }.into(),
-		);
+		System::assert_has_event(Event::<Test>::StagingDrained { amount: 1_000 }.into());
 	});
 }

@@ -60,17 +60,6 @@ impl<T: frame_system::Config> pallet_dap::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn on_idle_base() -> Weight {
-		Weight::from_parts(10_498_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	fn on_idle_single_asset_drain() -> Weight {
-		Weight::from_parts(10_498_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	
 	fn drip_issuance(_n: u32) -> Weight {
 		Weight::from_parts(126_788_000, 0)
 			.saturating_add(Weight::from_parts(0, 8799))

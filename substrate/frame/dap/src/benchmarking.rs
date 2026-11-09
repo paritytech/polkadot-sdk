@@ -80,18 +80,13 @@ mod benchmarks {
 		allocations
 	}
 
-	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: BalanceOf<T>) {
-		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount));
+	fn mint_to_buffer<T: Config>(asset: AssetKindOf<T>, amount: BalanceOf<T>) {
+		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::buffer_account(), amount));
 	}
 
 	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
 		let re: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 		frame_system::Pallet::<T>::assert_has_event(re.into());
-	}
-
-	fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
-		let re: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
-		frame_system::Pallet::<T>::assert_last_event(re.into());
 	}
 
 	#[benchmark]
@@ -140,7 +135,7 @@ mod benchmarks {
 				.saturating_mul(cadence_as_balance.saturating_add(T::Balance::from(1u32)))
 				.saturating_mul(T::Balance::from(1_000_000_000u32));
 
-			mint_to_staging::<T>(i.clone(), to_mint);
+			mint_to_buffer::<T>(i.clone(), to_mint);
 		}
 
 		// Trigger transfer from staging to buffer.
@@ -173,61 +168,6 @@ mod benchmarks {
 				elapsed_millis,
 			});
 		}
-	}
-
-	#[benchmark]
-	fn on_idle_base() {
-		let allocations = create_full_asset_allocations::<T>();
-		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
-
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1u32.into());
-
-		#[block]
-		{
-			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
-		}
-
-		assert_last_event::<T>(Event::StagingDrained {
-			amount: T::Balance::one(),
-			asset: T::NativeCurrencyAssetId::get(),
-		});
-	}
-
-	#[benchmark]
-	fn on_idle_single_asset_drain() -> Result<(), BenchmarkError> {
-		let allocations = create_full_asset_allocations::<T>();
-		assert_ok!(Pallet::<T>::set_allocations(
-			RawOrigin::Root.into(),
-			None,
-			Some(allocations.clone())
-		));
-
-		// Can't create any assets.
-		if allocations.is_empty() {
-			return Err(BenchmarkError::Weightless);
-		}
-
-		let asset = allocations.keys().next().expect("Checked to be non-empty");
-
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1u32.into());
-		mint_to_staging::<T>(asset.clone(), 100u32.into());
-
-		#[block]
-		{
-			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
-		}
-
-		assert_has_event::<T>(Event::StagingDrained {
-			amount: T::Balance::from(99u32),
-			asset: asset.clone(),
-		});
-
-		assert_has_event::<T>(Event::StagingDrained {
-			amount: T::Balance::one(),
-			asset: T::NativeCurrencyAssetId::get(),
-		});
-
-		Ok(())
 	}
 
 	// Implements a test for each benchmark. Execute with:
