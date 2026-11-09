@@ -43,8 +43,11 @@ pub(crate) trait SubstrateSystem<C> {
 #[rpc(client, client_bounds(C: Chain), namespace = "chain")]
 pub(crate) trait SubstrateChain<C> {
 	/// Get block hash by its number.
+	///
+	/// `None` is a valid answer: a light client cannot verify a number-to-hash mapping served by
+	/// a peer, so it only answers for block zero.
 	#[method(name = "getBlockHash")]
-	async fn block_hash(&self, block_number: Option<C::BlockNumber>) -> RpcResult<C::Hash>;
+	async fn block_hash(&self, block_number: Option<C::BlockNumber>) -> RpcResult<Option<C::Hash>>;
 	/// Return block header by its hash.
 	#[method(name = "getHeader")]
 	async fn header(&self, block_hash: Option<C::Hash>) -> RpcResult<C::Header>;
