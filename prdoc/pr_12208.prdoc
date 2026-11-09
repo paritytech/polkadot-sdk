@@ -6,8 +6,8 @@ doc:
       Removes the `ExtBuilder::try_state(false)` builder method and the
       `SkipTryStateCheck` parameter from the `pallet-staking-async` mock runtime.
       `Staking::do_try_state` now runs unconditionally after every test in
-      `build_and_execute`, so tests can no longer silently leave broken staking
-      state behind.
+      `build_and_execute`, so a test can no longer opt out of the post-test
+      invariant check.
 
       Tests that intentionally corrupt storage to assert `do_try_state` returns
       an error must now restore the state before the closure exits. A shared
@@ -16,10 +16,11 @@ doc:
 
       Additionally, the `LastValidatorEra` consistency check in
       `check_paged_exposures` is promoted from a log-only warning to a hard
-      `ensure!`. It already tolerated the legitimate transient state
-      (`active_era + 1` while the next era's election result is stored), so
-      the promotion changes try-state strictness only. No production runtime
-      behavior is affected.
+      `ensure!`. For each validator in the active era's exposures, the entry
+      must be the active era, the active era + 1 (the next era's election
+      result is stored), or absent (stash reaped or force-unstaked mid-era).
+      This changes try-state strictness only. No production runtime behavior
+      is affected.
 
 crates:
   - name: pallet-staking-async
