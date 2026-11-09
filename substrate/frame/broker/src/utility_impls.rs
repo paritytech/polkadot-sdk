@@ -139,7 +139,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Remove a region from on-demand pool contributions. Useful in cases where it was pooled
-	// provisionally and it is being redispatched (partition/interlace/assign).
+	// provisionally and it is being redispatched (partition/interlace). The whole contribution is
+	// removed, including any timeslices which have already elapsed.
 	//
 	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
 	// read. No-op for regions which have not been pooled.
@@ -170,5 +171,26 @@ impl<T: Config> Pallet<T> {
 
 			Self::deposit_event(Event::<T>::RegionUnpooled { region_id, when: unpooled_at });
 		};
+	}
+
+	// Unpool a provisionally pooled region which `utilize` moved from `original_region_id` to
+	// `region_id`. The timeslices which have already elapsed were counted in the pool, so that
+	// part of the contribution is kept under the original id, where it can be claimed.
+	pub(crate) fn unpool_utilized_region(
+		original_region_id: RegionId,
+		region_id: RegionId,
+		region: &RegionRecordOf<T>,
+		status: &StatusRecord,
+	) {
+		let Some(contribution) = InstaPoolContribution::<T>::get(original_region_id) else {
+			return;
+		};
+		Self::force_unpool_region(original_region_id, region, status);
+
+		let length = region_id.begin.saturating_sub(original_region_id.begin);
+		if length > 0 {
+			let record = ContributionRecord { length, payee: contribution.payee };
+			InstaPoolContribution::<T>::insert(original_region_id, record);
+		}
 	}
 }

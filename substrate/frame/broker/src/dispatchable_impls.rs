@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
 			// get this far then it is still in `Regions` and thus could only have been pooled
 			// provisionally. The contribution is keyed by the original id, as `utilize` moves the
 			// begin forward once the region has started.
-			Self::force_unpool_region(original_region_id, &region, &status);
+			Self::unpool_utilized_region(original_region_id, region_id, &region, &status);
 
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
 			// Remove this region from the pool in case it has been pooled provisionally, so that
 			// pooling it again does not count it twice. The contribution is keyed by the original
 			// id, as `utilize` moves the begin forward once the region has started.
-			Self::force_unpool_region(original_region_id, &region, &status);
+			Self::unpool_utilized_region(original_region_id, region_id, &region, &status);
 
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
@@ -436,7 +436,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
 		let first = region.begin;
 		let mut contribution =
-			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
+			InstaPoolContribution::<T>::get(region).ok_or(Error::<T>::UnknownContribution)?;
+		// A claim moves the contribution to a later `begin`, while the provisional region keeps
+		// its id. Unpooling it would then miss the contribution and count the region twice.
+		ensure!(!Regions::<T>::contains_key(region), Error::<T>::StillProvisional);
+		InstaPoolContribution::<T>::remove(region);
 		let contributed_parts = region.mask.count_ones();
 
 		Self::deposit_event(Event::RevenueClaimBegun { region, max_timeslices });

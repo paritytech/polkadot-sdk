@@ -604,6 +604,8 @@ pub mod pallet {
 		TaskNotInWorkload,
 		/// Attempted to enable auto-renewal for a core that already has it enabled.
 		AutoRenewalAlreadyEnabled,
+		/// The Region is still pooled provisionally, so its revenue cannot be claimed yet.
+		StillProvisional,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -841,6 +843,8 @@ pub mod pallet {
 		///   will be required with the same `region_id` to claim revenue for the remainder.
 		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
 		///   reported; the remainder can be claimed once it has been.
+		///
+		/// Revenue cannot be claimed while the Region is still pooled provisionally.
 		///
 		/// The fee is waived only if at least one timeslice was processed, and the weight of the
 		/// timeslices that were not processed is refunded.
