@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794242094062,
+  "lastUpdate": 1794249247634,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8bdf835e260de3f6a72a7e5a84b41b807771b7cd",
-          "message": "ci: use GH App token for zombienet artifact downloads (#11831)\n\n## Summary\n            \nZombienet matrix CI tests fail with `API rate limit exceeded for\ninstallation` because\nall matrix jobs download artifacts concurrently via `GITHUB_TOKEN`.\nThis PR uses the dedicated `ARTIFACTS_DOWNLOADER` GitHub App to generate\ninstallation\ntokens with a separate rate limit pool. For fork PRs (external\ncontributors),\norg secrets are unavailable so the action automatically falls back to\n`GITHUB_TOKEN`.\n\n## Changes\n- `zombienet-sdk` action: add optional `app-id`/`app-private-key`\ninputs, generate App\ntoken when provided, pass effective token to all downstream download\nactions\n- All 4 zombienet workflows (`substrate`, `polkadot`, `cumulus`,\n`parachain-template`):\ndeclare and pass `ARTIFACTS_DOWNLOADER` secrets to the zombienet-sdk\naction\n- `zombienet_cumulus.yml`: handle standalone `download-artifact-extract`\ncall with App token\n- `build-publish-images.yml`: explicit `secrets:` mapping (not `secrets:\ninherit`) in all 4 `trigger-zombienet-*` jobs\n\n## Security\n- No `secrets: inherit` only the two required secrets are explicitly\nmapped\n- App token generated as step output, never written to `$GITHUB_ENV`\n- Fork PRs: secrets are empty → automatic fallback to `GITHUB_TOKEN`",
-          "timestamp": "2026-04-21T13:26:57Z",
-          "tree_id": "ff769d35af5cdbd0d97fe08b98f14d1f10ccd83d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8bdf835e260de3f6a72a7e5a84b41b807771b7cd"
-        },
-        "date": 1776783276328,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009397212169999971,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027097014300000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01031320265,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010519514739999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "126017c64858e318e800838deabdc79fe2232880",
+          "message": "AHMv2 HRMP: part2: impl async provider (#13548)\n\nImplement the HRMP para and HRMP relay pallets. HRMP relay forwards the\ndeposit request and answer and HRMP para applies the requests and\nanswers back.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T16:44:33Z",
+          "tree_id": "f3197e4d6474d0e9d078fa62be9abfcadafcf3ff",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/126017c64858e318e800838deabdc79fe2232880"
+        },
+        "date": 1794249212709,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010120331509999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026888995900000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009545162099999989,
             "unit": "seconds"
           }
         ]
