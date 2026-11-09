@@ -229,6 +229,14 @@ pub mod pallet {
 		InvalidAsset,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call(weight(T::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::call_index(0)]
@@ -265,6 +273,67 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_mappings_are_consistent()?;
+		Self::try_state_derivative_extra_consistent()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every entry in `OriginalToDerivative` must have a corresponding reverse entry in
+	///   `DerivativeToOriginal` pointing back to the same original.
+	/// * Every entry in `DerivativeToOriginal` must have a corresponding forward entry in
+	///   `OriginalToDerivative` pointing back to the same derivative.
+	/// * The number of entries in `OriginalToDerivative` must equal the number of entries in
+	///   `DerivativeToOriginal`.
+	fn try_state_mappings_are_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (original, derivative) in OriginalToDerivative::<T, I>::iter() {
+			ensure!(
+				DerivativeToOriginal::<T, I>::get(&derivative).as_ref() == Some(&original),
+				"`OriginalToDerivative` entry has no matching reverse in `DerivativeToOriginal`"
+			);
+		}
+
+		for (derivative, original) in DerivativeToOriginal::<T, I>::iter() {
+			ensure!(
+				OriginalToDerivative::<T, I>::get(&original).as_ref() == Some(&derivative),
+				"`DerivativeToOriginal` entry has no matching forward in `OriginalToDerivative`"
+			);
+		}
+
+		let forward_count = OriginalToDerivative::<T, I>::iter().count();
+		let reverse_count = DerivativeToOriginal::<T, I>::iter().count();
+		ensure!(
+			forward_count == reverse_count,
+			"Number of entries in `OriginalToDerivative` must equal `DerivativeToOriginal`"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every key in `DerivativeExtra` must correspond to a registered derivative in
+	///   `DerivativeToOriginal`.
+	fn try_state_derivative_extra_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
+		for derivative in DerivativeExtra::<T, I>::iter_keys() {
+			ensure!(
+				DerivativeToOriginal::<T, I>::contains_key(&derivative),
+				"`DerivativeExtra` has an entry for an unregistered derivative"
+			);
+		}
+
+		Ok(())
 	}
 }
 
