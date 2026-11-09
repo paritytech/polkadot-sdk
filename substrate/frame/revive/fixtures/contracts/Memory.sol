@@ -100,12 +100,4 @@ contract Memory {
             return(0, len)
         }
     }
-
-    /// Copies `len` bytes of call data into the first KiB of memory, which is already expanded.
-    function calldatacopyWithoutGrowth(uint256 len) public pure {
-        assembly {
-            mstore(0x3e0, 0)
-            calldatacopy(0, 0, len)
-        }
-    }
 }

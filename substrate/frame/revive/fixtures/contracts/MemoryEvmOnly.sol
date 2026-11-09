@@ -37,30 +37,4 @@ contract MemoryEvmOnly {
             return(0, 64)
         }
     }
-
-    // The loops below differ only in the zero-length copy they repeat `n` times.
-
-    function zeroLengthCalldatacopies(uint256 n) public pure {
-        assembly {
-            for { let i := 0 } lt(i, n) { i := add(i, 1) } { calldatacopy(0, 0, 0) }
-        }
-    }
-
-    function zeroLengthCodecopies(uint256 n) public pure {
-        assembly {
-            for { let i := 0 } lt(i, n) { i := add(i, 1) } { codecopy(0, 0, 0) }
-        }
-    }
-
-    function zeroLengthReturndatacopies(uint256 n) public pure {
-        assembly {
-            for { let i := 0 } lt(i, n) { i := add(i, 1) } { returndatacopy(0, 0, 0) }
-        }
-    }
-
-    function zeroLengthMcopies(uint256 n) public pure {
-        assembly {
-            for { let i := 0 } lt(i, n) { i := add(i, 1) } { mcopy(0, 0, 0) }
-        }
-    }
 }
