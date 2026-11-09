@@ -1,0 +1,12 @@
+title: 'asset-conversion: benchmark AHW with trust-backed pairs'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The Asset Hub Westend `pallet_asset_conversion` benchmarks only used foreign asset pairs, so
+    they never measured the `AssetsHolder` read made for trust-backed assets. Adds
+    `TrustBackedAssetPairFactory` to `assets-common` and uses it for Asset Hub Westend.
+crates:
+- name: assets-common
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

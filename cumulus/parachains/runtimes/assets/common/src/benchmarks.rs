@@ -80,3 +80,28 @@ where
 		}
 	}
 }
+
+/// Creates pools of `Target` and an asset of the local trust-backed pallet at index `PalletId`.
+///
+/// Use this over [`AssetPairFactory`], whose locations resolve to foreign assets, when the
+/// trust-backed instance reads more storage per balance check, e.g. because it has a holder.
+pub struct TrustBackedAssetPairFactory<Target, PalletId, L = Location>(
+	PhantomData<(Target, PalletId, L)>,
+);
+impl<Target: Get<L>, PalletId: Get<u32>, L: TryFrom<Location> + Debug>
+	pallet_asset_conversion::BenchmarkHelper<L> for TrustBackedAssetPairFactory<Target, PalletId, L>
+where
+	<L as TryFrom<Location>>::Error: Debug,
+{
+	fn create_pair(seed1: u32, seed2: u32) -> (L, L) {
+		let asset =
+			Location::new(0, [PalletInstance(PalletId::get() as u8), GeneralIndex(seed2.into())])
+				.try_into()
+				.expect("a two junction location converts to any supported version; qed");
+		if seed1.is_multiple_of(2) {
+			(asset, Target::get())
+		} else {
+			(Target::get(), asset)
+		}
+	}
+}
