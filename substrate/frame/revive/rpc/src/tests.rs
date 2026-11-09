@@ -22,6 +22,7 @@ use crate::{
 	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
 	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
 	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	block_sync::GapFillRetry,
 	cli::{self, CliCommand},
 	client::{
 		Client, GapFillRequest, SubscriptionGapQueue, SubscriptionType, connect,
@@ -3828,8 +3829,11 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// Spawn the subscription gap filler, then queue the fill request.
 	let bg_client = sync_client.clone();
-	let subscription_gap_queue_handle =
-		tokio::spawn(async move { bg_client.run_subscription_gap_filler(gap_fill_rx).await });
+	let subscription_gap_queue_handle = tokio::spawn(async move {
+		bg_client
+			.run_subscription_gap_filler(gap_fill_rx, GapFillRetry::default())
+			.await
+	});
 
 	assert!(!sync_client.subscription_gap_queue().has_pending());
 	sync_client
@@ -3863,27 +3867,53 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	Ok(())
 }
 
-/// A gap fill that keeps failing must stay pending, so the sync head cannot advance over
-/// blocks that were never indexed.
+/// A gap fill that keeps failing stays pending after its retries, so the sync head cannot
+/// advance over blocks that were never indexed, while the filler goes on to later requests.
 async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<()> {
-	let (sync_client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	submit_evm_transfers(1).await?;
+
+	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	sync_client.sync_backward().await?;
+	let head = sync_client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head is set after sync")
+		.block_number;
 	let queue = sync_client.subscription_gap_queue();
 
-	// Blocks above the chain tip do not exist, so every attempt fails.
+	// Blocks above the chain tip do not exist, so every attempt on the first request fails.
 	let tip = sync_client.api().at_current_block().await?.block_number();
-	let last = tip + 1_000;
-	let current = last + 3;
-	queue.detect_and_queue(current, last);
-	assert!(queue.has_pending());
+	queue.queue(tip + 1_002, tip + 1_001);
 
-	sync_client
-		.fill_subscription_gap(
-			GapFillRequest { from_inclusive: current - 1, to_inclusive: last + 1, from_hash: None },
-			2,
-			tokio::time::Duration::ZERO,
-		)
-		.await;
+	// The second request covers real blocks the test database does not hold yet.
+	submit_evm_transfers(2).await?;
+	let new_finalized = sync_client.api().at_current_block().await?.block_number();
+	let gap_block = sync_client
+		.block_provider()
+		.block_by_number(head + 1)
+		.await?
+		.expect("block exists on chain");
+	queue.detect_and_queue(new_finalized, head);
 
+	let bg_client = sync_client.clone();
+	let _filler = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.run_subscription_gap_filler(
+				gap_fill_rx,
+				GapFillRetry { max_attempts: 2, backoff: tokio::time::Duration::ZERO },
+			)
+			.await
+	}));
+
+	wait_until("the second gap fill to index its blocks", || async {
+		sync_client
+			.receipt_provider()
+			.get_ethereum_hash(&gap_block.block_hash())
+			.await
+			.is_some()
+	})
+	.await?;
 	assert!(queue.has_pending(), "failed gap fill must keep the sync head from advancing");
 
 	Ok(())

@@ -79,11 +79,19 @@ impl SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
 
-/// Attempts per subscription gap fill before the request is left pending.
-const GAP_FILL_MAX_ATTEMPTS: u32 = 5;
+/// Retry schedule of one subscription gap fill.
+pub struct GapFillRetry {
+	/// Attempts before the request is left pending.
+	pub max_attempts: u32,
+	/// Delay before the first retry, doubled for each further retry.
+	pub backoff: Duration,
+}
 
-/// Delay before the first gap-fill retry, doubled for each further retry.
-const GAP_FILL_BACKOFF: Duration = Duration::from_secs(2);
+impl Default for GapFillRetry {
+	fn default() -> Self {
+		Self { max_attempts: 5, backoff: Duration::from_secs(2) }
+	}
+}
 
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange {
@@ -430,12 +438,15 @@ impl Client {
 	}
 
 	/// Run the background subscription gap filler, processing requests sequentially.
-	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
+	pub(crate) async fn run_subscription_gap_filler(
+		&self,
+		mut rx: mpsc::Receiver<GapFillRequest>,
+		retry: GapFillRetry,
+	) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
 		while let Some(request) = rx.recv().await {
-			self.fill_subscription_gap(request, GAP_FILL_MAX_ATTEMPTS, GAP_FILL_BACKOFF)
-				.await;
+			self.fill_subscription_gap(request, &retry).await;
 		}
 
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler stopped");
@@ -445,19 +456,19 @@ impl Client {
 	///
 	/// The request is marked done once a backward sync of the range returns without error,
 	/// which includes stopping early at a block without an EVM hash. A range that still fails
-	/// after `max_attempts` stays pending, which keeps [`Client::advance_sync_head`] from
-	/// moving the `Head` label over the missing blocks. In archive mode the next restart's
-	/// backward sync fills them, provided the cause has cleared; otherwise that sync stops at
-	/// the same block and the label stays where it is.
-	pub(crate) async fn fill_subscription_gap(
+	/// after `retry.max_attempts` stays pending, which keeps [`Client::advance_sync_head`]
+	/// from moving the `Head` label over the missing blocks. In archive mode the next
+	/// restart's backward sync fills them, provided the cause has cleared; otherwise that sync
+	/// stops at the same block and the label stays where it is.
+	async fn fill_subscription_gap(
 		&self,
 		GapFillRequest { from_inclusive, to_inclusive, from_hash }: GapFillRequest,
-		max_attempts: u32,
-		backoff: Duration,
+		retry: &GapFillRetry,
 	) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
 
-		let result = retry_with_backoff(max_attempts, backoff, |attempt| async move {
+		let max_attempts = retry.max_attempts;
+		let result = retry_with_backoff(max_attempts, retry.backoff, |attempt| async move {
 			self.sync_backward_range(BackwardSyncRange {
 				from: from_inclusive,
 				to: to_inclusive,
