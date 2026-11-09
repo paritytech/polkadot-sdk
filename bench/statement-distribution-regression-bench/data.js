@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794217615865,
+  "lastUpdate": 1794242046454,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8bdf835e260de3f6a72a7e5a84b41b807771b7cd",
-          "message": "ci: use GH App token for zombienet artifact downloads (#11831)\n\n## Summary\n            \nZombienet matrix CI tests fail with `API rate limit exceeded for\ninstallation` because\nall matrix jobs download artifacts concurrently via `GITHUB_TOKEN`.\nThis PR uses the dedicated `ARTIFACTS_DOWNLOADER` GitHub App to generate\ninstallation\ntokens with a separate rate limit pool. For fork PRs (external\ncontributors),\norg secrets are unavailable so the action automatically falls back to\n`GITHUB_TOKEN`.\n\n## Changes\n- `zombienet-sdk` action: add optional `app-id`/`app-private-key`\ninputs, generate App\ntoken when provided, pass effective token to all downstream download\nactions\n- All 4 zombienet workflows (`substrate`, `polkadot`, `cumulus`,\n`parachain-template`):\ndeclare and pass `ARTIFACTS_DOWNLOADER` secrets to the zombienet-sdk\naction\n- `zombienet_cumulus.yml`: handle standalone `download-artifact-extract`\ncall with App token\n- `build-publish-images.yml`: explicit `secrets:` mapping (not `secrets:\ninherit`) in all 4 `trigger-zombienet-*` jobs\n\n## Security\n- No `secrets: inherit` only the two required secrets are explicitly\nmapped\n- App token generated as step output, never written to `$GITHUB_ENV`\n- Fork PRs: secrets are empty → automatic fallback to `GITHUB_TOKEN`",
-          "timestamp": "2026-04-21T13:26:57Z",
-          "tree_id": "ff769d35af5cdbd0d97fe08b98f14d1f10ccd83d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8bdf835e260de3f6a72a7e5a84b41b807771b7cd"
-        },
-        "date": 1776783245515,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.026,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037822035395999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0788401636139999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03907134378200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "82dd732b0659dbb594de8262646dac6ed94f7e66",
+          "message": "build(deps): bump wasmtime from 36.0.14 to 36.0.19 (#13568)\n\nBumps [wasmtime](https://github.com/bytecodealliance/wasmtime) from\n36.0.14 to 36.0.19.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/releases\">wasmtime's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v36.0.19</h2>\n<h2>36.0.19</h2>\n<p>Released 2026-10-19.</p>\n<h3>Fixed</h3>\n<ul>\n<li>wasi-http: Guests can add conflicting content lengths to messages\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-r8xh-cgf7-392j\">GHSA-r8xh-cgf7-392j</a></li>\n<li>Cranelift backend on aarch64 can jump to incorrect target on large\nWasm <code>br_table</code> instruction\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-mghf-wjfp-p5xm\">GHSA-mghf-wjfp-p5xm</a></li>\n<li>Bit-packing in Cranelift compiler causes silent overflow and\nmiscompilation\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-897f-g5gm-fmxm\">GHSA-897f-g5gm-fmxm</a></li>\n</ul>\n<h2>v36.0.18</h2>\n<h2>36.0.18</h2>\n<p>Released 2026-10-14.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>Component-model handle tables are capped only per instance and\ncharged to no limit.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-q554-3cjc-rx7p\">GHSA-q554-3cjc-rx7p</a></p>\n</li>\n<li>\n<p>Filesystem sandbox escape when renaming symlinks with trailing\nslashes.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-m9f7-9w4p-gv38\">GHSA-m9f7-9w4p-gv38</a></p>\n</li>\n<li>\n<p>Guests can send absolute-form HTTP requests to different hosts.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-5qpp-g3j2-8frx\">GHSA-5qpp-g3j2-8frx</a></p>\n</li>\n</ul>\n<h2>v36.0.17</h2>\n<h2>36.0.17</h2>\n<p>Released 2026-10-02.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>WASI preview 0 implementation of <code>poll_oneoff</code> circumvents\nfuel consumption.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j366-h8gg-77pm\">GHSA-j366-h8gg-77pm</a></p>\n</li>\n<li>\n<p>Excessive allocated memory on the host when guests don't have stdio.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-gqmc-89g8-p25r\">GHSA-gqmc-89g8-p25r</a></p>\n</li>\n<li>\n<p><code>fd_readdir</code> copies uninitialized struct padding into\nguest memory.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-96f6-r43r-8c24\">GHSA-96f6-r43r-8c24</a></p>\n</li>\n</ul>\n<h2>v36.0.16</h2>\n<h2>36.0.16</h2>\n<p>Released 2026-09-24.</p>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/blob/v36.0.19/RELEASES.md\">wasmtime's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>36.0.19</h2>\n<p>Released 2026-10-19.</p>\n<h3>Fixed</h3>\n<ul>\n<li>wasi-http: Guests can add conflicting content lengths to messages\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-r8xh-cgf7-392j\">GHSA-r8xh-cgf7-392j</a></li>\n<li>Cranelift backend on aarch64 can jump to incorrect target on large\nWasm <code>br_table</code> instruction\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-mghf-wjfp-p5xm\">GHSA-mghf-wjfp-p5xm</a></li>\n<li>Bit-packing in Cranelift compiler causes silent overflow and\nmiscompilation\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-897f-g5gm-fmxm\">GHSA-897f-g5gm-fmxm</a></li>\n</ul>\n<hr />\n<h2>36.0.18</h2>\n<p>Released 2026-10-14.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>Component-model handle tables are capped only per instance and\ncharged to no limit.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-q554-3cjc-rx7p\">GHSA-q554-3cjc-rx7p</a></p>\n</li>\n<li>\n<p>Filesystem sandbox escape when renaming symlinks with trailing\nslashes.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-m9f7-9w4p-gv38\">GHSA-m9f7-9w4p-gv38</a></p>\n</li>\n<li>\n<p>Guests can send absolute-form HTTP requests to different hosts.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-5qpp-g3j2-8frx\">GHSA-5qpp-g3j2-8frx</a></p>\n</li>\n</ul>\n<hr />\n<h2>36.0.17</h2>\n<p>Released 2026-10-02.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>WASI preview 0 implementation of <code>poll_oneoff</code> circumvents\nfuel consumption.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j366-h8gg-77pm\">GHSA-j366-h8gg-77pm</a></p>\n</li>\n<li>\n<p>Excessive allocated memory on the host when guests don't have stdio.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-gqmc-89g8-p25r\">GHSA-gqmc-89g8-p25r</a></p>\n</li>\n<li>\n<p><code>fd_readdir</code> copies uninitialized struct padding into\nguest memory.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-96f6-r43r-8c24\">GHSA-96f6-r43r-8c24</a></p>\n</li>\n</ul>\n<hr />\n<h2>36.0.16</h2>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/0d6b8ead4e94b0ce76f925611b831b56570aef94\"><code>0d6b8ea</code></a>\nRelease Wasmtime 36.0.19 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14815\">#14815</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/f517bd6e890c7c1291ab9fe05d8cc0c9f11e56aa\"><code>f517bd6</code></a>\nSecurity fixes for release 36.0.19 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14818\">#14818</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/c90f2dd4b712703c52e834c08f42e882ee278ba5\"><code>c90f2dd</code></a>\nRelease Wasmtime 36.0.18 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14724\">#14724</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/b9fb444e797f0ae56af04c60b755c569f3088090\"><code>b9fb444</code></a>\n[36.0.x] Combined backports for today's security release (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14719\">#14719</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/6af7d8627023282e7404fdd7f080e517ed1d92db\"><code>6af7d86</code></a>\nUpdate logic for finding the run for a release (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14494\">#14494</a>)\n(<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14500\">#14500</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5cbcb3944d300349cdb1d9da268dc142d8227ff4\"><code>5cbcb39</code></a>\nRelease Wasmtime 36.0.17 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14472\">#14472</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/9c67625348747df5568825503d723a5c3f438319\"><code>9c67625</code></a>\n[36.0.x] Combined fixes/backports (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14470\">#14470</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5cd4bf51aad8ae193823d35a05bfa97dd8dc3f11\"><code>5cd4bf5</code></a>\nRelease Wasmtime 36.0.16 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14402\">#14402</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/5e047946d6056659cbe1f42f8299308d9ffcddfb\"><code>5e04794</code></a>\nFix three vulnerabilities in Wasmtime v36. (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14404\">#14404</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/bd5bdfb1d573842a4c6340573b49e626ab1a0308\"><code>bd5bdfb</code></a>\nFix release notes (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/14311\">#14311</a>)</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/bytecodealliance/wasmtime/compare/v36.0.14...v36.0.19\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=wasmtime&package-manager=cargo&previous-version=36.0.14&new-version=36.0.19)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T14:41:49Z",
+          "tree_id": "c2c9634aee5419915d510deb08741b57763e3ff8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/82dd732b0659dbb594de8262646dac6ed94f7e66"
+        },
+        "date": 1794242011277,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038633824686,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08602215660999994,
             "unit": "seconds"
           }
         ]
