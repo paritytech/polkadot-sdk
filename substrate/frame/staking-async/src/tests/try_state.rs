@@ -77,7 +77,7 @@ fn try_state_bad_exposure() {
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 
 		let (validator, original) = ErasStakersOverview::<T>::iter_prefix(2).next().unwrap();
-		let mut metadata = original.clone();
+		let mut metadata = original;
 		metadata.total += 1;
 		ErasStakersOverview::<T>::insert(2, validator, metadata);
 		assert_eq!(
@@ -117,6 +117,9 @@ fn last_validator_era_can_be_one_greater_than_active_era() {
 		for (validator, _) in ErasStakersOverview::<T>::iter_prefix(era) {
 			assert_eq!(LastValidatorEra::<T>::get(&validator), Some(era + 1));
 		}
+
+		// try-state accepts `active_era + 1` once the next era's exposure is stored.
+		assert_ok!(Staking::do_try_state(System::block_number()));
 	});
 }
 
@@ -161,6 +164,13 @@ fn last_validator_era_absent_after_force_unstake_is_valid() {
 		assert!(LastValidatorEra::<T>::get(&validator).is_none());
 		assert!(ErasStakersOverview::<T>::get(era, &validator).is_some());
 		assert_ok!(Staking::do_try_state(System::block_number()));
+
+		// Bonding again in the same era leaves a bonded, exposed stash with no entry: try-state
+		// only warns.
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(validator), 500, RewardDestination::Staked));
+		assert!(Bonded::<T>::contains_key(&validator));
+		assert!(LastValidatorEra::<T>::get(&validator).is_none());
+		assert_ok!(Staking::do_try_state(System::block_number()));
 	});
 }
 
@@ -170,7 +180,10 @@ fn try_state_bad_eras_total_stake() {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 		ErasTotalStake::<T>::mutate(2, |s| *s -= 1);
-		assert!(Staking::do_try_state(System::block_number()).is_err());
+		assert_eq!(
+			Staking::do_try_state(System::block_number()),
+			Err(sp_runtime::DispatchError::Other("found bad eras total stake"))
+		);
 
 		// Restore valid state so build_and_execute post-check passes.
 		ErasTotalStake::<T>::mutate(2, |s| *s += 1);

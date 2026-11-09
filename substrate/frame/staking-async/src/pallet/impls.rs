@@ -2386,7 +2386,8 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
-	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` must be the active era, or
+	/// For each validator in the active era's `ErasStakersOverview`, `LastValidatorEra` must be the
+	/// active era, or
 	/// the active era + 1 once the validator's exposure for the next era has been stored. A
 	/// validator that was reaped or force-unstaked mid-era keeps its historical exposure but has
 	/// no `LastValidatorEra` entry anymore, which is also valid (a warning is logged if it is
@@ -2399,7 +2400,8 @@ impl<T: Config> Pallet<T> {
 		for (validator, metadata) in ErasStakersOverview::<T>::iter_prefix(era) {
 			match LastValidatorEra::<T>::get(&validator) {
 				Some(last) if last == era => {},
-				// The election for the next era has finished and elected this validator again.
+				// The next era's election has stored an exposure for this validator (possibly while
+				// later pages are still pending), which also set `LastValidatorEra` to `era + 1`.
 				Some(last)
 					if last == era + 1 &&
 						ErasStakersOverview::<T>::contains_key(era + 1, &validator) => {},
@@ -2431,11 +2433,6 @@ impl<T: Config> Pallet<T> {
 				.collect::<Vec<_>>();
 			overview_and_pages.push((metadata, pages));
 		}
-
-		ensure!(
-			bad_last_validator_era == 0,
-			"LastValidatorEra must be the active era, or the next era with a stored exposure"
-		);
 
 		ensure!(
 			overview_and_pages.iter().flat_map(|(_m, pages)| pages).all(|page| {
@@ -2472,6 +2469,11 @@ impl<T: Config> Pallet<T> {
 				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x) ==
 				ErasTotalStake::<T>::get(era),
 			"found bad eras total stake"
+		);
+
+		ensure!(
+			bad_last_validator_era == 0,
+			"LastValidatorEra must be the active era, or the next era with a stored exposure"
 		);
 
 		Ok(())
