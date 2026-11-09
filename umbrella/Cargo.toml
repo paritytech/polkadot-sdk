@@ -35,6 +35,7 @@ std = [
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
 	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-spec-messaging?/std",
 	"cumulus-primitives-storage-weight-reclaim?/std",
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
@@ -151,6 +152,7 @@ std = [
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
+	"pallet-staking-async-points-converter?/std",
 	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-async-runtime-api?/std",
 	"pallet-staking-async?/std",
@@ -350,6 +352,7 @@ runtime-benchmarks = [
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
+	"pallet-staking-async-points-converter?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
 	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
@@ -503,6 +506,7 @@ try-runtime = [
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
+	"pallet-staking-async-points-converter?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
 	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
@@ -613,6 +617,7 @@ runtime-full = [
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
 	"cumulus-primitives-proof-size-hostfunction",
+	"cumulus-primitives-spec-messaging",
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
@@ -735,6 +740,7 @@ runtime-full = [
 	"pallet-staking",
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
+	"pallet-staking-async-points-converter",
 	"pallet-staking-async-rc-client",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
@@ -1201,6 +1207,11 @@ path = "../cumulus/primitives/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/primitives/proof-size-hostfunction"
+
+[dependencies.cumulus-primitives-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/primitives/spec-messaging"
 
 [dependencies.cumulus-primitives-storage-weight-reclaim]
 default-features = false
@@ -1811,6 +1822,11 @@ path = "../substrate/frame/staking-async"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/ah-client"
+
+[dependencies.pallet-staking-async-points-converter]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/points-converter"
 
 [dependencies.pallet-staking-async-rc-client]
 default-features = false
