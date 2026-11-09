@@ -49,6 +49,8 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
 use frame::{
 	deps::{sp_core::OpaquePeerId as PeerId, sp_io},
 	prelude::*,
@@ -172,6 +174,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		/// Set reserved node every block. It may not be enabled depends on the offchain
 		/// worker settings when starting the node.
 		fn offchain_worker(now: BlockNumberFor<T>) {
@@ -468,5 +475,61 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Vec::from_iter(nodes)
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		Self::try_state_well_known_nodes_are_owned()?;
+		Self::try_state_additional_connections_are_owned()?;
+		Self::try_state_well_known_nodes_limit()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every well known node must have an owner. A well known node is only ever added together
+	///   with its owner, and a claim cannot be removed while the node is well known, so an unowned
+	///   well known node could never be managed by anyone.
+	fn try_state_well_known_nodes_are_owned() -> Result<(), TryRuntimeError> {
+		for node in WellKnownNodes::<T>::get() {
+			ensure!(Owners::<T>::contains_key(&node), "a well known node must have an owner");
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Only the owner of a node may change its additional connections, so a node with connections
+	///   recorded against it must be owned. The connections are removed alongside the ownership,
+	///   whether the claim is dropped or the well known node is removed.
+	fn try_state_additional_connections_are_owned() -> Result<(), TryRuntimeError> {
+		for (node, _) in AdditionalConnections::<T>::iter() {
+			ensure!(
+				Owners::<T>::contains_key(&node),
+				"a node with additional connections must have an owner"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The set of well known nodes must not grow past `MaxWellKnownNodes`, which is the bound
+	///   both `add_well_known_node` and `reset_well_known_nodes` enforce.
+	fn try_state_well_known_nodes_limit() -> Result<(), TryRuntimeError> {
+		ensure!(
+			WellKnownNodes::<T>::get().len() as u32 <= T::MaxWellKnownNodes::get(),
+			"the number of well known nodes must not exceed `MaxWellKnownNodes`"
+		);
+
+		Ok(())
 	}
 }
