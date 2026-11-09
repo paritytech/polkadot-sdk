@@ -82,6 +82,7 @@ revive-dev-runtime = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 subxt-rpcs = { workspace = true, features = ["mock-rpc-client"] }
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 
 [build-dependencies]
 git2 = { workspace = true }

@@ -22,6 +22,7 @@ use crate::{
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -77,6 +78,12 @@ impl SyncCheckpoint {
 
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
+
+/// Attempts per subscription gap fill before the request is left pending.
+const GAP_FILL_MAX_ATTEMPTS: u32 = 5;
+
+/// Delay before the first gap-fill retry, doubled for each further retry.
+const GAP_FILL_BACKOFF: Duration = Duration::from_secs(2);
 
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange {
@@ -419,27 +426,136 @@ impl Client {
 	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
-		while let Some(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
-			if let Err(err) = self
-				.sync_backward_range(BackwardSyncRange {
-					from: from_inclusive,
-					to: to_inclusive,
-					set_head: false,
-					checkpoint_tail: false,
-					persist_first_evm_block: false,
-				})
-				.await
-			{
-				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
-			} else {
-				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
-			}
-			// Mark done unconditionally — mirrors how subscribe_new_blocks handles
-			// callback errors: log and move on.
-			self.subscription_gap_queue().mark_done();
+		while let Some(request) = rx.recv().await {
+			self.fill_subscription_gap(request, GAP_FILL_MAX_ATTEMPTS, GAP_FILL_BACKOFF)
+				.await;
 		}
 
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler stopped");
+	}
+
+	/// Sync one gap-fill range, retrying failures with exponential backoff.
+	///
+	/// The request is marked done once a backward sync of the range returns without error,
+	/// which includes stopping early at a block without an EVM hash. A range that still fails
+	/// after `max_attempts` stays pending, which keeps [`Client::advance_sync_head`] from
+	/// moving the `Head` label over the missing blocks. In archive mode the next restart's
+	/// backward sync fills them, provided the cause has cleared; otherwise that sync stops at
+	/// the same block and the label stays where it is.
+	pub(crate) async fn fill_subscription_gap(
+		&self,
+		GapFillRequest { from_inclusive, to_inclusive }: GapFillRequest,
+		max_attempts: u32,
+		backoff: Duration,
+	) {
+		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
+
+		let result = retry_with_backoff(max_attempts, backoff, |attempt| async move {
+			self.sync_backward_range(BackwardSyncRange {
+				from: from_inclusive,
+				to: to_inclusive,
+				set_head: false,
+				checkpoint_tail: false,
+				persist_first_evm_block: false,
+			})
+			.await
+			.inspect_err(|err| {
+				log::warn!(target: LOG_TARGET,
+					"🔄 Subscription gap fill #{from_inclusive}..#{to_inclusive} attempt {attempt} failed: {err:?}");
+			})
+		})
+		.await;
+
+		match result {
+			Ok(()) => {
+				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
+				self.subscription_gap_queue().mark_done();
+			},
+			Err(err) => {
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap fill #{from_inclusive}..#{to_inclusive} failed after {max_attempts} attempts: {err:?}. \
+					 These blocks stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
+			},
+		}
+	}
+}
+
+/// Run `attempt` until it succeeds, waiting `backoff` before the second try and twice the
+/// previous wait before each later one. Makes at most `max_attempts` tries, and at least one,
+/// then returns the last error.
+async fn retry_with_backoff<F, Fut>(
+	max_attempts: u32,
+	backoff: Duration,
+	mut attempt: F,
+) -> Result<(), ClientError>
+where
+	F: FnMut(u32) -> Fut,
+	Fut: std::future::Future<Output = Result<(), ClientError>>,
+{
+	let mut delay = backoff;
+	let mut attempts = 1;
+	loop {
+		match attempt(attempts).await {
+			Ok(()) => return Ok(()),
+			Err(err) if attempts >= max_attempts => return Err(err),
+			Err(_) => {
+				tokio::time::sleep(delay).await;
+				delay = delay.saturating_mul(2);
+				attempts += 1;
+			},
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::cell::Cell;
+	use tokio::time::Instant;
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_succeeds_after_failures() {
+		let calls = Cell::new(0);
+		let start = Instant::now();
+
+		let result = retry_with_backoff(5, Duration::from_secs(2), |attempt| {
+			calls.set(calls.get() + 1);
+			std::future::ready(if attempt < 4 { Err(ClientError::BlockNotFound) } else { Ok(()) })
+		})
+		.await;
+
+		assert!(result.is_ok());
+		assert_eq!(calls.get(), 4);
+		assert_eq!(start.elapsed(), Duration::from_secs(2 + 4 + 8));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_gives_up_after_max_attempts() {
+		let calls = Cell::new(0);
+		let start = Instant::now();
+
+		let result = retry_with_backoff(5, Duration::from_secs(2), |_| {
+			calls.set(calls.get() + 1);
+			std::future::ready(Err(ClientError::BlockNotFound))
+		})
+		.await;
+
+		assert!(result.is_err());
+		assert_eq!(calls.get(), 5);
+		assert_eq!(start.elapsed(), Duration::from_secs(2 + 4 + 8 + 16));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_makes_at_least_one_attempt() {
+		let calls = Cell::new(0);
+
+		let result = retry_with_backoff(0, Duration::ZERO, |_| {
+			calls.set(calls.get() + 1);
+			std::future::ready(Err(ClientError::BlockNotFound))
+		})
+		.await;
+
+		assert!(result.is_err());
+		assert_eq!(calls.get(), 1);
 	}
 }
