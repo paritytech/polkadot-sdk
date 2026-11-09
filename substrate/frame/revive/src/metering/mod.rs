@@ -124,6 +124,7 @@ pub struct ResourceMeter<T: Config, S: State> {
 
 /// What a meter has left, has consumed and requires.
 #[derive(DebugNoBound)]
+#[allow(dead_code)]
 struct ResourceSummary<T: Config> {
 	weight_left: Option<Weight>,
 	deposit_left: Option<BalanceOf<T>>,

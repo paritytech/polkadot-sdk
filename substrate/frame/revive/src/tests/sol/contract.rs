@@ -1070,7 +1070,7 @@ mod eip_150 {
 		CallResources, ContractResult, EthTxInfo, Pallet, TransactionMeter,
 		evm::{CallTracer, GenericTransaction},
 		test_utils::ETH_GAS_LIMIT,
-		tests::{DepositPerByte, test_utils::dispatch_eth_transaction},
+		tests::{DepositPerByte, TestSigner, test_utils::dispatch_eth_transaction},
 		tracing::trace,
 	};
 	use frame_support::{
@@ -1082,6 +1082,7 @@ mod eip_150 {
 		WeightLeft,
 	};
 	use pretty_assertions::assert_eq;
+	use sp_core::U256;
 	use test_case::{test_case, test_matrix};
 
 	/// Returns the limits of an Ethereum call with `eth_gas_limit` and `weight_limit`.
@@ -1629,6 +1630,53 @@ mod eip_150 {
 			assert!(
 				CatchInvalid::caughtCall::abi_decode_returns(&caught.data).unwrap(),
 				"the catch block must write to storage"
+			);
+		});
+	}
+
+	/// With a skipped authorization and the same gas limit, a dry run gives the call at most the
+	/// weight the transaction gives it.
+	///
+	/// The transaction precharges the authorization's worst-case weight and sets the call's weight
+	/// limit from the gas that is left. Skipping the authorization refunds part of the precharge,
+	/// but the call's limit stays the same.
+	#[test]
+	fn dry_run_with_skipped_authorization_leaves_no_more_weight_than_the_transaction() {
+		let (code, _) = compile_module_with_type("WeightLeft", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [addr] = deploy([code]);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+			// An authorization for another chain is skipped.
+			let authorization =
+				TestSigner::new(&[1; 32]).sign_authorization(U256::from(999), addr, U256::zero());
+			let tx = GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(addr),
+				input: WeightLeft::weightLeftCall {}.abi_encode().into(),
+				authorization_list: vec![authorization],
+				..Default::default()
+			};
+			let dry_run = |tx| {
+				without_commit(|| Pallet::<Test>::dry_run_eth_transact(tx, None, true, None))
+					.unwrap()
+			};
+			// The contract returns the weight its call has left.
+			let weight_left = |output: &[u8]| {
+				let WeightLeft::weightLeftReturn { refTime: ref_time, proofSize: proof_size } =
+					WeightLeft::weightLeftCall::abi_decode_returns(output).unwrap();
+				Weight::from_parts(ref_time, proof_size)
+			};
+
+			// Both runs need the same gas limit; the estimate is one the transaction can run with.
+			let tx = GenericTransaction { gas: Some(dry_run(tx.clone()).eth_gas), ..tx };
+			let in_dry_run = weight_left(&dry_run(tx.clone()).data);
+			let mut tracer = CallTracer::default();
+			assert_ok!(trace(&mut tracer, || dispatch_eth_transaction(tx)));
+			let in_transaction = weight_left(&tracer.collect_trace().unwrap().output.0);
+			assert!(
+				in_dry_run.all_lte(in_transaction),
+				"weight left: {in_dry_run:?} in the dry run, {in_transaction:?} in the transaction"
 			);
 		});
 	}

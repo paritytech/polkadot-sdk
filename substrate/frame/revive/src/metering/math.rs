@@ -29,10 +29,10 @@ use sp_runtime::Saturating;
 
 /// EIP-150 63/64 gas rule helpers.
 ///
-/// With `r` the parent's remaining resources and `s` the call stipend (zero without one), a
-/// subcall receives at most `63/64 * (r - s) + s` and the parent keeps at least `1/64 * (r - s)`.
-/// This module provides the [`Peak`] type for tracking the minimum starting
-/// value a meter needs, as well as the [`Resource`] trait with the operations the rule needs.
+/// With `r` the parent's remaining resources and `s` the call stipend (zero without one), a subcall
+/// receives at most `63/64 * (r - s) + s` and the parent keeps at least `1/64 * (r - s)`. This
+/// module provides the [`Peak`] type for tracking the minimum starting value a meter needs, as well
+/// as the [`Resource`] trait with the operations the rule needs.
 pub mod eip_150 {
 	use super::*;
 	use core::fmt::Debug;
@@ -44,8 +44,8 @@ pub mod eip_150 {
 	pub const NUMERATOR: NonZero<u64> =
 		NonZero::new(DENOMINATOR.get() - 1).expect("`DENOMINATOR` is greater than 1; qed");
 
-	/// The minimum starting amount a call needs so that each of its subcalls still receives
-	/// enough after the 63/64 split.
+	/// The minimum starting amount a call needs so that each of its subcalls still receives enough
+	/// after the 63/64 split.
 	#[derive(DebugNoBound, DefaultNoBound)]
 	pub struct Peak<R: Resource> {
 		/// The peak tracked from the children absorbed so far.

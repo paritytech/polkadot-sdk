@@ -2569,7 +2569,10 @@ impl<T: Config> Pallet<T> {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			// The weight the dry run reports as required can reach this limit, and the transaction
 			// adds its base weight on top, so the limit leaves room for it.
-			weight_limit: Self::evm_max_extrinsic_weight().saturating_sub(base_info.total_weight()),
+			weight_limit: Self::evm_max_extrinsic_weight()
+				.saturating_sub(base_info.total_weight())
+				// The transaction's own limit, which an authorization refund does not raise.
+				.min(call_info.weight_limit),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 			authorization_deposit: actual_auth_deposit,
 		};

@@ -159,7 +159,7 @@ pub mod test_utils {
 		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, Pallet,
 		PristineCode,
 		address::AddressMapper,
-		evm::{CreateCallMode, GenericTransaction, TYPE_EIP1559, fees::InfoT},
+		evm::{CreateCallMode, GenericTransaction, TYPE_EIP1559, TYPE_EIP7702, fees::InfoT},
 		exec::AccountIdOf,
 	};
 	use codec::{Encode, MaxEncodedLen};
@@ -286,7 +286,9 @@ pub mod test_utils {
 			gas_price: Some(base_fee),
 			max_fee_per_gas: Some(base_fee),
 			chain_id: Some(<Test as Config>::ChainId::get().into()),
-			r#type: Some(TYPE_EIP1559.into()),
+			r#type: Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			),
 			..tx
 		};
 		// The fee depends on the length of the signed transaction. A placeholder signature has the
