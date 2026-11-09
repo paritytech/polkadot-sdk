@@ -440,6 +440,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_subscription_gap_filler_failure_stays_pending,
 		test_finalized_block_processing_failure_queues_gap_fill,
 		test_best_block_processing_failure_queues_nothing,
+		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
 		test_pending_gap_fill_holds_sync_head,
 	);
 
@@ -2408,12 +2409,13 @@ where
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(true).await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+async fn create_sync_test_client_with_subscription_gap_queue(
+	is_archive: bool,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2447,7 +2449,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		rpc,
 		block_provider,
 		receipt_provider,
-		true,
+		is_archive,
 		subscription_gap_queue,
 		runtime_api_provider,
 		chain_id,
@@ -3789,7 +3791,8 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
@@ -3872,7 +3875,8 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
 	sync_client.sync_backward().await?;
 	let head = sync_client
 		.receipt_provider()
@@ -3923,7 +3927,7 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 /// cannot advance over it.
 async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Result<()> {
 	let (sync_client, mut gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue().await?;
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
 	assert!(!sync_client.subscription_gap_queue().has_pending());
 
 	let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -3967,7 +3971,7 @@ async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Re
 /// finalized stream indexes the canonical block.
 async fn test_best_block_processing_failure_queues_nothing() -> anyhow::Result<()> {
 	let (sync_client, mut gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue().await?;
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
 
 	let failures = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 	let bg_client = sync_client.clone();
@@ -3995,12 +3999,46 @@ async fn test_best_block_processing_failure_queues_nothing() -> anyhow::Result<(
 	Ok(())
 }
 
+/// With `--eth-pruning <N>` there is no sync head to hold, so a finalized block whose
+/// processing fails is left unindexed instead of being queued.
+async fn test_finalized_block_processing_failure_queues_nothing_in_pruning_mode()
+-> anyhow::Result<()> {
+	let (sync_client, mut gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(false).await?;
+
+	let failures = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+	let bg_client = sync_client.clone();
+	let bg_failures = failures.clone();
+	let _subscription = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |_block| {
+				let failures = bg_failures.clone();
+				async move {
+					failures.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+					Err(crate::client::ClientError::BlockNotFound)
+				}
+			})
+			.await
+	}));
+	submit_evm_transfers(2).await?;
+	wait_until("two failed finalized-block callbacks", || async {
+		failures.load(std::sync::atomic::Ordering::SeqCst) >= 2
+	})
+	.await?;
+
+	assert!(!sync_client.subscription_gap_queue().has_pending());
+	assert!(gap_fill_rx.try_recv().is_err(), "pruning mode must not queue a failed block");
+
+	Ok(())
+}
+
 /// While a gap fill is pending, finalized blocks keep being indexed but the `Head` label
 /// stays where it is; once the fill is marked done the next finalized block moves it.
 async fn test_pending_gap_fill_holds_sync_head() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, _gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
 	sync_client.sync_backward().await?;
 	let head = sync_client
 		.receipt_provider()
