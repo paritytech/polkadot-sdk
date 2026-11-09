@@ -76,20 +76,17 @@ fn try_state_bad_exposure() {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 
-		let (validator, mut metadata) = ErasStakersOverview::<T>::iter()
-			.take(1)
-			.map(|(_era, validator, metadata)| (validator, metadata))
-			.collect::<Vec<_>>()
-			.pop()
-			.unwrap();
+		let (validator, original) = ErasStakersOverview::<T>::iter_prefix(2).next().unwrap();
+		let mut metadata = original.clone();
 		metadata.total += 1;
 		ErasStakersOverview::<T>::insert(2, validator, metadata);
-		assert!(Staking::do_try_state(System::block_number()).is_err());
+		assert_eq!(
+			Staking::do_try_state(System::block_number()),
+			Err(sp_runtime::DispatchError::Other("found bad metadata"))
+		);
 
 		// Restore valid state so build_and_execute post-check passes.
-		let mut metadata = ErasStakersOverview::<T>::get(2, validator).unwrap();
-		metadata.total -= 1;
-		ErasStakersOverview::<T>::insert(2, validator, metadata);
+		ErasStakersOverview::<T>::insert(2, validator, original);
 	});
 }
 
@@ -133,13 +130,18 @@ fn try_state_bad_last_validator_era() {
 		let (validator, _) = ErasStakersOverview::<T>::iter_prefix(era).next().unwrap();
 		let original = LastValidatorEra::<T>::get(&validator);
 		let expected = Err(sp_runtime::DispatchError::Other(
-			"LastValidatorEra must be the active era or the active era + 1",
+			"LastValidatorEra must be the active era, or the next era with a stored exposure",
 		));
 
 		// Neither the active era nor the next one: try-state must fail.
 		LastValidatorEra::<T>::insert(&validator, era - 1);
 		assert_eq!(Staking::do_try_state(System::block_number()), expected);
 		LastValidatorEra::<T>::insert(&validator, era + 2);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+
+		// The next era, but its election has not stored an exposure for this validator yet.
+		assert!(!ErasStakersOverview::<T>::contains_key(era + 1, &validator));
+		LastValidatorEra::<T>::insert(&validator, era + 1);
 		assert_eq!(Staking::do_try_state(System::block_number()), expected);
 
 		// Restore valid state so build_and_execute post-check passes.
