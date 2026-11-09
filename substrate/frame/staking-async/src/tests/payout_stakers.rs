@@ -356,9 +356,6 @@ fn reward_to_stake_works() {
 			let _ = asset::set_stakeable_balance::<T>(&10, 1000);
 			let _ = asset::set_stakeable_balance::<T>(&20, 1000);
 
-			// Bypass logic and change current exposure
-			Eras::<T>::upsert_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
-
 			// Compute total payout now for whole duration as other parameter won't change
 			let validator_payout_0 = validator_payout_for(time_per_era());
 			Pallet::<T>::reward_by_ids(vec![(11, 1)]);
