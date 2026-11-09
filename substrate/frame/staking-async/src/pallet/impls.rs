@@ -2387,11 +2387,10 @@ impl<T: Config> Pallet<T> {
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
 	/// For each validator in the active era's `ErasStakersOverview`, `LastValidatorEra` must be the
-	/// active era, or
-	/// the active era + 1 once the validator's exposure for the next era has been stored. A
-	/// validator that was reaped or force-unstaked mid-era keeps its historical exposure but has
-	/// no `LastValidatorEra` entry anymore, which is also valid (a warning is logged if it is
-	/// still bonded).
+	/// active era, or the active era + 1 once the validator's exposure for the next era has been
+	/// stored. A validator that was reaped or force-unstaked mid-era keeps its historical exposure
+	/// but has no `LastValidatorEra` entry anymore, which is also valid (a warning is logged if it
+	/// is still bonded).
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 
@@ -2408,7 +2407,7 @@ impl<T: Config> Pallet<T> {
 				Some(last) => {
 					log!(
 						error,
-						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, or {:?} with an exposure in that era, got {:?})",
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
 						validator,
 						era,
 						era + 1,
