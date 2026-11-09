@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793996102459,
+  "lastUpdate": 1794216659491,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -142667,6 +142667,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3125226367,
             "range": "± 45319497",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a0cc2e744941a5c55160ee847f2fc8711d507f7",
+          "message": "Remove the stale pallet-people and pallet-dummy-dim crates (#13585)\n\nPer @gui1117 on #13513: pallet-people's development continued in\nparitytech/individuality-community, nothing in this repo or in\npolkadot-fellows/runtimes depends on it anymore (People Polkadot pulls\n`indiv-pallet-people`/`indiv-pallet-people-lite` from that repo\ninstead). `pallet-dummy-dim` only existed to depend on `pallet-people`\nand has no other dependents.\n\nRemoves both crates entirely rather than just flagging them stale, since\nnothing uses them. `cargo metadata`, `zepter run check`, and `cargo\ncheck -p polkadot-sdk` all pass clean after the removal.\n\nCloses #13513\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-09T08:12:30Z",
+          "tree_id": "245301cbf092feed90374fb1281726cbb17be7b2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a0cc2e744941a5c55160ee847f2fc8711d507f7"
+        },
+        "date": 1794216623769,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19585416,
+            "range": "± 153822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19951262,
+            "range": "± 161606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21212324,
+            "range": "± 102015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25702605,
+            "range": "± 194906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59899314,
+            "range": "± 979734",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 368212864,
+            "range": "± 6969880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2859203970,
+            "range": "± 204777900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17234307,
+            "range": "± 65364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17278948,
+            "range": "± 50962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17711616,
+            "range": "± 125096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22269499,
+            "range": "± 190858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59744853,
+            "range": "± 721350",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351855493,
+            "range": "± 5387683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2705776074,
+            "range": "± 24241239",
             "unit": "ns/iter"
           }
         ]
