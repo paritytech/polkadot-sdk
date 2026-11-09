@@ -481,6 +481,14 @@ pub mod pallet {
 		UsernameKilled { username: Username<T> },
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call]
 	/// Identity pallet declaration.
 	impl<T: Config> Pallet<T> {
@@ -1722,6 +1730,49 @@ impl<T: Config> Pallet<T> {
 			&T::AccountId,
 			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
 		>(&who, (Zero::zero(), sub_accounts));
+		Ok(())
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Invariants that must hold before and after every state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_subs()?;
+		Self::try_state_judgements()?;
+
+		Ok(())
+	}
+
+	/// `SubsOf` and `SuperOf` must be consistent in both directions.
+	fn try_state_subs() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (super_id, (_deposit, sub_ids)) in SubsOf::<T>::iter() {
+			for sub in sub_ids.iter() {
+				ensure!(
+					SuperOf::<T>::get(sub).map_or(false, |(s, _)| s == super_id),
+					"Every sub in `SubsOf` must point back to its super via `SuperOf`"
+				);
+			}
+		}
+		for (sub, (super_id, _data)) in SuperOf::<T>::iter() {
+			ensure!(
+				SubsOf::<T>::get(&super_id).1.contains(&sub),
+				"Every `SuperOf` entry must be listed in its super's `SubsOf`"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// Each identity's judgements are kept sorted by registrar index and duplicate-free.
+	fn try_state_judgements() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (_who, id) in IdentityOf::<T>::iter() {
+			ensure!(
+				id.judgements.windows(2).all(|w| w[0].0 < w[1].0),
+				"Judgements must be strictly sorted by registrar index"
+			);
+		}
+
 		Ok(())
 	}
 }
