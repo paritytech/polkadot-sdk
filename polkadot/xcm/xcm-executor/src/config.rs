@@ -122,6 +122,11 @@ pub trait Config {
 	type SafeCallFilter: Contains<Self::RuntimeCall>;
 
 	/// Transactional processor for XCM instructions.
+	///
+	/// Production runtimes should use a transactional implementation such as
+	/// `FrameTransactionalProcessor` from `xcm-builder`. With a non-transactional processor,
+	/// failed instructions keep their storage side effects and lose the credits they took out of
+	/// holding; see documentation of the `()` implementation of [`ProcessTransaction`].
 	type TransactionalProcessor: ProcessTransaction;
 
 	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
