@@ -78,6 +78,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		TransactionStorage::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 pub fn run_to_block(n: u64, f: impl Fn() -> Option<TransactionStorageProof> + 'static) {
 	System::run_to_block_with::<AllPalletsWithSystem>(
 		n,
