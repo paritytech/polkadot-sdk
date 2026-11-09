@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RingMembersState","RingPosition"],"struct":["PersonRecord","RevisedAlias","RevisedContextualAlias","RingRoot","RingStatus"],"type":["ChunksOf","IntermediateOf","KeyCount","MemberOf","MembersOf","PageIndex","RevisionIndex","SecretOf","SignatureOf"]};

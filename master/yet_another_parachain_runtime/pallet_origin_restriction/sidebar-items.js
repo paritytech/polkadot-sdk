@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","Pre","Val"],"mod":["pallet","weights"],"struct":["Allowance","Pallet","RestrictOrigin","Usage"],"trait":["Config","RestrictedEntity","WeightInfo"],"type":["Module","Usages"]};

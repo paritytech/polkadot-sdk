@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["benchmarking","extension","pallet","types","weights"]};
