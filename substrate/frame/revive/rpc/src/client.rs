@@ -635,15 +635,16 @@ impl Client {
 
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the
-			// whole server. Skip instead: a skipped finalized block doesn't advance
-			// `last_finalized_seen`, so the next block's gap detection backfills it. The
-			// first block of the stream has no later block to detect it, so queue it here.
+			// whole server. Gap detection compares each finalized block with
+			// `last_finalized_seen`, so a later block backfills an unresolved one. The first
+			// unresolved block has nothing to compare against: queue it here and seed
+			// `last_finalized_seen`, so the next block detects the range above it.
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {
 					log::warn!(
 						target: LOG_TARGET,
-						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}): {err:?}",
 						block.number(),
 						block.hash(),
 					);
