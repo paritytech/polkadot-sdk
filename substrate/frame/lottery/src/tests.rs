@@ -21,13 +21,20 @@ use crate::{
 	mock::{Lottery, *},
 	*,
 };
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_noop, assert_ok, assert_storage_noop, pallet_prelude::Zero};
 use sp_runtime::{traits::BadOrigin, TokenError};
 
 #[test]
 fn initial_state() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Balances::free_balance(Lottery::account_id()), 0);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			0
+		);
 		assert!(crate::Lottery::<Test>::get().is_none());
 		assert_eq!(Participants::<Test>::get(&1), (0, Default::default()));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
@@ -53,14 +60,20 @@ fn basic_end_to_end_works() {
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, true));
 		assert!(crate::Lottery::<Test>::get().is_some());
 
-		assert_eq!(Balances::free_balance(&1), 100);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100
+		);
 		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 			dest: 2,
 			value: 20,
 		}));
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
 		// 20 from the transfer, 10 from buying a ticket
-		assert_eq!(Balances::free_balance(&1), 100 - 20 - 10);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20 - 10
+		);
 		assert_eq!(Participants::<Test>::get(&1).1.len(), 1);
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 		// 1 owns the 0 ticket
@@ -80,8 +93,11 @@ fn basic_end_to_end_works() {
 
 		// Go to payout
 		System::run_to_block::<AllPalletsWithSystem>(25);
-		// User 1 wins
-		assert_eq!(Balances::free_balance(&1), 70 + 40);
+		// User 1 wins, gets pot minus ED (ED stays in lottery account)
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			70 + 40 - 1
+		);
 		// Lottery is reset and restarted
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 		assert_eq!(LotteryIndex::<Test>::get(), 2);
@@ -210,7 +226,10 @@ fn buy_ticket_works_as_simple_passthrough() {
 		}));
 		// This is just a basic transfer then
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
-		assert_eq!(Balances::free_balance(&1), 100 - 20);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20
+		);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		// Lottery is set up, but too expensive to enter, so `do_buy_ticket` fails.
@@ -223,7 +242,10 @@ fn buy_ticket_works_as_simple_passthrough() {
 		// Ticket price of 60 would kill the user's account
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), 60, 10, 5, false));
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
-		assert_eq!(Balances::free_balance(&1), 100 - 20 - 20);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20 - 20
+		);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		// If call would fail, the whole thing still fails the same
@@ -419,9 +441,23 @@ fn start_lottery_will_create_account() {
 		let length = 20;
 		let delay = 5;
 
-		assert_eq!(Balances::total_balance(&Lottery::account_id()), 0);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			0
+		);
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, false));
-		assert_eq!(Balances::total_balance(&Lottery::account_id()), 1);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			0
+		);
 	});
 }
 
@@ -446,5 +482,53 @@ fn choose_account_one_participant() {
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call));
 		// Account 1 is always the winner.
 		assert_eq!(Lottery::choose_account().unwrap(), 1);
+	});
+}
+
+/// Payout still works when the lottery account has additional provider/consumer/sufficient
+/// references. Nobody should be able to block the payout by adding references.
+#[test]
+fn payout_works_with_additional_references() {
+	new_test_ext().execute_with(|| {
+		let price = 10;
+		let length = 20;
+		let delay = 5;
+
+		let calls =
+			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
+		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls));
+		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, false));
+
+		// Buy tickets
+		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+			dest: 2,
+			value: 0,
+		}));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
+		assert_eq!(TicketsCount::<Test>::get(), 2);
+
+		// Add extra references to the lottery account
+		let lottery_account = Lottery::account_id();
+		frame_system::Pallet::<Test>::inc_providers(&lottery_account);
+		frame_system::Pallet::<Test>::inc_sufficients(&lottery_account);
+
+		// Go to payout
+		System::run_to_block::<AllPalletsWithSystem>(length + delay);
+
+		// Lottery should have completed successfully
+		assert!(crate::Lottery::<Test>::get().is_none());
+		assert_eq!(TicketsCount::<Test>::get(), 0);
+
+		// Winner received the pot (minus ED retained in lottery account)
+		// The extra references did not block the payout.
+		assert_eq!(
+			Balances::reducible_balance(
+				&lottery_account,
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			1 // Only ED remains
+		);
 	});
 }
