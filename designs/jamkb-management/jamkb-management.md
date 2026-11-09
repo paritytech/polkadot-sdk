@@ -239,7 +239,7 @@ const CAP: Balance;
 /// The minimum `amount` that can be transferred by
 /// `approve_release`, `redeem`, `offer_lease`, `increase_lease`, `reclaim`,
 /// and `dispose_excess` with `refund`. A smaller `amount` is rejected,
-/// except a `reclaim` of the allocation's `amount`.
+/// except a `Full` reclaim.
 const MIN_TRANSFER: Balance;
 
 /// The gas every deferred `TransferOut` carries (§5.2). A destination whose
@@ -248,10 +248,15 @@ const MIN_TRANSFER: Balance;
 const MEMO_GAS: u64;
 
 /// The weight `on_poll` spends per block settling operations (§3.2). At
-/// least an `Eject` with `MAX_LEASES_PER_TARGET` leases.
+/// least the settlement of the operations one block's send share can carry
+/// (§3.4), an `Eject` with `MAX_LEASES_PER_TARGET` leases included, so
+/// outcomes are settled before the transport can send as many again.
 const SETTLEMENT_WEIGHT: Weight;
 
-/// The most operations unsettled at once (§3.2).
+/// The most operations unsettled at once (§3.2): a bound on storage. Above
+/// what the transport can have queued and in flight (§3.4) and what can be
+/// resolved and not yet settled (`SETTLEMENT_WEIGHT`), so it is reached
+/// only through failed settlements.
 const MAX_UNSETTLED_OPERATIONS: u32;
 
 /// A code hash with no preimage; a target set to it cannot run (§4.3).
@@ -270,6 +275,9 @@ type Timeslot = u32;
 
 /// Added to the lease end (`reclaim`, §4.3).
 const LEASE_GRACE_PERIOD: Timeslot;
+
+/// The target's cooldown after a Failed reclaim (`reclaim`, §4.3).
+const TARGET_RECLAIM_COOLDOWN: Timeslot;
 
 /// The cap on a target's accepted leases: those in `Delivering`, `Delivered`
 /// or `Reclaiming`.
@@ -307,7 +315,8 @@ type FrozenTargets = Map<ServiceId, ()>;
 /// One approved allocation.
 struct Allocation {
     id: AllocationId,
-    mode: AllocationMode,             // Lease { duration } | Permanent { memo }
+    mode: AllocationMode,             // Lease { duration, target_reclaim_from }
+                                      // | Permanent { memo }
     target: ServiceId,
     /// Held by `pallet-assets-holder` while open: `Leased` on the approver,
     /// `Releasing` on custody. The hold is released before the allocation is
@@ -330,8 +339,19 @@ struct Allocation {
 }
 
 enum AllocationMode {
-    Lease { duration: Timeslot },
+    Lease {
+        duration: Timeslot,
+        target_reclaim_from: Option<Timeslot>,
+                                      // end of the target's cooldown
+                                      // (`reclaim`)
+    },
     Permanent { memo: [u8; 128] },    // the memo of the release (§5.2)
+}
+
+/// What a `reclaim` takes back.
+enum ReclaimAmount {
+    Full,                             // the allocation's whole `amount`
+    Partial(Balance),                 // at least `MIN_TRANSFER`
 }
 
 enum AllocationState {
@@ -402,10 +422,13 @@ enum OperationPayload {
     /// amount falls by `amount`; a fully returned lease moves to `Closed`.
     /// Failed: a `Reclaim` whose `accumulated_at` is past the lease end and
     /// `LEASE_GRACE_PERIOD` moves a `Delivered` lease to `Reclaiming`;
-    /// otherwise the lease keeps its state.
+    /// otherwise the lease keeps its state. A Failed `Reclaim` with
+    /// `by_target` sets `target_reclaim_from` to `accumulated_at +
+    /// TARGET_RECLAIM_COOLDOWN`.
     Reclaim {
         allocation: AllocationId,
         amount: Balance,
+        by_target: bool,              // a target call (`reclaim`)
     },
     /// A freeze (`freeze_target`, §4.3).
     /// One `UpgradeService { service: Some(target), code_hash:
@@ -542,7 +565,7 @@ enum Error {
     SettlementNotFailed, TooManyOperations, CannotCreate, Transport,
     UnknownAllocation, UnknownOperation, DurationNotIncreased,
     InsufficientExcess, InsufficientBalance, NothingToClaim, HasLeases,
-    DuplicateKey,
+    DuplicateKey, ReclaimCooldown, FullReclaimOnly,
 }
 ```
 
@@ -676,12 +699,15 @@ fn increase_lease(id: AllocationId, additional: Balance);
 /// greater than the current one.
 fn extend_lease(id: AllocationId, duration: Timeslot);
 
-/// Takes `amount` of the leased units back from the target. Origin: any
-/// signed account past the lease end and `LEASE_GRACE_PERIOD`, or the
-/// target's service account at any time. Legal from `Delivered` and from
-/// `Reclaiming`. Records a `Reclaim` operation for `amount`, capped at the
-/// allocation's `amount`.
-fn reclaim(id: AllocationId, amount: Balance);
+/// Takes `amount` of the leased units back from the target. Origin: the
+/// target's service account. After the lease end plus `LEASE_GRACE_PERIOD`
+/// also the lease's approver or governance, and the target only for
+/// `Full`, else `FullReclaimOnly`. Legal while the lease is `Delivered` or
+/// `Reclaiming`. A target call before `target_reclaim_from` is rejected
+/// with `ReclaimCooldown`. A call by the target's service account is a
+/// target call, except after the lease end plus `LEASE_GRACE_PERIOD` when
+/// that account is the approver. Records a `Reclaim` operation.
+fn reclaim(id: AllocationId, amount: ReclaimAmount);
 
 /// Ends a lease that was not fully returned. Origin: the lease's approver or
 /// governance. Legal while the lease is `Reclaiming`. Rejected while the
@@ -807,9 +833,10 @@ interface IJamkb {
         AllocationMode mode;
         uint32 target;
         uint128 amount;
-        bytes32 approver;      // bytes32(0) for governance
-        uint32 deliveredAt;    // 0: not delivered
-        uint32 duration;       // 0 for Permanent
+        bytes32 approver;         // bytes32(0) for governance
+        uint32 deliveredAt;       // 0: not delivered
+        uint32 duration;          // 0 for Permanent
+        uint32 targetReclaimFrom; // 0: none
         uint32 validFrom;
         uint32 expiresAt;
     }
@@ -829,6 +856,7 @@ interface IJamkb {
         external returns (uint64 opId);
     function extendLease(uint64 allocationId, uint32 duration) external;
     function reclaim(uint64 allocationId, uint128 amount) external returns (uint64 opId);
+    function reclaimAll(uint64 allocationId) external returns (uint64 opId);
     function closeLease(uint64 allocationId) external;
 
     // -- Recovery --
@@ -941,8 +969,8 @@ The transport layer responsibilities:
 - `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
 - the Parachain Service balances delivered for drift detection;
 - a send queue within 1024 messages and 40 KiB per block, FIFO, with a
-  sharing policy between pallets; a pallet's share fits any single
-  operation, a full `Cleanup` page included;
+  maximum queued size and a sharing policy between pallets; a pallet's
+  share fits any single operation, a full `Cleanup` page included;
 - a delivery fee factor that grows geometrically with the queued size, as
   `UpwardDeliveryFeeFactor` does for upward messages; every sending pallet
   charges the fee to its signed caller;
@@ -1039,7 +1067,8 @@ Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
 Phase 2: Reclaim      `reclaim` starts a return from the target's supervisor
                       balance back to the Parachain Service. The return may
-                      be partial.
+                      be partial until the lease end plus
+                      `LEASE_GRACE_PERIOD`.
 Phase 3: Confirm       The operation settles, the output:
                       Confirmed: `amount` is released from the hold; a
                       fully returned lease moves to Closed. Once the target
