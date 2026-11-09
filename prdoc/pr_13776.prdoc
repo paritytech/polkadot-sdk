@@ -1,0 +1,12 @@
+title: 'statement-store: a changed affinity filter syncs only the newly matched statements'
+doc:
+- audience: Node Dev
+  description: |-
+    A peer whose affinity filter changes now receives only the statements that its new filter
+    matches and its previous one did not. Before, every filter message restarted a full initial
+    sync, so each RPC subscribe or unsubscribe made every peer resend everything the node is a
+    DHT target for. A filter repeated unchanged still asks for the full replay, which is how a
+    node recovers after major sync, and the first filter after connect still gets the full sync.
+crates:
+- name: sc-network-statement
+  bump: patch
