@@ -65,10 +65,13 @@ jobs:
 
   # Backports must move forward: a PR labelled `A4-backport-stableX` must also be labelled for
   # every newer release `stableY` (Y > X). See `.github/scripts/check-backport-labels.sh`.
+  #
+  # Only PRs into `master` are checked: backport labels are only acted upon there (see
+  # `command-backport.yml`), so backport PRs into `stable*`/`unstable*` branches are skipped.
   check-backport-labels:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master'
     permissions:
       contents: read
       pull-requests: read
