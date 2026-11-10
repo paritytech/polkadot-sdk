@@ -30,8 +30,8 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		ClaimAssets, DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute,
-		TransactAsset, WeightBounds, WeightTrader,
+		ClaimAssets, DropAssets, ExportXcm, FeeManager, ProcessTransaction, Properties,
+		ShouldExecute, TransactAsset, WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
@@ -212,10 +212,19 @@ impl WeightToFee {
 	}
 }
 
+thread_local! {
+	pub static FAIL_BUY_WEIGHT: core::cell::Cell<bool> = core::cell::Cell::new(false);
+}
+
+/// Makes every [`TestTrader::buy_weight`] fail with `TooExpensive`, returning the payment.
+pub fn set_fail_buy_weight(fail: bool) {
+	FAIL_BUY_WEIGHT.with(|f| f.set(fail));
+}
+
 /// Test weight trader that just buys weight with the native asset (`Here`) and
 /// uses the test `WeightToFee`.
 pub struct TestTrader {
-	weight_bought_so_far: Weight,
+	pub(crate) weight_bought_so_far: Weight,
 }
 impl WeightTrader for TestTrader {
 	fn new() -> Self {
@@ -228,6 +237,9 @@ impl WeightTrader for TestTrader {
 		mut payment: AssetsInHolding,
 		_context: &XcmContext,
 	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
+		if FAIL_BUY_WEIGHT.with(|f| f.get()) {
+			return Err((payment, XcmError::TooExpensive));
+		}
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let required: Asset = (Here, amount).into();
 		// Try to take the required amount from payment
@@ -343,6 +355,51 @@ pub fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
+thread_local! {
+	pub static EXPORTED_XCM: RefCell<Vec<(NetworkId, InteriorLocation, Xcm<()>)>> =
+		RefCell::new(Vec::new());
+}
+
+/// An export destination that passes validation but whose delivery always fails.
+pub fn undeliverable_export_destination() -> InteriorLocation {
+	[Parachain(9999)].into()
+}
+
+/// Test exporter that puts messages in a dummy queue. Delivery succeeds for every destination
+/// except [`undeliverable_export_destination`].
+///
+/// It charges `1` for the export fee.
+pub struct TestExporter;
+impl ExportXcm for TestExporter {
+	type Ticket = (NetworkId, InteriorLocation, Xcm<()>);
+
+	fn validate(
+		network: NetworkId,
+		_channel: u32,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		universal_source.take();
+		let ticket = (network, destination.take().unwrap(), message.take().unwrap());
+		let export_fee: Asset = (Here, 1u128).into();
+		Ok((ticket, export_fee.into()))
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		if ticket.1 == undeliverable_export_destination() {
+			return Err(SendError::Transport("undeliverable export destination"));
+		}
+		EXPORTED_XCM.with(|q| q.borrow_mut().push(ticket));
+		Ok([0; 32])
+	}
+}
+
+/// Gets queued exported test messages.
+pub fn exported_xcm() -> Vec<(NetworkId, InteriorLocation, Xcm<()>)> {
+	EXPORTED_XCM.with(|q| (*q.borrow()).clone())
+}
+
 /// A mock contract address that doesn't need to pay for fees.
 pub const WAIVED_CONTRACT_ADDRESS: [u8; 20] = [128; 20];
 
@@ -399,12 +456,46 @@ impl Config for XcmConfig {
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = TestFeeManager;
-	type MessageExporter = ();
+	type MessageExporter = TestExporter;
 	type UniversalAliases = Nothing;
 	type CallDispatcher = Self::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = TestTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
+}
+
+/// Like [`XcmConfig`], but with the non-transactional `()` processor.
+pub struct NonTransactionalXcmConfig;
+impl Config for NonTransactionalXcmConfig {
+	type RuntimeCall = TestCall;
+	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
+	type AssetTransactor = TestAssetTransactor;
+	type OriginConverter = ();
+	type IsReserve = ();
+	type IsTeleporter = ();
+	type UniversalLocation = UniversalLocation;
+	type Barrier = TestBarrier;
+	type Weigher = TestWeigher;
+	type Trader = TestTrader;
+	type ResponseHandler = ();
+	type AssetTrap = TestAssetTrap;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type SubscriptionService = ();
+	type PalletInstancesInfo = ();
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type FeeManager = TestFeeManager;
+	type MessageExporter = TestExporter;
+	type UniversalAliases = Nothing;
+	type CallDispatcher = Self::RuntimeCall;
+	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
+	type TransactionalProcessor = ();
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
