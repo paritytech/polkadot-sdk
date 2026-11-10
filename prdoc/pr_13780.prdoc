@@ -1,0 +1,17 @@
+title: 'Fix validations failing for a session after a restart near a session change'
+doc:
+- audience: Node Operator
+  description: |-
+    A validator restarted shortly before a session change could fail every backing and approval
+    validation of the new session with `Session params unavailable (no active leaf?)` until the
+    next session change.
+
+    While at its in-flight task limit, candidate-validation dropped new leaves and fetched the new
+    session's executor params at a block of the previous session. The runtime API cache then kept
+    that empty answer for the whole session. Leaves are now applied at the task limit too, and a
+    missing `SessionExecutorParams` result is no longer cached.
+crates:
+- name: polkadot-node-core-candidate-validation
+  bump: patch
+- name: polkadot-node-core-runtime-api
+  bump: patch
