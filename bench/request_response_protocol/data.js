@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794311575546,
+  "lastUpdate": 1794314035352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -143531,6 +143531,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2959126563,
             "range": "± 70211693",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bartlomiej@parity.io",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "41af275b1791b7547bb2827ddc3fe0490e60c057",
+          "message": "Implement handling on-demand coretime revenue (#13359)\n\n# Description\n\nSecond step towards completion of #12715 , closes #13177\n\nThis implements on-demand revenue claiming logic. The revenue used to be\nclaimed by `pallet-broker` sending an XCM to the Relay Chain asking for\non-demand revenue, which would then be teleported to the Coretime chain.\nNow that the order placing and payment logic lives on the Coretime chain\nas well, this is no longer necessary: the broker can just ask the\n`pallet-on-demand-para` directly, and the revenue is then transferred\nfrom the on-demand pot to the broker pot.\n\nThe PR also wires `pallet-on-demand-para` into the coretime-westend\nruntime and adds an emulated e2e test for the new pallet's\nfunctionality.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:39:47Z",
+          "tree_id": "d5b1b8f6a05c981cef340987aaaa93eae7cba051",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41af275b1791b7547bb2827ddc3fe0490e60c057"
+        },
+        "date": 1794314000901,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19970774,
+            "range": "± 111170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20259267,
+            "range": "± 155954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21982239,
+            "range": "± 277408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26322844,
+            "range": "± 341045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61290014,
+            "range": "± 1038375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 374031595,
+            "range": "± 3761669",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2567029839,
+            "range": "± 54484636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17338259,
+            "range": "± 164299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17630987,
+            "range": "± 255870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18197188,
+            "range": "± 146919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23087496,
+            "range": "± 118011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63560428,
+            "range": "± 716487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368508151,
+            "range": "± 3751064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2811991798,
+            "range": "± 10984593",
             "unit": "ns/iter"
           }
         ]
