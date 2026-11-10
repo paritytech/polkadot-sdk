@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794249247634,
+  "lastUpdate": 1794294339533,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "663c3f687e6d31d6fd094695ba334a8bce973203",
-          "message": "eth-rpc: single-pass event processing for receipt extraction (#11777)\n\n## Summary\n\n- Process block events in a single pass instead of re-scanning per\nextrinsic, reducing O(N×E) to O(E)\n- Merge two integration tests into one that validates revert and logs\nare correctly attributed within the same block\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T16:11:26Z",
-          "tree_id": "260159d8472b0034e3ff65ecee0d324991ffae87",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/663c3f687e6d31d6fd094695ba334a8bce973203"
-        },
-        "date": 1776794221103,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009136301049999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009358373479999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026428525699999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009545162099999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23105e867a35e26ed070920510214dc90f6ea3e3",
+          "message": "pallet-revive: fix receipt capture docs (#13688)\n\nTwo statements in the pallet-revive receipt capture docs were\ninaccurate. Documentation only, no behavior change.\n\nWhere a contract log ends up:\n- Before: decided by the entry point; `Revive::call` and an XCM\n`Transact` leave it substrate-only.\n- Now: decided by whether an ethereum transaction's receipt is open when\nthe log is emitted.\n- A `Revive::call` dispatched by `eth_substrate_call`, directly, through\na batch or through an XCM `Transact`, puts its logs on the receipt.\n\nWhat a receipt overflow fails:\n- Before: the emitting frame or transaction always fails.\n- Now: the overflow flag lives in the current storage layer and rolls\nback with it.\n- If that layer rolls back while the frame or transaction around it\ncontinues, nothing outside the layer fails. Example: a mirrored log from\na call that then fails inside `Utility::batch` or an XCM `Transact`.",
+          "timestamp": "2026-11-10T05:29:14Z",
+          "tree_id": "025dcf36ed160dfa5c148705a9261db88feb41c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23105e867a35e26ed070920510214dc90f6ea3e3"
+        },
+        "date": 1794294304954,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025170311700000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009361109879999963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010128918809999997,
             "unit": "seconds"
           }
         ]
