@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794335949551,
+  "lastUpdate": 1794338986807,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429432898aa850850e12f313f4442cbd95f134c4",
-          "message": "asset-conversion precompile: expose getReserves (#11817)\n\n## Summary\n- Add `getReserves(bytes asset1, bytes asset2)` view function to the\nasset-conversion precompile, returning the reserve balances of both\ntokens in the pool\n- This exposes `pallet_asset_conversion::Pallet::get_reserves()` to\nEVM/PVM contracts and frontends via the precompile interface\n\n## Motivation\nThe precompile already exposes `quoteExactTokensForTokens` and\n`quoteTokensForExactTokens`, which allow contracts to estimate swap\noutputs. However, there is no way to query the raw pool reserves\ndirectly. This forces frontends and contracts to probe with arbitrary\namounts to infer pool state. Exposing `getReserves` gives direct access\nto pool balances, enabling:\n- DEX UIs to display pool composition and depth\n- Contracts to make routing decisions based on actual liquidity\n- Parity with Uniswap V2's `getReserves` interface that Solidity\ndevelopers expect\n\n## Test plan\n- [x] `get_reserves_works` — verifies correct reserve values for an\nexisting pool\n- [x] `get_reserves_fails_for_nonexistent_pool` — verifies revert for\nmissing pool\n- [x] All 23 existing tests continue to pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T10:20:24Z",
-          "tree_id": "1c7080e3b20a8c09d50a59cfd6b96594321d37c9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/429432898aa850850e12f313f4442cbd95f134c4"
-        },
-        "date": 1776944670998,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0099955795,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009352285129999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026694587599999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009353611299999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8739ac5703ec89890da2282c830a8f08d0bd607c",
+          "message": "fungible(s): Check deposit against capped amount in best-effort `release` (#13661)\n\nWith `Precision::BestEffort`, `release()` called `can_deposit` with\nthe\n   requested amount but released only what was actually held. If free\nplus\n   held was below the existential deposit, `increase_balance` credited\n   nothing while the hold had already been reduced. The funds were lost\n   without any change to total issuance.\n\n   Cap the amount at the held balance first, call `can_deposit` with\nthat\n   capped amount, and then decrease the hold with `Exact`. A release\nthat\n   can't be credited now fails with `CannotCreate` and changes nothing.\n\n   Applies to both `fungible::hold::Mutate` and\n`fungibles::hold::Mutate`.\n   Adds a regression test in `pallet-balances`.\n\n---------\n\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T17:47:46Z",
+          "tree_id": "288310664629b5321500271a8ec48fb20bcf893a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8739ac5703ec89890da2282c830a8f08d0bd607c"
+        },
+        "date": 1794338952755,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010164015640000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00251317382,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009291959459999994,
             "unit": "seconds"
           }
         ]
