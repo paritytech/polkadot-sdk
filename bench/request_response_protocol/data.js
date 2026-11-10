@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794247895103,
+  "lastUpdate": 1794293198066,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -143099,6 +143099,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2955910803,
             "range": "± 52272881",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23105e867a35e26ed070920510214dc90f6ea3e3",
+          "message": "pallet-revive: fix receipt capture docs (#13688)\n\nTwo statements in the pallet-revive receipt capture docs were\ninaccurate. Documentation only, no behavior change.\n\nWhere a contract log ends up:\n- Before: decided by the entry point; `Revive::call` and an XCM\n`Transact` leave it substrate-only.\n- Now: decided by whether an ethereum transaction's receipt is open when\nthe log is emitted.\n- A `Revive::call` dispatched by `eth_substrate_call`, directly, through\na batch or through an XCM `Transact`, puts its logs on the receipt.\n\nWhat a receipt overflow fails:\n- Before: the emitting frame or transaction always fails.\n- Now: the overflow flag lives in the current storage layer and rolls\nback with it.\n- If that layer rolls back while the frame or transaction around it\ncontinues, nothing outside the layer fails. Example: a mirrored log from\na call that then fails inside `Utility::batch` or an XCM `Transact`.",
+          "timestamp": "2026-11-10T05:29:14Z",
+          "tree_id": "025dcf36ed160dfa5c148705a9261db88feb41c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23105e867a35e26ed070920510214dc90f6ea3e3"
+        },
+        "date": 1794293170000,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19655721,
+            "range": "± 149448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19705525,
+            "range": "± 165023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21383514,
+            "range": "± 79947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25530928,
+            "range": "± 128405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57935186,
+            "range": "± 1371834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353095907,
+            "range": "± 3405152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2786505830,
+            "range": "± 97692948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17072060,
+            "range": "± 109121",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17304185,
+            "range": "± 84865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17685060,
+            "range": "± 130723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22291312,
+            "range": "± 126156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60366917,
+            "range": "± 341501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 348933111,
+            "range": "± 2364113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2705699365,
+            "range": "± 29473252",
             "unit": "ns/iter"
           }
         ]
