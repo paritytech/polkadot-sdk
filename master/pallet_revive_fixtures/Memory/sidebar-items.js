@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MemoryCalls"],"struct":["expandMemoryCall","expandMemoryReturn","testMcopyCall","testMcopyReturn","testMemoryCall","testMemoryReturn","testMsizeCall","testMsizeReturn"]};
+window.SIDEBAR_ITEMS = {"enum":["MemoryCalls"],"struct":["expandMemoryCall","expandMemoryReturn","mcopyWithoutGrowthCall","mcopyWithoutGrowthReturn","mstoreAtCall","mstoreAtReturn","returnPrefixCall","returnPrefixReturn","testMcopyCall","testMcopyReturn","testMemoryCall","testMemoryReturn","testMsizeCall","testMsizeReturn"]};

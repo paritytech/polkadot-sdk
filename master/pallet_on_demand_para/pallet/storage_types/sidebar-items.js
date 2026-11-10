@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PendingBatch","PriceConfig","QueueState"]};
+window.SIDEBAR_ITEMS = {"struct":["Enabled","PendingBatch","PriceConfig","QueueState","Revenue"]};

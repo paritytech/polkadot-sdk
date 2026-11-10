@@ -153,6 +153,8 @@ Helper for incoming light client requests.</p>
 <p>Handle (i.e. answer) incoming light client requests from a remote peer received via
 <code>crate::request_responses::RequestResponsesBehaviour</code> with
 <a href="struct.LightClientRequestHandler.html" title="struct yet_another_parachain_runtime::sc_network_light::light_client_requests::handler::LightClientRequestHandler"><code>LightClientRequestHandler</code></a>.</p>
+<p>Call requests execute runtime code and are served by a pool of workers, separately from read
+requests, so that reads are never queued behind long calls.</p>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.LightClientRequestHandler.html" title="struct yet_another_parachain_runtime::sc_network_light::light_client_requests::handler::LightClientRequestHandler">Light<wbr>Client<wbr>Request<wbr>Handler</a></dt><dd>Handler for incoming light client requests from a remote peer.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

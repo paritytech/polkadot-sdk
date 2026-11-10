@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["configure","place_order"]};
+window.SIDEBAR_ITEMS = {"fn":["configure","enable","place_order"]};

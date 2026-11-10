@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MemoryEvmOnlyCalls"],"struct":["calldatacopyWithoutGrowthCall","calldatacopyWithoutGrowthReturn","codecopyWithoutGrowthCall","codecopyWithoutGrowthReturn","returnDataCall","returnDataReturn","returndatacopyWithoutGrowthCall","returndatacopyWithoutGrowthReturn"]};
