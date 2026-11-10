@@ -1,0 +1,30 @@
+title: 'eth-rpc: bump subxt to 0.51 so signed v4 extrinsics can be decoded'
+doc:
+- audience: Node Dev
+  description: |-
+    The workspace `subxt`, `subxt-metadata`, `subxt-rpcs` and `subxt-signer` dependencies move from
+    0.50 to 0.51. subxt 0.50 could not decode signed v4 extrinsics on runtimes that declare more
+    than one transaction extension version, such as Polkadot Asset Hub runtime 2005000.
+
+    In `pallet-revive-eth-rpc`, `frame-benchmarking-cli`, `pallet-revive` (`std` feature) and the
+    `subxt_client` module of `sc-statement-store` (`test-helpers` feature), public items that use
+    subxt or subxt-signer types now use their 0.51 versions. Code that passes subxt or subxt-signer
+    values to these items should use version 0.51 of both crates; the subxt changelog lists the
+    breaking changes.
+
+    `pallet_revive_eth_rpc::client::ClientError` no longer has a `Jsonrpsee` variant. `connect` now
+    reports a failure to build the node RPC client as `ClientError::RpcError`, so code that matched
+    `ClientError::Jsonrpsee` should match `ClientError::RpcError` instead.
+
+    eth-rpc deployments need no configuration change.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: sc-statement-store
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
