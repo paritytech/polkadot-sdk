@@ -55,6 +55,8 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
@@ -69,6 +71,25 @@ pub trait SendToPara {
 	/// Send `message` to the parachain.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
+}
+
+/// A [`MessageToParaV1::Release`] the transport refused, waiting in [`FailedReleases`] to be
+/// retried.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct ReleaseMessageToPara {
+	/// The channel whose deposits are given back.
+	pub channel: ChannelId,
+	/// Whether the sender's deposit is given back.
+	pub sender: bool,
+	/// Whether the recipient's deposit is given back.
+	pub recipient: bool,
+}
+
+impl From<ReleaseMessageToPara> for MessageToPara {
+	fn from(release: ReleaseMessageToPara) -> Self {
+		let ReleaseMessageToPara { channel, sender, recipient } = release;
+		MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient })
+	}
 }
 
 #[cfg(feature = "std")]
@@ -104,16 +125,18 @@ pub mod pallet {
 		/// Receives the outcome of each pending request: the `hrmp` pallet.
 		type OnDepositSet: OnDepositSet;
 
-		/// The para that holds the deposits. Only it may answer requests.
+		/// The para that holds the deposits.
+		///
+		/// Only it may answer requests.
 		#[pallet::constant]
 		type HolderParaId: Get<ParaId>;
 
 		/// Sends messages to the parachain that holds the deposits.
 		type SendToPara: SendToPara;
 
-		/// How many releases may wait in [`Outbox`] for the transport.
+		/// How many releases may wait in [`FailedReleases`] to be retried.
 		#[pallet::constant]
-		type MaxOutbox: Get<u32>;
+		type MaxFailedReleases: Get<u32>;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -140,10 +163,21 @@ pub mod pallet {
 	pub type PendingSides<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
 
-	/// Releases the transport did not take yet, oldest first.
+	/// Releases that could not be sent yet, oldest first.
+	///
+	/// A release cannot fail: [`ChannelDepositProvider`] requires it to be applied. So when
+	/// [`Config::SendToPara`] refuses a release, it waits here instead of being dropped, and is
+	/// retried in `on_poll`. Any later release joins the queue behind it, to keep releases in
+	/// order.
+	///
+	/// Normally nothing waits here. It only fills when the transport to the parachain is broken.
+	/// While it is not empty, other deposit requests are refused with [`Error::TransportBusy`] so
+	/// that they do not overtake a waiting release. Once it is full, further releases are dropped
+	/// with [`Event::ReleaseDropped`]; governance then has to fix the deposits on the parachain
+	/// with `force_set_deposit` of `pallet-hrmp-para`.
 	#[pallet::storage]
-	pub type Outbox<T: Config> =
-		StorageValue<_, BoundedVec<MessageToPara, T::MaxOutbox>, ValueQuery>;
+	pub type FailedReleases<T: Config> =
+		StorageValue<_, BoundedVec<ReleaseMessageToPara, T::MaxFailedReleases>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -168,14 +202,12 @@ pub mod pallet {
 		TransportBusy,
 		/// The request could not be handed to the transport.
 		SendFailed,
-		/// No request is pending with this id.
-		UnknownRequest,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
-			Self::flush_outbox(meter);
+			Self::retry_failed_releases(meter);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -195,18 +227,20 @@ pub mod pallet {
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
 			let para = ensure_parachain(origin)?;
 			ensure!(para == T::HolderParaId::get(), DispatchError::BadOrigin);
+
 			match message {
 				MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result }) => {
-					if Self::answer(id, result).is_err() {
-						Self::deposit_event(Event::UnknownAnswer { id });
-					}
+					Self::answer(id, result)
 				},
 			}
+
 			Ok(())
 		}
 
 		/// Answer the pending request `id` on the parachain's behalf, for an answer that never
 		/// arrived.
+		///
+		/// An answer for no pending request is ignored, with [`Event::UnknownAnswer`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
 		pub fn force_answer(
@@ -215,7 +249,10 @@ pub mod pallet {
 			result: Result<(), WireDepositError>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::answer(id, result)
+
+			Self::answer(id, result);
+
+			Ok(())
 		}
 	}
 }
@@ -257,9 +294,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Hands the answer to request `id` back to [`Config::OnDepositSet`].
-	fn answer(id: u64, result: Result<(), WireDepositError>) -> DispatchResult {
-		let request = PendingRequests::<T>::take(id).ok_or(Error::<T>::UnknownRequest)?;
+	fn answer(id: u64, result: Result<(), WireDepositError>) {
+		let Some(request) = PendingRequests::<T>::take(id) else {
+			Self::deposit_event(Event::UnknownAnswer { id });
+			return;
+		};
 		let channel = Self::to_wire(&request.channel_id);
+
 		for side in Self::sides(&request) {
 			PendingSides::<T>::remove((channel, side));
 		}
@@ -269,53 +310,54 @@ impl<T: Config> Pallet<T> {
 			WireDepositError::Other => DepositError::Other,
 		});
 		T::OnDepositSet::on_deposit_set(request, result);
-		Ok(())
 	}
 
-	/// Sends what waits in [`Outbox`], oldest first, until `meter` has no room for the next one or
-	/// the transport refuses it.
-	fn flush_outbox(meter: &mut WeightMeter) {
-		if meter.try_consume(T::WeightInfo::flush_outbox(0)).is_err() {
+	/// Retries the releases in [`FailedReleases`], oldest first, until `meter` has no room for the
+	/// next one or the transport refuses it.
+	fn retry_failed_releases(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::retry_failed_releases(0)).is_err() {
 			return;
 		}
-		let mut outbox = Outbox::<T>::get();
-		let mut sent = 0usize;
-		for (n, message) in (1..).zip(outbox.iter()) {
-			// What the `n`th message adds to the flush.
-			let weight =
-				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
+
+		let mut releases = FailedReleases::<T>::get();
+		let mut sent = 0u32;
+		for release in releases.iter() {
+			// What one more message adds to the retry.
+			let weight = T::WeightInfo::retry_failed_releases(sent + 1)
+				.saturating_sub(T::WeightInfo::retry_failed_releases(sent));
 			if meter.try_consume(weight).is_err() {
 				break;
 			}
-			if T::SendToPara::send(message.clone()).is_err() {
+			if T::SendToPara::send(release.clone().into()).is_err() {
 				break;
 			}
-			// Only releases wait in the outbox.
-			if let MessageToPara::V1(MessageToParaV1::Release { channel, .. }) = message {
-				Self::deposit_event(Event::ReleaseSent { channel: *channel });
-			}
+			Self::deposit_event(Event::ReleaseSent { channel: release.channel });
 			sent += 1;
 		}
+
 		if sent > 0 {
-			outbox.drain(..sent);
-			Outbox::<T>::put(outbox);
+			releases.drain(..sent as usize);
+			FailedReleases::<T>::put(releases);
 		}
 	}
 
-	/// Whether nothing waits in [`Outbox`].
-	fn outbox_is_empty() -> bool {
-		Outbox::<T>::decode_len().unwrap_or_default() == 0
+	/// Whether no release waits in [`FailedReleases`].
+	fn failed_releases_is_empty() -> bool {
+		FailedReleases::<T>::decode_len().unwrap_or_default() == 0
 	}
 
-	/// Sends a release, or keeps it in [`Outbox`] after anything already waiting there.
+	/// Sends a release, or keeps it in [`FailedReleases`] behind those already waiting there.
 	fn release(channel: ChannelId, sender: bool, recipient: bool) {
-		let message = MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient });
-		if Self::outbox_is_empty() && T::SendToPara::send(message.clone()).is_ok() {
+		let release = ReleaseMessageToPara { channel, sender, recipient };
+		if Self::failed_releases_is_empty() && T::SendToPara::send(release.clone().into()).is_ok() {
 			Self::deposit_event(Event::ReleaseSent { channel });
 			return;
 		}
-		if Outbox::<T>::try_append(message).is_err() {
-			log::error!(target: LOG_TARGET, "outbox full, dropped the release of {channel:?}");
+		if FailedReleases::<T>::try_append(release).is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"no room for failed releases, dropped the release of {channel:?}"
+			);
 			Self::deposit_event(Event::ReleaseDropped { channel });
 		}
 	}
@@ -332,6 +374,7 @@ impl<T: Config> Pallet<T> {
 				"hrmp-relay: a side is locked by a request for another side"
 			);
 		}
+
 		for (id, request) in PendingRequests::<T>::iter() {
 			let channel = Self::to_wire(&request.channel_id);
 			for side in Self::sides(&request) {
@@ -341,6 +384,7 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		}
+
 		Ok(())
 	}
 }
@@ -365,7 +409,7 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 			Error::<T>::DepositPending
 		);
 		// A request must not overtake a release made before it.
-		ensure!(Self::outbox_is_empty(), Error::<T>::TransportBusy);
+		ensure!(Self::failed_releases_is_empty(), Error::<T>::TransportBusy);
 
 		let id = NextRequestId::<T>::get();
 		let message = MessageToPara::V1(MessageToParaV1::SetDeposits {
@@ -386,6 +430,6 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 	}
 
 	fn weight_of_try_set_deposit() -> Weight {
-		T::WeightInfo::try_set_deposit()
+		T::WeightInfo::try_set_deposit_both_sides().max(T::WeightInfo::try_set_deposit_release())
 	}
 }

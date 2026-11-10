@@ -55,7 +55,8 @@ mod benchmarks {
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
-		assert_eq!(Deposits::<T>::get((CHANNEL, DepositSide::Recipient)), Some(deposit));
+		let recorded = Deposits::<T>::get((CHANNEL, DepositSide::Recipient)).map(|d| d.amount);
+		assert_eq!(recorded, Some(deposit));
 	}
 
 	/// Both sides released.
@@ -90,7 +91,7 @@ mod benchmarks {
 		}
 
 		assert!(result.is_ok());
-		assert_eq!(Deposits::<T>::get((CHANNEL, side)), Some(deposit));
+		assert_eq!(Deposits::<T>::get((CHANNEL, side)).map(|d| d.amount), Some(deposit));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);

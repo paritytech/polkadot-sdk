@@ -23,5 +23,9 @@ crates:
   bump: minor
 - name: polkadot-runtime-common
   bump: patch
+- name: frame-support-procedural
+  bump: patch
 - name: polkadot-sdk-frame
   bump: none
+- name: polkadot-sdk
+  bump: minor

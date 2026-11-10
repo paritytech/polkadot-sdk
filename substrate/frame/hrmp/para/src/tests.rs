@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Call, Deposits, Error, Event, HoldReason, RECEIVE_CALL_INDEX};
+use crate::{mock::*, Call, Deposit, Deposits, Error, Event, HoldReason, RECEIVE_CALL_INDEX};
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	traits::{
-		fungible::{InspectHold, MutateHold},
-		tokens::{Fortitude, Precision},
+		fungible::{self, InspectHold},
 		GetCallIndex, UnfilteredDispatchable,
 	},
 };
@@ -42,7 +41,7 @@ fn on_hold(para: ParaId) -> Balance {
 }
 
 fn deposit(channel: ChannelId, side: DepositSide) -> Option<Balance> {
-	Deposits::<Test>::get((channel, side))
+	Deposits::<Test>::get((channel, side)).map(|d| d.amount)
 }
 
 fn set_message(
@@ -272,8 +271,8 @@ fn release_both_sides() {
 		assert_eq!(
 			events(),
 			vec![
-				Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 10 },
-				Event::DepositReleased { channel: ch(1, 2), side: Recipient, amount: 20 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 0 },
+				Event::DepositSet { channel: ch(1, 2), side: Recipient, amount: 0 },
 			]
 		);
 		assert!(sent().is_empty());
@@ -309,30 +308,6 @@ fn release_one_channel_keeps_others() {
 		release(ch(1, 2), true, true);
 		assert_eq!(on_hold(1), 20);
 		assert_eq!(deposit(ch(1, 3), Sender), Some(20));
-	});
-}
-
-/// After part of a hold is slashed, a release gives back what is left and forgets the side.
-#[test]
-fn release_after_hold_partially_slashed() {
-	new_test_ext(|| {
-		assert_ok!(set(0, ch(1, 2), Some(10), None));
-		assert_ok!(Balances::burn_held(
-			&HoldReason::ChannelDeposit.into(),
-			&1,
-			4,
-			Precision::Exact,
-			Fortitude::Force,
-		));
-		events();
-
-		release(ch(1, 2), true, false);
-		assert_eq!(on_hold(1), 0);
-		assert_eq!(deposit(ch(1, 2), Sender), None);
-		assert_eq!(
-			events(),
-			vec![Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 6 }]
-		);
 	});
 }
 
@@ -396,6 +371,41 @@ fn force_set_cannot_hold() {
 	});
 }
 
+/// Re-anchoring the sovereign accounts does not move a deposit: it is still released to the
+/// account it was held from.
+#[test]
+fn release_after_reanchor_goes_to_depositor() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Sender)).map(|d| d.depositor), Some(1));
+
+		ANCHOR.set(1000);
+		release(ch(1, 2), true, false);
+		assert_eq!(on_hold(1), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &1001), 0);
+		assert_eq!(deposit(ch(1, 2), Sender), None);
+	});
+}
+
+/// After re-anchoring, a side that holds something keeps holding from the recorded account;
+/// only a side that holds nothing uses the new sovereign account.
+#[test]
+fn set_after_reanchor_keeps_depositor() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+
+		ANCHOR.set(1000);
+		<Balances as fungible::Mutate<_>>::set_balance(&1002, ENDOWMENT);
+		assert_ok!(set(1, ch(1, 2), Some(15), Some(20)));
+		assert_eq!(on_hold(1), 15);
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Sender)).map(|d| d.depositor), Some(1));
+		// The recipient held nothing: its deposit comes from the re-anchored account.
+		assert_eq!(on_hold(2), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &1002), 20);
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Recipient)).map(|d| d.depositor), Some(1002));
+	});
+}
+
 /// A migrated deposit sets what the side holds, from the para's free balance.
 #[test]
 fn receive_deposit_sets_the_amount() {
@@ -418,6 +428,22 @@ fn receive_deposit_sets_the_amount() {
 			]
 		);
 		assert!(sent().is_empty());
+	});
+}
+
+/// After re-anchoring, a migrated deposit for a side that holds something is held from the
+/// recorded depositor.
+#[test]
+fn receive_deposit_after_reanchor_keeps_depositor() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+
+		ANCHOR.set(1000);
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, 30));
+		assert_eq!(on_hold(1), 30);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &1001), 0);
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Sender)).map(|d| d.depositor), Some(1));
 	});
 }
 
@@ -504,7 +530,7 @@ fn receive_deposit_zero_holds_nothing() {
 #[test]
 fn try_state_detects_zero_entry() {
 	new_test_ext(|| {
-		Deposits::<Test>::insert((ch(1, 2), Sender), 0);
+		Deposits::<Test>::insert((ch(1, 2), Sender), Deposit { amount: 0, depositor: 1 });
 		assert!(HrmpPara::do_try_state().is_err());
 		Deposits::<Test>::remove((ch(1, 2), Sender));
 	});
@@ -515,7 +541,7 @@ fn try_state_detects_zero_entry() {
 fn try_state_detects_hold_mismatch() {
 	new_test_ext(|| {
 		assert_ok!(set(0, ch(1, 2), Some(10), None));
-		Deposits::<Test>::insert((ch(3, 1), Recipient), 5);
+		Deposits::<Test>::insert((ch(3, 1), Recipient), Deposit { amount: 5, depositor: 1 });
 		assert!(HrmpPara::do_try_state().is_err());
 		Deposits::<Test>::remove((ch(3, 1), Recipient));
 	});

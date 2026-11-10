@@ -27,6 +27,8 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+pallet-hrmp-para = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
 [features]
@@ -47,6 +49,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-hrmp-para/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -54,6 +58,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-hrmp-para/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

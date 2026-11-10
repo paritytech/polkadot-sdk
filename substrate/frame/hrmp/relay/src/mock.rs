@@ -95,7 +95,7 @@ impl pallet_hrmp_relay::Config for Test {
 	type OnDepositSet = RecordingOnDepositSet;
 	type HolderParaId = HolderParaId;
 	type SendToPara = RecordingTransport;
-	type MaxOutbox = ConstU32<4>;
+	type MaxFailedReleases = ConstU32<4>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

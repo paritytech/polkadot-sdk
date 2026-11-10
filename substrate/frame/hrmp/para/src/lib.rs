@@ -27,6 +27,7 @@
 
 extern crate alloc;
 
+use core::cmp::Ordering;
 use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
@@ -82,6 +83,18 @@ impl BenchmarkHelper for () {
 	fn ensure_send_to_relay() {}
 }
 
+/// What one side of a channel holds, and from whose account.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct Deposit<AccountId> {
+	/// What is held.
+	pub amount: Balance,
+	/// The account it is held from, and released to.
+	///
+	/// The depositor is always the sovereign account of the para and should be constant, but we
+	/// record it and use the recorded value defensively, and to help re-anchoring.
+	pub depositor: AccountId,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -96,6 +109,10 @@ pub mod pallet {
 		type SendToRelay: SendToRelay;
 
 		/// A para's sovereign account on this chain, which pays its deposits.
+		///
+		/// It must be constant for a given para.
+		// Defensively, it is only consulted for a side that holds nothing: a side that holds
+		// something keeps holding from, and is released to, the account recorded in [`Deposits`].
 		type SovereignAccountOf: Convert<ParaId, Self::AccountId>;
 
 		/// Weight information for the operations in this pallet.
@@ -117,10 +134,12 @@ pub mod pallet {
 		ChannelDeposit,
 	}
 
-	/// What is held for each side of each channel. A side holding nothing has no entry.
+	/// What is held for each side of each channel, and from whose account.
+	///
+	/// A side holding nothing has no entry.
 	#[pallet::storage]
 	pub type Deposits<T: Config> =
-		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Balance, OptionQuery>;
+		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Deposit<T::AccountId>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -129,8 +148,6 @@ pub mod pallet {
 		DepositSet { channel: ChannelId, side: DepositSide, amount: Balance },
 		/// The deposits of request `id` could not be set. Nothing changed.
 		DepositRefused { id: u64, channel: ChannelId },
-		/// Everything held for a side, `amount`, was released.
-		DepositReleased { channel: ChannelId, side: DepositSide, amount: Balance },
 		/// A migrated deposit of `amount` was taken over: the side now holds `held`, which is
 		/// `amount` unless the paying para could not cover it.
 		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
@@ -156,7 +173,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the relay chain for HRMP deposits.
+		/// Receive a message from the relay chain.
 		///
 		/// The origin must be root.
 		// The index must equal `RECEIVE_CALL_INDEX`.
@@ -168,6 +185,7 @@ pub mod pallet {
 		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			ensure_root(origin)?;
+
 			match message {
 				MessageToPara::V1(MessageToParaV1::SetDeposits {
 					id,
@@ -176,18 +194,20 @@ pub mod pallet {
 					recipient,
 				}) => {
 					let result = with_transaction_opaque_err(|| {
-						let result =
-							[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
-								.into_iter()
-								.try_for_each(|(side, target)| match target {
-									Some(target) => Self::set_side(channel, side, target),
-									None => Ok(()),
-								});
-						if result.is_ok() {
-							TransactionOutcome::Commit(result)
-						} else {
-							TransactionOutcome::Rollback(result)
+						if let Some(target) = sender {
+							if let Err(err) = Self::set_side(channel, DepositSide::Sender, target) {
+								return TransactionOutcome::Rollback(Err(err));
+							}
 						}
+						if let Some(target) = recipient {
+							if let Err(err) =
+								Self::set_side(channel, DepositSide::Recipient, target)
+							{
+								return TransactionOutcome::Rollback(Err(err));
+							}
+						}
+
+						TransactionOutcome::Commit(Ok(()))
 					})
 					.unwrap_or(Err(DepositError::Other)); // Too deep in nested transactions.
 
@@ -197,12 +217,11 @@ pub mod pallet {
 					Self::send(MessageToRelayV1::DepositsSet { id, result })
 				},
 				MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient }) => {
-					for (side, release) in
-						[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
-					{
-						if release {
-							Self::release_side(channel, side);
-						}
+					if sender {
+						Self::release_side(channel, DepositSide::Sender);
+					}
+					if recipient {
+						Self::release_side(channel, DepositSide::Recipient);
 					}
 					Ok(())
 				},
@@ -220,7 +239,8 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
+
+			if Deposits::<T>::get((channel, side)).map_or(0, |d| d.amount) == amount {
 				return Ok(());
 			}
 			Self::set_side(channel, side, amount).map_err(Self::dispatch_error)
@@ -231,8 +251,11 @@ pub mod pallet {
 impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
 	fn receive_deposit(key: DepositKey, amount: Balance) -> DispatchResult {
 		let DepositKey { channel, side } = key;
-		let who = Self::payer(&channel, side);
-		let current = Deposits::<T>::get((channel, side)).unwrap_or_default();
+		// `set_side` holds from the recorded depositor, or from the payer if nothing is held.
+		let (current, who) = match Deposits::<T>::get((channel, side)) {
+			Some(Deposit { amount, depositor }) => (amount, depositor),
+			None => (0, Self::payer(&channel, side)),
+		};
 		// What a hold may take on top, as `hold` checks it.
 		let can_hold =
 			T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force);
@@ -250,6 +273,7 @@ impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The account that pays for `side` of `channel` when it holds nothing yet.
 	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
 		T::SovereignAccountOf::convert(side.para(channel))
 	}
@@ -273,56 +297,82 @@ impl<T: Config> Pallet<T> {
 		target: Balance,
 	) -> Result<(), DepositError> {
 		let reason = HoldReason::ChannelDeposit.into();
-		let who = Self::payer(&channel, side);
-		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
-		if target > held {
-			T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
-				DispatchError::Token(TokenError::FundsUnavailable) => {
-					DepositError::InsufficientFunds
-				},
-				_ => DepositError::Other,
-			})?;
-		} else if target < held {
-			T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
-				.map_err(|_| DepositError::Other)?;
+		let (held, who) = match Deposits::<T>::get((channel, side)) {
+			Some(Deposit { amount, depositor }) => (amount, depositor),
+			None => (0, Self::payer(&channel, side)),
+		};
+
+		match target.cmp(&held) {
+			Ordering::Greater => {
+				T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
+					DispatchError::Token(TokenError::FundsUnavailable) => {
+						DepositError::InsufficientFunds
+					},
+					_ => DepositError::Other,
+				})?;
+			},
+			Ordering::Less => {
+				let to_release = held - target;
+				let released =
+					T::Currency::release(&reason, &who, to_release, Precision::BestEffort)
+						.map_err(|_| DepositError::Other)?;
+				if released != to_release {
+					frame_support::defensive!(
+						"hrmp-para: released less than recorded",
+						(to_release, released)
+					);
+				}
+			},
+			Ordering::Equal => {},
 		}
+
 		if target == 0 {
 			Deposits::<T>::remove((channel, side));
 		} else {
-			Deposits::<T>::insert((channel, side), target);
+			Deposits::<T>::insert((channel, side), Deposit { amount: target, depositor: who });
 		}
 		Self::deposit_event(Event::DepositSet { channel, side, amount: target });
 		Ok(())
 	}
 
-	/// Releases everything held for `side`. Nothing held is not an error.
+	/// Releases everything held for `side`.
+	///
+	/// Nothing held is not an error.
 	fn release_side(channel: ChannelId, side: DepositSide) {
-		let Some(held) = Deposits::<T>::take((channel, side)) else { return };
+		let Some(Deposit { amount: held, depositor: who }) = Deposits::<T>::take((channel, side))
+		else {
+			return;
+		};
 		let reason = HoldReason::ChannelDeposit.into();
-		let who = Self::payer(&channel, side);
-		let amount =
+
+		let released =
 			T::Currency::release(&reason, &who, held, Precision::BestEffort).unwrap_or_default();
-		Self::deposit_event(Event::DepositReleased { channel, side, amount });
+		if released != held {
+			frame_support::defensive!("hrmp-para: released less than recorded", (held, released));
+		}
+
+		Self::deposit_event(Event::DepositSet { channel, side, amount: 0 });
 	}
 
-	/// Checks that each para has exactly its recorded deposits on hold.
+	/// Checks that each depositor has exactly its recorded deposits on hold.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::btree_map::BTreeMap;
 		use frame_support::traits::fungible::InspectHold;
-		let mut per_para = BTreeMap::<ParaId, Balance>::new();
-		for ((channel, side), amount) in Deposits::<T>::iter() {
+		let mut per_depositor = BTreeMap::<T::AccountId, Balance>::new();
+
+		for (_, Deposit { amount, depositor }) in Deposits::<T>::iter() {
 			ensure!(amount != 0, "hrmp-para: a side holding nothing is recorded");
-			let total = per_para.entry(side.para(&channel)).or_default();
+			let total = per_depositor.entry(depositor).or_default();
 			*total = total.saturating_add(amount);
 		}
-		for (para, recorded) in per_para {
-			let on_hold = T::Currency::balance_on_hold(
-				&HoldReason::ChannelDeposit.into(),
-				&T::SovereignAccountOf::convert(para),
-			);
-			ensure!(on_hold == recorded, "hrmp-para: a para's hold differs from its deposits");
+
+		for (depositor, recorded) in per_depositor {
+			let on_hold =
+				T::Currency::balance_on_hold(&HoldReason::ChannelDeposit.into(), &depositor);
+			ensure!(on_hold == recorded, "hrmp-para: a depositor's hold differs from its deposits");
 		}
+
 		Ok(())
 	}
 }

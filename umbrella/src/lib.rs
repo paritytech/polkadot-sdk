@@ -179,6 +179,10 @@ pub use cumulus_primitives_parachain_inherent;
 #[cfg(feature = "cumulus-primitives-proof-size-hostfunction")]
 pub use cumulus_primitives_proof_size_hostfunction;
 
+/// Speculative Messaging primitives.
+#[cfg(feature = "cumulus-primitives-spec-messaging")]
+pub use cumulus_primitives_spec_messaging;
+
 /// Utilities to reclaim storage weight.
 #[cfg(feature = "cumulus-primitives-storage-weight-reclaim")]
 pub use cumulus_primitives_storage_weight_reclaim;
@@ -484,10 +488,6 @@ pub use pallet_derivatives;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
-/// Dummy DIM Pallet.
-#[cfg(feature = "pallet-dummy-dim")]
-pub use pallet_dummy_dim;
-
 /// PALLET multi phase+block election providers.
 #[cfg(feature = "pallet-election-provider-multi-block")]
 pub use pallet_election_provider_multi_block;
@@ -620,10 +620,6 @@ pub use pallet_oracle;
 #[cfg(feature = "pallet-oracle-runtime-api")]
 pub use pallet_oracle_runtime_api;
 
-/// Pallet to give some execution allowance for some origins.
-#[cfg(feature = "pallet-origin-restriction")]
-pub use pallet_origin_restriction;
-
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
@@ -631,10 +627,6 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
-
-/// Personhood-tracking pallet.
-#[cfg(feature = "pallet-people")]
-pub use pallet_people;
 
 /// Transaction extension that pays transaction fees with a gas allowance asset.
 #[cfg(feature = "pallet-pgas-allowance")]
@@ -735,6 +727,11 @@ pub use pallet_staking_async;
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-ah-client")]
 pub use pallet_staking_async_ah_client;
+
+/// Converts reported units of a validator service into era points, intended to be used in
+/// Asset Hub.
+#[cfg(feature = "pallet-staking-async-points-converter")]
+pub use pallet_staking_async_points_converter;
 
 /// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.

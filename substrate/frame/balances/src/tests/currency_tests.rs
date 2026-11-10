@@ -762,6 +762,22 @@ fn burn_must_work() {
 }
 
 #[test]
+fn inactive_issuance_survives_reverted_currency_burn() {
+	ExtBuilder::default().monied(true).build_and_execute_with(|| {
+		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		Balances::deactivate(init_total_issuance - 5);
+
+		let imbalance = <Balances as Currency<_>>::burn(10);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance - 10);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), init_total_issuance - 5);
+
+		drop(imbalance);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), init_total_issuance - 5);
+	});
+}
+
+#[test]
 #[should_panic = "the balance of any account should always be at least the existential deposit."]
 fn cannot_set_genesis_value_below_ed() {
 	EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 11);
@@ -1377,6 +1393,7 @@ fn repatriate_reserved_named_reserved_status_does_not_leak_empty_beneficiary_ent
 			Balances::reserves(&2).is_empty(),
 			"no balance moved, so the beneficiary must not gain a named-reserve entry",
 		);
+		assert!(!crate::Reserves::<Test>::contains_key(&2));
 
 		// No `MaxReserves` (= 2) slot was leaked, so two real reserves still fit.
 		assert_ok!(Balances::reserve_named(&TestId::Bar, &2, 5));
