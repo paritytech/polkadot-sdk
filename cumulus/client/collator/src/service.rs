@@ -19,8 +19,10 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_primitives_core::{
-	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
+	SchedulingSignalError, SchedulingSignals, SignedSchedulingInfo,
 };
+use polkadot_primitives::{UMPSignal, UMP_SEPARATOR};
 
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
@@ -30,7 +32,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
 use cumulus_client_consensus_common::ParachainCandidate;
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV};
 
-use codec::Encode;
+use codec::{DecodeAll, Encode};
 use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
@@ -105,6 +107,29 @@ fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
 	let messages = parts.next().unwrap_or(&[]).to_vec();
 	let signals = parts.next().unwrap_or(&[]).iter().filter(|m| !m.is_empty()).cloned().collect();
 	(messages, signals)
+}
+
+/// The candidate's UMP signal tail. A signed scheduling info (resubmission) replaces the blocks'
+/// signals wholesale, as the PVF does. Otherwise the signals pass through in the blocks' order:
+/// a runtime from before `validate_block` re-encoded them keeps that order in its tail, and a
+/// current honest runtime already emits the canonical one. Signals that some runtime's
+/// `validate_block` would reject or rewrite, so the collator cannot match it, are an error: one
+/// that does not decode exactly, or a repeated variant.
+fn signal_tail(
+	signed_scheduling_info: Option<&SignedSchedulingInfo>,
+	signals: Vec<Vec<u8>>,
+) -> Result<Vec<Vec<u8>>, SchedulingSignalError> {
+	if let Some(signed_info) = signed_scheduling_info {
+		return Ok(SchedulingSignals::from_scheduling_info(signed_info).into_ump_messages());
+	}
+	SchedulingSignals::try_from_block_signals(&signals)?;
+	if signals.iter().any(|signal| UMPSignal::decode_all(&mut &signal[..]).is_err()) {
+		return Err(SchedulingSignalError::UndecodableSignal);
+	}
+	if signals.is_empty() {
+		return Ok(Vec::new());
+	}
+	Ok(core::iter::once(UMP_SEPARATOR).chain(signals).collect())
 }
 
 impl<Block, BS, RA> CollatorService<Block, BS, RA>
@@ -318,25 +343,17 @@ where
 			}),
 		});
 
-		// Emit the scheduling-signal tail exactly as `validate_block` does, so the two can't drift:
-		// a signed scheduling info (resubmission) replaces the block's own signals wholesale, and
-		// otherwise the block's signals are re-encoded in canonical order. Signals the PVF would
-		// reject skip the collation.
-		let scheduling_signals = match signed_scheduling_info {
-			Some(signed_info) => SchedulingSignals::from_scheduling_info(&signed_info),
-			None => match SchedulingSignals::try_from_block_signals(&upward_message_signals) {
-				Ok(signals) => signals,
-				Err(error) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						%error,
-						"Not submitting a collation whose UMP signals the PVF would reject",
-					);
-					return None;
-				},
+		match signal_tail(signed_scheduling_info.as_ref(), upward_message_signals) {
+			Ok(tail) => upward_messages.extend(tail),
+			Err(error) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					%error,
+					"Not submitting a collation whose UMP signals a PVF would reject or rewrite",
+				);
+				return None;
 			},
-		};
-		upward_messages.extend(scheduling_signals.into_ump_messages());
+		}
 
 		let upward_messages = upward_messages
 			.try_into()
@@ -424,7 +441,56 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::split_at_separator;
+	use super::{signal_tail, split_at_separator};
+	use codec::Encode;
+	use cumulus_primitives_core::{SchedulingSignalError, SchedulingSignals};
+	use polkadot_primitives::{
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
+	};
+
+	fn select_core() -> Vec<u8> {
+		UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(1)).encode()
+	}
+
+	fn approved_peer() -> Vec<u8> {
+		let peer = ApprovedPeerId::try_from(vec![0xAA; 4]).expect("4 bytes fit; qed");
+		UMPSignal::ApprovedPeer(peer).encode()
+	}
+
+	fn with_separator(signals: &[Vec<u8>]) -> Vec<Vec<u8>> {
+		core::iter::once(UMP_SEPARATOR).chain(signals.iter().cloned()).collect()
+	}
+
+	#[test]
+	fn signals_pass_through_in_the_blocks_order() {
+		// A runtime from before `validate_block` re-encoded the tail emits `ApprovedPeer` in
+		// `set_validation_data` and `SelectCore` in `on_finalize`, and its PVF keeps that order.
+		let older = vec![approved_peer(), select_core()];
+		assert_eq!(signal_tail(None, older.clone()), Ok(with_separator(&older)));
+		// A current runtime emits the canonical order, which its PVF re-encodes to the same bytes.
+		let current = vec![select_core(), approved_peer()];
+		assert_eq!(signal_tail(None, current.clone()), Ok(with_separator(&current)));
+		assert_eq!(
+			SchedulingSignals::from_block_signals(&current).into_ump_messages(),
+			with_separator(&current)
+		);
+		assert_eq!(signal_tail(None, Vec::new()), Ok(Vec::new()));
+	}
+
+	#[test]
+	fn signals_no_pvf_reproduces_skip_the_collation() {
+		let mut trailing = select_core();
+		trailing.push(0xEE);
+		for (signals, error) in [
+			(vec![select_core(), select_core()], SchedulingSignalError::DuplicateSelectCore),
+			(vec![approved_peer(), approved_peer()], SchedulingSignalError::DuplicateApprovedPeer),
+			(vec![vec![0xFF]], SchedulingSignalError::UndecodableSignal),
+			// A current PVF drops the trailing byte, an older one keeps it.
+			(vec![approved_peer(), trailing], SchedulingSignalError::UndecodableSignal),
+		] {
+			assert_eq!(signal_tail(None, signals), Err(error));
+		}
+	}
 
 	#[test]
 	fn split_at_separator_matches_validate_block() {

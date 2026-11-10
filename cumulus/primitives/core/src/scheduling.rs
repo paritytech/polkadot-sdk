@@ -119,9 +119,9 @@ impl SchedulingSignals {
 		Self::try_from_block_signals(raw).unwrap_or_else(|error| panic!("{}", error))
 	}
 
-	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
-	/// The collator applies this to the blocks' signals exactly as `validate_block` does: the tail
-	/// re-encodes them in canonical order, dropping any bytes after each signal.
+	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`,
+	/// as `validate_block` does: the tail re-encodes them in canonical order, dropping any bytes
+	/// after each signal.
 	///
 	/// Errs on a repeated variant even when the values match: the relay decoder counts
 	/// occurrences, not distinct values, so a duplicate is a bug regardless.
@@ -355,8 +355,7 @@ mod tests {
 
 	#[test]
 	fn try_from_block_signals_canonicalizes_order_and_trailing_bytes() {
-		// The tail is re-encoded: `SelectCore` first, and bytes after a signal dropped. The
-		// collator must apply the same parse rather than pass the block's bytes through.
+		// The tail is re-encoded: `SelectCore` first, and bytes after a signal dropped.
 		let mut trailing = UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode();
 		trailing.push(0xEE);
 		let raw = vec![UMPSignal::ApprovedPeer(peer(0xAA)).encode(), trailing];
