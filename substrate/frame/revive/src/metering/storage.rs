@@ -29,15 +29,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-<<<<<<< HEAD
-use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
-=======
 use frame_support::{
 	DebugNoBound, DefaultNoBound,
 	traits::{Defensive, Get},
 };
-use sp_arithmetic::MultiplyRational;
->>>>>>> 5fe2309b (pallet-revive: bound storage deposit refunds by the held deposit (#13621))
 use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedU128,
 	traits::{Saturating, Zero},

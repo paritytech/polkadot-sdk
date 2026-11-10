@@ -26,11 +26,7 @@ use crate::{
 	},
 	tests::{
 		Assets, AssetsFreezer, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID,
-<<<<<<< HEAD
-		RuntimeOrigin, System, Test, builder, test_utils::get_contract_checked,
-=======
-		PGasRefundPercent, RuntimeOrigin, Test, builder, test_utils::get_contract_checked,
->>>>>>> 5fe2309b (pallet-revive: bound storage deposit refunds by the held deposit (#13621))
+		PGasRefundPercent, RuntimeOrigin, System, Test, builder, test_utils::get_contract_checked,
 	},
 };
 use alloy_core::sol_types::SolCall;

@@ -637,7 +637,6 @@ fn bounded_refund_counts_against_eth_gas_limit(fixture_type: FixtureType) {
 						eth_gas_limit,
 						weight_limit: WEIGHT_LIMIT,
 						eth_tx_info: EthTxInfo::new(0, Default::default()),
-						authorization_deposit: Default::default(),
 					})
 					.build()
 			};
@@ -889,7 +888,6 @@ fn cleared_then_terminated_counts_against_eth_gas_limit(fixture_type: FixtureTyp
 						eth_gas_limit,
 						weight_limit: WEIGHT_LIMIT,
 						eth_tx_info: EthTxInfo::new(0, Default::default()),
-						authorization_deposit: Default::default(),
 					})
 					.build()
 			};
