@@ -1,0 +1,22 @@
+title: 'cumulus: judge unincluded blocks by their executing runtime'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+      Fixes part of #13658
+
+     After a V2 -> V3 runtime upgrade, the parent search judged every unincluded block by the best block's runtime, which is V3. The V2-executed upgrade block was then kept and resubmitted under V3 rules even after its relay parent had expired under V2 rules, and validators rejected the candidates.
+
+      This PR judges each unincluded block by the runtime that executed it, its parent's:
+
+      - V3-executed blocks need a relay parent known from the scheduling parent.
+      - V2-executed blocks need a relay parent in the V2 lookahead window. An expired upgrade block is therefore dropped and rebuilt instead of resubmitted "forever".
+      - V2-executed blocks never enter the V3 resubmittable segment.
+
+      The slot-based collator also ends the slot's core loop after building a runtime upgrade.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: patch
