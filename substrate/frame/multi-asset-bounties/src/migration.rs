@@ -469,7 +469,10 @@ pub type MigrateV1ToV2<T, I = ()> = frame_support::migrations::VersionedMigratio
 mod tests {
 	use super::*;
 	use crate::mock::*;
-	use frame_support::traits::{OnRuntimeUpgrade, StorageVersion};
+	use frame_support::{
+		assert_ok,
+		traits::{OnRuntimeUpgrade, StorageVersion},
+	};
 
 	type Bounties1 = crate::Pallet<Test, ()>;
 
@@ -564,6 +567,122 @@ mod tests {
 
 			// Version bumped.
 			assert_eq!(StorageVersion::get::<Bounties1>(), 2);
+		});
+	}
+
+	fn run_migration() {
+		#[cfg(feature = "try-runtime")]
+		MigrateV1ToV2::<Test, ()>::try_on_runtime_upgrade(true).expect("migration succeeds");
+		#[cfg(not(feature = "try-runtime"))]
+		let _w = MigrateV1ToV2::<Test, ()>::on_runtime_upgrade();
+	}
+
+	#[test]
+	fn in_flight_v1_payments_complete_after_migration() {
+		ExtBuilder::default().build_and_execute(|| {
+			StorageVersion::new(1).put::<Bounties1>();
+			let metadata = note_preimage(1);
+			for _ in 0..3 {
+				<Test as Config>::Preimages::request(&metadata);
+			}
+
+			// Parent 0 is paying out asset 7 with payment 70 in flight.
+			v1::Bounties::<Test, ()>::insert(
+				0u32,
+				v1::BountyOf::<Test, ()> {
+					asset_kind: 7,
+					value: 100,
+					metadata,
+					status: v1::BountyStatus::PayoutAttempted {
+						curator: 4,
+						beneficiary: 5,
+						payment_status: PaymentState::Attempted { id: 70 },
+					},
+				},
+			);
+			// Parent 1 is active in asset 9; its child 0 is refunding 15 with payment 80 in flight.
+			v1::Bounties::<Test, ()>::insert(
+				1u32,
+				v1::BountyOf::<Test, ()> {
+					asset_kind: 9,
+					value: 50,
+					metadata,
+					status: v1::BountyStatus::Active { curator: 4 },
+				},
+			);
+			v1::ChildBounties::<Test, ()>::insert(
+				1u32,
+				0u32,
+				v1::ChildBountyOf::<Test, ()> {
+					parent_bounty: 1,
+					value: 15,
+					metadata,
+					status: v1::BountyStatus::RefundAttempted {
+						curator: Some(8),
+						payment_status: PaymentState::Attempted { id: 80 },
+					},
+				},
+			);
+			v1::ChildBountiesValuePerParent::<Test, ()>::insert(1u32, 15u64);
+			crate::BountyCount::<Test, ()>::put(2);
+			crate::ChildBountiesPerParent::<Test, ()>::insert(1, 1);
+			crate::TotalChildBountiesPerParent::<Test, ()>::insert(1, 1);
+
+			run_migration();
+			assert_eq!(
+				crate::Bounties::<Test, ()>::get(0).unwrap().status,
+				BountyStatus::Awarding { curator: 4, beneficiary: 5 }
+			);
+			assert_eq!(
+				crate::ChildBounties::<Test, ()>::get(1, 0).unwrap().status,
+				BountyStatus::Closing { curator: Some(8) }
+			);
+
+			// When: both payments conclude and anyone checks them.
+			set_status(70, PaymentStatus::Success);
+			set_status(80, PaymentStatus::Success);
+			assert_ok!(crate::Pallet::<Test, ()>::check_status(RuntimeOrigin::signed(1), 0, None));
+			assert_ok!(crate::Pallet::<Test, ()>::check_status(
+				RuntimeOrigin::signed(1),
+				1,
+				Some(0)
+			));
+
+			// Then: the paid-out parent and the refunded child are gone, and the parent of the
+			// child can allocate its full value again.
+			assert_eq!(crate::Bounties::<Test, ()>::get(0), None);
+			assert_eq!(crate::ChildBounties::<Test, ()>::get(1, 0), None);
+			assert_eq!(crate::ChildValuePerParentAsset::<Test, ()>::get(1, 9), 0);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn pre_upgrade_rejects_an_orphan_child_and_an_undecodable_bounty() {
+		ExtBuilder::default().build().execute_with(|| {
+			StorageVersion::new(1).put::<Bounties1>();
+			let metadata = note_preimage(1);
+
+			// A child-bounty whose parent does not exist.
+			v1::ChildBounties::<Test, ()>::insert(
+				5u32,
+				0u32,
+				v1::ChildBountyOf::<Test, ()> {
+					parent_bounty: 5,
+					value: 15,
+					metadata,
+					status: v1::BountyStatus::Active { curator: 8 },
+				},
+			);
+			assert!(MigrateV1ToV2::<Test, ()>::try_on_runtime_upgrade(true).is_err());
+			v1::ChildBounties::<Test, ()>::remove(5u32, 0u32);
+
+			// A bounty whose bytes do not decode as v1.
+			frame_support::storage::unhashed::put_raw(
+				&v1::Bounties::<Test, ()>::hashed_key_for(3u32),
+				&[1, 2, 3],
+			);
+			assert!(MigrateV1ToV2::<Test, ()>::try_on_runtime_upgrade(true).is_err());
 		});
 	}
 

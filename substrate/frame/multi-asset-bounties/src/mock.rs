@@ -47,6 +47,22 @@ thread_local! {
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 	/// Source account and amount of every payment, so a rejected payment can be reverted.
 	pub static SOURCES: RefCell<BTreeMap<u64, (u128, u32, u64)>> = RefCell::new(BTreeMap::new());
+	/// Whether [`TestBountiesPay`] settles inside the call, like `LocalPay` on Asset Hub.
+	pub static SYNC_PAY: RefCell<bool> = RefCell::new(false);
+}
+
+/// The payment id every payment gets while [`TestBountiesPay`] settles inside the call. `LocalPay`
+/// likewise returns `QueryId::MAX` for every payment.
+pub const SYNC_PAYMENT_ID: u64 = u64::MAX;
+
+/// Make [`TestBountiesPay`] behave like `LocalPay`: `pay` transfers inside the call or fails,
+/// every payment gets the same id, and `check_payment` always reports `Success`.
+pub fn use_sync_paymaster() {
+	SYNC_PAY.with(|s| *s.borrow_mut() = true);
+}
+
+fn sync_paymaster() -> bool {
+	SYNC_PAY.with(|s| *s.borrow())
 }
 
 /// The funding source (treasury) is modelled as a faucet: it is never debited.
@@ -86,6 +102,9 @@ impl PayWithSource for TestBountiesPay {
 			})?;
 		}
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
+		if sync_paymaster() {
+			return Ok(SYNC_PAYMENT_ID);
+		}
 		let id = LAST_ID.with(|lid| {
 			let x = *lid.borrow();
 			lid.replace(x + 1);
@@ -95,6 +114,9 @@ impl PayWithSource for TestBountiesPay {
 		Ok(id)
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
+		if sync_paymaster() {
+			return PaymentStatus::Success;
+		}
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
@@ -290,6 +312,7 @@ impl ExtBuilder {
 		.build_storage()
 		.unwrap()
 		.into();
+		SYNC_PAY.with(|s| *s.borrow_mut() = false);
 		ext.execute_with(|| {
 			frame_system::Pallet::<Test>::set_block_number(1);
 		});
