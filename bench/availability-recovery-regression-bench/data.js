@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794314775877,
+  "lastUpdate": 1794318138834,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1dc3f352af493eb6eeef7ed67b217d93f9282039",
-          "message": "[zombienet] fix flaky zombienet tests (#11872)\n\nAdd `authoring` flag to test using _glutton_",
-          "timestamp": "2026-04-24T14:01:29Z",
-          "tree_id": "dfcad914162aa1f106a42d2668f88e05b2745751",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1dc3f352af493eb6eeef7ed67b217d93f9282039"
-        },
-        "date": 1777044261095,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13236047673333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.924055913133335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.1625766657,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372",
+          "message": "Fix weights accuracy (#13720)\n\nWorst case can now wrap calls\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-10T12:02:28Z",
+          "tree_id": "6f6959f1f294a628e349e2e75fb0f0f22a493f8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372"
+        },
+        "date": 1794318107472,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.061882154,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12805489116666666,
             "unit": "seconds"
           }
         ]
