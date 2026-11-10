@@ -37,6 +37,9 @@ use sp_runtime::{
 ///
 /// This transaction extension use the runtime implementation of the trait
 /// [`Authorize`](frame_support::traits::Authorize) to set the validity of the transaction.
+///
+/// The `Authorized` origin it creates is still subject to the runtime call filter: if the filter
+/// rejects the call, the transaction is invalid, as the call would fail at dispatch anyway.
 #[derive(
 	Encode,
 	Decode,
