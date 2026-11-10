@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794315015097,
+  "lastUpdate": 1794318309719,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b2a12a6395dc9d6b900c360b5568ccc4c934e0f4",
-          "message": "allow older relay parents in prospective-parachains (#11772)\n\nImplements https://github.com/paritytech/polkadot-sdk/issues/11208 and\nhttps://github.com/paritytech/polkadot-sdk/issues/11335\n\nAlso fixes a bug in statement-distribution\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-22T14:35:39Z",
-          "tree_id": "deda5e2e7bd953610b5c555fca33d46d7252a7c8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2a12a6395dc9d6b900c360b5568ccc4c934e0f4"
-        },
-        "date": 1776875824450,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.01599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038119001482,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07825624309999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09003263094799988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372",
+          "message": "Fix weights accuracy (#13720)\n\nWorst case can now wrap calls\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-10T12:02:28Z",
+          "tree_id": "6f6959f1f294a628e349e2e75fb0f0f22a493f8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372"
+        },
+        "date": 1794318279440,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.1,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03861815963399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09078490772999989,
             "unit": "seconds"
           }
         ]
