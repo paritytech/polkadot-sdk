@@ -1,0 +1,21 @@
+title: '[pallet-revive] align terminate precompile with opcodes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR aligns the terminate precompile with the opcodes.
+
+    - The precompile now pays out the balance immediately and only deletes the contract if this transaction created it, as `SELFDESTRUCT` does.
+    - The deposit is no longer refunded when terminate is called.
+    - TerminateArgs and schedule_termination are gone; the scheduling map just stores the beneficiary.
+
+    Tests:
+    - Tests that relied on deleting a contract from an earlier transaction now create and terminate it in the same call.
+    - Tests that call terminate on an older contract now assert the contract survives.
+    - Removed tests whose scenario can no longer happen (deposit refund at call time and several payers' deposits being refunded at termination).
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

@@ -42,6 +42,7 @@ The re-exported crates are grouped under the following feature sets.
 - `runtime-benchmarks`
 - `serde`
 - `tuples-96`
+- `tuples-128`
 - `try-runtime`
 - `with-tracing`
 
