@@ -31,7 +31,7 @@ use crate::{
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	metering::{ResourceMeter, State, Token},
+	metering::{ResourceMeter, State, Token, slope},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -140,14 +140,13 @@ impl CodeLoadToken {
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		let slope = |weight: fn(u32) -> Weight| weight(self.code_len).saturating_sub(weight(0));
 		match self.code_type {
 			BytecodeType::Pvm => {
-				let code_map = slope(T::WeightInfo::interpreter_cache_rebuild);
-				slope(T::WeightInfo::call_with_pvm_code_per_byte)
+				let code_map = slope(T::WeightInfo::interpreter_cache_rebuild, self.code_len);
+				slope(T::WeightInfo::call_with_pvm_code_per_byte, self.code_len)
 					.saturating_sub_ref_time(code_map.ref_time())
 			},
-			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte),
+			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte, self.code_len),
 		}
 	}
 }

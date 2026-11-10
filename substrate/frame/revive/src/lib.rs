@@ -1258,10 +1258,11 @@ pub mod pallet {
 				"The ref time per PolkaVM gas derived from the weights must not be 0"
 			);
 
-			let slope = |weight: fn(u32) -> Weight| weight(1).saturating_sub(weight(0)).ref_time();
+			let ref_time_slope =
+				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
 			assert!(
-				slope(T::WeightInfo::call_with_pvm_code_per_byte) >
-					slope(T::WeightInfo::interpreter_cache_rebuild),
+				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >
+					ref_time_slope(T::WeightInfo::interpreter_cache_rebuild),
 				"The PVM code load weight per byte must exceed the code map weight per byte"
 			);
 

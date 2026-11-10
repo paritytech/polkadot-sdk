@@ -35,23 +35,38 @@ impl ChargedAmount {
 	}
 }
 
+/// The slope of a `WeightInfo` function at `x` units.
+///
+/// It is the part of the weight that scales with the component: `weight(x) - weight(0)`, the
+/// weight of `x` units with the intercept removed. Saturates at zero.
+pub fn slope(weight: fn(u32) -> Weight, x: u32) -> Weight {
+	weight(x).saturating_sub(weight(0))
+}
+
 /// Meter for syncing the gas between the executor and the weight meter.
-#[derive(DefaultNoBound)]
 pub struct EngineMeter<T: Config> {
 	fuel: u64,
+	/// The cached [`Self::ref_time_per_fuel`].
+	ref_time_per_fuel: u64,
 	_phantom: PhantomData<T>,
 }
 
+impl<T: Config> Default for EngineMeter<T> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<T: Config> EngineMeter<T> {
-	/// Create a meter with the given fuel limit.
+	/// Create a meter with no fuel.
 	fn new() -> Self {
-		Self { fuel: 0, _phantom: PhantomData }
+		Self { fuel: 0, ref_time_per_fuel: Self::ref_time_per_fuel(), _phantom: PhantomData }
 	}
 
 	/// Set the fuel left to the given value.
 	/// Returns the amount of Weight consumed since the last update.
 	fn set_fuel(&mut self, fuel: u64) -> Weight {
-		let consumed = self.fuel.saturating_sub(fuel).saturating_mul(Self::ref_time_per_fuel());
+		let consumed = self.fuel.saturating_sub(fuel).saturating_mul(self.ref_time_per_fuel);
 		self.fuel = fuel;
 		Weight::from_parts(consumed, 0)
 	}
@@ -59,11 +74,14 @@ impl<T: Config> EngineMeter<T> {
 	/// Charge the given amount of ref time.
 	/// Returns the amount of fuel left.
 	fn sync_remaining_ref_time(&mut self, remaining_ref_time: u64) -> polkavm::Gas {
-		self.fuel = remaining_ref_time.saturating_div(Self::ref_time_per_fuel());
+		self.fuel = remaining_ref_time.saturating_div(self.ref_time_per_fuel);
 		self.fuel.try_into().unwrap_or(polkavm::Gas::MAX)
 	}
 
 	/// How much ref time each PolkaVM gas corresponds to.
+	///
+	/// The meter caches the result when it is created, since its `set_fuel` runs on every host
+	/// call.
 	///
 	/// It is the largest ref time per gas of nine benchmarks, each rounded up. All run only
 	/// instructions that cost one gas each, so the slope of one iteration divided by its gas is
@@ -80,7 +98,7 @@ impl<T: Config> EngineMeter<T> {
 	///   hardware. The slope of one lap is divided by [`INDIRECT_JUMP_GAS`].
 	pub fn ref_time_per_fuel() -> u64 {
 		let per_gas = |weight: fn(u32) -> Weight, gas: u32| {
-			weight(1).saturating_sub(weight(0)).ref_time().div_ceil(u64::from(gas))
+			slope(weight, 1).ref_time().div_ceil(u64::from(gas))
 		};
 		let load_chains: [fn(u32) -> Weight; 8] = [
 			T::WeightInfo::instr_load_chain_0,
@@ -111,13 +129,13 @@ impl<T: Config> EngineMeter<T> {
 	///   of a call and after every call into another contract, and when it rewrites the map after
 	///   many cache resets.
 	pub fn interpreter_compilation_cost() -> polkavm::InterpreterCompilationCost {
-		let slope = |weight: fn(u32) -> Weight| weight(1).saturating_sub(weight(0)).ref_time();
+		let ref_time_slope = |weight: fn(u32) -> Weight| slope(weight, 1).ref_time();
 		let ref_time_per_fuel = Self::ref_time_per_fuel();
-		let per_instruction = slope(T::WeightInfo::interpreter_compile_per_instruction);
-		let per_block = slope(T::WeightInfo::interpreter_compile_per_block)
+		let per_instruction = ref_time_slope(T::WeightInfo::interpreter_compile_per_instruction);
+		let per_block = ref_time_slope(T::WeightInfo::interpreter_compile_per_block)
 			.saturating_sub(per_instruction)
 			.saturating_sub(ref_time_per_fuel);
-		let per_code_byte = slope(T::WeightInfo::interpreter_cache_rebuild);
+		let per_code_byte = ref_time_slope(T::WeightInfo::interpreter_cache_rebuild);
 		Self::compilation_cost_from_ref_time(
 			per_block,
 			per_instruction,
