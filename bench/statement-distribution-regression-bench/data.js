@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794335894588,
+  "lastUpdate": 1794338931777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "194c871e67eebfd8faa167ecd6ba770186e54313",
-          "message": "pallet-revive: reserve on_finalize per-tx weight for eth extrinsics (#11858)\n\n### Summary\nEth extrinsics using `with_ethereum_context` add per transaction work to\n`on_finalize` (closing out the Ethereum block). That cost should be\nreserved at dispatch via `on_finalize_block_per_tx`.\n\nThis PR adds the reservation to `eth_substrate_call` and\n`eth_instantiate_with_code`, matching `eth_call`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T17:24:42Z",
-          "tree_id": "2cb21ab35be903652d94b7cbaa943f3c8eb32510",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/194c871e67eebfd8faa167ecd6ba770186e54313"
-        },
-        "date": 1776969966149,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.042,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03894834408799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07893338717199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0868412657459999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8739ac5703ec89890da2282c830a8f08d0bd607c",
+          "message": "fungible(s): Check deposit against capped amount in best-effort `release` (#13661)\n\nWith `Precision::BestEffort`, `release()` called `can_deposit` with\nthe\n   requested amount but released only what was actually held. If free\nplus\n   held was below the existential deposit, `increase_balance` credited\n   nothing while the hold had already been reduced. The funds were lost\n   without any change to total issuance.\n\n   Cap the amount at the held balance first, call `can_deposit` with\nthat\n   capped amount, and then decrease the hold with `Exact`. A release\nthat\n   can't be credited now fails with `CannotCreate` and changes nothing.\n\n   Applies to both `fungible::hold::Mutate` and\n`fungibles::hold::Mutate`.\n   Adds a regression test in `pallet-balances`.\n\n---------\n\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T17:47:46Z",
+          "tree_id": "288310664629b5321500271a8ec48fb20bcf893a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8739ac5703ec89890da2282c830a8f08d0bd607c"
+        },
+        "date": 1794338897700,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.136,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08958998117799996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03874253997800001,
             "unit": "seconds"
           }
         ]
