@@ -18,7 +18,6 @@ use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{fungible::NativeOrWithId, EitherOf, EnsureOrigin, Get};
-use pallet_dap::DapUnbalancedAdapter;
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;

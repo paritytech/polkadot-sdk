@@ -29,7 +29,6 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use pallet_dap::DapUnbalancedAdapter;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing, PotAccountProvider};

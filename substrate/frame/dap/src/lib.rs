@@ -25,23 +25,20 @@
 //!
 //! ## Key Responsibilities:
 //!
-//! - **Burn Collection**: [`DapUnbalancedAdapter`] implements `OnUnbalanced` to intercept any burn
-//!   source wired to it (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.)
-//!   and redirect funds into the buffer account. Incoming funds are deactivated to exclude them
-//!   from governance voting.
-//! - **Asset Gathering** Gathers assets transferred to the [`Pallet::staging_account`] and
-//!   redirects them to the buffer account. Note that only assets present as keys in
-//!   [`AssetAllocation`] are gathered.
+//! - **Burn Collection**: [`Dap`] implements `OnUnbalanced` to intercept any burn source wired to
+//!   it (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect
+//!   funds into the buffer account. Incoming funds are deactivated to exclude them from governance
+//!   voting.
 //! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
 //!   based on an [`IssuanceCurve`].
 //! - **Budget Distribution**: Distributes minted issuance across registered
 //!   [`sp_staking::budget::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
-//! - **Asset Distribution**: Distributes assets deposited to it according to [`AssetAllocation`]
-//!   map which can be configured in [`Pallet::set_allocations`]. Distribution happens at the same
-//!   time as issuance drips and can be configured by [`Config::IssuanceCadence`]. When the asset
-//!   amount is insufficient, it will be skipped(emitting an event), i.e. no retry mechanism is
-//!   present.
+//! - **Asset Distribution**: Distributes assets deposited to the [`Pallet::buffer_account`]
+//!   according to [`AssetAllocation`] map which can be configured in [`Pallet::set_allocations`].
+//!   Distribution happens at the same time as issuance drips and can be configured by
+//!   [`Config::IssuanceCadence`]. When the asset amount is insufficient, it will be
+//!   skipped(emitting an event), i.e. no retry mechanism is present.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
