@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"trait":["SendToRelay"]};
+window.SIDEBAR_ITEMS = {"constant":["RECEIVE_CALL_INDEX"],"mod":["pallet","weights"],"struct":["Deposit"],"trait":["BenchmarkHelper","SendToRelay"]};
