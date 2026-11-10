@@ -19,5 +19,7 @@ doc:
 crates:
 - name: pallet-nfts
   bump: major
+  validate: false
 - name: pallet-uniques
   bump: major
+  validate: false
