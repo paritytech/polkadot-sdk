@@ -41,6 +41,11 @@ use sp_runtime::{
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+parameter_types! {
+	/// Blocks a bounty whose funding failed stays retryable.
+	pub const FundingRetryPeriod: u64 = 10;
+}
+
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
@@ -214,6 +219,8 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type BlockNumberProvider = System;
+	type FundingRetryPeriod = FundingRetryPeriod;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, Identity, ()>;
 	type BountySource =
@@ -250,6 +257,8 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type BlockNumberProvider = System;
+	type FundingRetryPeriod = FundingRetryPeriod;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Identity, Instance1>;
 	type BountySource =
