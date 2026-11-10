@@ -96,14 +96,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-<<<<<<< HEAD
+	fungible,
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-=======
-	fungible::{self, Mutate as FungibleMutate},
-	fungibles::{
-		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-	},
->>>>>>> ceb65d80 (`pallet-bounties`: Pay out only spendable funds (#13673))
 	tokens::{Fortitude, Preservation},
 	Currency,
 	ExistenceRequirement::AllowDeath,
