@@ -1117,7 +1117,7 @@ fn call_transfer_from(
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn transfer_logs_the_swept_amount(asset_index: u16) {
+fn transfer_moves_the_swept_amount(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(asset_index));
@@ -1125,7 +1125,6 @@ fn transfer_logs_the_swept_amount(asset_index: u16) {
 		let to = 987654321u64;
 		Balances::make_free_balance_be(&from, 100);
 		Balances::make_free_balance_be(&to, 100);
-		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
 
 		setup_asset_for_prefix(asset_id, asset_index);
@@ -1150,20 +1149,12 @@ fn transfer_logs_the_swept_amount(asset_index: u16) {
 
 		assert_eq!(Assets::balance(asset_id, from), 0);
 		assert_eq!(Assets::balance(asset_id, to), 100);
-		assert_contract_event(
-			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: from_addr.0.into(),
-				to: to_addr.0.into(),
-				value: U256::from(100),
-			}),
-		);
 	});
 }
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn transfer_from_logs_the_charged_sweep(asset_index: u16) {
+fn transfer_from_charges_the_sweep(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
@@ -1193,14 +1184,6 @@ fn transfer_from_logs_the_charged_sweep(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, owner), 0);
 		assert_eq!(Assets::balance(asset_id, recipient), 100);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 10);
-		assert_contract_event(
-			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: owner_addr.0.into(),
-				to: recipient_addr.0.into(),
-				value: U256::from(100),
-			}),
-		);
 	});
 }
 

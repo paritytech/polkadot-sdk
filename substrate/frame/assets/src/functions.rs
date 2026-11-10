@@ -753,13 +753,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			to: dest.clone(),
 			amount: credit,
 		});
-<<<<<<< HEAD
-=======
-		T::CallbackHandle::transferred(&id, source, dest, credit);
-		if let Some(burn) = maybe_burn {
-			T::CallbackHandle::burned(&id, source, burn);
-		}
->>>>>>> 09f43112 (Dust accounting in fungibles transfers and approvals (#13230))
 		Ok((credit, source_died))
 	}
 

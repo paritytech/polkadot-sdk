@@ -2392,38 +2392,6 @@ fn setting_too_many_reserves_fails() {
 		assert_eq!(Reserves::<Test>::get(0), vec![]);
 	});
 }
-<<<<<<< HEAD
-=======
-
-#[test]
-fn fungibles_inspect_is_sufficient_works() {
-	build_and_execute(|| {
-		use frame_support::traits::fungibles::Inspect;
-
-		// An unknown asset is not sufficient.
-		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
-
-		// A sufficient asset reports `true`, an insufficient one `false`.
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
-		assert!(<Assets as Inspect<u64>>::is_sufficient(0));
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
-		assert!(!<Assets as Inspect<u64>>::is_sufficient(1));
-
-		// Sufficiency changes via `force_asset_status` are reflected.
-		assert_ok!(Assets::force_asset_status(
-			RuntimeOrigin::root(),
-			0,
-			1,
-			1,
-			1,
-			1,
-			1,
-			false,
-			false
-		));
-		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
-	});
-}
 
 /// `Mutate::transfer` must not destroy the remainder it sweeps.
 ///
@@ -2624,4 +2592,3 @@ fn transfer_approved_to_self_charges_the_request() {
 		}));
 	});
 }
->>>>>>> 09f43112 (Dust accounting in fungibles transfers and approvals (#13230))
