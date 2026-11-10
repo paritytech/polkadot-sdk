@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794348964265,
+  "lastUpdate": 1794354448605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3b6767b09b4d825ea3a1a9ce3b1a1f02b445afe",
-          "message": "statement-store: increase timeout major sync test (#11851)\n\n## Summary\n\nImplement #11842 \n\nAdjusts the `statement_store_recovery_after_major_sync` zombienet\nintegration test to be more resilient in slow CI environments:\n- Doubles the timeout for Charlie to reach block 10 from 180s to 360s,\nreducing\n  flakiness on resource-constrained runners.\n\n## Testing \nManually triggered the **[Zombienet\nCumulus](https://github.com/paritytech/polkadot-sdk/actions?query=actor%3ADenzelPenzel+workflow%3A%22Zombienet+Cumulus%22+branch%3Adenzelpenzel%2Fstatement-store-major-sync-test)**\nworkflow ~30 times on this branch – all\npassed with no issues",
-          "timestamp": "2026-04-26T07:11:34Z",
-          "tree_id": "c9a87c374c5234fff0689d68babad9fbf9f5141d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a3b6767b09b4d825ea3a1a9ce3b1a1f02b445afe"
-        },
-        "date": 1777195367429,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63625.98999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.86659837459,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.3168826795428235,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.54488727691997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7788719527400008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7682827891899626,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002513568,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8516397498900017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7925300670600004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021810370000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002513568,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021810370000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4814246441100076,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0055396993400000025,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.418785471312979,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e49d3022e4936c89fd32bd4caaa8813b4a4392cb",
+          "message": "build(deps): bump openssl from 0.10.79 to 0.10.82 (#12126)\n\nBumps [openssl](https://github.com/rust-openssl/rust-openssl) from\n0.10.79 to 0.10.82.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/rust-openssl/rust-openssl/releases\">openssl's\nreleases</a>.</em></p>\n<blockquote>\n<h2>openssl-v0.10.82</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Bump actions/checkout from 6.0.3 to 7.0.0 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2657\">rust-openssl/rust-openssl#2657</a></li>\n<li>Check return values of reference-count increment functions by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2659\">rust-openssl/rust-openssl#2659</a></li>\n<li>Bump actions/cache from 5.0.5 to 6.1.0 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2660\">rust-openssl/rust-openssl#2660</a></li>\n<li>Fix unrelated CI failures: clippy 1.97 lint and stale wasip2 pin by\n<a href=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2663\">rust-openssl/rust-openssl#2663</a></li>\n<li>Add brainpoolP192r1 and brainpoolP192t1 curve constants by <a\nhref=\"https://github.com/butteronarchbtw\"><code>@​butteronarchbtw</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2662\">rust-openssl/rust-openssl#2662</a></li>\n<li>Bump actions/checkout from 7.0.0 to 7.0.1 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2664\">rust-openssl/rust-openssl#2664</a></li>\n<li>Remove unnecessary casts by <a\nhref=\"https://github.com/FranciscoTGouveia\"><code>@​FranciscoTGouveia</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2665\">rust-openssl/rust-openssl#2665</a></li>\n<li>Bump aws-lc-fips-sys; expose pkcs7 support by <a\nhref=\"https://github.com/justsmth\"><code>@​justsmth</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2666\">rust-openssl/rust-openssl#2666</a></li>\n<li>Fix reference to Verifier in Signer documentation by <a\nhref=\"https://github.com/jeremycline\"><code>@​jeremycline</code></a> in\n<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2668\">rust-openssl/rust-openssl#2668</a></li>\n<li>Re-mint expired X.509 test fixtures by <a\nhref=\"https://github.com/justsmth\"><code>@​justsmth</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2669\">rust-openssl/rust-openssl#2669</a></li>\n<li>fix clippy by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2674\">rust-openssl/rust-openssl#2674</a></li>\n<li>x509: replace X509CrlBuilder::build panics with\nErrorStack::internal_… by <a\nhref=\"https://github.com/DavidFontaineOcd\"><code>@​DavidFontaineOcd</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2676\">rust-openssl/rust-openssl#2676</a></li>\n<li>ssl: add full SslAlert alert descriptions by <a\nhref=\"https://github.com/tiran\"><code>@​tiran</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2684\">rust-openssl/rust-openssl#2684</a></li>\n<li>Update syn to version 3 by <a\nhref=\"https://github.com/TomFryersMidsummer\"><code>@​TomFryersMidsummer</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2686\">rust-openssl/rust-openssl#2686</a></li>\n<li>dsa: reject parameterless public keys and stop minting null\nBigNumRefs by <a\nhref=\"https://github.com/shoemoney\"><code>@​shoemoney</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2688\">rust-openssl/rust-openssl#2688</a></li>\n<li>Add brainpoolP224 NIDs and expose Brainpool NIDs for aws-lc by <a\nhref=\"https://github.com/sfarestam-iproov\"><code>@​sfarestam-iproov</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2689\">rust-openssl/rust-openssl#2689</a></li>\n<li>Fix CI: remove unused path attributes for aws-lc and BoringSSL / fix\nvcpkg on arm64. by <a\nhref=\"https://github.com/botovq\"><code>@​botovq</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2696\">rust-openssl/rust-openssl#2696</a></li>\n<li>Expose X509 key usage and extended key usage by <a\nhref=\"https://github.com/rstreich\"><code>@​rstreich</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2695\">rust-openssl/rust-openssl#2695</a></li>\n<li>LibreSSL 4.4 by <a\nhref=\"https://github.com/vishwin\"><code>@​vishwin</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2698\">rust-openssl/rust-openssl#2698</a></li>\n<li>CI: update LibreSSL to latest stable, drop 4.1 by <a\nhref=\"https://github.com/botovq\"><code>@​botovq</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2701\">rust-openssl/rust-openssl#2701</a></li>\n<li>Check output buffer length in PkeyCtxRef::verify_recover by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2702\">rust-openssl/rust-openssl#2702</a></li>\n<li>Fix output buffer bound for the Triple-DES key wrap cipher by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2704\">rust-openssl/rust-openssl#2704</a></li>\n<li>Clear borrowed certificates when X509StoreContextRef::init returns\nby <a href=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2703\">rust-openssl/rust-openssl#2703</a></li>\n<li>Ask OpenSSL for the output size of wrap-mode ciphers by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2705\">rust-openssl/rust-openssl#2705</a></li>\n<li>Release openssl 0.10.82 and openssl-sys 0.9.118 by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2711\">rust-openssl/rust-openssl#2711</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a\nhref=\"https://github.com/FranciscoTGouveia\"><code>@​FranciscoTGouveia</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2665\">rust-openssl/rust-openssl#2665</a></li>\n<li><a\nhref=\"https://github.com/jeremycline\"><code>@​jeremycline</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2668\">rust-openssl/rust-openssl#2668</a></li>\n<li><a href=\"https://github.com/tiran\"><code>@​tiran</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2684\">rust-openssl/rust-openssl#2684</a></li>\n<li><a\nhref=\"https://github.com/TomFryersMidsummer\"><code>@​TomFryersMidsummer</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2686\">rust-openssl/rust-openssl#2686</a></li>\n<li><a href=\"https://github.com/shoemoney\"><code>@​shoemoney</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2688\">rust-openssl/rust-openssl#2688</a></li>\n<li><a href=\"https://github.com/rstreich\"><code>@​rstreich</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2695\">rust-openssl/rust-openssl#2695</a></li>\n<li><a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2702\">rust-openssl/rust-openssl#2702</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.81...openssl-v0.10.82\">https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.81...openssl-v0.10.82</a></p>\n<h2>openssl-v0.10.81</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Bump aws-ls-sys to 0.41 by <a\nhref=\"https://github.com/joshgodsiff\"><code>@​joshgodsiff</code></a> in\n<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2640\">rust-openssl/rust-openssl#2640</a></li>\n<li>Add brainpoolP224r1 and brainpoolP224t1 NID constants by <a\nhref=\"https://github.com/sfarestam-iproov\"><code>@​sfarestam-iproov</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2642\">rust-openssl/rust-openssl#2642</a></li>\n<li>x509: add minimal support for CRL building by <a\nhref=\"https://github.com/DavidFontaineOcd\"><code>@​DavidFontaineOcd</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2538\">rust-openssl/rust-openssl#2538</a></li>\n<li>add mldsa.h to the boringssl bindgen by <a\nhref=\"https://github.com/reaperhulk\"><code>@​reaperhulk</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2650\">rust-openssl/rust-openssl#2650</a></li>\n<li>Deprecate Asn1StringRef::as_utf8 in favor of a NUL-safe to_string by\n<a href=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2652\">rust-openssl/rust-openssl#2652</a></li>\n<li>Fix verify_mode() panic on unmodeled verify mode bits by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2651\">rust-openssl/rust-openssl#2651</a></li>\n<li>Bump actions/checkout from 6.0.2 to 6.0.3 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2653\">rust-openssl/rust-openssl#2653</a></li>\n<li>Release openssl 0.10.81 and openssl-sys 0.9.117 by <a\nhref=\"https://github.com/reaperhulk\"><code>@​reaperhulk</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2655\">rust-openssl/rust-openssl#2655</a></li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/321ba6c2877ecdd475e4a43043ea8f8f0500e37a\"><code>321ba6c</code></a>\nRelease openssl 0.10.82 and openssl-sys 0.9.118 (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2711\">#2711</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/ad29ed570acf233a2239ecb07747a147d11d42e8\"><code>ad29ed5</code></a>\nAsk OpenSSL for the output size of wrap-mode ciphers (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2705\">#2705</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/baa5c7038d263b1b1517b6d47fd2dbf7a1074ada\"><code>baa5c70</code></a>\nClear borrowed certificates when X509StoreContextRef::init returns (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2703\">#2703</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/23b53a52bcb33cc63fd07670511eccb8ee854eb7\"><code>23b53a5</code></a>\nFix output buffer bound for the Triple-DES key wrap cipher (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2704\">#2704</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/d2820a7db875ffee020cbd221186ee5cb432a150\"><code>d2820a7</code></a>\nCheck output buffer length in PkeyCtxRef::verify_recover (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2702\">#2702</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/5e76216476173ef105cdd5c94369e0f07d5215f2\"><code>5e76216</code></a>\nCI: update LibreSSL to latest stable, drop 4.1</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/194909440418fd74e6637edebdfc13f750423ae4\"><code>1949094</code></a>\nClear SSL_OP_ALL for LibreSSL 4.4</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/986a4f2e621abb03d9fb0caa1e2c00bdacb22555\"><code>986a4f2</code></a>\nAllow LibreSSL 4.4.x</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/6a639a04f435371cbe9c63440f8b53e27daafbfc\"><code>6a639a0</code></a>\nExpose X509 key usage and extended key usage</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/dc6b02f32f29e27a1d9805aa7b1f5caa68302a6d\"><code>dc6b02f</code></a>\nBuild vcpkg OpenSSL with MSVC 14.44 on Windows arm64</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.79...openssl-v0.10.82\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-11-10T21:36:04Z",
+          "tree_id": "6e912b351200ae1be0270bbdc0e88e8a553837c2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e49d3022e4936c89fd32bd4caaa8813b4a4392cb"
+        },
+        "date": 1794354412516,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.18999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017637,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017637,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.744779684089999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7101211250999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001889553,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.338824941620001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005240434980000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001889553,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.089322428630032,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.70021253493,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7570771117800015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8330665961300301,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.465935280632769,
             "unit": "seconds"
           }
         ]
