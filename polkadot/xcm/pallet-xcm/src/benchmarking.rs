@@ -15,13 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use codec::DecodeWithMemLimit;
+use codec::{DecodeLimit, DecodeWithMemLimit};
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use xcm::{
 	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
-	MAX_INSTRUCTIONS_TO_DECODE,
+	MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH,
 };
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::{FeeReason, WeightBounds};
@@ -118,11 +118,20 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	) -> Option<<Self as crate::Config>::RuntimeCall> {
 		None
 	}
+
+	/// Wraps `call` into a single call that dispatches it. Used only in benchmarks.
+	///
+	/// Defaults to [`Self::batch_call`] with `call` as the only element.
+	fn wrap_call(
+		call: <Self as crate::Config>::RuntimeCall,
+	) -> Option<<Self as crate::Config>::RuntimeCall> {
+		Self::batch_call(vec![call])
+	}
 }
 
-// The `From<Call<T>>` bound lets `weigh_message` build its own worst-case payload; every
-// `construct_runtime!` runtime provides that conversion.
-#[benchmarks(where <T as crate::Config>::RuntimeCall: From<crate::Call<T>>)]
+#[benchmarks(
+	where <T as crate::Config>::RuntimeCall: From<crate::Call<T>> + From<frame_system::Call<T>>
+)]
 mod benchmarks {
 	use super::*;
 
@@ -937,7 +946,7 @@ pub mod helpers {
 	use super::*;
 
 	/// The worst case for `WeightInfo::weigh_message_by_size`: a `Transact` carrying
-	/// `batch_call([pallet_xcm.execute(Xcm([])); N])`, encoded, of at least `target_bytes` bytes.
+	/// `batch_call([call; N])`, encoded, of at least `target_bytes` bytes.
 	///
 	/// A `Transact` payload resolving to a local call is decoded eagerly, and weighing it recurses
 	/// `get_dispatch_info()` over every batched call, so both costs scale with the number of calls
@@ -950,14 +959,16 @@ pub mod helpers {
 	/// Keep `target_bytes` at or below `MAX_WEIGHABLE_BLOB_BYTES`.
 	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
 	where
-		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
+		<T as crate::Config>::RuntimeCall: From<crate::Call<T>> + From<frame_system::Call<T>>,
 	{
-		let inner = Xcm::<<T as crate::Config>::RuntimeCall>(Vec::new());
-		let one: <T as crate::Config>::RuntimeCall = crate::Call::<T>::execute {
-			message: Box::new(VersionedXcm::from(inner)),
-			max_weight: Weight::zero(),
-		}
-		.into();
+		let one = nested_call::<T>().unwrap_or_else(|| {
+			let inner = Xcm::<<T as crate::Config>::RuntimeCall>(Vec::new());
+			crate::Call::<T>::execute {
+				message: Box::new(VersionedXcm::from(inner)),
+				max_weight: Weight::zero(),
+			}
+			.into()
+		});
 		let count = (target_bytes as usize).div_ceil(one.encode().len());
 
 		let call = T::batch_call(vec![one.clone(); count]).unwrap_or_else(|| {
@@ -970,6 +981,33 @@ pub mod helpers {
 			one
 		});
 
+		transact_blob::<T>(&call)
+	}
+
+	fn nested_call<T: Config>() -> Option<<T as crate::Config>::RuntimeCall>
+	where
+		<T as crate::Config>::RuntimeCall: From<frame_system::Call<T>>,
+	{
+		let mut call: <T as crate::Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![42] }.into();
+		for _ in 0..4 {
+			let wrapped = T::wrap_call(call.clone())?;
+			let blob = transact_blob::<T>(&T::batch_call(vec![wrapped.clone()])?);
+			if VersionedXcm::<<T as crate::Config>::RuntimeCall>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut &blob[..],
+			)
+			.is_err()
+			{
+				break;
+			}
+			call = wrapped;
+		}
+		Some(call)
+	}
+
+	/// Wraps a single call into the blob the precompile receives: `Xcm([Transact { call }])`.
+	fn transact_blob<T: Config>(call: &<T as crate::Config>::RuntimeCall) -> Vec<u8> {
 		let message = Xcm::<<T as crate::Config>::RuntimeCall>(vec![Transact {
 			origin_kind: OriginKind::SovereignAccount,
 			fallback_max_weight: None,
