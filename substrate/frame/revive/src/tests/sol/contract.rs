@@ -1305,15 +1305,17 @@ mod eip_150 {
 		});
 	}
 
-	/// A caller with fewer than 64 stipends of ref_time left can still run its catch block after a
+	/// A caller with at most 64 stipends of ref_time left can still run its catch block after a
 	/// value call whose callee uses up its gas.
 	#[test_matrix(
 		[FixtureType::Solc, FixtureType::Resolc],
-		[|weight_limit| ethereum_limits(ETH_GAS_LIMIT, weight_limit), substrate_limits]
+		[|weight_limit| ethereum_limits(ETH_GAS_LIMIT, weight_limit), substrate_limits],
+		[32, 64]
 	)]
 	fn caller_has_gas_left_in_catch_after_value_call_hits_invalid(
 		caller_type: FixtureType,
 		transaction_limits: fn(Weight) -> TransactionLimits<Test>,
+		stipends: u64,
 	) {
 		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
 		// The caller's backend decides the stipend; the callee only uses up its gas.
@@ -1330,9 +1332,12 @@ mod eip_150 {
 				.unwrap()
 				.weight_left()
 				.unwrap();
-			// The stipend's ref_time is bigger than the 1/64 the caller keeps.
-			let limits =
-				transaction_limits((stipend_weight * 32).set_proof_size(WEIGHT_LIMIT.proof_size()));
+			// With 64 stipends or fewer, the stipend's ref_time is at least 1/64 of the caller's.
+			// The caller keeps ref_time because the stipend is set aside before the 63/64 rule.
+			let limits = transaction_limits(
+				// Proof size gets the full `WEIGHT_LIMIT`, so that it does not run out.
+				(stipend_weight * stipends).set_proof_size(WEIGHT_LIMIT.proof_size()),
+			);
 			let [callee_addr, caller_addr] = deploy([callee_code, caller_code]);
 			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
 			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);

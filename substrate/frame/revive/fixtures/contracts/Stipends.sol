@@ -83,6 +83,19 @@ contract TwoEventsReceiver {
 }
 
 /**
+ * @title ThreeWordEventReceiver
+ * @dev Receiver contract 8: emits one event with 96 bytes of data, while the call stipend's
+ * weight includes one event with 64 bytes of data
+ */
+contract ThreeWordEventReceiver {
+    event Received(address from, uint256 amount, uint256 balance);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value, address(this).balance);
+    }
+}
+
+/**
  * @title ReentrancyAttacker
  * @dev On receiving ETH, attempts to call back into the sender
  */

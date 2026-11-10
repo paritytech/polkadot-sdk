@@ -18,13 +18,10 @@ doc:
     of gas, for example with a `try`/`catch` around a call or contract creation, or with
     Multicall3's `aggregate3`, which continues after a failed call.
 
-    In Ethereum mode, a call stipend now gives the callee the gas that the stipend's weight adds to
-    the transaction's fee, instead of the price of that weight on its own. The weight part of a
-    transaction's fee is the larger of the cost of its ref_time and the cost of its proof size.
-    When the proof-size cost stays the larger one after the stipend's weight is added, a callee that
-    has only the stipend, such as the receiver of a Solidity `transfer` or `send` of a non-zero
-    amount, can now use no more proof size than the stipend contains and runs out of gas if it needs
-    more. Its `gasleft()` also depends on what the transaction did before the call.
+    In Ethereum mode, the weight part of a transaction's fee is the larger of the cost of its
+    ref_time and the cost of its proof size. When the proof-size cost is the larger one, a caller
+    with less gas left than the stipend's price can still pay for the stipend's weight. Its callee
+    then gets all of the caller's gas, as before, and the caller keeps none.
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and

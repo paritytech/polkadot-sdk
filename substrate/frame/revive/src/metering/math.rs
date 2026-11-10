@@ -505,9 +505,20 @@ pub mod ethereum_execution {
 
 		let deposit_and_fixed_fee_gas =
 			eth_tx_info.deposit_and_fixed_fee_gas(&total_consumed_deposit);
-		let weight_gas_consumption = eth_tx_info.weight_gas_consumption(&total_consumed_weight);
-		let total_gas_consumption =
-			deposit_and_fixed_fee_gas.saturating_add(&weight_gas_consumption);
+
+		let weight_left_with = |max_total_gas: &SignedGas<T>, weight_limit_left: Weight| {
+			eth_tx_info
+				.weight_remaining_with_deposit_and_fixed_fee_gas(
+					max_total_gas,
+					&total_consumed_weight,
+					&deposit_and_fixed_fee_gas,
+				)
+				.map(|weight_left| weight_left.min(weight_limit_left))
+				.ok_or(<Error<T>>::OutOfGas)
+		};
+
+		let total_gas_consumption = deposit_and_fixed_fee_gas
+			.saturating_add(&eth_tx_info.weight_gas_consumption(&total_consumed_weight));
 		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
 		let weight_limit_left_before_rule = meter
@@ -517,14 +528,8 @@ pub mod ethereum_execution {
 			.ok_or(<Error<T>>::OutOfGas)?;
 		// Checked before the deposit limit, so that a call from a frame that ran out of gas fails
 		// with `OutOfGas` even when the frame is also over its deposit limit.
-		let weight_left_before_rule = eth_tx_info
-			.weight_remaining_with_deposit_and_fixed_fee_gas(
-				&meter.max_total_gas,
-				&total_consumed_weight,
-				&deposit_and_fixed_fee_gas,
-			)
-			.ok_or(<Error<T>>::OutOfGas)?
-			.min(weight_limit_left_before_rule);
+		let weight_left_before_rule =
+			weight_left_with(&meter.max_total_gas, weight_limit_left_before_rule)?;
 
 		let deposit_limit_left = match meter.deposit.limit {
 			Some(deposit_limit) => self_consumed_deposit
@@ -537,11 +542,11 @@ pub mod ethereum_execution {
 		let (stipend_weight, stipend_gas) = match limit {
 			CallResources::Ethereum { add_stipend: true, .. } => {
 				let stipend_weight = validate_and_get_stipend::<T>(weight_left_before_rule)?;
-				// The gas the stipend adds to the fee, which can be less than its own price because
-				// the weight part of the fee is the larger of the ref_time and proof-size costs.
-				let stipend_gas = eth_tx_info
-					.weight_gas_consumption(&total_consumed_weight.saturating_add(stipend_weight))
-					.saturating_sub(&weight_gas_consumption);
+				// When proof size is the larger cost of the transaction, a caller that can pay for
+				// the stipend's weight can have less gas left than the stipend's price.
+				let stipend_gas =
+					SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(&stipend_weight))
+						.min(&remaining_gas_before_rule);
 				(stipend_weight, stipend_gas)
 			},
 			CallResources::Ethereum { add_stipend: false, .. } |
@@ -554,18 +559,13 @@ pub mod ethereum_execution {
 		let remaining_gas = remaining_gas_before_rule
 			.saturating_sub(&stipend_gas)
 			.apply_eip_150(S::EIP_150_RULE);
-		let max_total_gas = total_gas_consumption.saturating_add(&remaining_gas);
 
-		let weight_left = eth_tx_info
-			.weight_remaining_with_deposit_and_fixed_fee_gas(
-				&max_total_gas,
-				&total_consumed_weight,
-				&deposit_and_fixed_fee_gas,
-			)
-			.ok_or(<Error<T>>::OutOfGas)?
-			.min(S::EIP_150_RULE.apply::<WeightEip150>(
-				weight_limit_left_before_rule.saturating_sub(stipend_weight),
-			));
+		let weight_limit_left = S::EIP_150_RULE
+			.apply::<WeightEip150>(weight_limit_left_before_rule.saturating_sub(stipend_weight));
+		let weight_left = weight_left_with(
+			&total_gas_consumption.saturating_add(&remaining_gas),
+			weight_limit_left,
+		)?;
 
 		// The stipend's gas can pay for storage deposit too.
 		let deposit_left = remaining_gas
@@ -587,7 +587,11 @@ pub mod ethereum_execution {
 						.min(&SignedGas::from_ethereum_gas(*requested_gas))
 						.saturating_add(&stipend_gas)
 						.min(&remaining_gas_before_rule),
-					weight_left.saturating_add(stipend_weight).min(weight_limit_left_before_rule),
+					// The callee can use all the weight its gas pays for, which with the stipend's
+					// price can be more than its 63/64 share plus the stipend's weight.
+					weight_limit_left
+						.saturating_add(stipend_weight)
+						.min(weight_limit_left_before_rule),
 					if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 				),
 
