@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794327381697,
+  "lastUpdate": 1794335894588,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429432898aa850850e12f313f4442cbd95f134c4",
-          "message": "asset-conversion precompile: expose getReserves (#11817)\n\n## Summary\n- Add `getReserves(bytes asset1, bytes asset2)` view function to the\nasset-conversion precompile, returning the reserve balances of both\ntokens in the pool\n- This exposes `pallet_asset_conversion::Pallet::get_reserves()` to\nEVM/PVM contracts and frontends via the precompile interface\n\n## Motivation\nThe precompile already exposes `quoteExactTokensForTokens` and\n`quoteTokensForExactTokens`, which allow contracts to estimate swap\noutputs. However, there is no way to query the raw pool reserves\ndirectly. This forces frontends and contracts to probe with arbitrary\namounts to infer pool state. Exposing `getReserves` gives direct access\nto pool balances, enabling:\n- DEX UIs to display pool composition and depth\n- Contracts to make routing decisions based on actual liquidity\n- Parity with Uniswap V2's `getReserves` interface that Solidity\ndevelopers expect\n\n## Test plan\n- [x] `get_reserves_works` — verifies correct reserve values for an\nexisting pool\n- [x] `get_reserves_fails_for_nonexistent_pool` — verifies revert for\nmissing pool\n- [x] All 23 existing tests continue to pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T10:20:24Z",
-          "tree_id": "1c7080e3b20a8c09d50a59cfd6b96594321d37c9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/429432898aa850850e12f313f4442cbd95f134c4"
-        },
-        "date": 1776944640084,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038587947303999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08569119316399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038695791504,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1b96671bedd5360ec8668b3813d52f5940cc531f",
+          "message": "build(deps): bump tar from 0.4.40 to 0.4.46 (#12238)\n\nBumps [tar](https://github.com/composefs/tar-rs) from 0.4.40 to 0.4.46.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/composefs/tar-rs/releases\">tar's\nreleases</a>.</em></p>\n<blockquote>\n<h2>0.4.46</h2>\n<h2>Security</h2>\n<ul>\n<li>archive: Fix another PAX header desync (GHSA-3cv2-h65g-fgmm) by <a\nhref=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/454\">composefs/tar-rs#454</a></li>\n</ul>\n<p>See also <a\nhref=\"https://github.com/astral-sh/tokio-tar/security/advisories/GHSA-3cv2-h65g-fgmm\">https://github.com/astral-sh/tokio-tar/security/advisories/GHSA-3cv2-h65g-fgmm</a></p>\n<h2>Other changes</h2>\n<ul>\n<li>ci: Fix and re-enable reverse dependency testing by <a\nhref=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/444\">composefs/tar-rs#444</a></li>\n<li>Update astral-tokio-tar requirement from 0.5 to 0.6 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/446\">composefs/tar-rs#446</a></li>\n<li>Update some links by <a\nhref=\"https://github.com/atouchet\"><code>@​atouchet</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/445\">composefs/tar-rs#445</a></li>\n<li>Add support of absolute paths by <a\nhref=\"https://github.com/zxvfc\"><code>@​zxvfc</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/426\">composefs/tar-rs#426</a></li>\n<li>docs: Expand notes on concurrent mutations and following symlinks by\n<a href=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in\n<a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/453\">composefs/tar-rs#453</a></li>\n<li>Update repo links by <a\nhref=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/451\">composefs/tar-rs#451</a></li>\n<li>ci: Add crates.io trusted publishing workflow by <a\nhref=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/456\">composefs/tar-rs#456</a></li>\n<li>Release 0.4.46 by <a\nhref=\"https://github.com/cgwalters\"><code>@​cgwalters</code></a> in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/455\">composefs/tar-rs#455</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nmade their first contribution in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/446\">composefs/tar-rs#446</a></li>\n<li><a href=\"https://github.com/atouchet\"><code>@​atouchet</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/445\">composefs/tar-rs#445</a></li>\n<li><a href=\"https://github.com/zxvfc\"><code>@​zxvfc</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/composefs/tar-rs/pull/426\">composefs/tar-rs#426</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/composefs/tar-rs/compare/0.4.45...0.4.46\">https://github.com/composefs/tar-rs/compare/0.4.45...0.4.46</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/fc459c149f83bf4daceaa52e17d351989002e1a9\"><code>fc459c1</code></a>\nRelease 0.4.46</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/43e05a85e053d5e64eeda0b04e279be8686419b6\"><code>43e05a8</code></a>\nci: Add crates.io trusted publishing workflow</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/bba5666997d95dcd89a9d38235709a1d5e44565b\"><code>bba5666</code></a>\nUpdate repo links</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/cd94c46e0d74fbcc50eea3f30665a1b1159254cc\"><code>cd94c46</code></a>\ndocs: Document TOCTOU / concurrent-mutation threat model</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/1b4997cf5ef115f8d82680016c28490b5645b9c7\"><code>1b4997c</code></a>\nbuilder: Expand docs for follow_symlinks and append_dir_all</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/bab14dd84b411ac16ecb56d4f2d2f7bfb88a9838\"><code>bab14dd</code></a>\narchive: Fix another PAX header desync (GHSA-3cv2-h65g-fgmm)</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/2349b494827807791473f3c6ca9b2fc5ef274cdb\"><code>2349b49</code></a>\nAdd support of absolute paths</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/39d031184127427bd9a740b7e20afd31deead928\"><code>39d0311</code></a>\nUpdate some links</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/59d803e2f1ed39272c4c1d1cdb04d799280b3335\"><code>59d803e</code></a>\nUpdate astral-tokio-tar requirement from 0.5 to 0.6</li>\n<li><a\nhref=\"https://github.com/composefs/tar-rs/commit/8296b9a88cfcdbdd1e3b59cd820899b35e6151e1\"><code>8296b9a</code></a>\nci: Fix and re-enable reverse dependency testing (<a\nhref=\"https://redirect.github.com/composefs/tar-rs/issues/444\">#444</a>)</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/composefs/tar-rs/compare/0.4.40...0.4.46\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-11-10T15:43:42Z",
+          "tree_id": "2ac5bd4889b0dcab8f1e74efb067a4650f31d57a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b96671bedd5360ec8668b3813d52f5940cc531f"
+        },
+        "date": 1794335865471,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038629531798,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0868412657459999,
             "unit": "seconds"
           }
         ]
