@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{EngineMeter, Token, Weight, WeightMeter};
-use crate::tests::Test;
+use super::{EngineMeter, Token, Weight, WeightMeter, slope};
+use crate::{Config, Error, tests::Test, weights::WeightInfo};
+use frame_support::assert_err;
 
 /// A simple utility macro that helps to match against a
 /// list of tokens.
@@ -160,7 +161,7 @@ fn negative_executor_gas_consumes_all_gas() {
 	let gas = u64::try_from(weight_meter.sync_to_executor()).unwrap();
 	assert!(gas > 0);
 
-	assert!(weight_meter.sync_from_executor(-1).is_err());
+	assert_err!(weight_meter.sync_from_executor(-1), Error::<Test>::OutOfGas);
 	let ref_time_per_fuel = EngineMeter::<Test>::ref_time_per_fuel();
 	assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(gas * ref_time_per_fuel, 0));
 	assert!(weight_meter.weight_left().ref_time() < ref_time_per_fuel);
@@ -185,4 +186,22 @@ fn compilation_cost_rounds_up() {
 	assert_eq!(convert(5999, 5999, 5999, 3000), cost(2, 2000, 2000));
 	assert_eq!(convert(6001, 6001, 6001, 3000), cost(3, 2001, 2001));
 	assert_eq!(convert(u64::MAX, u64::MAX, u64::MAX, 1), cost(u32::MAX, u32::MAX, u32::MAX));
+}
+
+/// The per block compilation cost leaves out the instruction of the benchmarked blocks.
+///
+/// `interpreter_compile_per_block` compiles and runs blocks of one instruction. `per_block` is
+/// its slope minus the slope of compiling one instruction and minus one gas for running it,
+/// rounded up to whole gas: at least that rest and less than one gas above it.
+#[test]
+fn per_block_compilation_cost_leaves_out_the_instruction() {
+	let ref_time_slope = |weight: fn(u32) -> Weight| slope(weight, 1).ref_time();
+	let r = EngineMeter::<Test>::ref_time_per_fuel();
+	let rest = ref_time_slope(<Test as Config>::WeightInfo::interpreter_compile_per_block) -
+		ref_time_slope(<Test as Config>::WeightInfo::interpreter_compile_per_instruction) -
+		r;
+	let per_block = u64::from(EngineMeter::<Test>::interpreter_compilation_cost().per_block) * r;
+
+	assert!(per_block >= rest, "{per_block} < {rest}");
+	assert!(per_block < rest + r, "{per_block} >= {rest} + {r}");
 }

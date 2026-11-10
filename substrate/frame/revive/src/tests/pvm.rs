@@ -447,12 +447,21 @@ fn gas_syncs_work() {
 
 /// The interpreter charges the compilation of the blocks a call enters as gas.
 ///
+/// The contracts are built from assembly because the tests need exact block shapes: the length
+/// of the entry block, blocks of one instruction, and the length of the code section at a fixed
+/// number of instructions. Solidity output does not give that control. The Solidity test
+/// `sub_call_charges_caller_code_map` in `tests/sol/contract.rs` covers the code map charge
+/// with both the EVM and the PVM backend.
+///
 /// The contracts stop at the sentinel syscall that only the benchmarks accept. The CI job with
 /// that feature selects tests whose path contains `benchmark`, hence the module name.
 #[cfg(feature = "runtime-benchmarks")]
 mod compilation_cost_benchmark {
 	use super::*;
-	use crate::{call_builder::VmBinaryModule, metering::EngineMeter};
+	use crate::{
+		call_builder::VmBinaryModule,
+		metering::{EngineMeter, slope},
+	};
 	use limits::code::BASIC_BLOCK_SIZE;
 	use pretty_assertions::assert_eq;
 
@@ -471,6 +480,13 @@ mod compilation_cost_benchmark {
 	///
 	/// They differ only in the gas of the entry block: one gas per instruction to run it and the
 	/// compilation per instruction.
+	///
+	/// The compilation of the `dn = BASIC_BLOCK_SIZE - 2` further instructions stays within the
+	/// rounding of the `interpreter_compile_per_instruction` slope `I`. With `r` the ref time per
+	/// gas, `millis = ceil(1000 * I / r)` exceeds `1000 * I / r` by less than 1, which adds less
+	/// than `dn * r / 1000` to the `dn` instructions. Each entry block's compilation is rounded
+	/// up to whole gas once, so the difference of the two moves by less than one gas either way.
+	/// The compilation part is thus within `(dn * I - r, dn * I + (dn / 1000 + 1) * r)`.
 	#[test]
 	fn entry_block_compilation_is_charged_per_instruction() {
 		ExtBuilder::default().build().execute_with(|| {
@@ -481,13 +497,24 @@ mod compilation_cost_benchmark {
 				result.weight_consumed.ref_time()
 			};
 
+			let r = EngineMeter::<Test>::ref_time_per_fuel();
 			let millis = EngineMeter::<Test>::interpreter_compilation_cost().per_instruction_millis;
 			assert!(millis > 0);
 			let compile = |n: u32| (u64::from(n) * u64::from(millis)).div_ceil(1000);
-			let gas = u64::from(BASIC_BLOCK_SIZE - 2) + compile(BASIC_BLOCK_SIZE) - compile(2);
-			assert_eq!(
-				weight(large) - weight(small),
-				gas * EngineMeter::<Test>::ref_time_per_fuel()
+			let dn = BASIC_BLOCK_SIZE - 2;
+			let gas = u64::from(dn) + compile(BASIC_BLOCK_SIZE) - compile(2);
+			let measured = weight(large) - weight(small);
+			assert_eq!(measured, gas * r);
+
+			let compilation = measured - u64::from(dn) * r;
+			let benchmark =
+				slope(<Test as Config>::WeightInfo::interpreter_compile_per_instruction, dn)
+					.ref_time();
+			let rounding = (u64::from(dn + 1000) * r).div_ceil(1000);
+			assert!(compilation + r > benchmark, "{compilation} <= {benchmark} - {r}");
+			assert!(
+				compilation < benchmark + rounding,
+				"{compilation} >= {benchmark} + {rounding}"
 			);
 		});
 	}
@@ -500,6 +527,12 @@ mod compilation_cost_benchmark {
 	/// once, for `per_block` and one instruction of `per_instruction_millis` rounded up, and runs
 	/// its `branch_eq` once, for the gas the cost model assigns to it. The pallet does not set a
 	/// cost model, so the interpreter uses the default one of PolkaVM, the naive model.
+	///
+	/// Every further block stays within the rounding of the `interpreter_compile_per_block`
+	/// slope `B`. With `I` the `interpreter_compile_per_instruction` slope and `r` the ref time
+	/// per gas, a block costs `ceil(P / r) + ceil(millis / 1000) + 1` gas with
+	/// `P = B - I - r` and `millis = ceil(1000 * I / r)`. `ceil(millis / 1000)` is `ceil(I / r)`,
+	/// so a block is charged `B` rounded up in two places, each by less than `r`.
 	#[test]
 	fn branch_block_compilation_is_charged_per_block() {
 		ExtBuilder::default().build().execute_with(|| {
@@ -518,23 +551,93 @@ mod compilation_cost_benchmark {
 			let compile =
 				u64::from(cost.per_block) + u64::from(cost.per_instruction_millis).div_ceil(1000);
 			let run = u64::from(polkavm::CostModel::naive().branch_eq);
+			let r = EngineMeter::<Test>::ref_time_per_fuel();
 			let (b1, b2) = (1, VmBinaryModule::BRANCH_BLOCKS / 2);
+			let measured = weight(b2) - weight(b1);
+			assert_eq!(measured, u64::from(b2 - b1) * (compile + run) * r);
+
+			let benchmark =
+				slope(<Test as Config>::WeightInfo::interpreter_compile_per_block, b2 - b1)
+					.ref_time();
+			let rounding = 2 * r * u64::from(b2 - b1);
+			assert!(measured >= benchmark, "{measured} < {benchmark}");
+			assert!(measured < benchmark + rounding, "{measured} >= {benchmark} + {rounding}");
+		});
+	}
+
+	/// A call's ref time grows with the size of its code at the `call_with_pvm_code_per_byte`
+	/// slope.
+	///
+	/// The pallet charges that slope minus the `interpreter_code_map_per_byte` slope `M` for
+	/// every byte of the blob. The interpreter charges `M` back as gas for every byte of the code
+	/// section, `ceil(code_section * millis / 1000)` with `millis = ceil(1000 * M / r)` and `r`
+	/// the ref time per gas. The blob also holds the instruction bitmask, so it grows by more
+	/// bytes than the code section, and the map slope of those extra bytes is not charged back.
+	/// `millis` adds less than `r / 1000` per byte of the code section, and rounding each
+	/// call's charge up to whole gas moves the difference by less than one gas either way.
+	///
+	/// The contracts of [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so
+	/// they differ only in the code load.
+	#[test]
+	fn code_load_is_charged_per_code_byte() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+			let call = |code_bytes| {
+				let code = VmBinaryModule::with_code_bytes(code_bytes).code;
+				let blob = polkavm::ProgramBlob::parse(code[..].into()).unwrap();
+				let blob_len = u32::try_from(code.len()).unwrap();
+				let section_len = u32::try_from(blob.code().len()).unwrap();
+				let addr =
+					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+				let result = builder::bare_call(addr).build();
+				assert_ok!(result.result);
+				(result.weight_consumed.ref_time(), blob_len, section_len)
+			};
+			let (small, small_blob, small_section) = call(1024);
+			let (large, large_blob, large_section) = call(VmBinaryModule::MAX_CODE_BYTES);
+			let measured = large - small;
+
+			let r = EngineMeter::<Test>::ref_time_per_fuel();
+			let millis = EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
+			assert!(millis > 0);
+			let code_load = <Test as Config>::WeightInfo::call_with_pvm_code_per_byte;
+			let code_map = <Test as Config>::WeightInfo::interpreter_code_map_per_byte;
+			let blob_bytes = large_blob - small_blob;
+			let section_bytes = large_section - small_section;
+
+			let benchmark = slope(code_load, blob_bytes).ref_time();
+			let outside_section = slope(code_map, blob_bytes - section_bytes).ref_time();
+			let expected = benchmark - outside_section;
+			let rounding = (u64::from(section_bytes) * r).div_ceil(1000) + r;
+			assert!(measured + r > expected, "{measured} <= {expected} - {r}");
+			assert!(measured < expected + rounding, "{measured} >= {expected} + {rounding}");
+
+			let pallet = |blob_len| {
+				slope(code_load, blob_len).ref_time() - slope(code_map, blob_len).ref_time()
+			};
+			let interpreter =
+				|section_len: u32| (u64::from(section_len) * u64::from(millis)).div_ceil(1000) * r;
 			assert_eq!(
-				weight(b2) - weight(b1),
-				u64::from(b2 - b1) * (compile + run) * EngineMeter::<Test>::ref_time_per_fuel()
+				measured,
+				pallet(large_blob) - pallet(small_blob) + interpreter(large_section) -
+					interpreter(small_section)
 			);
 		});
 	}
 
 	/// A call that hands the interpreter less gas than compiling its entry block costs fails
 	/// with `OutOfGas` and consumes all of that gas.
+	///
+	/// The limit is the weight of the small contract plus the gas of running the
+	/// `BASIC_BLOCK_SIZE - 2` further instructions of the large entry block. That is enough to
+	/// run the large entry block, so the call runs out of gas only because of the compilation.
 	#[test]
 	fn entry_block_compilation_beyond_gas_left_consumes_all_gas() {
 		ExtBuilder::default().build().execute_with(|| {
 			let (small, large) = deploy_entry_blocks();
-			// The gas the small contract needs is less than compiling the large entry block.
-			let limit = builder::bare_call(small).build().weight_consumed;
-			let limit = Weight::from_parts(limit.ref_time(), WEIGHT_LIMIT.proof_size());
+			let small_weight = builder::bare_call(small).build().weight_consumed.ref_time();
+			let run = u64::from(BASIC_BLOCK_SIZE - 2) * EngineMeter::<Test>::ref_time_per_fuel();
+			let limit = Weight::from_parts(small_weight + run, WEIGHT_LIMIT.proof_size());
 
 			let result = builder::bare_call(large)
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
