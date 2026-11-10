@@ -3990,3 +3990,216 @@ fn only_people_reports_blocks_and_only_as_itself() {
 		assert!(EnsureReportingSibling::try_origin(origin).is_err());
 	}
 }
+
+/// `pallet-multi-asset-bounties` with the real `LocalPay`, `pallet-assets` and `AssetRate`: every
+/// payment settles inside the call, so a rejected asset shows up as an error from `pay`.
+mod multi_asset_bounties {
+	use super::*;
+	use asset_hub_westend_runtime::{governance, AssetRate, MultiAssetBounties, Preimage};
+	use frame_support::traits::StorePreimage;
+	use pallet_multi_asset_bounties::{BountyStatus, PaymentState};
+	use parachains_common::pay::VersionedLocatableAccount;
+	use polkadot_runtime_common::impls::VersionedLocatableAsset;
+	use sp_runtime::{traits::AccountIdConversion, FixedU128};
+
+	type Event = pallet_multi_asset_bounties::Event<Runtime>;
+
+	const OWNER: [u8; 32] = [1; 32];
+	const CURATOR: [u8; 32] = [2; 32];
+	const BENEFICIARY: [u8; 32] = [3; 32];
+
+	fn asset_kind(id: u32) -> VersionedLocatableAsset {
+		VersionedLocatableAsset::V5 {
+			location: Location::here(),
+			asset_id: Location::new(
+				0,
+				[
+					PalletInstance(xcm_config::TrustBackedAssetsPalletIndex::get()),
+					GeneralIndex(id.into()),
+				],
+			)
+			.into(),
+		}
+	}
+
+	fn local_account(id: [u8; 32]) -> VersionedLocatableAccount {
+		VersionedLocatableAccount::V5 {
+			location: Location::here(),
+			account_id: Location::new(0, [AccountId32 { network: None, id }]),
+		}
+	}
+
+	/// The account of parent bounty `index`, as `BountySourceFromPalletId` derives it.
+	fn bounty_account(index: u32) -> AccountId {
+		governance::TreasuryPalletId::get().into_sub_account_truncating((*b"mbt", index))
+	}
+
+	/// Creates trust-backed asset `id` priced 1:1 against the native asset, and gives the
+	/// treasury `amount` of it.
+	fn create_asset(id: u32, is_sufficient: bool, min_balance: Balance, amount: Balance) {
+		let treasury = governance::TreasuryAccount::get();
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			id.into(),
+			AccountId::from(OWNER).into(),
+			is_sufficient,
+			min_balance,
+		));
+		assert_ok!(<Assets as FungiblesMutate<AccountId>>::mint_into(id, &treasury, amount));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(asset_kind(id)),
+			FixedU128::from_u32(1),
+		));
+	}
+
+	fn setup() {
+		let treasury = governance::TreasuryAccount::get();
+		assert_ok!(Balances::mint_into(&treasury, 1_000 * UNITS));
+		assert_ok!(Balances::mint_into(&AccountId::from(OWNER), 100 * UNITS));
+		assert_ok!(Balances::mint_into(&AccountId::from(CURATOR), 100 * UNITS));
+	}
+
+	/// Funds bounty 0 with `assets`, has its curator accept, and returns once it is `Active`.
+	fn active_bounty(assets: Vec<(u32, Balance)>) {
+		let metadata = Preimage::note(vec![1u8].into()).unwrap();
+		let basket = assets
+			.into_iter()
+			.map(|(id, value)| (asset_kind(id), value))
+			.collect::<Vec<_>>()
+			.try_into()
+			.unwrap();
+		assert_ok!(MultiAssetBounties::fund_bounty(
+			RuntimeOrigin::root(),
+			basket,
+			AccountId::from(CURATOR).into(),
+			metadata,
+		));
+		assert_ok!(MultiAssetBounties::check_status(
+			RuntimeOrigin::signed(AccountId::from(OWNER)),
+			0,
+			None
+		));
+		assert_ok!(MultiAssetBounties::accept_curator(
+			RuntimeOrigin::signed(AccountId::from(CURATOR)),
+			0,
+			None
+		));
+	}
+
+	fn status(index: u32) -> Option<BountyStatus<AccountId, VersionedLocatableAccount>> {
+		pallet_multi_asset_bounties::Bounties::<Runtime>::get(index).map(|b| b.status)
+	}
+
+	#[test]
+	fn a_frozen_asset_does_not_block_the_others() {
+		ExtBuilder::<Runtime>::default().build().execute_with(|| {
+			setup();
+			create_asset(1, true, 1, 100 * UNITS);
+			create_asset(2, true, 1, 100 * UNITS);
+			active_bounty(vec![(1, 10 * UNITS), (2, 20 * UNITS)]);
+
+			// Given: asset 2 is frozen in the bounty account.
+			assert_ok!(Assets::freeze(
+				RuntimeOrigin::signed(AccountId::from(OWNER)),
+				2.into(),
+				bounty_account(0).into(),
+			));
+
+			// When: the bounty is awarded.
+			assert_ok!(MultiAssetBounties::award_bounty(
+				RuntimeOrigin::signed(AccountId::from(CURATOR)),
+				0,
+				None,
+				local_account(BENEFICIARY),
+			));
+
+			// Then: asset 1 is paid inside the call and asset 2 is marked failed.
+			let beneficiary = AccountId::from(BENEFICIARY);
+			assert_eq!(Assets::balance(1, &beneficiary), 10 * UNITS);
+			assert_eq!(Assets::balance(2, &beneficiary), 0);
+			assert_eq!(
+				pallet_multi_asset_bounties::BountyAssets::<Runtime>::get(0, asset_kind(2))
+					.unwrap()
+					.payment_state,
+				PaymentState::Failed
+			);
+			assert!(System::events().iter().any(|r| r.event ==
+				RuntimeEvent::MultiAssetBounties(Event::PaymentFailed {
+					index: 0,
+					child_index: None,
+					asset_kind: asset_kind(2),
+					payment_id: None,
+				})));
+			assert!(matches!(status(0), Some(BountyStatus::Awarding { .. })));
+
+			// When: the asset is thawed and the failed leg retried.
+			assert_ok!(Assets::thaw(
+				RuntimeOrigin::signed(AccountId::from(OWNER)),
+				2.into(),
+				bounty_account(0).into(),
+			));
+			assert_ok!(MultiAssetBounties::retry_payment(
+				RuntimeOrigin::signed(AccountId::from(OWNER)),
+				0,
+				None
+			));
+			assert_ok!(MultiAssetBounties::check_status(
+				RuntimeOrigin::signed(AccountId::from(OWNER)),
+				0,
+				None
+			));
+
+			// Then: both assets are paid and the bounty is gone.
+			assert_eq!(Assets::balance(2, &beneficiary), 20 * UNITS);
+			assert_eq!(status(0), None);
+		});
+	}
+
+	#[test]
+	fn a_child_leg_below_the_minimum_balance_reverts_the_funding() {
+		ExtBuilder::<Runtime>::default().build().execute_with(|| {
+			setup();
+			create_asset(1, true, 1, 100 * UNITS);
+			create_asset(2, true, 10 * UNITS, 100 * UNITS);
+			active_bounty(vec![(1, 20 * UNITS), (2, 20 * UNITS)]);
+
+			// A child would get 5 of asset 2 in a new account, below its minimum balance of 10.
+			// Funding is all-or-nothing, so asset 1 is not allocated either.
+			let metadata = Preimage::note(vec![2u8].into()).unwrap();
+			assert_noop!(
+				MultiAssetBounties::fund_child_bounty(
+					RuntimeOrigin::signed(AccountId::from(CURATOR)),
+					0,
+					vec![(asset_kind(1), 5 * UNITS), (asset_kind(2), 5 * UNITS)]
+						.try_into()
+						.unwrap(),
+					metadata,
+					None,
+				),
+				pallet_multi_asset_bounties::Error::<Runtime>::FundingError
+			);
+		});
+	}
+
+	#[test]
+	fn a_non_sufficient_asset_cannot_open_the_bounty_account() {
+		ExtBuilder::<Runtime>::default().build().execute_with(|| {
+			setup();
+			create_asset(3, false, 1, 100 * UNITS);
+
+			// The new bounty account has no provider, so it cannot receive a non-sufficient asset
+			// on its own (RFC #13772 open question 6).
+			let metadata = Preimage::note(vec![3u8].into()).unwrap();
+			assert_noop!(
+				MultiAssetBounties::fund_bounty(
+					RuntimeOrigin::root(),
+					vec![(asset_kind(3), 10 * UNITS)].try_into().unwrap(),
+					AccountId::from(CURATOR).into(),
+					metadata,
+				),
+				pallet_multi_asset_bounties::Error::<Runtime>::FundingError
+			);
+		});
+	}
+}
