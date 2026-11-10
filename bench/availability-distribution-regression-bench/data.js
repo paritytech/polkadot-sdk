@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794249092680,
+  "lastUpdate": 1794294186723,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e3f0d25d43da51712ebc669c354d555132adcf43",
-          "message": " Refactor: candidate-validation fetches executor_params itself (#11604)\n\n# Description\n\nRemove `executor_params` from\n`CandidateValidationMessage::ValidateFromExhaustive`\nand have `candidate-validation` derive the session index from the\ncandidate\n  descriptor and fetch `executor_params` via the runtime API internally.\n\nThis simplifies backing, approval-voting, and dispute-coordinator by\nremoving\nexecutor_params threading through `Action::LaunchApproval`,\n`RetryApprovalInfo`,\n`ParticipationRequest`, `BackgroundValidationParams`, and\n`PerSessionCache`.\n\nThis PR is a follow up of this\n[comment](https://github.com/paritytech/polkadot-sdk/pull/11566#discussion_r3015664660)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-22T17:05:06Z",
-          "tree_id": "000bffc81737599bda0b6765983ea5a2bcda5537",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3f0d25d43da51712ebc669c354d555132adcf43"
-        },
-        "date": 1776882326168,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14598949949999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007197151726666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009867842766666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024058503926666676,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009931577873333309,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23105e867a35e26ed070920510214dc90f6ea3e3",
+          "message": "pallet-revive: fix receipt capture docs (#13688)\n\nTwo statements in the pallet-revive receipt capture docs were\ninaccurate. Documentation only, no behavior change.\n\nWhere a contract log ends up:\n- Before: decided by the entry point; `Revive::call` and an XCM\n`Transact` leave it substrate-only.\n- Now: decided by whether an ethereum transaction's receipt is open when\nthe log is emitted.\n- A `Revive::call` dispatched by `eth_substrate_call`, directly, through\na batch or through an XCM `Transact`, puts its logs on the receipt.\n\nWhat a receipt overflow fails:\n- Before: the emitting frame or transaction always fails.\n- Now: the overflow flag lives in the current storage layer and rolls\nback with it.\n- If that layer rolls back while the frame or transaction around it\ncontinues, nothing outside the layer fails. Example: a mirrored log from\na call that then fails inside `Utility::batch` or an XCM `Transact`.",
+          "timestamp": "2026-11-10T05:29:14Z",
+          "tree_id": "025dcf36ed160dfa5c148705a9261db88feb41c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23105e867a35e26ed070920510214dc90f6ea3e3"
+        },
+        "date": 1794294151998,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14886588458666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007656109739999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009891901493333313,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025255810873333333,
             "unit": "seconds"
           }
         ]
