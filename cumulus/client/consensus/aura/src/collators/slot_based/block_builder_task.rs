@@ -898,6 +898,7 @@ where
 			} = plan;
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
+			let mut upgraded = false;
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -914,39 +915,45 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				let maybe_parts = match build_collation_parts_for_core(BuildCollationParams {
-					pov_parent_header: pov_parent_header.clone(),
-					relay_parent_header: cx.relay_parent(),
-					max_pov_size: cx.max_pov_size,
-					para_id,
-					relay_client: &env.relay_client,
-					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
-					collator: &mut collator,
-					allowed_pov_size: cx.allowed_pov_size,
-					core_info: core_info.clone(),
-					core_index: this_core_index,
-					block_time,
-					blocks_per_core,
-					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
-					collator_peer_id,
-					relay_parent_data: rp_data,
-					total_number_of_blocks: number_of_blocks,
-					included_hash_at_execution: cx.included_header_at_execution.hash(),
-					relay_slot: cx.relay_slot,
-					para_slot: cx.para_slot.slot,
-					para_client: &*env.para_client,
-				})
-				.await
-				{
-					Ok(maybe_parts) => maybe_parts,
-					Err(()) => return,
+				// Later cores would build on the new runtime with this slot's old context, so they
+				// only resubmit.
+				let maybe_parts = if upgraded {
+					None
+				} else {
+					match build_collation_parts_for_core(BuildCollationParams {
+						pov_parent_header: pov_parent_header.clone(),
+						relay_parent_header: cx.relay_parent(),
+						max_pov_size: cx.max_pov_size,
+						para_id,
+						relay_client: &env.relay_client,
+						code_hash_provider: &code_hash_provider,
+						slot_claim: &cx.slot_claim,
+						collator: &mut collator,
+						allowed_pov_size: cx.allowed_pov_size,
+						core_info: core_info.clone(),
+						core_index: this_core_index,
+						block_time,
+						blocks_per_core,
+						time_for_core,
+						is_last_core_in_parachain_slot: cores.is_last_core() &&
+							slot_time
+								.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
+						collator_peer_id,
+						relay_parent_data: rp_data,
+						total_number_of_blocks: number_of_blocks,
+						included_hash_at_execution: cx.included_header_at_execution.hash(),
+						relay_slot: cx.relay_slot,
+						para_slot: cx.para_slot.slot,
+						para_client: &*env.para_client,
+					})
+					.await
+					{
+						Ok(maybe_parts) => maybe_parts,
+						Err(()) => return,
+					}
 				};
 
 				let has_fresh = maybe_parts.is_some();
-				let mut upgraded = false;
 
 				// Chain the next core's PoV parent onto the freshly-built tip. No fresh block this
 				// slot (resubmit-only) is fine; built parts with no blocks are not — the builder
@@ -1016,17 +1023,6 @@ where
 						has_fresh,
 						"Nothing to submit for this core.",
 					),
-				}
-
-				// Later cores would build on the new runtime with this slot's old context. Drops
-				// the other cores' resubmissions for this one slot.
-				if upgraded {
-					tracing::info!(
-						target: LOG_TARGET,
-						core_index = ?this_core_index,
-						"Built a runtime upgrade; ending the slot's core loop.",
-					);
-					break;
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).

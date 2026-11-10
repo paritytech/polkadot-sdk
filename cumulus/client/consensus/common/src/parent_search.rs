@@ -34,9 +34,8 @@ const LOG_TARGET: &str = "consensus::common::parent_search";
 pub enum ParentSearchParams {
 	/// Candidate version V2
 	V2 {
-		/// The relay parent: anchors the included/pending lookup and the V2 lookahead window.
-		relay_parent: RelayHash,
-		/// The relay chain tip the relay parent trails; V3-executed blocks are judged from it.
+		/// The scheduling-parent that is intended to be used.
+		/// For V2, the scheduling parent is equal to the relay parent.
 		scheduling_parent: RelayHash,
 	},
 	/// Candidate version V3
@@ -47,29 +46,20 @@ pub enum ParentSearchParams {
 }
 
 impl ParentSearchParams {
-	/// The params for the scheduling version.
+	/// The params for the scheduling version: V3 anchors at the scheduling parent, V2 at the
+	/// relay parent.
 	pub fn new(v3_enabled: bool, scheduling_parent: RelayHash, relay_parent: RelayHash) -> Self {
 		if v3_enabled {
 			Self::V3 { scheduling_parent }
 		} else {
-			Self::V2 { relay_parent, scheduling_parent }
+			Self::V2 { scheduling_parent: relay_parent }
 		}
 	}
 
-	/// Anchor for the included/pending lookup and the V2 window: V2 uses the relay parent. V3
-	/// uses the tip, where a V2-executed block's original submission could still land.
-	fn anchor(&self) -> RelayHash {
+	fn scheduling_parent(&self) -> &RelayHash {
 		match self {
-			ParentSearchParams::V2 { relay_parent, .. } => *relay_parent,
-			ParentSearchParams::V3 { scheduling_parent } => *scheduling_parent,
-		}
-	}
-
-	/// Anchor V3-executed blocks are judged from.
-	fn scheduling_parent(&self) -> RelayHash {
-		match self {
-			ParentSearchParams::V2 { scheduling_parent, .. } |
-			ParentSearchParams::V3 { scheduling_parent } => *scheduling_parent,
+			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
+			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
 		}
 	}
 }
@@ -279,14 +269,10 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 	start_hash: Block::Hash,
 	v3_enabled_at: &impl Fn(Block::Hash) -> bool,
 ) -> RelayChainResult<(Block::Header, HashSet<Block::Hash>)> {
-	// Pure V2 needs the window anyway and keeps propagating its fetch error; V3 fetches it lazily.
-	let mut v2_ancestry = match params {
-		ParentSearchParams::V2 { relay_parent, .. } => {
-			Some(v2_window(relay_client, *relay_parent).await?)
-		},
-		ParentSearchParams::V3 { .. } => None,
-	};
+	let mut v2_ancestry = None;
 	let mut v2_executed = HashSet::new();
+	// A para never goes from V3 back to V2, so under V2 params every block is V2-executed.
+	let is_v2 = matches!(params, ParentSearchParams::V2 { .. });
 
 	// Each entry carries whether its block was executed under V3. The flag only changes across a
 	// code change, which always carries the upgrade digest, so the runtime is only queried at the
@@ -299,7 +285,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 			frontier.extend(children.into_iter().map(|child| (child, v3)));
 		}
 	};
-	push_children(&mut frontier, start_hash, None);
+	push_children(&mut frontier, start_hash, is_v2.then_some(false));
 
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -315,23 +301,14 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 		let is_valid = if executed_by_v3 {
 			has_ancestor_relay_parent_info::<Block>(
 				relay_client,
-				params.scheduling_parent(),
+				*params.scheduling_parent(),
 				&header,
 			)
 			.await
 			.unwrap_or(false)
 		} else {
 			if v2_ancestry.is_none() {
-				let ancestry =
-					v2_window(relay_client, params.anchor()).await.unwrap_or_else(|error| {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?error,
-							"Failed to fetch the V2 window; V2-executed blocks are invalid.",
-						);
-						Vec::new()
-					});
-				v2_ancestry = Some(ancestry);
+				v2_ancestry = Some(v2_window(relay_client, *params.scheduling_parent()).await?);
 			}
 			v2_ancestry
 				.as_deref()
@@ -344,8 +321,10 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 			v2_executed.insert(hash);
 		}
 
-		let v3 = (!has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
-		push_children(&mut frontier, hash, v3);
+		// `None` re-queries the runtime: only an upgrade can change the flag.
+		let inherited_v3 =
+			(is_v2 || !has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
+		push_children(&mut frontier, hash, inherited_v3);
 
 		// This block is valid - update best if it's deeper.
 		if header.number() > best.number() {
@@ -452,9 +431,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		"Parent search"
 	);
 
-	let anchor = params.anchor();
+	let scheduling_parent = *params.scheduling_parent();
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, anchor, para_id).await?
+		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
 	else {
 		return Ok(None);
 	};
@@ -466,7 +445,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// before being returned to us.
 		let maybe_header = fetch_pvd_header::<Block>(
 			relay_client,
-			anchor,
+			scheduling_parent,
 			para_id,
 			OccupiedCoreAssumption::Included,
 		)

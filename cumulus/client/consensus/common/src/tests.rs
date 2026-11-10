@@ -1049,10 +1049,7 @@ fn find_best_parent_unknown_included_returns_none() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1107,10 +1104,7 @@ fn find_best_parent_unknown_pending_returns_none() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1167,10 +1161,7 @@ fn find_best_parent_with_pending() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1227,7 +1218,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 { relay_parent, scheduling_parent: relay_parent },
+		ParentSearchParams::V2 { scheduling_parent: relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1274,10 +1265,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1311,10 +1299,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1459,10 +1444,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1552,10 +1534,7 @@ fn find_best_parent_returns_deepest_block() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1657,10 +1636,7 @@ fn find_parent_computes_resubmittable_segment() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V2 {
-			relay_parent: search_relay_parent,
-			scheduling_parent: search_relay_parent,
-		},
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 		|_| false,
 		|_| true,
 	))
@@ -1756,57 +1732,6 @@ fn find_parent_judges_blocks_by_executing_runtime() {
 	let (_i, c1, _c2, best, segment, _) = run([18, 18, 19], &[18]);
 	assert_eq!(best, c1);
 	assert_eq!(segment, vec![c1]);
-}
-
-#[test]
-fn find_parent_v2_params_judge_v3_executed_blocks_from_scheduling_parent() {
-	sp_tracing::try_init_simple();
-
-	// After a V3 -> V2 downgrade: I -> C (V3-executed, relay parent 14). 14 is outside the V2
-	// window (15..=17) but still known from the scheduling parent (20).
-	let backend = Arc::new(Backend::new_test(1000, 1));
-	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
-	let mut build = |parent: Option<Hash>, rp: u32| {
-		build_and_import_block_ext(
-			&client,
-			BlockOrigin::Own,
-			true,
-			&mut para_import,
-			parent,
-			None,
-			Some(relay_hash_from_block_num(rp)),
-		)
-	};
-	let i = build(None, 10);
-	let c = build(Some(i.hash()), 14);
-
-	let mut relay_chain = Relaychain::new();
-	let relay_parent = relay_hash_from_block_num(17);
-	let scheduling_parent = relay_hash_from_block_num(20);
-	relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.included_pvd_header_at
-		.insert(relay_parent, i.header().clone());
-	relay_chain
-		.allowed_relay_parents_at
-		.insert(scheduling_parent, vec![relay_hash_from_block_num(14)]);
-	relay_chain.scheduling_lookahead = Some(3);
-
-	let i_hash = i.hash();
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V2 { relay_parent, scheduling_parent },
-		|at| at == i_hash,
-		|_| true,
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), c.hash());
 }
 
 #[test]
