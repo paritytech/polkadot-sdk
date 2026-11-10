@@ -14,23 +14,21 @@ contract Reverter {
 }
 
 /// Calls, delegate calls or creates contracts a given number of times.
+///
+/// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
+/// no output, so the code of a loop does not depend on the rest of the contract.
 contract SubCaller {
     function callN(address target, uint256 n) external {
         for (uint256 i = 0; i < n; i++) {
-            (bool success, ) = target.call("");
-            require(success, "call failed");
+            assembly {
+                if iszero(call(gas(), target, 0, 0, 0, 0, 0)) {
+                    revert(0, 0)
+                }
+            }
         }
     }
 
     function callIgnoringN(address target, uint256 n) external {
-        for (uint256 i = 0; i < n; i++) {
-            (bool success, ) = target.call("");
-            success;
-        }
-    }
-
-    /// Like `callIgnoringN`, but does not copy the return data.
-    function callDroppingOutputN(address target, uint256 n) external {
         for (uint256 i = 0; i < n; i++) {
             assembly {
                 pop(call(gas(), target, 0, 0, 0, 0, 0))
@@ -40,19 +38,29 @@ contract SubCaller {
 
     function delegateCallN(address target, uint256 n) external {
         for (uint256 i = 0; i < n; i++) {
-            (bool success, ) = target.delegatecall("");
-            require(success, "delegate call failed");
+            assembly {
+                if iszero(delegatecall(gas(), target, 0, 0, 0, 0)) {
+                    revert(0, 0)
+                }
+            }
         }
     }
 
     function createN(uint256 n) external {
+        bytes memory code = type(Sink).creationCode;
         for (uint256 i = 0; i < n; i++) {
-            new Sink();
+            assembly {
+                if iszero(create(0, add(code, 32), mload(code))) {
+                    revert(0, 0)
+                }
+            }
         }
     }
 }
 
 /// `SubCaller` with more code that its functions never run.
+///
+/// The extra functions do arithmetic on their arguments and use no memory.
 contract SubCallerLarge is SubCaller {
     function mix(uint256 x) external pure returns (uint256) {
         x = (x * 31 + 7) ^ (x >> 3);
@@ -106,39 +114,66 @@ contract SubCallerLarge is SubCaller {
         return x - y;
     }
 
-    function hashes(bytes calldata data) external pure returns (bytes32 a, bytes32 b, bytes32 c) {
-        a = keccak256(data);
-        b = keccak256(abi.encodePacked(a, data.length));
-        c = keccak256(abi.encode(a, b, data));
-        a = keccak256(abi.encodePacked(c, b, a));
-        b = keccak256(abi.encode(a, c, data.length, data));
-        c = keccak256(abi.encodePacked(b, a, c, data));
+    function mix4(uint256 x, uint256 y) external pure returns (uint256) {
+        x = (x * 103 + y) ^ (y << 3);
+        y = (y * 107 + x) ^ (x << 5);
+        x = (x * 109 + y) & (y | 0xff00ff00ff00ff00);
+        y = (y * 113 + x) | (x & 0x00ff00ff00ff00ff);
+        x = (x * 127 + y) ^ (y << 7);
+        y = (y * 131 + x) ^ (x << 11);
+        x = (x * 137 + y) & (y | 0xf0f0f0f0f0f0f0f0);
+        y = (y * 139 + x) | (x & 0x0f0f0f0f0f0f0f0f);
+        x = (x * 149 + y) ^ (y << 13);
+        y = (y * 151 + x) ^ (x << 17);
+        x = (x * 157 + y) & (y | 0xcccccccccccccccc);
+        y = (y * 163 + x) | (x & 0x3333333333333333);
+        return x + y;
     }
 
-    function strings(string calldata s, uint256 n) external pure returns (string memory out) {
-        out = s;
-        for (uint256 i = 0; i < n; i++) {
-            out = string(abi.encodePacked(out, s, bytes1(uint8(48 + (i % 10)))));
-        }
+
+    function mix5(int256 x, int256 y) external pure returns (int256) {
+        x = (x * 223 - y) >> 3;
+        y = (y * 227 - x) >> 5;
+        x = (x < y ? x - y * 229 : y - x * 233) >> 7;
+        y = (y > x ? y + x * 239 : x + y * 241) >> 11;
+        x = (x * 251 - y) >> 13;
+        y = (y * 257 - x) >> 17;
+        x = (x < y ? x - y * 263 : y - x * 269) >> 19;
+        y = (y > x ? y + x * 271 : x + y * 277) >> 23;
+        x = (x * 281 - y) >> 29;
+        y = (y * 283 - x) >> 31;
+        x = (x < y ? x - y * 293 : y - x * 307) >> 37;
+        y = (y > x ? y + x * 311 : x + y * 313) >> 41;
+        return x ^ y;
     }
 
-    function fold(uint256[] calldata values) external pure returns (uint256 acc) {
-        for (uint256 i = 0; i < values.length; i++) {
-            acc = (acc * 131 + values[i]) % 1000000007;
-            acc ^= acc << 13;
-            acc ^= acc >> 7;
-            acc ^= acc << 17;
-        }
+    function mix6(uint256 x, uint256 y) external pure returns (uint256) {
+        x = (x ** 3 + y) % (y + 317);
+        y = (y ** 5 + x) % (x + 331);
+        x = (x ** 7 + y) % (y + 337);
+        y = (y ** 3 + x) % (x + 347);
+        x = (x ** 5 + y) % (y + 349);
+        y = (y ** 7 + x) % (x + 353);
+        x = (x ** 3 + y) % (y + 359);
+        y = (y ** 5 + x) % (x + 367);
+        x = (x ** 7 + y) % (y + 373);
+        y = (y ** 3 + x) % (x + 379);
+        return x * y;
     }
 
-    function sortFirst(uint256[8] memory values) external pure returns (uint256[8] memory) {
-        for (uint256 i = 0; i < values.length; i++) {
-            for (uint256 j = i + 1; j < values.length; j++) {
-                if (values[j] < values[i]) {
-                    (values[i], values[j]) = (values[j], values[i]);
-                }
-            }
-        }
-        return values;
+    function mix7(uint256 x, uint256 y) external pure returns (uint256) {
+        x = (x * 383 + 389) ^ (y >> 3) ^ (y << 61);
+        y = (y * 397 + 401) ^ (x >> 5) ^ (x << 59);
+        x = (x * 409 + 419) ^ (y >> 7) ^ (y << 57);
+        y = (y * 421 + 431) ^ (x >> 11) ^ (x << 53);
+        x = (x * 433 + 439) ^ (y >> 13) ^ (y << 51);
+        y = (y * 443 + 449) ^ (x >> 17) ^ (x << 47);
+        x = (x * 457 + 461) ^ (y >> 19) ^ (y << 45);
+        y = (y * 463 + 467) ^ (x >> 23) ^ (x << 41);
+        x = (x * 479 + 487) ^ (y >> 29) ^ (y << 35);
+        y = (y * 491 + 499) ^ (x >> 31) ^ (x << 33);
+        x = (x * 503 + 509) ^ (y >> 37) ^ (y << 27);
+        y = (y * 521 + 523) ^ (x >> 41) ^ (x << 23);
+        return x - y;
     }
 }

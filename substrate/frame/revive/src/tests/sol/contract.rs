@@ -153,14 +153,13 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 }
 
 /// What `SubCaller` does in a loop.
+///
+/// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
+/// no output, so the code of a loop does not depend on the rest of the contract.
 enum SubCall {
 	/// Calls the identity pre-compile, a builtin pre-compile.
 	BuiltinPrecompile,
-	/// Calls `NoInfo`, an external pre-compile of the test runtime.
-	///
-	/// The loop passes no input and does not copy the revert data the pre-compile returns.
-	/// Loops that copied input or return data compiled to 101 to 232 more instructions per
-	/// iteration in `SubCallerLarge` than in `SubCaller`, which hides the charge under test.
+	/// Calls `NoInfo`, an external pre-compile of the test runtime, ignoring its revert.
 	ExternalPrecompile,
 	/// Calls a contract that accepts the call.
 	Call,
@@ -183,7 +182,7 @@ enum SubCall {
 /// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are
 /// compiled separately, so their loops can differ by a few instructions. The caller runs them
 /// and, since it dropped its compiled code at the sub-call, compiles them again in every
-/// iteration. The comparison allows for 8 instructions and one basic block per sub-call, while
+/// iteration. The comparison allows for 4 instructions and one basic block per sub-call, while
 /// the cost of the extra code is asserted to be more than ten times that.
 #[test_case(FixtureType::Solc, SubCall::BuiltinPrecompile)]
 #[test_case(FixtureType::Solc, SubCall::ExternalPrecompile)]
@@ -220,9 +219,9 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 				SubCall::ExternalPrecompile => {
 					use crate::{precompiles::Precompile, tests::precompiles::NoInfo};
 					// The empty input does not decode, so the pre-compile reverts after the
-					// caller dropped its interpreter state.
+					// caller dropped its compiled code.
 					let target = <NoInfo<Test> as Precompile>::MATCHER.base_address().into();
-					SubCaller::callDroppingOutputNCall { target, n }.abi_encode()
+					SubCaller::callIgnoringNCall { target, n }.abi_encode()
 				},
 				SubCall::Call => SubCaller::callNCall { target: sink.0.into(), n }.abi_encode(),
 				SubCall::RevertingCall => {
@@ -264,11 +263,11 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 			},
 			_ => 0,
 		};
-		// 8 instructions and one basic block per sub-call, each instruction executed once and
+		// 4 instructions and one basic block per sub-call, each instruction executed once and
 		// compiled once.
 		let cost = EngineMeter::<Test>::interpreter_compilation_cost();
 		let per_sub_call_millis =
-			8 * (1000 + u64::from(cost.per_instruction_millis)) + 1000 * u64::from(cost.per_block);
+			4 * (1000 + u64::from(cost.per_instruction_millis)) + 1000 * u64::from(cost.per_block);
 		let tolerance = (2 * per_sub_call_millis).div_ceil(1000) * ref_time_per_fuel;
 		assert!(expected == 0 || expected > 10 * tolerance, "{expected} <= 10 * {tolerance}");
 		assert!(
