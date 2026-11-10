@@ -466,7 +466,7 @@ where
 			&*self.para_backend,
 			self.para_id,
 			search_params,
-			// Runtime-only: the relay chain enables `CandidateReceiptV3` before any V3 runtime.
+			// Per block from the para runtime: the relay enables the V3 node feature earlier.
 			|hash| v3_enabled_at(&*self.para_client, hash),
 			|parent| {
 				// Never build on a "middle block" that isn't the last block in a core. Without the
@@ -915,8 +915,7 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				// Later cores would build on the new runtime with this slot's old context, so they
-				// only resubmit.
+				// `cx` predates the upgrade, so later cores only resubmit.
 				let maybe_parts = if upgraded {
 					None
 				} else {
@@ -968,7 +967,7 @@ where
 						break;
 					};
 					pov_parent_header = tip_header.clone();
-					// A bundle ends at an upgrade, so only the tip can carry the digest.
+					// Bundle building stops after an upgrade, so only the tip can carry it.
 					upgraded = has_runtime_upgrade_digest(tip_header);
 				}
 

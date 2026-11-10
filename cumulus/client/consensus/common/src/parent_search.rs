@@ -257,10 +257,11 @@ pub fn has_runtime_upgrade_digest<H: HeaderT>(header: &H) -> bool {
 
 /// Find the deepest valid parent block starting from `start`.
 ///
-/// The `start` block (pending or included) is always valid by construction. Descendants are
-/// explored via DFS and judged by the rules of the runtime that executed them: V3-executed blocks
-/// need a relay parent the relay chain still knows from the scheduling parent, V2-executed blocks
-/// need one in the V2 window. Also returns the valid V2-executed blocks.
+/// The `start` block (pending or included) is always valid by construction.
+/// This function explores its descendants via DFS, returning the deepest block
+/// whose relay-parent is within the allowed ancestry.
+///
+/// Each block is judged by the runtime that executed it. Also returns the valid V2-executed blocks.
 async fn find_deepest_valid_parent<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
@@ -274,9 +275,8 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 	// A para never goes from V3 back to V2, so under V2 params every block is V2-executed.
 	let is_v2 = matches!(params, ParentSearchParams::V2 { .. });
 
-	// Each entry carries whether its block was executed under V3. The flag only changes across a
-	// code change, which always carries the upgrade digest, so the runtime is only queried at the
-	// start block and at digest-carrying parents.
+	// Each entry carries whether its block ran under V3. Only an upgrade digest can flip it, so the
+	// runtime is queried just at the start and at digest-carrying parents (`None` below).
 	let mut frontier: Vec<(Block::Hash, bool)> = Vec::new();
 	let push_children = |frontier: &mut Vec<_>, parent: Block::Hash, v3: Option<bool>| {
 		let children = backend.blockchain().children(parent).unwrap_or_default();
@@ -308,6 +308,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 			.unwrap_or(false)
 		} else {
 			if v2_ancestry.is_none() {
+				// Abort rather than reject: a transient error must not fork below valid blocks.
 				v2_ancestry = Some(v2_window(relay_client, *params.scheduling_parent()).await?);
 			}
 			v2_ancestry
@@ -317,11 +318,12 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 		if !is_valid {
 			continue;
 		}
-		if !executed_by_v3 {
+
+		// V3 search, V2-executed block (upgrade not yet backed): kept out of the V3 segment.
+		if !is_v2 && !executed_by_v3 {
 			v2_executed.insert(hash);
 		}
 
-		// `None` re-queries the runtime: only an upgrade can change the flag.
 		let inherited_v3 =
 			(is_v2 || !has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
 		push_children(&mut frontier, hash, inherited_v3);
@@ -411,9 +413,8 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 /// The search starts from either the pending block (if one exists) or the included block,
 /// and finds the deepest descendant whose relay-parent is within the allowed ancestry.
 ///
-/// `v3_enabled_at` tells whether the runtime at a block has scheduling V3 enabled, i.e. whether
-/// its children are executed under V3. Each unincluded block is judged by the rules of the runtime
-/// that executed it, and V2-executed blocks never enter the V3 resubmittable segment.
+/// `v3_enabled_at` tells whether a block's children run under V3; unused under V2 params. Each
+/// unincluded block is judged by the runtime that executed it.
 ///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
 pub async fn find_parent_for_building<Block: BlockT>(
@@ -477,9 +478,8 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	)
 	.await?;
 
-	// Only V3 resubmits, and only the chain above the last V2-executed block. A lost V2 submission
-	// of that block is never resubmitted: the chain extends it until its relay parent leaves the V2
-	// window (at most `scheduling_lookahead - 1` relay blocks), then the search forks below it.
+	// Only V3 resubmits, and only above the last V2-executed block: a lost V2 submission is not
+	// resubmitted, the search forks below it once its relay parent leaves the V2 window.
 	let resubmittable_segment = if matches!(params, ParentSearchParams::V3 { .. }) {
 		let mut segment =
 			reconstruct_resubmittable_segment(backend, &best_parent_header, start_hash);
