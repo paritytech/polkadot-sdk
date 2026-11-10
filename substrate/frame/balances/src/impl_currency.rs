@@ -968,10 +968,12 @@ where
 				let actual = match status {
 					Status::Reserved => {
 						// make it the reserved under same identifier
-						Reserves::<T, I>::try_mutate(
+						Reserves::<T, I>::try_mutate_exists(
 							beneficiary,
-							|reserves| -> Result<T::Balance, DispatchError> {
-								match reserves.binary_search_by_key(id, |data| data.id) {
+							|maybe_reserves| -> Result<T::Balance, DispatchError> {
+								let reserves = maybe_reserves.get_or_insert_default();
+								let actual = match reserves.binary_search_by_key(id, |data| data.id)
+								{
 									Ok(index) => {
 										let remain = Self::do_repatriate_reserved(
 											slashed,
@@ -989,7 +991,7 @@ where
 										reserves[index].amount =
 											reserves[index].amount.defensive_saturating_add(actual);
 
-										Ok(actual)
+										actual
 									},
 									Err(index) => {
 										let remain = Self::do_repatriate_reserved(
@@ -1013,9 +1015,15 @@ where
 												.map_err(|_| Error::<T, I>::TooManyReserves)?;
 										}
 
-										Ok(actual)
+										actual
 									},
+								};
+
+								if reserves.is_empty() {
+									*maybe_reserves = None;
 								}
+
+								Ok(actual)
 							},
 						)?
 					},

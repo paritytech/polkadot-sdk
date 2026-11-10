@@ -761,10 +761,10 @@ pub(crate) fn decl_static_assertions(
 
 pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
 	let max_pallet_num = {
-		if cfg!(feature = "tuples-96") {
-			96
-		} else if cfg!(feature = "tuples-128") {
+		if cfg!(feature = "tuples-128") {
 			128
+		} else if cfg!(feature = "tuples-96") {
+			96
 		} else {
 			64
 		}
