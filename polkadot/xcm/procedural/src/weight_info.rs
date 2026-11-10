@@ -17,29 +17,8 @@
 use inflector::Inflector;
 use quote::format_ident;
 
-fn generic_ident_is_taken(generics: &syn::Generics, ident: &syn::Ident) -> bool {
-	generics.params.iter().any(|param| match param {
-		syn::GenericParam::Type(ty) => ty.ident == *ident,
-		syn::GenericParam::Const(c) => c.ident == *ident,
-		syn::GenericParam::Lifetime(_) => false,
-	})
-}
-
-fn pick_weight_info_provider_ident(generics: &syn::Generics) -> syn::Ident {
-	let preferred = format_ident!("W");
-	if !generic_ident_is_taken(generics, &preferred) {
-		return preferred;
-	}
-
-	let mut index = 1usize;
-	loop {
-		let candidate = format_ident!("W{}", index);
-		if !generic_ident_is_taken(generics, &candidate) {
-			return candidate;
-		}
-		index = index.saturating_add(1);
-	}
-}
+/// Name of the generic parameter that the generated `GetWeight` impl uses for the weight provider.
+const WEIGHT_INFO_PROVIDER: &str = "W";
 
 pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let input: syn::DeriveInput = match syn::parse(item) {
@@ -48,7 +27,25 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	};
 
 	let syn::DeriveInput { generics, data, ident, .. } = input;
-	let weight_info_provider_ident = pick_weight_info_provider_ident(&generics);
+
+	let reserved_generic = generics.params.iter().find(|param| match param {
+		syn::GenericParam::Type(ty) => ty.ident == WEIGHT_INFO_PROVIDER,
+		syn::GenericParam::Const(c) => c.ident == WEIGHT_INFO_PROVIDER,
+		syn::GenericParam::Lifetime(_) => false,
+	});
+	if let Some(param) = reserved_generic {
+		return syn::Error::new_spanned(
+			param,
+			format!(
+				"the generic parameter name `{WEIGHT_INFO_PROVIDER}` is reserved by \
+				 `XcmWeightInfoTrait` for the weight provider; rename this parameter"
+			),
+		)
+		.into_compile_error()
+		.into();
+	}
+
+	let weight_info_provider_ident = format_ident!("{}", WEIGHT_INFO_PROVIDER);
 	let enum_ty_generics = {
 		let (_, ty_generics, _) = generics.split_for_impl();
 		quote::quote!(#ty_generics)
