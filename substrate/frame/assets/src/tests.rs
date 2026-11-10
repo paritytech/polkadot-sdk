@@ -2082,6 +2082,54 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 	});
 }
 
+/// `burn_from` with `Expendable` on a balance that would be left below the minimum returns the
+/// dust as part of the burned amount and takes it out of the supply. Callers that reconcile
+/// against the returned amount, such as `pallet-psm`'s debt, rely on this.
+#[test]
+fn burn_from_expendable_returns_dust_in_burned_amount() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let (asset, who, min_balance) = (0u32, 1u64, 10u64);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, 1, true, min_balance));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 109));
+
+		// Burning 100 leaves 9, below the minimum: the 9 go with it.
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(109)
+		);
+		assert_eq!(Assets::balance(asset, who), 0);
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert!(!Account::<Test>::contains_key(asset, who));
+
+		// Leaving exactly the minimum burns only what was asked.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 110));
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(100)
+		);
+		assert_eq!(Assets::balance(asset, who), min_balance);
+		assert_eq!(Assets::total_supply(asset), min_balance);
+	});
+}
+
 #[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {
@@ -2390,5 +2438,35 @@ fn setting_too_many_reserves_fails() {
 			reserves.clone().try_into();
 		assert!(result.is_err());
 		assert_eq!(Reserves::<Test>::get(0), vec![]);
+	});
+}
+
+#[test]
+fn fungibles_inspect_is_sufficient_works() {
+	build_and_execute(|| {
+		use frame_support::traits::fungibles::Inspect;
+
+		// An unknown asset is not sufficient.
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
+
+		// A sufficient asset reports `true`, an insufficient one `false`.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert!(<Assets as Inspect<u64>>::is_sufficient(0));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(1));
+
+		// Sufficiency changes via `force_asset_status` are reflected.
+		assert_ok!(Assets::force_asset_status(
+			RuntimeOrigin::root(),
+			0,
+			1,
+			1,
+			1,
+			1,
+			1,
+			false,
+			false
+		));
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
 	});
 }
