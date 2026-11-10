@@ -44,6 +44,7 @@ decl_test_parachains! {
 			PolkadotXcm: coretime_westend_runtime::PolkadotXcm,
 			Balances: coretime_westend_runtime::Balances,
 			Broker: coretime_westend_runtime::Broker,
+			OnDemand: coretime_westend_runtime::OnDemand,
 		}
 	},
 }
