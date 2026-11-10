@@ -234,7 +234,8 @@ pub enum PaymentState<Id> {
 	Attempted { id: Id },
 	/// Payment failed.
 	Failed,
-	/// Payment succeeded.
+	/// The payment of the current phase is settled: it succeeded, or there was nothing to pay (a
+	/// payout or refund of zero, or the refund of an asset whose funding never arrived).
 	Succeeded,
 }
 impl<Id: Clone> PaymentState<Id> {
@@ -885,7 +886,7 @@ pub mod pallet {
 		/// Emits [`Event::CuratorProposed`] if successful.
 		#[pallet::call_index(2)]
 		#[pallet::weight(match child_bounty_id {
-			None => <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
+			None => T::WeightInfo::propose_curator_parent_bounty(T::MaxAssetsPerBounty::get()),
 			Some(_) => <T as Config<I>>::WeightInfo::propose_curator_child_bounty(),
 		})]
 		pub fn propose_curator(
@@ -963,7 +964,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyBecameActive`] if successful.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator(<T as Config<I>>::MaxAssetsPerBounty::get()))]
+		#[pallet::weight(T::WeightInfo::accept_curator(T::MaxAssetsPerBounty::get()))]
 		pub fn accept_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1125,8 +1126,9 @@ pub mod pallet {
 		/// - If the `Paymaster` rejects one asset's payment, that asset is marked failed and the
 		///   others go ahead. The call fails only if every payment was rejected.
 		/// - If successful the child-/bounty status is updated to `Awarding`.
-		/// - In case of a payout failure, the child-/bounty status must be updated with
-		/// `check_status` call before retrying with `retry_payment` call.
+		/// - A payment the `Paymaster` rejects inside the call is marked failed at once and can be
+		///   retried with `retry_payment`. A payment that fails later, with an asynchronous
+		///   `Paymaster`, is marked failed by `check_status` first.
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
@@ -1137,7 +1139,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyAwarded`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()))]
+		#[pallet::weight(T::WeightInfo::award_bounty(T::MaxAssetsPerBounty::get()))]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1204,8 +1206,9 @@ pub mod pallet {
 		/// - If the child-/bounty is in the payout or refund phase, it cannot be canceled.
 		/// - If the `Paymaster` rejects one asset's refund, that asset is marked failed and the
 		///   others go ahead. The call fails only if every refund was rejected.
-		/// - In case of a refund failure, the child-/bounty status must be updated with the
-		/// `check_status` call before retrying with `retry_payment` call.
+		/// - A refund the `Paymaster` rejects inside the call is marked failed at once and can be
+		///   retried with `retry_payment`. A refund that fails later, with an asynchronous
+		///   `Paymaster`, is marked failed by `check_status` first.
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
@@ -1216,8 +1219,8 @@ pub mod pallet {
 		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(6)]
 		#[pallet::weight(match child_bounty_id {
-			None => <T as Config<I>>::WeightInfo::close_parent_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
-			Some(_) => <T as Config<I>>::WeightInfo::close_child_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
+			None => T::WeightInfo::close_parent_bounty(T::MaxAssetsPerBounty::get()),
+			Some(_) => T::WeightInfo::close_child_bounty(T::MaxAssetsPerBounty::get()),
 		})]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
@@ -1279,22 +1282,20 @@ pub mod pallet {
 					rows.iter().all(|(_, entry)| entry.payment_state.get_attempt_id().is_none()),
 					Error::<T, I>::FundingInconclusive
 				);
-				// The others never arrived, so there is nothing to refund for them.
-				rows.retain(|(asset_kind, entry)| {
-					let arrived = matches!(entry.payment_state, PaymentState::Succeeded);
-					if !arrived {
-						Self::put_asset_entry(
-							parent_bounty_id,
-							child_bounty_id,
-							asset_kind.clone(),
-							AssetEntry {
-								value: entry.value,
-								payment_state: PaymentState::Succeeded,
-							},
-						);
-					}
-					arrived
-				});
+				// An asset whose funding failed never arrived, so there is nothing to refund: its
+				// refund is settled from the start, which `Succeeded` records for this phase.
+				let (arrived, never_arrived): (Vec<_>, Vec<_>) = rows
+					.into_iter()
+					.partition(|(_, entry)| matches!(entry.payment_state, PaymentState::Succeeded));
+				for (asset_kind, entry) in never_arrived {
+					Self::put_asset_entry(
+						parent_bounty_id,
+						child_bounty_id,
+						asset_kind,
+						AssetEntry { value: entry.value, payment_state: PaymentState::Succeeded },
+					);
+				}
+				rows = arrived;
 			}
 
 			// Initiate the refund payment for every asset in the account. Each leg is isolated: a
@@ -1341,9 +1342,7 @@ pub mod pallet {
 		/// Emits [`Event::BountyPayoutProcessed`] if the payout payment has succeed.
 		/// Emits [`Event::PaymentFailed`] if the funding, refund our payment payment has failed.
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::check_status_funding(<T as Config<I>>::MaxAssetsPerBounty::get()).max(
-			<T as Config<I>>::WeightInfo::check_status_refund(<T as Config<I>>::MaxAssetsPerBounty::get()),
-		).max(<T as Config<I>>::WeightInfo::check_status_payout(<T as Config<I>>::MaxAssetsPerBounty::get())))]
+		#[pallet::weight(Pallet::<T, I>::check_status_weight())]
 		pub fn check_status(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1471,9 +1470,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::Paid`] if the funding, refund or payout payment has initiated.
 		#[pallet::call_index(8)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::retry_payment_funding(<T as Config<I>>::MaxAssetsPerBounty::get()).max(
-			<T as Config<I>>::WeightInfo::retry_payment_refund(<T as Config<I>>::MaxAssetsPerBounty::get()),
-		).max(<T as Config<I>>::WeightInfo::retry_payment_payout(<T as Config<I>>::MaxAssetsPerBounty::get())))]
+		#[pallet::weight(Pallet::<T, I>::retry_payment_weight())]
 		pub fn retry_payment(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1539,7 +1536,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyValueIncreased`] if successful.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::increase_value(<T as Config<I>>::MaxAssetsPerBounty::get()))]
+		#[pallet::weight(T::WeightInfo::increase_value(T::MaxAssetsPerBounty::get()))]
 		pub fn increase_value(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1893,6 +1890,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	/// The weight `check_status` is charged up front: its heaviest phase, for the largest basket.
+	fn check_status_weight() -> Weight {
+		let n = T::MaxAssetsPerBounty::get();
+		T::WeightInfo::check_status_funding(n)
+			.max(T::WeightInfo::check_status_refund(n))
+			.max(T::WeightInfo::check_status_payout(n))
+	}
+
+	/// The weight `retry_payment` is charged up front: its heaviest phase, for the largest basket.
+	fn retry_payment_weight() -> Weight {
+		let n = T::MaxAssetsPerBounty::get();
+		T::WeightInfo::retry_payment_funding(n)
+			.max(T::WeightInfo::retry_payment_refund(n))
+			.max(T::WeightInfo::retry_payment_payout(n))
+	}
+
 	/// Checks a funding basket: it must be non-empty, name each `asset_kind` once, and have no
 	/// zero value.
 	fn ensure_valid_basket(assets: &[(T::AssetKind, T::Balance)]) -> DispatchResult {
@@ -2094,13 +2107,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut paying = 0u32;
 		let mut rejected = 0u32;
 		for (asset_kind, entry) in rows {
-			let payment_state = match Self::initiate_leg(
+			// A leg whose accounts cannot be derived is rejected like one the `Paymaster` refuses,
+			// so it does not hold up the others.
+			let outcome = Self::initiate_leg(
 				parent_bounty_id,
 				child_bounty_id,
 				&asset_kind,
 				entry.value,
 				leg,
-			)? {
+			)
+			.unwrap_or(LegOutcome::Rejected);
+			let payment_state = match outcome {
 				LegOutcome::Initiated(id) => {
 					paying.saturating_inc();
 					PaymentState::Attempted { id }

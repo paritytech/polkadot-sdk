@@ -4073,3 +4073,30 @@ fn sync_paymaster_single_asset_award_reverts_like_before() {
 		);
 	});
 }
+
+#[test]
+fn child_funding_reverts_the_legs_that_went_through_when_one_is_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active 2-asset parent whose account cannot pay asset 2.
+		let (parent, curator, metadata) = active_multi_asset_parent();
+		drain(parent, 2);
+		let account = Bounties::bounty_account(parent, 1).expect("conversion failed");
+
+		// When: a child is funded with both assets. Asset 1 goes through first, asset 2 is
+		// rejected.
+		assert_noop!(
+			Bounties::fund_child_bounty(
+				RuntimeOrigin::signed(curator),
+				parent,
+				basket(vec![(1, 20), (2, 10)]),
+				metadata,
+				None,
+			),
+			Error::<Test>::FundingError
+		);
+
+		// Then: funding is all-or-nothing, so asset 1 never left the parent either.
+		assert_eq!(paid(account, 1), 50);
+		assert_eq!(paid(Bounties::child_bounty_account(parent, 0, 1).unwrap(), 1), 0);
+	});
+}

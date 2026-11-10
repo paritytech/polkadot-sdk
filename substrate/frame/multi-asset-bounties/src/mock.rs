@@ -42,7 +42,6 @@ use sp_runtime::{
 type Block = frame_system::mocking::MockBlock<Test>;
 
 thread_local! {
-	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 	/// Source account and amount of every payment, so a rejected payment can be reverted.
@@ -50,6 +49,13 @@ thread_local! {
 	/// Whether [`TestBountiesPay`] settles inside the call, like `LocalPay` on Asset Hub.
 	pub static SYNC_PAY: RefCell<bool> = RefCell::new(false);
 }
+
+/// What every account holds of every asset in the mock `Paymaster`.
+///
+/// Kept in storage rather than in a thread-local, so it is rolled back with everything else when
+/// a call reverts or a payment's storage layer is discarded, as a real ledger would be.
+#[frame_support::storage_alias]
+pub type Paid = StorageMap<MockPaymaster, Blake2_128Concat, (u128, u32), u64, ValueQuery>;
 
 /// The payment id every payment gets while [`TestBountiesPay`] settles inside the call. `LocalPay`
 /// likewise returns `QueryId::MAX` for every payment.
@@ -94,14 +100,12 @@ impl PayWithSource for TestBountiesPay {
 	) -> Result<Self::Id, Self::Error> {
 		// Like `LocalPay`: debit the source and fail when it holds too little.
 		if !is_funding_source(from, asset_kind) {
-			PAID.with(|paid| -> Result<(), ()> {
-				let mut paid = paid.borrow_mut();
-				let source = paid.entry((*from, asset_kind)).or_default();
+			Paid::try_mutate((*from, asset_kind), |source| -> Result<(), ()> {
 				*source = source.checked_sub(amount).ok_or(())?;
 				Ok(())
 			})?;
 		}
-		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
+		Paid::mutate((*to, asset_kind), |balance| *balance += amount);
 		if sync_paymaster() {
 			return Ok(SYNC_PAYMENT_ID);
 		}
@@ -330,17 +334,17 @@ impl ExtBuilder {
 
 /// paid balance for a given account and asset ids
 pub fn paid(who: u128, asset_id: u32) -> u64 {
-	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
+	Paid::get((who, asset_id))
 }
 
 /// reduce paid balance for a given account and asset ids
 pub fn unpay(who: u128, asset_id: u32, amount: u64) {
-	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
+	Paid::mutate((who, asset_id), |balance| balance.saturating_reduce(amount))
 }
 
 /// credit an account out-of-band, e.g. an external top-up of a bounty account
 pub fn top_up(who: u128, asset_id: u32, amount: u64) {
-	PAID.with(|p| *p.borrow_mut().entry((who, asset_id)).or_default() += amount)
+	Paid::mutate((who, asset_id), |balance| *balance += amount)
 }
 
 /// set status for a given payment id

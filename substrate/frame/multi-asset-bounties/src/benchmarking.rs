@@ -688,15 +688,29 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Completes the payout of a parent bounty, which also reads the per-asset child allocation
-	/// of every asset.
+	/// Completes the payout of a parent bounty whose child-bounty was paid out, so the parent
+	/// reads and then removes a child allocation for every asset.
 	#[benchmark]
 	fn check_status_payout(
 		n: Linear<1, { T::MaxAssetsPerBounty::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let s = create_active_parent_bounty::<T, I>(n)?;
+		let s = create_active_child_bounty::<T, I>(n)?;
 		let caller = s.curator.clone();
 		let beneficiary_lookup = T::BeneficiaryLookup::unlookup(s.beneficiary.clone());
+
+		// Pay the child-bounty out. The parent keeps its allocation for every asset.
+		Bounties::<T, I>::award_bounty(
+			RawOrigin::Signed(s.child_curator.clone()).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			beneficiary_lookup.clone(),
+		)?;
+		conclude_payments::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), &s.child_assets);
+		Bounties::<T, I>::check_status(
+			RawOrigin::Signed(caller.clone()).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)?;
 
 		Bounties::<T, I>::award_bounty(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -715,13 +729,13 @@ mod benchmarks {
 			));
 		}
 
-		for (asset_kind, value) in s.assets {
+		for ((asset_kind, value), (_, child_value)) in s.assets.into_iter().zip(s.child_assets) {
 			assert_has_event::<T, I>(
 				Event::BountyPayoutProcessed {
 					index: s.parent_bounty_id,
 					child_index: None,
 					asset_kind,
-					value,
+					value: value - child_value,
 					beneficiary: s.beneficiary.clone(),
 				}
 				.into(),
