@@ -573,10 +573,10 @@ mod compilation_cost_benchmark {
 	/// every byte of the blob. The interpreter charges `M` back as gas for every byte of the code
 	/// section, `ceil(code_section * millis / 1000)` with `millis = ceil(1000 * M / r)` and `r`
 	/// the ref time per gas. The blob also holds the instruction bitmask, so it grows by more
-	/// bytes than the code section. The pallet subtracts `M` for every blob byte and the
-	/// interpreter charges `M` as gas for every code section byte. `millis` adds less than
-	/// `r / 1000` per byte of the code section, and rounding each call's charge up to whole gas
-	/// moves the difference by less than one gas either way.
+	/// bytes than the code section, and each blob byte outside the code section adds the
+	/// `call_with_pvm_code_per_byte` slope minus `M`. `millis` adds less than `r / 1000` per byte
+	/// of the code section, and rounding each call's charge up to whole gas moves the difference
+	/// by less than one gas either way.
 	///
 	/// The contracts of [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so
 	/// they differ only in the code load.

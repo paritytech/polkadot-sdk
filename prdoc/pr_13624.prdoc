@@ -32,9 +32,10 @@ doc:
 
     Ref time per PolkaVM gas, the largest of nine measurements:
 
-    - `instr_load_chain_0` to `instr_load_chain_7` (dependent loads, one variant per alignment
-      of the loaded value) and `instr_indirect_jump` (indirect jumps between compiled basic
-      blocks). Each slope is divided by the gas of one iteration and the largest result is used.
+    - `instr_load_chain_0` to `instr_load_chain_7` (dependent loads, one variant per offset of
+      the loaded value within a 64 byte cache line) and `instr_indirect_jump` (indirect jumps
+      between compiled basic blocks). Each slope is divided by the gas of one iteration and the
+      largest result is used.
     - The pallet's `integrity_test` asserts that the derived ref time per gas is not zero.
 
     `WeightInfo` changes, which break every runtime that implements it with its own weights:
