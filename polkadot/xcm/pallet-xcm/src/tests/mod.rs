@@ -1448,6 +1448,60 @@ fn incomplete_execute_reverts_side_effects() {
 	});
 }
 
+/// A failed delivery rolls back the failing instruction, but its `SendFailed` event must survive
+/// the rollback and be emitted right before `ProcessXcmError`.
+#[test]
+fn send_failure_event_survives_instruction_rollback() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let dest: Location = Parachain(OTHER_PARA_ID).into();
+		let dest_sovereign: AccountId = ParaId::from(OTHER_PARA_ID).into_account_truncating();
+		// `TestSendXcm` fails to deliver any message carrying this instruction.
+		let undeliverable = Xcm(vec![ExpectError(Some((1, XcmError::Unimplemented)))]);
+		let message = Xcm(vec![TransferReserveAsset {
+			assets: (Here, SEND_AMOUNT).into(),
+			dest: dest.clone(),
+			xcm: undeliverable,
+		}]);
+		let mut hash = fake_message_hash(&message);
+		let weight = Weight::from_parts(1_000_000_000, 1_000_000_000);
+
+		let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin.clone(),
+			message,
+			&mut hash,
+			weight,
+			weight,
+		);
+
+		let error = XcmError::Transport("Intentional deliver failure used in tests");
+		assert_eq!(outcome.ensure_complete(), Err(InstructionError { index: 0, error }));
+		// The transfer to the reserve was rolled back...
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&dest_sovereign), 0);
+		assert!(sent_xcm().is_empty());
+		// ...but both failure events were emitted. The `Transport` message is not encoded, so it
+		// is lost once the event is stored.
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::SendFailed {
+					origin: origin.clone(),
+					destination: dest,
+					error: SendError::Transport(""),
+					message_id: hash,
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::ProcessXcmError {
+					origin,
+					error: XcmError::Transport(""),
+					message_id: hash,
+				}),
+			]
+		);
+	});
+}
+
 #[test]
 fn fake_latest_versioned_location_works() {
 	use codec::Encode;

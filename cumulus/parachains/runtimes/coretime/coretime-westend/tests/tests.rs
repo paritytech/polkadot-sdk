@@ -360,3 +360,67 @@ fn pallet_xcm_trap_account_migration_works() {
 		1005,
 	)
 }
+
+#[test]
+fn only_proxies_allowed_to_spend_on_coretime_can_place_on_demand_orders() {
+	use coretime_westend_runtime::{Proxy, ProxyType, System};
+
+	let alice = AccountId::from(Sr25519Keyring::Alice);
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let ed = ExistentialDeposit::get();
+
+	// A proxy which may call `place_order` gets past the filter, to fail only because on-demand
+	// Coretime is not sold here yet. Any other proxy is filtered out, as `place_order` pays the
+	// spot price out of the proxied account.
+	let placed: Result<(), sp_runtime::DispatchError> =
+		Err(pallet_on_demand_para::Error::<Runtime>::Disabled.into());
+	let filtered = Err(frame_system::Error::<Runtime>::CallFiltered.into());
+	let cases = [
+		(ProxyType::Any, placed),
+		(ProxyType::NonTransfer, filtered),
+		(ProxyType::CancelProxy, filtered),
+		(ProxyType::Broker, placed),
+		(ProxyType::CoretimeRenewer, filtered),
+		(ProxyType::OnDemandPurchaser, placed),
+		(ProxyType::Collator, filtered),
+	];
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![(alice.clone(), 1_000 * ed), (bob.clone(), ed)])
+		.with_para_id(1005.into())
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			for (proxy_type, expected) in cases {
+				assert_ok!(Proxy::add_proxy(
+					RuntimeOrigin::signed(alice.clone()),
+					bob.clone().into(),
+					proxy_type,
+					0,
+				));
+
+				let place_order = RuntimeCall::OnDemand(pallet_on_demand_para::Call::place_order {
+					para_id: 2000,
+					max_amount: 100 * ed,
+				});
+				assert_ok!(Proxy::proxy(
+					RuntimeOrigin::signed(bob.clone()),
+					alice.clone().into(),
+					Some(proxy_type),
+					Box::new(place_order),
+				));
+				System::assert_last_event(
+					pallet_proxy::Event::ProxyExecuted { result: expected }.into(),
+				);
+
+				assert_ok!(Proxy::remove_proxy(
+					RuntimeOrigin::signed(alice.clone()),
+					bob.clone().into(),
+					proxy_type,
+					0,
+				));
+			}
+		});
+}

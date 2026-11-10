@@ -1228,7 +1228,8 @@ parameter_types! {
 			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
 			+ 30;
 	// Validators contribute no collators until governance raises the cap.
-	pub const DefaultMaxCollators: Option<u32> = Some(0);
+	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
+		pallet_validator_collators::CollatorDraw::None;
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -1980,6 +1981,11 @@ pub type Migrations = (
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
 	>,
+	// unreleased
+	// Stores the registration base deposit of every signed election submission.
+	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
+	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
+	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -2097,6 +2103,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_recovery, Recovery]
+		[pallet_referenda, Referenda]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
@@ -2886,6 +2893,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
 					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
+
+				fn wrap_call(call: RuntimeCall) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+						other_signatories: Vec::new(),
+						call: alloc::boxed::Box::new(call),
+					}))
 				}
 			}
 

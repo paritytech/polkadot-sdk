@@ -1,0 +1,23 @@
+title: 'pallet-nfts, pallet-uniques: enforce full deposit transfer on collection owner change'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Aligns `pallet-nfts` and `pallet-uniques` with `pallet-assets` (#12366).
+
+    Changing a collection's owner moves its deposit with `repatriate_reserved`, which is
+    best-effort. Under `Polite` fortitude, a lock or freeze on the current owner that overlaps
+    their free balance can leave part of the reserved deposit behind. The remainder was
+    discarded, so the collection's recorded deposit could end up out of sync with what is
+    actually reserved on the new owner.
+
+    The affected calls now reject the dispatch with a new `IncompleteDepositTransfer` error when
+    the remainder is non-zero, and the storage layer rolls back the partial move:
+    - `pallet-nfts`: `transfer_ownership` and `force_collection_owner`.
+    - `pallet-uniques`: `transfer_ownership`.
+
+    To recover, the current owner must clear or reduce the offending locks or freezes and retry.
+crates:
+- name: pallet-nfts
+  bump: major
+- name: pallet-uniques
+  bump: major
