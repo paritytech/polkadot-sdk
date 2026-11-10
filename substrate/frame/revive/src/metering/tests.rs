@@ -192,31 +192,38 @@ fn test_apply_eip_150_to_balance() {
 }
 
 #[test]
-fn test_validate_and_get_stipend() {
-	use super::math::validate_and_get_stipend;
+fn call_stipend_weight_checks_the_weight_left() {
+	use super::math::call_stipend_weight;
 
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend = validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let value_call = CallResources::Ethereum { gas: 0, add_stipend: true };
+		let stipend = stipend_weight();
 
-		let result = validate_and_get_stipend::<Test>(stipend);
+		let result = call_stipend_weight::<Test>(&value_call, stipend);
 		assert!(result.is_ok());
 
 		if stipend.ref_time() > 0 {
 			let insufficient = Weight::from_parts(stipend.ref_time() - 1, stipend.proof_size());
-			let result = validate_and_get_stipend::<Test>(insufficient);
+			let result = call_stipend_weight::<Test>(&value_call, insufficient);
 			assert!(result.is_err());
 		}
 
 		if stipend.proof_size() > 0 {
 			let insufficient = Weight::from_parts(stipend.ref_time(), stipend.proof_size() - 1);
-			let result = validate_and_get_stipend::<Test>(insufficient);
+			let result = call_stipend_weight::<Test>(&value_call, insufficient);
 			assert!(result.is_err());
 		}
 
 		if stipend.ref_time() > 0 || stipend.proof_size() > 0 {
-			let result = validate_and_get_stipend::<Test>(Weight::zero());
+			let result = call_stipend_weight::<Test>(&value_call, Weight::zero());
 			assert!(result.is_err());
 		}
+
+		let call_without_stipend = CallResources::Ethereum { gas: 0, add_stipend: false };
+		assert_eq!(
+			call_stipend_weight::<Test>(&call_without_stipend, Weight::zero()),
+			Ok(Weight::zero()),
+		);
 	});
 }
 
@@ -2870,11 +2877,19 @@ fn substrate_execution_call_gets_the_gas_it_asks_for_below_its_share() {
 	});
 }
 
+/// Returns the weight of the call stipend.
+fn stipend_weight() -> Weight {
+	super::math::call_stipend_weight::<Test>(
+		&CallResources::Ethereum { gas: 0, add_stipend: true },
+		Weight::MAX,
+	)
+	.unwrap()
+}
+
 /// Returns the price of the stipend's weight, in the unit the meter computes in.
 fn stipend_price() -> SignedGas<Test> {
 	use crate::evm::fees::InfoT;
-	let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
-	SignedGas::from_weight_fee(<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight))
+	SignedGas::from_weight_fee(<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight()))
 }
 
 /// Returns the price of the stipend's weight in Ethereum gas.
@@ -2929,7 +2944,7 @@ fn value_call_gets_the_stipend_on_top_of_its_share(
 	transaction_limits: fn(Weight) -> TransactionLimits<Test>,
 ) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let weight_limit = stipend_weight.saturating_mul(1000);
 		let root_meter = TransactionMeter::<Test>::new(transaction_limits(weight_limit)).unwrap();
 		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
@@ -2976,7 +2991,7 @@ fn ethereum_execution_value_call_leaves_the_caller_its_share(
 #[test_case(1000 ; "many stipends left")]
 fn ethereum_execution_value_call_without_gas_gets_only_the_stipend(stipends_left: u64) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 			eth_gas_limit: u64::MAX.into(),
 			weight_limit: stipend_weight * stipends_left,
@@ -2999,7 +3014,7 @@ fn ethereum_execution_value_call_without_gas_gets_only_the_stipend(stipends_left
 #[test_case(1000 ; "many stipends left")]
 fn substrate_execution_value_call_without_gas_gets_only_the_stipend(stipends_left: u64) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let root_meter =
 			TransactionMeter::<Test>::new_from_limits(stipend_weight * stipends_left, 1_000)
 				.unwrap();
@@ -3031,7 +3046,7 @@ fn weight_required_for_a_value_call_is_the_least_limit_covering_the_callee(
 	stipends_used: u64,
 ) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let value_call_resources =
 			CallResources::<Test>::Ethereum { gas: u64::MAX.into(), add_stipend: true };
 		let new_caller_meter = |weight_limit| {
@@ -3072,7 +3087,7 @@ fn weight_required_for_a_value_call_is_the_least_limit_covering_the_callee(
 #[test]
 fn ethereum_execution_value_call_without_gas_gets_the_stipend_price_when_proof_size_costs_more() {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let caller_meter =
 			first_frame_meter_with_ethereum_limits(u64::MAX.into(), LARGE_PROOF_SIZE);
 		let mut callee_meter = caller_meter
@@ -3123,7 +3138,7 @@ fn ethereum_execution_value_callee_can_spend_all_its_gas_on_deposit(
 	caller_resources: CallResources<Test>,
 ) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 			eth_gas_limit: 10 * stipend_gas(),
 			weight_limit: Weight::MAX,
@@ -3168,7 +3183,7 @@ fn value_call_checks_the_deposit_limit_before_the_stipend(
 	transaction_limits: TransactionLimits<Test>,
 ) {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let stipend_weight = stipend_weight();
 		let deposit_limit = 1_000;
 		let mut caller_meter = TransactionMeter::<Test>::new(transaction_limits)
 			.unwrap()

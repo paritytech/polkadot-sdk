@@ -204,13 +204,25 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	gas_weight.saturating_add(event_weight)
 }
 
-/// Validate that there's enough weight for the stipend and return the stipend weight.
-pub fn validate_and_get_stipend<T: Config>(weight_left: Weight) -> Result<Weight, DispatchError> {
-	let weight_stipend = determine_call_stipend::<T>();
-	if weight_left.any_lt(weight_stipend) {
-		return Err(<Error<T>>::OutOfGas.into());
+/// Returns the weight of the call stipend `limit` asks for, or zero for a call without one.
+///
+/// Fails with `OutOfGas` when `weight_left` cannot pay for the stipend.
+pub fn call_stipend_weight<T: Config>(
+	limit: &CallResources<T>,
+	weight_left: Weight,
+) -> Result<Weight, DispatchError> {
+	match limit {
+		CallResources::Ethereum { add_stipend: true, .. } => {
+			let stipend_weight = determine_call_stipend::<T>();
+			if weight_left.any_lt(stipend_weight) {
+				return Err(<Error<T>>::OutOfGas.into());
+			}
+			Ok(stipend_weight)
+		},
+		CallResources::Ethereum { add_stipend: false, .. } |
+		CallResources::NoLimits |
+		CallResources::WeightDeposit { .. } => Ok(Weight::zero()),
 	}
-	Ok(weight_stipend)
 }
 
 pub mod substrate_execution {
@@ -280,14 +292,7 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
-		let stipend_weight = match limit {
-			CallResources::Ethereum { add_stipend: true, .. } => {
-				validate_and_get_stipend::<T>(weight_left_before_rule)?
-			},
-			CallResources::Ethereum { add_stipend: false, .. } |
-			CallResources::NoLimits |
-			CallResources::WeightDeposit { .. } => Weight::zero(),
-		};
+		let stipend_weight = call_stipend_weight::<T>(limit, weight_left_before_rule)?;
 
 		// Setting the stipend aside before the 63/64 rule leaves the caller 1/64 of the rest, as
 		// on Ethereum.
@@ -539,20 +544,11 @@ pub mod ethereum_execution {
 			None => BalanceOf::<T>::max_value(),
 		};
 
-		let (stipend_weight, stipend_gas) = match limit {
-			CallResources::Ethereum { add_stipend: true, .. } => {
-				let stipend_weight = validate_and_get_stipend::<T>(weight_left_before_rule)?;
-				// When proof size is the larger cost of the transaction, a caller that can pay for
-				// the stipend's weight can have less gas left than the stipend's price.
-				let stipend_gas =
-					SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(&stipend_weight))
-						.min(&remaining_gas_before_rule);
-				(stipend_weight, stipend_gas)
-			},
-			CallResources::Ethereum { add_stipend: false, .. } |
-			CallResources::NoLimits |
-			CallResources::WeightDeposit { .. } => (Weight::zero(), SignedGas::default()),
-		};
+		let stipend_weight = call_stipend_weight::<T>(limit, weight_left_before_rule)?;
+		// When proof size is the larger cost of the transaction, a caller that can pay for the
+		// stipend's weight can have less gas left than the stipend's price.
+		let stipend_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(&stipend_weight))
+			.min(&remaining_gas_before_rule);
 
 		// Setting the stipend aside before the 63/64 rule leaves the caller 1/64 of the rest, as
 		// on Ethereum.
