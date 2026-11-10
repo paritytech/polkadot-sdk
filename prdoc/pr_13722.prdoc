@@ -1,0 +1,31 @@
+title: 'EPMB: determine the signed base deposit at registration'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The base deposit of a signed submission is now charged once, when the submitter calls
+    `register`, and stored in the submission metadata as `base`. On every `submit_page`, the held
+    deposit becomes that base plus the per-page deposit of the stored pages. Previously, every
+    `submit_page` re-computed the whole deposit from the current queue length, so the held amount
+    depended on registrations made by other accounts after the submitter registered. That
+    re-computation also counted the submitter itself, so a submitter that stored pages held the
+    base one step of `DepositBase` higher than at registration. The base now stays at the
+    registration price.
+
+    `CalculatePageDeposit::calculate_page_deposit` no longer takes the number of existing
+    submitters. Custom implementations must drop that argument.
+
+    The signed pallet now has storage version 1. Runtimes must include
+    `pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1` in their
+    migrations. It adds `base` to every stored submission: the held deposit minus the per-page
+    deposit of the stored pages, at the current price. For accounts in `Invulnerables`, the whole
+    deposit becomes the base. The base is at least the lowest base deposit for the account's
+    current status, and at most the held deposit. If `DepositPerPage` changes in the same release,
+    the derived base absorbs the per-page price difference on stored pages for the rest of that
+    round.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+  validate: false # Only Polkadot and Kusama AH use `calculate_page_deposit`, both via a `Get`, so no code change is needed.
+- name: asset-hub-westend-runtime
+  bump: major
+  validate: false
