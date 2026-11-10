@@ -111,6 +111,13 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 				})
 				.unzip();
 
+			// `match self {}` is rejected for references even when the enum is empty.
+			let body = if match_arms.is_empty() {
+				quote::quote!(match *self {})
+			} else {
+				quote::quote!(match self { #(#match_arms)* })
+			};
+
 			let res = quote::quote! {
 				pub trait XcmWeightInfo #generics {
 					#(#methods)*
@@ -118,9 +125,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 				impl #impl_generics GetWeight<#weight_info_provider_ident> for #ident #enum_ty_generics #where_clause {
 					fn weight(&self) -> Weight {
-						match self {
-							#(#match_arms)*
-						}
+						#body
 					}
 				}
 			};

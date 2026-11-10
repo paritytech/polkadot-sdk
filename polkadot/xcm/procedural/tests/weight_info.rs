@@ -86,3 +86,155 @@ fn generated_dispatch_covers_representative_variant_shapes() {
 		Weight::from_parts(301, 301)
 	);
 }
+
+/// Variants with several fields, and multi-word variant names that must map to snake_case methods.
+mod multi_field_variants {
+	use xcm::latest::{prelude::*, GetWeight};
+
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum Instr<Call> {
+		TransferReserveAsset { assets: Assets, dest: Location, xcm: Xcm<()> },
+		HrmpChannelClosing(u32, u32, u32),
+		UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+		SetErrorHandler(Xcm<Call>),
+	}
+
+	pub struct Info;
+	impl<Call> XcmWeightInfo<Call> for Info {
+		fn transfer_reserve_asset(_: &Assets, _: &Location, xcm: &Xcm<()>) -> Weight {
+			Weight::from_parts(1000 + xcm.0.len() as u64, 0)
+		}
+
+		// Every field takes part in the result, so a swapped argument is detected.
+		fn hrmp_channel_closing(a: &u32, b: &u32, c: &u32) -> Weight {
+			Weight::from_parts(*a as u64 * 100 + *b as u64 * 10 + *c as u64, 0)
+		}
+
+		fn unpaid_execution(_: &WeightLimit, check_origin: &Option<Location>) -> Weight {
+			Weight::from_parts(if check_origin.is_some() { 2001 } else { 2000 }, 0)
+		}
+
+		fn set_error_handler(_: &Xcm<Call>) -> Weight {
+			Weight::from_parts(3000, 0)
+		}
+	}
+
+	#[test]
+	fn fields_are_forwarded_in_order_and_names_are_snake_cased() {
+		let weigh = |i: Instr<()>| GetWeight::<Info>::weight(&i).ref_time();
+
+		assert_eq!(
+			weigh(Instr::TransferReserveAsset {
+				assets: Assets::new(),
+				dest: Here.into(),
+				xcm: Xcm(vec![ClearOrigin, ClearOrigin]),
+			}),
+			1002
+		);
+		assert_eq!(weigh(Instr::HrmpChannelClosing(1, 2, 3)), 123);
+		assert_eq!(
+			weigh(Instr::UnpaidExecution { weight_limit: Unlimited, check_origin: None }),
+			2000
+		);
+		assert_eq!(
+			weigh(Instr::UnpaidExecution {
+				weight_limit: Unlimited,
+				check_origin: Some(Here.into())
+			}),
+			2001
+		);
+		assert_eq!(weigh(Instr::SetErrorHandler(Xcm(vec![]))), 3000);
+	}
+}
+
+/// Inline bounds and a `where` clause on the enum are preserved in the generated items.
+mod bounded_generics {
+	use xcm::latest::{prelude::*, GetWeight};
+
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum Instr<Call: Clone>
+	where
+		Call: core::fmt::Debug,
+	{
+		ClearOrigin,
+		SetAppendix(Xcm<Call>),
+	}
+
+	pub struct Info;
+	impl<Call: Clone> XcmWeightInfo<Call> for Info {
+		fn clear_origin() -> Weight {
+			Weight::from_parts(1, 0)
+		}
+
+		fn set_appendix(_: &Xcm<Call>) -> Weight {
+			Weight::from_parts(2, 0)
+		}
+	}
+
+	#[test]
+	fn bounds_are_preserved() {
+		assert_eq!(GetWeight::<Info>::weight(&Instr::<()>::ClearOrigin).ref_time(), 1);
+		assert_eq!(GetWeight::<Info>::weight(&Instr::<()>::SetAppendix(Xcm(vec![]))).ref_time(), 2);
+	}
+}
+
+/// Several type parameters, a const generic and a lifetime, including a field that is already a
+/// reference (must not become `&&T` in the trait method).
+mod mixed_generics {
+	use xcm::latest::{prelude::*, GetWeight};
+
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum Instr<'a, Call, Extra, const N: usize> {
+		Borrowed(&'a u32),
+		Sized([u8; N]),
+		Tagged { tag: Extra, xcm: Xcm<Call> },
+	}
+
+	pub struct Info;
+	impl<'a, Call, Extra, const N: usize> XcmWeightInfo<'a, Call, Extra, N> for Info {
+		fn borrowed(value: &'a u32) -> Weight {
+			Weight::from_parts(*value as u64, 0)
+		}
+
+		fn sized(bytes: &[u8; N]) -> Weight {
+			Weight::from_parts(bytes.len() as u64 + 1000, 0)
+		}
+
+		fn tagged(_: &Extra, xcm: &Xcm<Call>) -> Weight {
+			Weight::from_parts(2000 + xcm.0.len() as u64, 0)
+		}
+	}
+
+	#[test]
+	fn lifetimes_consts_and_references_work() {
+		let seven = 7u32;
+		let borrowed = Instr::<(), u8, 3>::Borrowed(&seven);
+		assert_eq!(GetWeight::<Info>::weight(&borrowed).ref_time(), 7);
+		assert_eq!(GetWeight::<Info>::weight(&Instr::<(), u8, 3>::Sized([0; 3])).ref_time(), 1003);
+		assert_eq!(
+			GetWeight::<Info>::weight(&Instr::<(), u8, 3>::Tagged {
+				tag: 9,
+				xcm: Xcm(vec![ClearOrigin])
+			})
+			.ref_time(),
+			2001
+		);
+	}
+}
+
+/// Deriving on an enum without variants used to produce just the trait; it must still compile.
+mod empty_enum {
+	use xcm::latest::{prelude::*, GetWeight};
+
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum Instr {}
+
+	pub struct Info;
+	impl XcmWeightInfo for Info {}
+
+	#[test]
+	fn empty_enum_compiles() {
+		fn assert_get_weight<T: GetWeight<Info>>() {}
+		assert_get_weight::<Instr>();
+	}
+}
