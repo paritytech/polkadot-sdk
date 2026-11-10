@@ -154,8 +154,7 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 /// What `SubCaller` does in a loop.
 ///
-/// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
-/// no output, so the loops of `SubCaller` and `SubCallerLarge` compile to nearly the same code.
+/// Every loop body is one assembly call, delegate call or create, see `SubCaller.sol`.
 enum SubCall {
 	/// Calls the identity pre-compile, a builtin pre-compile.
 	BuiltinPrecompile,
@@ -251,13 +250,12 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 			FixtureType::Resolc => {
 				let per_code_byte_millis =
 					EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
-				// The gas the interpreter charges for the map of a code section.
-				let code_map = |code: Vec<u8>| {
+				let code_map_gas = |code: Vec<u8>| {
 					let blob = polkavm::ProgramBlob::parse(code.into()).unwrap();
 					let code_len = u64::try_from(blob.code().len()).unwrap();
 					(code_len * u64::from(per_code_byte_millis)).div_ceil(1000)
 				};
-				let (small_gas, large_gas) = (code_map(small_code), code_map(large_code));
+				let (small_gas, large_gas) = (code_map_gas(small_code), code_map_gas(large_code));
 				assert!(large_gas > small_gas);
 				2 * (large_gas - small_gas) * ref_time_per_fuel
 			},

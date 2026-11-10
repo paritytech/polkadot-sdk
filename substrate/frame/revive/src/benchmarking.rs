@@ -187,18 +187,19 @@ const INDIRECT_JUMP_LAPS: u32 = 400_000 / (crate::metering::INDIRECT_JUMP_GAS - 
 /// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope of every variant by
 /// [`crate::metering::LOAD_CHAIN_GAS`] and takes the largest.
 fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u32) {
-	// The largest offset of the 8 byte value in a slot. Variant `m` puts the value of every slot
-	// at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
-	//
-	// An 8 byte load spans two 64 byte cache lines when it starts in the last 7 bytes of a line.
-	// The interpreter keeps the read-write data in a byte vector, whose host address is only
-	// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
-	// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
-	// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
-	// exactly one variant has every load span two cache lines. This assumes that all 8 variants
-	// get the same host address modulo 64 for the read-write data, since they run the same setup
-	// with the same allocations. Every value ends within its slot, so values of different slots
-	// do not overlap.
+	/// The largest offset of the 8 byte value in a slot.
+	///
+	/// Variant `m` puts the value of every slot at `LOAD_CHAIN_SLOT_OFFSET - 8 * m`.
+	///
+	/// An 8 byte load spans two 64 byte cache lines when it starts in the last 7 bytes of a line.
+	/// The interpreter keeps the read-write data in a byte vector, whose host address is only
+	/// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
+	/// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
+	/// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
+	/// exactly one variant has every load span two cache lines. This assumes that all 8 variants
+	/// get the same host address modulo 64 for the read-write data, since they run the same setup
+	/// with the same allocations. Every value ends within its slot, so values of different slots
+	/// do not overlap.
 	const LOAD_CHAIN_SLOT_OFFSET: u32 = 60;
 	const {
 		let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;

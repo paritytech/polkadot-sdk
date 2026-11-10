@@ -611,7 +611,7 @@ impl VmBinaryModule {
 	/// the map: 20 bytes per block. Every block thus adds 2 + 20 + 2 * 24 = 70 bytes to the data
 	/// of a lap. The code itself is read only when a block is compiled. The
 	/// `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB, 4.3 times the Ice Lake L1D: each of
-	/// the 64 L1D sets receives about 52 lines against at most 12 ways. Each of the 1024 L2 sets
+	/// the 64 L1D sets receives about 51 lines against at most 12 ways. Each of the 1024 L2 sets
 	/// receives 3.2 lines, 40% of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
 	/// set is an average that depends on where the pages land. The data spans four arrays of
 	/// 4 KiB pages, jump table 2 to 3, code map 15 to 16, handlers 12 to 13 and arguments 24 to
@@ -626,7 +626,6 @@ impl VmBinaryModule {
 		};
 		use rand::{SeedableRng, seq::SliceRandom};
 
-		// Basic block indices. The cycle starts at `CYCLE`.
 		const DEPLOY: u32 = 0;
 		const ENTRY: u32 = 1;
 		const WARM_UP: u32 = 2;
@@ -676,7 +675,6 @@ impl VmBinaryModule {
 			Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(0), 0),
 			Instruction::jump_indirect(ra, 0),
 		];
-		// Cycle block `i` sits at lap position `1 + k` where `order[k] == i`.
 		let mut cycle: Vec<(u32, Instruction)> = order
 			.iter()
 			.enumerate()

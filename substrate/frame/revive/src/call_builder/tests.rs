@@ -88,7 +88,6 @@ fn interpreter_compile_per_block_benchmark_contracts() {
 
 		assert_eq!(module.code.len(), code_len, "b = {b}");
 		assert_eq!(u32::try_from(sentinel).unwrap(), b, "b = {b}");
-		// Every block before the sentinel is a branch that is taken to the next block.
 		for inst in &instructions[..sentinel] {
 			let Instruction::branch_eq(s1, s2, target) = inst.kind else {
 				panic!("b = {b}: {inst:?}")
