@@ -35,6 +35,7 @@ std = [
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
 	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-spec-messaging?/std",
 	"cumulus-primitives-storage-weight-reclaim?/std",
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
@@ -93,7 +94,6 @@ std = [
 	"pallet-democracy?/std",
 	"pallet-derivatives?/std",
 	"pallet-dev-mode?/std",
-	"pallet-dummy-dim?/std",
 	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -127,10 +127,8 @@ std = [
 	"pallet-on-demand-para?/std",
 	"pallet-oracle-runtime-api?/std",
 	"pallet-oracle?/std",
-	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
-	"pallet-people?/std",
 	"pallet-pgas-allowance?/std",
 	"pallet-preimage?/std",
 	"pallet-price-oracle-venues?/std",
@@ -304,7 +302,6 @@ runtime-benchmarks = [
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
 	"pallet-derivatives?/runtime-benchmarks",
-	"pallet-dummy-dim?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
@@ -332,10 +329,8 @@ runtime-benchmarks = [
 	"pallet-offences?/runtime-benchmarks",
 	"pallet-on-demand-para?/runtime-benchmarks",
 	"pallet-oracle?/runtime-benchmarks",
-	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
-	"pallet-people?/runtime-benchmarks",
 	"pallet-pgas-allowance?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-price-oracle-venues?/runtime-benchmarks",
@@ -460,7 +455,6 @@ try-runtime = [
 	"pallet-democracy?/try-runtime",
 	"pallet-derivatives?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
-	"pallet-dummy-dim?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
@@ -488,10 +482,8 @@ try-runtime = [
 	"pallet-offences?/try-runtime",
 	"pallet-on-demand-para?/try-runtime",
 	"pallet-oracle?/try-runtime",
-	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
-	"pallet-people?/try-runtime",
 	"pallet-pgas-allowance?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-price-oracle-venues?/try-runtime",
@@ -623,6 +615,7 @@ runtime-full = [
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
 	"cumulus-primitives-proof-size-hostfunction",
+	"cumulus-primitives-spec-messaging",
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
@@ -683,7 +676,6 @@ runtime-full = [
 	"pallet-democracy",
 	"pallet-derivatives",
 	"pallet-dev-mode",
-	"pallet-dummy-dim",
 	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
@@ -717,10 +709,8 @@ runtime-full = [
 	"pallet-on-demand-para",
 	"pallet-oracle",
 	"pallet-oracle-runtime-api",
-	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
-	"pallet-people",
 	"pallet-pgas-allowance",
 	"pallet-preimage",
 	"pallet-price-oracle",
@@ -1075,6 +1065,10 @@ tuples-96 = [
 	"frame-support-procedural?/tuples-96",
 	"frame-support?/tuples-96",
 ]
+tuples-128 = [
+	"frame-support-procedural?/tuples-128",
+	"frame-support?/tuples-128",
+]
 
 [package.edition]
 workspace = true
@@ -1217,6 +1211,11 @@ path = "../cumulus/primitives/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/primitives/proof-size-hostfunction"
+
+[dependencies.cumulus-primitives-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/primitives/spec-messaging"
 
 [dependencies.cumulus-primitives-storage-weight-reclaim]
 default-features = false
@@ -1518,11 +1517,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
 
-[dependencies.pallet-dummy-dim]
-default-features = false
-optional = true
-path = "../substrate/frame/dummy-dim"
-
 [dependencies.pallet-election-provider-multi-block]
 default-features = false
 optional = true
@@ -1688,11 +1682,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/honzon/oracle/runtime-api"
 
-[dependencies.pallet-origin-restriction]
-default-features = false
-optional = true
-path = "../substrate/frame/origin-restriction"
-
 [dependencies.pallet-paged-list]
 default-features = false
 optional = true
@@ -1702,11 +1691,6 @@ path = "../substrate/frame/paged-list"
 default-features = false
 optional = true
 path = "../substrate/frame/parameters"
-
-[dependencies.pallet-people]
-default-features = false
-optional = true
-path = "../substrate/frame/people"
 
 [dependencies.pallet-pgas-allowance]
 default-features = false
