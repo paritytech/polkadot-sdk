@@ -685,7 +685,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty(assets.len() as u32))]
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
 			assets: BoundedVec<(T::AssetKind, T::Balance), T::MaxAssetsPerBounty>,
@@ -771,7 +771,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::ChildBountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty(assets.len() as u32))]
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -885,7 +885,7 @@ pub mod pallet {
 		/// Emits [`Event::CuratorProposed`] if successful.
 		#[pallet::call_index(2)]
 		#[pallet::weight(match child_bounty_id {
-			None => <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(),
+			None => <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
 			Some(_) => <T as Config<I>>::WeightInfo::propose_curator_child_bounty(),
 		})]
 		pub fn propose_curator(
@@ -893,7 +893,7 @@ pub mod pallet {
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
 			curator: AccountIdLookupOf<T>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
 				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
@@ -903,25 +903,31 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 
-			match child_bounty_id {
+			let weight = match child_bounty_id {
 				// Only `SpendOrigin` can propose curator for bounty
 				None => {
 					ensure!(maybe_sender.is_none(), BadOrigin);
 					let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+					let rows = Self::asset_entries(parent_bounty_id, None);
+					let weight = <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(
+						rows.len() as u32,
+					);
 					let mut total_native = T::Balance::zero();
-					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, None) {
+					for (asset_kind, entry) in rows {
 						let native =
 							T::BalanceConverter::from_asset_balance(entry.value, asset_kind)
 								.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 						total_native = total_native.saturating_add(native);
 					}
 					ensure!(total_native <= max_amount, Error::<T, I>::InsufficientPermission);
+					weight
 				},
 				// Only parent curator can propose curator for child-bounty
 				Some(_) => {
 					let parent_curator = parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
 					let sender = maybe_sender.ok_or(BadOrigin)?;
 					ensure!(sender == parent_curator, BadOrigin);
+					<T as Config<I>>::WeightInfo::propose_curator_child_bounty()
 				},
 			};
 
@@ -934,7 +940,7 @@ pub mod pallet {
 				curator,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 
 		/// Accept the curator role for a child-/bounty.
@@ -957,12 +963,12 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyBecameActive`] if successful.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator(<T as Config<I>>::MaxAssetsPerBounty::get()))]
 		pub fn accept_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let signer = ensure_signed(origin)?;
 
 			let (status, _, _) = Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
@@ -972,8 +978,10 @@ pub mod pallet {
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
+			let rows = Self::asset_entries(parent_bounty_id, child_bounty_id);
+			let weight = <T as Config<I>>::WeightInfo::accept_curator(rows.len() as u32);
 			let mut native_amount = T::Balance::zero();
-			for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id) {
+			for (asset_kind, entry) in rows {
 				let native = T::BalanceConverter::from_asset_balance(entry.value, asset_kind)
 					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 				native_amount = native_amount.saturating_add(native);
@@ -990,7 +998,7 @@ pub mod pallet {
 				curator: signer,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 
 		/// Unassign curator from a child-/bounty.
@@ -1129,13 +1137,13 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyAwarded`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()))]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
 			beneficiary: BeneficiaryLookupOf<T, I>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let signer = ensure_signed(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(beneficiary)?;
 
@@ -1155,10 +1163,12 @@ pub mod pallet {
 
 			// Initiate the payout payment for every asset in the basket. Each leg is isolated: a
 			// rejected leg is marked `Failed` and can be retried, while the others go ahead.
+			let rows = Self::asset_entries(parent_bounty_id, child_bounty_id);
+			let weight = <T as Config<I>>::WeightInfo::award_bounty(rows.len() as u32);
 			Self::initiate_legs(
 				parent_bounty_id,
 				child_bounty_id,
-				Self::asset_entries(parent_bounty_id, child_bounty_id),
+				rows,
 				&Leg::Payout(beneficiary.clone()),
 			)?;
 
@@ -1174,7 +1184,7 @@ pub mod pallet {
 				beneficiary,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 
 		/// Cancel an active child-/bounty. A payment to send all the funds to the funding source is
@@ -1206,14 +1216,14 @@ pub mod pallet {
 		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(6)]
 		#[pallet::weight(match child_bounty_id {
-			None => <T as Config<I>>::WeightInfo::close_parent_bounty(),
-			Some(_) => <T as Config<I>>::WeightInfo::close_child_bounty(),
+			None => <T as Config<I>>::WeightInfo::close_parent_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
+			Some(_) => <T as Config<I>>::WeightInfo::close_child_bounty(<T as Config<I>>::MaxAssetsPerBounty::get()),
 		})]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
@@ -1258,6 +1268,10 @@ pub mod pallet {
 			};
 
 			let mut rows = Self::asset_entries(parent_bounty_id, child_bounty_id);
+			let weight = match child_bounty_id {
+				None => <T as Config<I>>::WeightInfo::close_parent_bounty(rows.len() as u32),
+				Some(_) => <T as Config<I>>::WeightInfo::close_child_bounty(rows.len() as u32),
+			};
 			if funding {
 				// Only assets whose funding payment succeeded are in the account. Wait for every
 				// in-flight funding payment to settle first, so none can arrive after the refund.
@@ -1295,7 +1309,7 @@ pub mod pallet {
 				child_index: child_bounty_id,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 
 		/// Check and update the payment status of a child-/bounty.
@@ -1327,9 +1341,9 @@ pub mod pallet {
 		/// Emits [`Event::BountyPayoutProcessed`] if the payout payment has succeed.
 		/// Emits [`Event::PaymentFailed`] if the funding, refund our payment payment has failed.
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::check_status_funding().max(
-			<T as Config<I>>::WeightInfo::check_status_refund(),
-		).max(<T as Config<I>>::WeightInfo::check_status_payout()))]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::check_status_funding(<T as Config<I>>::MaxAssetsPerBounty::get()).max(
+			<T as Config<I>>::WeightInfo::check_status_refund(<T as Config<I>>::MaxAssetsPerBounty::get()),
+		).max(<T as Config<I>>::WeightInfo::check_status_payout(<T as Config<I>>::MaxAssetsPerBounty::get())))]
 		pub fn check_status(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1356,7 +1370,8 @@ pub mod pallet {
 						BountyStatus::Funding { curator }
 					};
 
-					let weight = <T as Config<I>>::WeightInfo::check_status_funding();
+					let weight =
+						<T as Config<I>>::WeightInfo::check_status_funding(rows.len() as u32);
 
 					(new_status, weight)
 				},
@@ -1390,7 +1405,8 @@ pub mod pallet {
 						return Ok(Pays::No.into());
 					}
 
-					let weight = <T as Config<I>>::WeightInfo::check_status_refund();
+					let weight =
+						<T as Config<I>>::WeightInfo::check_status_refund(rows.len() as u32);
 
 					(BountyStatus::Closing { curator }, weight)
 				},
@@ -1414,7 +1430,8 @@ pub mod pallet {
 						return Ok(Pays::No.into());
 					}
 
-					let weight = <T as Config<I>>::WeightInfo::check_status_payout();
+					let weight =
+						<T as Config<I>>::WeightInfo::check_status_payout(rows.len() as u32);
 
 					(BountyStatus::Awarding { curator, beneficiary }, weight)
 				},
@@ -1454,9 +1471,9 @@ pub mod pallet {
 		///
 		/// Emits [`Event::Paid`] if the funding, refund or payout payment has initiated.
 		#[pallet::call_index(8)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::retry_payment_funding().max(
-			<T as Config<I>>::WeightInfo::retry_payment_refund(),
-		).max(<T as Config<I>>::WeightInfo::retry_payment_payout()))]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::retry_payment_funding(<T as Config<I>>::MaxAssetsPerBounty::get()).max(
+			<T as Config<I>>::WeightInfo::retry_payment_refund(<T as Config<I>>::MaxAssetsPerBounty::get()),
+		).max(<T as Config<I>>::WeightInfo::retry_payment_payout(<T as Config<I>>::MaxAssetsPerBounty::get())))]
 		pub fn retry_payment(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1467,20 +1484,22 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let (status, _, _) = Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
+			let mut rows = Self::asset_entries(parent_bounty_id, child_bounty_id);
+			let n = rows.len() as u32;
 			let (leg, weight) = match status {
 				Funding { .. } => {
-					(Leg::Funding, <T as Config<I>>::WeightInfo::retry_payment_funding())
+					(Leg::Funding, <T as Config<I>>::WeightInfo::retry_payment_funding(n))
 				},
 				Closing { .. } => {
-					(Leg::Refund, <T as Config<I>>::WeightInfo::retry_payment_refund())
+					(Leg::Refund, <T as Config<I>>::WeightInfo::retry_payment_refund(n))
 				},
-				Awarding { beneficiary, .. } => {
-					(Leg::Payout(beneficiary), <T as Config<I>>::WeightInfo::retry_payment_payout())
-				},
+				Awarding { beneficiary, .. } => (
+					Leg::Payout(beneficiary),
+					<T as Config<I>>::WeightInfo::retry_payment_payout(n),
+				),
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
 
-			let mut rows = Self::asset_entries(parent_bounty_id, child_bounty_id);
 			rows.retain(|(_, entry)| entry.payment_state.is_pending_or_failed());
 			Self::initiate_legs(parent_bounty_id, child_bounty_id, rows, &leg)?;
 
@@ -1520,13 +1539,13 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyValueIncreased`] if successful.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::increase_value())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::increase_value(<T as Config<I>>::MaxAssetsPerBounty::get()))]
 		pub fn increase_value(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			asset_kind: Box<T::AssetKind>,
 			#[pallet::compact] amount: T::Balance,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let signer = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T, I>::InvalidValue);
 			let asset_kind = *asset_kind;
@@ -1553,8 +1572,10 @@ pub mod pallet {
 			// Re-evaluate the curator deposit for the new summed native value of the basket,
 			// collecting any additional hold from the curator. The deposit always exists for an
 			// `Active` parent bounty.
+			let rows = Self::asset_entries(parent_bounty_id, None);
+			let weight = <T as Config<I>>::WeightInfo::increase_value(rows.len() as u32);
 			let mut native_amount = T::Balance::zero();
-			for (kind, other) in Self::asset_entries(parent_bounty_id, None) {
+			for (kind, other) in rows {
 				let value = if kind == asset_kind { new_value } else { other.value };
 				let native = T::BalanceConverter::from_asset_balance(value, kind)
 					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
@@ -1574,7 +1595,7 @@ pub mod pallet {
 				new_value,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 	}
 

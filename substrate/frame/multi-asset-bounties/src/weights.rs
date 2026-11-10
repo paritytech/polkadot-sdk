@@ -71,22 +71,22 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_multi_asset_bounties`.
 pub trait WeightInfo {
-	fn fund_bounty() -> Weight;
-	fn fund_child_bounty() -> Weight;
-	fn propose_curator_parent_bounty() -> Weight;
+	fn fund_bounty(n: u32, ) -> Weight;
+	fn fund_child_bounty(n: u32, ) -> Weight;
+	fn propose_curator_parent_bounty(n: u32, ) -> Weight;
 	fn propose_curator_child_bounty() -> Weight;
-	fn accept_curator() -> Weight;
+	fn accept_curator(n: u32, ) -> Weight;
 	fn unassign_curator() -> Weight;
-	fn award_bounty() -> Weight;
-	fn close_parent_bounty() -> Weight;
-	fn close_child_bounty() -> Weight;
-	fn check_status_funding() -> Weight;
-	fn check_status_refund() -> Weight;
-	fn check_status_payout() -> Weight;
-	fn retry_payment_funding() -> Weight;
-	fn retry_payment_refund() -> Weight;
-	fn retry_payment_payout() -> Weight;
-	fn increase_value() -> Weight;
+	fn award_bounty(n: u32, ) -> Weight;
+	fn close_parent_bounty(n: u32, ) -> Weight;
+	fn close_child_bounty(n: u32, ) -> Weight;
+	fn check_status_funding(n: u32, ) -> Weight;
+	fn check_status_refund(n: u32, ) -> Weight;
+	fn check_status_payout(n: u32, ) -> Weight;
+	fn retry_payment_funding(n: u32, ) -> Weight;
+	fn retry_payment_refund(n: u32, ) -> Weight;
+	fn retry_payment_payout(n: u32, ) -> Weight;
+	fn increase_value(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_multi_asset_bounties` using the Substrate node and recommended hardware.
@@ -108,7 +108,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::Bounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
-	fn fund_bounty() -> Weight {
+	fn fund_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `897`
 		//  Estimated: `6208`
@@ -116,6 +116,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(84_598_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
@@ -139,7 +141,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `MaxEncodedLen`)
-	fn fund_child_bounty() -> Weight {
+	fn fund_child_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1027`
 		//  Estimated: `6208`
@@ -147,12 +149,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(98_779_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(9_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
-	fn propose_curator_parent_bounty() -> Weight {
+	fn propose_curator_parent_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `467`
 		//  Estimated: `3596`
@@ -160,6 +164,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(24_919_000, 3596)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -186,7 +192,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::CuratorDeposit` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
-	fn accept_curator() -> Weight {
+	fn accept_curator(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `997`
 		//  Estimated: `4000`
@@ -194,6 +200,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(81_205_000, 4000)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -224,7 +232,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn award_bounty() -> Weight {
+	fn award_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1213`
 		//  Estimated: `6208`
@@ -232,6 +240,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(84_366_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -243,7 +253,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn close_parent_bounty() -> Weight {
+	fn close_parent_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `923`
 		//  Estimated: `6208`
@@ -251,6 +261,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(74_494_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -262,7 +274,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn close_child_bounty() -> Weight {
+	fn close_child_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1199`
 		//  Estimated: `6208`
@@ -270,12 +282,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(78_519_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `MaxEncodedLen`)
-	fn check_status_funding() -> Weight {
+	fn check_status_funding(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `632`
 		//  Estimated: `3607`
@@ -283,6 +297,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(25_697_000, 3607)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -302,7 +318,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:1)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
-	fn check_status_refund() -> Weight {
+	fn check_status_refund(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1085`
 		//  Estimated: `4000`
@@ -310,6 +326,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(86_901_000, 4000)
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -327,7 +345,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:1)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
-	fn check_status_payout() -> Weight {
+	fn check_status_payout(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1101`
 		//  Estimated: `4000`
@@ -335,6 +353,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(81_847_000, 4000)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -346,7 +366,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_funding() -> Weight {
+	fn retry_payment_funding(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1237`
 		//  Estimated: `6208`
@@ -354,6 +374,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(77_203_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -365,7 +387,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_refund() -> Weight {
+	fn retry_payment_refund(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1201`
 		//  Estimated: `6208`
@@ -373,6 +395,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(76_608_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -384,7 +408,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_payout() -> Weight {
+	fn retry_payment_payout(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1246`
 		//  Estimated: `6208`
@@ -392,6 +416,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(81_049_000, 6208)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -399,7 +425,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::CuratorDeposit` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
-	fn increase_value() -> Weight {
+	fn increase_value(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `559`
 		//  Estimated: `3596`
@@ -407,6 +433,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(30_175_000, 3596)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 }
 
@@ -428,7 +456,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::Bounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
-	fn fund_bounty() -> Weight {
+	fn fund_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `897`
 		//  Estimated: `6208`
@@ -436,6 +464,8 @@ impl WeightInfo for () {
 		Weight::from_parts(84_598_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
@@ -459,7 +489,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `MaxEncodedLen`)
-	fn fund_child_bounty() -> Weight {
+	fn fund_child_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1027`
 		//  Estimated: `6208`
@@ -467,12 +497,14 @@ impl WeightInfo for () {
 		Weight::from_parts(98_779_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(9_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
-	fn propose_curator_parent_bounty() -> Weight {
+	fn propose_curator_parent_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `467`
 		//  Estimated: `3596`
@@ -480,6 +512,8 @@ impl WeightInfo for () {
 		Weight::from_parts(24_919_000, 3596)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -506,7 +540,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::CuratorDeposit` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
-	fn accept_curator() -> Weight {
+	fn accept_curator(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `997`
 		//  Estimated: `4000`
@@ -514,6 +548,8 @@ impl WeightInfo for () {
 		Weight::from_parts(81_205_000, 4000)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -544,7 +580,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn award_bounty() -> Weight {
+	fn award_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1213`
 		//  Estimated: `6208`
@@ -552,6 +588,8 @@ impl WeightInfo for () {
 		Weight::from_parts(84_366_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -563,7 +601,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn close_parent_bounty() -> Weight {
+	fn close_parent_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `923`
 		//  Estimated: `6208`
@@ -571,6 +609,8 @@ impl WeightInfo for () {
 		Weight::from_parts(74_494_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -582,7 +622,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn close_child_bounty() -> Weight {
+	fn close_child_bounty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1199`
 		//  Estimated: `6208`
@@ -590,12 +630,14 @@ impl WeightInfo for () {
 		Weight::from_parts(78_519_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `MaxEncodedLen`)
-	fn check_status_funding() -> Weight {
+	fn check_status_funding(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `632`
 		//  Estimated: `3607`
@@ -603,6 +645,8 @@ impl WeightInfo for () {
 		Weight::from_parts(25_697_000, 3607)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -622,7 +666,7 @@ impl WeightInfo for () {
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:1)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
-	fn check_status_refund() -> Weight {
+	fn check_status_refund(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1085`
 		//  Estimated: `4000`
@@ -630,6 +674,8 @@ impl WeightInfo for () {
 		Weight::from_parts(86_901_000, 4000)
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -647,7 +693,7 @@ impl WeightInfo for () {
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:1)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
-	fn check_status_payout() -> Weight {
+	fn check_status_payout(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1101`
 		//  Estimated: `4000`
@@ -655,6 +701,8 @@ impl WeightInfo for () {
 		Weight::from_parts(81_847_000, 4000)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -666,7 +714,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_funding() -> Weight {
+	fn retry_payment_funding(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1237`
 		//  Estimated: `6208`
@@ -674,6 +722,8 @@ impl WeightInfo for () {
 		Weight::from_parts(77_203_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -685,7 +735,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_refund() -> Weight {
+	fn retry_payment_refund(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1201`
 		//  Estimated: `6208`
@@ -693,6 +743,8 @@ impl WeightInfo for () {
 		Weight::from_parts(76_608_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -704,7 +756,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn retry_payment_payout() -> Weight {
+	fn retry_payment_payout(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1246`
 		//  Estimated: `6208`
@@ -712,6 +764,8 @@ impl WeightInfo for () {
 		Weight::from_parts(81_049_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(131), added: 2606, mode: `MaxEncodedLen`)
@@ -719,7 +773,7 @@ impl WeightInfo for () {
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:1 w:1)
 	/// Proof: `MultiAssetBounties::CuratorDeposit` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
-	fn increase_value() -> Weight {
+	fn increase_value(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `559`
 		//  Estimated: `3596`
@@ -727,5 +781,7 @@ impl WeightInfo for () {
 		Weight::from_parts(30_175_000, 3596)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			// Placeholder until regenerated: the single-asset weight for every asset.
+			.saturating_mul(u64::from(n.max(1)))
 	}
 }
