@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794294135478,
+  "lastUpdate": 1794301979871,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9b3a4a9ec06179f2fac5d1d97ae82d9da05915ca",
-          "message": "pallet-revive: align eth_substrate_call origin check with other eth dispatchables (#11860)\n\n### Summary\nAdds `ensure_non_contract_if_signed` to `eth_substrate_call`, matching\n`eth_call` and `eth_instantiate_with_code`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T20:13:29Z",
-          "tree_id": "908a9bd66f4c070968d094f8b54ff3bb6fb12dfc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9b3a4a9ec06179f2fac5d1d97ae82d9da05915ca"
-        },
-        "date": 1776980113973,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.000198193066666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1368766573333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.865398840366666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f91ecc274e751e727256ebca4e4a09802bf4880e",
+          "message": "Make the collator protocol revamp the default implementation (on Polkadot) (#13736)\n\nCurrently if a node binary is executed with a Kusama chainspec the\ncollator protocol revamp is the default validator side collator protocol\nimplementation. This PR takes this further by making the revamp the\ndefault implementation no matter what the chainspec is (polkadot\nincluded).\n\nThe `--experimental-collator-protocol` flag is kept so that we can run\nthe legacy implementation if needed (with\n`--experimental-collator-protocol=false`).\n\nBefore this change the CI was executing some tests with both collator\nprotocol implementations. To keep this behaviour, this PR\nadds`--experimental-collator-protocol=false` where necessary. The change\nis here:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/f02224d7863fae256f4675cc0825bfb009fcfb75/polkadot/zombienet-sdk-tests/tests/utils.rs#L58\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T07:39:56Z",
+          "tree_id": "4e631771489e81f62609c2294bf3f1ecac99d7cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f91ecc274e751e727256ebca4e4a09802bf4880e"
+        },
+        "date": 1794301944915,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13118650353333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.8599623158,
             "unit": "seconds"
           }
         ]
