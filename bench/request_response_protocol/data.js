@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794317177962,
+  "lastUpdate": 1794321420524,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -143747,6 +143747,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3261950937,
             "range": "± 70521841",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ceb65d8059ab785f0eb1d481ef9be23811952189",
+          "message": "`pallet-bounties`: Pay out only spendable funds (#13673)\n\nBounty and child-bounty payouts were computed from `free_balance`, which\ncan include funds the account isn't able to transfer. Transfer failures\nwere also ignored, so a claim could succeed and remove the bounty\nwithout paying the beneficiary.\n\nChanges:\n- Payouts in `claim_bounty`, `claim_child_bounty` and\n`close_child_bounty` are now based on the account's spendable balance.\n- Failed transfers now return an error instead of being ignored.",
+          "timestamp": "2026-11-10T13:14:25Z",
+          "tree_id": "c2bd6f138acc744c94228ed72242841661e904e7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ceb65d8059ab785f0eb1d481ef9be23811952189"
+        },
+        "date": 1794321384924,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19789864,
+            "range": "± 147545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20012221,
+            "range": "± 203830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21683489,
+            "range": "± 215225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25706306,
+            "range": "± 195534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59277197,
+            "range": "± 953209",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 362315272,
+            "range": "± 3591687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2657216133,
+            "range": "± 115339584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17178865,
+            "range": "± 172721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17351149,
+            "range": "± 103031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17991828,
+            "range": "± 123661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22699719,
+            "range": "± 165420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62605424,
+            "range": "± 488478",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365687354,
+            "range": "± 2895673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2774980324,
+            "range": "± 27310793",
             "unit": "ns/iter"
           }
         ]
