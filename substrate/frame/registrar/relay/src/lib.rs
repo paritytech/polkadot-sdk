@@ -369,16 +369,16 @@ pub mod pallet {
 				return Self::reject(para_id, message_id, FailureReason::InvalidOnboardingData);
 			};
 
-			if T::Registrar::is_registered(para_id)
-				|| PendingRegistrations::<T>::contains_key(para_id)
+			if T::Registrar::is_registered(para_id) ||
+				PendingRegistrations::<T>::contains_key(para_id)
 			{
 				return Self::reject(para_id, message_id, FailureReason::AlreadyRegistered);
 			}
 			if PendingRegistrations::<T>::count() >= T::MaxPendingRegistrations::get() {
 				return Self::reject(para_id, message_id, FailureReason::TooManyPending);
 			}
-			if code_len > T::MaxCodeSize::get()
-				|| T::Registrar::check_onboarding(head_len, code_len).is_err()
+			if code_len > T::MaxCodeSize::get() ||
+				T::Registrar::check_onboarding(head_len, code_len).is_err()
 			{
 				return Self::reject(para_id, message_id, FailureReason::InvalidOnboardingData);
 			}

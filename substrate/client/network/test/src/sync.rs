@@ -44,9 +44,9 @@ async fn sync_peers_works() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(3);
 
-	while net.peer(0).num_peers().await != 2
-		&& net.peer(1).num_peers().await != 2
-		&& net.peer(2).num_peers().await != 2
+	while net.peer(0).num_peers().await != 2 &&
+		net.peer(1).num_peers().await != 2 &&
+		net.peer(2).num_peers().await != 2
 	{
 		futures::future::poll_fn::<(), _>(|cx| {
 			net.poll(cx);
@@ -280,13 +280,13 @@ async fn sync_justifications() {
 		net.poll(cx);
 
 		for height in (10..21).step_by(5) {
-			if net.peer(0).client().justifications(hashes[height - 1]).unwrap()
-				!= Some(Justifications::from((*b"FRNK", Vec::new())))
+			if net.peer(0).client().justifications(hashes[height - 1]).unwrap() !=
+				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
 				return Poll::Pending;
 			}
-			if net.peer(1).client().justifications(hashes[height - 1]).unwrap()
-				!= Some(Justifications::from((*b"FRNK", Vec::new())))
+			if net.peer(1).client().justifications(hashes[height - 1]).unwrap() !=
+				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
 				return Poll::Pending;
 			}
@@ -320,10 +320,10 @@ async fn sync_justifications_across_forks() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 
-		if net.peer(0).client().justifications(f1_best).unwrap()
-			== Some(Justifications::from((*b"FRNK", Vec::new())))
-			&& net.peer(1).client().justifications(f1_best).unwrap()
-				== Some(Justifications::from((*b"FRNK", Vec::new())))
+		if net.peer(0).client().justifications(f1_best).unwrap() ==
+			Some(Justifications::from((*b"FRNK", Vec::new()))) &&
+			net.peer(1).client().justifications(f1_best).unwrap() ==
+				Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
 			Poll::Ready(())
 		} else {
@@ -896,9 +896,9 @@ async fn block_announce_data_is_propagated() {
 	});
 
 	// Wait until peer 1 is connected to both nodes.
-	while net.peer(1).num_peers().await != 2
-		|| net.peer(0).num_peers().await != 1
-		|| net.peer(2).num_peers().await != 1
+	while net.peer(1).num_peers().await != 2 ||
+		net.peer(0).num_peers().await != 1 ||
+		net.peer(2).num_peers().await != 1
 	{
 		futures::future::poll_fn::<(), _>(|cx| {
 			net.poll(cx);
@@ -1000,8 +1000,8 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 
-		if net.peer(1).client().justifications(hashof10).unwrap()
-			!= Some(Justifications::from((*b"FRNK", Vec::new())))
+		if net.peer(1).client().justifications(hashof10).unwrap() !=
+			Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
 			return Poll::Pending;
 		}

@@ -86,9 +86,9 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	/// Returns true if the are no write operations to perform.
 	pub fn is_empty(&self) -> bool {
-		self.earliest_session.is_none()
-			&& self.recent_disputes.is_none()
-			&& self.candidate_votes.is_empty()
+		self.earliest_session.is_none() &&
+			self.recent_disputes.is_none() &&
+			self.candidate_votes.is_empty()
 	}
 
 	/// Load the earliest session, if any.

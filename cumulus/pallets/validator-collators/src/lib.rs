@@ -978,8 +978,8 @@ pub mod pallet {
 
 	impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
-			PendingRotation::<T>::get() != RotationState::Idle
-				|| T::PeriodicSession::should_end_session(now)
+			PendingRotation::<T>::get() != RotationState::Idle ||
+				T::PeriodicSession::should_end_session(now)
 		}
 	}
 

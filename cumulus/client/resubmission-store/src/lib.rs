@@ -621,9 +621,9 @@ mod tests {
 		// present.
 		backend.finalized = (hashes[2], 3);
 		assert!(
-			backend.has_entry(hashes[0])
-				&& backend.has_entry(hashes[1])
-				&& backend.has_entry(hashes[2]),
+			backend.has_entry(hashes[0]) &&
+				backend.has_entry(hashes[1]) &&
+				backend.has_entry(hashes[2]),
 			"finalized entries leaked",
 		);
 
@@ -631,9 +631,9 @@ mod tests {
 		// ones. The downward walk stops at genesis (no entry there).
 		prune_missed_finalized_entries::<Block, _>(&backend).unwrap();
 		assert!(
-			!backend.has_entry(hashes[0])
-				&& !backend.has_entry(hashes[1])
-				&& !backend.has_entry(hashes[2]),
+			!backend.has_entry(hashes[0]) &&
+				!backend.has_entry(hashes[1]) &&
+				!backend.has_entry(hashes[2]),
 			"finalized entries reclaimed",
 		);
 		assert!(

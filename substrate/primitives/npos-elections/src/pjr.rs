@@ -51,8 +51,8 @@ pub fn standard_threshold(
 ) -> Threshold {
 	weights
 		.into_iter()
-		.fold(Threshold::zero(), |acc, elem| acc.saturating_add(elem))
-		/ committee_size.max(1) as Threshold
+		.fold(Threshold::zero(), |acc, elem| acc.saturating_add(elem)) /
+		committee_size.max(1) as Threshold
 }
 
 /// Check a solution to be PJR.

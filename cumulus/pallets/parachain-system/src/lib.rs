@@ -1529,9 +1529,9 @@ impl<T: Config> Pallet<T> {
 			);
 			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
-			if last_processed_msg.sent_at() == msg.sent_at
-				&& (last_processed_msg.sender() == Some(*sender)
-					|| last_processed_msg.sender() == None)
+			if last_processed_msg.sent_at() == msg.sent_at &&
+				(last_processed_msg.sender() == Some(*sender) ||
+					last_processed_msg.sender() == None)
 			{
 				last_processed_msg.inc_reverse_idx();
 			}

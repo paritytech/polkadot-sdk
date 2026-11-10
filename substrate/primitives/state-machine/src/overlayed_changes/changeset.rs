@@ -654,8 +654,8 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 
 	fn close_transaction_offchain(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
-		if matches!(self.execution_mode, ExecutionMode::Runtime)
-			&& !self.has_open_runtime_transactions()
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
 		{
 			return Err(NoOpenTransaction);
 		}
@@ -725,8 +725,8 @@ impl OverlayedChangeSet {
 
 	fn close_transaction(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
-		if matches!(self.execution_mode, ExecutionMode::Runtime)
-			&& !self.has_open_runtime_transactions()
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
 		{
 			return Err(NoOpenTransaction);
 		}

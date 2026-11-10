@@ -554,9 +554,9 @@ pub mod pallet {
 			let call_hash = T::CallHasher::hash_of(&call);
 			let now = T::BlockNumberProvider::current_block_number();
 			Self::edit_announcements(&delegate, |ann| {
-				ann.real != real
-					|| ann.call_hash != call_hash
-					|| now.saturating_sub(ann.height) < def.delay
+				ann.real != real ||
+					ann.call_hash != call_hash ||
+					now.saturating_sub(ann.height) < def.delay
 			})
 			.map_err(|_| Error::<T>::Unannounced)?;
 
@@ -977,8 +977,8 @@ impl<T: Config> Pallet<T> {
 		force_proxy_type: Option<T::ProxyType>,
 	) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
 		let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
-			&x.delegate == delegate
-				&& force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
+			&x.delegate == delegate &&
+				force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
 		};
 		Ok(Proxies::<T>::get(real).0.into_iter().find(f).ok_or(Error::<T>::NotProxy)?)
 	}
@@ -1013,8 +1013,8 @@ impl<T: Config> Pallet<T> {
 			match c.is_sub_type() {
 				// Proxy call cannot add or remove a proxy with more permissions than it already
 				// has.
-				Some(Call::add_proxy { ref proxy_type, .. })
-				| Some(Call::remove_proxy { ref proxy_type, .. })
+				Some(Call::add_proxy { ref proxy_type, .. }) |
+				Some(Call::remove_proxy { ref proxy_type, .. })
 					if !def.proxy_type.is_superset(proxy_type) =>
 				{
 					false

@@ -1814,9 +1814,9 @@ where
 						DialError::LocalPeerId { .. } => Some("local-peer-id"),
 						DialError::WrongPeerId { .. } => Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
-						DialError::NoAddresses
-						| DialError::DialPeerConditionFalse(_)
-						| DialError::Aborted => None, // ignore them
+						DialError::NoAddresses |
+						DialError::DialPeerConditionFalse(_) |
+						DialError::Aborted => None, // ignore them
 					};
 					if let Some(reason) = reason {
 						metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();

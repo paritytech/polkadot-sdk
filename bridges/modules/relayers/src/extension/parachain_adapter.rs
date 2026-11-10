@@ -153,8 +153,8 @@ where
 	) -> bool {
 		verify_submit_finality_proof_succeeded::<Self, R::BridgesGrandpaPalletInstance>(
 			call_info, call_data, relayer,
-		) && verify_submit_parachain_head_succeeded::<Self, PI>(call_info, call_data, relayer)
-			&& verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
+		) && verify_submit_parachain_head_succeeded::<Self, PI>(call_info, call_data, relayer) &&
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 

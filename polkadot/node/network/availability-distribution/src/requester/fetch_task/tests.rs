@@ -296,15 +296,15 @@ impl TestRun {
 						self.chunk_responses.get(&req.peer).ok_or(network::RequestFailure::Refused);
 
 					if let Ok((resp, protocol)) = response {
-						let chunk = if protocol
-							== &self.req_protocol_names.get_name(Protocol::ChunkFetchingV1)
+						let chunk = if protocol ==
+							&self.req_protocol_names.get_name(Protocol::ChunkFetchingV1)
 						{
 							Into::<Option<v1::ChunkResponse>>::into(
 								v1::ChunkFetchingResponse::decode(&mut &resp[..]).unwrap(),
 							)
 							.map(|c| c.chunk)
-						} else if protocol
-							== &self.req_protocol_names.get_name(Protocol::ChunkFetchingV2)
+						} else if protocol ==
+							&self.req_protocol_names.get_name(Protocol::ChunkFetchingV2)
 						{
 							Into::<Option<ErasureChunk>>::into(
 								v2::ChunkFetchingResponse::decode(&mut &resp[..]).unwrap(),

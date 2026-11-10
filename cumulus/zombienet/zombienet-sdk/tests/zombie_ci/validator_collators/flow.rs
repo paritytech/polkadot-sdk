@@ -335,8 +335,8 @@ async fn register_keys(
 
 /// `ValidatorSetReceived { era: 1, count: 2 }`.
 fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
-	fields.at("era").and_then(|era| era.as_u128()) == Some(1)
-		&& fields.at("count").and_then(|count| count.as_u128()) == Some(VALIDATORS.len() as u128)
+	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
+		fields.at("count").and_then(|count| count.as_u128()) == Some(VALIDATORS.len() as u128)
 }
 
 /// Waits until Asset Hub credited the blocks of Asset Hub and of People, each to at least one
@@ -413,8 +413,8 @@ async fn wait_for_early_report(
 			if arrival_stored && !stored {
 				let reported = block.events().await?.iter().any(|event| {
 					event.is_ok_and(|event| {
-						event.pallet_name() == "ValidatorCollators"
-							&& event.variant_name() == "BlocksReported"
+						event.pallet_name() == "ValidatorCollators" &&
+							event.variant_name() == "BlocksReported"
 					})
 				});
 				if !reported {

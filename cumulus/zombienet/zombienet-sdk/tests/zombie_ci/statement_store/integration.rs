@@ -1230,8 +1230,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let elapsed = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("Time went backwards")
-		.as_secs() as u32
-		- now_secs;
+		.as_secs() as u32 -
+		now_secs;
 	let wait_until_overlap = (ephemeral_ttl as u64)
 		.saturating_sub(elapsed as u64)
 		.saturating_sub(pre_expiry_lead);

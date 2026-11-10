@@ -612,13 +612,13 @@ pub mod pallet {
 			T::ChannelManager::ensure_origin(origin)?;
 
 			ensure!(
-				HrmpIngressChannelsIndex::<T>::decode_len(para).unwrap_or_default()
-					<= num_inbound as usize,
+				HrmpIngressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_inbound as usize,
 				Error::<T>::WrongWitness
 			);
 			ensure!(
-				HrmpEgressChannelsIndex::<T>::decode_len(para).unwrap_or_default()
-					<= num_outbound as usize,
+				HrmpEgressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_outbound as usize,
 				Error::<T>::WrongWitness
 			);
 
@@ -640,8 +640,8 @@ pub mod pallet {
 			T::ChannelManager::ensure_origin(origin)?;
 
 			ensure!(
-				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32
-					<= channels,
+				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
 				Error::<T>::WrongWitness
 			);
 
@@ -664,8 +664,8 @@ pub mod pallet {
 			T::ChannelManager::ensure_origin(origin)?;
 
 			ensure!(
-				HrmpCloseChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32
-					<= channels,
+				HrmpCloseChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
 				Error::<T>::WrongWitness
 			);
 
@@ -693,8 +693,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			ensure!(
-				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32
-					<= open_requests,
+				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					open_requests,
 				Error::<T>::WrongWitness
 			);
 			Self::cancel_open_request(origin, channel_id.clone())?;
@@ -824,8 +824,8 @@ pub mod pallet {
 			let config = configuration::ActiveConfig::<T>::get();
 			let (sender_deposit, recipient_deposit) = Self::required_deposits(&channel_id, &config);
 			// nothing to update
-			if (channel.sender_deposit, channel.recipient_deposit)
-				== (sender_deposit, recipient_deposit)
+			if (channel.sender_deposit, channel.recipient_deposit) ==
+				(sender_deposit, recipient_deposit)
 			{
 				Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
 				return Ok(());
@@ -1081,8 +1081,8 @@ impl<T: Config> Pallet<T> {
 			let (_, recipient_deposit) = Self::required_deposits(&channel_id, config);
 
 			if request.confirmed {
-				if paras::Pallet::<T>::is_valid_para(channel_id.sender)
-					&& paras::Pallet::<T>::is_valid_para(channel_id.recipient)
+				if paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
+					paras::Pallet::<T>::is_valid_para(channel_id.recipient)
 				{
 					HrmpChannels::<T>::insert(
 						&channel_id,
@@ -1700,8 +1700,8 @@ impl<T: Config> Pallet<T> {
 				change.is_none_or(|c| c.current == recorded)
 			};
 			ensure!(
-				unchanged(sender, channel.sender_deposit)
-					&& unchanged(recipient, channel.recipient_deposit),
+				unchanged(sender, channel.sender_deposit) &&
+					unchanged(recipient, channel.recipient_deposit),
 				Error::<T>::ChannelDepositsChanged
 			);
 			if let Some(change) = sender {

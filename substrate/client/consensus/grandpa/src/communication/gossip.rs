@@ -579,17 +579,17 @@ impl<N: Ord> Peers<N> {
 	) -> Result<Option<&View<N>>, Misbehavior> {
 		let Some(peer) = self.inner.get_mut(who) else { return Ok(None) };
 
-		let invalid_change = peer.view.set_id > update.set_id
-			|| peer.view.round > update.round && peer.view.set_id == update.set_id
-			|| peer.view.last_commit.as_ref() > Some(&update.commit_finalized_height);
+		let invalid_change = peer.view.set_id > update.set_id ||
+			peer.view.round > update.round && peer.view.set_id == update.set_id ||
+			peer.view.last_commit.as_ref() > Some(&update.commit_finalized_height);
 
 		if invalid_change {
 			return Err(Misbehavior::InvalidViewChange);
 		}
 
 		let now = Instant::now();
-		let duplicate_packet = (update.set_id, update.round, Some(&update.commit_finalized_height))
-			== (peer.view.set_id, peer.view.round, peer.view.last_commit.as_ref());
+		let duplicate_packet = (update.set_id, update.round, Some(&update.commit_finalized_height)) ==
+			(peer.view.set_id, peer.view.round, peer.view.last_commit.as_ref());
 
 		if duplicate_packet {
 			if let Some(last_update) = peer.view.last_update {
@@ -895,8 +895,8 @@ impl<Block: BlockT> Inner<Block> {
 			ref mut x @ None => x.get_or_insert(LocalView::new(set_id, Round(1))),
 			Some(ref mut v) => {
 				if v.set_id == set_id {
-					let diff_authorities = self.authorities.iter().collect::<HashSet<_>>()
-						!= authorities.iter().collect::<HashSet<_>>();
+					let diff_authorities = self.authorities.iter().collect::<HashSet<_>>() !=
+						authorities.iter().collect::<HashSet<_>>();
 
 					if diff_authorities {
 						debug!(
@@ -1041,8 +1041,8 @@ impl<Block: BlockT> Inner<Block> {
 			Consider::Accept => {},
 		}
 
-		if full.message.precommits.len() != full.message.auth_data.len()
-			|| full.message.precommits.is_empty()
+		if full.message.precommits.len() != full.message.auth_data.len() ||
+			full.message.precommits.is_empty()
 		{
 			debug!(target: LOG_TARGET, "Malformed compact commit");
 			telemetry!(
@@ -1125,8 +1125,8 @@ impl<Block: BlockT> Inner<Block> {
 			// race where the peer sent us the request before it observed that
 			// we had transitioned to a new set. In this case we charge a lower
 			// cost.
-			if request.set_id.0.saturating_add(1) == local_view.set_id.0
-				&& local_view.round.0.saturating_sub(CATCH_UP_THRESHOLD) == 0
+			if request.set_id.0.saturating_add(1) == local_view.set_id.0 &&
+				local_view.round.0.saturating_sub(CATCH_UP_THRESHOLD) == 0
 			{
 				return (None, Action::Discard(cost::HONEST_OUT_OF_SCOPE_CATCH_UP));
 			}
@@ -1211,9 +1211,9 @@ impl<Block: BlockT> Inner<Block> {
 		// won't be able to reply since they don't follow the full GRANDPA
 		// protocol and therefore might not have the vote data available.
 		if let (Some(peer), Some(local_view)) = (self.peers.peer(who), &self.local_view) {
-			if self.catch_up_config.request_allowed(peer)
-				&& peer.view.set_id == local_view.set_id
-				&& peer.view.round.0.saturating_sub(CATCH_UP_THRESHOLD) > local_view.round.0
+			if self.catch_up_config.request_allowed(peer) &&
+				peer.view.set_id == local_view.set_id &&
+				peer.view.round.0.saturating_sub(CATCH_UP_THRESHOLD) > local_view.round.0
 			{
 				// send catch up request if allowed
 				let round = peer.view.round.0 - 1; // peer.view.round is > 0
@@ -1330,8 +1330,8 @@ impl<Block: BlockT> Inner<Block> {
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_SOME) {
 			self.peers.first_stage_peers.contains(who)
 		} else if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
-			self.peers.first_stage_peers.contains(who)
-				|| self.peers.second_stage_peers.contains(who)
+			self.peers.first_stage_peers.contains(who) ||
+				self.peers.second_stage_peers.contains(who)
 		} else {
 			self.peers.peer(who).map(|info| !info.roles.is_light()).unwrap_or(false)
 		}
@@ -1365,9 +1365,9 @@ impl<Block: BlockT> Inner<Block> {
 		};
 
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
-			self.peers.first_stage_peers.contains(who)
-				|| self.peers.second_stage_peers.contains(who)
-				|| self.peers.is_light_peer_in_turn(who)
+			self.peers.first_stage_peers.contains(who) ||
+				self.peers.second_stage_peers.contains(who) ||
+				self.peers.is_light_peer_in_turn(who)
 		} else {
 			self.peers.peer(who).is_some_and(|info| !info.roles.is_light())
 		}
@@ -1747,9 +1747,8 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 					// we expire any commit message that doesn't target the same block
 					// as our best commit or isn't from the same round and set id
 					{
-						!(full.message.target_number == number
-							&& full.round == round
-							&& full.set_id == set_id)
+						!(full.message.target_number == number &&
+							full.round == round && full.set_id == set_id)
 					},
 					None => true,
 				},
@@ -2426,8 +2425,8 @@ mod tests {
 
 		let test = |rounds_elapsed, peers| {
 			// rewind n round durations
-			val.inner.write().local_view.as_mut().unwrap().round_start = Instant::now()
-				- Duration::from_millis(
+			val.inner.write().local_view.as_mut().unwrap().round_start = Instant::now() -
+				Duration::from_millis(
 					(round_duration.as_millis() as f32 * rounds_elapsed) as u64,
 				);
 

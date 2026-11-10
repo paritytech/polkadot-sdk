@@ -1172,9 +1172,9 @@ pub mod pallet {
 		fn build(&self) {
 			crate::log!(trace, "initializing with {:?}", self);
 			assert!(
-				self.validator_count
-					<= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
-						* <T::ElectionProvider as ElectionProvider>::Pages::get(),
+				self.validator_count <=
+					<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+						<T::ElectionProvider as ElectionProvider>::Pages::get(),
 				"validator count is too high, `ElectionProvider` can never fulfill this"
 			);
 			ValidatorCount::<T>::put(self.validator_count);
@@ -2216,8 +2216,8 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n)
-						|| (Validators::<T>::contains_key(&n) && !Validators::<T>::get(&n).blocked)
+					if old.contains(&n) ||
+						(Validators::<T>::contains_key(&n) && !Validators::<T>::get(&n).blocked)
 					{
 						Ok(n)
 					} else {
@@ -2599,10 +2599,10 @@ pub mod pallet {
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed
-				|| origin_balance.is_zero()
-				|| ledger_total < ed
-				|| ledger_total.is_zero();
+			let reapable = origin_balance < ed ||
+				origin_balance.is_zero() ||
+				ledger_total < ed ||
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.

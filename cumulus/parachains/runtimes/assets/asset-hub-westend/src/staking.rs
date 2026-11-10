@@ -315,8 +315,8 @@ impl pallet_staking_async::IsValidatorInactive<AccountId> for IsValidatorInactiv
 				.find(|(service, _)| *service == kind)
 				.map_or(0, |(_, points)| *points)
 		};
-		points_of(ServiceKind::RelayConsensus) < min_rc
-			|| points_of(ServiceKind::Collation) < min_collation
+		points_of(ServiceKind::RelayConsensus) < min_rc ||
+			points_of(ServiceKind::Collation) < min_collation
 	}
 }
 

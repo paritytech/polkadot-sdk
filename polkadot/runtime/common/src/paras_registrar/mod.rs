@@ -352,16 +352,16 @@ pub mod pallet {
 					paras::Pallet::<T>::lifecycle(other).ok_or(Error::<T>::NotRegistered)?;
 				// identify which is a lease holding parachain and which is a parathread (on-demand
 				// parachain)
-				if id_lifecycle == ParaLifecycle::Parachain
-					&& other_lifecycle == ParaLifecycle::Parathread
+				if id_lifecycle == ParaLifecycle::Parachain &&
+					other_lifecycle == ParaLifecycle::Parathread
 				{
 					Self::do_thread_and_chain_swap(id, other);
-				} else if id_lifecycle == ParaLifecycle::Parathread
-					&& other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parathread &&
+					other_lifecycle == ParaLifecycle::Parachain
 				{
 					Self::do_thread_and_chain_swap(other, id);
-				} else if id_lifecycle == ParaLifecycle::Parachain
-					&& other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parachain &&
+					other_lifecycle == ParaLifecycle::Parachain
 				{
 					// If both chains are currently parachains, there is nothing funny we
 					// need to do for their lifecycle management, just swap the underlying
@@ -624,8 +624,8 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			// A retry after a lost answer: cleanup is already scheduled.
 			if matches!(
 				paras::Pallet::<T>::lifecycle(id),
-				Some(ParaLifecycle::OffboardingParathread)
-					| Some(ParaLifecycle::OffboardingParachain)
+				Some(ParaLifecycle::OffboardingParathread) |
+					Some(ParaLifecycle::OffboardingParachain)
 			) {
 				return Ok(());
 			}

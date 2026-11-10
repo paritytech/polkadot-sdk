@@ -963,8 +963,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let alarm_interval = T::AlarmInterval::get().max(One::one());
 		// Alarm must go off no earlier than `when`.
 		// This rounds `when` upwards to the next multiple of `alarm_interval`.
-		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one()))
-			/ alarm_interval)
+		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one())) /
+			alarm_interval)
 			.saturating_mul(alarm_interval);
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),
@@ -1353,8 +1353,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		id: TrackIdOf<T, I>,
 	) -> bool {
 		let x = Perbill::from_rational(elapsed.min(period), period);
-		support_needed.passing(x, tally.support(id))
-			&& approval_needed.passing(x, tally.approval(id))
+		support_needed.passing(x, tally.support(id)) &&
+			approval_needed.passing(x, tally.approval(id))
 	}
 
 	/// Clear metadata if exist for a given referendum index.
@@ -1376,8 +1376,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		ensure!(
-			ReferendumCount::<T, I>::get() as usize
-				== ReferendumInfoFor::<T, I>::iter_keys().count(),
+			ReferendumCount::<T, I>::get() as usize ==
+				ReferendumInfoFor::<T, I>::iter_keys().count(),
 			"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
 		);
 
@@ -1415,8 +1415,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 					if let Some(deciding) = status.deciding {
 						ensure!(
-							deciding.since
-								< deciding
+							deciding.since <
+								deciding
 									.confirming
 									.unwrap_or(BlockNumberFor::<T, I>::max_value()),
 							"Deciding status cannot begin before confirming stage."

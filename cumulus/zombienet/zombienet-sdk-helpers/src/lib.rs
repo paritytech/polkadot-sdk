@@ -329,8 +329,8 @@ async fn assert_expected_number_of_blocks(
 
 				// If the core changes or the relay identifier, we found all blocks for the
 				// candidate.
-				if *relay_identifier.get_or_insert(ri.clone()) != ri
-					|| *core_info.get_or_insert(ci.clone()) != ci
+				if *relay_identifier.get_or_insert(ri.clone()) != ri ||
+					*core_info.get_or_insert(ci.clone()) != ci
 				{
 					break;
 				}
@@ -615,9 +615,9 @@ async fn submit_tx_and_wait_for_finalization(
 				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
 				return Ok(tx_in_block.block_hash());
 			},
-			TxStatus::Error { message }
-			| TxStatus::Invalid { message }
-			| TxStatus::Dropped { message } => {
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
 				return Err(anyhow!("Error submitting tx: {message}"));
 			},
 			_ => continue,

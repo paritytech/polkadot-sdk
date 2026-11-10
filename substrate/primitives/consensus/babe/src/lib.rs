@@ -311,8 +311,8 @@ where
 
 		// both headers must be targeting the same slot and it must
 		// be the same as the one in the proof.
-		if proof.slot != first_pre_digest.slot()
-			|| first_pre_digest.slot() != second_pre_digest.slot()
+		if proof.slot != first_pre_digest.slot() ||
+			first_pre_digest.slot() != second_pre_digest.slot()
 		{
 			return None;
 		}

@@ -892,8 +892,8 @@ impl NetworkConfiguration {
 		let addresses = || self.listen_addresses.iter().chain(&self.public_addresses);
 
 		// WebRTC is a litep2p-only transport.
-		if matches!(self.network_backend, NetworkBackendType::Libp2p)
-			&& (listen_webrtc || public_webrtc)
+		if matches!(self.network_backend, NetworkBackendType::Libp2p) &&
+			(listen_webrtc || public_webrtc)
 		{
 			return Err(crate::error::Error::WebRtcNotSupportedByBackend);
 		}

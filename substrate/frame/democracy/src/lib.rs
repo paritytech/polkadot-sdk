@@ -1672,8 +1672,8 @@ impl<T: Config> Pallet<T> {
 		//   of unbaked referendum is bounded by this number. In case those number have changed in a
 		//   runtime upgrade the formula should be adjusted but the bound should still be sensible.
 		LowestUnbaked::<T>::mutate(|ref_index| {
-			while *ref_index < last
-				&& ReferendumInfoOf::<T>::get(*ref_index)
+			while *ref_index < last &&
+				ReferendumInfoOf::<T>::get(*ref_index)
 					.map_or(true, |info| matches!(info, ReferendumInfo::Finished { .. }))
 			{
 				*ref_index += 1

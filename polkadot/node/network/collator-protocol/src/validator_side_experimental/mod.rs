@@ -449,14 +449,14 @@ async fn process_incoming_peer_message<Sender, B>(
 	use protocol_v4::AdvertiseSegment as V4;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature))
-		| CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature))
-		| CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
+		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
+		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) |
+		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(sender, origin, para_id).await;
 		},
-		CollationProtocols::V1(V1::CollationSeconded(..))
-		| CollationProtocols::V2(V2::CollationSeconded(..))
-		| CollationProtocols::V3(V3::CollationSeconded(..)) => {
+		CollationProtocols::V1(V1::CollationSeconded(..)) |
+		CollationProtocols::V2(V2::CollationSeconded(..)) |
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,

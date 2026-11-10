@@ -721,8 +721,8 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_INVALID_RESPONSE);
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash()
-			!= response.persisted_validation_data.hash()
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
+			response.persisted_validation_data.hash()
 		{
 			return invalid_candidate_output(COST_INVALID_RESPONSE);
 		}
@@ -793,8 +793,8 @@ fn validate_complete_response(
 			};
 
 			// ensure statement is on the correct candidate hash.
-			if unchecked_statement.unchecked_payload().candidate_hash()
-				!= &identifier.candidate_hash
+			if unchecked_statement.unchecked_payload().candidate_hash() !=
+				&identifier.candidate_hash
 			{
 				rep_changes.push((requested_peer, COST_UNREQUESTED_RESPONSE_STATEMENT));
 				continue;

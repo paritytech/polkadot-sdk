@@ -78,9 +78,9 @@ fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
 	let hash = cid.hash();
 
 	// Only sha2-256, blake2b-256 & keccak-256 hash functions are supported according to the spec.
-	if hash.code() != u64::from(Code::Sha2_256)
-		&& hash.code() != u64::from(Code::Blake2b256)
-		&& hash.code() != u64::from(Code::Keccak256)
+	if hash.code() != u64::from(Code::Sha2_256) &&
+		hash.code() != u64::from(Code::Blake2b256) &&
+		hash.code() != u64::from(Code::Keccak256)
 	{
 		return Err(Error::InvalidCid(
 			"Only sha2-256, blake2b-256 & keccak-256 hash functions are supported".into(),

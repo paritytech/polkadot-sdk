@@ -100,8 +100,8 @@ impl ParachainRegistrar for MockRegistrar {
 	}
 
 	fn is_registered(para_id: ParaId) -> bool {
-		AlreadyKnown::get().contains(&para_id)
-			|| Onboarded::get().iter().any(|(id, ..)| *id == para_id)
+		AlreadyKnown::get().contains(&para_id) ||
+			Onboarded::get().iter().any(|(id, ..)| *id == para_id)
 	}
 
 	fn register(

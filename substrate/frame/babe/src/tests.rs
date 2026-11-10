@@ -247,8 +247,8 @@ fn can_estimate_current_epoch_progress() {
 				);
 			} else {
 				assert!(
-					Babe::estimate_current_session_progress(i).0.unwrap()
-						< Permill::from_percent(100)
+					Babe::estimate_current_session_progress(i).0.unwrap() <
+						Permill::from_percent(100)
 				);
 			}
 		}

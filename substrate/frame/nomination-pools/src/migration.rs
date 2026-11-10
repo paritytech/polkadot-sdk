@@ -134,8 +134,8 @@ pub mod unversioned {
 				let pool_acc = Pallet::<T>::generate_bonded_account(id);
 
 				// only migrate if the pool is in Transfer Strategy.
-				if T::StakeAdapter::pool_strategy(Pool::from(pool_acc))
-					== adapter::StakeStrategyType::Transfer
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_acc)) ==
+					adapter::StakeStrategyType::Transfer
 				{
 					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
 						log!(
@@ -198,8 +198,8 @@ pub mod unversioned {
 				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
 			{
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
-				if T::StakeAdapter::pool_strategy(Pool::from(pool_account.clone()))
-					== adapter::StakeStrategyType::Transfer
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_account.clone())) ==
+					adapter::StakeStrategyType::Transfer
 				{
 					log!(error, "Pool {} failed to migrate", id,);
 					return Err(TryRuntimeError::Other("Pool failed to migrate"));
@@ -602,8 +602,8 @@ pub mod v5 {
 				"There are undecodable BondedPools in storage. This migration will not fix that."
 			);
 			ensure!(
-				SubPoolsStorage::<T>::iter_keys().count()
-					== SubPoolsStorage::<T>::iter_values().count(),
+				SubPoolsStorage::<T>::iter_keys().count() ==
+					SubPoolsStorage::<T>::iter_values().count(),
 				"There are undecodable SubPools in storage. This migration will not fix that."
 			);
 			ensure!(
@@ -636,10 +636,10 @@ pub mod v5 {
 			// `total_commission_claimed` field.
 			ensure!(
 				RewardPools::<T>::iter().all(|(_, reward_pool)| reward_pool
-					.total_commission_pending
-					>= Zero::zero() && reward_pool
-					.total_commission_claimed
-					>= Zero::zero()),
+					.total_commission_pending >=
+					Zero::zero() && reward_pool
+					.total_commission_claimed >=
+					Zero::zero()),
 				"a commission value has been incorrectly set"
 			);
 			ensure!(
@@ -657,8 +657,8 @@ pub mod v5 {
 				"There are undecodable BondedPools in storage."
 			);
 			ensure!(
-				SubPoolsStorage::<T>::iter_keys().count()
-					== SubPoolsStorage::<T>::iter_values().count(),
+				SubPoolsStorage::<T>::iter_keys().count() ==
+					SubPoolsStorage::<T>::iter_values().count(),
 				"There are undecodable SubPools in storage."
 			);
 			ensure!(

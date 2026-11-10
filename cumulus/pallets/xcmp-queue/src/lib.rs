@@ -491,9 +491,9 @@ impl QueueConfigData {
 	///
 	/// Should be called prior to accepting this as new config.
 	pub fn validate<T: crate::Config>(&self) -> sp_runtime::DispatchResult {
-		if self.resume_threshold < self.suspend_threshold
-			&& self.suspend_threshold <= self.drop_threshold
-			&& self.resume_threshold > 0
+		if self.resume_threshold < self.suspend_threshold &&
+			self.suspend_threshold <= self.drop_threshold &&
+			self.resume_threshold > 0
 		{
 			Ok(())
 		} else {
@@ -1149,8 +1149,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					}
 					num_processed_pages += 1;
 				},
-				XcmpMessageFormat::ConcatenatedVersionedXcm
-				| XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+				XcmpMessageFormat::ConcatenatedVersionedXcm |
+				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
 					let encoding = match format {
 						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
 						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {

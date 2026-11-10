@@ -191,8 +191,8 @@ impl<BlockNumber: fmt::Debug + PartialEq> BlockImportStatus<BlockNumber> {
 	/// Returns the imported block number.
 	pub fn number(&self) -> &BlockNumber {
 		match self {
-			BlockImportStatus::ImportedKnown(n, _)
-			| BlockImportStatus::ImportedUnknown(n, _, _) => n,
+			BlockImportStatus::ImportedKnown(n, _) |
+			BlockImportStatus::ImportedUnknown(n, _, _) => n,
 		}
 	}
 }

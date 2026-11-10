@@ -394,8 +394,8 @@ where
 					.await
 					.await??;
 
-			if finalized_session_index < self.min_known_session
-				&& Some(finalized_session_index) != self.finalized_needed_session
+			if finalized_session_index < self.min_known_session &&
+				Some(finalized_session_index) != self.finalized_needed_session
 			{
 				gum::debug!(
 					target: LOG_TARGET,

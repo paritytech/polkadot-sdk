@@ -53,8 +53,8 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 					// `is_obsolete` and every relayer has delivered at least one message,
 					// so if relayer slots are released, then message slots are also
 					// released
-					return post_occupation.free_message_slots
-						> info.unrewarded_relayers.free_message_slots;
+					return post_occupation.free_message_slots >
+						info.unrewarded_relayers.free_message_slots;
 				}
 
 				inbound_lane_data.last_delivered_nonce() == *info.base.bundled_range.end()
@@ -154,8 +154,8 @@ impl<
 				// confirmation. Because of that, we can't assume that our state has been confirmed
 				// to the bridged chain. So we are accepting any proof that brings new
 				// confirmations.
-				bundled_range: outbound_lane_data.latest_received_nonce + 1
-					..=relayers_state.last_delivered_nonce,
+				bundled_range: outbound_lane_data.latest_received_nonce + 1..=
+					relayers_state.last_delivered_nonce,
 				best_stored_nonce: outbound_lane_data.latest_received_nonce,
 			}));
 		}

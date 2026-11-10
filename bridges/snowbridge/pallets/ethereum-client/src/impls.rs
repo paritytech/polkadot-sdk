@@ -64,9 +64,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn check_log_match(log: &Log, receipt_log: &AlloyLog) -> bool {
-		let equal = receipt_log.data.data.0 == log.data
-			&& receipt_log.address.0 == log.address.0
-			&& receipt_log.topics().len() == log.topics.len();
+		let equal = receipt_log.data.data.0 == log.data &&
+			receipt_log.address.0 == log.address.0 &&
+			receipt_log.topics().len() == log.topics.len();
 		if !equal {
 			return false;
 		}

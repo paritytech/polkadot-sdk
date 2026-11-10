@@ -178,10 +178,10 @@ fn from_network_bridge_tx(
 		// The collator-protocol never sends validation-protocol messages or connect/extend
 		// resolved-validators commands. If that changes, we want to know at compile time, not
 		// at panic time.
-		NetworkBridgeTxMessage::SendValidationMessage(..)
-		| NetworkBridgeTxMessage::SendValidationMessages(..)
-		| NetworkBridgeTxMessage::ConnectToResolvedValidators { .. }
-		| NetworkBridgeTxMessage::AddToResolvedValidators { .. } => {
+		NetworkBridgeTxMessage::SendValidationMessage(..) |
+		NetworkBridgeTxMessage::SendValidationMessages(..) |
+		NetworkBridgeTxMessage::ConnectToResolvedValidators { .. } |
+		NetworkBridgeTxMessage::AddToResolvedValidators { .. } => {
 			panic!("collator-protocol emitted unexpected NetworkBridgeTxMessage variant: {:?}", msg)
 		},
 	}
@@ -244,11 +244,11 @@ fn classify_request(req: Requests, pending: &mut PendingFetches) -> Classified {
 		// Other request kinds are emitted by other subsystems, never by collator-protocol.
 		// Exhaustive arms here mean a new variant on the upstream `Requests` enum breaks the
 		// build until we've consciously routed it.
-		Requests::ChunkFetching(_)
-		| Requests::PoVFetchingV1(_)
-		| Requests::AvailableDataFetchingV1(_)
-		| Requests::DisputeSendingV1(_)
-		| Requests::AttestedCandidateV2(_) => {
+		Requests::ChunkFetching(_) |
+		Requests::PoVFetchingV1(_) |
+		Requests::AvailableDataFetchingV1(_) |
+		Requests::DisputeSendingV1(_) |
+		Requests::AttestedCandidateV2(_) => {
 			panic!("collator-protocol emitted unexpected request kind: {:?}", req)
 		},
 	}

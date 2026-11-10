@@ -1930,8 +1930,8 @@ mod gloas_checkpoint_and_ancestry {
 mod gloas_fork_isolation {
 	use super::*;
 	fn is_gloas_era(slot: u64) -> bool {
-		EthereumBeaconClient::commitment_scheme_at_slot(slot, ChainForkVersions::get())
-			== CommitmentScheme::BlockHash
+		EthereumBeaconClient::commitment_scheme_at_slot(slot, ChainForkVersions::get()) ==
+			CommitmentScheme::BlockHash
 	}
 
 	/// The legacy path still works with Gloas configured. Guards against the Gloas arms

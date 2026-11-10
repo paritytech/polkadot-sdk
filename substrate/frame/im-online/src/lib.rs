@@ -485,8 +485,8 @@ impl<T: Config> Pallet<T> {
 	fn is_online_aux(authority_index: AuthIndex, authority: &ValidatorId<T>) -> bool {
 		let current_session = T::ValidatorSet::session_index();
 
-		ReceivedHeartbeats::<T>::contains_key(current_session, authority_index)
-			|| AuthoredBlocks::<T>::get(current_session, authority) != 0
+		ReceivedHeartbeats::<T>::contains_key(current_session, authority_index) ||
+			AuthoredBlocks::<T>::get(current_session, authority) != 0
 	}
 
 	/// Returns `true` if a heartbeat has been received for the authority at `authority_index` in
@@ -536,8 +536,8 @@ impl<T: Config> Pallet<T> {
 			// haven't sent an heartbeat yet we'll send one unconditionally. the idea is to prevent
 			// all nodes from sending the heartbeats at the same block and causing a temporary (but
 			// deterministic) spike in transactions.
-			progress >= START_HEARTBEAT_FINAL_PERIOD
-				|| progress >= START_HEARTBEAT_RANDOM_PERIOD && random_choice(progress)
+			progress >= START_HEARTBEAT_FINAL_PERIOD ||
+				progress >= START_HEARTBEAT_RANDOM_PERIOD && random_choice(progress)
 		} else {
 			// otherwise we fallback to using the block number calculated at the beginning
 			// of the session that should roughly correspond to the middle of the session

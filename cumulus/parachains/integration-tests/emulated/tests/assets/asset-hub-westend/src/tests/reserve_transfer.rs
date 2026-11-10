@@ -1134,8 +1134,8 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 	// bought_execution`; `delivery_fees` might be paid from transfer or JIT, also
 	// `bought_execution` is unknown but should be non-zero
 	assert!(
-		receiver_system_native_assets_after
-			< receiver_system_native_assets_before + fee_amount_to_send
+		receiver_system_native_assets_after <
+			receiver_system_native_assets_before + fee_amount_to_send
 	);
 
 	// Sender's asset balance is reduced by exact amount
@@ -1564,8 +1564,8 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	// PenpalB mints USDT asset transferred in (amount plus unspent fees)
 	assert!(penpal_2_usdt_issuance_after > penpal_2_usdt_issuance_before + asset_amount_to_send);
 	assert!(
-		penpal_2_usdt_issuance_after
-			< penpal_2_usdt_issuance_before + asset_amount_to_send + fee_amount_to_send
+		penpal_2_usdt_issuance_after <
+			penpal_2_usdt_issuance_before + asset_amount_to_send + fee_amount_to_send
 	);
 }
 

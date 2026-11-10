@@ -708,8 +708,8 @@ impl<T: Config> Pallet<T> {
 		};
 
 		debug_assert!(
-			locked_now > Zero::zero() && schedules.len() > 0
-				|| locked_now == Zero::zero() && schedules.len() == 0
+			locked_now > Zero::zero() && schedules.len() > 0 ||
+				locked_now == Zero::zero() && schedules.len() == 0
 		);
 
 		Ok((schedules, locked_now))
@@ -743,8 +743,8 @@ where
 			let duration_as_balance = T::BlockNumberToBalance::convert(duration);
 			// Round up so that vesting completes within `duration` blocks, not longer.
 			let per_block =
-				((amount.saturating_add(duration_as_balance).saturating_sub(One::one()))
-					/ duration_as_balance)
+				((amount.saturating_add(duration_as_balance).saturating_sub(One::one())) /
+					duration_as_balance)
 					.max(One::one());
 			let schedule = VestingInfo::new(amount, per_block, starting_block);
 			Self::do_vested_transfer(source, dest, schedule)

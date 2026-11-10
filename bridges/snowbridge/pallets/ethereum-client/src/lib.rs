@@ -321,8 +321,8 @@ pub mod pallet {
 
 			// Verify update does not skip a sync committee period.
 			ensure!(
-				update.signature_slot > update.attested_header.slot
-					&& update.attested_header.slot >= update.finalized_header.slot,
+				update.signature_slot > update.attested_header.slot &&
+					update.attested_header.slot >= update.finalized_header.slot,
 				Error::<T>::InvalidUpdateSlot
 			);
 			// Retrieve latest finalized state.
@@ -343,12 +343,12 @@ pub mod pallet {
 			// Verify update is relevant.
 			let update_attested_period = compute_period(update.attested_header.slot);
 			let update_finalized_period = compute_period(update.finalized_header.slot);
-			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists()
-				&& (update.next_sync_committee_update.is_some()
-					&& update_attested_period == store_period);
+			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists() &&
+				(update.next_sync_committee_update.is_some() &&
+					update_attested_period == store_period);
 			ensure!(
-				update.attested_header.slot > latest_finalized_state.slot
-					|| update_has_next_sync_committee,
+				update.attested_header.slot > latest_finalized_state.slot ||
+					update_has_next_sync_committee,
 				Error::<T>::IrrelevantUpdate
 			);
 
@@ -358,8 +358,8 @@ pub mod pallet {
 			ensure!(
 				latest_finalized_state
 					.slot
-					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64)
-					>= update.finalized_header.slot,
+					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64) >=
+					update.finalized_header.slot,
 				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
@@ -716,8 +716,8 @@ pub mod pallet {
 
 			// If the latest finalized header is larger than the minimum slot interval, the header
 			// import transaction is free.
-			if update.finalized_header.slot
-				>= latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
+			if update.finalized_header.slot >=
+				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
 			{
 				return Pays::No;
 			}

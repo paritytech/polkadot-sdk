@@ -224,8 +224,8 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 		deserialize_file(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 	if let Some(section) = module.export_section_mut() {
 		section.entries_mut().retain(|entry| {
-			matches!(entry.internal(), Internal::Function(_))
-				&& (entry.field() == "call" || entry.field() == "deploy")
+			matches!(entry.internal(), Internal::Function(_)) &&
+				(entry.field() == "call" || entry.field() == "deploy")
 		});
 	}
 

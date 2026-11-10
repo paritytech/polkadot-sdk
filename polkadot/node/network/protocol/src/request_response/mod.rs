@@ -210,9 +210,9 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1
-			| Protocol::CollationFetchingV2
-			| Protocol::CollationFetchingV3 => {
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => {
 				N::request_response_config(
 					name,
 					legacy_names,
@@ -271,9 +271,9 @@ impl Protocol {
 			// as well.
 			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1
-			| Protocol::CollationFetchingV2
-			| Protocol::CollationFetchingV3 => 10,
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -292,8 +292,8 @@ impl Protocol {
 				// wasting precious time.
 				let available_bandwidth = 7 * MIN_BANDWIDTH_BYTES / 10;
 				let size = u64::saturating_sub(
-					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth
-						/ (1000 * ATTESTED_CANDIDATE_RESPONSE_SIZE),
+					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth /
+						(1000 * ATTESTED_CANDIDATE_RESPONSE_SIZE),
 					MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as u64,
 				);
 				debug_assert!(

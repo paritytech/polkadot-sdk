@@ -447,8 +447,8 @@ fn overseer_start_stop_works() {
 				complete => break,
 			}
 
-			if ss5_results.len() == expected_heartbeats.len()
-				&& ss6_results.len() == expected_heartbeats.len()
+			if ss5_results.len() == expected_heartbeats.len() &&
+				ss6_results.len() == expected_heartbeats.len()
 			{
 				handle.stop().await;
 			}
@@ -551,8 +551,8 @@ fn overseer_finalize_works() {
 				complete => break,
 			}
 
-			if ss5_results.len() == expected_heartbeats.len()
-				&& ss6_results.len() == expected_heartbeats.len()
+			if ss5_results.len() == expected_heartbeats.len() &&
+				ss6_results.len() == expected_heartbeats.len()
 			{
 				handle.stop().await;
 			}
@@ -654,8 +654,8 @@ fn overseer_finalize_leaf_preserves_it() {
 				complete => break,
 			}
 
-			if ss5_results.len() == expected_heartbeats.len()
-				&& ss6_results.len() == expected_heartbeats.len()
+			if ss5_results.len() == expected_heartbeats.len() &&
+				ss6_results.len() == expected_heartbeats.len()
 			{
 				handle.stop().await;
 			}

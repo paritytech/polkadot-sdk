@@ -233,8 +233,8 @@ async fn import_block_execution_executes_once_and_indexes_on_same_overlay() {
 		changes
 			.main_storage_changes
 			.iter()
-			.any(|(key, value)| key == mock::CASE_B_MARKER_KEY
-				&& value.as_deref() == Some(mock::CASE_B_MARKER_VALUE)),
+			.any(|(key, value)| key == mock::CASE_B_MARKER_KEY &&
+				value.as_deref() == Some(mock::CASE_B_MARKER_VALUE)),
 		"execute_block overlay marker must be forwarded",
 	);
 	assert!(

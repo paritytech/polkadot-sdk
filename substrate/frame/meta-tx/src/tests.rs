@@ -145,8 +145,8 @@ fn sign_and_execute_meta_tx() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		let tx_weight = tx_ext.weight(&call)
-			+ <Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
+		let tx_weight = tx_ext.weight(&call) +
+			<Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
 		let meta_tx_weight = remark_call
 			.get_dispatch_info()
 			.call_weight
@@ -380,8 +380,8 @@ fn meta_tx_call_fails() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		let tx_weight = tx_ext.weight(&call)
-			+ <Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
+		let tx_weight = tx_ext.weight(&call) +
+			<Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
 		let meta_tx_weight = transfer_call
 			.get_dispatch_info()
 			.call_weight

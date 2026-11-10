@@ -403,9 +403,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		leaves: Vec<LeafOf<T, I>>,
 		proof: LeafProof<HashOf<T, I>>,
 	) -> Result<(), Error> {
-		if proof.leaf_count > NumberOfLeaves::<T, I>::get()
-			|| proof.leaf_count == 0
-			|| proof.items.len().saturating_add(leaves.len()) as u64 > proof.leaf_count
+		if proof.leaf_count > NumberOfLeaves::<T, I>::get() ||
+			proof.leaf_count == 0 ||
+			proof.items.len().saturating_add(leaves.len()) as u64 > proof.leaf_count
 		{
 			return Err(
 				Error::Verify.log_debug("The proof has incorrect number of leaves or proof items.")

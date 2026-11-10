@@ -2348,8 +2348,8 @@ macro_rules! implement_fixed {
 				if $name::accuracy() >= 1_000_000_000_000_000_000 {
 					// FixedU128/FixedI128: Test full 18 decimal places
 					let val = $name::from_str("0.123456789012345678").unwrap();
-					let expected = ($name::accuracy() as u128 * 123456789012345678u128)
-						/ 1000000000000000000u128;
+					let expected = ($name::accuracy() as u128 * 123456789012345678u128) /
+						1000000000000000000u128;
 					assert_eq!(val.into_inner() as u128, expected);
 				} else {
 					// FixedU64/FixedI64: Test 9 decimal places

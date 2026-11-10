@@ -685,8 +685,8 @@ where
 		let is_descendent_of = descendent_of_builder.build_is_descendent_of(None);
 
 		let filter = |node_hash: &Hash, node_num: &Number, _: &PersistedEpochHeader<E>| {
-			if number >= *node_num
-				&& (is_descendent_of(node_hash, &hash).unwrap_or_default() || *node_hash == hash)
+			if number >= *node_num &&
+				(is_descendent_of(node_hash, &hash).unwrap_or_default() || *node_hash == hash)
 			{
 				// Continue the search in this subtree.
 				FilterAction::KeepNode
@@ -1081,18 +1081,18 @@ mod tests {
 
 		let is_descendent_of = |base: &Hash, block: &Hash| -> Result<bool, TestError> {
 			match (block, base) {
-				(b"A", b"0")
-				| (b"B", b"0" | b"A")
-				| (b"C", b"0" | b"A" | b"B")
-				| (b"D", b"0" | b"A" | b"B" | b"C")
-				| (b"E", b"0" | b"A" | b"B" | b"C" | b"D")
-				| (b"F", b"0" | b"A" | b"B" | b"C" | b"D" | b"E")
-				| (b"G", b"0" | b"A" | b"B" | b"C" | b"D" | b"E")
-				| (b"H", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G")
-				| (b"I", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H")
-				| (b"J", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H" | b"I")
-				| (b"K", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H" | b"I" | b"J")
-				| (
+				(b"A", b"0") |
+				(b"B", b"0" | b"A") |
+				(b"C", b"0" | b"A" | b"B") |
+				(b"D", b"0" | b"A" | b"B" | b"C") |
+				(b"E", b"0" | b"A" | b"B" | b"C" | b"D") |
+				(b"F", b"0" | b"A" | b"B" | b"C" | b"D" | b"E") |
+				(b"G", b"0" | b"A" | b"B" | b"C" | b"D" | b"E") |
+				(b"H", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G") |
+				(b"I", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H") |
+				(b"J", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H" | b"I") |
+				(b"K", b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H" | b"I" | b"J") |
+				(
 					b"L",
 					b"0" | b"A" | b"B" | b"C" | b"D" | b"E" | b"G" | b"H" | b"I" | b"J" | b"K",
 				) => Ok(true),

@@ -1340,8 +1340,8 @@ mod benchmarks {
 			"the points were not credited"
 		);
 		ensure!(
-			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total
-				== collation_before + reported,
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total ==
+				collation_before + reported,
 			"the points were not recorded under their service"
 		);
 		Ok(())
@@ -1385,8 +1385,8 @@ mod benchmarks {
 			// ErasStakersPaged + ErasStakersOverview
 			let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
 				own: T::Currency::minimum_balance(),
-				total: T::Currency::minimum_balance()
-					* (exposed_nominators_per_validator + 1).into(),
+				total: T::Currency::minimum_balance() *
+					(exposed_nominators_per_validator + 1).into(),
 				others: (0..exposed_nominators_per_validator)
 					.map(|n| {
 						let nominator = account::<T::AccountId>("nominator", n, SEED);

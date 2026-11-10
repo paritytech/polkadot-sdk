@@ -2855,21 +2855,21 @@ fn all_proxy_types() -> Vec<asset_hub_westend_runtime::ProxyType> {
 	// signal to also add it above.
 	for proxy_type in all.iter() {
 		match proxy_type {
-			ProxyType::Any
-			| ProxyType::NonTransfer
-			| ProxyType::CancelProxy
-			| ProxyType::Assets
-			| ProxyType::AssetOwner
-			| ProxyType::AssetManager
-			| ProxyType::Collator
-			| ProxyType::Governance
-			| ProxyType::Staking
-			| ProxyType::NominationPools
-			| ProxyType::OldSudoBalances
-			| ProxyType::OldIdentityJudgement
-			| ProxyType::OldAuction
-			| ProxyType::OldParaRegistration
-			| ProxyType::StakingOperator => (),
+			ProxyType::Any |
+			ProxyType::NonTransfer |
+			ProxyType::CancelProxy |
+			ProxyType::Assets |
+			ProxyType::AssetOwner |
+			ProxyType::AssetManager |
+			ProxyType::Collator |
+			ProxyType::Governance |
+			ProxyType::Staking |
+			ProxyType::NominationPools |
+			ProxyType::OldSudoBalances |
+			ProxyType::OldIdentityJudgement |
+			ProxyType::OldAuction |
+			ProxyType::OldParaRegistration |
+			ProxyType::StakingOperator => (),
 		}
 	}
 
@@ -3878,9 +3878,9 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 fn expected_era_duration_matches_the_staking_era() {
 	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
 	// GIVEN the era length of Asset Hub's staking
-	let era = staking::SessionsPerEra::get() as u64
-		* staking::RelaySessionDuration::get() as u64
-		* RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	let era = staking::SessionsPerEra::get() as u64 *
+		staking::RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
 	// WHEN system chains expect the end of an era after the arrival of its set
 	// THEN they expect it after one era, so they report shortly before the rotation
 	assert_eq!(

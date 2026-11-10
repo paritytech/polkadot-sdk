@@ -154,9 +154,9 @@ impl PartialEq for ParticipationRequest {
 	fn eq(&self, other: &Self) -> bool {
 		let ParticipationRequest { candidate_receipt, candidate_hash, session, request_timer: _ } =
 			self;
-		candidate_receipt == other.candidate_receipt()
-			&& candidate_hash == other.candidate_hash()
-			&& *session == other.session()
+		candidate_receipt == other.candidate_receipt() &&
+			candidate_hash == other.candidate_hash() &&
+			*session == other.session()
 	}
 }
 #[cfg(test)]

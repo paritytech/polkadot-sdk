@@ -562,8 +562,8 @@ fn recv_worker_handshake(stream: &mut UnixStream) -> io::Result<WorkerHandshake>
 ///
 /// Returns a `Duration` representing the total CPU time.
 pub fn get_total_cpu_usage(rusage: Usage) -> Duration {
-	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000)
-		+ (rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
+	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
+		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
 
 	return Duration::from_micros(micros);
 }

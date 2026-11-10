@@ -273,9 +273,9 @@ impl BigUint {
 			let mut k = 0;
 			for i in 0..m {
 				// PROOF: (B−1) × (B−1) + (B−1) + (B−1) = B^2 −1 < B^2. addition is safe.
-				let t = mul_single(self.get(j), other.get(i))
-					+ Double::from(w.get(i + j))
-					+ Double::from(k);
+				let t = mul_single(self.get(j), other.get(i)) +
+					Double::from(w.get(i + j)) +
+					Double::from(k);
 				w.set(i + j, (t % B) as Single);
 				// PROOF: (B^2 - 1) / B < B. conversion is safe.
 				k = (t / B) as Single;

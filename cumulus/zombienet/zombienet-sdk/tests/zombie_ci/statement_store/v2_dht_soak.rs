@@ -312,8 +312,8 @@ fn outage_topics(
 						order[..REPLICATION_FACTOR].contains(&outage_node_idx)
 					},
 					OutageNodeRole::Subscriber => {
-						topic != non_affine_topic
-							&& !order[..REPLICATION_FACTOR].contains(&outage_node_idx)
+						topic != non_affine_topic &&
+							!order[..REPLICATION_FACTOR].contains(&outage_node_idx)
 					},
 					OutageNodeRole::NonAffine => topic == non_affine_topic,
 				};
@@ -377,10 +377,10 @@ async fn topology_mismatch(
 				let syncing = health["isSyncing"]
 					.as_bool()
 					.ok_or_else(|| anyhow!("{}: missing system_health.isSyncing", handle.name()))?;
-				if eligible != expected_eligible as f64
-					|| actual_connected < connected_floor as f64
-					|| actual_connected > online_peers as f64
-					|| syncing
+				if eligible != expected_eligible as f64 ||
+					actual_connected < connected_floor as f64 ||
+					actual_connected > online_peers as f64 ||
+					syncing
 				{
 					return Ok(Some(format!(
 						"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
@@ -1115,8 +1115,8 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let statement_node_count = env_parsed::<usize>(NODES_ENV)?.unwrap_or(DEFAULT_NODES);
 	// The outage step's non-affine submitter is XOR rank K + 1.
 	assert!(
-		statement_node_count > REPLICATION_FACTOR + 1
-			&& REPLICATION_FACTOR as u32 > GOSSIP_TARGET + 1
+		statement_node_count > REPLICATION_FACTOR + 1 &&
+			REPLICATION_FACTOR as u32 > GOSSIP_TARGET + 1
 	);
 
 	let full_node_names: Vec<String> = (0..statement_node_count - AUTHORING_COLLATORS.len())

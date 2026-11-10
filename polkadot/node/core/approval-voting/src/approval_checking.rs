@@ -305,8 +305,8 @@ impl State {
 		// validators.
 		// If there are a lot then we've got bigger problems and no need to make this
 		// array unnecessarily large.
-		if self.no_show_validators.len() + no_show_validators.len()
-			< MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
+		if self.no_show_validators.len() + no_show_validators.len() <
+			MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
 		{
 			self.no_show_validators.extend(no_show_validators);
 		}

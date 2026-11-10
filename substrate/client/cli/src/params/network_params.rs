@@ -280,8 +280,8 @@ impl NetworkParams {
 				]
 			};
 
-			if matches!(self.network_backend, NetworkBackendType::Litep2p)
-				&& (self.force_enable_webrtc || !is_validator)
+			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
+				(self.force_enable_webrtc || !is_validator)
 			{
 				listen_addresses.extend([
 					Multiaddr::empty()
@@ -309,8 +309,8 @@ impl NetworkParams {
 		// Activate if the user explicitly requested local discovery, `--dev` is given or the
 		// chain type is `Local`/`Development`
 		let allow_non_globals_in_dht =
-			self.discover_local
-				|| is_dev || matches!(chain_type, ChainType::Local | ChainType::Development);
+			self.discover_local ||
+				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development);
 
 		let allow_private_ip = match (self.allow_private_ip, self.no_private_ip) {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),

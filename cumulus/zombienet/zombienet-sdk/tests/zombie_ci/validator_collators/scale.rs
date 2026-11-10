@@ -234,8 +234,8 @@ async fn run() -> Result<(), anyhow::Error> {
 
 /// `ValidatorSetReceived { era: 1, count: SCALE_ACCOUNTS }`.
 fn is_set_of_era_1_at_scale(fields: &Composite<u32>) -> bool {
-	fields.at("era").and_then(|era| era.as_u128()) == Some(1)
-		&& fields.at("count").and_then(|count| count.as_u128()) == Some(SCALE_ACCOUNTS.into())
+	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
+		fields.at("count").and_then(|count| count.as_u128()) == Some(SCALE_ACCOUNTS.into())
 }
 
 /// A raw storage item of `pallet` and `item` at `keys`, with the key hashed and the value

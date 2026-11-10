@@ -509,8 +509,8 @@ impl Verify for AnySignature {
 		let msg = msg.get();
 		sr25519::Signature::try_from(self.0.as_fixed_bytes().as_ref())
 			.map(|s| s.verify(msg, signer))
-			.unwrap_or(false)
-			|| ed25519::Signature::try_from(self.0.as_fixed_bytes().as_ref())
+			.unwrap_or(false) ||
+			ed25519::Signature::try_from(self.0.as_fixed_bytes().as_ref())
 				.map(|s| match ed25519::Public::from_slice(signer.as_ref()) {
 					Err(()) => false,
 					Ok(signer) => s.verify(msg, &signer),
@@ -926,8 +926,8 @@ pub fn verify_encoded_lazy<V: Verify, T: codec::Encode>(
 macro_rules! assert_eq_error_rate {
 	($x:expr, $y:expr, $error:expr $(,)?) => {
 		assert!(
-			($x >= $crate::Saturating::saturating_sub($y, $error))
-				&& ($x <= $crate::Saturating::saturating_add($y, $error)),
+			($x >= $crate::Saturating::saturating_sub($y, $error)) &&
+				($x <= $crate::Saturating::saturating_add($y, $error)),
 			"{:?} != {:?} (with error rate {:?})",
 			$x,
 			$y,

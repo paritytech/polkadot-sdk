@@ -551,8 +551,8 @@ impl ImportResult {
 	/// Whether or not the invalid vote count for the dispute went beyond the byzantine threshold
 	/// after the last import
 	pub fn has_fresh_byzantine_threshold_against(&self) -> bool {
-		!self.old_state().byzantine_threshold_against
-			&& self.new_state().byzantine_threshold_against
+		!self.old_state().byzantine_threshold_against &&
+			self.new_state().byzantine_threshold_against
 	}
 
 	/// Modify this `ImportResult`s, by importing additional approval votes.

@@ -843,9 +843,9 @@ impl<T: Config> Pallet<T> {
 		for (para_id, info) in Paras::<T>::iter() {
 			let (reserved, ticket) = match &info.state {
 				RegistrationState::Reserved => (true, None),
-				RegistrationState::Pending { ticket, .. }
-				| RegistrationState::Registered { ticket }
-				| RegistrationState::Deregistering { ticket, .. } => (false, ticket.as_ref()),
+				RegistrationState::Pending { ticket, .. } |
+				RegistrationState::Registered { ticket } |
+				RegistrationState::Deregistering { ticket, .. } => (false, ticket.as_ref()),
 			};
 			if Self::is_system(para_id) {
 				ensure!(!reserved, "a system para id is left reserved");

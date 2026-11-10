@@ -373,8 +373,8 @@ impl<T: Config> Pallet<T> {
 				let channel_req = Self::check_accept_open_channel(channel_id, &config)?;
 				// The request may have been canceled and made anew with other limits meanwhile.
 				ensure!(
-					(channel_req.max_capacity, channel_req.max_message_size)
-						== (max_capacity, max_message_size),
+					(channel_req.max_capacity, channel_req.max_message_size) ==
+						(max_capacity, max_message_size),
 					Error::<T>::AcceptHrmpChannelRequestChanged
 				);
 				Self::check_recipient_deposit(request, &config)?;

@@ -493,10 +493,10 @@ fn issue_approvals(
 					.map(|val| val.assignment.tranche)
 					.unwrap_or(message.tranche);
 
-				if queued_to_sign.len() >= num_coalesce
-					|| (!queued_to_sign.is_empty()
-						&& current_validator_index != assignment.0.validator)
-					|| message.tranche - earliest_tranche >= options.coalesce_tranche_diff
+				if queued_to_sign.len() >= num_coalesce ||
+					(!queued_to_sign.is_empty() &&
+						current_validator_index != assignment.0.validator) ||
+					message.tranche - earliest_tranche >= options.coalesce_tranche_diff
 				{
 					approvals_to_create.push(TestSignInfo::sign_candidates(
 						&mut queued_to_sign,
@@ -640,23 +640,23 @@ fn neighbours_that_would_sent_message(
 		.unwrap();
 
 	let originator_y = topology_originator.validator_indices_y.iter().find(|validator| {
-		topology_node_under_test.required_routing_by_index(**validator, false)
-			== RequiredRouting::GridY
+		topology_node_under_test.required_routing_by_index(**validator, false) ==
+			RequiredRouting::GridY
 	});
 
 	assert!(originator_y != Some(&ValidatorIndex(NODE_UNDER_TEST)));
 
 	let originator_x = topology_originator.validator_indices_x.iter().find(|validator| {
-		topology_node_under_test.required_routing_by_index(**validator, false)
-			== RequiredRouting::GridX
+		topology_node_under_test.required_routing_by_index(**validator, false) ==
+			RequiredRouting::GridX
 	});
 
 	assert!(originator_x != Some(&ValidatorIndex(NODE_UNDER_TEST)));
 
 	let is_neighbour = topology_originator
 		.validator_indices_x
-		.contains(&ValidatorIndex(NODE_UNDER_TEST))
-		|| topology_originator
+		.contains(&ValidatorIndex(NODE_UNDER_TEST)) ||
+		topology_originator
 			.validator_indices_y
 			.contains(&ValidatorIndex(NODE_UNDER_TEST));
 

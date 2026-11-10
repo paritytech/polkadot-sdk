@@ -567,8 +567,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.fungible
 					.first_key_value()
 					.map(|(id, _)| {
-						!self.holding.fungible.contains_key(id)
-							&& self.ensure_can_subsume_assets(1).is_err()
+						!self.holding.fungible.contains_key(id) &&
+							self.ensure_can_subsume_assets(1).is_err()
 					})
 					.unwrap_or(false)
 				{

@@ -365,8 +365,8 @@ where
 		// the imbalance if it is less than ED and the destination is empty. We guard against this
 		// by making misconfigured runtimes clearly visible. See crate-level docs for the
 		// pre-funding requirement.
-		if C::total_balance(&accumulation_account).saturating_add(numeric_amount)
-			< C::minimum_balance()
+		if C::total_balance(&accumulation_account).saturating_add(numeric_amount) <
+			C::minimum_balance()
 		{
 			frame_support::defensive!(
 				"🚨 LegacyAdapter: deposit to accumulation account will be silently burned — \

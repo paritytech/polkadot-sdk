@@ -44,9 +44,9 @@ pub const MIN_ENCODED_STATEMENT_SIZE: usize = 108;
 
 /// Most statements a sender can pack into a full [`MAX_STATEMENT_NOTIFICATION_SIZE`]
 /// notification. A batch declaring more is rejected before decoding.
-pub const MAX_STATEMENTS_PER_NOTIFICATION: usize = (MAX_STATEMENT_NOTIFICATION_SIZE as usize
-	- crate::V1_ENVELOPE_OVERHEAD)
-	/ MIN_ENCODED_STATEMENT_SIZE;
+pub const MAX_STATEMENTS_PER_NOTIFICATION: usize = (MAX_STATEMENT_NOTIFICATION_SIZE as usize -
+	crate::V1_ENVELOPE_OVERHEAD) /
+	MIN_ENCODED_STATEMENT_SIZE;
 
 /// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
 /// and propagation sends. Since admission is checked before adding the next whole notification, it

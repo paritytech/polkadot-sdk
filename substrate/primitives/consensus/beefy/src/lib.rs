@@ -474,10 +474,10 @@ where
 	//   have different validator set ids,
 	//   or both votes have the same commitment,
 	//     --> the equivocation is invalid.
-	if first.id != second.id
-		|| first.commitment.block_number != second.commitment.block_number
-		|| first.commitment.validator_set_id != second.commitment.validator_set_id
-		|| first.commitment.payload == second.commitment.payload
+	if first.id != second.id ||
+		first.commitment.block_number != second.commitment.block_number ||
+		first.commitment.validator_set_id != second.commitment.validator_set_id ||
+		first.commitment.payload == second.commitment.payload
 	{
 		return false;
 	}

@@ -227,8 +227,8 @@ impl<B: BlockT> ConsensusGossip<B> {
 			.get_or_insert(message_hash, || {
 				is_new = true;
 			})
-			.is_some()
-			&& is_new
+			.is_some() &&
+			is_new
 		{
 			self.messages.push(MessageEntry { message_hash, topic, message, sender });
 
@@ -586,8 +586,8 @@ mod tests {
 				.get_or_insert($hash, || {
 					is_new = true;
 				})
-				.is_some()
-				&& is_new
+				.is_some() &&
+				is_new
 			{
 				$consensus.messages.push(MessageEntry {
 					message_hash: $hash,

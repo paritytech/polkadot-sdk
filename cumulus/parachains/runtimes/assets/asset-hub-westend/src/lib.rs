@@ -851,10 +851,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::OldSudoBalances
-			| ProxyType::OldIdentityJudgement
-			| ProxyType::OldAuction
-			| ProxyType::OldParaRegistration => false,
+			ProxyType::OldSudoBalances |
+			ProxyType::OldIdentityJudgement |
+			ProxyType::OldAuction |
+			ProxyType::OldParaRegistration => false,
 			// NOTE: This is a deny-list, so it fails open: a pallet added to the runtime is
 			// reachable by a `NonTransfer` proxy unless it is listed here. Every call family that
 			// can move the delegator's funds or assets must therefore be denied explicitly.
@@ -892,110 +892,110 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::CancelProxy => matches!(
 				c,
-				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. })
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Assets => {
 				matches!(
 					c,
-					RuntimeCall::Assets { .. }
-						| RuntimeCall::Utility { .. }
-						| RuntimeCall::Multisig { .. }
-						| RuntimeCall::NftFractionalization { .. }
-						| RuntimeCall::Nfts { .. }
-						| RuntimeCall::Uniques { .. }
+					RuntimeCall::Assets { .. } |
+						RuntimeCall::Utility { .. } |
+						RuntimeCall::Multisig { .. } |
+						RuntimeCall::NftFractionalization { .. } |
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
 				c,
-				RuntimeCall::Assets(TrustBackedAssetsCall::create { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::start_destroy { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::destroy_accounts { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::destroy_approvals { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::finish_destroy { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::transfer_ownership { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::set_team { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::set_metadata { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::clear_metadata { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::set_min_balance { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::create { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::destroy { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::redeposit { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::transfer_ownership { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::set_team { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::set_collection_max_supply { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::lock_collection { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::create { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::destroy { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::transfer_ownership { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::set_team { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::set_metadata { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::set_attribute { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::set_collection_metadata { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::clear_metadata { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::clear_attribute { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::clear_collection_metadata { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::set_collection_max_supply { .. })
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Assets(TrustBackedAssetsCall::create { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::start_destroy { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::destroy_accounts { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::destroy_approvals { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::finish_destroy { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::transfer_ownership { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::set_team { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::set_metadata { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::clear_metadata { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::set_min_balance { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::create { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::destroy { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::redeposit { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::transfer_ownership { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::set_team { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::set_collection_max_supply { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::lock_collection { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::create { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::destroy { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::transfer_ownership { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::set_team { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::set_metadata { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::set_attribute { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::set_collection_metadata { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::clear_metadata { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::clear_attribute { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::clear_collection_metadata { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::set_collection_max_supply { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::AssetManager => matches!(
 				c,
-				RuntimeCall::Assets(TrustBackedAssetsCall::mint { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::burn { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::freeze { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::block { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::thaw { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::freeze_asset { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::thaw_asset { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::touch_other { .. })
-					| RuntimeCall::Assets(TrustBackedAssetsCall::refund_other { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::force_mint { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::update_mint_settings { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::mint_pre_signed { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::set_attributes_pre_signed { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::lock_item_transfer { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::unlock_item_transfer { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::lock_item_properties { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::set_metadata { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::clear_metadata { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::set_collection_metadata { .. })
-					| RuntimeCall::Nfts(pallet_nfts::Call::clear_collection_metadata { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::mint { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::burn { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::freeze { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::thaw { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::freeze_collection { .. })
-					| RuntimeCall::Uniques(pallet_uniques::Call::thaw_collection { .. })
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Assets(TrustBackedAssetsCall::mint { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::burn { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::freeze { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::block { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::thaw { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::freeze_asset { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::thaw_asset { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::touch_other { .. }) |
+					RuntimeCall::Assets(TrustBackedAssetsCall::refund_other { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::force_mint { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::update_mint_settings { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::mint_pre_signed { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::set_attributes_pre_signed { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::lock_item_transfer { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::unlock_item_transfer { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::lock_item_properties { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::set_metadata { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::clear_metadata { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::set_collection_metadata { .. }) |
+					RuntimeCall::Nfts(pallet_nfts::Call::clear_collection_metadata { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::mint { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::burn { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::freeze { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::thaw { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::freeze_collection { .. }) |
+					RuntimeCall::Uniques(pallet_uniques::Call::thaw_collection { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Collator => matches!(
 				c,
-				RuntimeCall::CollatorSelection { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::CollatorSelection { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			// New variants introduced by the Asset Hub Migration from the Relay Chain.
 			ProxyType::Governance => matches!(
 				c,
-				RuntimeCall::Treasury(..)
-					| RuntimeCall::Utility(..)
-					| RuntimeCall::ConvictionVoting(..)
-					| RuntimeCall::Referenda(..)
-					| RuntimeCall::Whitelist(..)
+				RuntimeCall::Treasury(..) |
+					RuntimeCall::Utility(..) |
+					RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
 			),
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..)
-						| RuntimeCall::StakingRcClient(..)
-						| RuntimeCall::Session(..)
-						| RuntimeCall::Utility(..)
-						| RuntimeCall::NominationPools(..)
-						| RuntimeCall::VoterList(..)
-						| RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+					RuntimeCall::Staking(..) |
+						RuntimeCall::StakingRcClient(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
+						RuntimeCall::NominationPools(..) |
+						RuntimeCall::VoterList(..) |
+						RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
 							proxy_type: ProxyType::StakingOperator,
 							..
 						}) | RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
@@ -1009,18 +1009,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			},
 			ProxyType::StakingOperator => matches!(
 				c,
-				RuntimeCall::Staking(pallet_staking_async::Call::validate { .. })
-					| RuntimeCall::Staking(pallet_staking_async::Call::chill { .. })
-					| RuntimeCall::Staking(pallet_staking_async::Call::kick { .. })
-					| RuntimeCall::StakingRcClient(
+				RuntimeCall::Staking(pallet_staking_async::Call::validate { .. }) |
+					RuntimeCall::Staking(pallet_staking_async::Call::chill { .. }) |
+					RuntimeCall::Staking(pallet_staking_async::Call::kick { .. }) |
+					RuntimeCall::StakingRcClient(
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Session(pallet_session::Call::set_keys { .. })
-					| RuntimeCall::Session(pallet_session::Call::purge_keys { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
+				) | RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
 		}
 	}
@@ -1040,10 +1040,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			// `pallet_proxy` authorizes `add_proxy`/`remove_proxy` through `is_superset`.
 			(
 				ProxyType::NonTransfer,
-				ProxyType::Collator
-				| ProxyType::Staking
-				| ProxyType::NominationPools
-				| ProxyType::StakingOperator,
+				ProxyType::Collator |
+				ProxyType::Staking |
+				ProxyType::NominationPools |
+				ProxyType::StakingOperator,
 			) => true,
 			_ => false,
 		}
@@ -1317,9 +1317,9 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
 		match call {
 			RuntimeCall::Revive(..) => true,
-			RuntimeCall::Utility(pallet_utility::Call::batch { calls })
-			| RuntimeCall::Utility(pallet_utility::Call::batch_all { calls })
-			| RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
 				calls.iter().all(|inner_call| matches!(inner_call, RuntimeCall::Revive(..)))
 			},
 			_ => false,

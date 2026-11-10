@@ -826,15 +826,15 @@ impl<N: Saturating + BaseArithmetic + Copy> GroupRotationInfo<N> {
 	/// is 10 and the rotation frequency is 5, this should return 15.
 	pub fn next_rotation_at(&self) -> N {
 		let cycle_once = self.now + self.group_rotation_frequency;
-		cycle_once
-			- (cycle_once.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
+		cycle_once -
+			(cycle_once.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
 	}
 
 	/// Returns the block number of the last rotation before or including the current block. If the
 	/// current block is 10 and the rotation frequency is 5, this should return 10.
 	pub fn last_rotation_at(&self) -> N {
-		self.now
-			- (self.now.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
+		self.now -
+			(self.now.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
 	}
 }
 
@@ -1234,11 +1234,11 @@ impl ValidDisputeStatementKind {
 	/// Whether the statement is from the backing phase.
 	pub fn is_backing(&self) -> bool {
 		match self {
-			ValidDisputeStatementKind::BackingSeconded(_)
-			| ValidDisputeStatementKind::BackingValid(_) => true,
-			ValidDisputeStatementKind::Explicit
-			| ValidDisputeStatementKind::ApprovalChecking
-			| ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
+			ValidDisputeStatementKind::BackingSeconded(_) |
+			ValidDisputeStatementKind::BackingValid(_) => true,
+			ValidDisputeStatementKind::Explicit |
+			ValidDisputeStatementKind::ApprovalChecking |
+			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
 		}
 	}
 }
@@ -2074,10 +2074,10 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 		// V1 detected using the pre-v3 (stricter) check: all reserved and new
 		// fields must be zero. Once v3 is enabled, the v1 check is relaxed in
 		// `v3_version()` to free up more bytes for future use.
-		let old_v1_detected = self.reserved2 != [0u8; 32]
-			|| self.reserved1 != [0u8; 24]
-			|| self.scheduling_session_offset != 0
-			|| self.scheduling_parent.as_ref() != &[0u8; 32];
+		let old_v1_detected = self.reserved2 != [0u8; 32] ||
+			self.reserved1 != [0u8; 24] ||
+			self.scheduling_session_offset != 0 ||
+			self.scheduling_parent.as_ref() != &[0u8; 32];
 
 		if old_v1_detected {
 			return CandidateDescriptorVersion::V1;
@@ -2773,10 +2773,10 @@ impl CandidateUMPSignals {
 
 	/// Returns `true` if UMP signals are empty.
 	pub fn is_empty(&self) -> bool {
-		self.select_core.is_none()
-			&& self.approved_peer.is_none()
-			&& self.provides.is_none()
-			&& self.requires.is_none()
+		self.select_core.is_none() &&
+			self.approved_peer.is_none() &&
+			self.provides.is_none() &&
+			self.requires.is_none()
 	}
 
 	fn try_decode_signal(
@@ -3442,10 +3442,10 @@ pub mod tests {
 		for (index, signal) in all.iter().enumerate() {
 			// Exhaustive, so a new variant fails to compile until it is listed in `all`.
 			match signal {
-				UMPSignal::SelectCore(..)
-				| UMPSignal::ApprovedPeer(..)
-				| UMPSignal::Provides(..)
-				| UMPSignal::Requires(..) => {},
+				UMPSignal::SelectCore(..) |
+				UMPSignal::ApprovedPeer(..) |
+				UMPSignal::Provides(..) |
+				UMPSignal::Requires(..) => {},
 			}
 			assert_eq!(signal.encode()[0] as usize, index);
 		}

@@ -242,9 +242,9 @@ pub async fn wait_for_in_best_block(
 				let events = tx_in_block.wait_for_success().await?;
 				return Ok((block_hash, events));
 			},
-			TxStatus::Error { message }
-			| TxStatus::Invalid { message }
-			| TxStatus::Dropped { message } => anyhow::bail!("Transaction failed: {}", message),
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => anyhow::bail!("Transaction failed: {}", message),
 			_ => continue,
 		}
 	}
@@ -269,9 +269,9 @@ pub async fn wait_for_finalized(
 				let events = tx_in_block.wait_for_success().await?;
 				return Ok((block_hash, events));
 			},
-			TxStatus::Error { message }
-			| TxStatus::Invalid { message }
-			| TxStatus::Dropped { message } => anyhow::bail!("Transaction failed: {}", message),
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => anyhow::bail!("Transaction failed: {}", message),
 			_ => continue,
 		}
 	}

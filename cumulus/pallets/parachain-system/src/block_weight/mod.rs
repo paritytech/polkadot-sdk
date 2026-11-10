@@ -152,9 +152,9 @@ impl<T: Config> BlockWeightMode<T> {
 	/// Returns the context (block) in which this mode was set.
 	fn context(&self) -> BlockNumberFor<T> {
 		match self {
-			Self::FullCore { context }
-			| Self::PotentialFullCore { context, .. }
-			| Self::FractionOfCore { context, .. } => *context,
+			Self::FullCore { context } |
+			Self::PotentialFullCore { context, .. } |
+			Self::FractionOfCore { context, .. } => *context,
 		}
 	}
 
@@ -262,8 +262,8 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 		match crate::BlockWeightMode::<Config>::get().filter(|m| !m.is_stale()) {
 			// We allow the full core.
 			Some(
-				BlockWeightMode::<Config>::FullCore { .. }
-				| BlockWeightMode::<Config>::PotentialFullCore { .. },
+				BlockWeightMode::<Config>::FullCore { .. } |
+				BlockWeightMode::<Config>::PotentialFullCore { .. },
 			) => FULL_CORE_WEIGHT,
 			// We are in `pre_validate`.
 			_ if in_pre_validate => target_block_weight,

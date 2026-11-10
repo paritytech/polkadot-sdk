@@ -324,8 +324,8 @@ impl HttpApi {
 					return Err(HttpError::IoError);
 				},
 
-				v @ HttpApiRequest::Dispatched(None)
-				| v @ HttpApiRequest::Response(HttpApiRequestRp { sending_body: None, .. }) => {
+				v @ HttpApiRequest::Dispatched(None) |
+				v @ HttpApiRequest::Response(HttpApiRequestRp { sending_body: None, .. }) => {
 					tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Body sending already finished");
 
 					// We have already finished sending this body.
@@ -347,8 +347,8 @@ impl HttpApi {
 		for id in ids {
 			match self.requests.get_mut(id) {
 				Some(HttpApiRequest::NotDispatched(_, _)) => {},
-				Some(HttpApiRequest::Dispatched(sending_body))
-				| Some(HttpApiRequest::Response(HttpApiRequestRp { sending_body, .. })) => {
+				Some(HttpApiRequest::Dispatched(sending_body)) |
+				Some(HttpApiRequest::Response(HttpApiRequestRp { sending_body, .. })) => {
 					let _ = sending_body.take();
 					continue;
 				},

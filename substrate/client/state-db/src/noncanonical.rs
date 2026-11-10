@@ -138,8 +138,8 @@ fn discard_descendants<BlockHash: Hash, Key: Hash>(
 		while let Some(i) = level.blocks.iter().position(|overlay| {
 			parents
 				.get(&overlay.hash)
-				.expect("there is a parent entry for each entry in levels; qed")
-				== hash
+				.expect("there is a parent entry for each entry in levels; qed") ==
+				hash
 		}) {
 			let overlay = level.remove(i);
 			let mut num_pinned = discard_descendants(
@@ -285,8 +285,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				return Err(StateDbError::InvalidParent);
 			}
 		}
-		let level = if self.levels.is_empty()
-			|| number == front_block_number + self.levels.len() as u64
+		let level = if self.levels.is_empty() ||
+			number == front_block_number + self.levels.len() as u64
 		{
 			self.levels.push_back(OverlayLevel::new());
 			self.levels.back_mut().expect("can't be empty after insertion; qed")
@@ -578,8 +578,8 @@ mod tests {
 	use sp_core::H256;
 
 	fn contains(overlay: &NonCanonicalOverlay<H256, H256>, key: u64) -> bool {
-		overlay.get(&H256::from_low_u64_be(key))
-			== Some(H256::from_low_u64_be(key).as_bytes().to_vec())
+		overlay.get(&H256::from_low_u64_be(key)) ==
+			Some(H256::from_low_u64_be(key).as_bytes().to_vec())
 	}
 
 	#[test]

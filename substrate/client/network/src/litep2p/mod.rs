@@ -210,11 +210,11 @@ impl Litep2pNetworkBackend {
 			.into_iter()
 			.filter_map(|address| match address.iter().next() {
 				Some(
-					Protocol::Dns(_)
-					| Protocol::Dns4(_)
-					| Protocol::Dns6(_)
-					| Protocol::Ip6(_)
-					| Protocol::Ip4(_),
+					Protocol::Dns(_) |
+					Protocol::Dns4(_) |
+					Protocol::Dns6(_) |
+					Protocol::Ip6(_) |
+					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
 					Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), Some(address))),

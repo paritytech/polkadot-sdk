@@ -185,9 +185,9 @@ impl Candidates {
 				let mut reckoning = PostConfirmationReckoning::default();
 
 				for (leaf_hash, x) in u.unconfirmed_importable_under {
-					if x.scheduling_parent == scheduling_parent
-						&& x.parent_hash == parent_hash
-						&& x.para_id == para_id
+					if x.scheduling_parent == scheduling_parent &&
+						x.parent_hash == parent_hash &&
+						x.para_id == para_id
 					{
 						new_confirmed.importable_under.insert(leaf_hash);
 					}
@@ -395,9 +395,9 @@ impl CandidateClaims {
 		parent_hash: Hash,
 		para_id: ParaId,
 	) -> bool {
-		self.scheduling_parent == scheduling_parent
-			&& self.group_index == group_index
-			&& self.parent_hash_and_id.map_or(true, |p| p == (parent_hash, para_id))
+		self.scheduling_parent == scheduling_parent &&
+			self.group_index == group_index &&
+			self.parent_hash_and_id.map_or(true, |p| p == (parent_hash, para_id))
 	}
 }
 

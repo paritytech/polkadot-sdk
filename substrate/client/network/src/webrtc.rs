@@ -202,8 +202,8 @@ fn validate(address: &Multiaddr, public_addr: bool) -> Result<(), Error> {
 	};
 
 	// `/udp/<port>/webrtc-direct` and nothing after it.
-	let is_valid = host_is_valid
-		&& matches!(
+	let is_valid = host_is_valid &&
+		matches!(
 			(iter.next(), iter.next(), iter.next()),
 			(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect), None)
 		);

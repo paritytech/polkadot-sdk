@@ -53,8 +53,8 @@ pub(super) fn calculate_primary_threshold(
 
 	let c = c.0 as f64 / c.1 as f64;
 
-	let theta = authorities[authority_index].1 as f64
-		/ authorities.iter().map(|(_, weight)| weight).sum::<u64>() as f64;
+	let theta = authorities[authority_index].1 as f64 /
+		authorities.iter().map(|(_, weight)| weight).sum::<u64>() as f64;
 
 	assert!(theta > 0.0, "authority with weight 0.");
 
@@ -204,8 +204,8 @@ pub fn claim_slot_using_keys(
 	keys: &[(AuthorityId, usize)],
 ) -> Option<(PreDigest, AuthorityId)> {
 	claim_primary_slot(slot, epoch, epoch.config.c, keystore, keys).or_else(|| {
-		if epoch.config.allowed_slots.is_secondary_plain_slots_allowed()
-			|| epoch.config.allowed_slots.is_secondary_vrf_slots_allowed()
+		if epoch.config.allowed_slots.is_secondary_plain_slots_allowed() ||
+			epoch.config.allowed_slots.is_secondary_vrf_slots_allowed()
 		{
 			claim_secondary_slot(
 				slot,

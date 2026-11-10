@@ -313,23 +313,23 @@ mod tests {
 
 	impl PartialEq for ReadContext<TestEquivocationDetectionPipeline> {
 		fn eq(&self, other: &Self) -> bool {
-			self.target_block_num == other.target_block_num
-				&& self.synced_headers == other.synced_headers
+			self.target_block_num == other.target_block_num &&
+				self.synced_headers == other.synced_headers
 		}
 	}
 
 	impl PartialEq for FindEquivocations<TestEquivocationDetectionPipeline> {
 		fn eq(&self, other: &Self) -> bool {
-			self.target_block_num == other.target_block_num
-				&& self.synced_headers == other.synced_headers
-				&& self.context == other.context
+			self.target_block_num == other.target_block_num &&
+				self.synced_headers == other.synced_headers &&
+				self.context == other.context
 		}
 	}
 
 	impl PartialEq for ReportEquivocations<TestEquivocationDetectionPipeline> {
 		fn eq(&self, other: &Self) -> bool {
-			self.source_block_hash == other.source_block_hash
-				&& self.equivocations == other.equivocations
+			self.source_block_hash == other.source_block_hash &&
+				self.equivocations == other.equivocations
 		}
 	}
 

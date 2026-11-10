@@ -570,8 +570,8 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 			},
 			Self::Scheduled(revalidate_at_time, revalidate_at_block) => {
 				let is_required =
-					revalidate_at_time.map(|at| Instant::now() >= at).unwrap_or(false)
-						|| revalidate_at_block.map(|at| block >= at).unwrap_or(false);
+					revalidate_at_time.map(|at| Instant::now() >= at).unwrap_or(false) ||
+						revalidate_at_block.map(|at| block >= at).unwrap_or(false);
 				if is_required {
 					*self = Self::InProgress;
 				}

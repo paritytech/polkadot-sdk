@@ -633,10 +633,10 @@ where
 				.map_err(|e| WasmError::Other(format!("cannot create module: {:#}", e)))?;
 
 			match config.semantics.instantiation_strategy {
-				InstantiationStrategy::Pooling
-				| InstantiationStrategy::PoolingCopyOnWrite
-				| InstantiationStrategy::RecreateInstance
-				| InstantiationStrategy::RecreateInstanceCopyOnWrite => {
+				InstantiationStrategy::Pooling |
+				InstantiationStrategy::PoolingCopyOnWrite |
+				InstantiationStrategy::RecreateInstance |
+				InstantiationStrategy::RecreateInstanceCopyOnWrite => {
 					(module, InternalInstantiationStrategy::Builtin)
 				},
 			}

@@ -501,10 +501,10 @@ fn pick_probes(
 			.iter()
 			.copied()
 			.filter(|&idx| {
-				idx != entry
-					&& !busy.contains(&idx)
-					&& !order[..REPLICATION_FACTOR].contains(&idx)
-					&& !linked(links, idx, nearest)
+				idx != entry &&
+					!busy.contains(&idx) &&
+					!order[..REPLICATION_FACTOR].contains(&idx) &&
+					!linked(links, idx, nearest)
 			})
 			.collect();
 		pick(&subscribers, 2).map(|subscriber| (topic, entry, subscriber))
@@ -997,8 +997,8 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 	let dht_off_count = env_parsed::<usize>(DHT_OFF_NODES_ENV)?.unwrap_or(DEFAULT_DHT_OFF_NODES);
 	let full_node_count = statement_node_count.saturating_sub(AUTHORING_COLLATORS.len());
 	assert!(
-		(1..=full_node_count).contains(&dht_off_count)
-			&& statement_node_count - dht_off_count > REPLICATION_FACTOR
+		(1..=full_node_count).contains(&dht_off_count) &&
+			statement_node_count - dht_off_count > REPLICATION_FACTOR
 	);
 
 	// 2. Start the collators and the DHT nodes, then add the DHT-off nodes: the same binary, the
@@ -1065,8 +1065,8 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 			}
 			// One step after each of the first waves: the two restarts, then the two joins;
 			// afterwards a restart every `RESTART_EVERY_WAVES` waves
-			if restarts < MANDATORY_RESTARTS
-				|| (lifecycle_done && wave.is_multiple_of(RESTART_EVERY_WAVES))
+			if restarts < MANDATORY_RESTARTS ||
+				(lifecycle_done && wave.is_multiple_of(RESTART_EVERY_WAVES))
 			{
 				run_restart(restarts, &mut nodes, &dht_off, &mut load, &mut report).await?;
 				restarts += 1;

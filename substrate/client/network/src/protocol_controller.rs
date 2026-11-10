@@ -518,8 +518,8 @@ impl ProtocolController {
 
 		if let PeerState::Connected(direction) = state {
 			// Disconnect if we're at (or over) the regular node limit
-			let disconnect = self.reserved_only
-				|| match direction {
+			let disconnect = self.reserved_only ||
+				match direction {
 					Direction::Inbound => self.num_in >= self.max_in,
 					Direction::Outbound => self.num_out >= self.max_out,
 				};
@@ -826,8 +826,8 @@ impl ProtocolController {
 			.outgoing_candidates(available_slots, ignored)
 			.into_iter()
 			.filter_map(|peer_id| {
-				(!self.reserved_nodes.contains_key(&peer_id.into())
-					&& !self.nodes.contains_key(&peer_id.into()))
+				(!self.reserved_nodes.contains_key(&peer_id.into()) &&
+					!self.nodes.contains_key(&peer_id.into()))
 				.then_some(peer_id)
 				.or_else(|| {
 					error!(

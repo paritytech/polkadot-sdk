@@ -272,9 +272,9 @@ where
 	}
 
 	fn is_major_syncing(&self) -> bool {
-		self.warp.is_some()
-			|| self.state.is_some()
-			|| match self.chain_sync {
+		self.warp.is_some() ||
+			self.state.is_some() ||
+			match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
 				None => unreachable!("At least one syncing strategy is active; qed"),
 			}

@@ -414,8 +414,8 @@ async fn update_parachain_authorities<Block, AD>(
 	log_low_connectivity_if_stuck(target_count, resolved, &mut state.low_connectivity_since);
 
 	// Skip pushing when both the authority set and resolved multiaddrs are unchanged.
-	if state.last_authorities.as_ref() == Some(&selected)
-		&& state.last_addrs.as_ref() == Some(&addrs)
+	if state.last_authorities.as_ref() == Some(&selected) &&
+		state.last_addrs.as_ref() == Some(&addrs)
 	{
 		log::trace!(target: LOG_TARGET, "No-op refresh at {at:?}");
 		return;

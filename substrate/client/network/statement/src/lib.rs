@@ -1111,8 +1111,8 @@ fn fetch_admitted_chunk(
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
-				&& (peer_data.is_light || !is_dht_target(stmt))
+			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
+				(peer_data.is_light || !is_dht_target(stmt))
 			{
 				return FilterDecision::Skip;
 			}
@@ -1164,8 +1164,8 @@ fn fetch_statement_chunk(
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
-		if filter_by_affinity
-			&& peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
+		if filter_by_affinity &&
+			peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
 		{
 			return FilterDecision::Skip;
 		}
@@ -1219,8 +1219,8 @@ fn has_received_from(
 	hash: &Hash,
 	who: &PeerId,
 ) -> bool {
-	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who))
-		|| pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
+	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who)) ||
+		pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
 }
 
 impl Peer {
@@ -1251,9 +1251,9 @@ impl Peer {
 	/// Light V2 peers must set their topic affinity before receiving any statements; with the
 	/// v2 DHT path on, every V2 peer must.
 	fn can_receive(&self) -> bool {
-		!(self.protocol_version == PeerProtocolVersion::V2
-			&& self.topic_affinity.is_none()
-			&& (self.is_light || v2dht_enabled()))
+		!(self.protocol_version == PeerProtocolVersion::V2 &&
+			self.topic_affinity.is_none() &&
+			(self.is_light || v2dht_enabled()))
 	}
 
 	/// The `route` label for this peer.
@@ -1737,10 +1737,10 @@ where
 	/// path on. The SCALE variant tag is peeked, so a dropped batch is never decoded; a v1
 	/// payload carries no tag, its first byte belongs to the batch length.
 	fn allowed_during_major_sync(&self, peer: &PeerId, notification: &[u8]) -> bool {
-		v2dht_enabled()
-			&& self.peers.get(peer).is_some_and(|peer_data| {
-				peer_data.protocol_version == PeerProtocolVersion::V2
-					&& notification.starts_with(&[AFFINITY_VARIANT_INDEX])
+		v2dht_enabled() &&
+			self.peers.get(peer).is_some_and(|peer_data| {
+				peer_data.protocol_version == PeerProtocolVersion::V2 &&
+					notification.starts_with(&[AFFINITY_VARIANT_INDEX])
 			})
 	}
 
@@ -1759,9 +1759,9 @@ where
 				// Only accept peers whose role can be determined
 				let result = match self.network.peer_role(peer, handshake) {
 					Some(role)
-						if v2dht_enabled()
-							&& !self.v2dht.is_reserved(&peer)
-							&& !self.inbound_slot_free(role) =>
+						if v2dht_enabled() &&
+							!self.v2dht.is_reserved(&peer) &&
+							!self.inbound_slot_free(role) =>
 					{
 						log::debug!(
 							target: LOG_TARGET,
@@ -1888,8 +1888,8 @@ where
 				});
 
 				// Accept statements only when node is not major syncing
-				if self.sync.is_major_syncing()
-					&& !self.allowed_during_major_sync(&peer, notification.as_ref())
+				if self.sync.is_major_syncing() &&
+					!self.allowed_during_major_sync(&peer, notification.as_ref())
 				{
 					log::trace!(
 						target: LOG_TARGET,
@@ -2690,8 +2690,8 @@ where
 			.peers
 			.iter()
 			.filter(|(peer_id, peer_data)| {
-				peer_data.pending_topic_affinity.is_some()
-					&& !self.pending_initial_syncs.contains_key(peer_id)
+				peer_data.pending_topic_affinity.is_some() &&
+					!self.pending_initial_syncs.contains_key(peer_id)
 			})
 			.map(|(peer_id, _)| *peer_id)
 			.collect();

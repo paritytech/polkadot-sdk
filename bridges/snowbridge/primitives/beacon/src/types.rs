@@ -894,8 +894,8 @@ mod gloas_execution_header_tests {
 		let at = encoded
 			.windows(RECEIPTS_ROOT.len())
 			.position(|w| w == RECEIPTS_ROOT)
-			.expect("receipts root is present; qed")
-			- 1;
+			.expect("receipts root is present; qed") -
+			1;
 		assert_eq!(encoded[at], 0xa0);
 		encoded[at] = 0xe0;
 		assert_eq!(receipts_root_from_rlp(&encoded), None);

@@ -57,8 +57,8 @@ thread_local! {
 /// refunding the full parent value after a child-bounty payout). The treasury is exempt because
 /// its funding is out of scope for this pallet and seeding it in every test adds nothing.
 fn is_funding_source(who: &u128, asset_kind: u32) -> bool {
-	Bounties::funding_source_account(asset_kind).ok() == Some(*who)
-		|| Bounties1::funding_source_account(asset_kind).ok() == Some(*who)
+	Bounties::funding_source_account(asset_kind).ok() == Some(*who) ||
+		Bounties1::funding_source_account(asset_kind).ok() == Some(*who)
 }
 
 pub struct TestBountiesPay;

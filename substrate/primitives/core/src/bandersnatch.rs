@@ -367,9 +367,9 @@ pub mod ring_vrf {
 		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
 		let g1_points_num = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(ring_size);
-		OVERHEAD_SIZE
-			+ g1_points_num * G1_POINT_UNCOMPRESSED_SIZE
-			+ G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
+		OVERHEAD_SIZE +
+			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
+			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
 	}
 
 	/// [`RingVerifierKey`] serialized size.

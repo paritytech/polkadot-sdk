@@ -277,8 +277,8 @@ impl<Header: HeaderT> HasVoted<Header> {
 	pub fn propose(&self) -> Option<&PrimaryPropose<Header>> {
 		match self {
 			HasVoted::Yes(_, Vote::Propose(propose)) => Some(propose),
-			HasVoted::Yes(_, Vote::Prevote(propose, _))
-			| HasVoted::Yes(_, Vote::Precommit(propose, _, _)) => propose.as_ref(),
+			HasVoted::Yes(_, Vote::Prevote(propose, _)) |
+			HasVoted::Yes(_, Vote::Precommit(propose, _, _)) => propose.as_ref(),
 			_ => None,
 		}
 	}
@@ -286,8 +286,8 @@ impl<Header: HeaderT> HasVoted<Header> {
 	/// Returns the prevote we should vote with (if any.)
 	pub fn prevote(&self) -> Option<&Prevote<Header>> {
 		match self {
-			HasVoted::Yes(_, Vote::Prevote(_, prevote))
-			| HasVoted::Yes(_, Vote::Precommit(_, prevote, _)) => Some(prevote),
+			HasVoted::Yes(_, Vote::Prevote(_, prevote)) |
+			HasVoted::Yes(_, Vote::Precommit(_, prevote, _)) => Some(prevote),
 			_ => None,
 		}
 	}
@@ -1261,10 +1261,10 @@ where
 
 	let is_descendent_of = is_descendent_of(&*client, None);
 
-	if target_header.number() > best_header.number()
-		|| target_header.number() == best_header.number()
-			&& target_header.hash() != best_header.hash()
-		|| !is_descendent_of(&target_header.hash(), &best_header.hash())?
+	if target_header.number() > best_header.number() ||
+		target_header.number() == best_header.number() &&
+			target_header.hash() != best_header.hash() ||
+		!is_descendent_of(&target_header.hash(), &best_header.hash())?
 	{
 		debug!(
 			target: LOG_TARGET,

@@ -357,9 +357,9 @@ where
 				// The relay chain side of a collator doesn't listen on WebRTC by default;
 				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
 				let relay_network_params = &polkadot_cli.base.base.network_params;
-				if config.role.is_authority()
-					&& !relay_network_params.force_enable_webrtc
-					&& relay_network_params.listen_addr.is_empty()
+				if config.role.is_authority() &&
+					!relay_network_params.force_enable_webrtc &&
+					relay_network_params.listen_addr.is_empty()
 				{
 					polkadot_config.network.remove_webrtc_addresses();
 				}

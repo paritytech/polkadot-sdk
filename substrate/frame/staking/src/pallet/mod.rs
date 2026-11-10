@@ -806,9 +806,9 @@ pub mod pallet {
 					_ => Ok(()),
 				});
 				assert!(
-					ValidatorCount::<T>::get()
-						<= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
-							* <T::ElectionProvider as ElectionProvider>::Pages::get()
+					ValidatorCount::<T>::get() <=
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+							<T::ElectionProvider as ElectionProvider>::Pages::get()
 				);
 			}
 
@@ -991,8 +991,8 @@ pub mod pallet {
 
 			// ensure election results are always bounded with the same value
 			assert!(
-				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
-					== <T::GenesisElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
+				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() ==
+					<T::GenesisElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
 			);
 
 			assert!(
@@ -1818,10 +1818,10 @@ pub mod pallet {
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed
-				|| origin_balance.is_zero()
-				|| ledger_total < ed
-				|| ledger_total.is_zero();
+			let reapable = origin_balance < ed ||
+				origin_balance.is_zero() ||
+				ledger_total < ed ||
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.

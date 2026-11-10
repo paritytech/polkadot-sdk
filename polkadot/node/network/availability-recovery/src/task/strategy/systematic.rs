@@ -104,8 +104,8 @@ impl FetchSystematicChunks {
 		let chunks = state
 			.received_chunks
 			.range(
-				ChunkIndex(0)
-					..ChunkIndex(
+				ChunkIndex(0)..
+					ChunkIndex(
 						u32::try_from(self.threshold)
 							.expect("validator count should not exceed u32"),
 					),
@@ -180,8 +180,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			for (_, our_c_index) in &local_chunk_indices {
 				// If we are among the systematic validators but hold an invalid chunk, we cannot
 				// perform the systematic recovery. Fall through to the next strategy.
-				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index)
-					&& !state.received_chunks.contains_key(our_c_index)
+				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index) &&
+					!state.received_chunks.contains_key(our_c_index)
 				{
 					gum::debug!(
 						target: LOG_TARGET,
@@ -201,8 +201,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// No need to query the validators that have the chunks we already received or that we know
 		// don't have the data from previous strategies.
 		self.validators.retain(|(c_index, v_index)| {
-			!state.received_chunks.contains_key(c_index)
-				&& state.can_retry_request(
+			!state.received_chunks.contains_key(c_index) &&
+				state.can_retry_request(
 					&(common_params.validator_authority_keys[v_index.0 as usize].clone(), *v_index),
 					SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 				)

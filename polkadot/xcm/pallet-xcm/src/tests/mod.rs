@@ -843,8 +843,8 @@ fn claim_assets_weight_scales_with_number_of_assets() {
 		beneficiary,
 	};
 	assert!(
-		claim_many.get_dispatch_info().call_weight.ref_time()
-			> claim_one.get_dispatch_info().call_weight.ref_time()
+		claim_many.get_dispatch_info().call_weight.ref_time() >
+			claim_one.get_dispatch_info().call_weight.ref_time()
 	);
 }
 

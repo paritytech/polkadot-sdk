@@ -82,9 +82,9 @@ fn main() -> Result<(), sc_cli::Error> {
 			// The relay chain side of a collator doesn't listen on WebRTC by default;
 			// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
 			let relay_network_params = &relay_chain_cli.base.base.network_params;
-			if parachain_config.role.is_authority()
-				&& !relay_network_params.force_enable_webrtc
-				&& relay_network_params.listen_addr.is_empty()
+			if parachain_config.role.is_authority() &&
+				!relay_network_params.force_enable_webrtc &&
+				relay_network_params.listen_addr.is_empty()
 			{
 				relay_chain_config.network.remove_webrtc_addresses();
 			}

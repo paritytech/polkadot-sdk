@@ -213,8 +213,8 @@ where
 
 		// Check that the session id for the membership proof is within the
 		// bounds of the set id reported in the equivocation.
-		if session_index > set_id_session_index
-			|| previous_set_id_session_index
+		if session_index > set_id_session_index ||
+			previous_set_id_session_index
 				.map(|previous_index| session_index <= previous_index)
 				.unwrap_or(false)
 		{

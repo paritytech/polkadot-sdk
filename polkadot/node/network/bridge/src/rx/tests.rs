@@ -505,8 +505,8 @@ async fn await_peer_connections(
 	loop {
 		{
 			let shared = shared.0.lock();
-			if shared.validation_peers.len() == num_validation_peers
-				&& shared.collation_peers.len() == num_collation_peers
+			if shared.validation_peers.len() == num_validation_peers &&
+				shared.collation_peers.len() == num_collation_peers
 			{
 				break;
 			}

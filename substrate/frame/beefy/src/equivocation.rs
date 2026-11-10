@@ -292,8 +292,8 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 	fn slash_fraction(&self) -> Option<Perbill> {
 		match self {
 			EquivocationEvidenceFor::DoubleVotingProof(_, _) => None,
-			EquivocationEvidenceFor::ForkVotingProof(_, _)
-			| EquivocationEvidenceFor::FutureBlockVotingProof(_, _) => Some(Perbill::from_percent(50)),
+			EquivocationEvidenceFor::ForkVotingProof(_, _) |
+			EquivocationEvidenceFor::FutureBlockVotingProof(_, _) => Some(Perbill::from_percent(50)),
 		}
 	}
 }

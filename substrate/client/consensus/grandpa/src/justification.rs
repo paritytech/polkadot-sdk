@@ -142,8 +142,8 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 	where
 		NumberFor<Block>: finality_grandpa::BlockNumberOps,
 	{
-		if (self.justification.commit.target_hash, self.justification.commit.target_number)
-			!= finalized_target
+		if (self.justification.commit.target_hash, self.justification.commit.target_number) !=
+			finalized_target
 		{
 			let msg = "invalid commit target in grandpa justification".to_string();
 			return Err(ClientError::BadJustification(msg));

@@ -39,14 +39,14 @@ impl RepBucket {
 	pub const fn from_unified(rep: &UnifiedReputationChange) -> Self {
 		match rep {
 			UnifiedReputationChange::Malicious(_) => RepBucket::Malicious,
-			UnifiedReputationChange::CostMajor(_)
-			| UnifiedReputationChange::CostMinor(_)
-			| UnifiedReputationChange::CostMajorRepeated(_)
-			| UnifiedReputationChange::CostMinorRepeated(_) => RepBucket::Performance,
-			UnifiedReputationChange::BenefitMajor(_)
-			| UnifiedReputationChange::BenefitMinor(_)
-			| UnifiedReputationChange::BenefitMajorFirst(_)
-			| UnifiedReputationChange::BenefitMinorFirst(_) => RepBucket::Benefit,
+			UnifiedReputationChange::CostMajor(_) |
+			UnifiedReputationChange::CostMinor(_) |
+			UnifiedReputationChange::CostMajorRepeated(_) |
+			UnifiedReputationChange::CostMinorRepeated(_) => RepBucket::Performance,
+			UnifiedReputationChange::BenefitMajor(_) |
+			UnifiedReputationChange::BenefitMinor(_) |
+			UnifiedReputationChange::BenefitMajorFirst(_) |
+			UnifiedReputationChange::BenefitMinorFirst(_) => RepBucket::Benefit,
 		}
 	}
 

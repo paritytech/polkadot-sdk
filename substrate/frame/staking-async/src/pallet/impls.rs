@@ -934,8 +934,8 @@ impl<T: Config> Pallet<T> {
 			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
 		};
 
-		while all_voters.len() < page_len_prediction as usize
-			&& voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
+		while all_voters.len() < page_len_prediction as usize &&
+			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
 		{
 			let voter = match sorted_voters.next() {
 				Some(voter) => {
@@ -1035,8 +1035,8 @@ impl<T: Config> Pallet<T> {
 		let mut targets_seen = 0;
 
 		let mut targets_iter = T::TargetList::iter();
-		while all_targets.len() < final_predicted_len as usize
-			&& targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_targets.len() < final_predicted_len as usize &&
+			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
 			let target = match targets_iter.next() {
 				Some(target) => {
@@ -1698,8 +1698,8 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 		Self::ledger(Stash(who.clone()))
 			.ok()
 			.and_then(|l| {
-				if Nominators::<T>::contains_key(&l.stash)
-					|| Validators::<T>::contains_key(&l.stash)
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
 				{
 					Some(l.active)
 				} else {
@@ -2060,8 +2060,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	/// There is an assumption that, this account is keyless and managed by another pallet in the
 	/// runtime. Hence, it can never sign its own transactions.
 	fn is_virtual_staker(who: &T::AccountId) -> bool {
-		frame_system::Pallet::<T>::account_nonce(who).is_zero()
-			&& VirtualStakers::<T>::contains_key(who)
+		frame_system::Pallet::<T>::account_nonce(who).is_zero() &&
+			VirtualStakers::<T>::contains_key(who)
 	}
 
 	fn slash_reward_fraction() -> Perbill {
@@ -2283,8 +2283,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		ensure!(
-			(Ledger::<T>::iter().count() == Payee::<T>::iter().count())
-				&& (Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
 			"number of entries in payee storage items does not match the number of bonded ledgers",
 		);
 
@@ -2478,11 +2478,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			overview_and_pages.iter().all(|(metadata, pages)| {
 				let page_count_good = metadata.page_count == pages.len() as u32;
-				let nominator_count_good = metadata.nominator_count
-					== pages.iter().map(|p| p.others.len() as u32).fold(0u32, |acc, x| acc + x);
-				let total_good = metadata.total
-					== metadata.own
-						+ pages
+				let nominator_count_good = metadata.nominator_count ==
+					pages.iter().map(|p| p.others.len() as u32).fold(0u32, |acc, x| acc + x);
+				let total_good = metadata.total ==
+					metadata.own +
+						pages
 							.iter()
 							.fold(BalanceOf::<T>::zero(), |acc, page| acc + page.page_total);
 
@@ -2495,8 +2495,8 @@ impl<T: Config> Pallet<T> {
 			overview_and_pages
 				.iter()
 				.map(|(metadata, _pages)| metadata.total)
-				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x)
-				== ErasTotalStake::<T>::get(era),
+				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x) ==
+				ErasTotalStake::<T>::get(era),
 			"found bad eras total stake"
 		);
 

@@ -360,10 +360,10 @@ struct EntryDetails {
 
 impl Encode for EntryDetails {
 	fn size_hint(&self) -> usize {
-		self.channel.size_hint()
-			+ (self.data_len as u32).size_hint()
-			+ self.admission_seq.size_hint()
-			+ self.track.size_hint()
+		self.channel.size_hint() +
+			(self.data_len as u32).size_hint() +
+			self.admission_seq.size_hint() +
+			self.track.size_hint()
 	}
 
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
@@ -625,8 +625,8 @@ impl Config {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
 		}
 		if self.v2dht.as_ref().is_some_and(|cfg| {
-			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE
-				&& cfg.bloom_false_pos_rate < 1.0)
+			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
+				cfg.bloom_false_pos_rate < 1.0)
 		}) {
 			return Err(Error::InvalidConfig(format!(
 				"bloom_false_pos_rate must be at least {DEFAULT_BLOOM_FALSE_POS_RATE} and below 1"
@@ -720,8 +720,8 @@ impl From<RetentionReasonMask> for RetentionTrack {
 	fn from(mask: RetentionReasonMask) -> Self {
 		if !mask.is_persistent() {
 			RetentionTrack::Transient
-		} else if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY)
-			&& !mask.contains(RetentionReasonMask::DHT_AFFINITY)
+		} else if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
+			!mask.contains(RetentionReasonMask::DHT_AFFINITY)
 		{
 			RetentionTrack::ExplicitOnly
 		} else {
@@ -1083,8 +1083,8 @@ impl SubmitIndex {
 		let track_max_size = self.config.track_max_sizes()[track as usize];
 		if track_max_size.is_some_and(|max_size| totals.track_size(track) > max_size) {
 			Some(RejectionReason::TrackFull)
-		} else if totals.count() > self.config.max_total_statements
-			|| totals.size() > self.config.max_total_size
+		} else if totals.count() > self.config.max_total_statements ||
+			totals.size() > self.config.max_total_size
 		{
 			Some(RejectionReason::StoreFull)
 		} else {
@@ -1108,8 +1108,8 @@ impl SubmitIndex {
 		}
 		self.cached_statement_count += record.by_priority.len();
 		self.account_statements.insert(account, record);
-		while self.cached_statement_count > DETAILS_CACHE_BUDGET
-			&& self.account_statements.len() > 1
+		while self.cached_statement_count > DETAILS_CACHE_BUDGET &&
+			self.account_statements.len() > 1
 		{
 			match self.account_statements.pop_oldest() {
 				Some((_, evicted)) => self.cached_statement_count -= evicted.by_priority.len(),
@@ -1248,8 +1248,8 @@ impl SubmitIndex {
 		}
 		// Check if we can evict enough lower priority statements to satisfy constraints
 		for (entry, details) in record.by_priority.iter() {
-			if (record.data_size - would_free_size + statement_len <= max_size)
-				&& record.by_priority.len() + 1 - evicted_hashes.len() <= max_count
+			if (record.data_size - would_free_size + statement_len <= max_size) &&
+				record.by_priority.len() + 1 - evicted_hashes.len() <= max_count
 			{
 				// Satisfied
 				break;
@@ -2389,9 +2389,9 @@ impl Store {
 		let mut cursor = self.submit_index.read().allowance_cursor;
 		let mut checked = 0usize;
 		let mut wrapped = false;
-		while checked < account_budget
-			&& allowance_budget > 0
-			&& allowance_start.elapsed() < time_budget
+		while checked < account_budget &&
+			allowance_budget > 0 &&
+			allowance_start.elapsed() < time_budget
 		{
 			let from = cursor.unwrap_or([0u8; 32]);
 			let account = match self.next_account_from(&from) {
@@ -3239,11 +3239,11 @@ impl StatementStore for Store {
 			// statement is rejected by `plan_insert` before it ever looks at the record.
 			let oversize = statement_len > validation.max_size as usize;
 			let cached = submit_index.account_statements.peek(&account_id).is_some();
-			let summary_admits = !cached
-				&& statement.channel().is_none()
-				&& submit_index.summaries.peek(&account_id).is_some_and(|summary| {
-					summary.count < validation.max_count as usize
-						&& summary.data_size + statement_len <= validation.max_size as usize
+			let summary_admits = !cached &&
+				statement.channel().is_none() &&
+				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
+					summary.count < validation.max_count as usize &&
+						summary.data_size + statement_len <= validation.max_size as usize
 				}) && submit_index
 				.exceeded_limit(&submit_index.totals_after_insert(track, statement_len, []), track)
 				.is_none();
@@ -6144,8 +6144,8 @@ mod tests {
 			// Topic and key sets contain both A & B entries.
 			assert!(store.index_has_topic(&t42, &h_a1) && store.index_has_topic(&t42, &h_b2));
 			assert!(
-				store.index_has_dec_key(&Some(k7), &h_a2)
-					&& store.index_has_dec_key(&Some(k7), &h_b2)
+				store.index_has_dec_key(&Some(k7), &h_a2) &&
+					store.index_has_dec_key(&Some(k7), &h_b2)
 			);
 		}
 

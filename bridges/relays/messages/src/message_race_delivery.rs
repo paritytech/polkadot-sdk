@@ -411,10 +411,10 @@ where
 		// "unrewarded relayers" set. If we are unable to prove new rewards to the target node, then
 		// we should wait for confirmations race.
 		let unrewarded_limit_reached =
-			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries
-				>= self.max_unrewarded_relayer_entries_at_target
-				|| target_nonces.nonces_data.unrewarded_relayers.total_messages
-					>= self.max_unconfirmed_nonces_at_target;
+			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries >=
+				self.max_unrewarded_relayer_entries_at_target ||
+				target_nonces.nonces_data.unrewarded_relayers.total_messages >=
+					self.max_unconfirmed_nonces_at_target;
 		if unrewarded_limit_reached {
 			// so there are already too many unrewarded relayer entries in the set
 			//
@@ -422,8 +422,8 @@ where
 			// be paid
 			let number_of_rewards_being_proved =
 				latest_confirmed_nonce_at_source.saturating_sub(latest_confirmed_nonce_at_target);
-			let enough_rewards_being_proved = number_of_rewards_being_proved
-				>= target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
+			let enough_rewards_being_proved = number_of_rewards_being_proved >=
+				target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
 			if !enough_rewards_being_proved {
 				return None;
 			}

@@ -236,8 +236,8 @@ where
 					.await
 					.filter(|(_, restricted_number)| {
 						// NOTE: we can only restrict votes within the interval [base, target)
-						restricted_number >= base.number()
-							&& restricted_number < restricted_target.number()
+						restricted_number >= base.number() &&
+							restricted_number < restricted_target.number()
 					})
 					.and_then(|(hash, _)| backend.header(hash).ok())
 					.and_then(std::convert::identity)

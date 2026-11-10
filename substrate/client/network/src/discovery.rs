@@ -1418,8 +1418,8 @@ mod tests {
 							match e {
 								SwarmEvent::Behaviour(behavior) => {
 									match behavior {
-										DiscoveryOut::UnroutablePeer(other)
-										| DiscoveryOut::Discovered(other) => {
+										DiscoveryOut::UnroutablePeer(other) |
+										DiscoveryOut::Discovered(other) => {
 											// Call `add_self_reported_address` to simulate identify
 											// happening.
 											let addr = swarms

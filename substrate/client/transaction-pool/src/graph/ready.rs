@@ -752,18 +752,18 @@ mod tests {
 		};
 		// higher priority = better
 		assert!(
-			TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 1 }
-				> TransactionRef { transaction: Arc::new(with_priority(2, 3)), insertion_id: 2 }
+			TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 1 } >
+				TransactionRef { transaction: Arc::new(with_priority(2, 3)), insertion_id: 2 }
 		);
 		// lower validity = better
 		assert!(
-			TransactionRef { transaction: Arc::new(with_priority(3, 2)), insertion_id: 1 }
-				> TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 2 }
+			TransactionRef { transaction: Arc::new(with_priority(3, 2)), insertion_id: 1 } >
+				TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 2 }
 		);
 		// lower insertion_id = better
 		assert!(
-			TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 1 }
-				> TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 2 }
+			TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 1 } >
+				TransactionRef { transaction: Arc::new(with_priority(3, 3)), insertion_id: 2 }
 		);
 	}
 

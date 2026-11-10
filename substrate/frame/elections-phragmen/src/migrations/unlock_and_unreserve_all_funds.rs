@@ -210,8 +210,8 @@ where
 		let bugged_deposits = all_accounts
 			.iter()
 			.filter(|account| {
-				account_deposited_sums.get(&account).unwrap_or(&Zero::zero())
-					> account_reserved_before.get(&account).unwrap_or(&Zero::zero())
+				account_deposited_sums.get(&account).unwrap_or(&Zero::zero()) >
+					account_reserved_before.get(&account).unwrap_or(&Zero::zero())
 			})
 			.count();
 

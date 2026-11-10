@@ -578,10 +578,10 @@ pub struct StakingLedgerInspect<T: Config> {
 #[cfg(test)]
 impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 	fn eq(&self, other: &StakingLedgerInspect<T>) -> bool {
-		self.stash == other.stash
-			&& self.total == other.total
-			&& self.active == other.active
-			&& self.unlocking == other.unlocking
+		self.stash == other.stash &&
+			self.total == other.total &&
+			self.active == other.active &&
+			self.unlocking == other.unlocking
 	}
 }
 

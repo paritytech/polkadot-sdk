@@ -333,8 +333,8 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 		.segments
 		.into_iter()
 		.map(|ps| ps.ident)
-		.collect::<Vec<_>>()
-		== path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
+		.collect::<Vec<_>>() ==
+		path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
 }
 
 /// Replace ident `Self` by `T`

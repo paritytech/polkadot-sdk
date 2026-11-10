@@ -2676,8 +2676,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2868,8 +2868,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2918,8 +2918,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Final State ===");
 			println!("Total cycles: {}", cycle);
@@ -4039,9 +4039,9 @@ mod admin {
 			// Recompute the expected deposit from the stored types instead of calling
 			// `psm_creation_footprint`, so this test fails if that helper breaks.
 			let items = 2u128;
-			let size = (2 * u32::max_encoded_len()
-				+ crate::PsmInfo::<Test>::max_encoded_len()
-				+ crate::PsmAdminInfo::<Test>::max_encoded_len()) as u128;
+			let size = (2 * u32::max_encoded_len() +
+				crate::PsmInfo::<Test>::max_encoded_len() +
+				crate::PsmAdminInfo::<Test>::max_encoded_len()) as u128;
 			let expected = PsmCreationDeposit::get() + PsmDepositSlope::get() * items * size;
 			assert_eq!(Balances::reserved_balance(&ALICE) - reserved_before, expected);
 		});
@@ -4583,8 +4583,8 @@ mod try_state {
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::zero());
 			assert!(
-				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID)
-					> psm_max_asset_debt(USDC_ASSET_ID),
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
+					psm_max_asset_debt(USDC_ASSET_ID),
 				"debt must exceed the ceiling for this test to exercise check 8",
 			);
 			assert_ok!(dts());
@@ -4605,8 +4605,8 @@ mod try_state {
 			));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_parts(1));
 			assert!(
-				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID)
-					> psm_max_asset_debt(USDC_ASSET_ID),
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
+					psm_max_asset_debt(USDC_ASSET_ID),
 				"debt must exceed the ceiling for this test to exercise check 8",
 			);
 			assert_ok!(dts());

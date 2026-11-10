@@ -354,8 +354,8 @@ fn event_matches_filters(
 ) -> bool {
 	storage_keys
 		.map(|keys| event_values_filter(event, "key", keys))
-		.unwrap_or(false)
-		&& methods
+		.unwrap_or(false) &&
+		methods
 			.map(|methods| event_values_filter(event, "method", methods))
 			.unwrap_or(false)
 }

@@ -196,11 +196,11 @@ fn need_to_relay<P: FinalitySyncPipeline>(
 		HeadersToRelay::All => true,
 		HeadersToRelay::Mandatory => header.is_mandatory(),
 		HeadersToRelay::Free => {
-			header.is_mandatory()
-				|| free_headers_interval
+			header.is_mandatory() ||
+				free_headers_interval
 					.map(|free_headers_interval| {
-						header.number().saturating_sub(info.best_number_at_target)
-							>= free_headers_interval
+						header.number().saturating_sub(info.best_number_at_target) >=
+							free_headers_interval
 					})
 					.unwrap_or(false)
 		},

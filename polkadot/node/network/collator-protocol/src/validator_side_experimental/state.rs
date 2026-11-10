@@ -295,8 +295,8 @@ impl<B: Backend> State<B> {
 			}
 			// A zero-len cycle is impossible for an honest block.
 			if entries.iter().any(|prospective_candidate| {
-				Some(prospective_candidate.parent_head_data_hash())
-					== prospective_candidate.output_head_data_hash()
+				Some(prospective_candidate.parent_head_data_hash()) ==
+					prospective_candidate.output_head_data_hash()
 			}) {
 				gum::debug!(
 					target: LOG_TARGET,

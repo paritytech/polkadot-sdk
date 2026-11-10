@@ -623,37 +623,37 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::CancelProxy => matches!(
 				c,
-				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. })
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Identity => {
 				matches!(
 					c,
-					RuntimeCall::Identity { .. }
-						| RuntimeCall::Utility { .. }
-						| RuntimeCall::Multisig { .. }
+					RuntimeCall::Identity { .. } |
+						RuntimeCall::Utility { .. } |
+						RuntimeCall::Multisig { .. }
 				)
 			},
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-					| RuntimeCall::Utility(..)
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..) |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Collator => matches!(
 				c,
-				RuntimeCall::CollatorSelection { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::CollatorSelection { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::StakingOperator => matches!(
 				c,
-				RuntimeCall::Session(pallet_session::Call::set_keys { .. })
-					| RuntimeCall::Session(pallet_session::Call::purge_keys { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
+				RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
 		}
 	}

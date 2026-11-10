@@ -1158,8 +1158,8 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 		page: Page,
 	) -> bool {
-		ledger.legacy_claimed_rewards.binary_search(&era).is_ok()
-			|| Self::is_rewards_claimed(era, validator, page)
+		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
+			Self::is_rewards_claimed(era, validator, page)
 	}
 
 	/// Check if the rewards for the given era and page index have been claimed.

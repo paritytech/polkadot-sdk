@@ -586,12 +586,12 @@ impl RequiredRouting {
 		match (self, other) {
 			(RequiredRouting::All, _) | (_, RequiredRouting::All) => RequiredRouting::All,
 			(RequiredRouting::GridXY, _) | (_, RequiredRouting::GridXY) => RequiredRouting::GridXY,
-			(RequiredRouting::GridX, RequiredRouting::GridY)
-			| (RequiredRouting::GridY, RequiredRouting::GridX) => RequiredRouting::GridXY,
+			(RequiredRouting::GridX, RequiredRouting::GridY) |
+			(RequiredRouting::GridY, RequiredRouting::GridX) => RequiredRouting::GridXY,
 			(RequiredRouting::GridX, RequiredRouting::GridX) => RequiredRouting::GridX,
 			(RequiredRouting::GridY, RequiredRouting::GridY) => RequiredRouting::GridY,
-			(RequiredRouting::None, RequiredRouting::PendingTopology)
-			| (RequiredRouting::PendingTopology, RequiredRouting::None) => RequiredRouting::PendingTopology,
+			(RequiredRouting::None, RequiredRouting::PendingTopology) |
+			(RequiredRouting::PendingTopology, RequiredRouting::None) => RequiredRouting::PendingTopology,
 			(RequiredRouting::None, _) | (RequiredRouting::PendingTopology, _) => other,
 			(_, RequiredRouting::None) | (_, RequiredRouting::PendingTopology) => self,
 		}

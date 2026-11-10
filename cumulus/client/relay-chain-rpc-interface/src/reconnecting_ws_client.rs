@@ -136,8 +136,8 @@ async fn connect_next_available_rpc_server(
 		if current_iteration > prev_iteration {
 			// Safe conversion given we convert positive i32s which are lower than u64::MAX.
 			tokio::time::sleep(Duration::from_millis(
-				DEFAULT_SLEEP_TIME_MS_BETWEEN_RETRIES
-					* DEFAULT_SLEEP_EXP_BACKOFF_BETWEEN_RETRIES.pow(prev_iteration) as u64,
+				DEFAULT_SLEEP_TIME_MS_BETWEEN_RETRIES *
+					DEFAULT_SLEEP_EXP_BACKOFF_BETWEEN_RETRIES.pow(prev_iteration) as u64,
 			))
 			.await;
 			prev_iteration = current_iteration;

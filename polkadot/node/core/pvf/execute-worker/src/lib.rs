@@ -265,9 +265,9 @@ pub fn worker_entrypoint(
 								scheduling_parent: request.scheduling_parent,
 							}))
 						},
-						CandidateDescriptorVersion::V1
-						| CandidateDescriptorVersion::V2
-						| CandidateDescriptorVersion::Unknown(_) => {
+						CandidateDescriptorVersion::V1 |
+						CandidateDescriptorVersion::V2 |
+						CandidateDescriptorVersion::Unknown(_) => {
 							// V1/V2/Unknown - no extension appended
 							TrailingOption(None)
 						},

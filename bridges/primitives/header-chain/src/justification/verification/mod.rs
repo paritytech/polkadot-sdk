@@ -242,8 +242,8 @@ trait JustificationVerifier<Header: HeaderT> {
 		justification: &GrandpaJustification<Header>,
 	) -> Result<(), Error> {
 		// ensure that it is justification for the expected header
-		if (justification.commit.target_hash, justification.commit.target_number)
-			!= finalized_target
+		if (justification.commit.target_hash, justification.commit.target_number) !=
+			finalized_target
 		{
 			return Err(Error::InvalidJustificationTarget);
 		}

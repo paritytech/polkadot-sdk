@@ -369,8 +369,8 @@ impl<T: Config> Pallet<T> {
 			let request = PendingRequests::<T>::get(id)
 				.ok_or("hrmp-relay: a side is locked by no pending request")?;
 			ensure!(
-				Self::to_wire(&request.channel_id) == channel
-					&& Self::sides(&request).any(|s| s == side),
+				Self::to_wire(&request.channel_id) == channel &&
+					Self::sides(&request).any(|s| s == side),
 				"hrmp-relay: a side is locked by a request for another side"
 			);
 		}

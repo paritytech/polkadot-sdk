@@ -188,9 +188,8 @@ impl PerRelayParentData {
 		self.message_sent_to_peer
 			.get(peer)
 			.map(|pubkeys| !pubkeys.contains(signed_by))
-			.unwrap_or(true)
-			&& self
-				.message_received_from_peer
+			.unwrap_or(true) &&
+			self.message_received_from_peer
 				.get(peer)
 				.map(|pubkeys| !pubkeys.contains(signed_by))
 				.unwrap_or(true)
@@ -797,8 +796,8 @@ async fn handle_peer_view_change<Context>(
 	let topology = state.topologies.get_current_topology().local_grid_neighbors();
 	let is_gossip_peer = topology.route_to_peer(RequiredRouting::GridXY, &origin);
 
-	let lucky = is_gossip_peer
-		|| util::gen_ratio_rng(
+	let lucky = is_gossip_peer ||
+		util::gen_ratio_rng(
 			util::MIN_GOSSIP_PEERS.saturating_sub(topology.len()),
 			util::MIN_GOSSIP_PEERS,
 			rng,

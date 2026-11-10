@@ -1319,10 +1319,10 @@ impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Any => true,
 			ProxyType::Staking => matches!(
 				c,
-				RuntimeCall::Staking(..)
-					| RuntimeCall::RcClient(
-						pallet_staking_async_rc_client::Call::set_keys { .. }
-							| pallet_staking_async_rc_client::Call::purge_keys { .. }
+				RuntimeCall::Staking(..) |
+					RuntimeCall::RcClient(
+						pallet_staking_async_rc_client::Call::set_keys { .. } |
+							pallet_staking_async_rc_client::Call::purge_keys { .. }
 					)
 			),
 		}

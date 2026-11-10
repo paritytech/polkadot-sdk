@@ -97,8 +97,8 @@ impl ErrorDef {
 				};
 
 				match &variant.discriminant {
-					None
-					| Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(_), .. }))) => {},
+					None |
+					Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(_), .. }))) => {},
 					Some((_, expr)) => {
 						let msg = "Invalid pallet::error, only integer discriminants are supported";
 						return Err(syn::Error::new(expr.span(), msg));

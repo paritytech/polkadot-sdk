@@ -41,8 +41,8 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 
 /// Total on hold for `who` across both of this pallet's reasons.
 fn held(who: AccountId) -> Balance {
-	Balances::balance_on_hold(&HoldReason::ParaIdReservation.into(), &who)
-		+ Balances::balance_on_hold(&HoldReason::Registration.into(), &who)
+	Balances::balance_on_hold(&HoldReason::ParaIdReservation.into(), &who) +
+		Balances::balance_on_hold(&HoldReason::Registration.into(), &who)
 }
 
 /// Reserve a para id for `who` and return it.

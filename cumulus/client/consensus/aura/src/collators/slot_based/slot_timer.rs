@@ -109,9 +109,9 @@ fn time_until_next_slot(
 ) -> (Duration, Timestamp) {
 	let now = now.saturating_sub(offset).as_millis();
 
-	let next_slot_time = ((now + block_production_interval.as_millis())
-		/ block_production_interval.as_millis())
-		* block_production_interval.as_millis();
+	let next_slot_time = ((now + block_production_interval.as_millis()) /
+		block_production_interval.as_millis()) *
+		block_production_interval.as_millis();
 	let remaining_millis = next_slot_time - now;
 	(Duration::from_millis(remaining_millis as u64), Timestamp::from(next_slot_time as u64))
 }

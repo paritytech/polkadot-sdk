@@ -258,8 +258,8 @@ mod benchmarks {
 		}
 
 		let new_reward_rate_per_block =
-			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one())
-				+ T::Balance::one();
+			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one()) +
+				T::Balance::one();
 
 		#[extrinsic_call]
 		_(caller_origin as T::RuntimeOrigin, 0, new_reward_rate_per_block);
@@ -296,8 +296,8 @@ mod benchmarks {
 		}
 
 		let new_expiry_block = pool_expire::<T>()
-			.evaluate(T::BlockNumberProvider::current_block_number())
-			+ BlockNumberFor::<T>::one();
+			.evaluate(T::BlockNumberProvider::current_block_number()) +
+			BlockNumberFor::<T>::one();
 
 		#[extrinsic_call]
 		_(create_origin as T::RuntimeOrigin, 0, DispatchTime::At(new_expiry_block));

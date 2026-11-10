@@ -34,8 +34,8 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 	let max_encoded_size = match data {
 		syn::Data::Struct(syn::DataStruct { fields, .. }) => match fields {
-			syn::Fields::Named(syn::FieldsNamed { named: fields, .. })
-			| syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }) => {
+			syn::Fields::Named(syn::FieldsNamed { named: fields, .. }) |
+			syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }) => {
 				let maybe_field_tys = fields
 					.iter()
 					.map(|f| generate_field_types(f, &frame_support))
@@ -166,8 +166,8 @@ fn generate_variant_field_types(
 	}
 
 	match &variant.fields {
-		syn::Fields::Named(syn::FieldsNamed { named: fields, .. })
-		| syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }) => {
+		syn::Fields::Named(syn::FieldsNamed { named: fields, .. }) |
+		syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }) => {
 			let field_tys = fields
 				.iter()
 				.map(|field| generate_field_types(field, scrate))

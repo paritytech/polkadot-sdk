@@ -81,9 +81,9 @@ pub mod pallet {
 				let mut taken_recipients = alloc::vec::Vec::new();
 				let mut result = alloc::vec::Vec::new();
 				messages.retain(|(recipient, data)| {
-					if result.len() >= maximum_channels
-						|| excluded_recipients.contains(recipient)
-						|| taken_recipients.contains(recipient)
+					if result.len() >= maximum_channels ||
+						excluded_recipients.contains(recipient) ||
+						taken_recipients.contains(recipient)
 					{
 						return true;
 					}

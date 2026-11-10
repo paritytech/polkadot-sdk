@@ -104,8 +104,8 @@ fn check_extrinsics_root<Block: BlockT>(
 	let expected = *header.extrinsics_root();
 	let v0_root = HashingFor::<Block>::ordered_trie_root(extrinsics.clone(), StateVersion::V0);
 
-	if v0_root == expected
-		|| HashingFor::<Block>::ordered_trie_root(extrinsics, StateVersion::V1) == expected
+	if v0_root == expected ||
+		HashingFor::<Block>::ordered_trie_root(extrinsics, StateVersion::V1) == expected
 	{
 		return Ok(());
 	}
@@ -612,9 +612,9 @@ where
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
-		if status == blockchain::BlockStatus::Unknown
-			&& *import_headers.post().number() <= info.finalized_number
-			&& !gap_block
+		if status == blockchain::BlockStatus::Unknown &&
+			*import_headers.post().number() <= info.finalized_number &&
+			!gap_block
 		{
 			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
@@ -626,11 +626,11 @@ where
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
 				true
 			},
-			BlockOrigin::Genesis
-			| BlockOrigin::NetworkInitialSync
-			| BlockOrigin::File
-			| BlockOrigin::WarpSync
-			| BlockOrigin::GapSync => false,
+			BlockOrigin::Genesis |
+			BlockOrigin::NetworkInitialSync |
+			BlockOrigin::File |
+			BlockOrigin::WarpSync |
+			BlockOrigin::GapSync => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -711,9 +711,9 @@ where
 			)?;
 		}
 
-		let is_new_best = !gap_block
-			&& (finalized
-				|| match fork_choice {
+		let is_new_best = !gap_block &&
+			(finalized ||
+				match fork_choice {
 					ForkChoiceStrategy::LongestChain => {
 						import_headers.post().number() > &info.best_number
 					},
@@ -1370,9 +1370,9 @@ where
 				}
 				total_size += size;
 
-				if current_child.is_none()
-					&& sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice())
-					&& !child_roots.contains(value.as_slice())
+				if current_child.is_none() &&
+					sp_core::storage::well_known_keys::is_child_storage_key(next_key.as_slice()) &&
+					!child_roots.contains(value.as_slice())
 				{
 					child_roots.insert(value.clone());
 					switch_child_key = Some((next_key.clone(), value.clone()));

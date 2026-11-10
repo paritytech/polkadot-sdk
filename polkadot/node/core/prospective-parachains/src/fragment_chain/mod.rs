@@ -780,8 +780,8 @@ impl FragmentChain {
 
 	/// Return whether this candidate is backed in this chain or the unconnected storage.
 	pub fn is_candidate_backed(&self, hash: &CandidateHash) -> bool {
-		self.chain.candidates.contains(hash)
-			|| matches!(
+		self.chain.candidates.contains(hash) ||
+			matches!(
 				self.unconnected.by_candidate_hash.get(hash),
 				Some(candidate) if candidate.state == CandidateState::Backed
 			)

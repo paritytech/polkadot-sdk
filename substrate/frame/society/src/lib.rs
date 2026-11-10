@@ -1652,9 +1652,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let approved = candidacy.tally.clear_approval();
 		let rejected = candidacy.tally.clear_rejection();
 		match (maybe_vote, approved, rejected) {
-			(None, _, _)
-			| (Some(Vote { approve: true, .. }), false, true)
-			| (Some(Vote { approve: false, .. }), true, false) => {
+			(None, _, _) |
+			(Some(Vote { approve: true, .. }), false, true) |
+			(Some(Vote { approve: false, .. }), true, false) => {
 				// Can't do much if the punishment doesn't work out.
 				if Self::strike_member(&skeptic).is_ok() {
 					candidacy.skeptic_struck = true;
@@ -1684,9 +1684,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Check defender skeptic voted and that their vote was with the majority.
 			let skeptic_vote = DefenderVotes::<T, I>::get(round, &skeptic);
 			match (skeptic_vote, tally.more_approvals(), tally.more_rejections()) {
-				(None, _, _)
-				| (Some(Vote { approve: true, .. }), false, true)
-				| (Some(Vote { approve: false, .. }), true, false) => {
+				(None, _, _) |
+				(Some(Vote { approve: true, .. }), false, true) |
+				(Some(Vote { approve: false, .. }), true, false) => {
 					// Punish skeptic and challenge them next.
 					let _ = Self::strike_member(&skeptic);
 					let founder = Founder::<T, I>::get();
@@ -1782,9 +1782,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bids.retain(|bid| {
 			// We only accept a zero bid as the first selection.
 			total_cost.saturating_accrue(bid.value);
-			let accept = selections < max_selections
-				&& (!bid.value.is_zero() || selections == 0)
-				&& total_cost <= pot;
+			let accept = selections < max_selections &&
+				(!bid.value.is_zero() || selections == 0) &&
+				total_cost <= pot;
 			if accept {
 				let candidacy = Candidacy {
 					round,
@@ -1921,8 +1921,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let next_head = NextHead::<T, I>::get()
 			.filter(|old| {
-				old.round > candidacy.round
-					|| old.round == candidacy.round && old.bid < candidacy.bid
+				old.round > candidacy.round ||
+					old.round == candidacy.round && old.bid < candidacy.bid
 			})
 			.unwrap_or_else(|| IntakeRecord {
 				who: candidate.clone(),

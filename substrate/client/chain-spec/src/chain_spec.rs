@@ -53,9 +53,9 @@ enum GenesisBuildAction<EHF> {
 impl<EHF> GenesisBuildAction<EHF> {
 	pub fn merge_patch(&mut self, patch: json::Value) {
 		match self {
-			GenesisBuildAction::Patch(value)
-			| GenesisBuildAction::Full(value)
-			| GenesisBuildAction::NamedPreset(_, value, _) => json_merge(value, patch),
+			GenesisBuildAction::Patch(value) |
+			GenesisBuildAction::Full(value) |
+			GenesisBuildAction::NamedPreset(_, value, _) => json_merge(value, patch),
 		}
 	}
 }

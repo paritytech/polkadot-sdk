@@ -1372,8 +1372,8 @@ pub mod pallet {
 
 		fn hold_and_freeze_count() -> Result<(), sp_runtime::TryRuntimeError> {
 			Holds::<T, I>::iter_keys().try_for_each(|k| {
-				if Holds::<T, I>::decode_len(k).unwrap_or(0)
-					> T::RuntimeHoldReason::VARIANT_COUNT as usize
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
 				{
 					Err("Found `Hold` with too many elements")
 				} else {
@@ -1382,8 +1382,8 @@ pub mod pallet {
 			})?;
 
 			Freezes::<T, I>::iter_keys().try_for_each(|k| {
-				if Freezes::<T, I>::decode_len(k).unwrap_or(0)
-					> T::RuntimeFreezeReason::VARIANT_COUNT as usize
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeFreezeReason::VARIANT_COUNT as usize
 				{
 					Err("Found `Freeze` with too many elements")
 				} else {

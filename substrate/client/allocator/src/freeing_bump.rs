@@ -421,8 +421,8 @@ impl FreeingBumpHeapAllocator {
 
 		let header_ptr: u32 = match self.free_lists[order] {
 			Link::Ptr(header_ptr) => {
-				if (u64::from(header_ptr) + u64::from(order.size()) + u64::from(HEADER_SIZE))
-					> mem.size()
+				if (u64::from(header_ptr) + u64::from(order.size()) + u64::from(HEADER_SIZE)) >
+					mem.size()
 				{
 					return Err(error("Invalid header pointer detected"));
 				}

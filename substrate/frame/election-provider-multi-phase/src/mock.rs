@@ -496,8 +496,8 @@ impl ElectionDataProvider for StakingMock {
 
 		let targets = Targets::get();
 
-		if !DataProviderAllowBadData::get()
-			&& bounds.count.map_or(false, |max_len| targets.len() > max_len.0 as usize)
+		if !DataProviderAllowBadData::get() &&
+			bounds.count.map_or(false, |max_len| targets.len() > max_len.0 as usize)
 		{
 			return Err("Targets too big");
 		}

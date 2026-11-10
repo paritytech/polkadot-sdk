@@ -128,8 +128,8 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 			ItemConfigOf::<T, I>::get(collection, item),
 		) {
 			(Some(cc), Some(ic))
-				if cc.is_setting_enabled(CollectionSetting::TransferableItems)
-					&& ic.is_setting_enabled(ItemSetting::Transferable) =>
+				if cc.is_setting_enabled(CollectionSetting::TransferableItems) &&
+					ic.is_setting_enabled(ItemSetting::Transferable) =>
 			{
 				true
 			},

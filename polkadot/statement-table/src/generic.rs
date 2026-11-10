@@ -455,8 +455,8 @@ impl<Ctx: Context> Table<Ctx> {
 				return if occ.get() != &vote {
 					Err(match (occ.get().clone(), vote) {
 						// valid vote conflicting with candidate statement
-						(ValidityVote::Issued(iss), ValidityVote::Valid(good))
-						| (ValidityVote::Valid(good), ValidityVote::Issued(iss)) => {
+						(ValidityVote::Issued(iss), ValidityVote::Valid(good)) |
+						(ValidityVote::Valid(good), ValidityVote::Issued(iss)) => {
 							make_vdv(ValidityDoubleVote::IssuedAndValidity(
 								(votes.candidate.clone(), iss),
 								(digest, good),

@@ -109,9 +109,9 @@ where
 			self.authority_set.inner().pending_changes().cloned().collect();
 
 		for pending_change in pending_changes {
-			if pending_change.delay_kind == DelayKind::Finalized
-				&& pending_change.effective_number() > chain_info.finalized_number
-				&& pending_change.effective_number() <= chain_info.best_number
+			if pending_change.delay_kind == DelayKind::Finalized &&
+				pending_change.effective_number() > chain_info.finalized_number &&
+				pending_change.effective_number() <= chain_info.best_number
 			{
 				let effective_block_hash = if !pending_change.delay.is_zero() {
 					self.select_chain

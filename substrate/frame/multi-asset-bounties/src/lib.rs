@@ -678,8 +678,8 @@ pub mod pallet {
 				Error::<T, I>::InvalidValue
 			);
 			ensure!(
-				ChildBountiesPerParent::<T, I>::get(parent_bounty_id)
-					< T::MaxActiveChildBountyCount::get(),
+				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <
+					T::MaxActiveChildBountyCount::get(),
 				Error::<T, I>::TooManyChildBounties,
 			);
 
@@ -913,8 +913,8 @@ pub mod pallet {
 					// curator can unassign the child-/bounty curator.
 					ensure!(
 						maybe_sender.map_or(true, |sender| {
-							sender == *curator
-								|| parent_curator
+							sender == *curator ||
+								parent_curator
 									.map_or(false, |parent_curator| sender == parent_curator)
 						}),
 						BadOrigin
@@ -1199,9 +1199,9 @@ pub mod pallet {
 							},
 							_ => BountyStatus::Funded { curator },
 						},
-						PaymentState::Pending
-						| PaymentState::Failed
-						| PaymentState::Attempted { .. } => BountyStatus::FundingAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::FundingAttempted {
 							payment_status: new_payment_status,
 							curator,
 						},
@@ -1241,9 +1241,9 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
 							return Ok(Pays::No.into());
 						},
-						PaymentState::Pending
-						| PaymentState::Failed
-						| PaymentState::Attempted { .. } => BountyStatus::RefundAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::RefundAttempted {
 							payment_status: new_payment_status,
 							curator: curator.clone(),
 						},
@@ -1277,9 +1277,9 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
 							return Ok(Pays::No.into());
 						},
-						PaymentState::Pending
-						| PaymentState::Failed
-						| PaymentState::Attempted { .. } => BountyStatus::PayoutAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::PayoutAttempted {
 							curator: curator.clone(),
 							beneficiary: beneficiary.clone(),
 							payment_status: new_payment_status.clone(),

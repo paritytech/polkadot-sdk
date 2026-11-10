@@ -847,8 +847,8 @@ fn permit_rejects_when_owner_lacks_deposit_balance() {
 fn permit_signature_bound_to_verifying_contract(sign_prefix: u16, submit_prefix: u16) {
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(sign_prefix);
-		if sign_prefix != PRECOMPILE_ADDRESS_PREFIX_FOREIGN
-			&& submit_prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN
+		if sign_prefix != PRECOMPILE_ADDRESS_PREFIX_FOREIGN &&
+			submit_prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN
 		{
 			crate::pallet::Pallet::<Test>::insert_asset_mapping(&setup.asset_id)
 				.expect("foreign asset mapping must insert");

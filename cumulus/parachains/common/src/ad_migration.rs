@@ -257,8 +257,8 @@ where
 				));
 			}
 			let expected_authority_discovery = Translator::gen_authority_discovery(&aura);
-			if next_keys.get_raw(AuthorityDiscoveryId::ID)
-				!= expected_authority_discovery.as_slice()
+			if next_keys.get_raw(AuthorityDiscoveryId::ID) !=
+				expected_authority_discovery.as_slice()
 			{
 				return Err(sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: authority-discovery does not match the expected placeholder",

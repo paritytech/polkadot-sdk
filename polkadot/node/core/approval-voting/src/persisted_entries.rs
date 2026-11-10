@@ -608,8 +608,8 @@ impl BlockEntry {
 			.map(|val| val.sign_no_later_than_tick);
 
 		if let Some(sign_no_later_than_tick) = sign_no_later_than_tick {
-			if sign_no_later_than_tick <= tick_now
-				|| self.num_candidates_pending_signature() >= max_approval_coalesce_count as usize
+			if sign_no_later_than_tick <= tick_now ||
+				self.num_candidates_pending_signature() >= max_approval_coalesce_count as usize
 			{
 				(
 					self.candidate_indices_pending_signature().and_then(|candidate_indices| {

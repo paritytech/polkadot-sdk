@@ -884,9 +884,9 @@ where
 
 		// `Relaxed` will only be ever set in case of off-chain execution.
 		// Instantiations are never allowed even when executing off-chain.
-		if !(executable.is_deterministic()
-			|| (matches!(determinism, Determinism::Relaxed)
-				&& matches!(entry_point, ExportedFunction::Call)))
+		if !(executable.is_deterministic() ||
+			(matches!(determinism, Determinism::Relaxed) &&
+				matches!(entry_point, ExportedFunction::Call)))
 		{
 			return Err(Error::<T>::Indeterministic.into());
 		}

@@ -109,17 +109,17 @@ impl SecondingError {
 	pub fn is_malicious(&self) -> bool {
 		use SecondingError::*;
 		match self {
-			PersistedValidationDataMismatch
-			| CandidateHashMismatch
-			| SchedulingParentMismatch
-			| RelayParentMismatch
-			| ParentHeadDataMismatch
-			| InvalidCoreIndex(_, _)
-			| InvalidSessionIndex(_, _)
-			| InvalidReceiptVersion(_)
-			| DescriptorVersionMismatch(_, _)
-			| ParaIdMismatch
-			| OutputHeadHashMismatch => true,
+			PersistedValidationDataMismatch |
+			CandidateHashMismatch |
+			SchedulingParentMismatch |
+			RelayParentMismatch |
+			ParentHeadDataMismatch |
+			InvalidCoreIndex(_, _) |
+			InvalidSessionIndex(_, _) |
+			InvalidReceiptVersion(_) |
+			DescriptorVersionMismatch(_, _) |
+			ParaIdMismatch |
+			OutputHeadHashMismatch => true,
 			_ => false,
 		}
 	}

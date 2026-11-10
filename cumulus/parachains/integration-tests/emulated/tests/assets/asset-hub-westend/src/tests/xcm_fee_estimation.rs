@@ -351,10 +351,10 @@ fn multi_hop_works() {
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 	assert_eq!(
 		receiver_assets_after,
-		receiver_assets_before + amount_to_send
-			- intermediate_execution_fees
-			- intermediate_delivery_fees_amount
-			- final_execution_fees
+		receiver_assets_before + amount_to_send -
+			intermediate_execution_fees -
+			intermediate_delivery_fees_amount -
+			final_execution_fees
 	);
 }
 

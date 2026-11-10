@@ -940,8 +940,8 @@ mod tests {
 			let block_sync_requests = block_sync_requester.requests.lock();
 
 			// we request blocks targeted by the precommits that aren't imported
-			if block_sync_requests.contains(&(h2.hash(), *h2.number()))
-				&& block_sync_requests.contains(&(h3.hash(), *h3.number()))
+			if block_sync_requests.contains(&(h2.hash(), *h2.number())) &&
+				block_sync_requests.contains(&(h3.hash(), *h3.number()))
 			{
 				return Poll::Ready(());
 			}

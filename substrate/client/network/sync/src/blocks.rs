@@ -178,8 +178,8 @@ impl<B: BlockT> BlockCollection<B> {
 					// If there is a gap between ranges requested, download this gap unless the peer
 					// has common number above the gap start
 					(Some((start, r)), Some((next_start, _)))
-						if *start + r.len() < *next_start
-							&& *start + r.len() >= first_different =>
+						if *start + r.len() < *next_start &&
+							*start + r.len() >= first_different =>
 					{
 						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0)
 					},

@@ -166,9 +166,9 @@ fn test_dispute_state_flag_from_state() {
 			start: 0,
 			concluded_at: None,
 		}),
-		DisputeStateFlags::AGAINST_SUPERMAJORITY
-			| DisputeStateFlags::CONFIRMED
-			| DisputeStateFlags::AGAINST_BYZANTINE,
+		DisputeStateFlags::AGAINST_SUPERMAJORITY |
+			DisputeStateFlags::CONFIRMED |
+			DisputeStateFlags::AGAINST_BYZANTINE,
 	);
 }
 
@@ -286,9 +286,9 @@ fn test_import_prev_participant_confirmed_slash_for() {
 	assert_eq!(summary.new_participants, bitvec![u8, BitOrderLsb0; 0, 0, 1, 1, 1, 1, 1, 0]);
 	assert_eq!(
 		summary.new_flags,
-		DisputeStateFlags::CONFIRMED
-			| DisputeStateFlags::AGAINST_SUPERMAJORITY
-			| DisputeStateFlags::AGAINST_BYZANTINE,
+		DisputeStateFlags::CONFIRMED |
+			DisputeStateFlags::AGAINST_SUPERMAJORITY |
+			DisputeStateFlags::AGAINST_BYZANTINE,
 	);
 }
 

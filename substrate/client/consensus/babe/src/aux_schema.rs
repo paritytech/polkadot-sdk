@@ -203,8 +203,8 @@ mod test {
 				.tree()
 				.iter()
 				.map(|(_, _, epoch)| epoch.clone())
-				.collect::<Vec<_>>()
-				== vec![PersistedEpochHeader::Regular(EpochHeader {
+				.collect::<Vec<_>>() ==
+				vec![PersistedEpochHeader::Regular(EpochHeader {
 					start_slot: 0.into(),
 					end_slot: 100.into(),
 				})],

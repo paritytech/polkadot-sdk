@@ -217,9 +217,9 @@ pub fn compute_assignments(
 	config: &Config,
 	leaving_cores: impl IntoIterator<Item = (CandidateHash, CoreIndex, GroupIndex)> + Clone,
 ) -> HashMap<CoreIndex, OurAssignment> {
-	if config.n_cores == 0
-		|| config.assignment_keys.is_empty()
-		|| config.validator_groups.is_empty()
+	if config.n_cores == 0 ||
+		config.assignment_keys.is_empty() ||
+		config.validator_groups.is_empty()
 	{
 		gum::trace!(
 			target: LOG_TARGET,
@@ -460,8 +460,8 @@ pub(crate) fn check_assignment_cert(
 		.map_err(|_| InvalidAssignment(Reason::InvalidAssignmentKey))?;
 
 	// Check that we have all backing groups for claimed cores.
-	if claimed_core_indices.count_ones() == 0
-		|| claimed_core_indices.count_ones() != backing_groups.len()
+	if claimed_core_indices.count_ones() == 0 ||
+		claimed_core_indices.count_ones() != backing_groups.len()
 	{
 		return Err(InvalidAssignment(Reason::InvalidArguments));
 	}

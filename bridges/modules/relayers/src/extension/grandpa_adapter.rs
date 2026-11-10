@@ -130,8 +130,8 @@ where
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {
-		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer)
-			&& verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
+		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer) &&
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 

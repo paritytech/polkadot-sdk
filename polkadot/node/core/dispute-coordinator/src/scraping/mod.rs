@@ -425,9 +425,9 @@ impl ChainScraper {
 			for (block_number, hash) in block_numbers.zip(&hashes) {
 				// Return if we either met target/cached block or
 				// hit the size limit for the returned ancestry of head.
-				if self.last_observed_blocks.get(hash).is_some()
-					|| block_number <= target_ancestor
-					|| ancestors.len() >= Self::ANCESTRY_SIZE_LIMIT as usize
+				if self.last_observed_blocks.get(hash).is_some() ||
+					block_number <= target_ancestor ||
+					ancestors.len() >= Self::ANCESTRY_SIZE_LIMIT as usize
 				{
 					return Ok(ancestors);
 				}

@@ -473,8 +473,8 @@ impl MockDepositProvider {
 	fn awaits_answer(side: &(HrmpChannelId, ChannelSide)) -> bool {
 		let not_release = |r: &DepositChangeRequest| r.action != DepositAction::Release;
 		let for_side = |r: &DepositChangeRequest| Self::sides(r).any(|s| &s == side);
-		Self::requests().iter().any(|r| not_release(r) && for_side(r))
-			|| Self::answers().iter().any(|(r, _)| for_side(r))
+		Self::requests().iter().any(|r| not_release(r) && for_side(r)) ||
+			Self::answers().iter().any(|(r, _)| for_side(r))
 	}
 }
 

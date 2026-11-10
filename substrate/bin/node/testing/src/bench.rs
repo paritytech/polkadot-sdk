@@ -315,8 +315,8 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 							dest: sp_runtime::MultiAddress::Id(receiver),
 							// Transfer so that ending balance would be 1 less than existential
 							// deposit so that we kill the sender account.
-							value: 100 * DOLLARS
-								- (kitchensink_runtime::ExistentialDeposit::get() - 1),
+							value: 100 * DOLLARS -
+								(kitchensink_runtime::ExistentialDeposit::get() - 1),
 						})
 					},
 					BlockType::Noop => {

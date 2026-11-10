@@ -152,8 +152,8 @@ fn relay_has_record(para_id: u32) -> bool {
 
 /// Whether the relay chain has scheduled `para_id` to be cleaned up.
 fn relay_offboarding(para_id: u32) -> bool {
-	polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(para_id.into())
-		== Some(polkadot_runtime_parachains::ParaLifecycle::OffboardingParathread)
+	polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(para_id.into()) ==
+		Some(polkadot_runtime_parachains::ParaLifecycle::OffboardingParathread)
 }
 
 /// Whether the parachain's registrar emitted an event matching `f`.
@@ -449,8 +449,8 @@ fn a_head_update_the_relay_chain_refuses_is_reported_back() {
 	Relay::execute_with(|| assert_eq!(relay_head(para_id), Some(HeadData(head(32)))));
 
 	RegistrarPara::execute_with(|| {
-		assert!(para_event(|e| *e
-			== pallet_registrar_para::Event::HeadUpdateFailed {
+		assert!(para_event(|e| *e ==
+			pallet_registrar_para::Event::HeadUpdateFailed {
 				para_id,
 				message_id: 1,
 				reason: FailureReason::HeadDataTooLarge,

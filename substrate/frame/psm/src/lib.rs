@@ -911,8 +911,8 @@ pub mod pallet {
 				.saturating_sub(fee.saturating_add(effective_internal_net));
 
 			let with_remainder = fee.saturating_add(remainder);
-			if remainder < T::Fungibles::minimum_balance(internal_asset.clone())
-				&& T::Fungibles::can_deposit(
+			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) &&
+				T::Fungibles::can_deposit(
 					internal_asset.clone(),
 					&info.fee_destination,
 					with_remainder,
@@ -1806,8 +1806,8 @@ pub mod pallet {
 				// possible causes: something burned the asset outside of the PSM, or
 				// the debt records are wrong.
 				ensure!(
-					T::Fungibles::total_issuance(internal_asset.clone())
-						>= Self::total_psm_debt(&internal_asset),
+					T::Fungibles::total_issuance(internal_asset.clone()) >=
+						Self::total_psm_debt(&internal_asset),
 					"Total internal issuance is less than total PSM debt"
 				);
 
@@ -1865,8 +1865,8 @@ pub mod pallet {
 					// Check 9 (advisory): the ceiling weight and the debt are zero,
 					// but the reserve has a balance. A donation or an error can do
 					// this.
-					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero()
-						&& debt.is_zero() && !reserve.is_zero()
+					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero() &&
+						debt.is_zero() && !reserve.is_zero()
 					{
 						log::warn!(
 							target: "runtime::psm",

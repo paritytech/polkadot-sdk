@@ -399,8 +399,8 @@ fn maybe_migrate_to_type_subdir<Block: BlockT>(
 		// Do we have to migrate to a database-type-based subdirectory layout:
 		// See if there's a file identifying a rocksdb or paritydb folder in the parent dir and
 		// the target path ends in a role specific directory
-		if (basedir.join("db_version").exists() || basedir.join("metadata").exists())
-			&& (p.ends_with(DatabaseType::Full.as_str()))
+		if (basedir.join("db_version").exists() || basedir.join("metadata").exists()) &&
+			(p.ends_with(DatabaseType::Full.as_str()))
 		{
 			// Try to open the database to check if the current `DatabaseType` matches the type of
 			// database stored in the target directory and close the database on success.
