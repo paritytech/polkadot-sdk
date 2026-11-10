@@ -72,8 +72,8 @@ pub const HIGHEST_PRIORITY: Priority = 0;
 /// which the tasks of an agenda are tried. It never lets a task exceed the weight available to the
 /// scheduler in a block (at most its `MaximumWeight`). A task that does not fit is postponed to a
 /// later block whatever its priority, so a lighter task of lower priority may run before it. In
-/// some cases, e.g. when no other task could run before it, such a task is instead marked as
-/// permanently overweight and not executed.
+/// some cases, e.g. when its call needs more than `MaximumWeight`, such a task is instead marked
+/// as permanently overweight and not executed.
 pub const HARD_DEADLINE: Priority = 63;
 /// The lowest priority. Most stuff should be around here.
 pub const LOWEST_PRIORITY: Priority = 255;
