@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794301130266,
+  "lastUpdate": 1794308040697,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -143315,6 +143315,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2824946595,
             "range": "± 25980286",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9764c91c0711c4b366315672000f4f71e0c8a43d",
+          "message": "network/light: Process execution proof requests in parallel, queue QoS (#13677)\n\nAdd a thread pool for processing light client execution proof requests\nand extract them into a dedicated queue.\n\nThe number of workers is set to half the available CPU cores (at most 4)\nby default and can be increased via `--light-request-call-workers` cli.",
+          "timestamp": "2026-11-10T09:10:25Z",
+          "tree_id": "159f43394f9a369d76b2813be194bde0cf847944",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9764c91c0711c4b366315672000f4f71e0c8a43d"
+        },
+        "date": 1794308010700,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19410396,
+            "range": "± 143503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19781180,
+            "range": "± 104921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21060566,
+            "range": "± 67569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25407412,
+            "range": "± 185493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 55688877,
+            "range": "± 531001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 312752831,
+            "range": "± 2106676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2579033555,
+            "range": "± 14294826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16834408,
+            "range": "± 515522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16758737,
+            "range": "± 75428",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17401360,
+            "range": "± 111151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21794145,
+            "range": "± 72460",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57643432,
+            "range": "± 422651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 336174251,
+            "range": "± 1576502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2586229381,
+            "range": "± 16972431",
             "unit": "ns/iter"
           }
         ]
