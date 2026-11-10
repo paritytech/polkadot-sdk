@@ -37,16 +37,11 @@ use crate::{
 	},
 };
 use core::marker::PhantomData;
-<<<<<<< HEAD
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
+use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{
 	traits::{Bounded, Saturating},
 	ArithmeticError, DispatchError, TokenError,
 };
-=======
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
-use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
->>>>>>> 09f43112 (Dust accounting in fungibles transfers and approvals (#13230))
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
