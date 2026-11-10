@@ -199,29 +199,81 @@ pub trait WeightInfo {
 	fn bn128_pairing(n: u32, ) -> Weight;
 	fn blake2f(n: u32, ) -> Weight;
 	fn seal_ecdsa_to_eth_address() -> Weight;
-	fn evm_opcode(r: u32, ) -> Weight;
+	fn evm_jumpdest_opcode(r: u32, ) -> Weight;
+	fn evm_jump_opcode(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode(r: u32, ) -> Weight;
+	fn evm_pc_opcode(r: u32, ) -> Weight;
+	fn evm_push_opcode(r: u32, ) -> Weight;
 	fn evm_pop_opcode(r: u32, ) -> Weight;
+	fn evm_dup_opcode(r: u32, ) -> Weight;
+	fn evm_swap_opcode(r: u32, ) -> Weight;
+	fn evm_chainid_opcode(r: u32, ) -> Weight;
+	fn evm_difficulty_opcode(r: u32, ) -> Weight;
+	fn evm_codesize_opcode(r: u32, ) -> Weight;
+	fn evm_calldatasize_opcode(r: u32, ) -> Weight;
+	fn evm_returndatasize_opcode(r: u32, ) -> Weight;
+	fn evm_calldataload_opcode(r: u32, ) -> Weight;
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight;
+	fn evm_codecopy_opcode(r: u32, ) -> Weight;
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight;
+	fn evm_memory_grow(n: u32, ) -> Weight;
+	fn evm_memory_reallocate(n: u32, ) -> Weight;
+	fn evm_memory_copy_out(n: u32, ) -> Weight;
+	fn evm_mload_opcode(r: u32, ) -> Weight;
+	fn evm_msize_opcode(r: u32, ) -> Weight;
+	fn evm_mstore_opcode(r: u32, ) -> Weight;
+	fn evm_mstore8_opcode(r: u32, ) -> Weight;
+	fn evm_mcopy_opcode(r: u32, ) -> Weight;
+	fn evm_mcopy_per_byte(n: u32, ) -> Weight;
+	fn evm_lt_opcode(r: u32, ) -> Weight;
+	fn evm_gt_opcode(r: u32, ) -> Weight;
+	fn evm_eq_opcode(r: u32, ) -> Weight;
+	fn evm_iszero_opcode(r: u32, ) -> Weight;
+	fn evm_and_opcode(r: u32, ) -> Weight;
+	fn evm_or_opcode(r: u32, ) -> Weight;
+	fn evm_xor_opcode(r: u32, ) -> Weight;
+	fn evm_not_opcode(r: u32, ) -> Weight;
+	fn evm_byte_opcode(r: u32, ) -> Weight;
+	fn evm_clz_opcode(r: u32, ) -> Weight;
+	fn evm_slt_opcode(r: u32, ) -> Weight;
+	fn evm_sgt_opcode(r: u32, ) -> Weight;
+	fn evm_shl_opcode(r: u32, ) -> Weight;
+	fn evm_shr_opcode(r: u32, ) -> Weight;
+	fn evm_sar_opcode(r: u32, ) -> Weight;
+	fn evm_addmod_opcode(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode(r: u32, ) -> Weight;
 	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
+	fn evm_add_opcode(r: u32, ) -> Weight;
+	fn evm_sub_opcode(r: u32, ) -> Weight;
+	fn evm_mul_opcode(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode(r: u32, ) -> Weight;
 	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode(r: u32, ) -> Weight;
 	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
-	fn evm_addmod_opcode(r: u32, ) -> Weight;
-	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight;
-	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight;
-	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_mulmod_opcode(r: u32, ) -> Weight;
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight;
+	fn evm_exp_opcode(r: u32, ) -> Weight;
+	fn evm_exp_per_bit(b: u32, ) -> Weight;
+	fn evm_signextend_opcode(r: u32, ) -> Weight;
+	fn evm_dispatch_mix(r: u32, ) -> Weight;
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn extcodecopy(n: u32, ) -> Weight;
@@ -1614,8 +1666,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
@@ -1631,17 +1681,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `i` is `[1, 49152]`.
 	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `790`
-		//  Estimated: `9195`
-		// Minimum execution time: 235_673_000 picoseconds.
-		Weight::from_parts(239_481_063, 9195)
-			// Standard Error: 12
-			.saturating_add(Weight::from_parts(7_321, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(8_u64))
+		//  Measured:  `442`
+		//  Estimated: `8871`
+		// Minimum execution time: 224_356_000 picoseconds.
+		Weight::from_parts(231_498_474, 8871)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(7_257, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
@@ -1657,13 +1705,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `d` is `[0, 1]`.
 	fn evm_instantiate_transfer(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `751`
-		//  Estimated: `9166`
-		// Minimum execution time: 270_401_000 picoseconds.
-		Weight::from_parts(286_243_752, 9166)
-			// Standard Error: 487_585
-			.saturating_add(Weight::from_parts(38_625_825, 0).saturating_mul(d.into()))
-			.saturating_add(T::DbWeight::get().reads(8_u64))
+		//  Measured:  `442`
+		//  Estimated: `8857`
+		// Minimum execution time: 258_495_000 picoseconds.
+		Weight::from_parts(282_916_311, 8857)
+			// Standard Error: 413_075
+			.saturating_add(Weight::from_parts(36_876_888, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
@@ -1791,235 +1839,755 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 12_833_000 picoseconds.
 		Weight::from_parts(13_129_000, 0)
 	}
-	/// The range of component `r` is `[0, 10000]`.
-	fn evm_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_jumpdest_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 630_000 picoseconds.
-		Weight::from_parts(843_492, 0)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(7_771, 0).saturating_mul(r.into()))
+		// Minimum execution time: 1_012_000 picoseconds.
+		Weight::from_parts(1_068_128, 0)
+			// Standard Error: 6
+			.saturating_add(Weight::from_parts(11_517, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[1, 11]`.
+	fn evm_jump_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 764_000 picoseconds.
+		Weight::from_parts(957_673, 0)
+			// Standard Error: 252
+			.saturating_add(Weight::from_parts(57_478, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[1, 11]`.
+	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 751_000 picoseconds.
+		Weight::from_parts(956_499, 0)
+			// Standard Error: 285
+			.saturating_add(Weight::from_parts(75_161, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_pc_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 453_000 picoseconds.
+		Weight::from_parts(1_863_185, 0)
+			// Standard Error: 49
+			.saturating_add(Weight::from_parts(20_437, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(3_363_415, 0)
+			// Standard Error: 65
+			.saturating_add(Weight::from_parts(35_668, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pop_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 353_000 picoseconds.
-		Weight::from_parts(887_325, 0)
-			// Standard Error: 10
-			.saturating_add(Weight::from_parts(8_553, 0).saturating_mul(r.into()))
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(823_503, 0)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(12_302, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 492_000 picoseconds.
-		Weight::from_parts(1_844_800, 0)
-			// Standard Error: 109
-			.saturating_add(Weight::from_parts(410_221, 0).saturating_mul(r.into()))
+		// Minimum execution time: 416_000 picoseconds.
+		Weight::from_parts(2_876_181, 0)
+			// Standard Error: 51
+			.saturating_add(Weight::from_parts(34_211, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 422_000 picoseconds.
-		Weight::from_parts(1_485_100, 0)
-			// Standard Error: 95
-			.saturating_add(Weight::from_parts(236_743, 0).saturating_mul(r.into()))
+		// Minimum execution time: 441_000 picoseconds.
+		Weight::from_parts(536_820, 0)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(24_900, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_chainid_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 433_000 picoseconds.
-		Weight::from_parts(3_206_566, 0)
-			// Standard Error: 187
-			.saturating_add(Weight::from_parts(336_746, 0).saturating_mul(r.into()))
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_837_039, 0)
+			// Standard Error: 45
+			.saturating_add(Weight::from_parts(19_088, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_difficulty_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 483_000 picoseconds.
-		Weight::from_parts(1_842_266, 0)
-			// Standard Error: 166
-			.saturating_add(Weight::from_parts(414_538, 0).saturating_mul(r.into()))
+		// Minimum execution time: 440_000 picoseconds.
+		Weight::from_parts(1_862_343, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(19_344, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_codesize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 464_000 picoseconds.
-		Weight::from_parts(1_805_346, 0)
-			// Standard Error: 177
-			.saturating_add(Weight::from_parts(457_497, 0).saturating_mul(r.into()))
+		// Minimum execution time: 421_000 picoseconds.
+		Weight::from_parts(1_750_353, 0)
+			// Standard Error: 48
+			.saturating_add(Weight::from_parts(19_786, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_calldatasize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 425_000 picoseconds.
-		Weight::from_parts(1_504_684, 0)
-			// Standard Error: 82
-			.saturating_add(Weight::from_parts(274_239, 0).saturating_mul(r.into()))
+		// Minimum execution time: 408_000 picoseconds.
+		Weight::from_parts(1_757_881, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(19_488, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 439_000 picoseconds.
-		Weight::from_parts(2_464_071, 0)
-			// Standard Error: 191
-			.saturating_add(Weight::from_parts(375_994, 0).saturating_mul(r.into()))
+		// Minimum execution time: 417_000 picoseconds.
+		Weight::from_parts(1_807_369, 0)
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(19_549, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 31]`.
+	fn evm_calldataload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 444_000 picoseconds.
-		Weight::from_parts(1_729_460, 0)
-			// Standard Error: 183
-			.saturating_add(Weight::from_parts(457_703, 0).saturating_mul(r.into()))
+		// Minimum execution time: 432_000 picoseconds.
+		Weight::from_parts(851_870, 0)
+			// Standard Error: 168
+			.saturating_add(Weight::from_parts(72_599, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 442_000 picoseconds.
-		Weight::from_parts(1_689_967, 0)
-			// Standard Error: 207
-			.saturating_add(Weight::from_parts(417_990, 0).saturating_mul(r.into()))
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_537_051, 0)
+			// Standard Error: 37
+			.saturating_add(Weight::from_parts(68_004, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_codecopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 439_000 picoseconds.
-		Weight::from_parts(1_295_878, 0)
-			// Standard Error: 94
-			.saturating_add(Weight::from_parts(239_958, 0).saturating_mul(r.into()))
+		// Minimum execution time: 474_000 picoseconds.
+		Weight::from_parts(1_623_102, 0)
+			// Standard Error: 44
+			.saturating_add(Weight::from_parts(68_201, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 427_000 picoseconds.
-		Weight::from_parts(3_245_871, 0)
-			// Standard Error: 185
-			.saturating_add(Weight::from_parts(341_588, 0).saturating_mul(r.into()))
+		// Minimum execution time: 426_000 picoseconds.
+		Weight::from_parts(1_534_667, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(71_440, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `n` is `[1, 16383]`.
+	fn evm_memory_grow(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 453_000 picoseconds.
-		Weight::from_parts(1_526_347, 0)
-			// Standard Error: 198
-			.saturating_add(Weight::from_parts(418_846, 0).saturating_mul(r.into()))
+		// Minimum execution time: 400_000 picoseconds.
+		Weight::from_parts(424_559, 0)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(3_137, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode(r: u32, ) -> Weight {
+	/// The range of component `n` is `[256, 32768]`.
+	fn evm_memory_reallocate(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 402_000 picoseconds.
-		Weight::from_parts(1_898_673, 0)
-			// Standard Error: 140
-			.saturating_add(Weight::from_parts(419_767, 0).saturating_mul(r.into()))
+		// Minimum execution time: 1_138_000 picoseconds.
+		Weight::from_parts(1_223_236, 0)
+			// Standard Error: 2
+			.saturating_add(Weight::from_parts(1_920, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `n` is `[0, 1048576]`.
+	fn evm_memory_copy_out(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 281_000 picoseconds.
+		Weight::from_parts(1_256_799, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(130, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mload_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 551_000 picoseconds.
+		Weight::from_parts(1_151_473, 0)
+			// Standard Error: 73
+			.saturating_add(Weight::from_parts(50_296, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_msize_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 434_000 picoseconds.
+		Weight::from_parts(1_815_176, 0)
+			// Standard Error: 56
+			.saturating_add(Weight::from_parts(19_859, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 524_000 picoseconds.
+		Weight::from_parts(1_176_692, 0)
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(45_513, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 503_000 picoseconds.
+		Weight::from_parts(1_087_231, 0)
+			// Standard Error: 38
+			.saturating_add(Weight::from_parts(41_895, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 63]`.
+	fn evm_mcopy_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 667_000 picoseconds.
+		Weight::from_parts(1_676_087, 0)
+			// Standard Error: 643
+			.saturating_add(Weight::from_parts(149_157, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `n` is `[4028, 1044421]`.
+	fn evm_mcopy_per_byte(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_499_000 picoseconds.
+		Weight::from_parts(1_373_461, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(347, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_lt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(655_391, 0)
+			// Standard Error: 15
+			.saturating_add(Weight::from_parts(22_101, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_gt_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 470_000 picoseconds.
-		Weight::from_parts(1_520_029, 0)
-			// Standard Error: 94
-			.saturating_add(Weight::from_parts(242_051, 0).saturating_mul(r.into()))
+		Weight::from_parts(668_123, 0)
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(22_081, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_eq_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 454_000 picoseconds.
-		Weight::from_parts(2_602_098, 0)
-			// Standard Error: 166
-			.saturating_add(Weight::from_parts(336_957, 0).saturating_mul(r.into()))
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(635_557, 0)
+			// Standard Error: 11
+			.saturating_add(Weight::from_parts(47_373, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_iszero_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 390_000 picoseconds.
-		Weight::from_parts(1_590_240, 0)
-			// Standard Error: 188
-			.saturating_add(Weight::from_parts(419_559, 0).saturating_mul(r.into()))
+		// Minimum execution time: 453_000 picoseconds.
+		Weight::from_parts(949_622, 0)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(32_590, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_and_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 481_000 picoseconds.
+		Weight::from_parts(899_318, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(16_983, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_or_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 472_000 picoseconds.
+		Weight::from_parts(868_279, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(16_539, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_xor_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 430_000 picoseconds.
+		Weight::from_parts(899_649, 0)
+			// Standard Error: 6
+			.saturating_add(Weight::from_parts(16_918, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_not_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 434_000 picoseconds.
+		Weight::from_parts(583_000, 0)
+			// Standard Error: 3
+			.saturating_add(Weight::from_parts(14_540, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_byte_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 451_000 picoseconds.
+		Weight::from_parts(1_009_358, 0)
+			// Standard Error: 20
+			.saturating_add(Weight::from_parts(34_738, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_clz_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 472_000 picoseconds.
+		Weight::from_parts(975_108, 0)
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(33_492, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_slt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 409_000 picoseconds.
+		Weight::from_parts(993_263, 0)
+			// Standard Error: 30
+			.saturating_add(Weight::from_parts(43_901, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sgt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 488_000 picoseconds.
+		Weight::from_parts(1_048_360, 0)
+			// Standard Error: 28
+			.saturating_add(Weight::from_parts(43_618, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shl_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 442_000 picoseconds.
+		Weight::from_parts(1_359_919, 0)
+			// Standard Error: 24
+			.saturating_add(Weight::from_parts(42_880, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shr_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 471_000 picoseconds.
+		Weight::from_parts(1_248_301, 0)
+			// Standard Error: 21
+			.saturating_add(Weight::from_parts(40_221, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sar_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_266_049, 0)
+			// Standard Error: 20
+			.saturating_add(Weight::from_parts(49_029, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 469_000 picoseconds.
-		Weight::from_parts(2_015_159, 0)
-			// Standard Error: 332
-			.saturating_add(Weight::from_parts(814_536, 0).saturating_mul(r.into()))
+		// Minimum execution time: 441_000 picoseconds.
+		Weight::from_parts(1_205_472, 0)
+			// Standard Error: 558
+			.saturating_add(Weight::from_parts(882_452, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 460_000 picoseconds.
-		Weight::from_parts(1_813_452, 0)
-			// Standard Error: 223
-			.saturating_add(Weight::from_parts(450_338, 0).saturating_mul(r.into()))
+		// Minimum execution time: 471_000 picoseconds.
+		Weight::from_parts(2_151_030, 0)
+			// Standard Error: 271
+			.saturating_add(Weight::from_parts(463_847, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 407_000 picoseconds.
+		Weight::from_parts(1_795_342, 0)
+			// Standard Error: 347
+			.saturating_add(Weight::from_parts(637_220, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 468_000 picoseconds.
-		Weight::from_parts(3_466_555, 0)
-			// Standard Error: 361
-			.saturating_add(Weight::from_parts(667_427, 0).saturating_mul(r.into()))
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(3_004_544, 0)
+			// Standard Error: 481
+			.saturating_add(Weight::from_parts(717_347, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 433_000 picoseconds.
-		Weight::from_parts(1_537_710, 0)
-			// Standard Error: 353
-			.saturating_add(Weight::from_parts(829_151, 0).saturating_mul(r.into()))
+		// Minimum execution time: 452_000 picoseconds.
+		Weight::from_parts(674_284, 0)
+			// Standard Error: 631
+			.saturating_add(Weight::from_parts(904_909, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 483_000 picoseconds.
+		Weight::from_parts(1_294_256, 0)
+			// Standard Error: 255
+			.saturating_add(Weight::from_parts(441_164, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 413_000 picoseconds.
+		Weight::from_parts(1_360_893, 0)
+			// Standard Error: 165
+			.saturating_add(Weight::from_parts(247_265, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(1_593_431, 0)
+			// Standard Error: 150
+			.saturating_add(Weight::from_parts(322_998, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 500_000 picoseconds.
+		Weight::from_parts(3_425_857, 0)
+			// Standard Error: 197
+			.saturating_add(Weight::from_parts(357_334, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 445_000 picoseconds.
+		Weight::from_parts(1_392_645, 0)
+			// Standard Error: 267
+			.saturating_add(Weight::from_parts(444_291, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_add_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 447_000 picoseconds.
+		Weight::from_parts(791_963, 0)
+			// Standard Error: 7
+			.saturating_add(Weight::from_parts(24_942, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sub_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 443_000 picoseconds.
+		Weight::from_parts(763_775, 0)
+			// Standard Error: 7
+			.saturating_add(Weight::from_parts(25_033, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_mul_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 411_000 picoseconds.
+		Weight::from_parts(904_821, 0)
+			// Standard Error: 11
+			.saturating_add(Weight::from_parts(53_109, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 430_000 picoseconds.
+		Weight::from_parts(1_575_324, 0)
+			// Standard Error: 237
+			.saturating_add(Weight::from_parts(498_006, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(1_346_921, 0)
+			// Standard Error: 192
+			.saturating_add(Weight::from_parts(286_878, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(2_031_387, 0)
+			// Standard Error: 154
+			.saturating_add(Weight::from_parts(376_282, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 451_000 picoseconds.
+		Weight::from_parts(2_214_378, 0)
+			// Standard Error: 250
+			.saturating_add(Weight::from_parts(401_023, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 477_000 picoseconds.
+		Weight::from_parts(1_399_011, 0)
+			// Standard Error: 270
+			.saturating_add(Weight::from_parts(500_986, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 452_000 picoseconds.
+		Weight::from_parts(1_635_620, 0)
+			// Standard Error: 285
+			.saturating_add(Weight::from_parts(438_516, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 454_000 picoseconds.
+		Weight::from_parts(1_435_813, 0)
+			// Standard Error: 121
+			.saturating_add(Weight::from_parts(248_709, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 497_000 picoseconds.
+		Weight::from_parts(1_573_580, 0)
+			// Standard Error: 279
+			.saturating_add(Weight::from_parts(319_597, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 446_000 picoseconds.
+		Weight::from_parts(3_147_273, 0)
+			// Standard Error: 258
+			.saturating_add(Weight::from_parts(357_005, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 417_000 picoseconds.
+		Weight::from_parts(925_760, 0)
+			// Standard Error: 347
+			.saturating_add(Weight::from_parts(444_892, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(1_653_899, 0)
+			// Standard Error: 170
+			.saturating_add(Weight::from_parts(475_773, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_359_716, 0)
+			// Standard Error: 109
+			.saturating_add(Weight::from_parts(262_406, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 503_000 picoseconds.
+		Weight::from_parts(1_986_615, 0)
+			// Standard Error: 189
+			.saturating_add(Weight::from_parts(346_942, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 474_000 picoseconds.
+		Weight::from_parts(2_599_786, 0)
+			// Standard Error: 182
+			.saturating_add(Weight::from_parts(374_379, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 462_000 picoseconds.
+		Weight::from_parts(1_280_985, 0)
+			// Standard Error: 237
+			.saturating_add(Weight::from_parts(474_118, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_mulmod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 431_000 picoseconds.
-		Weight::from_parts(1_849_136, 0)
-			// Standard Error: 176
-			.saturating_add(Weight::from_parts(525_462, 0).saturating_mul(r.into()))
+		// Minimum execution time: 454_000 picoseconds.
+		Weight::from_parts(2_191_677, 0)
+			// Standard Error: 288
+			.saturating_add(Weight::from_parts(557_038, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(1_178_823, 0)
+			// Standard Error: 21
+			.saturating_add(Weight::from_parts(41_379, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_555_336, 0)
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(90_472, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `b` is `[0, 255]`.
+	fn evm_exp_per_bit(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 720_000 picoseconds.
+		Weight::from_parts(1_170_841, 0)
+			// Standard Error: 31
+			.saturating_add(Weight::from_parts(61_639, 0).saturating_mul(b.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_signextend_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 516_000 picoseconds.
+		Weight::from_parts(1_201_921, 0)
+			// Standard Error: 36
+			.saturating_add(Weight::from_parts(43_101, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 614]`.
+	fn evm_dispatch_mix(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 436_000 picoseconds.
+		Weight::from_parts(2_924_909, 0)
+			// Standard Error: 597
+			.saturating_add(Weight::from_parts(2_330_607, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr(r: u32, ) -> Weight {
@@ -2052,10 +2620,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `367 + n * (1 ±0)`
 		//  Estimated: `3831 + n * (1 ±0)`
-		// Minimum execution time: 19_819_000 picoseconds.
-		Weight::from_parts(16_050_950, 3831)
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(1_094, 0).saturating_mul(n.into()))
+		// Minimum execution time: 20_756_000 picoseconds.
+		Weight::from_parts(17_417_255, 3831)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(1_035, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
@@ -3676,8 +4244,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
@@ -3693,17 +4259,15 @@ impl WeightInfo for () {
 	/// The range of component `i` is `[1, 49152]`.
 	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `790`
-		//  Estimated: `9195`
-		// Minimum execution time: 235_673_000 picoseconds.
-		Weight::from_parts(239_481_063, 9195)
-			// Standard Error: 12
-			.saturating_add(Weight::from_parts(7_321, 0).saturating_mul(i.into()))
-			.saturating_add(RocksDbWeight::get().reads(8_u64))
+		//  Measured:  `442`
+		//  Estimated: `8871`
+		// Minimum execution time: 224_356_000 picoseconds.
+		Weight::from_parts(231_498_474, 8871)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(7_257, 0).saturating_mul(i.into()))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
@@ -3719,13 +4283,13 @@ impl WeightInfo for () {
 	/// The range of component `d` is `[0, 1]`.
 	fn evm_instantiate_transfer(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `751`
-		//  Estimated: `9166`
-		// Minimum execution time: 270_401_000 picoseconds.
-		Weight::from_parts(286_243_752, 9166)
-			// Standard Error: 487_585
-			.saturating_add(Weight::from_parts(38_625_825, 0).saturating_mul(d.into()))
-			.saturating_add(RocksDbWeight::get().reads(8_u64))
+		//  Measured:  `442`
+		//  Estimated: `8857`
+		// Minimum execution time: 258_495_000 picoseconds.
+		Weight::from_parts(282_916_311, 8857)
+			// Standard Error: 413_075
+			.saturating_add(Weight::from_parts(36_876_888, 0).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
@@ -3853,235 +4417,755 @@ impl WeightInfo for () {
 		// Minimum execution time: 12_833_000 picoseconds.
 		Weight::from_parts(13_129_000, 0)
 	}
-	/// The range of component `r` is `[0, 10000]`.
-	fn evm_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_jumpdest_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 630_000 picoseconds.
-		Weight::from_parts(843_492, 0)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(7_771, 0).saturating_mul(r.into()))
+		// Minimum execution time: 1_012_000 picoseconds.
+		Weight::from_parts(1_068_128, 0)
+			// Standard Error: 6
+			.saturating_add(Weight::from_parts(11_517, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[1, 11]`.
+	fn evm_jump_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 764_000 picoseconds.
+		Weight::from_parts(957_673, 0)
+			// Standard Error: 252
+			.saturating_add(Weight::from_parts(57_478, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[1, 11]`.
+	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 751_000 picoseconds.
+		Weight::from_parts(956_499, 0)
+			// Standard Error: 285
+			.saturating_add(Weight::from_parts(75_161, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_pc_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 453_000 picoseconds.
+		Weight::from_parts(1_863_185, 0)
+			// Standard Error: 49
+			.saturating_add(Weight::from_parts(20_437, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(3_363_415, 0)
+			// Standard Error: 65
+			.saturating_add(Weight::from_parts(35_668, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pop_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 353_000 picoseconds.
-		Weight::from_parts(887_325, 0)
-			// Standard Error: 10
-			.saturating_add(Weight::from_parts(8_553, 0).saturating_mul(r.into()))
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(823_503, 0)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(12_302, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 492_000 picoseconds.
-		Weight::from_parts(1_844_800, 0)
-			// Standard Error: 109
-			.saturating_add(Weight::from_parts(410_221, 0).saturating_mul(r.into()))
+		// Minimum execution time: 416_000 picoseconds.
+		Weight::from_parts(2_876_181, 0)
+			// Standard Error: 51
+			.saturating_add(Weight::from_parts(34_211, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 422_000 picoseconds.
-		Weight::from_parts(1_485_100, 0)
-			// Standard Error: 95
-			.saturating_add(Weight::from_parts(236_743, 0).saturating_mul(r.into()))
+		// Minimum execution time: 441_000 picoseconds.
+		Weight::from_parts(536_820, 0)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(24_900, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_chainid_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 433_000 picoseconds.
-		Weight::from_parts(3_206_566, 0)
-			// Standard Error: 187
-			.saturating_add(Weight::from_parts(336_746, 0).saturating_mul(r.into()))
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_837_039, 0)
+			// Standard Error: 45
+			.saturating_add(Weight::from_parts(19_088, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_difficulty_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 483_000 picoseconds.
-		Weight::from_parts(1_842_266, 0)
-			// Standard Error: 166
-			.saturating_add(Weight::from_parts(414_538, 0).saturating_mul(r.into()))
+		// Minimum execution time: 440_000 picoseconds.
+		Weight::from_parts(1_862_343, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(19_344, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_codesize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 464_000 picoseconds.
-		Weight::from_parts(1_805_346, 0)
-			// Standard Error: 177
-			.saturating_add(Weight::from_parts(457_497, 0).saturating_mul(r.into()))
+		// Minimum execution time: 421_000 picoseconds.
+		Weight::from_parts(1_750_353, 0)
+			// Standard Error: 48
+			.saturating_add(Weight::from_parts(19_786, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_calldatasize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 425_000 picoseconds.
-		Weight::from_parts(1_504_684, 0)
-			// Standard Error: 82
-			.saturating_add(Weight::from_parts(274_239, 0).saturating_mul(r.into()))
+		// Minimum execution time: 408_000 picoseconds.
+		Weight::from_parts(1_757_881, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(19_488, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 439_000 picoseconds.
-		Weight::from_parts(2_464_071, 0)
-			// Standard Error: 191
-			.saturating_add(Weight::from_parts(375_994, 0).saturating_mul(r.into()))
+		// Minimum execution time: 417_000 picoseconds.
+		Weight::from_parts(1_807_369, 0)
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(19_549, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 31]`.
+	fn evm_calldataload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 444_000 picoseconds.
-		Weight::from_parts(1_729_460, 0)
-			// Standard Error: 183
-			.saturating_add(Weight::from_parts(457_703, 0).saturating_mul(r.into()))
+		// Minimum execution time: 432_000 picoseconds.
+		Weight::from_parts(851_870, 0)
+			// Standard Error: 168
+			.saturating_add(Weight::from_parts(72_599, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 442_000 picoseconds.
-		Weight::from_parts(1_689_967, 0)
-			// Standard Error: 207
-			.saturating_add(Weight::from_parts(417_990, 0).saturating_mul(r.into()))
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_537_051, 0)
+			// Standard Error: 37
+			.saturating_add(Weight::from_parts(68_004, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_codecopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 439_000 picoseconds.
-		Weight::from_parts(1_295_878, 0)
-			// Standard Error: 94
-			.saturating_add(Weight::from_parts(239_958, 0).saturating_mul(r.into()))
+		// Minimum execution time: 474_000 picoseconds.
+		Weight::from_parts(1_623_102, 0)
+			// Standard Error: 44
+			.saturating_add(Weight::from_parts(68_201, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 427_000 picoseconds.
-		Weight::from_parts(3_245_871, 0)
-			// Standard Error: 185
-			.saturating_add(Weight::from_parts(341_588, 0).saturating_mul(r.into()))
+		// Minimum execution time: 426_000 picoseconds.
+		Weight::from_parts(1_534_667, 0)
+			// Standard Error: 46
+			.saturating_add(Weight::from_parts(71_440, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `n` is `[1, 16383]`.
+	fn evm_memory_grow(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 453_000 picoseconds.
-		Weight::from_parts(1_526_347, 0)
-			// Standard Error: 198
-			.saturating_add(Weight::from_parts(418_846, 0).saturating_mul(r.into()))
+		// Minimum execution time: 400_000 picoseconds.
+		Weight::from_parts(424_559, 0)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(3_137, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode(r: u32, ) -> Weight {
+	/// The range of component `n` is `[256, 32768]`.
+	fn evm_memory_reallocate(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 402_000 picoseconds.
-		Weight::from_parts(1_898_673, 0)
-			// Standard Error: 140
-			.saturating_add(Weight::from_parts(419_767, 0).saturating_mul(r.into()))
+		// Minimum execution time: 1_138_000 picoseconds.
+		Weight::from_parts(1_223_236, 0)
+			// Standard Error: 2
+			.saturating_add(Weight::from_parts(1_920, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+	/// The range of component `n` is `[0, 1048576]`.
+	fn evm_memory_copy_out(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 281_000 picoseconds.
+		Weight::from_parts(1_256_799, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(130, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mload_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 551_000 picoseconds.
+		Weight::from_parts(1_151_473, 0)
+			// Standard Error: 73
+			.saturating_add(Weight::from_parts(50_296, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_msize_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 434_000 picoseconds.
+		Weight::from_parts(1_815_176, 0)
+			// Standard Error: 56
+			.saturating_add(Weight::from_parts(19_859, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 524_000 picoseconds.
+		Weight::from_parts(1_176_692, 0)
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(45_513, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 503_000 picoseconds.
+		Weight::from_parts(1_087_231, 0)
+			// Standard Error: 38
+			.saturating_add(Weight::from_parts(41_895, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 63]`.
+	fn evm_mcopy_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 667_000 picoseconds.
+		Weight::from_parts(1_676_087, 0)
+			// Standard Error: 643
+			.saturating_add(Weight::from_parts(149_157, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `n` is `[4028, 1044421]`.
+	fn evm_mcopy_per_byte(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_499_000 picoseconds.
+		Weight::from_parts(1_373_461, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(347, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_lt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(655_391, 0)
+			// Standard Error: 15
+			.saturating_add(Weight::from_parts(22_101, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_gt_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 470_000 picoseconds.
-		Weight::from_parts(1_520_029, 0)
-			// Standard Error: 94
-			.saturating_add(Weight::from_parts(242_051, 0).saturating_mul(r.into()))
+		Weight::from_parts(668_123, 0)
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(22_081, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_eq_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 454_000 picoseconds.
-		Weight::from_parts(2_602_098, 0)
-			// Standard Error: 166
-			.saturating_add(Weight::from_parts(336_957, 0).saturating_mul(r.into()))
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(635_557, 0)
+			// Standard Error: 11
+			.saturating_add(Weight::from_parts(47_373, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_iszero_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 390_000 picoseconds.
-		Weight::from_parts(1_590_240, 0)
-			// Standard Error: 188
-			.saturating_add(Weight::from_parts(419_559, 0).saturating_mul(r.into()))
+		// Minimum execution time: 453_000 picoseconds.
+		Weight::from_parts(949_622, 0)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(32_590, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_and_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 481_000 picoseconds.
+		Weight::from_parts(899_318, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(16_983, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_or_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 472_000 picoseconds.
+		Weight::from_parts(868_279, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(16_539, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_xor_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 430_000 picoseconds.
+		Weight::from_parts(899_649, 0)
+			// Standard Error: 6
+			.saturating_add(Weight::from_parts(16_918, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_not_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 434_000 picoseconds.
+		Weight::from_parts(583_000, 0)
+			// Standard Error: 3
+			.saturating_add(Weight::from_parts(14_540, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_byte_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 451_000 picoseconds.
+		Weight::from_parts(1_009_358, 0)
+			// Standard Error: 20
+			.saturating_add(Weight::from_parts(34_738, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_clz_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 472_000 picoseconds.
+		Weight::from_parts(975_108, 0)
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(33_492, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_slt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 409_000 picoseconds.
+		Weight::from_parts(993_263, 0)
+			// Standard Error: 30
+			.saturating_add(Weight::from_parts(43_901, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sgt_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 488_000 picoseconds.
+		Weight::from_parts(1_048_360, 0)
+			// Standard Error: 28
+			.saturating_add(Weight::from_parts(43_618, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shl_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 442_000 picoseconds.
+		Weight::from_parts(1_359_919, 0)
+			// Standard Error: 24
+			.saturating_add(Weight::from_parts(42_880, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shr_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 471_000 picoseconds.
+		Weight::from_parts(1_248_301, 0)
+			// Standard Error: 21
+			.saturating_add(Weight::from_parts(40_221, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sar_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_266_049, 0)
+			// Standard Error: 20
+			.saturating_add(Weight::from_parts(49_029, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 469_000 picoseconds.
-		Weight::from_parts(2_015_159, 0)
-			// Standard Error: 332
-			.saturating_add(Weight::from_parts(814_536, 0).saturating_mul(r.into()))
+		// Minimum execution time: 441_000 picoseconds.
+		Weight::from_parts(1_205_472, 0)
+			// Standard Error: 558
+			.saturating_add(Weight::from_parts(882_452, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 460_000 picoseconds.
-		Weight::from_parts(1_813_452, 0)
-			// Standard Error: 223
-			.saturating_add(Weight::from_parts(450_338, 0).saturating_mul(r.into()))
+		// Minimum execution time: 471_000 picoseconds.
+		Weight::from_parts(2_151_030, 0)
+			// Standard Error: 271
+			.saturating_add(Weight::from_parts(463_847, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 407_000 picoseconds.
+		Weight::from_parts(1_795_342, 0)
+			// Standard Error: 347
+			.saturating_add(Weight::from_parts(637_220, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 468_000 picoseconds.
-		Weight::from_parts(3_466_555, 0)
-			// Standard Error: 361
-			.saturating_add(Weight::from_parts(667_427, 0).saturating_mul(r.into()))
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(3_004_544, 0)
+			// Standard Error: 481
+			.saturating_add(Weight::from_parts(717_347, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 433_000 picoseconds.
-		Weight::from_parts(1_537_710, 0)
-			// Standard Error: 353
-			.saturating_add(Weight::from_parts(829_151, 0).saturating_mul(r.into()))
+		// Minimum execution time: 452_000 picoseconds.
+		Weight::from_parts(674_284, 0)
+			// Standard Error: 631
+			.saturating_add(Weight::from_parts(904_909, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 483_000 picoseconds.
+		Weight::from_parts(1_294_256, 0)
+			// Standard Error: 255
+			.saturating_add(Weight::from_parts(441_164, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 413_000 picoseconds.
+		Weight::from_parts(1_360_893, 0)
+			// Standard Error: 165
+			.saturating_add(Weight::from_parts(247_265, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(1_593_431, 0)
+			// Standard Error: 150
+			.saturating_add(Weight::from_parts(322_998, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 500_000 picoseconds.
+		Weight::from_parts(3_425_857, 0)
+			// Standard Error: 197
+			.saturating_add(Weight::from_parts(357_334, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 445_000 picoseconds.
+		Weight::from_parts(1_392_645, 0)
+			// Standard Error: 267
+			.saturating_add(Weight::from_parts(444_291, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_add_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 447_000 picoseconds.
+		Weight::from_parts(791_963, 0)
+			// Standard Error: 7
+			.saturating_add(Weight::from_parts(24_942, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sub_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 443_000 picoseconds.
+		Weight::from_parts(763_775, 0)
+			// Standard Error: 7
+			.saturating_add(Weight::from_parts(25_033, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_mul_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 411_000 picoseconds.
+		Weight::from_parts(904_821, 0)
+			// Standard Error: 11
+			.saturating_add(Weight::from_parts(53_109, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 430_000 picoseconds.
+		Weight::from_parts(1_575_324, 0)
+			// Standard Error: 237
+			.saturating_add(Weight::from_parts(498_006, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 420_000 picoseconds.
+		Weight::from_parts(1_346_921, 0)
+			// Standard Error: 192
+			.saturating_add(Weight::from_parts(286_878, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(2_031_387, 0)
+			// Standard Error: 154
+			.saturating_add(Weight::from_parts(376_282, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 451_000 picoseconds.
+		Weight::from_parts(2_214_378, 0)
+			// Standard Error: 250
+			.saturating_add(Weight::from_parts(401_023, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 477_000 picoseconds.
+		Weight::from_parts(1_399_011, 0)
+			// Standard Error: 270
+			.saturating_add(Weight::from_parts(500_986, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 452_000 picoseconds.
+		Weight::from_parts(1_635_620, 0)
+			// Standard Error: 285
+			.saturating_add(Weight::from_parts(438_516, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 454_000 picoseconds.
+		Weight::from_parts(1_435_813, 0)
+			// Standard Error: 121
+			.saturating_add(Weight::from_parts(248_709, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 497_000 picoseconds.
+		Weight::from_parts(1_573_580, 0)
+			// Standard Error: 279
+			.saturating_add(Weight::from_parts(319_597, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 446_000 picoseconds.
+		Weight::from_parts(3_147_273, 0)
+			// Standard Error: 258
+			.saturating_add(Weight::from_parts(357_005, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 417_000 picoseconds.
+		Weight::from_parts(925_760, 0)
+			// Standard Error: 347
+			.saturating_add(Weight::from_parts(444_892, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 468_000 picoseconds.
+		Weight::from_parts(1_653_899, 0)
+			// Standard Error: 170
+			.saturating_add(Weight::from_parts(475_773, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_359_716, 0)
+			// Standard Error: 109
+			.saturating_add(Weight::from_parts(262_406, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 503_000 picoseconds.
+		Weight::from_parts(1_986_615, 0)
+			// Standard Error: 189
+			.saturating_add(Weight::from_parts(346_942, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 474_000 picoseconds.
+		Weight::from_parts(2_599_786, 0)
+			// Standard Error: 182
+			.saturating_add(Weight::from_parts(374_379, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 462_000 picoseconds.
+		Weight::from_parts(1_280_985, 0)
+			// Standard Error: 237
+			.saturating_add(Weight::from_parts(474_118, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_mulmod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 431_000 picoseconds.
-		Weight::from_parts(1_849_136, 0)
-			// Standard Error: 176
-			.saturating_add(Weight::from_parts(525_462, 0).saturating_mul(r.into()))
+		// Minimum execution time: 454_000 picoseconds.
+		Weight::from_parts(2_191_677, 0)
+			// Standard Error: 288
+			.saturating_add(Weight::from_parts(557_038, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(1_178_823, 0)
+			// Standard Error: 21
+			.saturating_add(Weight::from_parts(41_379, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 423_000 picoseconds.
+		Weight::from_parts(1_555_336, 0)
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(90_472, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `b` is `[0, 255]`.
+	fn evm_exp_per_bit(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 720_000 picoseconds.
+		Weight::from_parts(1_170_841, 0)
+			// Standard Error: 31
+			.saturating_add(Weight::from_parts(61_639, 0).saturating_mul(b.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_signextend_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 516_000 picoseconds.
+		Weight::from_parts(1_201_921, 0)
+			// Standard Error: 36
+			.saturating_add(Weight::from_parts(43_101, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 614]`.
+	fn evm_dispatch_mix(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 436_000 picoseconds.
+		Weight::from_parts(2_924_909, 0)
+			// Standard Error: 597
+			.saturating_add(Weight::from_parts(2_330_607, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr(r: u32, ) -> Weight {
@@ -4114,10 +5198,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `367 + n * (1 ±0)`
 		//  Estimated: `3831 + n * (1 ±0)`
-		// Minimum execution time: 19_819_000 picoseconds.
-		Weight::from_parts(16_050_950, 3831)
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(1_094, 0).saturating_mul(n.into()))
+		// Minimum execution time: 20_756_000 picoseconds.
+		Weight::from_parts(17_417_255, 3831)
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(1_035, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
