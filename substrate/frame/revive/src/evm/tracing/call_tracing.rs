@@ -74,7 +74,8 @@ impl Tracing for CallTracer {
 		&mut self,
 		from: H160,
 		to: H160,
-		delegate_call: Option<H160>,
+		_code_address: Option<H160>,
+		is_delegate_call: bool,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
@@ -104,7 +105,7 @@ impl Tracing for CallTracer {
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
-					} else if delegate_call.is_some() {
+					} else if is_delegate_call {
 						CallType::DelegateCall
 					} else {
 						CallType::Call
@@ -133,13 +134,32 @@ impl Tracing for CallTracer {
 	}
 
 	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8], log_index: u32) {
+		// The `LOG` opcode can only run inside a contract call frame, so the stack must be
+		// non-empty here. A violation is a bug in the execution stack, not something to tolerate.
+		debug_assert!(
+			!self.current_stack.is_empty(),
+			"log_event called with no active call frame; use log_event_outside_frame for \
+			 runtime-originated logs"
+		);
+		self.log_event_outside_frame(address, topics, data, log_index);
+	}
+
+	fn log_event_outside_frame(
+		&mut self,
+		address: H160,
+		topics: &[H256],
+		data: &[u8],
+		log_index: u32,
+	) {
 		if !self.config.with_logs {
 			return;
 		}
 
-		let current_index = self.current_stack.last().unwrap();
+		// With no active frame there is no call-tree node to attach the log to, so skip it; the
+		// log is still captured in the ethereum receipt and the `ContractEmitted` event.
+		let Some(&current_index) = self.current_stack.last() else { return };
 
-		if let Some(trace) = self.traces.get_mut(*current_index) {
+		if let Some(trace) = self.traces.get_mut(current_index) {
 			let log = CallLog {
 				address,
 				topics: topics.to_vec(),

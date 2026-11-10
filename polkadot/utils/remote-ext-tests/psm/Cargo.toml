@@ -18,6 +18,7 @@ pallet-assets = { workspace = true, default-features = true }
 pallet-psm = { workspace = true, default-features = true }
 pallet-psm-remote-tests = { workspace = true }
 sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 xcm = { workspace = true }

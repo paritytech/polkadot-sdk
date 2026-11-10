@@ -129,7 +129,7 @@ where
 {
 	const ID: Kind = *b"disputes:slashin";
 
-	type TimeSlot = DisputesTimeSlot;
+	type Slot = DisputesTimeSlot;
 
 	fn offenders(&self) -> Vec<Offender> {
 		self.offenders.clone()
@@ -143,7 +143,7 @@ where
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.time_slot.clone()
 	}
 
@@ -624,7 +624,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix(tag_prefix)
 				// We assign the maximum priority for any report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one report for the same offender at the same slot.
 				.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
 				.longevity(longevity)

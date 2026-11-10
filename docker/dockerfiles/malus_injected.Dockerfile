@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM docker.io/library/debian:bookworm-slim
 
 # metadata
 ARG VCS_REF
@@ -22,7 +22,7 @@ RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates \
     curl \
-    libssl1.1 \
+    libssl3 \
     tini && \
 # apt cleanup
 	apt-get autoremove -y && \

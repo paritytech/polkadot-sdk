@@ -54,7 +54,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, ServiceKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -66,15 +66,18 @@ pub mod pallet {
 	use core::ops::Deref;
 
 	use super::*;
-	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
+	use crate::{
+		session_rotation::{self, Eras, Rotator},
+		IsValidatorInactive, OnEraStart, PagedExposureMetadata, SnapshotStatus,
+	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
+	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound, PalletError};
 
 	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
 	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
 	/// function.
-	type IncentiveWeight<T> = BalanceOf<T>;
+	pub(crate) type IncentiveWeight<T> = BalanceOf<T>;
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -100,7 +103,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(18);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -424,6 +427,17 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Check if validator was inactive at some era.
+		///
+		/// This check is used by `chill_inactive` extrinsic to check which
+		/// validators can be chilled. See the implementors of [`IsValidatorInactive`] for the
+		/// available options.
+		type IsValidatorInactive: IsValidatorInactive<Self::AccountId>;
+
+		/// Notified with the validators of each era when it becomes active.
+		#[pallet::no_default_bounds]
+		type OnEraStart: OnEraStart<Self::AccountId>;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -478,6 +492,8 @@ pub mod pallet {
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
+			type IsValidatorInactive = ();
+			type OnEraStart = ();
 		}
 	}
 
@@ -578,6 +594,37 @@ pub mod pallet {
 		IncentiveWeight<T>,
 		OptionQuery,
 	>;
+
+	/// Running sum of `validator_incentive_weight × era_points` across all validators
+	/// with non-zero era points for the era.
+	///
+	/// Maintained incrementally inside [`session_rotation::Eras::reward_active_era`] every
+	/// time validator points are credited. Used as the denominator of the weighted-points
+	/// share that determines each validator's slice of [`ErasValidatorIncentiveBudget`].
+	#[pallet::storage]
+	pub type ErasSumWeightedPoints<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
+
+	/// Cutoff era from which the validator self-stake incentive switches to the
+	/// weighted-points formula.
+	///
+	/// `None` is the pre-migration state for chains whose storage predates this item. Until the
+	/// migration records a cutoff, [`session_rotation::Eras::uses_weighted_points`] treats all
+	/// eras as weighted-points eras. Chains initialized with this storage item set the cutoff to
+	/// `0` in `genesis_build`, and the upgrade migration leaves any existing value untouched.
+	///
+	/// See [`session_rotation::Eras::uses_weighted_points`] for the exact semantics and
+	/// the rationale for the cutoff.
+	///
+	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
+	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
+	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`] migration once
+	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade — i.e. once the cutoff
+	/// satisfies `cutoff <= active_era - HistoryDepth`, at which point no pre-cutoff era
+	/// remains claimable and every live era uses the weighted-points formula.
+	#[pallet::storage]
+	pub type WeightedPointsFormulaStartEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -881,9 +928,29 @@ pub mod pallet {
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
+	///
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
+	/// This pot is essentially the _total_ points earned by the validator.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+
+	/// The points of [`ErasRewardPoints`] split by the service that earned them.
+	///
+	/// Values are era points as credited, in the same unit as [`ErasRewardPoints`]. A service
+	/// measured in other units, such as blocks authored, is converted to points before it is
+	/// credited. Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more
+	/// than the tally does for the same account.
+	#[pallet::storage]
+	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		ServiceKind,
+		EraRewardPoints<T>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -1032,9 +1099,29 @@ pub mod pallet {
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
+	/// The validators elected for the planned era, kept from the moment its election completes
+	/// until the era starts, for [`Config::OnEraStart`].
+	///
+	/// Only written when [`OnEraStart::enabled`] is true, and removed at the start of its era
+	/// whether or not the hook is still enabled. An era whose election completed before the hook
+	/// was enabled has no copy and is not notified.
+	#[pallet::storage]
+	pub type NextEraValidators<T: Config> =
+		StorageValue<_, (EraIndex, BoundedVec<T::AccountId, T::MaxValidatorSet>), OptionQuery>;
+
 	/// Tracks the current step of era pruning process for each era being lazily pruned.
 	#[pallet::storage]
 	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
+
+	/// The number of eras a validator can remain inactive during the last
+	/// [`Config::HistoryDepth`] before being subject to chilling because of inactivity.
+	///
+	/// This must be less than or equal [`Config::HistoryDepth`] and bigger than 1. The weight of
+	/// `chill_inactive` with a proof of this length must fit in one normal extrinsic.
+	///
+	/// If `None`, the default, `chill_inactive` is disabled.
+	#[pallet::storage]
+	pub type ChillInactiveThreshold<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -1232,6 +1319,11 @@ pub mod pallet {
 				})
 			}
 
+			// Chains initialized with this storage item maintain `ErasSumWeightedPoints` from
+			// era 0. Pin the cutoff to the first era so every era uses the weighted-points formula
+			// and the idempotent migration only acts on chains whose storage predates this item.
+			WeightedPointsFormulaStartEra::<T>::put(0);
+
 			let (active_era, session_index, timestamp) = self.active_era;
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.
@@ -1287,6 +1379,8 @@ pub mod pallet {
 		Unbonded {
 			stash: T::AccountId,
 			amount: BalanceOf<T>,
+			/// The era at which `amount` becomes withdrawable.
+			era: EraIndex,
 		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
@@ -1408,6 +1502,14 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
+		/// `era` and `dropped` entries were not.
+		ServicePointsCredited {
+			service: ServiceKind,
+			era: EraIndex,
+			credited: u32,
+			dropped: u32,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1518,6 +1620,26 @@ pub mod pallet {
 		CommissionTooHigh,
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
+		/// Validator inactivity proof is invalid.
+		InvalidInactivityProof(InvalidInactivityProofError),
+		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
+		InvalidChillInactiveThreshold,
+		/// `chill_inactive` is disabled, as [`ChillInactiveThreshold`] is not set.
+		ChillInactiveDisabled,
+	}
+
+	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
+	pub enum InvalidInactivityProofError {
+		/// Invalid proof length.
+		InvalidLen,
+		/// Eras in proof are not sorted.
+		NotSorted,
+		/// Validator wasn't expected to validate at some era.
+		ValidatorNotExposed,
+		/// Validator wasn't inactive at some era.
+		ValidatorActive,
+		/// An invalid era was provided in the proof.
+		InvalidEra,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1615,6 +1737,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
+					// At most one entry per `ServiceKind`.
+					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
@@ -1623,6 +1747,7 @@ pub mod pallet {
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
+					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},
@@ -1955,7 +2080,7 @@ pub mod pallet {
 					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 				}
 
-				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
+				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value, era });
 			}
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
@@ -2538,6 +2663,10 @@ pub mod pallet {
 		///   should be filled in order for the `chill_other` transaction to work.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
+		/// * `chill_inactive_threshold`: The number of eras a validator can remain inactive during
+		///   the last [`Config::HistoryDepth`] eras before being subject to chilling becuase of
+		///   inactivity. The weight of `chill_inactive` with a proof of this length must fit in one
+		///   normal extrinsic. When removed, `chill_inactive` is disabled.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -2560,8 +2689,23 @@ pub mod pallet {
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
 			are_nominators_slashable: ConfigOp<bool>,
+			chill_inactive_threshold: ConfigOp<u32>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			if let ConfigOp::Set(threshold) = chill_inactive_threshold {
+				ensure!(
+					threshold > 1 && threshold <= T::HistoryDepth::get(),
+					Error::<T>::InvalidChillInactiveThreshold
+				);
+				let block_weights = T::BlockWeights::get();
+				let normal = block_weights.get(DispatchClass::Normal);
+				let max_weight = normal.max_extrinsic.or(normal.max_total).unwrap_or(Weight::MAX);
+				ensure!(
+					T::WeightInfo::chill_inactive(threshold).all_lte(max_weight),
+					Error::<T>::InvalidChillInactiveThreshold
+				);
+			}
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -2581,6 +2725,8 @@ pub mod pallet {
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
+			config_op_exp!(ChillInactiveThreshold<T>, chill_inactive_threshold);
+
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -3110,6 +3256,80 @@ pub mod pallet {
 			}
 
 			Ok(())
+		}
+
+		/// Chill an inactive validator.
+		///
+		/// This extrinsic can be called by anyone, given that the valid inactivity proof is
+		/// provided. Inactivity proof is a vector of eras where the given validator was inactive.
+		///
+		/// Disabled while [`ChillInactiveThreshold`] is not set.
+		///
+		/// Requirements for the inactivity proof:
+		/// - The length must be equal to [`ChillInactiveThreshold`].
+		/// - It must be sorted in ascending order.
+		/// - It must not contain duplicate entries.
+		/// - For every era the `stash` account must be exposed.
+		/// - Every item must pass the check provided by [`Config::IsValidatorInactive`].
+		/// - Every era must be less than the active era.
+		///
+		/// On a successfull execution, caller doesn't pay fees.
+		#[pallet::call_index(35)]
+		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
+		pub fn chill_inactive(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			proof: BoundedVec<EraIndex, T::HistoryDepth>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			let threshold =
+				ChillInactiveThreshold::<T>::get().ok_or(Error::<T>::ChillInactiveDisabled)?;
+			ensure!(
+				proof.len() as EraIndex == threshold,
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidLen)
+			);
+			ensure!(
+				proof.is_sorted_by(|a, b| a < b),
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
+			);
+
+			// All proof eras must fall in the retained window `[active_era - HistoryDepth,
+			// active_era)`.
+			let active_era = Rotator::<T>::active_era();
+			let oldest_allowed_era = active_era.saturating_sub(T::HistoryDepth::get());
+			let oldest_proof_era = proof.first().copied().unwrap_or(EraIndex::MAX);
+			let most_recent_proof_era = proof.last().copied().unwrap_or(EraIndex::MAX);
+			ensure!(
+				oldest_proof_era >= oldest_allowed_era && most_recent_proof_era < active_era,
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
+			);
+
+			for era in proof {
+				ensure!(
+					Eras::<T>::was_validator_exposed(era, &stash),
+					Error::<T>::InvalidInactivityProof(
+						InvalidInactivityProofError::ValidatorNotExposed
+					)
+				);
+
+				let points = Eras::<T>::get_reward_points_by_service_for_validator(era, &stash);
+
+				ensure!(
+					T::IsValidatorInactive::is_inactive(era, &stash, &points),
+					Error::<T>::InvalidInactivityProof(
+						InvalidInactivityProofError::ValidatorActive
+					)
+				);
+			}
+
+			if Self::do_remove_validator(&stash) {
+				Self::deposit_event(Event::<T>::Chilled { stash });
+
+				Ok(Pays::No.into())
+			} else {
+				Err(Error::<T>::BadTarget.into())
+			}
 		}
 	}
 

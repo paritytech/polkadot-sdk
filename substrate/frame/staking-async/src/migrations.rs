@@ -17,13 +17,17 @@
 
 //! Storage migrations for the staking-async pallet.
 
-use crate::{log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot};
+use crate::{
+	log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot,
+	WeightedPointsFormulaStartEra,
+};
 use frame_support::{
+	migrations::VersionedMigration,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		Get, OnRuntimeUpgrade,
+		Get, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade,
 	},
 	PalletId,
 };
@@ -190,5 +194,80 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 			},
 			_ => 0..0,
 		}
+	}
+}
+
+/// Version-gated form of [`VersionUncheckedSetWeightedPointsFormulaStartEra`]
+pub type SetWeightedPointsFormulaStartEra<T> = VersionedMigration<
+	17,
+	18,
+	VersionUncheckedSetWeightedPointsFormulaStartEra<T>,
+	crate::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// One-shot, single-block migration that records the cutoff era from which the
+/// validator self-stake incentive uses the weighted-points formula
+/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+///
+/// The denominator [`crate::ErasSumWeightedPoints`] is maintained incrementally by
+/// session reports as they credit reward points. Eras whose points were credited
+/// before that denominator was maintained can have a zero or incomplete value.
+/// Rather than paying the cost of recomputing it for the full
+/// [`Config::HistoryDepth`] window (`HistoryDepth × MaxValidatorSet` reads), this
+/// migration sets [`WeightedPointsFormulaStartEra`] to `active_era + 1`:
+///
+/// - eras `<= active_era` keep the legacy stake-only share `w_i / Σ_j w_j`;
+/// - eras `> active_era` use the new weighted-points share, with their
+///   [`crate::ErasSumWeightedPoints`] accumulated from session 0 of the era.
+///
+/// Chains initialized with this storage item pin the cutoff to `0` at genesis, so their
+/// already-recorded denominators continue to apply to every era.
+///
+/// Runtimes should wire the version-gated [`SetWeightedPointsFormulaStartEra`], not this type
+/// directly; it is only `pub` because the gated alias names it in its signature.
+pub struct VersionUncheckedSetWeightedPointsFormulaStartEra<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedSetWeightedPointsFormulaStartEra<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let active_era = crate::session_rotation::Rotator::<T>::active_era();
+		// `active_era` may already have reward points credited without
+		// `ErasSumWeightedPoints` having been maintained for them, so the weighted-points formula
+		// can only safely apply from the next era onwards.
+		let cutoff = active_era.saturating_add(1);
+		WeightedPointsFormulaStartEra::<T>::put(cutoff);
+
+		log!(
+			info,
+			"WeightedPointsFormulaStartEra set to {} (active_era {} uses legacy formula)",
+			cutoff,
+			active_era,
+		);
+
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use codec::Encode;
+		// Capture `active_era` before the upgrade runs so `post_upgrade` can derive the expected
+		// cutoff without re-reading it; `active_era` may otherwise differ if an era rotation occurs
+		// between the two hooks.
+		Ok(crate::session_rotation::Rotator::<T>::active_era().encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use codec::Decode;
+
+		// The version gate forwards to this hook only when the migration actually ran, so the
+		// cutoff must now equal `active_era + 1`.
+		let pre_active_era = EraIndex::decode(&mut &state[..]).map_err(|_| "decode active_era")?;
+		frame_support::ensure!(
+			WeightedPointsFormulaStartEra::<T>::get() == Some(pre_active_era.saturating_add(1)),
+			"cutoff must be active_era + 1 after the migration"
+		);
+
+		Ok(())
 	}
 }

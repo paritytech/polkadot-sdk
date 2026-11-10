@@ -178,7 +178,7 @@ mod fair_collation_fetches {
 		w
 	}
 
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn shared_core_fills_per_para_lookahead_then_rejects_more<S: CollatorSut>() {
 		let mut w = shared_core_world::<S>();
 		let leaf = w.leaf();
@@ -259,7 +259,7 @@ mod fair_collation_fetches {
 	/// 4th advertisement for para A on a shared-core CQ where para A holds 2 slots is
 	/// silently rejected — claim slots full for A. (Also exercised by the headline test
 	/// `shared_core_fills_per_para_lookahead_then_rejects_more`.)
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn shared_core_third_para_a_advertisement_silently_dropped<S: CollatorSut>() {
 		let mut w = shared_core_world::<S>();
 		let leaf = w.leaf();
@@ -665,15 +665,7 @@ mod collation_fetching_fairness_handles_old_claims {
 	const PARA_A: ParaId = ParaId::new(2000);
 	const PARA_B: ParaId = ParaId::new(2001);
 
-	/// KNOWN BUG (experimental): the multi-step setup (full-second across view shifts) doesn't
-	/// complete on experimental — most likely the same view-shift counting bug as
-	/// `seconded_per_para_counted_across_whole_view` plus the ancestor-RP drop. See
-	/// `memory:project_collator_experimental_seconded_count_lost_across_view` and
-	/// `memory:project_collator_experimental_no_ancestor_rp_advertise`.
-	#[crate::sim_test(
-		bug_on = "experimental",
-		bug_url = "memory:project_collator_experimental_seconded_count_lost_across_view"
-	)]
+	#[crate::sim_test]
 	fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 		// Initial leaf with CQ=[A,B,A].
 		let config =

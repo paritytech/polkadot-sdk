@@ -207,7 +207,7 @@ fn bond_extra_works() {
 		);
 
 		// when
-		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::max_value()));
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::MAX));
 
 		// then
 		assert_eq!(
@@ -359,7 +359,7 @@ fn unbonding_works() {
 		Staking::unbond(RuntimeOrigin::signed(11), 500).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 500 }]
+			vec![Event::Unbonded { stash: 11, amount: 500, era: active_era() + 3 }]
 		);
 
 		// then
@@ -455,7 +455,7 @@ fn unbonding_multi_chunk() {
 		Staking::unbond(RuntimeOrigin::signed(11), 500).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 500 }]
+			vec![Event::Unbonded { stash: 11, amount: 500, era: active_era() + 3 }]
 		);
 
 		// then
@@ -475,7 +475,7 @@ fn unbonding_multi_chunk() {
 		Staking::unbond(RuntimeOrigin::signed(11), 250).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 250 }]
+			vec![Event::Unbonded { stash: 11, amount: 250, era: active_era() + 3 }]
 		);
 
 		// then
@@ -530,6 +530,34 @@ fn unbonding_multi_chunk() {
 }
 
 #[test]
+fn unbond_same_era_merges_chunk_but_emits_per_unbond_era() {
+	// Same-era unbonds merge into one chunk; each still emits its own event with that era.
+	ExtBuilder::default().build_and_execute(|| {
+		Staking::unbond(RuntimeOrigin::signed(11), 300).unwrap();
+		Staking::unbond(RuntimeOrigin::signed(11), 200).unwrap();
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::Unbonded { stash: 11, amount: 300, era: active_era() + 3 },
+				Event::Unbonded { stash: 11, amount: 200, era: active_era() + 3 },
+			]
+		);
+
+		// One merged chunk, same era as the events.
+		assert_eq!(
+			Staking::ledger(11.into()).unwrap(),
+			StakingLedgerInspect {
+				stash: 11,
+				total: 1000,
+				active: 500,
+				unlocking: bounded_vec![UnlockChunk { value: 500, era: active_era() + 3 }],
+			},
+		);
+	});
+}
+
+#[test]
 fn full_unbonding_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(asset::free_to_stake::<T>(&11), 0);
@@ -537,7 +565,10 @@ fn full_unbonding_works() {
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Chilled { stash: 11 }, Event::Unbonded { stash: 11, amount: 1000 }]
+			vec![
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount: 1000, era: active_era() + 3 }
+			]
 		);
 
 		// wait 3 eras
@@ -594,7 +625,10 @@ fn unbond_with_chill_works() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Chilled { stash: 11 }, Event::Unbonded { stash: 11, amount: 1000 }]
+			vec![
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount: 1000, era: active_era() + 3 }
+			]
 		);
 
 		// Validator is removed from the set
@@ -1339,7 +1373,7 @@ mod rebond {
 			);
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![Event::Unbonded { stash: 11, amount: 900 }]
+				vec![Event::Unbonded { stash: 11, amount: 900, era: active_era() + 3 }]
 			);
 
 			// Re-bond less than the total
@@ -1561,6 +1595,7 @@ mod reap {
 							ConfigOp::Noop,
 							ConfigOp::Noop,
 							ConfigOp::Noop,
+							ConfigOp::Noop,
 						));
 
 						// THEN the stash is still NOT reapable — ledger.total (100) >= ED (10).
@@ -1592,6 +1627,7 @@ mod reap {
 					RuntimeOrigin::root(),
 					ConfigOp::Noop,
 					ConfigOp::Set(10_000),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1819,6 +1855,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Can't chill these users
@@ -1836,6 +1873,7 @@ mod staking_bounds_chill_other {
 					RuntimeOrigin::root(),
 					ConfigOp::Set(1_500),
 					ConfigOp::Set(2_000),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1865,6 +1903,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1885,6 +1924,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1911,6 +1951,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1931,6 +1972,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1957,6 +1999,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1977,6 +2020,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -2010,6 +2054,257 @@ mod staking_bounds_chill_other {
 	}
 
 	#[test]
+	fn chill_inactive_works() {
+		const NOT_VALIDATOR: AccountId = 10;
+		const VALIDATOR: AccountId = 11;
+
+		ExtBuilder::default().build_and_execute(|| {
+			let history_depth = HistoryDepth::get();
+			let inactive_threshold = history_depth / 2;
+
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(inactive_threshold)
+			));
+
+			Session::roll_until_active_era(history_depth + 1);
+
+			let mut active = BoundedBTreeMap::new();
+			active.try_insert(VALIDATOR, 100).unwrap();
+			for era in 1..=inactive_threshold {
+				ErasRewardPoints::<Test>::insert(
+					era,
+					EraRewardPoints { total: 100, individual: active.clone() },
+				);
+			}
+
+			let valid_proof =
+				BoundedVec::truncate_from((inactive_threshold + 1..=history_depth).collect());
+
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					NOT_VALIDATOR,
+					valid_proof.clone()
+				),
+				Error::<Test>::InvalidInactivityProof(
+					InvalidInactivityProofError::ValidatorNotExposed
+				)
+			);
+
+			let mut too_short_proof = valid_proof.clone();
+			too_short_proof.remove(0);
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					too_short_proof
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidLen)
+			);
+
+			let proof_where_one_era_contains_reward_points =
+				BoundedVec::truncate_from((2..(history_depth / 2 + 2)).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_where_one_era_contains_reward_points
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::ValidatorActive)
+			);
+
+			let not_sorted_proof =
+				BoundedVec::truncate_from(valid_proof.iter().copied().rev().collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					not_sorted_proof
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
+			);
+
+			let proof_with_current_era =
+				BoundedVec::truncate_from((inactive_threshold + 2..=history_depth + 1).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_with_current_era
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
+			);
+
+			// Era 0 is in the past and the validator is exposed + inactive there, but it falls
+			// before the retained window `[active_era - HistoryDepth, active_era)` (here, era 0 <
+			// 81 - 80 = 1), so the proof must be rejected on the lower bound.
+			let proof_with_too_old_era =
+				BoundedVec::truncate_from((0..inactive_threshold).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_with_too_old_era
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
+			);
+
+			assert_ok!(Staking::chill_inactive(
+				RuntimeOrigin::signed(NOT_VALIDATOR),
+				VALIDATOR,
+				valid_proof
+			));
+
+			System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
+		});
+	}
+
+	#[test]
+	fn chill_inactive_checks_the_points_of_each_service() {
+		const VALIDATOR: AccountId = 11;
+		use sp_staking::RewardPoints;
+		use ServiceKind::{Collation, RelayConsensus};
+
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN an inactivity threshold of two eras
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(2)
+			));
+			// AND 11 exposed in eras 1 to 6, earning points in each pair of eras as they are
+			// recorded over time:
+			// - 1 and 2: in the tally only, before points were recorded per service.
+			// - 3 and 4: in the tally and per service, relay consensus only, before any validator
+			//   collates.
+			// - 5 and 6: in the tally and per service, relay consensus and collation.
+			for era in 1..=6 {
+				Session::roll_until_active_era(era);
+				match era {
+					1 | 2 => {
+						let mut individual = BoundedBTreeMap::new();
+						individual.try_insert(VALIDATOR, 100).unwrap();
+						ErasRewardPoints::<Test>::insert(
+							era,
+							EraRewardPoints { total: 100, individual },
+						);
+					},
+					3 | 4 => Staking::reward_by_ids(vec![(VALIDATOR, 100)]),
+					_ => {
+						Staking::reward_by_ids(vec![(VALIDATOR, 60)]);
+						Staking::reward(Collation, vec![(VALIDATOR, 40)]);
+					},
+				}
+			}
+			Session::roll_until_active_era(7);
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(1, RelayConsensus));
+			assert!(ErasRewardPointsByService::<Test>::contains_key(3, RelayConsensus));
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(3, Collation));
+
+			// AND the points of the tally not recorded per service count as relay consensus points
+			let points_of = |era| {
+				let mut points =
+					crate::session_rotation::Eras::<Test>::get_reward_points_by_service_for_validator(
+						era, &VALIDATOR,
+					);
+				points.sort_by_key(|(service, _)| *service as u8);
+				points
+			};
+			assert_eq!(points_of(1), vec![(RelayConsensus, 100)]);
+			assert_eq!(points_of(3), vec![(RelayConsensus, 100)]);
+			assert_eq!(points_of(5), vec![(RelayConsensus, 60), (Collation, 40)]);
+
+			// Whether 11 can be chilled with each pair of eras as proof.
+			let chillable = || {
+				[[1, 2], [3, 4], [5, 6]].map(|eras: [EraIndex; 2]| {
+					hypothetically!({
+						Staking::chill_inactive(
+							RuntimeOrigin::signed(10),
+							VALIDATOR,
+							BoundedVec::truncate_from(eras.to_vec()),
+						)
+						.is_ok()
+					})
+				})
+			};
+
+			// WHEN a validator is inactive only without points of any service, as by default
+			// THEN 11 is active in every pair of eras
+			assert_eq!(chillable(), [false, false, false]);
+
+			// WHEN a validator is inactive without relay consensus points
+			InactivityCheck::set(|points| {
+				points
+					.iter()
+					.all(|(service, points)| *service != RelayConsensus || *points == 0)
+			});
+			// THEN 11 is active in every pair of eras, including the eras of points in the tally
+			// only
+			assert_eq!(chillable(), [false, false, false]);
+
+			// WHEN a validator is inactive without collation points
+			InactivityCheck::set(|points| {
+				points.iter().all(|(service, points)| *service != Collation || *points == 0)
+			});
+			// THEN 11 can be chilled with the eras before it collated
+			assert_eq!(chillable(), [true, true, false]);
+		});
+	}
+
+	#[test]
+	fn chill_inactive_is_disabled_by_default() {
+		const VALIDATOR: AccountId = 11;
+
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN no inactivity threshold, and 11 exposed and inactive in eras 1 and 2
+			assert_eq!(ChillInactiveThreshold::<Test>::get(), None);
+			Session::roll_until_active_era(3);
+			let proof = BoundedVec::truncate_from(vec![1, 2]);
+
+			// WHEN anyone tries to chill 11
+			// THEN it fails, and 11 stays a validator
+			assert_noop!(
+				Staking::chill_inactive(RuntimeOrigin::signed(10), VALIDATOR, proof.clone()),
+				Error::<Test>::ChillInactiveDisabled
+			);
+			assert!(Validators::<Test>::contains_key(VALIDATOR));
+
+			// WHEN the threshold is set
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(2)
+			));
+			// THEN 11 can be chilled
+			assert_ok!(Staking::chill_inactive(RuntimeOrigin::signed(10), VALIDATOR, proof));
+			System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
+		});
+	}
+
+	#[test]
 	fn capped_stakers_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let validator_count = Validators::<Test>::count();
@@ -2029,6 +2324,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Remove,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop
 			));
 
 			// can create `max - validator_count` validators
@@ -2101,6 +2397,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![11]));
 			assert_ok!(Staking::validate(

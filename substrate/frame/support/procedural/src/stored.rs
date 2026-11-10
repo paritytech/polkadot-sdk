@@ -161,39 +161,50 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
-	let derive_where_attr: syn::Attribute =
+	// Resolves `derive_where` through the `frame_support` re-export. Must follow the
+	// `derive_where` attribute.
+	let derive_where_crate_attr: syn::Attribute = syn::parse_quote! {
+		#[derive_where(crate = #frame_support::derive_where)]
+	};
+	let derive_where_attrs: Vec<syn::Attribute> =
 		if !is_derive_where_needed(&input.generics, &field_types) {
 			// `derive_where` refuses to compile if the derive macro can be used...
-			syn::parse_quote! {
+			vec![syn::parse_quote! {
 				#[derive(
 					Clone,
 					Eq,
 					PartialEq,
 					Debug,
 				)]
-			}
+			}]
 		} else if !field_types.is_empty() {
-			syn::parse_quote! {
-				#[#frame_support::derive_where::derive_where(
-					Clone,
-					Eq,
-					PartialEq,
-					Debug;
-					#(#field_types),*
-				)]
-			}
+			vec![
+				syn::parse_quote! {
+					#[#frame_support::derive_where::derive_where(
+						Clone,
+						Eq,
+						PartialEq,
+						Debug;
+						#(#field_types),*
+					)]
+				},
+				derive_where_crate_attr,
+			]
 		} else {
 			// For unit structs/enums, no field types to bound
-			syn::parse_quote! {
-				#[#frame_support::derive_where::derive_where(
-					Clone,
-					Eq,
-					PartialEq,
-					Debug
-				)]
-			}
+			vec![
+				syn::parse_quote! {
+					#[#frame_support::derive_where::derive_where(
+						Clone,
+						Eq,
+						PartialEq,
+						Debug
+					)]
+				},
+				derive_where_crate_attr,
+			]
 		};
-	input.attrs.insert(0, derive_where_attr);
+	input.attrs.splice(0..0, derive_where_attrs);
 
 	// Add codec derives
 	let codec_derive_attr: syn::Attribute = syn::parse_quote! {

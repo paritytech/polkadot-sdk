@@ -50,7 +50,7 @@ pub type ContentHash = [u8; 32];
 pub type CidCodec = u64;
 
 /// Hashing algorithm used to compute a [`ContentHash`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Encode, Decode, TypeInfo)]
 pub enum HashingAlgorithm {
 	/// BLAKE2b-256.
 	Blake2b256,
@@ -58,6 +58,26 @@ pub enum HashingAlgorithm {
 	Sha2_256,
 	/// Keccak-256.
 	Keccak256,
+}
+
+impl HashingAlgorithm {
+	/// IPFS multihash code identifying this algorithm for CID construction.
+	pub const fn multihash_code(self) -> u64 {
+		match self {
+			Self::Blake2b256 => 0xb220,
+			Self::Sha2_256 => 0x12,
+			Self::Keccak256 => 0x1b,
+		}
+	}
+
+	/// Compute the 32-byte content hash of `data` using this algorithm.
+	pub fn hash(self, data: &[u8]) -> ContentHash {
+		match self {
+			Self::Blake2b256 => sp_crypto_hashing::blake2_256(data),
+			Self::Sha2_256 => sp_crypto_hashing::sha2_256(data),
+			Self::Keccak256 => sp_crypto_hashing::keccak_256(data),
+		}
+	}
 }
 
 /// Metadata for a single indexed transaction.
@@ -73,7 +93,7 @@ pub struct IndexedTransactionInfo {
 	pub cid_codec: CidCodec,
 	/// Extrinsic index that produced this entry via `store` or `renew`.
 	///
-	/// `u32::MAX` when the producing pallet does not record it.
+	/// Must point into the block body; consumers reject entries whose index does not.
 	pub extrinsic_index: u32,
 }
 
@@ -383,5 +403,25 @@ pub mod registration {
 				.to_vec();
 			assert_eq!(proof.chunk, expected_chunk);
 		}
+	}
+}
+
+#[cfg(test)]
+mod hashing_algorithm_tests {
+	use super::HashingAlgorithm;
+
+	#[test]
+	fn multihash_codes_are_iana_assigned() {
+		assert_eq!(HashingAlgorithm::Blake2b256.multihash_code(), 0xb220);
+		assert_eq!(HashingAlgorithm::Sha2_256.multihash_code(), 0x12);
+		assert_eq!(HashingAlgorithm::Keccak256.multihash_code(), 0x1b);
+	}
+
+	#[test]
+	fn hash_dispatches_to_correct_algorithm() {
+		let data = b"polkadot storage chain";
+		assert_eq!(HashingAlgorithm::Blake2b256.hash(data), sp_crypto_hashing::blake2_256(data));
+		assert_eq!(HashingAlgorithm::Sha2_256.hash(data), sp_crypto_hashing::sha2_256(data));
+		assert_eq!(HashingAlgorithm::Keccak256.hash(data), sp_crypto_hashing::keccak_256(data));
 	}
 }

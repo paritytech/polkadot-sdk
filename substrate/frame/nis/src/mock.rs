@@ -66,8 +66,6 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
 	type MaxLocks = ();
 	type MaxReserves = ConstU32<1>;
 	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
@@ -87,8 +85,6 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 	type MaxLocks = ();
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();

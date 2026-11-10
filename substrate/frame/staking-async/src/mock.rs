@@ -81,6 +81,7 @@ impl Get<SessionIndex> for PlanningEraOffset {
 }
 
 parameter_types! {
+	pub static BlockWeights: frame_system::limits::BlockWeights = Default::default();
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
@@ -102,6 +103,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BlockWeights = BlockWeights;
 	type DbWeight = RocksDbWeight;
 	type Block = frame_system::mocking::MockBlock<Test>;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -234,6 +236,40 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		SlashObserver::mutate(|map| {
 			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
 		});
+	}
+}
+
+parameter_types! {
+	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
+}
+
+parameter_types! {
+	/// The check of [`MockIsValidatorInactive`]: whether a validator with these points per service
+	/// is inactive. By default, if it earned no points at all.
+	pub static InactivityCheck: fn(&[(ServiceKind, RewardPoint)]) -> bool =
+		|points| points.iter().all(|(_, points)| *points == 0);
+}
+
+/// Decides inactivity with [`InactivityCheck`].
+pub struct MockIsValidatorInactive;
+impl crate::IsValidatorInactive<AccountId> for MockIsValidatorInactive {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		points: &[(ServiceKind, RewardPoint)],
+	) -> bool {
+		InactivityCheck::get()(points)
+	}
+}
+
+pub struct EraStartMock;
+impl crate::OnEraStart<AccountId> for EraStartMock {
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		StartedEras::mutate(|eras| eras.push((era, validators.to_vec())));
+	}
+
+	fn weight(_validators: u32) -> Weight {
+		Weight::zero()
 	}
 }
 
@@ -561,6 +597,8 @@ impl Config for Test {
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
+	type IsValidatorInactive = MockIsValidatorInactive;
+	type OnEraStart = EraStartMock;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -740,10 +778,16 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
+	/// Do NOT use this. Disabling try-state means the test stops proving that storage
+	/// invariants hold at the end, which hides real corruption. A test that deliberately
+	/// corrupts storage to exercise a code path must restore valid state before its closure
+	/// returns so this hook still runs and passes. Existing `false` call sites are bugs to
+	/// be fixed.
 	pub(crate) fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
+
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

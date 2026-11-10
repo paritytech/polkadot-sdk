@@ -22,7 +22,8 @@ use crate::{
 	weights,
 	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
-	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, System,
+	DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -210,6 +211,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
 	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -263,7 +265,7 @@ parameter_types! {
 		testnet_parachains_constants::westend::account::FELLOWSHIP_TREASURY_PALLET_ID;
 	pub const HundredPercent: Permill = Permill::from_percent(100);
 	pub const Burn: Permill = Permill::from_percent(0);
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
@@ -338,5 +340,5 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		sp_core::ConstU8<1>,
 		ConstU32<1000>,
 	>;
-	type BlockNumberProvider = crate::System;
+	type BlockNumberProvider = System;
 }

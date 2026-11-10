@@ -1,0 +1,9 @@
+title: 'client: Check extrinsics root when not executing a block'
+doc:
+- audience: Node Dev
+  description: |-
+    When importing a block without executing it, e.g. during warp or gap sync, the client now
+    checks that the block body matches the `extrinsics_root` of the header.
+crates:
+- name: sc-service
+  bump: patch

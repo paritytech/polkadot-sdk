@@ -614,14 +614,32 @@ fn incoming_global<B: BlockT>(
 					// if it checks out, gossip it. not accounting for
 					// any discrepancy between the actual ghost and the claimed
 					// finalized number.
-					gossip_validator.note_commit_finalized(
+					let advanced = gossip_validator.note_commit_finalized(
 						round,
 						set_id,
 						finalized_number,
 						|to, neighbor| neighbor_sender.send(to, neighbor),
 					);
 
-					gossip_engine.lock().gossip_message(topic, notification.message.clone(), false);
+					if advanced {
+						gossip_engine.lock().gossip_message(
+							topic,
+							notification.message.clone(),
+							false,
+						);
+					} else {
+						debug!(
+							target: LOG_TARGET,
+							"Not gossiping commit for round {}, set_id {}, block #{:?}: \
+							 finality gossip view didn't advance",
+							round.0,
+							set_id.0,
+							finalized_number,
+						);
+						// still mark it as known, so that peers sending it to us later aren't
+						// penalized for sending a past message.
+						gossip_engine.lock().mark_message_known(&notification.message);
+					}
 				},
 				voter::CommitProcessingOutcome::Bad(_) => {
 					// report peer and do not gossip.

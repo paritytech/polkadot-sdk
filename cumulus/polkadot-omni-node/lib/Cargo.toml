@@ -60,9 +60,11 @@ sc-network-statement = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
+sc-rpc-spec-v2 = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-statement-store = { workspace = true, default-features = true }
+sc-storage-chain-sync = { workspace = true, default-features = true }
 sc-storage-monitor = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
@@ -72,6 +74,7 @@ sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -118,7 +121,7 @@ sc-consensus-aura = { workspace = true }
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
-tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
+tokio = { workspace = true, features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]

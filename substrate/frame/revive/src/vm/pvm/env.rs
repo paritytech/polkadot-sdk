@@ -109,8 +109,7 @@ impl<T: Config> ContractBlob<T> {
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let available_syscalls = list_syscalls();
-		let code = limits::code::enforce::<T>(code, available_syscalls)?;
+		let code = limits::code::enforce::<T>(code)?;
 
 		let code_len = code.len() as u32;
 		let deposit = calculate_code_deposit::<T>(code_len);
@@ -615,10 +614,14 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		// quering the length is free as it is stored with the contract metadata
-		let len = self.ext.immutable_data_len();
-		self.charge_gas(RuntimeCosts::GetImmutableData(len))?;
+		// `immutable_data_len` is exact for a frame executing its own code and the
+		// `IMMUTABLE_BYTES` cap when the code (and so the data) belongs to another account —
+		// delegate calls, and calls to EIP-7702 delegated EOAs. Charge it, then settle on the
+		// actual length.
+		let charge_len = self.ext.immutable_data_len();
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(charge_len))?;
 		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
@@ -657,12 +660,18 @@ pub mod env {
 		addr_ptr: u32,
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::BalanceOf)?;
 		let address = memory.read_h160(addr_ptr)?;
+		let balance = if address == self.ext.address() {
+			self.charge_gas(RuntimeCosts::Balance)?;
+			self.ext.balance()
+		} else {
+			self.charge_gas(RuntimeCosts::BalanceOf)?;
+			self.ext.balance_of(&address)
+		};
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.balance_of(&address).to_little_endian(),
+			&balance.to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -768,7 +777,7 @@ pub mod env {
 		};
 
 		let event_data = memory.read(data_ptr, data_len)?;
-		self.ext.deposit_event(topics, event_data);
+		self.ext.deposit_event(topics, event_data)?;
 		Ok(())
 	}
 

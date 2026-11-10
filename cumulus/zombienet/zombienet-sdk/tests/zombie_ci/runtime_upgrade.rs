@@ -12,19 +12,25 @@ use polkadot_primitives::{Id as ParaId, MAX_CODE_SIZE};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{
-		backend::rpc::reconnecting_rpc_client::RpcClient as ReconnectingRpcClient, OnlineClient,
-		PolkadotConfig,
+		ext::jsonrpsee::{
+			client_transport::ws::{Url, WsTransportClientBuilder},
+			core::client::Client,
+		},
+		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 async fn big_message_client(ws_uri: &str) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
-	let rpc = ReconnectingRpcClient::builder()
+	let url = Url::parse(ws_uri)?;
+	let (sender, receiver) = WsTransportClientBuilder::default()
 		.max_request_size(25 * 1024 * 1024)
 		.max_response_size(25 * 1024 * 1024)
-		.build(ws_uri.to_string())
-		.await?;
+		.build(url)
+		.await
+		.map_err(|e| anyhow!("WS transport failed: {e}"))?;
+	let rpc = Client::builder().build_with_tokio(sender, receiver);
 	Ok(OnlineClient::<PolkadotConfig>::from_rpc_client(rpc).await?)
 }
 

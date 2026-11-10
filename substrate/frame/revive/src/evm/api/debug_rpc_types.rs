@@ -19,9 +19,8 @@ use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use derive_more::From;
 use pallet_revive_types::runtime_api::*;
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
+use sp_runtime::ApplyExtrinsicResult;
 
 /// The type of tracer to use.
 #[derive(Debug, Clone, PartialEq, From)]
@@ -50,80 +49,6 @@ impl From<TracerTypeV1> for TracerType {
 			TracerTypeV1::ExecutionTracer(config) => Self::ExecutionTracer(config.map(Into::into)),
 		}
 	}
-}
-
-/// Tracer configuration used to trace calls.
-#[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize), serde(rename_all = "camelCase"))]
-pub struct TracerConfig {
-	/// The tracer type.
-	#[cfg_attr(feature = "std", serde(flatten, default))]
-	pub config: TracerTypeV1,
-
-	/// Timeout for the tracer.
-	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
-	pub timeout: Option<core::time::Duration>,
-}
-
-#[cfg(feature = "std")]
-impl<'de> Deserialize<'de> for TracerConfig {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::de::Deserializer<'de>,
-	{
-		#[derive(Deserialize)]
-		#[serde(rename_all = "camelCase")]
-		struct TracerConfigWithType {
-			#[serde(flatten)]
-			config: TracerTypeV1,
-			#[serde(with = "humantime_serde", default)]
-			timeout: Option<core::time::Duration>,
-		}
-
-		#[derive(Deserialize)]
-		#[serde(rename_all = "camelCase")]
-		struct TracerConfigInline {
-			#[serde(flatten, default)]
-			execution_tracer_config: ExecutionTracerConfigV1,
-			#[serde(with = "humantime_serde", default)]
-			timeout: Option<core::time::Duration>,
-		}
-
-		#[derive(Deserialize)]
-		#[serde(untagged)]
-		enum TracerConfigHelper {
-			WithType(TracerConfigWithType),
-			Inline(TracerConfigInline),
-		}
-
-		match TracerConfigHelper::deserialize(deserializer)? {
-			TracerConfigHelper::WithType(cfg) => {
-				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout })
-			},
-			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
-				config: TracerTypeV1::ExecutionTracer(Some(cfg.execution_tracer_config)),
-				timeout: cfg.timeout,
-			}),
-		}
-	}
-}
-
-/// Configuration for `debug_traceCall`, extending [`TracerConfig`] with state overrides.
-///
-/// Per the [Geth specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall),
-/// `debug_traceCall` accepts a config object that is a superset of the base tracer config,
-/// adding `stateOverrides` (and optionally `blockOverrides` and `txIndex`, which are not yet
-/// supported).
-#[derive(Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize), serde(rename_all = "camelCase"))]
-pub struct TraceCallConfig {
-	/// The base tracer configuration (tracer type, timeout, etc.).
-	#[cfg_attr(feature = "std", serde(flatten))]
-	pub tracer_config: TracerConfig,
-
-	/// Optional state overrides to apply before executing the traced call.
-	#[cfg_attr(feature = "std", serde(default, skip_serializing_if = "Option::is_none"))]
-	pub state_overrides: Option<super::StateOverrideSet>,
 }
 
 /// The configuration for the call tracer.
@@ -288,6 +213,32 @@ impl From<Trace> for TraceV2 {
 			Trace::Call(value) => Self::Call(value.into()),
 			Trace::Prestate(value) => Self::Prestate(value.into()),
 			Trace::Execution(value) => Self::Execution(value.into()),
+		}
+	}
+}
+
+/// A single extrinsic's trace, or a signal that it could not be traced.
+pub enum TraceEntry {
+	/// The extrinsic's trace.
+	Traced(Trace),
+	/// The extrinsic could not be traced.
+	NotTraced,
+}
+
+impl TraceEntry {
+	/// The entry for an extrinsic that produced no trace: `NotTraced` if the replay dropped it,
+	/// `None` if there was nothing to trace. `ExhaustsResources` is the only spurious failure a
+	/// faithful replay introduces.
+	pub fn for_untraced(result: &ApplyExtrinsicResult) -> Option<Self> {
+		matches!(result, Err(err) if err.exhausted_resources()).then_some(Self::NotTraced)
+	}
+}
+
+impl From<TraceEntry> for TraceEntryV1 {
+	fn from(value: TraceEntry) -> Self {
+		match value {
+			TraceEntry::Traced(trace) => TraceEntryV1::Traced(trace.into()),
+			TraceEntry::NotTraced => TraceEntryV1::NotTraced,
 		}
 	}
 }
@@ -471,7 +422,7 @@ impl From<ExecutionStepKind> for ExecutionStepKindV1 {
 			ExecutionStepKind::PVMSyscall { op, args, returned } => Self::PVMSyscall {
 				op: op
 					.try_into()
-					.expect("qed; all sys calls produced by revive are valid. Tested in env.rs"),
+					.expect("all sys calls produced by revive are valid. Tested in env.rs; qed"),
 				args,
 				returned,
 			},
@@ -586,128 +537,6 @@ impl From<CallLog> for CallLogV2 {
 			data: value.data,
 			position: value.position,
 			index: value.index,
-		}
-	}
-}
-
-/// A transaction trace
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionTrace {
-	/// The transaction hash.
-	pub tx_hash: H256,
-	/// The trace of the transaction.
-	#[serde(rename = "result")]
-	pub trace: TraceV1,
-}
-
-#[cfg(all(test, feature = "std"))]
-mod tests {
-	use super::*;
-
-	/// Serialization should support the following JSON format:
-	///
-	/// ```json
-	/// { "tracer": "callTracer", "tracerConfig": { "withLogs": false } }
-	/// ```
-	///
-	/// ```json
-	/// { "tracer": "callTracer" }
-	/// ```
-	///
-	/// By default if not specified the tracer is an ExecutionTracer, and it's config is passed
-	/// inline
-	///
-	/// ```json
-	/// { "tracer": null,  "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true  }
-	/// ```
-	#[test]
-	fn test_tracer_config_serialization() {
-		let tracers = vec![
-			(
-				r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false,
-		"enableReturnData": true }"#,
-				TracerConfig {
-					config: TracerTypeV1::ExecutionTracer(Some(ExecutionTracerConfigV1 {
-						enable_memory: true,
-						disable_stack: false,
-						disable_storage: false,
-						enable_return_data: true,
-						disable_syscall_details: false,
-						limit: None,
-						memory_word_limit: 16,
-					})),
-					timeout: None,
-				},
-			),
-			(
-				r#"{  }"#,
-				TracerConfig {
-					config: TracerTypeV1::ExecutionTracer(Some(ExecutionTracerConfigV1::default())),
-					timeout: None,
-				},
-			),
-			(
-				r#"{"tracer": "callTracer"}"#,
-				TracerConfig { config: TracerTypeV1::CallTracer(None), timeout: None },
-			),
-			(
-				r#"{"tracer": "callTracer", "tracerConfig": { "withLogs": false }}"#,
-				TracerConfig {
-					config: Some(CallTracerConfigV1 { with_logs: false, only_top_call: false })
-						.into(),
-					timeout: None,
-				},
-			),
-			(
-				r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }}"#,
-				TracerConfig {
-					config: Some(CallTracerConfigV1 { with_logs: true, only_top_call: true })
-						.into(),
-					timeout: None,
-				},
-			),
-			(
-				r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout":
-		"10ms"}"#,
-				TracerConfig {
-					config: Some(CallTracerConfigV1 { with_logs: true, only_top_call: true })
-						.into(),
-					timeout: Some(core::time::Duration::from_millis(10)),
-				},
-			),
-			(
-				r#"{"tracer": "executionTracer"}"#,
-				TracerConfig { config: TracerTypeV1::ExecutionTracer(None), timeout: None },
-			),
-			(
-				r#"{"tracer": "executionTracer", "tracerConfig": { "enableMemory": true }}"#,
-				TracerConfig {
-					config: Some(ExecutionTracerConfigV1 {
-						enable_memory: true,
-						..Default::default()
-					})
-					.into(),
-					timeout: None,
-				},
-			),
-			(
-				r#"{ "enableMemory": true }"#,
-				TracerConfig {
-					config: Some(ExecutionTracerConfigV1 {
-						enable_memory: true,
-						..Default::default()
-					})
-					.into(),
-					timeout: None,
-				},
-			),
-		];
-
-		for (json_data, expected) in tracers {
-			let result: TracerConfig =
-				serde_json::from_str(json_data).expect("Deserialization should succeed");
-			assert_eq!(result, expected, "invalid serialization for {json_data}");
 		}
 	}
 }

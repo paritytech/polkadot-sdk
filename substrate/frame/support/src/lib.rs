@@ -123,9 +123,7 @@ pub use self::{
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
 };
-pub use sp_runtime::{
-	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
-};
+pub use sp_runtime::{self, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -954,6 +952,9 @@ pub mod pallet_macros {
 
 	/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.
+	///
+	/// Multiple `#[pallet::extra_constants]` blocks are allowed. Constants from all blocks are
+	/// included in metadata in declaration order, after the constants defined in `Config`.
 	///
 	/// Must be defined like:
 	///
@@ -1923,34 +1924,6 @@ pub mod pallet_macros {
 	///         fn build(&self) {
 	///             // use &self to access fields.
 	///             let foo = &self.foo;
-	///             todo!()
-	///         }
-	///     }
-	/// }
-	/// ```
-	///
-	/// ## Former Usage
-	///
-	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
-	/// This is deprecated and will soon be removed.
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// pub mod pallet {
-	/// #     #[pallet::config]
-	/// #     pub trait Config: frame_system::Config {}
-	/// #     #[pallet::pallet]
-	/// #     pub struct Pallet<T>(_);
-	/// #     use frame_support::traits::GenesisBuild;
-	///     #[pallet::genesis_config]
-	///     #[derive(frame_support::DefaultNoBound)]
-	///     pub struct GenesisConfig<T: Config> {
-	/// 		foo: Vec<T::AccountId>
-	/// 	}
-	///
-	///     #[pallet::genesis_build]
-	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-	///         fn build(&self) {
 	///             todo!()
 	///         }
 	///     }
