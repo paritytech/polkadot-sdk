@@ -138,12 +138,12 @@ crates:
 - name: sc-executor-polkavm
   bump: major
 - name: sc-virtualization
-  bump: patch
+  bump: minor
 - name: sp-io
   bump: patch
 - name: sp-runtime-interface
   bump: patch
 - name: substrate-wasm-builder
-  bump: patch
+  bump: minor
 - name: sp-virtualization-test-fixture
   bump: patch

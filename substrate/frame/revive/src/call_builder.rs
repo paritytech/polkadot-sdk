@@ -779,11 +779,19 @@ mod tests {
 			.collect()
 	}
 
-	/// The contracts of `interpreter_compile_per_instruction` have the same size and differ only
-	/// in the size of the entry block.
+	/// The contracts of `interpreter_compile_per_instruction` have the same size, hold the same
+	/// opcodes and differ only in the size of the entry block.
 	#[test]
 	fn interpreter_compile_per_instruction_benchmark_contracts() {
-		let code_len = VmBinaryModule::with_entry_block(2).code.len();
+		let sorted_opcodes = |instructions: &[ParsedInstruction]| {
+			let mut opcodes: alloc::vec::Vec<_> =
+				instructions.iter().map(|inst| inst.kind.opcode()).collect();
+			opcodes.sort_unstable();
+			opcodes
+		};
+		let reference = VmBinaryModule::with_entry_block(2);
+		let code_len = reference.code.len();
+		let opcodes = sorted_opcodes(&call_instructions(&reference));
 		for n in [2, 3, BASIC_BLOCK_SIZE / 2, BASIC_BLOCK_SIZE - 1, BASIC_BLOCK_SIZE] {
 			let module = VmBinaryModule::with_entry_block(n);
 			let instructions = call_instructions(&module);
@@ -793,6 +801,7 @@ mod tests {
 				.unwrap() + 1;
 
 			assert_eq!(module.code.len(), code_len, "n = {n}");
+			assert_eq!(sorted_opcodes(&instructions), opcodes, "n = {n}");
 			assert_eq!(
 				instructions[0].kind,
 				Instruction::ecalli(SENTINEL.cast_signed()),
