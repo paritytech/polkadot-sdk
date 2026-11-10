@@ -53,7 +53,7 @@ pub(crate) struct RequestResultCache {
 	candidate_pending_availability: LruMap<(Hash, ParaId), Option<CommittedCandidateReceipt>>,
 	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	candidate_events: LruMap<Hash, Vec<CandidateEvent>>,
-	session_executor_params: LruMap<SessionIndex, Option<ExecutorParams>>,
+	session_executor_params: LruMap<SessionIndex, ExecutorParams>,
 	session_info: LruMap<SessionIndex, SessionInfo>,
 	dmq_contents: LruMap<(Hash, ParaId), Vec<InboundDownwardMessage<BlockNumber>>>,
 	inbound_hrmp_channels_contents:
@@ -323,10 +323,14 @@ impl RequestResultCache {
 		self.session_info.insert(key, value);
 	}
 
+	// Only `Some` values are cached. A `None` is about the queried block, not the session: the
+	// params of session `S + 1` are stored in its first block, so a block of session `S` answers
+	// `None` for `S + 1`. Caching that `None` would fail every later request for `S + 1`, whatever
+	// block it is made at.
 	pub(crate) fn session_executor_params(
 		&mut self,
 		session_index: SessionIndex,
-	) -> Option<&Option<ExecutorParams>> {
+	) -> Option<&ExecutorParams> {
 		self.session_executor_params.get(&session_index).map(|v| &*v)
 	}
 
@@ -335,7 +339,9 @@ impl RequestResultCache {
 		session_index: SessionIndex,
 		value: Option<ExecutorParams>,
 	) {
-		self.session_executor_params.insert(session_index, value);
+		if let Some(executor_params) = value {
+			self.session_executor_params.insert(session_index, executor_params);
+		}
 	}
 
 	pub(crate) fn dmq_contents(
@@ -755,5 +761,18 @@ mod tests {
 
 		cache.cache_validation_code_by_hash(code_hash, Some(code.clone()));
 		assert_eq!(cache.validation_code_by_hash((relay_parent, code_hash)), Some(&code),);
+	}
+
+	#[test]
+	fn session_executor_params_does_not_cache_none() {
+		let mut cache = RequestResultCache::default();
+
+		// What a block of the previous session answers for this session.
+		cache.cache_session_executor_params(5, None);
+		assert!(cache.session_executor_params(5).is_none(), "None results must not be cached");
+
+		let executor_params = ExecutorParams::default();
+		cache.cache_session_executor_params(5, Some(executor_params.clone()));
+		assert_eq!(cache.session_executor_params(5), Some(&executor_params));
 	}
 }
