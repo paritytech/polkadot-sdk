@@ -15,8 +15,9 @@ doc:
       is therefore dropped and rebuilt instead of resubmitted forever.
     - V2-executed blocks never enter the V3 resubmittable segment.
 
-    After building a runtime upgrade, the slot-based collator stops building new blocks on the
-    slot's later cores; those cores only resubmit.
+    After building a runtime upgrade that changes the scheduling version or relay parent offset,
+    the slot-based collator stops building new blocks on the slot's later cores; those cores only
+    resubmit.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch

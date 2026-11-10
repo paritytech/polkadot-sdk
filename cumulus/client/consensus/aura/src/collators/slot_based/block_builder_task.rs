@@ -898,7 +898,7 @@ where
 			} = plan;
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
-			let mut upgraded = false;
+			let mut scheduling_changed = false;
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -915,8 +915,8 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				// `cx` predates the upgrade, so later cores only resubmit.
-				let maybe_parts = if upgraded {
+				// `cx` predates a scheduling-params change, so later cores only resubmit.
+				let maybe_parts = if scheduling_changed {
 					None
 				} else {
 					match build_collation_parts_for_core(BuildCollationParams {
@@ -967,8 +967,14 @@ where
 						break;
 					};
 					pov_parent_header = tip_header.clone();
-					// Bundle building stops after an upgrade, so only the tip can carry it.
-					upgraded = has_runtime_upgrade_digest(tip_header);
+					// Bundle building stops after an upgrade, so only the tip can carry it. Only a
+					// change to the scheduling params invalidates `cx` for later cores.
+					scheduling_changed = has_runtime_upgrade_digest(tip_header) &&
+						SchedulingParams::at(&*env.para_client, tip_header.hash()) !=
+							SchedulingParams {
+								v3_enabled: cx.v3_enabled,
+								relay_parent_offset: cx.relay_parent_offset,
+							};
 				}
 
 				// Breaking here assumes the next cores will not be able to build a new block

@@ -463,7 +463,6 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	// A para never goes from V3 back to V2, so under V2 params every block is V2-executed.
 	let is_v2 = matches!(params, ParentSearchParams::V2 { .. });
 	let (best_parent_header, v2_executed) = find_deepest_valid_parent(
 		relay_client,
