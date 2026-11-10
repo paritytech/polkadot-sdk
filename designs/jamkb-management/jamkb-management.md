@@ -276,8 +276,9 @@ type Timeslot = u32;
 /// Added to the lease end (`reclaim`, §4.3).
 const LEASE_GRACE_PERIOD: Timeslot;
 
-/// The target's cooldown after a Failed reclaim (`reclaim`, §4.3).
-const TARGET_RECLAIM_COOLDOWN: Timeslot;
+/// Cooldown after a Failed reclaim. Blocks reclaims by anyone except the
+/// approver or governance (`reclaim`, §4.3).
+const RECLAIM_COOLDOWN: Timeslot;
 
 /// The cap on a target's accepted leases: those in `Delivering`, `Delivered`
 /// or `Reclaiming`.
@@ -315,7 +316,7 @@ type FrozenTargets = Map<ServiceId, ()>;
 /// One approved allocation.
 struct Allocation {
     id: AllocationId,
-    mode: AllocationMode,             // Lease { duration, target_reclaim_from }
+    mode: AllocationMode,             // Lease { duration, reclaim_from }
                                       // | Permanent { memo }
     target: ServiceId,
     /// Held by `pallet-assets-holder` while open: `Leased` on the approver,
@@ -341,9 +342,8 @@ struct Allocation {
 enum AllocationMode {
     Lease {
         duration: Timeslot,
-        target_reclaim_from: Option<Timeslot>,
-                                      // end of the target's cooldown
-                                      // (`reclaim`)
+        reclaim_from: Option<Timeslot>,   // end of the cooldown
+                                          // (`reclaim`)
     },
     Permanent { memo: [u8; 128] },    // the memo of the release (§5.2)
 }
@@ -422,13 +422,13 @@ enum OperationPayload {
     /// amount falls by `amount`; a fully returned lease moves to `Closed`.
     /// Failed: a `Reclaim` whose `accumulated_at` is past the lease end and
     /// `LEASE_GRACE_PERIOD` moves a `Delivered` lease to `Reclaiming`;
-    /// otherwise the lease keeps its state. A Failed `Reclaim` with
-    /// `by_target` sets `target_reclaim_from` to `accumulated_at +
-    /// TARGET_RECLAIM_COOLDOWN`.
+    /// otherwise the lease keeps its state. A Failed `Reclaim` not
+    /// `privileged` sets `reclaim_from` to `accumulated_at +
+    /// RECLAIM_COOLDOWN`.
     Reclaim {
         allocation: AllocationId,
         amount: Balance,
-        by_target: bool,              // a target call (`reclaim`)
+        privileged: bool,             // by the approver or governance
     },
     /// A freeze (`freeze_target`, §4.3).
     /// One `UpgradeService { service: Some(target), code_hash:
@@ -699,14 +699,13 @@ fn increase_lease(id: AllocationId, additional: Balance);
 /// greater than the current one.
 fn extend_lease(id: AllocationId, duration: Timeslot);
 
-/// Takes `amount` of the leased units back from the target. Origin: the
-/// target's service account. After the lease end plus `LEASE_GRACE_PERIOD`
-/// also the lease's approver or governance, and the target only for
-/// `Full`, else `FullReclaimOnly`. Legal while the lease is `Delivered` or
-/// `Reclaiming`. A target call before `target_reclaim_from` is rejected
-/// with `ReclaimCooldown`. A call by the target's service account is a
-/// target call, except after the lease end plus `LEASE_GRACE_PERIOD` when
-/// that account is the approver. Records a `Reclaim` operation.
+/// Takes `amount` of the leased units back from the target. Until the lease
+/// end plus `LEASE_GRACE_PERIOD` only the target can reclaim. After it
+/// anyone can reclaim `Full`; a partial reclaim is rejected with
+/// `FullReclaimOnly`. The approver and governance can reclaim any amount.
+/// Legal while the lease is `Delivered` or `Reclaiming`. Before `reclaim_from`
+/// only the approver and governance can reclaim; other calls are rejected
+/// with `ReclaimCooldown`. Records a `Reclaim` operation.
 fn reclaim(id: AllocationId, amount: ReclaimAmount);
 
 /// Ends a lease that was not fully returned. Origin: the lease's approver or
@@ -836,7 +835,7 @@ interface IJamkb {
         bytes32 approver;         // bytes32(0) for governance
         uint32 deliveredAt;       // 0: not delivered
         uint32 duration;          // 0 for Permanent
-        uint32 targetReclaimFrom; // 0: none
+        uint32 reclaimFrom;       // 0: none
         uint32 validFrom;
         uint32 expiresAt;
     }
