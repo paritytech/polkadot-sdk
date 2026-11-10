@@ -1,0 +1,16 @@
+title: 'pallet-multi-asset-bounties: keep an approved bounty when its funding payment fails'
+doc:
+  - audience: Runtime User
+    description: |
+      `fund_bounty` no longer reverts when the funding payment cannot be initiated, for example
+      when the treasury does not hold enough of the asset at enactment. The bounty is stored in
+      `FundingAttempted` with a `Failed` payment and `BountyFundingFailed` is emitted, so anyone
+      can call `retry_payment` once the treasury can pay. `RejectOrigin` can close such a bounty
+      with `close_bounty`; it is removed without a refund.
+  - audience: Runtime Dev
+    description: |
+      New event variant `BountyFundingFailed { index }`, appended to `Event`. No storage or call
+      signature changes and no storage migration.
+crates:
+  - name: pallet-multi-asset-bounties
+    bump: major
