@@ -472,6 +472,11 @@ pub mod pallet {
 		Paid { index: BountyIndex, child_index: Option<BountyIndex>, payment_id: PaymentIdOf<T, I> },
 		/// A bounty's value was increased by its curator.
 		BountyValueIncreased { index: BountyIndex, old_value: T::Balance, new_value: T::Balance },
+		/// The funding payment of a new bounty could not be initiated, e.g. because the funding
+		/// source does not hold enough of the asset. The bounty is kept with a failed funding
+		/// payment: call `retry_payment` once the funding source can pay, or close it with
+		/// `RejectOrigin`.
+		BountyFundingFailed { index: BountyIndex },
 	}
 
 	/// A reason for this pallet placing a hold on funds.
