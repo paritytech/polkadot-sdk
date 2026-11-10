@@ -172,12 +172,12 @@ enum SubCall {
 	Create,
 }
 
-/// A PVM caller pays for rebuilding its interpreter state after every call, delegate call and
+/// A PVM caller pays for the map of compiled blocks after every call, delegate call and
 /// contract creation, to contracts and pre-compiles alike, whether it succeeds or not, in
 /// proportion to the size of its code.
 ///
 /// The interpreter charges it as gas through the `per_code_byte_millis` compilation cost. An EVM
-/// caller keeps no interpreter state and pays nothing for it.
+/// caller keeps no code map and pays nothing for it.
 ///
 /// `SubCallerLarge` runs the same functions as `SubCaller` but has more code. Both make one
 /// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are
@@ -197,7 +197,7 @@ enum SubCall {
 #[test_case(FixtureType::Resolc, SubCall::RevertingCall)]
 #[test_case(FixtureType::Resolc, SubCall::DelegateCall)]
 #[test_case(FixtureType::Resolc, SubCall::Create)]
-fn sub_call_charges_caller_cache_rebuild(fixture_type: FixtureType, sub_call: SubCall) {
+fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall) {
 	let (small_code, _) = compile_module_with_type("SubCaller", fixture_type).unwrap();
 	let (large_code, _) = compile_module_with_type("SubCallerLarge", fixture_type).unwrap();
 	let (sink_code, _) = compile_module_with_type("Sink", fixture_type).unwrap();
@@ -253,12 +253,12 @@ fn sub_call_charges_caller_cache_rebuild(fixture_type: FixtureType, sub_call: Su
 				let per_code_byte_millis =
 					EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
 				// The gas the interpreter charges for the map of a code section.
-				let rebuild = |code: Vec<u8>| {
+				let code_map = |code: Vec<u8>| {
 					let blob = polkavm::ProgramBlob::parse(code.into()).unwrap();
 					let code_len = u64::try_from(blob.code().len()).unwrap();
 					(code_len * u64::from(per_code_byte_millis)).div_ceil(1000)
 				};
-				let (small_gas, large_gas) = (rebuild(small_code), rebuild(large_code));
+				let (small_gas, large_gas) = (code_map(small_code), code_map(large_code));
 				assert!(large_gas > small_gas);
 				2 * (large_gas - small_gas) * ref_time_per_fuel
 			},

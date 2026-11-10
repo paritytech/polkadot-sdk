@@ -1262,7 +1262,7 @@ pub mod pallet {
 				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
 			assert!(
 				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >
-					ref_time_slope(T::WeightInfo::interpreter_cache_rebuild),
+					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
 				"The PVM code load weight per byte must exceed the code map weight per byte"
 			);
 

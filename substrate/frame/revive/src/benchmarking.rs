@@ -675,7 +675,7 @@ mod benchmarks {
 	// the execution engine.
 	//
 	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`, minus the ref time slope
-	// of `interpreter_cache_rebuild`.
+	// of `interpreter_code_map_per_byte`.
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
@@ -817,21 +817,21 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Measures rebuilding the interpreter state of a contract after it called another
-	/// contract, per byte of its code section.
+	/// Measures allocating the interpreter's map of compiled blocks, per byte of the code
+	/// section.
 	///
-	/// Before a call or an instantiation the caller drops its interpreter state. The first
-	/// block it compiles afterwards allocates it again, including a map with one entry for every
-	/// byte of its code section. A new instance starts with the same empty state. The measured
-	/// block drops the state of a prepared instance and runs it, which compiles its entry block
+	/// The map has one entry for every byte of the code section. Before a call or an
+	/// instantiation the caller drops its compiled code, and the first block it compiles
+	/// afterwards allocates the map again. A new instance starts with no map. The measured block
+	/// drops the compiled code of a prepared instance and runs it, which compiles its entry block
 	/// of two instructions and stops. The code section has `c` bytes and the entry block is the
-	/// same for every `c` (see [`VmBinaryModule::with_code_bytes`]), so the slope is the
-	/// rebuild per byte of code. The compilation of the entry block is in the intercept.
+	/// same for every `c` (see [`VmBinaryModule::with_code_bytes`]), so the slope is the code
+	/// map per byte of code. The compilation of the entry block is in the intercept.
 	///
 	/// The interpreter charges the slope per byte of code section whenever it allocates or
 	/// rewrites the map, see [`crate::metering::EngineMeter::interpreter_compilation_cost`].
 	#[benchmark(pov_mode = Ignored)]
-	fn interpreter_cache_rebuild(c: Linear<0, { VmBinaryModule::MAX_CODE_BYTES }>) {
+	fn interpreter_code_map_per_byte(c: Linear<0, { VmBinaryModule::MAX_CODE_BYTES }>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_code_bytes(c));
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new());

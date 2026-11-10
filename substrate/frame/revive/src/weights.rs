@@ -82,7 +82,7 @@ pub trait WeightInfo {
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight;
 	fn interpreter_compile_per_instruction(n: u32, ) -> Weight;
 	fn interpreter_compile_per_block(b: u32, ) -> Weight;
-	fn interpreter_cache_rebuild(c: u32, ) -> Weight;
+	fn interpreter_code_map_per_byte(c: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight;
 	fn eth_instantiate_with_code(c: u32, i: u32, d: u32, ) -> Weight;
 	fn deposit_eth_extrinsic_revert_event() -> Weight;
@@ -458,7 +458,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// The range of component `c` is `[0, 520192]`.
-	fn interpreter_cache_rebuild(c: u32, ) -> Weight {
+	fn interpreter_code_map_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2526,7 +2526,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// The range of component `c` is `[0, 520192]`.
-	fn interpreter_cache_rebuild(c: u32, ) -> Weight {
+	fn interpreter_code_map_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

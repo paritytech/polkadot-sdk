@@ -983,10 +983,10 @@ mod tests {
 		assert!(compiled_entries <= usable_entries, "{compiled_entries} > {usable_entries}");
 	}
 
-	/// The `interpreter_cache_rebuild` contracts have a code section of about the requested
+	/// The `interpreter_code_map_per_byte` contracts have a code section of about the requested
 	/// size and the same entry block.
 	#[test]
-	fn interpreter_cache_rebuild_benchmark_contracts() {
+	fn interpreter_code_map_per_byte_benchmark_contracts() {
 		for code_bytes in
 			[0, 3000, VmBinaryModule::MAX_CODE_BYTES / 2, VmBinaryModule::MAX_CODE_BYTES]
 		{

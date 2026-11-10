@@ -121,7 +121,7 @@ impl ExportedFunction {
 
 /// Cost of code loading from storage.
 ///
-/// For PVM code the slope of `interpreter_cache_rebuild` is left out: the callee of
+/// For PVM code the slope of `interpreter_code_map_per_byte` is left out: the callee of
 /// `call_with_pvm_code_per_byte` allocates its map of compiled blocks, which the interpreter
 /// charges as gas. The compilation of its entry block is in the benchmark's intercept and is
 /// charged by the interpreter too.
@@ -142,7 +142,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match self.code_type {
 			BytecodeType::Pvm => {
-				let code_map = slope(T::WeightInfo::interpreter_cache_rebuild, self.code_len);
+				let code_map = slope(T::WeightInfo::interpreter_code_map_per_byte, self.code_len);
 				slope(T::WeightInfo::call_with_pvm_code_per_byte, self.code_len)
 					.saturating_sub_ref_time(code_map.ref_time())
 			},

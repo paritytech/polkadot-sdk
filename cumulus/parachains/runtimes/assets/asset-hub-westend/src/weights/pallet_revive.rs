@@ -298,7 +298,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	/// The range of component `c` is `[0, 520192]`.
-	fn interpreter_cache_rebuild(c: u32, ) -> Weight {
+	fn interpreter_code_map_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

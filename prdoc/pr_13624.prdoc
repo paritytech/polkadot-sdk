@@ -19,14 +19,14 @@ doc:
       of a call, on the first compilation after every call, delegate call, pre-compile call and
       instantiation the contract makes, and when the map is rewritten after many cache resets.
     - The values come from the slopes of `interpreter_compile_per_instruction`,
-      `interpreter_compile_per_block` and `interpreter_cache_rebuild`, converted with the ref time
-      per gas and rounded up. The first two compile the instruction and the block terminator
-      that took the longest to compile in a local measurement: `store_imm_indirect_u64` and a
-      branch. `per_block` leaves out the compilation of the block's one instruction and one gas
-      for executing it.
+      `interpreter_compile_per_block` and `interpreter_code_map_per_byte`, converted with the ref
+      time per gas and rounded up. The first two compile the instruction and the block
+      terminator that took the longest to compile in a local measurement:
+      `store_imm_indirect_u64` and a branch. `per_block` leaves out the compilation of the
+      block's one instruction and one gas for executing it.
     - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
-      the ref time slope of `interpreter_cache_rebuild`, since the interpreter charges the map of
-      compiled blocks as gas. The code load charge no longer adds the compilation of one
+      the ref time slope of `interpreter_code_map_per_byte`, since the interpreter charges the
+      map of compiled blocks as gas. The code load charge no longer adds the compilation of one
       maximum-sized basic block. The pallet's `integrity_test` asserts that the first slope is
       larger than the second.
     - Compiling a block and allocating the map of compiled blocks can both leave the
@@ -52,7 +52,7 @@ doc:
 
     - Removed: `basic_block_compilation(b)`, `instr(r)`, `instr_empty_loop(r)`.
     - Added: `interpreter_compile_per_instruction(n)`, `interpreter_compile_per_block(b)`,
-      `interpreter_cache_rebuild(c)`, `instr_load_chain_0(r)` to `instr_load_chain_7(r)`,
+      `interpreter_code_map_per_byte(c)`, `instr_load_chain_0(r)` to `instr_load_chain_7(r)`,
       `instr_indirect_jump(r)`.
 
     To migrate, regenerate the runtime's `pallet_revive` weights with the new benchmarks before
@@ -68,7 +68,7 @@ doc:
     // After
     fn interpreter_compile_per_instruction(n: u32, ) -> Weight { ... }
     fn interpreter_compile_per_block(b: u32, ) -> Weight { ... }
-    fn interpreter_cache_rebuild(c: u32, ) -> Weight { ... }
+    fn interpreter_code_map_per_byte(c: u32, ) -> Weight { ... }
     fn instr_load_chain_0(r: u32, ) -> Weight { ... }
     // ... one function per variant ...
     fn instr_load_chain_7(r: u32, ) -> Weight { ... }
