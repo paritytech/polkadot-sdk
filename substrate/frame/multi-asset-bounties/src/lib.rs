@@ -89,7 +89,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 extern crate alloc;
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	dispatch_context::with_context,

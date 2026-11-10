@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_bounties;
 use crate::Pallet as Bounties;
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
