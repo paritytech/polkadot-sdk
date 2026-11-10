@@ -17,16 +17,16 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::traits::{EitherOf, EnsureOrigin, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
-use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, ServiceKind};
 use testnet_parachains_constants::westend::{
 	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
 };
@@ -284,6 +284,39 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	/// The era points below which an elected validator is inactive in an era, as
+	/// `(min_relay_consensus, min_collation)`.
+	///
+	/// `None` means no validator is ever inactive. `Some((min_rc, min_collation))` means a
+	/// validator is inactive if it earned fewer than `min_rc` relay consensus points OR fewer than
+	/// `min_collation` collation points.
+	///
+	/// Benchmarks need a validator with no points to be inactive, to measure `chill_inactive`.
+	pub storage IsValidatorInactiveThresholds: Option<(RewardPoint, RewardPoint)> =
+		if cfg!(feature = "runtime-benchmarks") { Some((1, 1)) } else { None };
+}
+
+/// A validator is inactive if its points for a service are below the threshold set for it in
+/// [`IsValidatorInactiveThresholds`].
+pub struct IsValidatorInactive;
+impl pallet_staking_async::IsValidatorInactive<AccountId> for IsValidatorInactive {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		points: &[(ServiceKind, RewardPoint)],
+	) -> bool {
+		let Some((min_rc, min_collation)) = IsValidatorInactiveThresholds::get() else {
+			return false;
+		};
+		let points_of = |kind: ServiceKind| {
+			points
+				.iter()
+				.find(|(service, _)| *service == kind)
+				.map_or(0, |(_, points)| *points)
+		};
+		points_of(ServiceKind::RelayConsensus) < min_rc ||
+			points_of(ServiceKind::Collation) < min_collation
+	}
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -322,7 +355,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = IsValidatorInactive;
 	type OnEraStart = AnnounceValidatorSet;
 }
 
@@ -524,6 +557,14 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 		})
 	}
 
+	#[cfg(feature = "std")]
+	fn max_message_size(_: &ValidatorSetDestination) -> Option<usize> {
+		Some(
+			testnet_parachains_constants::westend::staking::LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE
+				as usize,
+		)
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_send(destination: &ValidatorSetDestination) {
 		match destination {
@@ -532,6 +573,71 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
 				)
 			},
+		}
+	}
+}
+
+/// Accepts the sibling parachain origin of one of the `Reporters`, the system chains allowed to
+/// report the blocks authored on them, and returns its parachain id.
+pub struct EnsureReportingSiblings<Reporters>(core::marker::PhantomData<Reporters>);
+impl<Reporters: Get<Vec<ParaId>>> EnsureOrigin<RuntimeOrigin>
+	for EnsureReportingSiblings<Reporters>
+{
+	type Success = ParaId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
+		match o.clone().into() {
+			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id))
+				if Reporters::get().contains(&id) =>
+			{
+				Ok(id)
+			},
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		let id = Reporters::get().first().copied().ok_or(())?;
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id).into())
+	}
+}
+
+/// Credits the block counts of this chain's own blocks.
+pub struct CreditBlocksLocally;
+impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlocksLocally {
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
+		StakingPointsConverter::credit_authored_blocks(
+			ParachainInfo::parachain_id(),
+			blocks.iter().cloned(),
+		);
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
+		// Weight this chain's blocks and expose every account in an active era, so that the
+		// credit reaches staking and accrues every entry.
+		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
+			ParachainInfo::parachain_id(),
+			sp_staking::ServiceKind::Collation,
+			1,
+		);
+		let era = pallet_staking_async::ActiveEra::<Runtime>::get()
+			.map(|active| active.index)
+			.unwrap_or_else(|| {
+				pallet_staking_async::ActiveEra::<Runtime>::put(
+					pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+				);
+				1
+			});
+		for (who, _) in blocks {
+			Staking::add_era_stakers(
+				era,
+				who.clone(),
+				sp_staking::Exposure { total: 1, own: 1, others: vec![] },
+			);
+			pallet_staking_async::ErasValidatorIncentiveWeight::<Runtime>::insert(era, who, 1);
 		}
 	}
 }

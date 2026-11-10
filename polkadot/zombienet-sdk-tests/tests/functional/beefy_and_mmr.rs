@@ -6,7 +6,7 @@
 
 use crate::utils::{
 	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
-	maybe_enable_experimental_collator_protocol, MetricCheckSetup, INTEGRATION_IMAGE_ENV,
+	maybe_enable_legacy_collator_protocol, MetricCheckSetup, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
@@ -232,7 +232,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+			.with_default_args(maybe_enable_legacy_collator_protocol(vec![
 				"--log=beefy=debug".into(),
 				"--enable-offchain-indexing=true".into(),
 			]))
