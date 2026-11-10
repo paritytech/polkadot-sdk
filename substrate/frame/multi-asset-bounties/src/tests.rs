@@ -1458,3 +1458,70 @@ fn close_child_from_funding_hands_the_allocation_back() {
 		assert_eq!(Bounties::bounty_account(parent, 2).map(|a| paid(a, 2)), Ok(40));
 	});
 }
+
+// -----------------------------------------------------------------------------
+// try_state
+// -----------------------------------------------------------------------------
+
+#[test]
+fn try_state_catches_broken_baskets() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (parent, curator, metadata) = active_multi_asset_parent();
+		assert_ok!(Bounties::do_try_state());
+		let row1 = bounty_asset(parent, 1).unwrap();
+
+		// I4: a bounty without asset rows.
+		let rows = pallet_bounties::BountyAssets::<Test>::iter_prefix(parent).collect::<Vec<_>>();
+		let _ = pallet_bounties::BountyAssets::<Test>::clear_prefix(parent, u32::MAX, None);
+		assert!(Bounties::do_try_state().is_err());
+		for (asset_kind, entry) in rows {
+			pallet_bounties::BountyAssets::<Test>::insert(parent, asset_kind, entry);
+		}
+		assert_ok!(Bounties::do_try_state());
+
+		// I4: an asset row without a bounty.
+		pallet_bounties::BountyAssets::<Test>::insert(parent + 1, 1, row1.clone());
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::BountyAssets::<Test>::remove(parent + 1, 1);
+
+		// I1: the guard exceeds the parent's value.
+		pallet_bounties::ChildValuePerParentAsset::<Test>::insert(parent, 1, row1.value + 1);
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::ChildValuePerParentAsset::<Test>::remove(parent, 1);
+
+		// I2: a guard for an asset the parent does not hold.
+		pallet_bounties::ChildValuePerParentAsset::<Test>::insert(parent, 3, 1);
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::ChildValuePerParentAsset::<Test>::remove(parent, 3);
+
+		// I3: an active bounty whose funding did not settle.
+		pallet_bounties::BountyAssets::<Test>::insert(
+			parent,
+			1,
+			AssetEntry { value: row1.value, payment_state: PaymentState::Failed },
+		);
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::BountyAssets::<Test>::insert(parent, 1, row1);
+		assert_ok!(Bounties::do_try_state());
+
+		// I1: a live child-bounty above the guard.
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(curator),
+			parent,
+			basket(vec![(1, 20)]),
+			metadata,
+			None,
+		));
+		assert_ok!(Bounties::do_try_state());
+		pallet_bounties::ChildValuePerParentAsset::<Test>::insert(parent, 1, 10);
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::ChildValuePerParentAsset::<Test>::insert(parent, 1, 20);
+
+		// I2: a child-bounty holding an asset its parent does not hold.
+		let child_row = pallet_bounties::ChildBountyAssets::<Test>::get((parent, 0, 1)).unwrap();
+		pallet_bounties::ChildBountyAssets::<Test>::insert((parent, 0, 3), child_row);
+		assert!(Bounties::do_try_state().is_err());
+		pallet_bounties::ChildBountyAssets::<Test>::remove((parent, 0, 3));
+		assert_ok!(Bounties::do_try_state());
+	});
+}

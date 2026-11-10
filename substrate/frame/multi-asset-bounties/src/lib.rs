@@ -1594,27 +1594,139 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This should be valid before or after each state transition of this pallet.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		Self::try_state_bounties_count()?;
+		Self::try_state_rows_have_owners()?;
 
 		for parent_bounty_id in Bounties::<T, I>::iter_keys() {
 			Self::try_state_child_bounties_count(parent_bounty_id)?;
-			Self::try_state_child_value_per_asset(parent_bounty_id)?;
+			Self::try_state_basket(parent_bounty_id)?;
 		}
 
 		Ok(())
 	}
 
-	/// # Per-asset over-allocation invariant for a given parent bounty
+	/// # Basket invariants for a given parent bounty and its child bounties
 	///
-	/// For each asset held by the parent bounty, the cumulative value allocated to its child
-	/// bounties must not exceed the parent bounty's committed value in that asset.
-	fn try_state_child_value_per_asset(
-		parent_bounty_id: BountyIndex,
-	) -> Result<(), sp_runtime::TryRuntimeError> {
-		for (asset_kind, entry) in BountyAssets::<T, I>::iter_prefix(parent_bounty_id) {
-			let allocated = ChildValuePerParentAsset::<T, I>::get(parent_bounty_id, &asset_kind);
+	/// * I1, no over-allocation: for each asset `a` of the parent, the live child bounties' values
+	///   in `a` add up to at most `ChildValuePerParentAsset[(p, a)]`, which is at most the parent's
+	///   value in `a`.
+	/// * I2, subset: a child-bounty only holds assets its parent holds, and the guard only exists
+	///   for assets the parent holds.
+	/// * I3, lifecycle matches rows: in `Funded`, `CuratorUnassigned` and `Active` every asset's
+	///   funding payment has succeeded.
+	/// * I4, at least one row: every child-/bounty holds at least one asset.
+	/// * I6, bounded rows: no child-/bounty holds more than `MaxAssetsPerBounty` assets.
+	fn try_state_basket(parent_bounty_id: BountyIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		let bounty = Bounties::<T, I>::get(parent_bounty_id).ok_or("bounty does not decode")?;
+		let rows = Self::asset_entries(parent_bounty_id, None);
+		Self::try_state_rows(&bounty.status, &rows)?;
+
+		let mut live_allocation = Vec::<(T::AssetKind, T::Balance)>::new();
+		for (child_bounty_id, child_bounty) in ChildBounties::<T, I>::iter_prefix(parent_bounty_id)
+		{
+			ensure!(
+				child_bounty.parent_bounty == parent_bounty_id,
+				"child-bounty names another parent bounty"
+			);
+			let child_rows = Self::asset_entries(parent_bounty_id, Some(child_bounty_id));
+			Self::try_state_rows(&child_bounty.status, &child_rows)?;
+
+			for (asset_kind, entry) in child_rows {
+				ensure!(
+					rows.iter().any(|(parent_asset, _)| *parent_asset == asset_kind),
+					"child-bounty holds an asset its parent does not hold"
+				);
+				match live_allocation.iter_mut().find(|(a, _)| *a == asset_kind) {
+					Some((_, total)) => *total = total.saturating_add(entry.value),
+					None => live_allocation.push((asset_kind, entry.value)),
+				}
+			}
+		}
+
+		for (asset_kind, entry) in rows.iter() {
+			let allocated = ChildValuePerParentAsset::<T, I>::get(parent_bounty_id, asset_kind);
 			ensure!(
 				allocated <= entry.value,
 				"`ChildValuePerParentAsset` must not exceed the parent bounty asset value"
+			);
+			let live = live_allocation
+				.iter()
+				.find(|(a, _)| a == asset_kind)
+				.map_or(Zero::zero(), |(_, total)| *total);
+			ensure!(
+				live <= allocated,
+				"live child-bounty values must not exceed `ChildValuePerParentAsset`"
+			);
+		}
+		for asset_kind in ChildValuePerParentAsset::<T, I>::iter_key_prefix(parent_bounty_id) {
+			ensure!(
+				rows.iter().any(|(parent_asset, _)| *parent_asset == asset_kind),
+				"`ChildValuePerParentAsset` names an asset the parent bounty does not hold"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// I3, I4 and I6 for the rows of one child-/bounty.
+	fn try_state_rows(
+		status: &BountyStatus<T::AccountId, T::Beneficiary>,
+		rows: &[(T::AssetKind, AssetEntryOf<T, I>)],
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(!rows.is_empty(), "child-/bounty holds no asset");
+		ensure!(
+			rows.len() as u32 <= T::MaxAssetsPerBounty::get(),
+			"child-/bounty holds more than `MaxAssetsPerBounty` assets"
+		);
+		if matches!(
+			status,
+			BountyStatus::Funded { .. } |
+				BountyStatus::CuratorUnassigned |
+				BountyStatus::Active { .. }
+		) {
+			ensure!(
+				Self::all_settled(rows),
+				"funded child-/bounty has an unsettled funding payment"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Referential integrity
+	///
+	/// * Every bounty and child-bounty decodes.
+	/// * Every asset row, guard row and child-bounty belongs to a live child-/bounty.
+	fn try_state_rows_have_owners() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			Bounties::<T, I>::iter_keys().count() == Bounties::<T, I>::iter().count(),
+			"a bounty does not decode"
+		);
+		ensure!(
+			ChildBounties::<T, I>::iter_keys().count() == ChildBounties::<T, I>::iter().count(),
+			"a child-bounty does not decode"
+		);
+		for (parent_bounty_id, _) in BountyAssets::<T, I>::iter_keys() {
+			ensure!(
+				Bounties::<T, I>::contains_key(parent_bounty_id),
+				"asset row of a bounty that does not exist"
+			);
+		}
+		for (parent_bounty_id, child_bounty_id, _) in ChildBountyAssets::<T, I>::iter_keys() {
+			ensure!(
+				ChildBounties::<T, I>::contains_key(parent_bounty_id, child_bounty_id),
+				"asset row of a child-bounty that does not exist"
+			);
+		}
+		for (parent_bounty_id, _) in ChildValuePerParentAsset::<T, I>::iter_keys() {
+			ensure!(
+				Bounties::<T, I>::contains_key(parent_bounty_id),
+				"`ChildValuePerParentAsset` of a bounty that does not exist"
+			);
+		}
+		for (parent_bounty_id, _) in ChildBounties::<T, I>::iter_keys() {
+			ensure!(
+				Bounties::<T, I>::contains_key(parent_bounty_id),
+				"child-bounty of a bounty that does not exist"
 			);
 		}
 
