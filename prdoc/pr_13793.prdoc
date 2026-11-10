@@ -25,6 +25,6 @@ crates:
 - name: sc-statement-store
   bump: minor
 - name: pallet-revive
-  bump: minor
+  bump: major
 - name: polkadot-omni-node-lib
   bump: minor
