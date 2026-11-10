@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794309061738,
+  "lastUpdate": 1794312147254,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95ae463f8443cd479a1c997e66a43208e7aea47a",
-          "message": "eth-rpc: skip receipt extraction for finalized blocks already processed as best (#11801)\n\n### Motivation\nBoth the best and finalized block subscriptions extract receipts\nindependently, so every block is processed twice. This skips redundant\nextraction on the finalized path when the block was already handled by\nthe best block subscription.\n\n### Summary\n- Skip redundant receipt extraction on finalized blocks already\nprocessed by the best block subscription\n- Read logs from DB for skipped blocks only when log subscribers exist\n- Refactor: extract process_block helper, parse_log_row shared function,\nadvance_sync_head\n- Add unit tests for get_processed_eth_block_hash and\nlogs_by_block_number\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-22T04:54:04Z",
-          "tree_id": "7d5d5473cf691d29518871b5472bdcdecddd8467",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/95ae463f8443cd479a1c997e66a43208e7aea47a"
-        },
-        "date": 1776838503199,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.094,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08103415853199994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038374665266,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08392296969599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202d749ecfa8ce03e35f80c21a87d502187d2435",
+          "message": "Update EVM Opcode Benchmarking and Weights (#13190)\n\n# Description\n\nReplace JUMPDEST-based estimates for selected EVM opcodes with their own\nbenchmark weights. Charge memory expansion and RETURN/REVERT output\ncopying from their own benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:20:39Z",
+          "tree_id": "a3dcdeed4e29934494207bda678aadb6ec4484fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202d749ecfa8ce03e35f80c21a87d502187d2435"
+        },
+        "date": 1794312119676,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.064,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03905595615000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08369339445999993,
             "unit": "seconds"
           }
         ]
