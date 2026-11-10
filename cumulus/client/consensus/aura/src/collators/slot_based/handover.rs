@@ -22,12 +22,17 @@ use sp_runtime::traits::Header as HeaderT;
 
 /// Resubmittable headers split by the author the PVF expects to sign each bundle.
 pub(super) struct Classified<A, H> {
+	/// Headers of bundles whose expected signer is the tip's slot author.
 	pub tip: Vec<H>,
+	/// Headers of bundles for the one prior-set author whose key we hold, paired with it.
 	pub handover: Option<(A, Vec<H>)>,
 }
 
-/// `bundles` pairs each whole bundle with the author expected at its first header's parent,
-/// `None` when that read failed.
+/// Assigns each resubmittable bundle to the tip's slot author or to at most one prior-set author
+/// whose key we hold; other bundles are dropped.
+///
+/// Each input bundle comes with the author expected at its first header's parent, or `None` when
+/// that read failed.
 pub(super) fn classify_bundles<A: Clone + PartialEq, H: HeaderT>(
 	bundles: impl IntoIterator<Item = (Option<A>, Vec<H>)>,
 	tip_author: Option<&A>,
@@ -67,7 +72,7 @@ pub(super) fn classify_bundles<A: Clone + PartialEq, H: HeaderT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::collators::slot_based::resubmittable_segment::split_bundles;
+	use crate::collators::slot_based::resubmittable_segment::group_into_bundles;
 	use cumulus_primitives_core::BlockBundleInfo;
 	use cumulus_test_client::runtime::Block as TestBlock;
 	use sp_runtime::traits::Block as BlockT;
@@ -101,7 +106,7 @@ mod tests {
 		headers: Vec<TestHeader>,
 		author_of: impl Fn(u32) -> Option<u32>,
 	) -> Classified<u32, TestHeader> {
-		let bundles = split_bundles(headers)
+		let bundles = group_into_bundles(headers)
 			.into_iter()
 			.map(|bundle| (author_of(*bundle[0].number()), bundle))
 			.collect::<Vec<_>>();

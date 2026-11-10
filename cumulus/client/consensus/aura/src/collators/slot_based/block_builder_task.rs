@@ -19,7 +19,7 @@ use super::{
 	handover::classify_bundles,
 	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
 	resubmission::resolve_session,
-	resubmittable_segment::split_bundles,
+	resubmittable_segment::group_into_bundles,
 };
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
@@ -555,6 +555,60 @@ where
 		aura_internal::slot_author::<P>(para_slot, &authorities).cloned()
 	}
 
+	/// Who signs this slot and which resubmittable headers they cover; `None` skips the slot.
+	///
+	/// The PVF checks a resubmission's signature against the candidate's parent state, so a bundle
+	/// from before an authority-set change needs the prior set's author; such a handover takes the
+	/// slot, since building above those blocks is useless until they land.
+	fn slot_role(
+		&self,
+		para_slot: Slot,
+		v3_enabled: bool,
+		tip_author: Option<&P::Public>,
+		slot_claim: Option<SlotClaim<P::Public>>,
+		headers: Vec<Block::Header>,
+	) -> Option<(SlotRole<P::Public>, Vec<Block::Header>)> {
+		let (tip_headers, handover) = match headers.first() {
+			Some(oldest) if v3_enabled => {
+				let first_author = self.author_at(*oldest.parent_hash(), para_slot);
+				if first_author.is_some() && first_author.as_ref() == tip_author {
+					(headers, None)
+				} else {
+					let mut first = Some(first_author);
+					let bundles = group_into_bundles(headers).into_iter().map(|bundle| {
+						let author = first
+							.take()
+							.unwrap_or_else(|| self.author_at(*bundle[0].parent_hash(), para_slot));
+						(author, bundle)
+					});
+					let classified = classify_bundles(bundles, tip_author, |author| {
+						self.keystore.has_keys(&[(
+							author.to_raw_vec(),
+							sp_application_crypto::key_types::AURA,
+						)])
+					});
+					(classified.tip, classified.handover)
+				}
+			},
+			_ => (headers, None),
+		};
+
+		match (handover, slot_claim) {
+			(Some((author, headers)), _) => {
+				tracing::info!(
+					target: LOG_TARGET,
+					blocks = headers.len(),
+					first = ?headers.first().map(|header| header.hash()),
+					slot = ?para_slot,
+					"Authority handover: resubmitting the prior era's blocks, building nothing.",
+				);
+				Some((SlotRole::Handover(author), headers))
+			},
+			(None, Some(claim)) => Some((SlotRole::Author(claim), tip_headers)),
+			(None, None) => None,
+		}
+	}
+
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
 	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
@@ -628,60 +682,25 @@ where
 		)
 		.await;
 
-		// The PVF checks a resubmission's signature against the candidate's parent state, so a
-		// bundle from before an authority-set change needs the prior set's author for this slot.
-		// Such a handover takes the slot: building above those blocks is useless until they land.
-		let mut authors = HashMap::new();
-		let mut author_of = |at: Block::Hash| {
-			authors.entry(at).or_insert_with(|| self.author_at(at, para_slot.slot)).clone()
-		};
-		let (resubmittable_headers, handover) = match resubmittable_headers.first() {
-			Some(oldest) if v3_enabled => {
-				let first_author = author_of(*oldest.parent_hash());
-				if first_author.is_some() && first_author == tip_author {
-					(resubmittable_headers, None)
-				} else {
-					let bundles = split_bundles(resubmittable_headers)
-						.into_iter()
-						.map(|bundle| (author_of(*bundle[0].parent_hash()), bundle));
-					let classified = classify_bundles(bundles, tip_author.as_ref(), |author| {
-						self.keystore.has_keys(&[(
-							author.to_raw_vec(),
-							sp_application_crypto::key_types::AURA,
-						)])
-					});
-					(classified.tip, classified.handover)
-				}
-			},
-			_ => (resubmittable_headers, None),
-		};
-
-		let (role, resubmittable_headers) = match (handover, slot_claim) {
-			(Some((author, headers)), _) => {
-				tracing::info!(
-					target: LOG_TARGET,
-					blocks = headers.len(),
-					first = ?headers.first().map(|header| header.hash()),
-					slot = ?para_slot.slot,
-					"Authority handover: resubmitting the prior era's blocks, building nothing.",
-				);
-				(SlotRole::Handover(author), headers)
-			},
-			(None, Some(claim)) => (SlotRole::Author(claim), resubmittable_headers),
-			(None, None) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?unincluded_segment_len_at_execution,
-					relay_parent = ?relay_parent_hash,
-					relay_parent_num = %relay_parent_header.number(),
-					?included_hash_at_execution,
-					included_num_at_execution = %included_header_at_execution.number(),
-					initial_parent = ?initial_parent_hash,
-					slot = ?para_slot.slot,
-					"Not eligible to claim slot."
-				);
-				return None;
-			},
+		let Some((role, resubmittable_headers)) = self.slot_role(
+			para_slot.slot,
+			v3_enabled,
+			tip_author.as_ref(),
+			slot_claim,
+			resubmittable_headers,
+		) else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?unincluded_segment_len_at_execution,
+				relay_parent = ?relay_parent_hash,
+				relay_parent_num = %relay_parent_header.number(),
+				?included_hash_at_execution,
+				included_num_at_execution = %included_header_at_execution.number(),
+				initial_parent = ?initial_parent_hash,
+				slot = ?para_slot.slot,
+				"Not eligible to claim slot."
+			);
+			return None;
 		};
 
 		tracing::debug!(

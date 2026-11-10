@@ -65,14 +65,14 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 		Self(headers)
 	}
 
-	/// Regroup the headers into their original bundles (see [`split_bundles`]).
+	/// Regroup the headers into their original bundles (see [`group_into_bundles`]).
 	///
 	/// A bundle must start at index 0 (or be a digest-less standalone); a non-zero start is a
 	/// skipped index or a partial leading bundle, i.e. a corrupt sequence, and errors. Completeness
 	/// is not checked: `find_parent` already trims a mid-bundle tail, so the trailing bundle is
 	/// whole.
 	fn into_bundles(self) -> Result<Vec<Vec<Block::Header>>, HydrateError> {
-		let bundles = split_bundles(self.0);
+		let bundles = group_into_bundles(self.0);
 		for bundle in &bundles {
 			let first = CumulusDigestItem::find_block_bundle_info(bundle[0].digest());
 			if let Some(idx) = first.map(|info| info.index).filter(|idx| *idx != 0) {
@@ -145,7 +145,7 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 /// Split oldest-first headers into runs of consecutive `BlockBundleInfo` indices. Keyed off the
 /// index, not `is_last`, which a truncated bundle lacks. A header without a digest is standalone.
 /// Does not validate where a run starts.
-pub(super) fn split_bundles<H: HeaderT>(headers: Vec<H>) -> Vec<Vec<H>> {
+pub(super) fn group_into_bundles<H: HeaderT>(headers: Vec<H>) -> Vec<Vec<H>> {
 	let mut bundles = Vec::new();
 	let mut current = Vec::new();
 	let mut prev_index: Option<u8> = None;
