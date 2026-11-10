@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794335786054,
+  "lastUpdate": 1794338821486,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e2480cb9209b6e27b237e2c069d3cb20efb5b419",
-          "message": "View functions to support DAP debug UI (#11877)\n\nNeeded by the DAP debug UI (pjs app) currently being cooked\n\n<img width=\"1409\" height=\"851\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bed18a6a-d4e1-4d46-b474-0db421b12864\"\n/>",
-          "timestamp": "2026-04-24T14:54:47Z",
-          "tree_id": "4f139617c75f14d082a50889a9ad144738653eff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e2480cb9209b6e27b237e2c069d3cb20efb5b419"
-        },
-        "date": 1777049608905,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009502157059999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023771739313333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0068819076,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14469810672000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0076943925666666645,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8739ac5703ec89890da2282c830a8f08d0bd607c",
+          "message": "fungible(s): Check deposit against capped amount in best-effort `release` (#13661)\n\nWith `Precision::BestEffort`, `release()` called `can_deposit` with\nthe\n   requested amount but released only what was actually held. If free\nplus\n   held was below the existential deposit, `increase_balance` credited\n   nothing while the hold had already been reduced. The funds were lost\n   without any change to total issuance.\n\n   Cap the amount at the held balance first, call `can_deposit` with\nthat\n   capped amount, and then decrease the hold with `Exact`. A release\nthat\n   can't be credited now fails with `CannotCreate` and changes nothing.\n\n   Applies to both `fungible::hold::Mutate` and\n`fungibles::hold::Mutate`.\n   Adds a regression test in `pallet-balances`.\n\n---------\n\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T17:47:46Z",
+          "tree_id": "288310664629b5321500271a8ec48fb20bcf893a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8739ac5703ec89890da2282c830a8f08d0bd607c"
+        },
+        "date": 1794338786996,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007649493260000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02542761303333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009983718439999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14867790008666665,
             "unit": "seconds"
           }
         ]
