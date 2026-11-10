@@ -179,13 +179,10 @@ fn compilation_cost_rounds_up() {
 	};
 
 	assert_eq!(convert(0, 0, 0, 7), cost(0, 0, 0));
-	// Exact multiples of the ref time per gas.
 	assert_eq!(convert(2000, 3, 5, 1000), cost(2, 3, 5));
-	// One ref time more costs one more gas or thousandth of gas.
 	assert_eq!(convert(2001, 3, 5, 1000), cost(3, 3, 5));
 	assert_eq!(convert(1, 1, 1, 3000), cost(1, 1, 1));
 	assert_eq!(convert(5999, 5999, 5999, 3000), cost(2, 2000, 2000));
 	assert_eq!(convert(6001, 6001, 6001, 3000), cost(3, 2001, 2001));
-	// Values beyond `u32` saturate.
 	assert_eq!(convert(u64::MAX, u64::MAX, u64::MAX, 1), cost(u32::MAX, u32::MAX, u32::MAX));
 }

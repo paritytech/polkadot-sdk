@@ -83,7 +83,11 @@ pub trait Memory<T: Config> {
 	///
 	/// This is used before we call into a new contract to free up some memory. Doing
 	/// so we make sure that we only ever have to hold one compilation cache at a time
-	/// independtently of of our call stack depth.
+	/// independently of our call stack depth.
+	///
+	/// Fails only when the module has gas metering but no compilation cost, which
+	/// `ContractBlob::prepare_call` always sets. The pallet maps the failure to
+	/// `ExecutionFailed`.
 	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError>;
 
 	/// Read designated chunk from the sandbox memory.
@@ -911,7 +915,10 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		self.instance.set_reg(reg, value);
 	}
 
-	/// Drops the interpreter state of the contract, as a sub-call does.
+	/// Drops the compiled code of the contract, as a sub-call does.
+	///
+	/// Fails with `ExecutionFailed` only when the module has gas metering but no compilation
+	/// cost, which `ContractBlob::prepare_call` always sets.
 	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
 		Memory::<E::T>::reset_interpreter_cache(&mut self.instance)
 	}
