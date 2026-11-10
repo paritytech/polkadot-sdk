@@ -22,7 +22,8 @@ doc:
       `interpreter_compile_per_block` and `interpreter_cache_rebuild`, converted with the ref time
       per gas and rounded up. The first two compile the instruction and the block terminator
       that took the longest to compile in a local measurement: `store_imm_indirect_u64` and a
-      branch.
+      branch. `per_block` leaves out the compilation of the block's one instruction and one gas
+      for executing it.
     - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
       the ref time slope of `interpreter_cache_rebuild`, since the interpreter charges the map of
       compiled blocks as gas. The code load charge no longer adds the compilation of one
@@ -114,7 +115,7 @@ doc:
     basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 30303 ps
     before.
 
-    Compiling contract code is charged as gas: on Asset Hub Westend 4 gas per basic block,
+    Compiling contract code is charged as gas: on Asset Hub Westend 3 gas per basic block,
     1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
     byte part is charged again after every call a PVM contract makes. The weight charged for
     loading the code of a PVM contract no longer includes the compilation of one maximum-sized

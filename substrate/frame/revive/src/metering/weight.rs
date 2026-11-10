@@ -103,23 +103,26 @@ impl<T: Config> EngineMeter<T> {
 	/// Each part is the slope of a benchmark, converted with [`Self::ref_time_per_fuel`]:
 	///
 	/// - `per_instruction_millis`: `interpreter_compile_per_instruction`.
-	/// - `per_block`: `interpreter_compile_per_block`, which compiles blocks of one instruction,
-	///   minus the cost of that instruction.
+	/// - `per_block`: `interpreter_compile_per_block`, which compiles and executes blocks of one
+	///   instruction, minus the compilation of that instruction (`per_instruction_millis`) and
+	///   minus one gas for its execution.
 	/// - `per_code_byte_millis`: `interpreter_cache_rebuild`. The interpreter charges it for the
 	///   whole code section when it allocates its map of compiled blocks, on the first compilation
 	///   of a call and after every call into another contract, and when it rewrites the map after
 	///   many cache resets.
 	pub fn interpreter_compilation_cost() -> polkavm::InterpreterCompilationCost {
 		let slope = |weight: fn(u32) -> Weight| weight(1).saturating_sub(weight(0)).ref_time();
+		let ref_time_per_fuel = Self::ref_time_per_fuel();
 		let per_instruction = slope(T::WeightInfo::interpreter_compile_per_instruction);
-		let per_block =
-			slope(T::WeightInfo::interpreter_compile_per_block).saturating_sub(per_instruction);
+		let per_block = slope(T::WeightInfo::interpreter_compile_per_block)
+			.saturating_sub(per_instruction)
+			.saturating_sub(ref_time_per_fuel);
 		let per_code_byte = slope(T::WeightInfo::interpreter_cache_rebuild);
 		Self::compilation_cost_from_ref_time(
 			per_block,
 			per_instruction,
 			per_code_byte,
-			Self::ref_time_per_fuel(),
+			ref_time_per_fuel,
 		)
 	}
 

@@ -785,8 +785,7 @@ mod benchmarks {
 	/// stops (see [`VmBinaryModule::with_branch_blocks`]). The code has the same size for every
 	/// `b`. The slope is the time to compile one block of one instruction and to execute that
 	/// instruction. The per block cost of compilation is this slope minus the slope of
-	/// `interpreter_compile_per_instruction`. It keeps the execution of the branch, which is
-	/// small and already charged as gas.
+	/// `interpreter_compile_per_instruction` minus one gas of execution.
 	///
 	/// Only the ref time slope is used, for the gas the interpreter charges per compiled block
 	/// (see [`crate::metering::EngineMeter::interpreter_compilation_cost`]). Loading the code is
