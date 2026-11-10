@@ -207,18 +207,16 @@ mod mixed_generics {
 
 	#[test]
 	fn lifetimes_consts_and_references_work() {
+		type I<'a> = Instr<'a, (), u8, 3>;
+
 		let seven = 7u32;
-		let borrowed = Instr::<(), u8, 3>::Borrowed(&seven);
+		let borrowed: I = Instr::Borrowed(&seven);
+		let sized: I = Instr::Sized([0; 3]);
+		let tagged: I = Instr::Tagged { tag: 9, xcm: Xcm(vec![ClearOrigin]) };
+
 		assert_eq!(GetWeight::<Info>::weight(&borrowed).ref_time(), 7);
-		assert_eq!(GetWeight::<Info>::weight(&Instr::<(), u8, 3>::Sized([0; 3])).ref_time(), 1003);
-		assert_eq!(
-			GetWeight::<Info>::weight(&Instr::<(), u8, 3>::Tagged {
-				tag: 9,
-				xcm: Xcm(vec![ClearOrigin])
-			})
-			.ref_time(),
-			2001
-		);
+		assert_eq!(GetWeight::<Info>::weight(&sized).ref_time(), 1003);
+		assert_eq!(GetWeight::<Info>::weight(&tagged).ref_time(), 2001);
 	}
 }
 
