@@ -1353,6 +1353,15 @@ fn max_reserved_touchable_works() {
 	});
 }
 
+/// Account 1's total reserved balance, its `TestId::Foo` hold and its `TestId::Bar` named reserve.
+fn reserved_held_named() -> (u64, u64, u64) {
+	(
+		Balances::reserved_balance(1),
+		<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &1),
+		Balances::reserved_balance_named(&TestId::Bar, &1),
+	)
+}
+
 #[test]
 fn unnamed_reserve_operations_leave_holds_and_named_reserves_intact() {
 	use frame_support::{hypothetically, traits::tokens::Precision::Exact};
@@ -1363,13 +1372,6 @@ fn unnamed_reserve_operations_leave_holds_and_named_reserves_intact() {
 		assert_ok!(<Balances as fungible::MutateHold<_>>::hold(&TestId::Foo, &1, 10));
 		assert_ok!(Balances::reserve_named(&TestId::Bar, &1, 20));
 		assert_ok!(Balances::reserve(&1, 30));
-		let reserved_held_named = || {
-			(
-				Balances::reserved_balance(1),
-				<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &1),
-				Balances::reserved_balance_named(&TestId::Bar, &1),
-			)
-		};
 		assert_eq!(reserved_held_named(), (60, 10, 20));
 
 		// when each unnamed operation stays within the unnamed reserve, it acts in full.
@@ -1429,6 +1431,77 @@ fn unnamed_reserve_operations_leave_holds_and_named_reserves_intact() {
 		assert_eq!(reserved_held_named(), (10, 10, 0));
 		assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1, 10, Exact));
 		assert_eq!(reserved_held_named(), (0, 0, 0));
+	});
+}
+
+#[test]
+fn under_backed_account_keeps_holds_backed_first() {
+	use frame_support::{hypothetically, traits::tokens::Precision::Exact};
+	ExtBuilder::default().build_and_execute_with(|| {
+		// given an account with a hold of 10 and a named reserve of 20, and no unnamed reserve.
+		let _ = Balances::deposit_creating(&1, 100);
+		let _ = Balances::deposit_creating(&2, 100);
+		assert_ok!(<Balances as fungible::MutateHold<_>>::hold(&TestId::Foo, &1, 10));
+		assert_ok!(Balances::reserve_named(&TestId::Bar, &1, 20));
+		assert_eq!(reserved_held_named(), (30, 10, 20));
+
+		// and a way to move some of its reserved balance back to free, leaving the hold and the
+		// named reserve recorded in full. This is what an `unreserve` of more than the unnamed
+		// reserve used to do. No sequence of calls can do it anymore, but accounts left in this
+		// state may still exist.
+		let under_back = |amount| {
+			assert_ok!(Balances::mutate_account(&1, false, |a| {
+				a.reserved -= amount;
+				a.free += amount;
+			}));
+		};
+
+		// when the reserved balance covers the hold, but only a part of the named reserve.
+		hypothetically!({
+			under_back(15);
+			assert_eq!(reserved_held_named(), (15, 10, 20));
+
+			// then the unnamed operations act on nothing.
+			assert_eq!(Balances::max_reserved_touchable(&1, None), 0);
+			assert_eq!(Balances::unreserve(&1, 30), 30);
+			assert_eq!(Balances::slash_reserved(&1, 30).1, 30);
+			assert_eq!(Balances::repatriate_reserved(&1, &2, 30, Free), Ok(30));
+			assert_eq!(reserved_held_named(), (15, 10, 20));
+
+			// the named ones act on what is not backing the hold, and report the rest as missing.
+			assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Bar)), 5);
+			assert_eq!(Balances::unreserve_named(&TestId::Bar, &1, 20), 15);
+			assert_eq!(reserved_held_named(), (10, 10, 15));
+
+			// and the hold is released in full.
+			assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1, 10, Exact));
+			assert_eq!(reserved_held_named(), (0, 0, 15));
+		});
+
+		// when the reserved balance does not even cover the hold.
+		hypothetically!({
+			under_back(25);
+			assert_eq!(reserved_held_named(), (5, 10, 20));
+
+			// then neither the unnamed nor the named operations act on anything.
+			assert_eq!(Balances::max_reserved_touchable(&1, None), 0);
+			assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Bar)), 0);
+			assert_eq!(Balances::unreserve(&1, 30), 30);
+			assert_eq!(Balances::slash_reserved(&1, 30).1, 30);
+			assert_eq!(Balances::repatriate_reserved(&1, &2, 30, Free), Ok(30));
+			assert_eq!(Balances::unreserve_named(&TestId::Bar, &1, 20), 20);
+			assert_eq!(Balances::slash_reserved_named(&TestId::Bar, &1, 20).1, 20);
+			assert_eq!(Balances::repatriate_reserved_named(&TestId::Bar, &1, &2, 20, Free), Ok(20));
+			assert_eq!(reserved_held_named(), (5, 10, 20));
+
+			// and the hold is released up to what the reserved balance covers.
+			assert_noop!(
+				<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1, 10, Exact),
+				ArithmeticError::Underflow
+			);
+			assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1, 5, Exact));
+			assert_eq!(reserved_held_named(), (0, 5, 20));
+		});
 	});
 }
 

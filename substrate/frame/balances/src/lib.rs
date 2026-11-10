@@ -941,8 +941,10 @@ pub mod pallet {
 				None => reserves
 					.iter()
 					.fold(not_held, |acc, reserve| acc.saturating_sub(reserve.amount)),
-				// if we are operating on a named reserve, we can only touch that named reserve, or
-				// whatever is not held, whichever is less.
+				// if we are operating on a named reserve, we can only touch that named reserve. The
+				// `min` is a no-op as long as the reserved balance covers all holds and named
+				// reserves. It only matters for an account that is already under-backed, where it
+				// keeps the holds backed first.
 				Some(id) => reserves
 					.binary_search_by_key(id, |reserve| reserve.id)
 					.map_or(T::Balance::zero(), |index| reserves[index].amount)
