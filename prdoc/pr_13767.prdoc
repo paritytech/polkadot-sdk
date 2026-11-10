@@ -3,9 +3,10 @@ doc:
 - audience: Node Dev
   description: |-
     The collator skips a collation whose scheduling UMP signals some runtime's `validate_block`
-    would reject or rewrite: a signal that does not decode exactly, or a repeated variant. Other
-    signals still pass through in the block's order, which every runtime's `validate_block`
-    reproduces, including runtimes from before it re-encoded the tail.
+    would reject or rewrite: a signal that does not decode exactly, or two different signals of one
+    variant. Other signals pass through in the blocks' order with identical repeats kept once,
+    which every runtime's `validate_block` reproduces, including runtimes from before it
+    re-encoded the tail and that emit their signals in every block of a PoV.
 crates:
 - name: cumulus-client-collator
   bump: patch

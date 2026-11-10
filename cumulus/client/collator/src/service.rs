@@ -110,11 +110,12 @@ fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
 }
 
 /// The candidate's UMP signal tail. A signed scheduling info (resubmission) replaces the blocks'
-/// signals wholesale, as the PVF does. Otherwise the signals pass through in the blocks' order:
-/// a runtime from before `validate_block` re-encoded them keeps that order in its tail, and a
-/// current honest runtime already emits the canonical one. Signals that some runtime's
-/// `validate_block` would reject or rewrite, so the collator cannot match it, are an error: one
-/// that does not decode exactly, or a repeated variant.
+/// signals wholesale, as the PVF does. Otherwise the signals pass through in the blocks' order,
+/// each identical repeat kept once: a runtime from before `validate_block` re-encoded them emits
+/// its signals in every block of a PoV and its tail keeps the first of each, and a current honest
+/// runtime emits the canonical order once. Signals that some runtime's `validate_block` would
+/// reject or rewrite, so the collator cannot match it, are an error: one that does not decode
+/// exactly, or two different signals of one variant.
 fn signal_tail(
 	signed_scheduling_info: Option<&SignedSchedulingInfo>,
 	signals: Vec<Vec<u8>>,
@@ -122,14 +123,20 @@ fn signal_tail(
 	if let Some(signed_info) = signed_scheduling_info {
 		return Ok(SchedulingSignals::from_scheduling_info(signed_info).into_ump_messages());
 	}
-	SchedulingSignals::try_from_block_signals(&signals)?;
-	if signals.iter().any(|signal| UMPSignal::decode_all(&mut &signal[..]).is_err()) {
+	let mut unique: Vec<Vec<u8>> = Vec::with_capacity(signals.len());
+	for signal in signals {
+		if !unique.contains(&signal) {
+			unique.push(signal);
+		}
+	}
+	SchedulingSignals::try_from_block_signals(&unique)?;
+	if unique.iter().any(|signal| UMPSignal::decode_all(&mut &signal[..]).is_err()) {
 		return Err(SchedulingSignalError::UndecodableSignal);
 	}
-	if signals.is_empty() {
+	if unique.is_empty() {
 		return Ok(Vec::new());
 	}
-	Ok(core::iter::once(UMP_SEPARATOR).chain(signals).collect())
+	Ok(core::iter::once(UMP_SEPARATOR).chain(unique).collect())
 }
 
 impl<Block, BS, RA> CollatorService<Block, BS, RA>
@@ -457,6 +464,15 @@ mod tests {
 		UMPSignal::ApprovedPeer(peer).encode()
 	}
 
+	fn other_core() -> Vec<u8> {
+		UMPSignal::SelectCore(CoreSelector(4), ClaimQueueOffset(1)).encode()
+	}
+
+	fn other_peer() -> Vec<u8> {
+		let peer = ApprovedPeerId::try_from(vec![0xBB; 4]).expect("4 bytes fit; qed");
+		UMPSignal::ApprovedPeer(peer).encode()
+	}
+
 	fn with_separator(signals: &[Vec<u8>]) -> Vec<Vec<u8>> {
 		core::iter::once(UMP_SEPARATOR).chain(signals.iter().cloned()).collect()
 	}
@@ -467,6 +483,9 @@ mod tests {
 		// `set_validation_data` and `SelectCore` in `on_finalize`, and its PVF keeps that order.
 		let older = vec![approved_peer(), select_core()];
 		assert_eq!(signal_tail(None, older.clone()), Ok(with_separator(&older)));
+		// It emits them in every block of a PoV, and its PVF keeps the first of each.
+		let bundle = [older.clone(), older.clone(), older.clone()].concat();
+		assert_eq!(signal_tail(None, bundle), Ok(with_separator(&older)));
 		// A current runtime emits the canonical order, which its PVF re-encodes to the same bytes.
 		let current = vec![select_core(), approved_peer()];
 		assert_eq!(signal_tail(None, current.clone()), Ok(with_separator(&current)));
@@ -482,8 +501,8 @@ mod tests {
 		let mut trailing = select_core();
 		trailing.push(0xEE);
 		for (signals, error) in [
-			(vec![select_core(), select_core()], SchedulingSignalError::DuplicateSelectCore),
-			(vec![approved_peer(), approved_peer()], SchedulingSignalError::DuplicateApprovedPeer),
+			(vec![select_core(), other_core()], SchedulingSignalError::DuplicateSelectCore),
+			(vec![approved_peer(), other_peer()], SchedulingSignalError::DuplicateApprovedPeer),
 			(vec![vec![0xFF]], SchedulingSignalError::UndecodableSignal),
 			// A current PVF drops the trailing byte, an older one keeps it.
 			(vec![approved_peer(), trailing], SchedulingSignalError::UndecodableSignal),
