@@ -38,6 +38,11 @@
 //! be cancelled at any time—unless a payment has already been attempted and is awaiting status
 //! confirmation.
 //!
+//! If the funding source cannot pay when a bounty is funded (for example, the treasury does not
+//! hold enough of the asset when the approving referendum is enacted), the bounty is still created
+//! with a failed funding payment. Anyone can retry the payment once the funding source can pay, or
+//! the `RejectOrigin` can close the bounty.
+//!
 //! > NOTE: A parent bounty cannot be closed if it has any active child bounties associated with it.
 //!
 //! ### Terminology
@@ -87,6 +92,7 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	dispatch_context::with_context,
 	pallet_prelude::*,
+	storage::with_storage_layer,
 	traits::{
 		tokens::{
 			Balance, ConversionFromAssetBalance, ConversionToAssetBalance, PayWithSource,
@@ -180,6 +186,10 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// Call `check_status` to confirm whether the funding payment succeeded. If successful, the
 	/// child-/bounty transitions to [`BountyStatus::Funded`]. Otherwise, use `retry_payment` to
 	/// reinitiate the funding payment.
+	///
+	/// A parent bounty starts here with a [`PaymentState::Failed`] payment when the funding
+	/// payment could not be initiated at creation; it can then be retried with `retry_payment`
+	/// or closed by `RejectOrigin`.
 	FundingAttempted {
 		/// The proposed curator of this child-/bounty.
 		curator: AccountId,
@@ -424,7 +434,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// A new bounty was created and funding has been initiated.
+		/// A new bounty was created and funding has been initiated, unless it is followed by
+		/// [`Event::BountyFundingFailed`].
 		BountyCreated { index: BountyIndex },
 		/// A new child-bounty was created and funding has been initiated.
 		ChildBountyCreated { index: BountyIndex, child_index: BountyIndex },
@@ -574,7 +585,12 @@ pub mod pallet {
 		///
 		/// - The `SpendOrigin` must have sufficient permissions to fund the bounty.
 		/// - The bounty `value` (in asset balance) is converted to native balance for validation.
-		/// - In case of a funding failure, the bounty status must be updated with the
+		/// - If the funding payment cannot be initiated (e.g. the funding source does not hold
+		///   enough of the asset), the call still succeeds: the bounty is stored in
+		///   `FundingAttempted` with a `Failed` payment and [`Event::BountyFundingFailed`] is
+		///   emitted, so the approval is not lost. Call `retry_payment` once the funding source can
+		///   pay, or close the bounty with `RejectOrigin`.
+		/// - In case of a later funding failure, the bounty status must be updated with the
 		///   `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
@@ -585,7 +601,9 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful.
+		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful, or
+		/// [`Event::BountyCreated`] and [`Event::BountyFundingFailed`] if the funding payment could
+		/// not be initiated.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty())]
 		pub fn fund_bounty(
@@ -618,8 +636,18 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let index = BountyCount::<T, I>::get();
-			let payment_status =
-				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)?;
+			// `SpendOrigin` has approved this bounty, usually through a referendum. If the funding
+			// payment cannot be initiated (e.g. the funding source does not hold enough of the
+			// asset yet), keep the bounty with a failed payment rather than discarding the
+			// approval. The payment runs in its own storage layer so a failure leaves no
+			// partial writes behind.
+			let (payment_status, funding_failed) = match with_storage_layer(|| {
+				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)
+			}) {
+				Ok(payment_status) => (payment_status, false),
+				Err(e) if e == Error::<T, I>::FundingError.into() => (PaymentState::Failed, true),
+				Err(e) => return Err(e),
+			};
 
 			let bounty = BountyOf::<T, I> {
 				asset_kind: *asset_kind,
@@ -632,6 +660,9 @@ pub mod pallet {
 			BountyCount::<T, I>::put(index + 1);
 
 			Self::deposit_event(Event::<T, I>::BountyCreated { index });
+			if funding_failed {
+				Self::deposit_event(Event::<T, I>::BountyFundingFailed { index });
+			}
 
 			Ok(())
 		}
@@ -1065,7 +1096,10 @@ pub mod pallet {
 		/// - If the child-/bounty is in the `Funded` state, a refund payment is initiated.
 		/// - If the child-/bounty is in the `Active` state, a refund payment is initiated and the
 		///   child-/bounty status is updated with the curator account/location.
-		/// - If the child-/bounty is in the funding or payout phase, it cannot be canceled.
+		/// - If a parent bounty is in `FundingAttempted` with a `Failed` payment, no funds reached
+		///   the bounty account: `RejectOrigin` can close it and it is removed without a refund.
+		/// - Otherwise, if the child-/bounty is in the funding or payout phase, it cannot be
+		///   canceled.
 		/// - In case of a refund failure, the child-/bounty status must be updated with the
 		/// `check_status` call before retrying with `retry_payment` call.
 		///
@@ -1090,7 +1124,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (asset_kind, value, _, status, parent_curator) =
+			let (asset_kind, value, metadata, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let maybe_curator = match status {
@@ -1098,6 +1132,19 @@ pub mod pallet {
 					Some(curator)
 				},
 				BountyStatus::CuratorUnassigned => None,
+				// The funding payment of this parent bounty failed, so no funds reached the bounty
+				// account and there is nothing to refund: `RejectOrigin` removes it directly.
+				BountyStatus::FundingAttempted { payment_status: PaymentState::Failed, .. }
+					if child_bounty_id.is_none() =>
+				{
+					ensure!(maybe_sender.is_none(), BadOrigin);
+					Self::remove_bounty(parent_bounty_id, None, metadata);
+					Self::deposit_event(Event::<T, I>::BountyCanceled {
+						index: parent_bounty_id,
+						child_index: None,
+					});
+					return Ok(());
+				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
 
