@@ -430,7 +430,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// Fails with [`Error::ReceiptTooLarge`] when the log would take the open ethereum
 	/// transaction's receipt past [`limits::MAX_RECEIPT_LOGS_BYTES`]. Nothing is deposited then.
-	/// The frame fails with the same error when it returns, also if the error is ignored here.
+	/// The frame fails with the same error when it returns, also if the error is ignored here,
+	/// unless a storage layer opened inside the frame around this call is rolled back: the
+	/// overflow then rolls back with that layer's changes.
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
@@ -1550,7 +1552,12 @@ where
 					<CodeInfo<T>>::increment_refcount(code_hash)?;
 				}
 
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				// Root pays no storage deposit, so a base deposit recorded here would never be
+				// held. It stays zero, as storage refunds are bounded by the deposit held above it.
+				let deposit = match &self.origin {
+					Origin::Signed(_) => frame.contract_info().update_base_deposit(code_deposit),
+					Origin::Root => Zero::zero(),
+				};
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),
@@ -1570,7 +1577,8 @@ where
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			// A log that did not fit the receipt fails the frame it was emitted in, also when the
-			// runtime mirrored it or a precompile did not propagate the error.
+			// runtime mirrored it or a precompile did not propagate the error, unless the storage
+			// layer that recorded the overflow was rolled back inside the frame.
 			block_storage::ensure_receipt_within_limit::<T>()
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
