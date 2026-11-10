@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794342603481,
+  "lastUpdate": 1794349017152,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf",
-          "message": "Fix flaky zombienet test `zombienet-cumulus-0022-block_bundling_three_cores_glutton` (#11852)\n\nChange runner type to large.\nclose #11825",
-          "timestamp": "2026-04-24T08:01:36Z",
-          "tree_id": "16c5e9957971c2442b26c5d3e6416bc1b7752288",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf"
-        },
-        "date": 1777023510001,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.08599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08347983232399989,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03924330466799999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0805076035119999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a80f0a512263dd71fb852605337e21cdca690a5c",
+          "message": "build(deps): bump rpassword from 7.2.0 to 7.5.0 (#12014)\n\nBumps [rpassword](https://github.com/conradkleinespel/rpassword) from\n7.2.0 to 7.5.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/conradkleinespel/rpassword/releases\">rpassword's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v7.5.0</h2>\n<p>This release comes with lots of stuff. It should be fully backward\ncompatible.</p>\n<h2>New features</h2>\n<ul>\n<li>Support for masking or partially masking a password as it's being\ntyped. Thank you, <a\nhref=\"https://github.com/chipsenkbeil\"><code>@​chipsenkbeil</code></a>,\nfor your contribution.</li>\n<li>New API. The documentation has been vastly improved to support this,\nsee <a href=\"https://docs.rs/rpassword/\">https://docs.rs/rpassword/</a>.\nTo sum up, you can now call\n<code>read_password_with_config(config)</code> and there is a\n<code>ConfigBuilder</code> that allows you to configure how passwords\nshould be read. This makes the library much more flexible and means new\noptions will be added without breaking existing code.</li>\n</ul>\n<h2>Fixes</h2>\n<ul>\n<li>Fix for CVE-2025-64170 which affects <code>rpassword</code> on\nversions v7.4.0 and below. Thank you, <a\nhref=\"https://github.com/squell\"><code>@​squell</code></a> and <a\nhref=\"https://github.com/DevLaTron\"><code>@​DevLaTron</code></a>, for\nreporting this.</li>\n<li>Better support for multibyte characters and more reliable handling\nof control characters and terminal escape sequences. Thank you again, <a\nhref=\"https://github.com/chipsenkbeil\"><code>@​chipsenkbeil</code></a>,\nfor your contribution.</li>\n</ul>\n<h2>Deprecations</h2>\n<ul>\n<li><code>_from_bufread</code> functions have been deprecated. You are\nencouraged to migrate to <code>_with_config</code> functions. See <a\nhref=\"https://github.com/conradkleinespel/rpassword/blob/main/UPGRADE.md\">UPGRADE.md</a>\nas well as the <a\nhref=\"https://docs.rs/rpassword/latest/rpassword/fn.read_password_from_bufread.html\">documentation\nwhich has examples</a> that you can most likely drop into your code\nwithout other changes.</li>\n</ul>\n<h2>Misc</h2>\n<ul>\n<li>Update of the <code>windows-sys</code> dependency.</li>\n<li>Update Rust edition from 2018 to 2024.</li>\n<li>Better cross-platform testing, through more unit tests and a CI that\nruns Linux, Windows and Wasm.</li>\n</ul>\n<p>Feedback is very much welcome.</p>\n<h2>v7.4.0</h2>\n<p>Changes and updates in this release:</p>\n<ul>\n<li>Updates <code>windows-sys</code> from <code>0.52</code> to\n<code>0.59</code>, see <a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/cb2244aba3e6b4358cf489e61c8e35c564e31952\">https://github.com/conradkleinespel/rpassword/commit/cb2244aba3e6b4358cf489e61c8e35c564e31952</a>;</li>\n<li>Improves Chinese character handling, the commit is in the\n<code>rtoolbox</code> crate (<a\nhref=\"https://github.com/conradkleinespel/rtoolbox\">https://github.com/conradkleinespel/rtoolbox</a>).\nThank you <a\nhref=\"https://github.com/Jordan-Haidee\"><code>@​Jordan-Haidee</code></a>\nfor providing a fix in <a\nhref=\"https://redirect.github.com/conradkleinespel/rpassword/issues/97\">conradkleinespel/rpassword#97</a>.</li>\n</ul>\n<p>I've noticed after publishing the release that the size of the crate\non crates.io went from <code>7KiB</code> to <code>121KiB</code>. That's\ndue to the addition of an image in the <code>README.md</code>, which I\ndid not anticipate would be distributed to everyone. The fix (<a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/7c30111dda0242967bd5ac494fbf3089d3d74dc6\">https://github.com/conradkleinespel/rpassword/commit/7c30111dda0242967bd5ac494fbf3089d3d74dc6</a>)\nwill be included in the next release.</p>\n<p>No functionality changes in this release. It is backwards\ncompatible.</p>\n<h2>v7.3.1</h2>\n<p>This release updates the <code>README.md</code>, so the latest\nversion appears on crates.io.</p>\n<p>No functionality changes in this release. It is backwards\ncompatible.</p>\n<h2>v7.3.0</h2>\n<p>The <code>winapi</code> package has been replaced with the\n<code>windows-sys</code> package developed by Microsoft. Thanks for your\nhelp, <a\nhref=\"https://github.com/messense\"><code>@​messense</code></a>!</p>\n<p>No functionality changes in this release. It is backwards\ncompatible.</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/2d9873eb198dd49dafef2e3263a035ac3614982c\"><code>2d9873e</code></a>\nrelease v7.5.0</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/e67e3b45673e51e7155d80970d2e4c80152324dc\"><code>e67e3b4</code></a>\nremoves commented out code</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/fdde958f1c4753ebc22509b73da9156952c86e33\"><code>fdde958</code></a>\nremove .idea from .gitignore</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/d531c5992a5303fe418e95959a70459fb286c6b9\"><code>d531c59</code></a>\nallow reading from any Read and writing to any Write</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/205dfb2eb76d8b460f210a4541374a495a1974fa\"><code>205dfb2</code></a>\ndifferentiate Input and Output targets</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/6aa333a6513f3efa4b461659974a06426363447d\"><code>6aa333a</code></a>\nmake PasswordFeedback internal though ConfigBuilder</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/aadeef20d93b5cc7dc20823c35b697caa5201d46\"><code>aadeef2</code></a>\nallow more flexible input/output</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/ff7be55fc47280cacd49f86dd188614157c03f77\"><code>ff7be55</code></a>\nadd support for Ctrl-W</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/c56fefad218ec00d5309e8ec1d2a52ef31f86693\"><code>c56fefa</code></a>\nformat rust files with cargo fmt</li>\n<li><a\nhref=\"https://github.com/conradkleinespel/rpassword/commit/c6f4f19528553302a6d08f26d0f1daf8a9b94386\"><code>c6f4f19</code></a>\nhandle character encodings more reliably</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/conradkleinespel/rpassword/compare/v7.2.0...v7.5.0\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T20:24:05Z",
+          "tree_id": "dfd52c22064a80b712cd847ed25035f015e5819b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a80f0a512263dd71fb852605337e21cdca690a5c"
+        },
+        "date": 1794348979675,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08262114195799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038366955779999996,
             "unit": "seconds"
           }
         ]
