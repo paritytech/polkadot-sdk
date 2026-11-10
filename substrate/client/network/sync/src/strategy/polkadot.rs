@@ -47,9 +47,7 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } => {
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode }
-		},
+		SyncMode::LightState { skip_proofs } => ChainSyncMode::LightState { skip_proofs },
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }
@@ -274,9 +272,9 @@ where
 	}
 
 	fn is_major_syncing(&self) -> bool {
-		self.warp.is_some() ||
-			self.state.is_some() ||
-			match self.chain_sync {
+		self.warp.is_some()
+			|| self.state.is_some()
+			|| match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
 				None => unreachable!("At least one syncing strategy is active; qed"),
 			}

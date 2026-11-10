@@ -738,8 +738,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						// V2 and V3 require UMP signals. V1 does not.
 						if matches!(
 							self.descriptor_version,
-							CandidateDescriptorVersionConfig::V2 |
-								CandidateDescriptorVersionConfig::V3
+							CandidateDescriptorVersionConfig::V2
+								| CandidateDescriptorVersionConfig::V3
 						) {
 							// `UMPSignal` separator.
 							candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
@@ -895,10 +895,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.sum::<usize>()
 			.saturating_sub(self.elastic_paras.len() as usize);
 
-		let used_cores = self.dispute_sessions.len() +
-			self.backed_and_concluding_paras.len() +
-			self.backed_in_inherent_paras.len() +
-			extra_cores;
+		let used_cores = self.dispute_sessions.len()
+			+ self.backed_and_concluding_paras.len()
+			+ self.backed_in_inherent_paras.len()
+			+ extra_cores;
 
 		assert!(used_cores <= max_cores);
 
@@ -931,8 +931,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			(used_cores - extra_cores) as u32,
 			builder.dispute_sessions.as_slice(),
 		);
-		let mut disputed_cores = (builder.backed_and_concluding_paras.len() as u32..
-			((used_cores - extra_cores) as u32))
+		let mut disputed_cores = (builder.backed_and_concluding_paras.len() as u32
+			..((used_cores - extra_cores) as u32))
 			.into_iter()
 			.map(|idx| (idx, 0))
 			.collect::<BTreeMap<_, _>>();

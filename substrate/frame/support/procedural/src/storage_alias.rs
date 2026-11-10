@@ -228,8 +228,8 @@ impl StorageType {
 					>;
 				}
 			},
-			Self::CountedMap { value_ty, query_type, hasher_ty, key_ty, .. } |
-			Self::Map { value_ty, query_type, hasher_ty, key_ty, .. } => {
+			Self::CountedMap { value_ty, query_type, hasher_ty, key_ty, .. }
+			| Self::Map { value_ty, query_type, hasher_ty, key_ty, .. } => {
 				let query_type = query_type.as_ref().map(|(c, t)| quote!(#c #t));
 				let map_type = Ident::new(
 					match self {
@@ -294,11 +294,11 @@ impl StorageType {
 	/// The prefix for this storage type.
 	fn prefix(&self) -> &Type {
 		match self {
-			Self::Value { prefix, .. } |
-			Self::Map { prefix, .. } |
-			Self::CountedMap { prefix, .. } |
-			Self::NMap { prefix, .. } |
-			Self::DoubleMap { prefix, .. } => prefix,
+			Self::Value { prefix, .. }
+			| Self::Map { prefix, .. }
+			| Self::CountedMap { prefix, .. }
+			| Self::NMap { prefix, .. }
+			| Self::DoubleMap { prefix, .. } => prefix,
 		}
 	}
 }

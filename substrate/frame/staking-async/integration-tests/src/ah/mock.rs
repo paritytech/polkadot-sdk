@@ -36,7 +36,7 @@ use pallet_staking_async::{ActiveEra, CurrentEra, Forcing, PotAccountProvider};
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::{budget::BudgetRecipient, SessionIndex};
+use sp_staking::{budget::BudgetRecipient, EraIndex, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
@@ -514,6 +514,32 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 
 	type IsValidatorInactive = ();
+	type OnEraStart = EraStartRecorder;
+}
+
+parameter_types! {
+	/// Whether [`EraStartRecorder`] is in use. Off by default, which makes it behave as `()`.
+	pub static EraStartHookEnabled: bool = false;
+	/// The eras and validators [`EraStartRecorder`] was called with.
+	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
+	/// The weight [`EraStartRecorder`] reports for any set.
+	pub const EraStartHookWeight: Weight = Weight::from_parts(1_000_000, 1_000);
+}
+
+/// An `OnEraStart` hook that records its calls while [`EraStartHookEnabled`] is set.
+pub struct EraStartRecorder;
+impl pallet_staking_async::OnEraStart<AccountId> for EraStartRecorder {
+	fn enabled() -> bool {
+		EraStartHookEnabled::get()
+	}
+
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		StartedEras::mutate(|started| started.push((era, validators.to_vec())));
+	}
+
+	fn weight(_validators: u32) -> Weight {
+		EraStartHookWeight::get()
+	}
 }
 
 // Session keys type that must match RC's SessionKeys.
@@ -1293,10 +1319,10 @@ impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Any => true,
 			ProxyType::Staking => matches!(
 				c,
-				RuntimeCall::Staking(..) |
-					RuntimeCall::RcClient(
-						pallet_staking_async_rc_client::Call::set_keys { .. } |
-							pallet_staking_async_rc_client::Call::purge_keys { .. }
+				RuntimeCall::Staking(..)
+					| RuntimeCall::RcClient(
+						pallet_staking_async_rc_client::Call::set_keys { .. }
+							| pallet_staking_async_rc_client::Call::purge_keys { .. }
 					)
 			),
 		}

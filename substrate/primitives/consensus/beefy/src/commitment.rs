@@ -151,9 +151,9 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 		TBlockNumber: Clone + Encode + PartialEq,
 		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId,
 	{
-		if self.signatures.len() != validator_set.len() ||
-			self.commitment.validator_set_id != validator_set.id() ||
-			self.commitment.block_number != target_number
+		if self.signatures.len() != validator_set.len()
+			|| self.commitment.validator_set_id != validator_set.id()
+			|| self.commitment.block_number != target_number
 		{
 			return Err(0);
 		}

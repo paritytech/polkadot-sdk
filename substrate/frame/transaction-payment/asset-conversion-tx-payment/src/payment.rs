@@ -266,8 +266,8 @@ where
 
 		// `fee_paid` cannot be swapped back into `who`'s fee `asset_id` or the refund amount cannot
 		// be deposited into `who`'s fee `asset_id`, exit without refund.
-		if refund_asset_amount.is_zero() ||
-			!matches!(
+		if refund_asset_amount.is_zero()
+			|| !matches!(
 				F::can_deposit(asset_id.clone(), who, refund_asset_amount, Provenance::Extant),
 				DepositConsequence::Success
 			) {

@@ -113,10 +113,10 @@ where
 {
 	fn hash(&self) -> ExtrinsicHash<ChainApi> {
 		match self {
-			Self::Invalidated(hash) |
-			Self::Finalized(hash, _, _) |
-			Self::Broadcasted(hash, _) |
-			Self::Dropped(hash, _) => *hash,
+			Self::Invalidated(hash)
+			| Self::Finalized(hash, _, _)
+			| Self::Broadcasted(hash, _)
+			| Self::Dropped(hash, _) => *hash,
 			Self::FinalityTimeout(hash, _) => *hash,
 		}
 	}
@@ -405,12 +405,12 @@ where
 				self.terminate = true;
 				Some(status)
 			},
-			TransactionStatus::FinalityTimeout(_) |
-			TransactionStatus::Retracted(_) |
-			TransactionStatus::Broadcast(_) |
-			TransactionStatus::Usurped(_) |
-			TransactionStatus::Dropped |
-			TransactionStatus::Invalid => None,
+			TransactionStatus::FinalityTimeout(_)
+			| TransactionStatus::Retracted(_)
+			| TransactionStatus::Broadcast(_)
+			| TransactionStatus::Usurped(_)
+			| TransactionStatus::Dropped
+			| TransactionStatus::Invalid => None,
 		}
 	}
 

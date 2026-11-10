@@ -410,8 +410,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		let ready_limit = &self.options.ready;
 		let future_limit = &self.options.future;
 
-		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
-			future_limit.is_exceeded(status.future, status.future_bytes)
+		if ready_limit.is_exceeded(status.ready, status.ready_bytes)
+			|| future_limit.is_exceeded(status.future, status.future_bytes)
 		{
 			trace!(
 				target: LOG_TARGET,
@@ -595,8 +595,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 								final_statuses.insert(tx_hash, Status::Failed);
 							},
 						},
-						ValidatedTransaction::Invalid(_, _) |
-						ValidatedTransaction::Unknown(_, _) => {
+						ValidatedTransaction::Invalid(_, _)
+						| ValidatedTransaction::Unknown(_, _) => {
 							final_statuses.insert(tx_hash, Status::Failed);
 						},
 					}

@@ -358,8 +358,8 @@ async fn test_once() {
 					if let Some(id) = known_nodes
 						.keys()
 						.filter(|n| {
-							incoming_nodes.values().all(|m| m != *n) &&
-								!connected_nodes.contains(*n)
+							incoming_nodes.values().all(|m| m != *n)
+								&& !connected_nodes.contains(*n)
 						})
 						.choose(&mut rng)
 						.cloned()

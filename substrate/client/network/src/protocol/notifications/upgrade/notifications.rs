@@ -263,10 +263,10 @@ where
 					}
 				},
 
-				st @ NotificationsInSubstreamHandshake::NotSent |
-				st @ NotificationsInSubstreamHandshake::Sent |
-				st @ NotificationsInSubstreamHandshake::ClosingInResponseToRemote |
-				st @ NotificationsInSubstreamHandshake::BothSidesClosed => {
+				st @ NotificationsInSubstreamHandshake::NotSent
+				| st @ NotificationsInSubstreamHandshake::Sent
+				| st @ NotificationsInSubstreamHandshake::ClosingInResponseToRemote
+				| st @ NotificationsInSubstreamHandshake::BothSidesClosed => {
 					*this.handshake = st;
 					return Poll::Ready(Ok(()));
 				},

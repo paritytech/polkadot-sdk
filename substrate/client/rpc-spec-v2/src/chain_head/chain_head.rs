@@ -276,8 +276,8 @@ where
 		let result = spawn_blocking(&self.executor, async move {
 			let mut block_guard = match subscriptions.lock_block(&follow_subscription, hash, 1) {
 				Ok(block) => block,
-				Err(SubscriptionManagementError::SubscriptionAbsent) |
-				Err(SubscriptionManagementError::ExceededLimits) => {
+				Err(SubscriptionManagementError::SubscriptionAbsent)
+				| Err(SubscriptionManagementError::ExceededLimits) => {
 					return ResponsePayload::success(MethodResponse::LimitReached)
 				},
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
@@ -356,8 +356,8 @@ where
 
 		let block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
-			Err(SubscriptionManagementError::SubscriptionAbsent) |
-			Err(SubscriptionManagementError::ExceededLimits) => return Ok(None),
+			Err(SubscriptionManagementError::SubscriptionAbsent)
+			| Err(SubscriptionManagementError::ExceededLimits) => return Ok(None),
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
 				return Err(ChainHeadRpcError::InvalidBlock.into());
@@ -420,8 +420,8 @@ where
 		let mut block_guard =
 			match self.subscriptions.lock_block(&follow_subscription, hash, items.len()) {
 				Ok(block) => block,
-				Err(SubscriptionManagementError::SubscriptionAbsent) |
-				Err(SubscriptionManagementError::ExceededLimits) => {
+				Err(SubscriptionManagementError::SubscriptionAbsent)
+				| Err(SubscriptionManagementError::ExceededLimits) => {
 					return ResponsePayload::success(MethodResponse::LimitReached);
 				},
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
@@ -487,8 +487,8 @@ where
 
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
-			Err(SubscriptionManagementError::SubscriptionAbsent) |
-			Err(SubscriptionManagementError::ExceededLimits) => {
+			Err(SubscriptionManagementError::SubscriptionAbsent)
+			| Err(SubscriptionManagementError::ExceededLimits) => {
 				// Invalid invalid subscription ID.
 				return ResponsePayload::success(MethodResponse::LimitReached);
 			},

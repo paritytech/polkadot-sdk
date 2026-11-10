@@ -94,8 +94,8 @@ fn check_basic(#[case] node_features: NodeFeatures, #[case] chunk_resp_protocol:
 	let state =
 		TestState::new(node_features.clone(), req_protocol_names.clone(), chunk_resp_protocol);
 
-	if node_features == node_features_with_mapping_enabled() &&
-		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	if node_features == node_features_with_mapping_enabled()
+		&& chunk_resp_protocol == Protocol::ChunkFetchingV1
 	{
 		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
 		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.
@@ -128,8 +128,8 @@ fn check_fetch_tries_all(
 		v.push(None);
 	}
 
-	if node_features == node_features_with_mapping_enabled() &&
-		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	if node_features == node_features_with_mapping_enabled()
+		&& chunk_resp_protocol == Protocol::ChunkFetchingV1
 	{
 		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
 		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.
@@ -186,8 +186,8 @@ fn check_fetch_retry(#[case] node_features: NodeFeatures, #[case] chunk_resp_pro
 		v.push(None);
 	}
 
-	if node_features == node_features_with_mapping_enabled() &&
-		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	if node_features == node_features_with_mapping_enabled()
+		&& chunk_resp_protocol == Protocol::ChunkFetchingV1
 	{
 		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
 		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.

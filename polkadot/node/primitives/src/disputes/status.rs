@@ -67,9 +67,9 @@ impl DisputeStatus {
 	/// Check whether the dispute is not a spam dispute.
 	pub fn is_confirmed_concluded(&self) -> bool {
 		match self {
-			&DisputeStatus::Confirmed |
-			&DisputeStatus::ConcludedFor(_) |
-			DisputeStatus::ConcludedAgainst(_) => true,
+			&DisputeStatus::Confirmed
+			| &DisputeStatus::ConcludedFor(_)
+			| DisputeStatus::ConcludedAgainst(_) => true,
 			&DisputeStatus::Active => false,
 		}
 	}
@@ -118,9 +118,9 @@ impl DisputeStatus {
 	/// Whether the disputed candidate is possibly invalid.
 	pub fn is_possibly_invalid(&self) -> bool {
 		match self {
-			DisputeStatus::Active |
-			DisputeStatus::Confirmed |
-			DisputeStatus::ConcludedAgainst(_) => true,
+			DisputeStatus::Active
+			| DisputeStatus::Confirmed
+			| DisputeStatus::ConcludedAgainst(_) => true,
 			DisputeStatus::ConcludedFor(_) => false,
 		}
 	}

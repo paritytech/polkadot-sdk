@@ -172,8 +172,9 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 		T::get()
 			.into_iter()
 			.find(|item| {
-				&item.remote_network == network &&
-					item.remote_location_filter
+				&item.remote_network == network
+					&& item
+						.remote_location_filter
 						.as_ref()
 						.map(|filters| filters.iter().any(|filter| filter == remote_location))
 						.unwrap_or(true)

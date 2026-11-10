@@ -526,8 +526,8 @@ pub mod pallet {
 			let unchecked_eras_to_check = {
 				// get the last available `bonding_duration` eras up to current era in reverse
 				// order.
-				let total_check_range = (current_era.saturating_sub(bonding_duration)..=
-					current_era)
+				let total_check_range = (current_era.saturating_sub(bonding_duration)
+					..=current_era)
 					.rev()
 					.collect::<Vec<_>>();
 				debug_assert!(

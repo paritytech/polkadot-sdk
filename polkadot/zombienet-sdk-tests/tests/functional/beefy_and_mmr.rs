@@ -215,8 +215,8 @@ async fn beefy_finalized_heads(nodes: &[&NetworkNode], target: u64) -> Result<()
 	// verify that height(finalized_head) is at least as high as the substrate_beefy_best_block test
 	// already verified
 	let res = finalized_heads.iter().all(|(_i, finalized_head)| {
-		finalized_head.height >= target &&
-			finalized_head.hash == block_hashes[finalized_head.height as usize]
+		finalized_head.height >= target
+			&& finalized_head.hash == block_hashes[finalized_head.height as usize]
 	});
 
 	assert!(res, "finalized_heads verification fails");

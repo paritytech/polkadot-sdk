@@ -163,16 +163,28 @@ impl ExplicitAffinity {
 		self.peers.insert(peer, filter);
 	}
 
-	/// Drop a peer's stored filter once it disconnects.
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
+	/// Drop a peer's stored filter once its statement substream closes.
+	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers.remove(&peer);
 	}
 
 	// === Queries ===
 
 	/// Whether the peer's advertised filter accepts the statement.
+	#[cfg(test)]
 	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
 		self.peers.get(&peer).is_some_and(|filter| filter.matches_statement(stmt))
+	}
+
+	/// The peers whose advertised filter accepts the statement.
+	pub(crate) fn peers_with_explicit_affinity<'a>(
+		&'a self,
+		stmt: &'a Statement,
+	) -> impl Iterator<Item = PeerId> + 'a {
+		self.peers
+			.iter()
+			.filter(move |(_, filter)| filter.matches_statement(stmt))
+			.map(|(peer, _)| *peer)
 	}
 }
 
@@ -387,12 +399,12 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn on_substream_closed_drops_the_filter() {
 		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		affinity.on_peer_disconnected(peer);
+		affinity.on_substream_closed(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
 

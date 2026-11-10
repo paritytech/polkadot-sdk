@@ -154,8 +154,8 @@ fn open_channel_works() {
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::hrmp_init_open_channel(para_a_origin.into(), para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::OpenChannelRequested {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::OpenChannelRequested {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
@@ -164,8 +164,8 @@ fn open_channel_works() {
 
 		Hrmp::hrmp_accept_open_channel(para_b_origin.into(), para_a).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::OpenChannelAccepted { sender: para_a, recipient: para_b })));
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::OpenChannelAccepted { sender: para_a, recipient: para_b })));
 
 		// Advance to a block 6, but without session change. That means that the channel has
 		// not been created yet.
@@ -198,15 +198,15 @@ fn force_open_channel_works() {
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpChannelForceOpened {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
 				proposed_max_message_size: 8
 			})));
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpChannelForceOpened {
 				sender: para_b,
 				recipient: para_a,
 				proposed_max_capacity: 2,
@@ -252,15 +252,15 @@ fn force_open_channel_without_free_balance_works() {
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpChannelForceOpened {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
 				proposed_max_message_size: 8
 			})));
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpChannelForceOpened {
 				sender: para_b,
 				recipient: para_a,
 				proposed_max_capacity: 2,
@@ -296,8 +296,8 @@ fn force_open_channel_works_with_existing_request() {
 		run_to_block(3, Some(vec![2, 3]));
 		Hrmp::hrmp_init_open_channel(para_a_origin.into(), para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::OpenChannelRequested {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::OpenChannelRequested {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
@@ -315,8 +315,8 @@ fn force_open_channel_works_with_existing_request() {
 		// now force open it.
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpChannelForceOpened {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
@@ -336,6 +336,23 @@ fn force_open_channel_works_with_existing_request() {
 }
 
 #[test]
+fn force_open_channel_with_invalid_sender_fails() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// Only B is registered.
+		register_parachain(para_b);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_noop!(
+			Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8),
+			Error::<Test>::OpenHrmpChannelInvalidSender
+		);
+	});
+}
+
+#[test]
 fn open_system_channel_works() {
 	let para_a = 1.into();
 	let para_b = 3.into();
@@ -348,8 +365,8 @@ fn open_system_channel_works() {
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 2,
@@ -456,6 +473,73 @@ fn poke_deposits_works() {
 	});
 }
 
+fn insert_channel_without_deposits(channel_id: &HrmpChannelId) {
+	let config = configuration::ActiveConfig::<Test>::get();
+	HrmpChannels::<Test>::insert(
+		channel_id,
+		HrmpChannel {
+			sender_deposit: 0,
+			recipient_deposit: 0,
+			max_capacity: config.hrmp_channel_max_capacity,
+			max_total_size: config.hrmp_channel_max_total_size,
+			max_message_size: config.hrmp_channel_max_message_size,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		},
+	);
+}
+
+#[test]
+fn poke_deposits_increase_works() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			20
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			15
+		);
+	});
+}
+
+#[test]
+fn poke_deposits_increase_without_balance_fails() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 0);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// The sender's deposit is taken first and must be rolled back too.
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
+		);
+	});
+}
+
 #[test]
 fn close_channel_works() {
 	let para_a = 2005.into();
@@ -484,8 +568,8 @@ fn close_channel_works() {
 		run_to_block(8, Some(vec![8]));
 		assert!(!channel_exists(para_a, para_b));
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::ChannelClosed {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::ChannelClosed {
 				by_parachain: para_b,
 				channel_id: channel_id.clone()
 			})));
@@ -1040,16 +1124,16 @@ fn establish_channel_with_system_works() {
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::establish_channel_with_system(para_a_origin.into(), para_b).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
 				sender: para_a,
 				recipient: para_b,
 				proposed_max_capacity: 1,
 				proposed_max_message_size: 4
 			})));
 
-		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+		assert!(System::events().iter().any(|record| record.event
+			== MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
 				sender: para_b,
 				recipient: para_a,
 				proposed_max_capacity: 1,

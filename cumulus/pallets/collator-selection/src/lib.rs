@@ -349,8 +349,8 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
 			assert!(
-				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get()) >=
-					T::MinEligibleCollators::get(),
+				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get())
+					>= T::MinEligibleCollators::get(),
 				"invulnerables and candidates must be able to satisfy collator demand"
 			);
 		}
@@ -385,8 +385,8 @@ pub mod pallet {
 			if new.is_empty() {
 				// Casting `u32` to `usize` should be safe on all machines running this.
 				ensure!(
-					CandidateList::<T>::decode_len().unwrap_or_default() >=
-						T::MinEligibleCollators::get() as usize,
+					CandidateList::<T>::decode_len().unwrap_or_default()
+						>= T::MinEligibleCollators::get() as usize,
 					Error::<T>::TooFewEligibleCollators
 				);
 			}
@@ -693,8 +693,8 @@ pub mod pallet {
 					} else if new_deposit < old_deposit {
 						// Casting `u32` to `usize` should be safe on all machines running this.
 						ensure!(
-							idx.saturating_add(DesiredCandidates::<T>::get() as usize) <
-								candidate_count,
+							idx.saturating_add(DesiredCandidates::<T>::get() as usize)
+								< candidate_count,
 							Error::<T>::InvalidUnreserve
 						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);

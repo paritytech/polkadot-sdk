@@ -354,9 +354,9 @@ impl<'a> DigestItemRef<'a> {
 	/// return the opaque data it contains.
 	pub fn try_as_raw(&self, id: OpaqueDigestItemId) -> Option<&'a [u8]> {
 		match (id, self) {
-			(OpaqueDigestItemId::Consensus(w), &Self::Consensus(v, s)) |
-			(OpaqueDigestItemId::Seal(w), &Self::Seal(v, s)) |
-			(OpaqueDigestItemId::PreRuntime(w), &Self::PreRuntime(v, s))
+			(OpaqueDigestItemId::Consensus(w), &Self::Consensus(v, s))
+			| (OpaqueDigestItemId::Seal(w), &Self::Seal(v, s))
+			| (OpaqueDigestItemId::PreRuntime(w), &Self::PreRuntime(v, s))
 				if v == w =>
 			{
 				Some(s)

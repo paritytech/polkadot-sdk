@@ -52,10 +52,10 @@ pub enum PalletStorageAttr {
 impl PalletStorageAttr {
 	fn attr_span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Getter(_, span) |
-			Self::StorageName(_, span) |
-			Self::Unbounded(span) |
-			Self::WhitelistStorage(span) => *span,
+			Self::Getter(_, span)
+			| Self::StorageName(_, span)
+			| Self::Unbounded(span)
+			| Self::WhitelistStorage(span) => *span,
 			Self::DisableTryDecodeStorage(span) => *span,
 		}
 	}
@@ -286,12 +286,12 @@ impl StorageGenerics {
 	/// Return the query kind from the defined generics
 	fn query_kind(&self) -> Option<syn::Type> {
 		match &self {
-			Self::DoubleMap { query_kind, .. } |
-			Self::Map { query_kind, .. } |
-			Self::CountedMap { query_kind, .. } |
-			Self::Value { query_kind, .. } |
-			Self::NMap { query_kind, .. } |
-			Self::CountedNMap { query_kind, .. } => query_kind.clone(),
+			Self::DoubleMap { query_kind, .. }
+			| Self::Map { query_kind, .. }
+			| Self::CountedMap { query_kind, .. }
+			| Self::Value { query_kind, .. }
+			| Self::NMap { query_kind, .. }
+			| Self::CountedNMap { query_kind, .. } => query_kind.clone(),
 		}
 	}
 }
@@ -333,8 +333,8 @@ fn check_generics(
 	};
 
 	for (gen_name, gen_binding) in map {
-		if !mandatory_generics.contains(&gen_name.as_str()) &&
-			!optional_generics.contains(&gen_name.as_str())
+		if !mandatory_generics.contains(&gen_name.as_str())
+			&& !optional_generics.contains(&gen_name.as_str())
 		{
 			let msg = format!(
 				"Invalid pallet::storage, Unexpected generic `{}` for `{}`. {}",

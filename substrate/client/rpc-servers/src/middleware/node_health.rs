@@ -115,8 +115,8 @@ where
 					let res = fut.await.map_err(|err| err.into())?;
 					match parse_rpc_response(res.into_body()).await {
 						Ok(health)
-							if (!health.is_syncing && health.peers > 0) ||
-								!health.should_have_peers =>
+							if (!health.is_syncing && health.peers > 0)
+								|| !health.should_have_peers =>
 						{
 							http_ok_response(HttpBody::empty())
 						},

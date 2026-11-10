@@ -289,11 +289,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		let (prev_time, prev_best_number_at_target) = self.progress;
 		let now = Instant::now();
 
-		let needs_update = now - prev_time > Duration::from_secs(10) ||
-			prev_best_number_at_target
+		let needs_update = now - prev_time > Duration::from_secs(10)
+			|| prev_best_number_at_target
 				.map(|prev_best_number_at_target| {
-					info.best_number_at_target.saturating_sub(prev_best_number_at_target) >
-						10.into()
+					info.best_number_at_target.saturating_sub(prev_best_number_at_target)
+						> 10.into()
 				})
 				.unwrap_or(true);
 

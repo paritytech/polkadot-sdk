@@ -86,20 +86,13 @@ fn counter_prefix(prefix: &str) -> String {
 /// NOTE: A new version of this macro is available at `frame_support::runtime`. This macro will
 /// soon be deprecated. Please use the new macro instead.
 ///
-/// The parameters here are specific types for `Block`, `NodeBlock`, and `UncheckedExtrinsic`
-/// and the pallets that are used by the runtime.
-/// `Block` is the block type that is used in the runtime and `NodeBlock` is the block type
-/// that is used in the node. For instance they can differ in the extrinsics type.
+/// The block type is read from `frame_system::Config::Block`.
 ///
 /// # Example:
 ///
 /// ```ignore
 /// construct_runtime!(
-///     pub enum Runtime where
-///         Block = Block,
-///         NodeBlock = node::Block,
-///         UncheckedExtrinsic = UncheckedExtrinsic
-///     {
+///     pub enum Runtime {
 ///         System: frame_system::{Pallet, Call, Event<T>, Config<T>} = 0,
 ///         Test: path::to::test::{Pallet, Call} = 1,
 ///
@@ -818,15 +811,15 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
 	let item = syn::parse_macro_input!(item as TraitItemType);
-	if item.ident != "RuntimeCall" &&
-		item.ident != "RuntimeEvent" &&
-		item.ident != "RuntimeTask" &&
-		item.ident != "RuntimeViewFunction" &&
-		item.ident != "RuntimeOrigin" &&
-		item.ident != "RuntimeHoldReason" &&
-		item.ident != "RuntimeFreezeReason" &&
-		item.ident != "RuntimeParameters" &&
-		item.ident != "PalletInfo"
+	if item.ident != "RuntimeCall"
+		&& item.ident != "RuntimeEvent"
+		&& item.ident != "RuntimeTask"
+		&& item.ident != "RuntimeViewFunction"
+		&& item.ident != "RuntimeOrigin"
+		&& item.ident != "RuntimeHoldReason"
+		&& item.ident != "RuntimeFreezeReason"
+		&& item.ident != "RuntimeParameters"
+		&& item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,

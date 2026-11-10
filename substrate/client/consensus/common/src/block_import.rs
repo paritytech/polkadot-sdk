@@ -169,9 +169,9 @@ impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
 		match self {
-			StateAction::ApplyChanges(_) |
-			StateAction::Execute |
-			StateAction::ExecuteIfPossible => false,
+			StateAction::ApplyChanges(_)
+			| StateAction::Execute
+			| StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
 		}
 	}
@@ -225,8 +225,6 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub post_digests: Vec<DigestItem>,
 	/// The body of the block.
 	pub body: Option<Vec<Block::Extrinsic>>,
-	/// Indexed transaction body of the block.
-	pub indexed_body: Option<Vec<Vec<u8>>>,
 	/// Specify how the new state is computed.
 	pub state_action: StateAction<Block>,
 	/// Is this block finalized already?
@@ -268,7 +266,6 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			justifications: None,
 			post_digests: Vec::new(),
 			body: None,
-			indexed_body: None,
 			// Warp sync blocks are already verified, skip execution.
 			state_action: if origin == BlockOrigin::WarpSync {
 				StateAction::Skip

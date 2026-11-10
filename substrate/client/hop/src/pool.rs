@@ -1166,9 +1166,9 @@ impl HopDataPool {
 	/// Outstanding promotion candidate: unpromoted, near expiry, attempts left.
 	/// Ignores the back-off deadline — a backing-off entry is still outstanding.
 	fn in_promotion_window(meta: &HopEntryMeta, now_secs: u64, buffer_secs: u64) -> bool {
-		!meta.promoted &&
-			now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
-			meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS
+		!meta.promoted
+			&& now_secs.saturating_add(buffer_secs) >= meta.expires_at
+			&& meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS
 	}
 
 	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
@@ -1204,8 +1204,8 @@ impl HopDataPool {
 			}
 			match self.fetch_meta(&hash) {
 				Ok(Some(meta))
-					if Self::in_promotion_window(&meta, now_secs, buffer_secs) &&
-						current_block >= meta.next_promotion_attempt_at =>
+					if Self::in_promotion_window(&meta, now_secs, buffer_secs)
+						&& current_block >= meta.next_promotion_attempt_at =>
 				{
 					out.push(hash);
 				},

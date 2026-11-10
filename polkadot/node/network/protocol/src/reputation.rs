@@ -74,10 +74,10 @@ impl UnifiedReputationChange {
 	/// Whether the reputation change is for good behavior.
 	pub const fn is_benefit(&self) -> bool {
 		match self {
-			Self::BenefitMajorFirst(_) |
-			Self::BenefitMajor(_) |
-			Self::BenefitMinorFirst(_) |
-			Self::BenefitMinor(_) => true,
+			Self::BenefitMajorFirst(_)
+			| Self::BenefitMajor(_)
+			| Self::BenefitMinorFirst(_)
+			| Self::BenefitMinor(_) => true,
 			_ => false,
 		}
 	}

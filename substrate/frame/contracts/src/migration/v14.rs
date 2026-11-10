@@ -249,8 +249,8 @@ where
 				old_balance_allocation.total
 			);
 			ensure!(
-				T::Currency::total_balance(&owner) ==
-					BalanceOf::<T>::decode(&mut &old_balance_allocation.total.encode()[..])
+				T::Currency::total_balance(&owner)
+					== BalanceOf::<T>::decode(&mut &old_balance_allocation.total.encode()[..])
 						.unwrap(),
 				"Balance mismatch "
 			);

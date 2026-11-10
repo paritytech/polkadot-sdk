@@ -159,8 +159,8 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 	pub fn was_successful(update: &SubmitParachainHeadsInfo) -> bool {
 		match crate::ParasInfo::<T, I>::get(update.para_id) {
 			Some(stored_best_head) => {
-				stored_best_head.best_head_hash ==
-					BestParaHeadHash {
+				stored_best_head.best_head_hash
+					== BestParaHeadHash {
 						at_relay_block_number: update.at_relay_block.0,
 						head_hash: update.para_head_hash,
 					}

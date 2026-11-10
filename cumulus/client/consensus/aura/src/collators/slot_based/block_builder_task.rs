@@ -885,8 +885,8 @@ where
 					block_time,
 					blocks_per_core,
 					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
+					is_last_core_in_parachain_slot: cores.is_last_core()
+						&& slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
 					collator_peer_id,
 					relay_parent_data: rp_data,
 					total_number_of_blocks: number_of_blocks,
@@ -1176,8 +1176,8 @@ where
 
 		let block_production_start = Instant::now();
 		// The time we have left to spent for the block.
-		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
-			(blocks_per_core - block_index) as u32;
+		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed())
+			/ (blocks_per_core - block_index) as u32;
 
 		// The first block on a multi-block core gets the full remaining core time so that the
 		// runtime's `FullCore` weight mode can actually be utilized. Subsequent blocks are
@@ -1247,6 +1247,7 @@ where
 				proof.clone(),
 				relay_parent_header.clone(),
 				relay_parent_session,
+				max_pov_size,
 			)
 			.for_each(|(k, v)| {
 				import_block.auxiliary.push((k, Some(v)));
@@ -1571,9 +1572,9 @@ impl BlockProductionSchedule {
 	/// In Bundling mode, we skip the last block in the parachain slot
 	/// to give the next author time to import all previous blocks.
 	fn should_skip_production(&self) -> bool {
-		self.mode.skips_last_block() &&
-			self.is_last_block_in_core() &&
-			self.is_last_core_in_parachain_slot
+		self.mode.skips_last_block()
+			&& self.is_last_block_in_core()
+			&& self.is_last_core_in_parachain_slot
 	}
 
 	/// Whether this is effectively the last block we'll produce for this core.
@@ -1596,10 +1597,10 @@ impl BlockProductionSchedule {
 	/// - This is the second-to-last and the actual last will be skipped (Skip mode on the last core
 	///   of the parachain slot).
 	fn block_ends_bundle(&self) -> bool {
-		self.is_last_block_in_core() ||
-			(self.is_second_to_last() &&
-				self.mode.skips_last_block() &&
-				self.is_last_core_in_parachain_slot)
+		self.is_last_block_in_core()
+			|| (self.is_second_to_last()
+				&& self.mode.skips_last_block()
+				&& self.is_last_core_in_parachain_slot)
 	}
 
 	/// Compute the authoring duration given available time.
@@ -1837,8 +1838,8 @@ mod block_production_schedule_tests {
 				);
 
 				// Original is_last_block_in_core logic
-				let original_is_last = block_index + 1 == blocks_per_core ||
-					(block_index + 2 == blocks_per_core && blocks_per_core > 1);
+				let original_is_last = block_index + 1 == blocks_per_core
+					|| (block_index + 2 == blocks_per_core && blocks_per_core > 1);
 
 				// Original skip logic
 				let original_skip =

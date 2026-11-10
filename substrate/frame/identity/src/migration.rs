@@ -445,10 +445,10 @@ pub mod v2 {
 				MigrationState::FinishedIdentities | MigrationState::PendingUsername(_) => {
 					T::WeightInfo::migration_v2_pending_username_step()
 				},
-				MigrationState::FinishedPendingUsernames |
-				MigrationState::CleanupAuthorities(_) => T::WeightInfo::migration_v2_cleanup_authority_step(),
-				MigrationState::FinishedCleanupAuthorities |
-				MigrationState::CleanupUsernames(_) => T::WeightInfo::migration_v2_cleanup_username_step(),
+				MigrationState::FinishedPendingUsernames
+				| MigrationState::CleanupAuthorities(_) => T::WeightInfo::migration_v2_cleanup_authority_step(),
+				MigrationState::FinishedCleanupAuthorities
+				| MigrationState::CleanupUsernames(_) => T::WeightInfo::migration_v2_cleanup_username_step(),
 				MigrationState::Finished => Weight::zero(),
 			}
 		}

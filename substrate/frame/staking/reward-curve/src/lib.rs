@@ -142,10 +142,10 @@ struct Bounds {
 
 impl Bounds {
 	fn check(&self, value: u32) -> bool {
-		let wrong = (self.min_strict && value <= self.min) ||
-			(!self.min_strict && value < self.min) ||
-			(self.max_strict && value >= self.max) ||
-			(!self.max_strict && value > self.max);
+		let wrong = (self.min_strict && value <= self.min)
+			|| (!self.min_strict && value < self.min)
+			|| (self.max_strict && value >= self.max)
+			|| (!self.max_strict && value > self.max);
 
 		!wrong
 	}
@@ -297,8 +297,8 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
 	// For each point p: (next_p.0 - p.0) < segment_length && (next_p.1 - p.1) < segment_length.
 	// This ensures that the total number of segments doesn't overflow max_piece_count.
-	let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal) /
-		(input.max_piece_count - 1);
+	let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal)
+		/ (input.max_piece_count - 1);
 
 	let mut delta_y = max_length;
 	let mut y = input.max_inflation;
@@ -325,8 +325,8 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 			// Compute the y corresponding to x=1_000_000 using the current point and the previous
 			// one.
 
-			let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64 /
-				(next_x - prev.0) as u64)
+			let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64
+				/ (next_x - prev.0) as u64)
 				.try_into()
 				.unwrap();
 

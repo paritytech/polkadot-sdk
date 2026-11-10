@@ -128,8 +128,8 @@ impl RuntimeInterfaceFunctionSet {
 
 		self.versions
 			.insert(version.version, RuntimeInterfaceFunction::new(trait_item)?);
-		if self.latest_version_to_call.map_or(true, |v| v < version.version) &&
-			version.is_callable()
+		if self.latest_version_to_call.map_or(true, |v| v < version.version)
+			&& version.is_callable()
 		{
 			self.latest_version_to_call = Some(version.version);
 		}

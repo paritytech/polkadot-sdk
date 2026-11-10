@@ -41,8 +41,8 @@ impl<
 		let prefix = Prefix::get();
 		let latest_prefix: Location = prefix.try_into().ok()?;
 		let latest_id: Location = (*id).clone().try_into().ok()?;
-		if latest_prefix.parent_count() != latest_id.parent_count() ||
-			latest_prefix
+		if latest_prefix.parent_count() != latest_id.parent_count()
+			|| latest_prefix
 				.interior()
 				.iter()
 				.enumerate()

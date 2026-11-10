@@ -81,8 +81,7 @@ use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
-		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, SaturatedConversion,
-		Zero,
+		Block as BlockT, HashingFor, Header as HeaderT, NumberFor, One, SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion, Storage,
 };
@@ -484,7 +483,6 @@ struct PendingBlock<Block: BlockT> {
 	header: Block::Header,
 	justifications: Option<Justifications>,
 	body: Option<Vec<Block::Extrinsic>>,
-	indexed_body: Option<Vec<Vec<u8>>>,
 	leaf_state: NewBlockState,
 	register_as_leaf: bool,
 }
@@ -990,20 +988,13 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		&mut self,
 		header: Block::Header,
 		body: Option<Vec<Block::Extrinsic>>,
-		indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		leaf_state: NewBlockState,
 		register_as_leaf: bool,
 	) -> ClientResult<()> {
 		assert!(self.pending_block.is_none(), "Only one block per operation is allowed");
-		self.pending_block = Some(PendingBlock {
-			header,
-			body,
-			indexed_body,
-			justifications,
-			leaf_state,
-			register_as_leaf,
-		});
+		self.pending_block =
+			Some(PendingBlock { header, body, justifications, leaf_state, register_as_leaf });
 		Ok(())
 	}
 
@@ -1413,9 +1404,9 @@ impl<Block: BlockT> Backend<Block> {
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
 		let info = backend.blockchain.info();
-		if info.finalized_state.is_none() &&
-			info.finalized_hash != Default::default() &&
-			sc_client_api::Backend::have_state_at(
+		if info.finalized_state.is_none()
+			&& info.finalized_hash != Default::default()
+			&& sc_client_api::Backend::have_state_at(
 				&backend,
 				info.finalized_hash,
 				info.finalized_number,
@@ -1478,8 +1469,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let meta = self.blockchain.meta.read();
 
-		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>() >
-			self.canonicalization_delay
+		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>()
+			> self.canonicalization_delay
 		{
 			return Err(sp_blockchain::Error::SetHeadTooOld);
 		}
@@ -1538,8 +1529,8 @@ impl<Block: BlockT> Backend<Block> {
 	) -> ClientResult<()> {
 		let last_finalized =
 			last_finalized.unwrap_or_else(|| self.blockchain.meta.read().finalized_hash);
-		if last_finalized != self.blockchain.meta.read().genesis_hash &&
-			*header.parent_hash() != last_finalized
+		if last_finalized != self.blockchain.meta.read().genesis_hash
+			&& *header.parent_hash() != last_finalized
 		{
 			return Err(sp_blockchain::Error::NonSequentialFinalization(format!(
 				"Last finalized {last_finalized:?} not parent of {:?}",
@@ -1713,9 +1704,6 @@ impl<Block: BlockT> Backend<Block> {
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 				}
 			}
-			if let Some(body) = pending_block.indexed_body {
-				apply_indexed_body::<Block>(&mut transaction, body);
-			}
 			if let Some(justifications) = pending_block.justifications {
 				transaction.set_from_vec(
 					columns::JUSTIFICATIONS,
@@ -1819,8 +1807,8 @@ impl<Block: BlockT> Backend<Block> {
 				let finalized = number_u64 == 0 || pending_block.leaf_state.is_final();
 				finalized
 			} else {
-				(number.is_zero() && last_finalized_num.is_zero()) ||
-					pending_block.leaf_state.is_final()
+				(number.is_zero() && last_finalized_num.is_zero())
+					|| pending_block.leaf_state.is_final()
 			};
 
 			let header = &pending_block.header;
@@ -1856,8 +1844,8 @@ impl<Block: BlockT> Backend<Block> {
 
 			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
-				if pending_block.register_as_leaf &&
-					(number > last_finalized_num || last_finalized_num.is_zero())
+				if pending_block.register_as_leaf
+					&& (number > last_finalized_num || last_finalized_num.is_zero())
 				{
 					let mut leaves = self.blockchain.leaves.write();
 					leaves.import(hash, number, parent_hash);
@@ -1963,8 +1951,8 @@ impl<Block: BlockT> Backend<Block> {
 						},
 					}
 				} else if operation.create_gap {
-					if number > best_num + One::one() &&
-						self.blockchain.header(parent_hash)?.is_none()
+					if number > best_num + One::one()
+						&& self.blockchain.header(parent_hash)?.is_none()
 					{
 						let gap = BlockGap {
 							start: best_num + One::one(),
@@ -1974,9 +1962,9 @@ impl<Block: BlockT> Backend<Block> {
 						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
-					} else if number == best_num + One::one() &&
-						self.blockchain.header(parent_hash)?.is_some() &&
-						!incoming_has_body
+					} else if number == best_num + One::one()
+						&& self.blockchain.header(parent_hash)?.is_some()
+						&& !incoming_has_body
 					{
 						let gap = BlockGap {
 							start: number,
@@ -2357,13 +2345,6 @@ fn apply_index_ops<Block: BlockT>(
 	extrinsic_index.encode()
 }
 
-fn apply_indexed_body<Block: BlockT>(transaction: &mut Transaction<DbHash>, body: Vec<Vec<u8>>) {
-	for extrinsic in body {
-		let hash = sp_runtime::traits::BlakeTwo256::hash(&extrinsic);
-		transaction.store(columns::TRANSACTION, DbHash::from_slice(hash.as_ref()), extrinsic);
-	}
-}
-
 impl<Block> sc_client_api::backend::AuxStore for Backend<Block>
 where
 	Block: BlockT,
@@ -2491,8 +2472,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let last_finalized = self.blockchain.last_finalized()?;
 
 		// We can do a quick check first, before doing a proper but more expensive check
-		if number > self.blockchain.info().finalized_number ||
-			(hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
+		if number > self.blockchain.info().finalized_number
+			|| (hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
 		{
 			return Err(ClientError::NotInFinalizedChain);
 		}
@@ -2627,8 +2608,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							reverted_finalized.insert(removed_hash);
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
-									if !number_to_revert.is_zero() &&
-										self.have_state_at(prev_hash, prev_number)
+									if !number_to_revert.is_zero()
+										&& self.have_state_at(prev_hash, prev_number)
 									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
 											prev_number,
@@ -3017,7 +2998,7 @@ pub(crate) mod tests {
 		op.update_db_storage(overlay).unwrap();
 		header.state_root = root.into();
 
-		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best, true)
+		op.set_block_data(header.clone(), Some(body), None, NewBlockState::Best, true)
 			.unwrap();
 
 		backend.commit_operation(op)?;
@@ -3058,7 +3039,7 @@ pub(crate) mod tests {
 		op.update_db_storage(overlay).unwrap();
 		header.state_root = root.into();
 
-		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best, true)
+		op.set_block_data(header.clone(), Some(body), None, NewBlockState::Best, true)
 			.unwrap();
 
 		backend.commit_operation(op)?;
@@ -3084,7 +3065,6 @@ pub(crate) mod tests {
 		op.set_block_data(
 			header.clone(),
 			Some(vec![]),
-			None,
 			None,
 			if best { NewBlockState::Best } else { NewBlockState::Normal },
 			true,
@@ -3125,7 +3105,7 @@ pub(crate) mod tests {
 			.0;
 		header.state_root = root.into();
 
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
+		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)
 			.unwrap();
 		backend.commit_operation(op).unwrap();
 
@@ -3156,7 +3136,7 @@ pub(crate) mod tests {
 						extrinsics_root: Default::default(),
 					};
 
-					op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+					op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 						.unwrap();
 					db.commit_operation(op).unwrap();
 				}
@@ -3218,7 +3198,7 @@ pub(crate) mod tests {
 				state_version,
 			)
 			.unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header.clone(), Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			db.commit_operation(op).unwrap();
@@ -3253,7 +3233,7 @@ pub(crate) mod tests {
 			header.state_root = root.into();
 
 			op.update_storage(storage, Vec::new()).unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header.clone(), Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			db.commit_operation(op).unwrap();
@@ -3295,7 +3275,7 @@ pub(crate) mod tests {
 			.unwrap();
 
 			key = op.db_updates.insert(EMPTY_PREFIX, b"hello");
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3332,7 +3312,7 @@ pub(crate) mod tests {
 
 			op.db_updates.insert(EMPTY_PREFIX, b"hello");
 			op.db_updates.remove(&key, EMPTY_PREFIX);
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3368,7 +3348,7 @@ pub(crate) mod tests {
 			let hash = header.hash();
 
 			op.db_updates.remove(&key, EMPTY_PREFIX);
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3401,7 +3381,7 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3428,7 +3408,7 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3755,7 +3735,7 @@ pub(crate) mod tests {
 				extrinsics_root: ext_root,
 			};
 			let mut op = backend.begin_operation().unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, state, register_as_leaf)
+			op.set_block_data(header.clone(), Some(vec![]), None, state, register_as_leaf)
 				.unwrap();
 			backend.commit_operation(op).unwrap();
 			header.hash()
@@ -4240,7 +4220,7 @@ pub(crate) mod tests {
 				state_version,
 			)
 			.unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+			op.set_block_data(header.clone(), Some(vec![]), None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -4276,7 +4256,7 @@ pub(crate) mod tests {
 			let hash = header.hash();
 
 			op.update_storage(storage, Vec::new()).unwrap();
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Normal, true)
+			op.set_block_data(header, Some(vec![]), None, NewBlockState::Normal, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -4287,7 +4267,7 @@ pub(crate) mod tests {
 		{
 			let header = backend.blockchain().header(hash1).unwrap().unwrap();
 			let mut op = backend.begin_operation().unwrap();
-			op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
+			op.set_block_data(header, None, None, NewBlockState::Best, true).unwrap();
 			backend.commit_operation(op).unwrap();
 		}
 
@@ -5470,13 +5450,13 @@ pub(crate) mod tests {
 			extrinsics_root: Default::default(),
 		};
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
+		op.set_block_data(header, None, None, NewBlockState::Best, true).unwrap();
 		assert!(matches!(backend.commit_operation(op), Err(sp_blockchain::Error::SetHeadTooOld)));
 
 		// Insert 2 as best again.
 		let header = backend.blockchain().header(block2).unwrap().unwrap();
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
+		op.set_block_data(header, None, None, NewBlockState::Best, true).unwrap();
 		backend.commit_operation(op).unwrap();
 		assert_eq!(backend.blockchain().info().best_hash, block2);
 	}
@@ -5494,7 +5474,7 @@ pub(crate) mod tests {
 		let header = backend.blockchain().header(block1).unwrap().unwrap();
 
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Final, true).unwrap();
+		op.set_block_data(header, None, None, NewBlockState::Final, true).unwrap();
 		backend.commit_operation(op).unwrap();
 
 		assert_eq!(backend.blockchain().info().finalized_hash, block1);
@@ -5557,15 +5537,8 @@ pub(crate) mod tests {
 				extrinsics_root: Default::default(),
 			};
 
-			op.set_block_data(
-				header.clone(),
-				Some(Vec::new()),
-				None,
-				None,
-				NewBlockState::Normal,
-				true,
-			)
-			.unwrap();
+			op.set_block_data(header.clone(), Some(Vec::new()), None, NewBlockState::Normal, true)
+				.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -5583,15 +5556,8 @@ pub(crate) mod tests {
 				extrinsics_root: Default::default(),
 			};
 
-			op.set_block_data(
-				header.clone(),
-				Some(Vec::new()),
-				None,
-				None,
-				NewBlockState::Normal,
-				true,
-			)
-			.unwrap();
+			op.set_block_data(header.clone(), Some(Vec::new()), None, NewBlockState::Normal, true)
+				.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -5609,15 +5575,8 @@ pub(crate) mod tests {
 				extrinsics_root: H256::from_low_u64_le(42),
 			};
 
-			op.set_block_data(
-				header.clone(),
-				Some(Vec::new()),
-				None,
-				None,
-				NewBlockState::Normal,
-				true,
-			)
-			.unwrap();
+			op.set_block_data(header.clone(), Some(Vec::new()), None, NewBlockState::Normal, true)
+				.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -5765,7 +5724,6 @@ pub(crate) mod tests {
 					header.clone(),
 					Some(Vec::new()),
 					None,
-					None,
 					NewBlockState::Normal,
 					true,
 				)
@@ -5810,7 +5768,6 @@ pub(crate) mod tests {
 				op.set_block_data(
 					header.clone(),
 					Some(Vec::new()),
-					None,
 					None,
 					NewBlockState::Normal,
 					true,
@@ -5857,7 +5814,6 @@ pub(crate) mod tests {
 					header.clone(),
 					Some(Vec::new()),
 					None,
-					None,
 					NewBlockState::Best,
 					true,
 				)
@@ -5894,7 +5850,6 @@ pub(crate) mod tests {
 				op.set_block_data(
 					header.clone(),
 					Some(Vec::new()),
-					None,
 					None,
 					NewBlockState::Best,
 					true,
@@ -6445,7 +6400,7 @@ pub(crate) mod tests {
 
 		let mut op = backend.begin_operation().unwrap();
 		// body = None triggers MissingBody gap when parent exists
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Best, true)
+		op.set_block_data(header.clone(), None, None, NewBlockState::Best, true)
 			.unwrap();
 		backend.commit_operation(op).unwrap();
 

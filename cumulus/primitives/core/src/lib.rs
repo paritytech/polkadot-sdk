@@ -463,9 +463,9 @@ impl CumulusDigestItem {
 		let bundle_info = Self::find_block_bundle_info(digest)?;
 
 		Some(
-			bundle_info.is_last ||
-				Self::contains_use_full_core(digest) ||
-				digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
+			bundle_info.is_last
+				|| Self::contains_use_full_core(digest)
+				|| digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
 		)
 	}
 }

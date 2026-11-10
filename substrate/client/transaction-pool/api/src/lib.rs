@@ -162,11 +162,11 @@ impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
 	pub fn is_final(&self) -> bool {
 		// The state must be kept in sync with `crate::graph::Sender`.
 		match self {
-			Self::Usurped(_) |
-			Self::Finalized(_) |
-			Self::FinalityTimeout(_) |
-			Self::Invalid |
-			Self::Dropped => true,
+			Self::Usurped(_)
+			| Self::Finalized(_)
+			| Self::FinalityTimeout(_)
+			| Self::Invalid
+			| Self::Dropped => true,
 			_ => false,
 		}
 	}
@@ -403,9 +403,9 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBlock { hash } |
-			Self::NewBestBlock { hash, .. } |
-			Self::Finalized { hash, .. } => *hash,
+			Self::NewBlock { hash }
+			| Self::NewBestBlock { hash, .. }
+			| Self::Finalized { hash, .. } => *hash,
 		}
 	}
 

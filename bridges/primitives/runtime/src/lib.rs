@@ -310,10 +310,10 @@ pub trait StorageDoubleMapKeyProvider {
 		let storage_prefix_hashed = frame_support::Twox128::hash(Self::MAP_NAME.as_bytes());
 
 		let mut final_key = Vec::with_capacity(
-			pallet_prefix_hashed.len() +
-				storage_prefix_hashed.len() +
-				key1_hashed.as_ref().len() +
-				key2_hashed.as_ref().len(),
+			pallet_prefix_hashed.len()
+				+ storage_prefix_hashed.len()
+				+ key1_hashed.as_ref().len()
+				+ key2_hashed.as_ref().len(),
 		);
 
 		final_key.extend_from_slice(&pallet_prefix_hashed[..]);

@@ -69,12 +69,12 @@ impl From<CoretimeRuntimeType> for &str {
 impl From<CoretimeRuntimeType> for ChainType {
 	fn from(runtime_type: CoretimeRuntimeType) -> Self {
 		match runtime_type {
-			CoretimeRuntimeType::Kusama |
-			CoretimeRuntimeType::Polkadot |
-			CoretimeRuntimeType::Westend => ChainType::Live,
-			CoretimeRuntimeType::KusamaLocal |
-			CoretimeRuntimeType::PolkadotLocal |
-			CoretimeRuntimeType::WestendLocal => ChainType::Local,
+			CoretimeRuntimeType::Kusama
+			| CoretimeRuntimeType::Polkadot
+			| CoretimeRuntimeType::Westend => ChainType::Live,
+			CoretimeRuntimeType::KusamaLocal
+			| CoretimeRuntimeType::PolkadotLocal
+			| CoretimeRuntimeType::WestendLocal => ChainType::Local,
 			CoretimeRuntimeType::WestendDevelopment => ChainType::Development,
 		}
 	}

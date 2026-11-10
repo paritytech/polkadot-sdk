@@ -277,9 +277,9 @@ pub mod v4 {
 				let pre_default = v2::QueueConfigData::default();
 				// If the previous values are the default ones, let's replace them with the new
 				// default.
-				if pre.suspend_threshold == pre_default.suspend_threshold &&
-					pre.drop_threshold == pre_default.drop_threshold &&
-					pre.resume_threshold == pre_default.resume_threshold
+				if pre.suspend_threshold == pre_default.suspend_threshold
+					&& pre.drop_threshold == pre_default.drop_threshold
+					&& pre.resume_threshold == pre_default.resume_threshold
 				{
 					return QueueConfigData::default();
 				}

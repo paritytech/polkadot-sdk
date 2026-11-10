@@ -523,9 +523,9 @@ pub mod pallet {
 
 				let update_result: Result<_, ()> =
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
-						let is_free = parachain_head_size <
-							T::ParaStoredHeaderDataBuilder::max_free_head_size() as usize &&
-							match stored_best_head {
+						let is_free = parachain_head_size
+							< T::ParaStoredHeaderDataBuilder::max_free_head_size() as usize
+							&& match stored_best_head {
 								Some(ref best_head)
 									if at_relay_block.0.saturating_sub(
 										best_head.best_head_hash.at_relay_block_number,
@@ -696,8 +696,8 @@ pub mod pallet {
 					at_relay_block_number: new_at_relay_block.0,
 					head_hash: new_head_hash,
 				},
-				next_imported_hash_position: (next_imported_hash_position + 1) %
-					T::HeadsToKeep::get(),
+				next_imported_hash_position: (next_imported_hash_position + 1)
+					% T::HeadsToKeep::get(),
 			};
 			ImportedParaHashes::<T, I>::insert(
 				parachain,
@@ -717,8 +717,10 @@ pub mod pallet {
 			T::OnNewHead::on_new_head(parachain, &new_head);
 
 			// remove old head
-			let prune_happened = head_hash_to_prune.is_ok();
-			if let Ok(head_hash_to_prune) = head_hash_to_prune {
+			let prune_happened = head_hash_to_prune
+				.as_ref()
+				.is_ok_and(|head_hash_to_prune| head_hash_to_prune != &new_head_hash);
+			if let Some(head_hash_to_prune) = head_hash_to_prune.ok().filter(|_| prune_happened) {
 				tracing::trace!(
 					target: LOG_TARGET,
 					?parachain,
@@ -1548,6 +1550,41 @@ pub(crate) mod tests {
 				assert!(ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, i).hash())
 					.is_some());
 			}
+		});
+	}
+
+	#[test]
+	fn keeps_reimported_head_when_ring_wraps() {
+		run_test(|| {
+			let heads_to_keep = crate::mock::HeadsToKeep::get();
+
+			// Fill every ring slot while retaining the first head in storage.
+			for i in 0..heads_to_keep {
+				let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+					RegularParachainHeader,
+				>(vec![(1, head_data(1, i))]);
+				if i == 0 {
+					initialize(state_root);
+				} else {
+					proceed(i, state_root);
+				}
+
+				assert_ok!(import_parachain_1_head(i, state_root, parachains, proof));
+			}
+
+			// Re-importing the first head targets the slot containing the same hash. The new
+			// storage entry must not be deleted by the pruning step.
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(1, head_data(1, 0))]);
+			proceed(heads_to_keep, state_root);
+			let expected_weight = weight_of_import_parachain_1_head(&proof, false);
+			let result = import_parachain_1_head(heads_to_keep, state_root, parachains, proof);
+			assert_ok!(result);
+			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
+			assert_eq!(
+				Pallet::<TestRuntime>::parachain_head(ParaId(1), head_data(1, 0).hash()),
+				Some(stored_head_data(1, 0)),
+			);
 		});
 	}
 

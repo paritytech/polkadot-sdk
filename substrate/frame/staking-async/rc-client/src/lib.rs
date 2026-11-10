@@ -155,19 +155,16 @@ use xcm::latest::{
 	OriginKind, SendError, SendXcm, WeightLimit, Xcm,
 };
 
-/// Builds an XCM message with `UnpaidExecution` + `Transact` from an encoded call.
+/// Builds an XCM message with `UnpaidExecution` + `Transact` from an encoded call, dispatched
+/// with `origin_kind`.
 ///
-/// This is the standard pattern for system parachain → relay chain messages where
-/// the relay chain trusts the parachain origin and doesn't charge fees.
+/// This is the standard pattern for messages from a system parachain to the relay chain or to a
+/// sibling system parachain, where the destination trusts the origin and doesn't charge fees.
 #[cfg(feature = "xcm-sender")]
-pub fn build_transact_xcm(encoded_call: Vec<u8>) -> Xcm<()> {
+pub fn build_transact_xcm(encoded_call: Vec<u8>, origin_kind: OriginKind) -> Xcm<()> {
 	Xcm(vec![
 		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
-		Instruction::Transact {
-			origin_kind: OriginKind::Native,
-			fallback_max_weight: None,
-			call: encoded_call.into(),
-		},
+		Instruction::Transact { origin_kind, fallback_max_weight: None, call: encoded_call.into() },
 	])
 }
 
@@ -543,8 +540,8 @@ impl<AccountId> SessionReport<AccountId> {
 
 	/// Merge oneself with another instance.
 	pub fn merge(mut self, other: Self) -> Result<Self, UnexpectedKind> {
-		if self.end_index != other.end_index ||
-			self.activation_timestamp != other.activation_timestamp
+		if self.end_index != other.end_index
+			|| self.activation_timestamp != other.activation_timestamp
 		{
 			// Must be some bug -- don't merge.
 			return Err(UnexpectedKind::SessionReportIntegrityFailed);
@@ -818,8 +815,8 @@ where
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
 					chunk_size = chunk_size.saturating_div(2);
 					steps += 1;
-					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) ||
-						chunk_size.is_zero()
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps)
+						|| chunk_size.is_zero()
 					{
 						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps or chunk_size = 0");
 						return Err(SendError::ExceedsMaxMessageSize);

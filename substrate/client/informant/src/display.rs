@@ -199,8 +199,8 @@ fn speed<B: BlockT>(
 		let speed = diff
 			.saturating_mul(10_000)
 			.checked_div(u128::from(elapsed_ms))
-			.map_or(0.0, |s| s as f64) /
-			10.0;
+			.map_or(0.0, |s| s as f64)
+			/ 10.0;
 		format!(" {:4.1} bps", speed)
 	} else {
 		// If the number of blocks can't be converted to a regular integer, then we need a more

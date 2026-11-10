@@ -328,8 +328,8 @@ where
 
 					// The transaction weight after execution is may not above the target weight,
 					// but the full block weight is maybe now above the target weight.
-					if extrinsic_class_weight.any_gt(*target_weight) ||
-						block_weight_over_target_block_weight::<Config, TargetBlockRate>()
+					if extrinsic_class_weight.any_gt(*target_weight)
+						|| block_weight_over_target_block_weight::<Config, TargetBlockRate>()
 					{
 						log::trace!(
 							target: LOG_TARGET,

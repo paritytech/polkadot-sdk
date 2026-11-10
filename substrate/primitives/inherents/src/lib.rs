@@ -367,9 +367,9 @@ impl CheckInherentsResult {
 #[cfg(feature = "std")]
 impl PartialEq for CheckInherentsResult {
 	fn eq(&self, other: &Self) -> bool {
-		self.fatal_error == other.fatal_error &&
-			self.okay == other.okay &&
-			self.errors.data == other.errors.data
+		self.fatal_error == other.fatal_error
+			&& self.okay == other.okay
+			&& self.errors.data == other.errors.data
 	}
 }
 

@@ -64,10 +64,6 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items
 /// *MUST* be performed through the methods exposed by this struct, to ensure the consistency of
 /// ledger's data and corresponding staking lock
-///
-/// TODO: move struct definition and full implementation into `/src/ledger.rs`. Currently
-/// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
-/// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
 	PartialEqNoBound,
 	EqNoBound,
@@ -582,10 +578,10 @@ pub struct StakingLedgerInspect<T: Config> {
 #[cfg(test)]
 impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 	fn eq(&self, other: &StakingLedgerInspect<T>) -> bool {
-		self.stash == other.stash &&
-			self.total == other.total &&
-			self.active == other.active &&
-			self.unlocking == other.unlocking
+		self.stash == other.stash
+			&& self.total == other.total
+			&& self.active == other.active
+			&& self.unlocking == other.unlocking
 	}
 }
 

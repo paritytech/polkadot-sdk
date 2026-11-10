@@ -285,6 +285,13 @@ fn create_signed_statement_sized(
 }
 
 fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
+	setup_store_with_config(keypair, Default::default())
+}
+
+fn setup_store_with_config(
+	keypair: &sp_core::ed25519::Pair,
+	config: Config,
+) -> (Store, tempfile::TempDir) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 	let client = Arc::new(TestClient::generous());
 	let mut path: std::path::PathBuf = temp_dir.path().into();
@@ -292,7 +299,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let store = Store::new::<Block, TestClient, TestBackend>(
 		&path,
-		Default::default(),
+		config,
 		client,
 		keystore,
 		None,
@@ -303,7 +310,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	for i in 0..INITIAL_STATEMENTS {
 		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
 		let statement = create_signed_statement(i as u64, &topics, &keypair);
-		store.submit(statement, StatementSource::Local);
+		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
 
 	(store, temp_dir)
@@ -352,7 +359,7 @@ fn bench_submit(c: &mut Criterion) {
 				let (store, _temp) = setup_store(&keypair);
 				(Arc::new(store), _temp)
 			},
-			|(store, _temp)| {
+			|(store, temp)| {
 				std::thread::scope(|s| {
 					for thread_id in 0..NUM_THREADS {
 						let store = store.clone();
@@ -367,6 +374,8 @@ fn bench_submit(c: &mut Criterion) {
 						});
 					}
 				});
+				// Returned so criterion drops the store and its directory outside the timing.
+				(store, temp)
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -405,7 +414,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 						let (store, temp) = setup_store(&keypair);
 						(Arc::new(store), temp)
 					},
-					|(store, _temp)| {
+					|(store, temp)| {
 						std::thread::scope(|s| {
 							for thread_id in 0..NUM_THREADS {
 								let store = store.clone();
@@ -420,6 +429,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 								});
 							}
 						});
+						(store, temp)
 					},
 					criterion::BatchSize::LargeInput,
 				)
@@ -488,7 +498,7 @@ fn bench_submit_with_eviction(c: &mut Criterion) {
 				let (store, temp) = capped_store(&keypair, EVICTION_CAP, low_expiry);
 				(Arc::new(store), temp)
 			},
-			|(store, _temp)| {
+			|(store, temp)| {
 				std::thread::scope(|s| {
 					for thread_id in 0..NUM_THREADS {
 						let store = store.clone();
@@ -502,6 +512,7 @@ fn bench_submit_with_eviction(c: &mut Criterion) {
 						});
 					}
 				});
+				(store, temp)
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -515,7 +526,10 @@ fn bench_maintain(c: &mut Criterion) {
 	c.bench_function("maintain", |b| {
 		b.iter_batched(
 			|| {
-				let (store, _temp) = setup_store(&keypair);
+				// A zero purge period makes the removed statements due at once, so `maintain`
+				// deletes them rather than finding nothing to do for the next 48 hours.
+				let config = Config { purge_after_sec: 0, ..Default::default() };
+				let (store, _temp) = setup_store_with_config(&keypair, config);
 				// Mark statements for expiration by removing them
 				let hashes: Vec<_> = store
 					.statements()
@@ -525,12 +539,13 @@ fn bench_maintain(c: &mut Criterion) {
 					.map(|(hash, _)| hash)
 					.collect();
 				for hash in hashes {
-					let _ = store.remove(&hash);
+					store.remove(&hash).expect("Removes a stored statement");
 				}
 				(store, _temp)
 			},
-			|(store, _temp)| {
+			|(store, temp)| {
 				store.maintain();
+				(store, temp)
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -549,7 +564,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
 				let (store, _temp) = setup_store(&keypair);
 				(Arc::new(store), _temp)
 			},
-			|(store, _temp)| {
+			|(store, temp)| {
 				std::thread::scope(|s| {
 					for thread_id in 0..NUM_THREADS {
 						let store = store.clone();
@@ -563,12 +578,16 @@ fn bench_mixed_workload(c: &mut Criterion) {
 								let result = store.submit(statement, StatementSource::Local);
 								assert!(matches!(result, SubmitResult::New));
 
-								// Read the subscription snapshot
-								let _ = store.subscribe_statement(filter.clone());
+								// Read the subscription snapshot, the drop unsubscribes inside the
+								// timing
+								store
+									.subscribe_statement(filter.clone())
+									.expect("Subscribes to the store");
 							}
 						});
 					}
 				});
+				(store, temp)
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -589,11 +608,11 @@ fn bench_read_scaling(c: &mut Criterion) {
 		// Subscription snapshot (index scan + body fetch); its result set grows with the
 		// store.
 		group.bench_with_input(BenchmarkId::new("subscribe_statement", size), &size, |b, _| {
-			b.iter(|| store.subscribe_statement(filter.clone()))
+			b.iter(|| store.subscribe_statement(filter.clone()).expect("Subscribes to the store"))
 		});
 		// Point existence check (pure index lookup, constant-size result).
 		group.bench_with_input(BenchmarkId::new("has_statement", size), &size, |b, _| {
-			b.iter(|| store.has_statement(&known_hash))
+			b.iter(|| assert!(store.has_statement(&known_hash)))
 		});
 	}
 	group.finish();
@@ -642,8 +661,9 @@ fn setup_diverse_topics(
 /// membership probes) and reads the matching bodies, all against a full-size on-disk index.
 fn bench_subscribe_topic(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
-	let (store, _temp) = setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES);
 	let filter = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic(0)]));
+
+	let (store, _temp) = setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES);
 
 	let mut group = c.benchmark_group("subscribe_topic");
 	group.sample_size(10);
@@ -651,7 +671,7 @@ fn bench_subscribe_topic(c: &mut Criterion) {
 		// Dropping the returned stream unsubscribes, so subscribers never pile up. The timing
 		// covers the snapshot retrieval and the unsubscribe.
 		b.iter(|| {
-			let _ = store.subscribe_statement(filter.clone());
+			store.subscribe_statement(filter.clone()).expect("Subscribes to the store");
 		})
 	});
 	group.finish();
@@ -682,9 +702,10 @@ fn bench_propagate(c: &mut Criterion) {
 				}
 				(store, temp)
 			},
-			|(store, _temp)| {
+			|(store, temp)| {
 				let recent = store.take_recent_statements().unwrap();
 				assert_eq!(recent.len(), PROPAGATE_BATCH);
+				(store, temp)
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -695,45 +716,65 @@ fn bench_propagate(c: &mut Criterion) {
 /// Subscription latency while writers run concurrently. Each subscription takes the submit-index
 /// write lock twice, at the start and at the end of its scan, so it competes with every submit for
 /// that lock.
+///
+/// Only the readers are timed: one iteration is the slowest reader's batch, while the writers'
+/// signature checks and commits run alongside, untimed.
+///
+/// The store is built once per sample. Each iteration writes fresh statements and removes them
+/// again after the timing, so every iteration starts from the preloaded size.
 fn bench_contention(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let filter = topics_01_filter();
+	const WRITES: usize = CONTENTION_WRITERS * OPS_PER_THREAD;
 
 	c.bench_function("contention_read_under_write", |b| {
-		b.iter_batched(
-			|| {
-				let (store, temp) = setup_scaled(&keypair, CONTENTION_PRELOAD);
-				let writes: Vec<Statement> = (CONTENTION_PRELOAD..
-					CONTENTION_PRELOAD + CONTENTION_WRITERS * OPS_PER_THREAD)
+		b.iter_custom(|iters| {
+			let (store, _temp) = setup_scaled(&keypair, CONTENTION_PRELOAD);
+			let mut read_time = std::time::Duration::ZERO;
+			for round in 0..iters as usize {
+				let first = CONTENTION_PRELOAD + round * WRITES;
+				let writes: Vec<Statement> = (first..first + WRITES)
 					.map(|i| create_signed_statement(i as u64, &[topic(0), topic(1)], &keypair))
 					.collect();
-				(Arc::new(store), writes, temp)
-			},
-			|(store, writes, _temp)| {
-				std::thread::scope(|s| {
-					for w in 0..CONTENTION_WRITERS {
-						let store = store.clone();
-						let start = w * OPS_PER_THREAD;
-						let chunk = writes[start..start + OPS_PER_THREAD].to_vec();
+				let start_line = std::sync::Barrier::new(CONTENTION_WRITERS + CONTENTION_READERS);
+				let (store, start_line) = (&store, &start_line);
+				read_time += std::thread::scope(|s| {
+					for chunk in writes.chunks(OPS_PER_THREAD) {
 						s.spawn(move || {
+							start_line.wait();
 							for statement in chunk {
-								let _ = store.submit(statement, StatementSource::Local);
+								let result =
+									store.submit(statement.clone(), StatementSource::Local);
+								assert!(matches!(result, SubmitResult::New));
 							}
 						});
 					}
-					for _ in 0..CONTENTION_READERS {
-						let store = store.clone();
-						let filter = filter.clone();
-						s.spawn(move || {
-							for _ in 0..OPS_PER_THREAD {
-								let _ = store.subscribe_statement(filter.clone());
-							}
-						});
-					}
+					let readers: Vec<_> = (0..CONTENTION_READERS)
+						.map(|_| {
+							s.spawn(|| {
+								start_line.wait();
+								let start = std::time::Instant::now();
+								for _ in 0..OPS_PER_THREAD {
+									store
+										.subscribe_statement(filter.clone())
+										.expect("Subscribes to the store");
+								}
+								start.elapsed()
+							})
+						})
+						.collect();
+					readers
+						.into_iter()
+						.map(|reader| reader.join().expect("Reader thread panicked"))
+						.max()
+						.unwrap_or_default()
 				});
-			},
-			criterion::BatchSize::LargeInput,
-		)
+				for statement in &writes {
+					store.remove(&statement.hash()).expect("Removes a stored statement");
+				}
+			}
+			read_time
+		})
 	});
 }
 

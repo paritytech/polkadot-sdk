@@ -44,9 +44,9 @@ async fn sync_peers_works() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(3);
 
-	while net.peer(0).num_peers().await != 2 &&
-		net.peer(1).num_peers().await != 2 &&
-		net.peer(2).num_peers().await != 2
+	while net.peer(0).num_peers().await != 2
+		&& net.peer(1).num_peers().await != 2
+		&& net.peer(2).num_peers().await != 2
 	{
 		futures::future::poll_fn::<(), _>(|cx| {
 			net.poll(cx);
@@ -280,13 +280,13 @@ async fn sync_justifications() {
 		net.poll(cx);
 
 		for height in (10..21).step_by(5) {
-			if net.peer(0).client().justifications(hashes[height - 1]).unwrap() !=
-				Some(Justifications::from((*b"FRNK", Vec::new())))
+			if net.peer(0).client().justifications(hashes[height - 1]).unwrap()
+				!= Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
 				return Poll::Pending;
 			}
-			if net.peer(1).client().justifications(hashes[height - 1]).unwrap() !=
-				Some(Justifications::from((*b"FRNK", Vec::new())))
+			if net.peer(1).client().justifications(hashes[height - 1]).unwrap()
+				!= Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
 				return Poll::Pending;
 			}
@@ -320,10 +320,10 @@ async fn sync_justifications_across_forks() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 
-		if net.peer(0).client().justifications(f1_best).unwrap() ==
-			Some(Justifications::from((*b"FRNK", Vec::new()))) &&
-			net.peer(1).client().justifications(f1_best).unwrap() ==
-				Some(Justifications::from((*b"FRNK", Vec::new())))
+		if net.peer(0).client().justifications(f1_best).unwrap()
+			== Some(Justifications::from((*b"FRNK", Vec::new())))
+			&& net.peer(1).client().justifications(f1_best).unwrap()
+				== Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
 			Poll::Ready(())
 		} else {
@@ -896,9 +896,9 @@ async fn block_announce_data_is_propagated() {
 	});
 
 	// Wait until peer 1 is connected to both nodes.
-	while net.peer(1).num_peers().await != 2 ||
-		net.peer(0).num_peers().await != 1 ||
-		net.peer(2).num_peers().await != 1
+	while net.peer(1).num_peers().await != 2
+		|| net.peer(0).num_peers().await != 1
+		|| net.peer(2).num_peers().await != 1
 	{
 		futures::future::poll_fn::<(), _>(|cx| {
 			net.poll(cx);
@@ -1000,8 +1000,8 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 
-		if net.peer(1).client().justifications(hashof10).unwrap() !=
-			Some(Justifications::from((*b"FRNK", Vec::new())))
+		if net.peer(1).client().justifications(hashof10).unwrap()
+			!= Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
 			return Poll::Pending;
 		}
@@ -1106,8 +1106,7 @@ async fn syncs_state() {
 		net.add_full_peer_with_config(config_one);
 		let mut config_two = FullPeerConfig::default();
 		config_two.extra_storage = Some(genesis_storage);
-		config_two.sync_mode =
-			SyncMode::LightState { skip_proofs: *skip_proofs, storage_chain_mode: false };
+		config_two.sync_mode = SyncMode::LightState { skip_proofs: *skip_proofs };
 		net.add_full_peer_with_config(config_two);
 		let hashes = net.peer(0).push_blocks(64, false);
 		// Wait for peer 1 to sync header chain.
@@ -1139,59 +1138,6 @@ async fn syncs_state() {
 		})
 		.await;
 	}
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn syncs_indexed_blocks() {
-	use sp_runtime::traits::Hash;
-	sp_tracing::try_init_simple();
-	let mut net = TestNet::new(0);
-	let mut n: u64 = 0;
-	net.add_full_peer_with_config(FullPeerConfig { storage_chain: true, ..Default::default() });
-	net.add_full_peer_with_config(FullPeerConfig {
-		storage_chain: true,
-		sync_mode: SyncMode::LightState { skip_proofs: false, storage_chain_mode: true },
-		..Default::default()
-	});
-	net.peer(0).generate_blocks_at(
-		BlockId::number(0),
-		64,
-		BlockOrigin::Own,
-		|mut builder| {
-			let ex = ExtrinsicBuilder::new_indexed_call(n.to_le_bytes().to_vec()).nonce(n).build();
-			n += 1;
-			builder.push(ex).unwrap();
-			builder.build().unwrap().block
-		},
-		false,
-		true,
-		true,
-		ForkChoiceStrategy::LongestChain,
-	);
-	let indexed_key = sp_runtime::traits::BlakeTwo256::hash(&42u64.to_le_bytes());
-	assert!(net
-		.peer(0)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_some());
-	assert!(net
-		.peer(1)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_none());
-
-	net.run_until_sync().await;
-	assert!(net
-		.peer(1)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_some());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

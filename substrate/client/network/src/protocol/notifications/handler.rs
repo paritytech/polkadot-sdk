@@ -560,8 +560,8 @@ impl ConnectionHandler for NotifsHandler {
 						// to do.
 						return;
 					},
-					State::Opening { ref mut in_substream, .. } |
-					State::Open { ref mut in_substream, .. } => {
+					State::Opening { ref mut in_substream, .. }
+					| State::Open { ref mut in_substream, .. } => {
 						if in_substream.is_some() {
 							// Same remark as above.
 							return;
@@ -579,8 +579,8 @@ impl ConnectionHandler for NotifsHandler {
 				let (new_open, protocol_index) = (outbound.protocol, outbound.info);
 
 				match self.protocols[protocol_index].state {
-					State::Closed { ref mut pending_opening } |
-					State::OpenDesiredByRemote { ref mut pending_opening, .. } => {
+					State::Closed { ref mut pending_opening }
+					| State::OpenDesiredByRemote { ref mut pending_opening, .. } => {
 						debug_assert!(*pending_opening);
 						*pending_opening = false;
 					},
@@ -626,8 +626,8 @@ impl ConnectionHandler for NotifsHandler {
 				[dial_upgrade_error.info]
 				.state
 			{
-				State::Closed { ref mut pending_opening } |
-				State::OpenDesiredByRemote { ref mut pending_opening, .. } => {
+				State::Closed { ref mut pending_opening }
+				| State::OpenDesiredByRemote { ref mut pending_opening, .. } => {
 					debug_assert!(*pending_opening);
 					*pending_opening = false;
 				},
@@ -807,9 +807,9 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Ready(Some(NotificationsSinkMessage::Notification { message })) => {
 							message
 						},
-						Poll::Ready(Some(NotificationsSinkMessage::ForceClose)) |
-						Poll::Ready(None) |
-						Poll::Pending => {
+						Poll::Ready(Some(NotificationsSinkMessage::ForceClose))
+						| Poll::Ready(None)
+						| Poll::Pending => {
 							// Should never be reached, as per `poll_peek` above.
 							debug_assert!(false);
 							break;
@@ -855,10 +855,10 @@ impl ConnectionHandler for NotifsHandler {
 					};
 				},
 
-				State::Closed { .. } |
-				State::Opening { .. } |
-				State::Open { out_substream: None, .. } |
-				State::OpenDesiredByRemote { .. } => {},
+				State::Closed { .. }
+				| State::Opening { .. }
+				| State::Open { out_substream: None, .. }
+				| State::OpenDesiredByRemote { .. } => {},
 			}
 		}
 
@@ -867,9 +867,9 @@ impl ConnectionHandler for NotifsHandler {
 			// Inbound substreams being closed is always tolerated, except for the
 			// `OpenDesiredByRemote` state which might need to be switched back to `Closed`.
 			match &mut self.protocols[protocol_index].state {
-				State::Closed { .. } |
-				State::Open { in_substream: None, .. } |
-				State::Opening { in_substream: None, .. } => {},
+				State::Closed { .. }
+				| State::Open { in_substream: None, .. }
+				| State::Opening { in_substream: None, .. } => {},
 
 				State::Open { in_substream: in_substream @ Some(_), .. } => {
 					match futures::prelude::stream::Stream::poll_next(

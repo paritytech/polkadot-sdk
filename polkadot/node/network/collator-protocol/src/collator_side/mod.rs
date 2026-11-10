@@ -1223,9 +1223,9 @@ async fn handle_incoming_peer_message<Context>(
 	use protocol_v3::CollatorProtocolMessage as V3;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(..)) |
-		CollationProtocols::V2(V2::Declare(..)) |
-		CollationProtocols::V3(V3::Declare(..)) => {
+		CollationProtocols::V1(V1::Declare(..))
+		| CollationProtocols::V2(V2::Declare(..))
+		| CollationProtocols::V3(V3::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1239,9 +1239,9 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
-		CollationProtocols::V2(V2::AdvertiseCollation { .. }) |
-		CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
+		CollationProtocols::V1(V1::AdvertiseCollation(_))
+		| CollationProtocols::V2(V2::AdvertiseCollation { .. })
+		| CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1277,9 +1277,9 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::CollationSeconded(..)) |
-		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(V3::CollationSeconded(..)) => {
+		CollationProtocols::V1(V1::CollationSeconded(..))
+		| CollationProtocols::V2(V2::CollationSeconded(..))
+		| CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			// Validators running older versions still send this. We no longer
 			// track seconding, so the message carries no information for us.
 			gum::trace!(

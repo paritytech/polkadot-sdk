@@ -303,6 +303,10 @@ fn permit_setup(prefix: u16) -> PermitSetup {
 	let submitter = SUBMITTER_ACCOUNT;
 	fund_submitter(submitter);
 	let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
+	// The setup mint itself emits a mirrored ERC-20 Transfer log (`Erc20TransferLogsCallback` is
+	// the mock's `CallbackHandle`); drop it so `assert_no_contract_event_from` only scopes the
+	// permit operation under test.
+	System::reset_events();
 	PermitSetup {
 		asset_id,
 		asset_addr,
@@ -843,8 +847,8 @@ fn permit_rejects_when_owner_lacks_deposit_balance() {
 fn permit_signature_bound_to_verifying_contract(sign_prefix: u16, submit_prefix: u16) {
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(sign_prefix);
-		if sign_prefix != PRECOMPILE_ADDRESS_PREFIX_FOREIGN &&
-			submit_prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN
+		if sign_prefix != PRECOMPILE_ADDRESS_PREFIX_FOREIGN
+			&& submit_prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN
 		{
 			crate::pallet::Pallet::<Test>::insert_asset_mapping(&setup.asset_id)
 				.expect("foreign asset mapping must insert");

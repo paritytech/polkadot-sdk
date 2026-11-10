@@ -332,8 +332,8 @@ fn concluded_onchain(onchain_state: &DisputeState) -> bool {
 	// Check if there are enough onchain votes for or against to conclude the dispute
 	let supermajority = supermajority_threshold(onchain_state.validators_for.len());
 
-	onchain_state.validators_for.count_ones() >= supermajority ||
-		onchain_state.validators_against.count_ones() >= supermajority
+	onchain_state.validators_for.count_ones() >= supermajority
+		|| onchain_state.validators_against.count_ones() >= supermajority
 }
 
 fn partition_recent_disputes(
@@ -392,8 +392,8 @@ fn is_vote_worth_to_keep(
 	// punished when misbehaving.
 	if let Some(kind) = valid_kind {
 		match kind {
-			ValidDisputeStatementKind::BackingValid(_) |
-			ValidDisputeStatementKind::BackingSeconded(_) => return true,
+			ValidDisputeStatementKind::BackingValid(_)
+			| ValidDisputeStatementKind::BackingSeconded(_) => return true,
 			_ => (),
 		}
 	}

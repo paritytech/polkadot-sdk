@@ -230,8 +230,8 @@ async fn handle_fetch_relay_parent_info_message(
 	relay_parent: Hash,
 	relay_parent_number: BlockNumber,
 ) {
-	let ancestor_api_supported = test_state.runtime_api_version >=
-		RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT;
+	let ancestor_api_supported = test_state.runtime_api_version
+		>= RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT;
 
 	match msg {
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(

@@ -345,10 +345,10 @@ fn can_force_release_deposit_with_config_origin() {
 		assert_ok!(SafeMode::enter(RuntimeOrigin::signed(0)));
 		assert_ok!(SafeMode::extend(RuntimeOrigin::signed(1)));
 		run_to(
-			mock::EnterDuration::get() +
-				mock::ExtendDuration::get() +
-				activated_and_extended_at_block +
-				1,
+			mock::EnterDuration::get()
+				+ mock::ExtendDuration::get()
+				+ activated_and_extended_at_block
+				+ 1,
 		);
 
 		assert_ok!(SafeMode::force_release_deposit(
@@ -498,10 +498,10 @@ fn can_slash_deposit_with_config_origin() {
 		assert_ok!(SafeMode::enter(RuntimeOrigin::signed(0)));
 		assert_ok!(SafeMode::extend(RuntimeOrigin::signed(1)));
 		run_to(
-			mock::EnterDuration::get() +
-				mock::ExtendDuration::get() +
-				activated_and_extended_at_block +
-				1,
+			mock::EnterDuration::get()
+				+ mock::ExtendDuration::get()
+				+ activated_and_extended_at_block
+				+ 1,
 		);
 
 		assert_ok!(SafeMode::force_slash_deposit(

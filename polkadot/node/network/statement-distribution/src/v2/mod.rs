@@ -1167,8 +1167,8 @@ pub(crate) async fn share_local_statement<Context>(
 
 	let seconding_limit = local_assignments.len();
 
-	if is_seconded &&
-		per_scheduling_parent.statement_store.seconded_count(&local_index) >= seconding_limit
+	if is_seconded
+		&& per_scheduling_parent.statement_store.seconded_count(&local_index) >= seconding_limit
 	{
 		gum::warn!(
 			target: LOG_TARGET,
@@ -1178,8 +1178,8 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare);
 	}
 
-	if !local_assignments.contains(&expected_para) ||
-		scheduling_parent != expected_scheduling_parent
+	if !local_assignments.contains(&expected_para)
+		|| scheduling_parent != expected_scheduling_parent
 	{
 		return Err(JfyiError::InvalidShare);
 	}

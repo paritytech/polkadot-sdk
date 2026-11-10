@@ -538,12 +538,12 @@ fn partition_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Att
 		};
 		// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
 		// parsing and makes no stack or heap allocations
-		prefix.ident == "pallet" &&
-			(suffix.ident == "tasks_experimental" ||
-				suffix.ident == "task_list" ||
-				suffix.ident == "task_condition" ||
-				suffix.ident == "task_weight" ||
-				suffix.ident == "task_index")
+		prefix.ident == "pallet"
+			&& (suffix.ident == "tasks_experimental"
+				|| suffix.ident == "task_list"
+				|| suffix.ident == "task_condition"
+				|| suffix.ident == "task_weight"
+				|| suffix.ident == "task_index")
 	})
 }
 

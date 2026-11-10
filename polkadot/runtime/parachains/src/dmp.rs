@@ -89,8 +89,8 @@ pub enum QueueDownwardMessageError {
 impl From<QueueDownwardMessageError> for SendError {
 	fn from(err: QueueDownwardMessageError) -> Self {
 		match err {
-			QueueDownwardMessageError::ExceedsMaxMessageSize |
-			QueueDownwardMessageError::ExceedsMaxQueueSize => SendError::ExceedsMaxMessageSize,
+			QueueDownwardMessageError::ExceedsMaxMessageSize
+			| QueueDownwardMessageError::ExceedsMaxQueueSize => SendError::ExceedsMaxMessageSize,
 			QueueDownwardMessageError::Unroutable => SendError::Unroutable,
 		}
 	}

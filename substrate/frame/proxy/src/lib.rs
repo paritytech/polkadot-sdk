@@ -136,7 +136,7 @@ pub mod pallet {
 
 		/// The overarching call type.
 		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
@@ -239,26 +239,22 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
-			(T::WeightInfo::proxy(T::MaxProxies::get())
-				 // AccountData for inner call origin accountdata.
-				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.call_weight),
-			di.class)
+			(Pallet::<T>::proxy_weight(di.call_weight), di.class)
 		})]
 		pub fn proxy(
 			origin: OriginFor<T>,
 			real: AccountIdLookupOf<T>,
 			force_proxy_type: Option<T::ProxyType>,
 			call: Box<<T as Config>::RuntimeCall>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let real = T::Lookup::lookup(real)?;
 			let def = Self::find_proxy(&real, &who, force_proxy_type)?;
 			ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
 
-			Self::do_proxy(def, real, *call);
+			let result = Self::do_proxy(def, real, *call);
 
-			Ok(())
+			Ok(get_result_weight(result).map(Self::proxy_weight).into())
 		}
 
 		/// Register a proxy account for the sender that is able to make calls on its behalf.
@@ -541,11 +537,7 @@ pub mod pallet {
 		#[pallet::call_index(9)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
-			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
-				 // AccountData for inner call origin accountdata.
-				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.call_weight),
-			di.class)
+			(Pallet::<T>::proxy_announced_weight(di.call_weight), di.class)
 		})]
 		pub fn proxy_announced(
 			origin: OriginFor<T>,
@@ -553,7 +545,7 @@ pub mod pallet {
 			real: AccountIdLookupOf<T>,
 			force_proxy_type: Option<T::ProxyType>,
 			call: Box<<T as Config>::RuntimeCall>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
 			let real = T::Lookup::lookup(real)?;
@@ -562,15 +554,15 @@ pub mod pallet {
 			let call_hash = T::CallHasher::hash_of(&call);
 			let now = T::BlockNumberProvider::current_block_number();
 			Self::edit_announcements(&delegate, |ann| {
-				ann.real != real ||
-					ann.call_hash != call_hash ||
-					now.saturating_sub(ann.height) < def.delay
+				ann.real != real
+					|| ann.call_hash != call_hash
+					|| now.saturating_sub(ann.height) < def.delay
 			})
 			.map_err(|_| Error::<T>::Unannounced)?;
 
-			Self::do_proxy(def, real, *call);
+			let result = Self::do_proxy(def, real, *call);
 
-			Ok(())
+			Ok(get_result_weight(result).map(Self::proxy_announced_weight).into())
 		}
 
 		/// Poke / Adjust deposits made for proxies and announcements based on current values.
@@ -985,17 +977,33 @@ impl<T: Config> Pallet<T> {
 		force_proxy_type: Option<T::ProxyType>,
 	) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
 		let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
-			&x.delegate == delegate &&
-				force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
+			&x.delegate == delegate
+				&& force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
 		};
 		Ok(Proxies::<T>::get(real).0.into_iter().find(f).ok_or(Error::<T>::NotProxy)?)
+	}
+
+	/// Weight of `proxy` dispatching a call of the given weight.
+	fn proxy_weight(call_weight: Weight) -> Weight {
+		T::WeightInfo::proxy(T::MaxProxies::get())
+			// AccountData for inner call origin accountdata.
+			.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+			.saturating_add(call_weight)
+	}
+
+	/// Weight of `proxy_announced` dispatching a call of the given weight.
+	fn proxy_announced_weight(call_weight: Weight) -> Weight {
+		T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
+			// AccountData for inner call origin accountdata.
+			.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+			.saturating_add(call_weight)
 	}
 
 	fn do_proxy(
 		def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
-	) {
+	) -> DispatchResultWithPostInfo {
 		use frame::traits::{InstanceFilter as _, OriginTrait as _};
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
 		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
@@ -1005,8 +1013,8 @@ impl<T: Config> Pallet<T> {
 			match c.is_sub_type() {
 				// Proxy call cannot add or remove a proxy with more permissions than it already
 				// has.
-				Some(Call::add_proxy { ref proxy_type, .. }) |
-				Some(Call::remove_proxy { ref proxy_type, .. })
+				Some(Call::add_proxy { ref proxy_type, .. })
+				| Some(Call::remove_proxy { ref proxy_type, .. })
 					if !def.proxy_type.is_superset(proxy_type) =>
 				{
 					false
@@ -1021,8 +1029,12 @@ impl<T: Config> Pallet<T> {
 				_ => def.proxy_type.filter(c),
 			}
 		});
-		let e = call.dispatch(origin);
-		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
+		let result = call.dispatch(origin);
+		Self::deposit_event(Event::ProxyExecuted {
+			result: result.map(|_| ()).map_err(|e| e.error),
+		});
+
+		result
 	}
 
 	/// Removes all proxy delegates for a given delegator.
@@ -1040,5 +1052,15 @@ impl<T: Config> Pallet<T> {
 				delay: proxy_def.delay,
 			});
 		});
+	}
+}
+
+/// Return the weight of a dispatch call result as an `Option`.
+///
+/// Will return the weight regardless of what the state of the result is.
+fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
+	match result {
+		Ok(post_info) => post_info.actual_weight,
+		Err(err) => err.post_info.actual_weight,
 	}
 }

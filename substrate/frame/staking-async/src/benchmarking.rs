@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::{currency_to_vote::CurrencyToVote, ServiceKind};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -343,7 +343,7 @@ mod benchmarks {
 		let (_, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
-		set_active_era::<T>(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::MAX);
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
@@ -377,7 +377,7 @@ mod benchmarks {
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&controller, ledger);
-		set_active_era::<T>(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::MAX);
 
 		whitelist_account!(controller);
 
@@ -880,7 +880,7 @@ mod benchmarks {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
-		assert_eq!(ChillInactiveThreshold::<T>::get(), 10);
+		assert_eq!(ChillInactiveThreshold::<T>::get(), Some(10));
 	}
 
 	#[benchmark]
@@ -1269,6 +1269,8 @@ mod benchmarks {
 			validator_points,
 			activation_timestamp,
 		};
+		// The era-start hook is charged on top of this weight, so it must not run here.
+		NextEraValidators::<T>::kill();
 
 		#[block]
 		{
@@ -1276,6 +1278,72 @@ mod benchmarks {
 		}
 
 		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
+		Ok(())
+	}
+
+	/// Every account of the largest validator set is exposed, has an incentive weight and already
+	/// holds a point in both reward records, so the report updates `v` entries of full maps.
+	#[benchmark]
+	fn reward_service_points(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = 1;
+		let max_validators = T::MaxValidatorSet::get();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: Some(0) });
+		let accounts = (0..max_validators)
+			.map(|i| account::<T::AccountId>("validator", i, SEED))
+			.collect::<Vec<_>>();
+		for who in &accounts {
+			Eras::<T>::upsert_exposure(
+				era,
+				who,
+				Exposure { total: 1u32.into(), own: 1u32.into(), others: vec![] },
+			);
+			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
+		}
+		let full_record = || -> Result<EraRewardPoints<T>, BenchmarkError> {
+			Ok(EraRewardPoints::<T> {
+				total: max_validators,
+				individual: accounts
+					.iter()
+					.map(|who| (who.clone(), 1))
+					.collect::<BTreeMap<_, _>>()
+					.try_into()
+					.map_err(|_| BenchmarkError::Stop("reward points exceed the validator set"))?,
+			})
+		};
+		ErasRewardPoints::<T>::insert(era, full_record()?);
+		ErasRewardPointsByService::<T>::insert(era, ServiceKind::Collation, full_record()?);
+		ErasSumWeightedPoints::<T>::insert(
+			era,
+			BalanceOf::<T>::from(100u64 * max_validators as u64),
+		);
+
+		let points = accounts
+			.into_iter()
+			.take(v as usize)
+			.enumerate()
+			.map(|(i, who)| (who, 1 + i as u32 % 10))
+			.collect::<Vec<_>>();
+		let total_before = ErasRewardPoints::<T>::get(era).total;
+		let collation_before =
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total;
+		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
+
+		#[block]
+		{
+			Pallet::<T>::reward_service_points(ServiceKind::Collation, points);
+		}
+
+		ensure!(
+			ErasRewardPoints::<T>::get(era).total == total_before + reported,
+			"the points were not credited"
+		);
+		ensure!(
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total
+				== collation_before + reported,
+			"the points were not recorded under their service"
+		);
 		Ok(())
 	}
 
@@ -1317,8 +1385,8 @@ mod benchmarks {
 			// ErasStakersPaged + ErasStakersOverview
 			let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
 				own: T::Currency::minimum_balance(),
-				total: T::Currency::minimum_balance() *
-					(exposed_nominators_per_validator + 1).into(),
+				total: T::Currency::minimum_balance()
+					* (exposed_nominators_per_validator + 1).into(),
 				others: (0..exposed_nominators_per_validator)
 					.map(|n| {
 						let nominator = account::<T::AccountId>("nominator", n, SEED);
@@ -1352,9 +1420,28 @@ mod benchmarks {
 			era,
 			crate::EraRewardPoints::<T> {
 				total: 77777,
-				individual: reward_points_individual.try_into().unwrap(),
+				individual: reward_points_individual.clone().try_into().unwrap(),
 			},
 		);
+		// The 7 points of each validator split as 4 for relay consensus and 3 for collation. One
+		// entry per `ServiceKind` variant, so the weight of `prune_era_reward_points`
+		// covers all of them. A new variant must be added here.
+		for (service, points) in
+			[(ServiceKind::RelayConsensus, 4u32), (ServiceKind::Collation, 3u32)]
+		{
+			let individual = reward_points_individual
+				.keys()
+				.map(|validator| (validator.clone(), points))
+				.collect::<BTreeMap<_, _>>();
+			ErasRewardPointsByService::<T>::insert(
+				era,
+				service,
+				crate::EraRewardPoints::<T> {
+					total: points * validators,
+					individual: individual.try_into().unwrap(),
+				},
+			);
+		}
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 		ErasNominatorsSlashable::<T>::insert(era, true);
 		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_incentive_weight);
@@ -1581,54 +1668,80 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn chill_inactive(
-		l: Linear<2, { ChillInactiveThreshold::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn chill_inactive(l: Linear<2, { T::HistoryDepth::get() }>) -> Result<(), BenchmarkError> {
 		let (stash, _, _) =
 			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
 		assert!(T::VoterList::contains(&stash));
 
-		Staking::<T>::set_staking_configs(
-			RawOrigin::Root.into(),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(0),
-			ConfigOp::Set(0),
-			ConfigOp::Set(Percent::from_percent(0)),
-			ConfigOp::Set(Zero::zero()),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(l),
-		)?;
+		// We set the value here, and not through `set_staking_configs`, because it might reject it
+		// due to weight limits. Nonetheless, benchmarking it up to `HistoryDepth` makes the
+		// benchmark more accurate.
+		ChillInactiveThreshold::<T>::put(l);
 
-		let caller = whitelisted_caller();
-
-		// Proof eras `0..l` must sit in `[active_era - HistoryDepth, active_era)`. `l <=
-		// HistoryDepth`, so `active_era = l` keeps the lower bound at 0 while the most recent
-		// proof era (`l - 1`) stays below the active era.
+		// Set active era to `l`, the upper bound, and the proof is within `0..l`.
 		set_active_era::<T>(l);
 
-		// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
-		let mut individual_points = BoundedBTreeMap::new();
-		for index in 0..T::MaxValidatorSet::get() {
-			individual_points
-				.try_insert(account::<T::AccountId>("validator", index, 0), 100)
-				.unwrap();
-		}
+		// little sneaky way to get service variants as a list, without external deps like `strum`,
+		// while ensuring a new variant fails at compile time.
+		let services = {
+			use ServiceKind::*;
+			// A new `ServiceKind` fails to compile here, and must be added to `services`.
+			let _ = |kind: ServiceKind| match kind {
+				RelayConsensus | Collation => (),
+			};
+			[RelayConsensus, Collation]
+		};
+
+		// Fill `EraRewardPoints::individual` of every service, and of the tally that adds them
+		// up, to hit the worst-case scenario. Every era and service gets different points: the
+		// proof holds equal values only once, which would hide the size of all but one of them.
+		let points_of_each = |points: RewardPoint| {
+			let mut individual = BoundedBTreeMap::new();
+			for index in 0..T::MaxValidatorSet::get() {
+				individual
+					.try_insert(account::<T::AccountId>("validator", index, 0), points)
+					.unwrap();
+			}
+			EraRewardPoints { total: points * T::MaxValidatorSet::get(), individual }
+		};
+
+		// The points of each service are in `[base, 2 * base)`, and a tally adds up at least two
+		// of them, so it is at least `2 * base`: no tally equals the points of a service.
+		let service_count = services.len() as RewardPoint;
+		let base = T::HistoryDepth::get() * service_count;
+		let per_service =
+			|era: EraIndex, index: usize| base + era * service_count + index as RewardPoint;
+
+		// Every value written to `ErasRewardPoints` and `ErasRewardPointsByService`, encoded, as
+		// the proof holds them.
+		let mut written = alloc::collections::BTreeSet::new();
+		let mut assert_unique = |points: EraRewardPoints<T>| {
+			assert!(written.insert(codec::Encode::encode(&points)), "every value must differ");
+			points
+		};
 
 		// Set the validator has been inactive for `l` eras.
-		let proof = (0..l)
+		let proof: BoundedVec<_, _> = (0..l)
 			.inspect(|&era| {
-				ErasRewardPoints::<T>::insert(
-					era,
-					EraRewardPoints { total: 0, individual: individual_points.clone() },
-				);
+				let mut tally = 0;
+				for (index, kind) in services.into_iter().enumerate() {
+					let points = per_service(era, index);
+					ErasRewardPointsByService::<T>::insert(
+						era,
+						kind,
+						assert_unique(points_of_each(points)),
+					);
+					tally += points;
+				}
+				ErasRewardPoints::<T>::insert(era, assert_unique(points_of_each(tally)));
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})
-			.collect::<Vec<_>>();
-		let proof = BoundedVec::truncate_from(proof);
+			.collect::<Vec<_>>()
+			.try_into()
+			.unwrap();
 
 		assert!(Validators::<T>::contains_key(&stash));
+		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), stash.clone(), proof);

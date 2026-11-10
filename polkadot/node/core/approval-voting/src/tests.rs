@@ -5499,8 +5499,8 @@ fn test_gathering_assignments_statements() {
 			CandidateHash(Hash::repeat_byte(i as u8)),
 		);
 		assert!(
-			state.per_block_assignments_gathering_times.len() <=
-				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
+			state.per_block_assignments_gathering_times.len()
+				<= MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
 		);
 
 		assert_eq!(

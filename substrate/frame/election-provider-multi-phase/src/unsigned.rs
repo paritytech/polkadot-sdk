@@ -400,8 +400,8 @@ impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 
 		// ensure correct number of winners.
 		ensure!(
-			DesiredTargets::<T>::get().unwrap_or_default() ==
-				raw_solution.solution.unique_targets().len() as u32,
+			DesiredTargets::<T>::get().unwrap_or_default()
+				== raw_solution.solution.unique_targets().len() as u32,
 			Error::<T>::PreDispatchWrongWinnerCount,
 		);
 
@@ -669,8 +669,8 @@ impl<T: MinerConfig> Miner<T> {
 				high = test;
 			}
 		}
-		let maximum_allowed_voters = if low < assignments.len() &&
-			encoded_size_of(&assignments[..low + 1])? <= max_allowed_length
+		let maximum_allowed_voters = if low < assignments.len()
+			&& encoded_size_of(&assignments[..low + 1])? <= max_allowed_length
 		{
 			low + 1
 		} else {
@@ -682,8 +682,8 @@ impl<T: MinerConfig> Miner<T> {
 			encoded_size_of(&assignments[..maximum_allowed_voters]).unwrap() <= max_allowed_length
 		);
 		debug_assert!(if maximum_allowed_voters < assignments.len() {
-			encoded_size_of(&assignments[..maximum_allowed_voters + 1]).unwrap() >
-				max_allowed_length
+			encoded_size_of(&assignments[..maximum_allowed_voters + 1]).unwrap()
+				> max_allowed_length
 		} else {
 			true
 		});

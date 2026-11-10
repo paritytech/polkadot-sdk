@@ -33,7 +33,7 @@ pub type Double = u64;
 /// Difference in the number of bits of [`Single`] and [`Double`].
 const SHIFT: usize = 32;
 /// short form of _Base_. Analogous to the value 10 in base-10 decimal numbers.
-const B: Double = Single::max_value() as Double + 1;
+const B: Double = Single::MAX as Double + 1;
 
 static_assertions::const_assert!(
 	core::mem::size_of::<Double>() - core::mem::size_of::<Single>() == SHIFT / 8
@@ -273,9 +273,9 @@ impl BigUint {
 			let mut k = 0;
 			for i in 0..m {
 				// PROOF: (B−1) × (B−1) + (B−1) + (B−1) = B^2 −1 < B^2. addition is safe.
-				let t = mul_single(self.get(j), other.get(i)) +
-					Double::from(w.get(i + j)) +
-					Double::from(k);
+				let t = mul_single(self.get(j), other.get(i))
+					+ Double::from(w.get(i + j))
+					+ Double::from(k);
 				w.set(i + j, (t % B) as Single);
 				// PROOF: (B^2 - 1) / B < B. conversion is safe.
 				k = (t / B) as Single;

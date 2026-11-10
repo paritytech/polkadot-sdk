@@ -550,8 +550,8 @@ impl Peerset {
 		match &state {
 			// close was initiated either by remote ([`PeerState::Connected`]) or local node
 			// ([`PeerState::Closing`]) and it was a non-reserved peer
-			PeerState::Connected { direction: Direction::Inbound(Reserved::No) } |
-			PeerState::Closing { direction: Direction::Inbound(Reserved::No) } => {
+			PeerState::Connected { direction: Direction::Inbound(Reserved::No) }
+			| PeerState::Closing { direction: Direction::Inbound(Reserved::No) } => {
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: inbound substream closed to non-reserved peer {peer:?}: {state:?}",
@@ -567,8 +567,8 @@ impl Peerset {
 			},
 			// close was initiated either by remote ([`PeerState::Connected`]) or local node
 			// ([`PeerState::Closing`]) and it was a non-reserved peer
-			PeerState::Connected { direction: Direction::Outbound(Reserved::No) } |
-			PeerState::Closing { direction: Direction::Outbound(Reserved::No) } => {
+			PeerState::Connected { direction: Direction::Outbound(Reserved::No) }
+			| PeerState::Closing { direction: Direction::Outbound(Reserved::No) } => {
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: outbound substream closed to non-reserved peer {peer:?} {state:?}",
@@ -800,8 +800,8 @@ impl Peerset {
 				_ => {},
 			},
 			// reserved peers do not require change in the slot counts
-			Some(PeerState::Opening { direction: Direction::Inbound(Reserved::Yes) }) |
-			Some(PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }) => {
+			Some(PeerState::Opening { direction: Direction::Inbound(Reserved::Yes) })
+			| Some(PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"{}: substream open failure for reserved peer {peer:?}",
@@ -893,10 +893,10 @@ impl Peerset {
 			match self.peers.get_mut(peer) {
 				Some(PeerState::Disconnected | PeerState::Backoff) => {},
 				Some(
-					PeerState::Opening { ref mut direction } |
-					PeerState::Connected { ref mut direction } |
-					PeerState::Canceled { ref mut direction } |
-					PeerState::Closing { ref mut direction },
+					PeerState::Opening { ref mut direction }
+					| PeerState::Connected { ref mut direction }
+					| PeerState::Canceled { ref mut direction }
+					| PeerState::Closing { ref mut direction },
 				) => {
 					*direction = match direction {
 						Direction::Inbound(Reserved::No) => {
@@ -1487,8 +1487,8 @@ impl Stream for Peerset {
 							.peers
 							.iter()
 							.filter_map(|(peer, state)| {
-								(!self.reserved_peers.contains(peer) &&
-									std::matches!(state, PeerState::Connected { .. }))
+								(!self.reserved_peers.contains(peer)
+									&& std::matches!(state, PeerState::Connected { .. }))
 								.then_some(*peer)
 							})
 							.collect::<Vec<_>>();

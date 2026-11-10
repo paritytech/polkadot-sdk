@@ -99,8 +99,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut deposit = Zero::zero();
 		// disabled DepositRequired setting only affects the CollectionOwner namespace
-		if collection_config.is_setting_enabled(CollectionSetting::DepositRequired) ||
-			namespace != AttributeNamespace::CollectionOwner
+		if collection_config.is_setting_enabled(CollectionSetting::DepositRequired)
+			|| namespace != AttributeNamespace::CollectionOwner
 		{
 			deposit = T::DepositPerByte::get()
 				.saturating_mul(((key.len() + value.len()) as u32).into())

@@ -105,8 +105,8 @@ impl FullSecurityStatus {
 	}
 
 	fn all_errs_allowed(&self) -> bool {
-		!self.partial.secure_validator_mode ||
-			self.errs.iter().all(|err| err.is_allowed_in_secure_mode(&self.partial))
+		!self.partial.secure_validator_mode
+			|| self.errs.iter().all(|err| err.is_allowed_in_secure_mode(&self.partial))
 	}
 
 	fn errs_string(&self) -> String {

@@ -183,8 +183,8 @@ type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 pub struct NativeTokenToAssetHub;
 impl ContainsPair<Asset, Location> for NativeTokenToAssetHub {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		matches!(asset.id.0.unpack(), (0, [])) &&
-			matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]))
+		matches!(asset.id.0.unpack(), (0, []))
+			&& matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]))
 	}
 }
 

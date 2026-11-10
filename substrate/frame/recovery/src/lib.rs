@@ -1095,8 +1095,8 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// 5a. Attempt depositor has a non-zero AttemptStorage hold.
-			if ticket.ticket.is_some() &&
-				T::Currency::balance_on_hold(
+			if ticket.ticket.is_some()
+				&& T::Currency::balance_on_hold(
 					&HoldReason::AttemptStorage.into(),
 					&ticket.depositor,
 				)
@@ -1117,8 +1117,8 @@ impl<T: Config> Pallet<T> {
 		for (lost, (friend_groups, _consideration)) in FriendGroups::<T>::iter() {
 			// 5c. The lost account, as depositor of its FriendGroups entry, has a
 			// non-zero FriendGroupsStorage hold whenever the group set is non-empty.
-			if !friend_groups.is_empty() &&
-				T::Currency::balance_on_hold(&HoldReason::FriendGroupsStorage.into(), &lost)
+			if !friend_groups.is_empty()
+				&& T::Currency::balance_on_hold(&HoldReason::FriendGroupsStorage.into(), &lost)
 					.is_zero()
 			{
 				return Err("FriendGroups entry has zero FriendGroupsStorage hold on lost".into());
@@ -1132,8 +1132,8 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// 5d. Inheritor ticket depositor has a non-zero InheritorStorage hold.
-			if ticket.ticket.is_some() &&
-				T::Currency::balance_on_hold(
+			if ticket.ticket.is_some()
+				&& T::Currency::balance_on_hold(
 					&HoldReason::InheritorStorage.into(),
 					&ticket.depositor,
 				)

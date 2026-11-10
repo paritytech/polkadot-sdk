@@ -180,9 +180,9 @@ impl BootnodeDiscovery {
 	/// Schedule bootnode discovery if needed. Returns `false` if the discovery event loop should be
 	/// terminated.
 	fn maybe_retry_discovery(&mut self) -> bool {
-		let discovery_in_progress = self.key_being_discovered.is_some() ||
-			!self.pending_responses.is_empty() ||
-			!self.find_node_queries.is_empty();
+		let discovery_in_progress = self.key_being_discovered.is_some()
+			|| !self.pending_responses.is_empty()
+			|| !self.find_node_queries.is_empty();
 		let discovery_scheduled = !self.pending_start_discovery.is_terminated();
 
 		if discovery_in_progress || discovery_scheduled {
@@ -310,8 +310,8 @@ impl BootnodeDiscovery {
 
 		match (response.genesis_hash, response.fork_id) {
 			(genesis_hash, fork_id)
-				if genesis_hash == self.parachain_genesis_hash &&
-					fork_id == self.parachain_fork_id => {},
+				if genesis_hash == self.parachain_genesis_hash
+					&& fork_id == self.parachain_fork_id => {},
 			(genesis_hash, fork_id) => {
 				warn!(
 					target: LOG_TARGET,

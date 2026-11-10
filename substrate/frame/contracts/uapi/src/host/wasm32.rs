@@ -308,7 +308,7 @@ mod sys {
 //     (v1) => [gas_left],
 // }
 // ```
-// 
+//
 // Expands to:
 // ```nocompile
 // fn gas_left(output: &mut &mut [u8]) {

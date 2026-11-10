@@ -929,7 +929,12 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	let mut network =
 		spawn_network_sudo(&["charlie", "alice"], items, COLLATOR_TRACE_LOG_FILTER).await?;
 
-	assert_late_joiner_receives_backlog(&mut network, Default::default()).await
+	assert_late_joiner_receives_backlog(
+		&mut network,
+		Default::default(),
+		"Major sync complete, adding",
+	)
+	.await
 }
 
 /// Verifies that a reconnecting subscriber receives the full current state
@@ -1090,7 +1095,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	let alice_sent_after = Cell::new(0.0f64);
 	alice
 		.wait_metric_with_timeout(
-			"substrate_sync_initial_sync_statements_sent",
+			"substrate_sync_initial_sync_statements_sent{route=\"legacy\"}",
 			|v| {
 				alice_sent_after.set(v);
 				true
@@ -1100,7 +1105,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		.await?;
 	let bob_sent_after = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
-		"substrate_sync_initial_sync_statements_sent",
+		"substrate_sync_initial_sync_statements_sent{route=\"legacy\"}",
 		|v| {
 			bob_sent_after.set(v);
 			true
@@ -1225,8 +1230,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let elapsed = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("Time went backwards")
-		.as_secs() as u32 -
-		now_secs;
+		.as_secs() as u32
+		- now_secs;
 	let wait_until_overlap = (ephemeral_ttl as u64)
 		.saturating_sub(elapsed as u64)
 		.saturating_sub(pre_expiry_lead);

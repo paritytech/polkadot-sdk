@@ -126,8 +126,8 @@ fn handling_signals_rolls_back_on_out_of_weight() {
 		let channel = get_outbound_status(1000.into());
 		assert_eq!(channel, None);
 
-		let weight = <<Test as Config>::WeightInfo>::suspend_channel() +
-			<<Test as Config>::WeightInfo>::resume_channel();
+		let weight = <<Test as Config>::WeightInfo>::suspend_channel()
+			+ <<Test as Config>::WeightInfo>::resume_channel();
 
 		// Make sure that suspend + resume works
 		let (num_processed_pages, _) = XcmpQueue::handle_xcmp_messages(

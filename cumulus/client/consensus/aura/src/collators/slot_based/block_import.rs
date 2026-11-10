@@ -366,9 +366,9 @@ where
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		let origin = params.origin;
 
-		let imported = if !(origin == BlockOrigin::Own ||
-			params.with_state() ||
-			params.state_action.skip_execution_checks())
+		let imported = if !(origin == BlockOrigin::Own
+			|| params.with_state()
+			|| params.state_action.skip_execution_checks())
 		{
 			self.execute_block_and_collect_storage_proof(&mut params).await?
 		} else {

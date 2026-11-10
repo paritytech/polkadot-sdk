@@ -88,10 +88,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				WithdrawAsset(ref assets) |
-				ReceiveTeleportedAsset(ref assets) |
-				ReserveAssetDeposited(ref assets) |
-				ClaimAsset { ref assets, .. } => {
+				WithdrawAsset(ref assets)
+				| ReceiveTeleportedAsset(ref assets)
+				| ReserveAssetDeposited(ref assets)
+				| ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
@@ -101,9 +101,9 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
-				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here) ||
-					matches!(inst, SetHints { .. })
+				matches!(inst, ClearOrigin | AliasOrigin(..))
+					|| matches!(inst, DescendOrigin(child) if child != &Here)
+					|| matches!(inst, SetHints { .. })
 			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
@@ -351,12 +351,12 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 			// We skip set hints and all types of asset transfer instructions.
 			.match_next_inst_while(
 				|inst| {
-					processed.get() < instructions_to_process &&
-						matches!(
+					processed.get() < instructions_to_process
+						&& matches!(
 							inst,
-							ReceiveTeleportedAsset(_) |
-								ReserveAssetDeposited(_) | WithdrawAsset(_) |
-								SetHints { .. }
+							ReceiveTeleportedAsset(_)
+								| ReserveAssetDeposited(_)
+								| WithdrawAsset(_) | SetHints { .. }
 						)
 				},
 				|_| {
@@ -525,9 +525,9 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				HrmpNewChannelOpenRequest { .. } |
-				HrmpChannelAccepted { .. } |
-				HrmpChannelClosing { .. } => Ok(()),
+				HrmpNewChannelOpenRequest { .. }
+				| HrmpChannelAccepted { .. }
+				| HrmpChannelClosing { .. } => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -572,9 +572,9 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				}
+				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
+				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
@@ -676,9 +676,9 @@ impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 		instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
-				SetAppendix(nested_xcm) |
-				SetErrorHandler(nested_xcm) |
-				ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
+				SetAppendix(nested_xcm)
+				| SetErrorHandler(nested_xcm)
+				| ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
 					origin, nested_xcm, max_weight, properties,
 				),
 				_ => Ok(ControlFlow::Continue(())),

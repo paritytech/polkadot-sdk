@@ -1120,8 +1120,8 @@ impl Initialized {
 		let own_statements = statements
 			.iter()
 			.filter(|(statement, validator_index)| {
-				controlled_indices.contains(validator_index) &&
-					*statement.candidate_hash() == candidate_hash
+				controlled_indices.contains(validator_index)
+					&& *statement.candidate_hash() == candidate_hash
 			})
 			.cloned()
 			.collect::<Vec<_>>();
@@ -1133,8 +1133,8 @@ impl Initialized {
 			//
 			// See guide: We import on fresh disputes to maximize likelihood of fetching votes for
 			// dead forks and once concluded to maximize time for approval votes to trickle in.
-			if intermediate_result.is_freshly_disputed() ||
-				intermediate_result.is_freshly_concluded()
+			if intermediate_result.is_freshly_disputed()
+				|| intermediate_result.is_freshly_concluded()
 			{
 				gum::trace!(
 					target: LOG_TARGET,
@@ -1683,8 +1683,8 @@ impl Initialized {
 				continue;
 			};
 			// Check if all invalid voters (raising parties) are disabled
-			if !votes.invalid.is_empty() &&
-				votes.invalid.iter().all(|(_, validator_index, _)| {
+			if !votes.invalid.is_empty()
+				&& votes.invalid.iter().all(|(_, validator_index, _)| {
 					self.offchain_disabled_validators.is_disabled(session, *validator_index)
 				}) {
 				disputes_to_remove.push((*dispute_session, *candidate_hash));
@@ -1929,9 +1929,9 @@ impl OffchainDisabledValidators {
 		self.per_session
 			.get(&session_index)
 			.map(|session_disputes| {
-				session_disputes.backers_for_invalid.peek(&validator_index).is_some() ||
-					session_disputes.for_invalid.peek(&validator_index).is_some() ||
-					session_disputes.against_valid.peek(&validator_index).is_some()
+				session_disputes.backers_for_invalid.peek(&validator_index).is_some()
+					|| session_disputes.for_invalid.peek(&validator_index).is_some()
+					|| session_disputes.against_valid.peek(&validator_index).is_some()
 			})
 			.unwrap_or(false)
 	}

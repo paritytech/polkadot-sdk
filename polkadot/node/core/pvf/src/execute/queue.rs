@@ -247,8 +247,8 @@ impl Queue {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
 					for (i, job) in queue.iter().enumerate() {
-						if worker_data.executor_params_hash ==
-							job.validation_context.executor_params.hash()
+						if worker_data.executor_params_hash
+							== job.validation_context.executor_params.hash()
 						{
 							(worker, job_index) = (Some(finished_worker), i);
 							break;
@@ -516,14 +516,14 @@ async fn handle_job_finish(
 			)
 		},
 
-		Err(WorkerInterfaceError::InternalError(err)) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) => {
+		Err(WorkerInterfaceError::InternalError(err))
+		| Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) => {
 			(None, Err(ValidationError::Internal(err)), None, None, None)
 		},
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
-		Err(WorkerInterfaceError::HardTimeout) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) => {
+		Err(WorkerInterfaceError::HardTimeout)
+		| Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) => {
 			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None)
 		},
 		// "Maybe invalid" errors (will retry).

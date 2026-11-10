@@ -82,9 +82,9 @@ pub fn expand_genesis_config(def: &mut Def) -> proc_macro2::TokenStream {
 	let serde_crate = format!("{}::__private::serde", frame_support.to_token_stream());
 
 	match genesis_config_item {
-		syn::Item::Enum(syn::ItemEnum { attrs, .. }) |
-		syn::Item::Struct(syn::ItemStruct { attrs, .. }) |
-		syn::Item::Type(syn::ItemType { attrs, .. }) => {
+		syn::Item::Enum(syn::ItemEnum { attrs, .. })
+		| syn::Item::Struct(syn::ItemStruct { attrs, .. })
+		| syn::Item::Type(syn::ItemType { attrs, .. }) => {
 			if get_doc_literals(attrs).is_empty() {
 				attrs.push(syn::parse_quote!(
 					#[doc = r"

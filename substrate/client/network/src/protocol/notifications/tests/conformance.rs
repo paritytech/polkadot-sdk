@@ -209,12 +209,12 @@ async fn libp2p_to_litep2p_substream() {
 	let mut libp2p_1111_seen = false;
 	let mut libp2p_2222_seen = false;
 
-	while !libp2p_ready ||
-		!litep2p_ready ||
-		!litep2p_3333_seen ||
-		!litep2p_4444_seen ||
-		!libp2p_1111_seen ||
-		!libp2p_2222_seen
+	while !libp2p_ready
+		|| !litep2p_ready
+		|| !litep2p_3333_seen
+		|| !litep2p_4444_seen
+		|| !libp2p_1111_seen
+		|| !libp2p_2222_seen
 	{
 		tokio::select! {
 			event = libp2p.select_next_some() => match event {
@@ -490,12 +490,12 @@ async fn libp2p_disconnects_libp2p_substream() {
 		}
 
 		// Check if all expected events have occurred
-		if open_times == 2 &&
-			notification_count == 4 &&
-			recv_1111 == 2 &&
-			recv_2222 == 2 &&
-			recv_3333 == 2 &&
-			recv_4444 == 2
+		if open_times == 2
+			&& notification_count == 4
+			&& recv_1111 == 2
+			&& recv_2222 == 2
+			&& recv_3333 == 2
+			&& recv_4444 == 2
 		{
 			break;
 		}

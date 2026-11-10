@@ -466,8 +466,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		match self.mode {
 			PruningMode::ArchiveAll => Ok(()),
 			PruningMode::ArchiveCanonical | PruningMode::Constrained(_) => {
-				let have_block = self.non_canonical.have_block(hash) ||
-					self.pruning.as_ref().map_or_else(
+				let have_block = self.non_canonical.have_block(hash)
+					|| self.pruning.as_ref().map_or_else(
 						|| hint(),
 						|pruning| match pruning.have_block(hash, number) {
 							HaveBlock::No => false,

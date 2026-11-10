@@ -75,9 +75,9 @@ pub(crate) enum BlockAnnounceValidationResult<H> {
 impl<H> BlockAnnounceValidationResult<H> {
 	fn peer_id(&self) -> &PeerId {
 		match self {
-			BlockAnnounceValidationResult::Failure { peer_id, .. } |
-			BlockAnnounceValidationResult::Process { peer_id, .. } |
-			BlockAnnounceValidationResult::Skip { peer_id } => peer_id,
+			BlockAnnounceValidationResult::Failure { peer_id, .. }
+			| BlockAnnounceValidationResult::Process { peer_id, .. }
+			| BlockAnnounceValidationResult::Skip { peer_id } => peer_id,
 		}
 	}
 }

@@ -541,10 +541,7 @@ mod tests {
 		let mut backend = DbBackend::new(db, config);
 
 		// Prove that it's cheap
-		assert!(backend
-			.load_stagnant_at_up_to(Timestamp::max_value(), usize::MAX)
-			.unwrap()
-			.is_empty());
+		assert!(backend.load_stagnant_at_up_to(Timestamp::MAX, usize::MAX).unwrap().is_empty());
 
 		backend
 			.write(vec![
@@ -555,7 +552,7 @@ mod tests {
 			.unwrap();
 
 		assert_eq!(
-			backend.load_stagnant_at_up_to(Timestamp::max_value(), usize::MAX).unwrap(),
+			backend.load_stagnant_at_up_to(Timestamp::MAX, usize::MAX).unwrap(),
 			vec![
 				(2, vec![Hash::repeat_byte(1)]),
 				(5, vec![Hash::repeat_byte(2)]),

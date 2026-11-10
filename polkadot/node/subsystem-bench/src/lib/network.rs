@@ -179,8 +179,8 @@ impl NetworkMessage {
 	/// Returns the destination peer from the message or `None` if it originates from a peer.
 	pub fn peer(&self) -> Option<&AuthorityDiscoveryId> {
 		match &self {
-			NetworkMessage::MessageFromNode(peer_id, _) |
-			NetworkMessage::RequestFromNode(peer_id, _) => Some(peer_id),
+			NetworkMessage::MessageFromNode(peer_id, _)
+			| NetworkMessage::RequestFromNode(peer_id, _) => Some(peer_id),
 			_ => None,
 		}
 	}
@@ -1132,8 +1132,8 @@ mod tests {
 
 		// Allow up to `budget/max_refill` error tolerance
 		let lower_bound = budget as u128 * ((end - start).as_millis() / 1000u128);
-		let upper_bound = budget as u128 *
-			((end - start).as_millis() / 1000u128 + rate_limiter.max_refill as u128);
+		let upper_bound = budget as u128
+			* ((end - start).as_millis() / 1000u128 + rate_limiter.max_refill as u128);
 		assert!(total_sent as u128 >= lower_bound);
 		assert!(total_sent as u128 <= upper_bound);
 	}

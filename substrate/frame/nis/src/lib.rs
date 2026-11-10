@@ -499,7 +499,7 @@ pub mod pallet {
 					Self::process_queues(
 						T::Target::get(),
 						T::QueueCount::get(),
-						u32::max_value(),
+						u32::MAX,
 						&mut weight_counter,
 					)
 				}
@@ -1063,10 +1063,10 @@ pub mod pallet {
 			let expiry = now.saturating_add(T::BasePeriod::get().saturating_mul(duration.into()));
 			let mut count = 0;
 
-			while count < max_bids &&
-				!queue.is_empty() &&
-				!remaining.is_zero() &&
-				weight.check_accrue(T::WeightInfo::process_bid())
+			while count < max_bids
+				&& !queue.is_empty()
+				&& !remaining.is_zero()
+				&& weight.check_accrue(T::WeightInfo::process_bid())
 			{
 				let bid = match queue.pop() {
 					Some(b) => b,

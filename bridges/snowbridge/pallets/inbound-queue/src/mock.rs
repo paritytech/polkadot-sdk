@@ -102,6 +102,10 @@ parameter_types! {
 		fulu: Fork {
 			version: hex!("06000000"),
 			epoch: 80000000001,
+		},
+		gloas: Fork {
+			version: hex!("07000000"),
+			epoch: 80000000001,
 		}
 	};
 }
@@ -189,8 +193,8 @@ impl StaticLookup for MockChannelLookup {
 	type Target = Channel;
 
 	fn lookup(channel_id: Self::Source) -> Option<Self::Target> {
-		if channel_id !=
-			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
+		if channel_id
+			!= hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
 			return None;
 		}

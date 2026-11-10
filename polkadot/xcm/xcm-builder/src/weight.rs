@@ -263,9 +263,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			?id, ?weight, ?payment, ?context,
 			"FixedRateOfFungible::buy_weight",
 		);
-		let amount = (units_per_second * (weight.ref_time() as u128) /
-			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
-			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
+		let amount = (units_per_second * (weight.ref_time() as u128)
+			/ (WEIGHT_REF_TIME_PER_SECOND as u128))
+			+ (units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		if amount == 0 {
 			return Ok(payment);
 		}
@@ -313,9 +313,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		if given != id {
 			return Err(XcmError::NotHoldingFees);
 		}
-		let amount = (units_per_second * (weight.ref_time() as u128) /
-			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
-			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
+		let amount = (units_per_second * (weight.ref_time() as u128)
+			/ (WEIGHT_REF_TIME_PER_SECOND as u128))
+			+ (units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		Ok((id, amount).into())
 	}
 }

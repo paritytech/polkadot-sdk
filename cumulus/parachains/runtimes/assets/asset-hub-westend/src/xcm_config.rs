@@ -279,9 +279,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(64)])
+				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
 		)
 	}
 }
@@ -317,9 +317,9 @@ impl Contains<Location> for SystemChainAccumulationAccounts {
 			(1, [AccountId32 { id, .. }]) => *id == accumulation_account,
 			// Sibling system parachain accumulation account.
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
-				ParaId::from(*id).is_system() &&
-					matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID) &&
-					*account_id == accumulation_account
+				ParaId::from(*id).is_system()
+					&& matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID)
+					&& *account_id == accumulation_account
 			},
 			_ => false,
 		}

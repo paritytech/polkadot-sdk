@@ -41,7 +41,7 @@ fn enlarge(amount: Balance, max_bids: u32) {
 	let summary: SummaryRecord<u64, Balance> = Summary::<Test>::get();
 	let increase_in_proportion_owed = Perquintill::from_rational(amount, Nis::issuance().effective);
 	let target = summary.proportion_owed.saturating_add(increase_in_proportion_owed);
-	Nis::process_queues(target, u32::max_value(), max_bids, &mut WeightCounter::unlimited());
+	Nis::process_queues(target, u32::MAX, max_bids, &mut WeightCounter::unlimited());
 }
 
 #[test]
@@ -718,9 +718,9 @@ fn multiple_thaws_works_in_alternative_thaw_order() {
 fn enlargement_to_target_works() {
 	new_test_ext().execute_with(|| {
 		System::run_to_block::<AllPalletsWithSystem>(2);
-		let w = <() as WeightInfo>::process_queues() +
-			<() as WeightInfo>::process_queue() +
-			(<() as WeightInfo>::process_bid() * 2);
+		let w = <() as WeightInfo>::process_queues()
+			+ <() as WeightInfo>::process_queue()
+			+ (<() as WeightInfo>::process_bid() * 2);
 		super::mock::MaxIntakeWeight::set(w);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(1), 40, 2));

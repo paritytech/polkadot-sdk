@@ -530,8 +530,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 		let default = max.min(T::DefaultDepositLimit::get());
 		let limit = limit.unwrap_or(default);
 		ensure!(
-			limit <= max &&
-				matches!(T::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
+			limit <= max
+				&& matches!(T::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
 			<Error<T>>::StorageDepositNotEnoughFunds,
 		);
 		Ok(limit)

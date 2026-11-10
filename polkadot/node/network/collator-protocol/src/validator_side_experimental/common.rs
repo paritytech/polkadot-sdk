@@ -225,8 +225,8 @@ impl ProspectiveCandidate {
 
 	pub fn parent_head_data_hash(&self) -> Hash {
 		match self {
-			Self::ByHash { parent_head_data_hash, .. } |
-			Self::ByOutputHead { parent_head_data_hash, .. } => *parent_head_data_hash,
+			Self::ByHash { parent_head_data_hash, .. }
+			| Self::ByOutputHead { parent_head_data_hash, .. } => *parent_head_data_hash,
 		}
 	}
 }

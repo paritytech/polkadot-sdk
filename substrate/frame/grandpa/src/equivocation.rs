@@ -213,8 +213,8 @@ where
 
 		// Check that the session id for the membership proof is within the
 		// bounds of the set id reported in the equivocation.
-		if session_index > set_id_session_index ||
-			previous_set_id_session_index
+		if session_index > set_id_session_index
+			|| previous_set_id_session_index
 				.map(|previous_index| session_index <= previous_index)
 				.unwrap_or(false)
 		{
@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix("GrandpaEquivocation")
 				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one equivocation report for the same offender at the same slot.
 				.and_provides((
 					equivocation_proof.offender().clone(),

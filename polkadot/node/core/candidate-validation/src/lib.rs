@@ -290,6 +290,7 @@ enum PreValidationError {
 /// Pre-validate a candidate before PVF execution.
 ///
 /// Performs all checks that don't require running the PVF:
+/// - Persisted validation data matches the descriptor
 /// - Basic checks: PoV hash, code hash, PoV size
 /// - Backing-only: scheduling session matches runtime, relay parent valid in claimed session, claim
 ///   queue fetch
@@ -310,6 +311,11 @@ async fn pre_validate_candidate<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
+	// Ensure that the validation data matches the announced one.
+	if validation_data.hash() != candidate_receipt.descriptor.persisted_validation_data_hash() {
+		return Err(PreValidationError::Invalid(InvalidCandidate::PersistedValidationDataMismatch));
+	}
+
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
 		validation_data.max_pov_size,
@@ -1317,8 +1323,8 @@ async fn validate_candidate(
 					},
 				};
 
-				if candidate_receipt.commitments_hash !=
-					committed_candidate_receipt.commitments.hash()
+				if candidate_receipt.commitments_hash
+					!= committed_candidate_receipt.commitments.hash()
 				{
 					gum::info!(
 						target: LOG_TARGET,
@@ -1434,8 +1440,8 @@ trait ValidationBackend {
 			let mut retry_immediately = false;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
-					PossiblyInvalidError::AmbiguousWorkerDeath |
-					PossiblyInvalidError::AmbiguousJobDeath(_),
+					PossiblyInvalidError::AmbiguousWorkerDeath
+					| PossiblyInvalidError::AmbiguousJobDeath(_),
 				)) => break_if_no_retries_left!(num_death_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) => {
@@ -1447,8 +1453,8 @@ trait ValidationBackend {
 				},
 
 				Err(ValidationError::PossiblyInvalid(
-					PossiblyInvalidError::RuntimeConstruction(_) |
-					PossiblyInvalidError::CorruptedArtifact,
+					PossiblyInvalidError::RuntimeConstruction(_)
+					| PossiblyInvalidError::CorruptedArtifact,
 				)) => {
 					break_if_no_retries_left!(num_execution_error_retries_left);
 					self.precheck_pvf(pvf.clone()).await?;
@@ -1459,11 +1465,11 @@ trait ValidationBackend {
 					retry_immediately = true;
 				},
 
-				Ok(_) |
-				Err(
-					ValidationError::Invalid(_) |
-					ValidationError::Preparation(_) |
-					ValidationError::ExecutionDeadline,
+				Ok(_)
+				| Err(
+					ValidationError::Invalid(_)
+					| ValidationError::Preparation(_)
+					| ValidationError::ExecutionDeadline,
 				) => break,
 			}
 

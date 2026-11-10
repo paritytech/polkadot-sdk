@@ -42,8 +42,9 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
-	ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CommitmentError, CommitmentScheme,
+	CompactBeaconState, ExecutionCommitment, ForkData, ForkVersion, ForkVersions,
+	PublicKeyPrepared, SigningData, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -143,6 +144,10 @@ pub mod pallet {
 		ExecutionHeaderTooFarBehind,
 		ExecutionHeaderSkippedBlock,
 		Halted,
+		/// The submitted Gloas execution header is not one canonical RLP header.
+		MalformedExecutionHeader,
+		/// The proof's commitment scheme does not match the fork era of the beacon header's slot.
+		ExecutionHeaderEraMismatch,
 	}
 
 	/// Latest imported checkpoint root
@@ -316,8 +321,8 @@ pub mod pallet {
 
 			// Verify update does not skip a sync committee period.
 			ensure!(
-				update.signature_slot > update.attested_header.slot &&
-					update.attested_header.slot >= update.finalized_header.slot,
+				update.signature_slot > update.attested_header.slot
+					&& update.attested_header.slot >= update.finalized_header.slot,
 				Error::<T>::InvalidUpdateSlot
 			);
 			// Retrieve latest finalized state.
@@ -338,12 +343,12 @@ pub mod pallet {
 			// Verify update is relevant.
 			let update_attested_period = compute_period(update.attested_header.slot);
 			let update_finalized_period = compute_period(update.finalized_header.slot);
-			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists() &&
-				(update.next_sync_committee_update.is_some() &&
-					update_attested_period == store_period);
+			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists()
+				&& (update.next_sync_committee_update.is_some()
+					&& update_attested_period == store_period);
 			ensure!(
-				update.attested_header.slot > latest_finalized_state.slot ||
-					update_has_next_sync_committee,
+				update.attested_header.slot > latest_finalized_state.slot
+					|| update_has_next_sync_committee,
 				Error::<T>::IrrelevantUpdate
 			);
 
@@ -353,8 +358,8 @@ pub mod pallet {
 			ensure!(
 				latest_finalized_state
 					.slot
-					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64) >=
-					update.finalized_header.slot,
+					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64)
+					>= update.finalized_header.slot,
 				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
@@ -627,6 +632,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.gloas.epoch {
+				return fork_versions.gloas.version;
+			}
 			if epoch >= fork_versions.fulu.epoch {
 				return fork_versions.fulu.version;
 			}
@@ -708,8 +716,8 @@ pub mod pallet {
 
 			// If the latest finalized header is larger than the minimum slot interval, the header
 			// import transaction is free.
-			if update.finalized_header.slot >=
-				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
+			if update.finalized_header.slot
+				>= latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
 			{
 				return Pays::No;
 			}
@@ -719,6 +727,10 @@ pub mod pallet {
 
 		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::FINALIZED_ROOT_INDEX;
+			}
 
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::FINALIZED_ROOT_INDEX;
@@ -733,6 +745,10 @@ pub mod pallet {
 		) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
 			}
@@ -742,6 +758,10 @@ pub mod pallet {
 
 		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::NEXT_SYNC_COMMITTEE_INDEX;
+			}
 
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
@@ -753,6 +773,10 @@ pub mod pallet {
 		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::BLOCK_ROOTS_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::BLOCK_ROOTS_INDEX;
 			}
@@ -760,8 +784,44 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex() -> usize {
+		/// The commitment scheme a proof at `slot` must use.
+		pub fn commitment_scheme_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> CommitmentScheme {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return CommitmentScheme::BlockHash;
+			}
+
+			CommitmentScheme::PayloadHeaderRoot
+		}
+
+		/// Generalized index of the execution commitment in `BeaconBlockBody` at `slot`.
+		pub fn execution_commitment_gindex_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::EXECUTION_BLOCK_HASH_INDEX;
+			}
+
 			config::altair::EXECUTION_HEADER_INDEX
+		}
+
+		/// The commitment and gindex a proof at `slot` must prove, both chosen by the slot.
+		pub fn execution_commitment_at_slot(
+			header: &VersionedExecutionPayloadHeader,
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> Result<(ExecutionCommitment, usize), CommitmentError> {
+			let scheme = Self::commitment_scheme_at_slot(slot, fork_versions.clone());
+			let gindex = Self::execution_commitment_gindex_at_slot(slot, fork_versions);
+
+			Ok((header.commitment(scheme)?, gindex))
 		}
 	}
 }

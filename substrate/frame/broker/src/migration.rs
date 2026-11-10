@@ -538,9 +538,9 @@ pub mod v5 {
 					SaleInfo::<T>::get().ok_or("SaleInfo should still exist after migration")?;
 
 				ensure!(
-					old_sale_start == new_sale.sale_start &&
-						old_region_begin == new_sale.region_begin &&
-						old_region_end == new_sale.region_end,
+					old_sale_start == new_sale.sale_start
+						&& old_region_begin == new_sale.region_begin
+						&& old_region_end == new_sale.region_end,
 					"Core SaleInfo fields should not have changed during migration"
 				);
 				ensure!(

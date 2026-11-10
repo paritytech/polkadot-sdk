@@ -526,8 +526,8 @@ where
 
 		let (lag, subchain_head) = {
 			// Prevent sending flawed data to the dispute-coordinator.
-			if Some(subchain_block_descriptions.len() as _) !=
-				subchain_number.checked_sub(target_number)
+			if Some(subchain_block_descriptions.len() as _)
+				!= subchain_number.checked_sub(target_number)
 			{
 				gum::error!(
 					LOG_TARGET,

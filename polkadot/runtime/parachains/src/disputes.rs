@@ -788,8 +788,8 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 					.validators_for
 					.iter_ones()
 					.filter(|i| {
-						self.pre_state.validators_for.get(*i).map_or(false, |b| !*b) ||
-							new_backing_vote(&ValidatorIndex(*i as _))
+						self.pre_state.validators_for.get(*i).map_or(false, |b| !*b)
+							|| new_backing_vote(&ValidatorIndex(*i as _))
 					})
 					.map(|i| ValidatorIndex(i as _))
 					.collect()
@@ -1035,15 +1035,15 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Reject disputes which don't have at least one vote on each side.
-		if summary.state.validators_for.count_ones() == 0 ||
-			summary.state.validators_against.count_ones() == 0
+		if summary.state.validators_for.count_ones() == 0
+			|| summary.state.validators_against.count_ones() == 0
 		{
 			return StatementSetFilter::RemoveAll;
 		}
 
 		// Reject disputes containing less votes than needed for confirmation.
-		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() <=
-			byzantine_threshold(summary.state.validators_for.len())
+		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones()
+			<= byzantine_threshold(summary.state.validators_for.len())
 		{
 			return StatementSetFilter::RemoveAll;
 		}
@@ -1113,15 +1113,15 @@ impl<T: Config> Pallet<T> {
 
 		// Reject disputes which don't have at least one vote on each side.
 		ensure!(
-			summary.state.validators_for.count_ones() > 0 &&
-				summary.state.validators_against.count_ones() > 0,
+			summary.state.validators_for.count_ones() > 0
+				&& summary.state.validators_against.count_ones() > 0,
 			Error::<T>::SingleSidedDispute,
 		);
 
 		// Reject disputes containing less votes than needed for confirmation.
 		ensure!(
-			(summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() >
-				byzantine_threshold(summary.state.validators_for.len()),
+			(summary.state.validators_for.clone() | &summary.state.validators_against).count_ones()
+				> byzantine_threshold(summary.state.validators_for.len()),
 			Error::<T>::UnconfirmedDispute,
 		);
 		let backers = summary.backers;
@@ -1293,8 +1293,8 @@ fn check_signature(
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
 			candidates,
 		)) => {
-			if candidates.len() <= max_approval_coalesce_count as usize &&
-				candidates.contains(&candidate_hash)
+			if candidates.len() <= max_approval_coalesce_count as usize
+				&& candidates.contains(&candidate_hash)
 			{
 				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
 			} else {

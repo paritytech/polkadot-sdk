@@ -211,8 +211,8 @@ mod check_upward_messages {
 			let limit = configuration::ActiveConfig::<Test>::get().max_upward_queue_size as u64;
 			assert_eq!(pallet_message_queue::ItemHeader::<MessageQueueSize>::max_encoded_len(), 5);
 			assert!(
-				configuration::ActiveConfig::<Test>::get().max_upward_queue_size <
-					crate::inclusion::MaxUmpMessageLenOf::<Test>::get(),
+				configuration::ActiveConfig::<Test>::get().max_upward_queue_size
+					< crate::inclusion::MaxUmpMessageLenOf::<Test>::get(),
 				"Test will not work"
 			);
 

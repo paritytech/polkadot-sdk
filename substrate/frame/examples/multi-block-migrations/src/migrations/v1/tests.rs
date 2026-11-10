@@ -41,9 +41,9 @@ fn lazy_migration_works() {
 		}
 
 		// Give it enough weight do do exactly 16 iterations:
-		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
-			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
-			weights::SubstrateWeight::<T>::step() * 16;
+		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none()
+			+ pallet_migrations::Pallet::<T>::exec_migration_max_weight()
+			+ weights::SubstrateWeight::<T>::step() * 16;
 		MigratorServiceWeight::set(&limit);
 
 		System::set_block_number(1);

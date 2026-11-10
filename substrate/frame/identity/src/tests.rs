@@ -185,8 +185,8 @@ fn infoof_twenty() -> IdentityInfo<MaxAdditionalFields> {
 
 fn id_deposit(id: &IdentityInfo<MaxAdditionalFields>) -> u64 {
 	let base_deposit: u64 = <<Test as Config>::BasicDeposit as Get<u64>>::get();
-	let byte_deposit: u64 = <<Test as Config>::ByteDeposit as Get<u64>>::get() *
-		TryInto::<u64>::try_into(id.encoded_size()).unwrap();
+	let byte_deposit: u64 = <<Test as Config>::ByteDeposit as Get<u64>>::get()
+		* TryInto::<u64>::try_into(id.encoded_size()).unwrap();
 	base_deposit + byte_deposit
 }
 
@@ -202,11 +202,11 @@ fn identity_fields_repr_works() {
 	assert_eq!(IdentityField::Image as u64, 1 << 6);
 	assert_eq!(IdentityField::Twitter as u64, 1 << 7);
 
-	let fields = IdentityField::Legal |
-		IdentityField::Web |
-		IdentityField::Riot |
-		IdentityField::PgpFingerprint |
-		IdentityField::Twitter;
+	let fields = IdentityField::Legal
+		| IdentityField::Web
+		| IdentityField::Riot
+		| IdentityField::PgpFingerprint
+		| IdentityField::Twitter;
 
 	assert!(!fields.contains(IdentityField::Display));
 	assert!(fields.contains(IdentityField::Legal));

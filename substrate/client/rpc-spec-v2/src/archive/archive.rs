@@ -233,8 +233,8 @@ where
 					let key = StorageKey(parse_hex_param(query.key)?);
 
 					// Validate that paginationStartKey is only used with descendant queries
-					if query.pagination_start_key.is_some() &&
-						!query.query_type.is_descendant_query()
+					if query.pagination_start_key.is_some()
+						&& !query.query_type.is_descendant_query()
 					{
 						return Err(ArchiveError::InvalidParam(
 							"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"

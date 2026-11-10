@@ -153,9 +153,9 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			// we just check here, that user retains enough balance after withdrawal
 			// and also we check if `balance_to_transfer` is more than `existential_deposit`,
 			assert!(
-				(<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account) -
-					balance_to_transfer.into()) >=
-					existential_deposit
+				(<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account)
+					- balance_to_transfer.into())
+					>= existential_deposit
 			);
 			// SA has just ED
 			assert_eq!(
@@ -325,8 +325,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				let delivery_fees_account_balance_after =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
 				assert!(
-					delivery_fees_account_balance_after - delivery_fees.into() >=
-						delivery_fees_account_balance_before
+					delivery_fees_account_balance_after - delivery_fees.into()
+						>= delivery_fees_account_balance_before
 				);
 			}
 		})

@@ -359,8 +359,8 @@ where
 					// find last free relay chain header in the range that we are interested in
 					let scan_range_begin = relay_of_head_at_target.number();
 					let scan_range_end = best_finalized_relay_block_at_target.number();
-					if scan_range_end.saturating_sub(scan_range_begin) <
-						free_source_relay_headers_interval
+					if scan_range_end.saturating_sub(scan_range_begin)
+						< free_source_relay_headers_interval
 					{
 						// there are no new **free** relay chain headers in the range
 						tracing::trace!(

@@ -1,0 +1,9 @@
+title: '`pallet-staking-async`: Only move spendable funds out of expired era pots'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When an era expires, its reward pot now only sends its spendable balance to
+    `UnclaimedRewardHandler`. Locked funds stay in the pot.
+crates:
+- name: pallet-staking-async
+  bump: patch

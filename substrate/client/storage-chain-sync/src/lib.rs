@@ -209,11 +209,11 @@ where
 			return false;
 		}
 		match params.origin {
-			BlockOrigin::NetworkInitialSync |
-			BlockOrigin::NetworkBroadcast |
-			BlockOrigin::ConsensusBroadcast |
-			BlockOrigin::Own |
-			BlockOrigin::GapSync => {},
+			BlockOrigin::NetworkInitialSync
+			| BlockOrigin::NetworkBroadcast
+			| BlockOrigin::ConsensusBroadcast
+			| BlockOrigin::Own
+			| BlockOrigin::GapSync => {},
 			BlockOrigin::Genesis | BlockOrigin::File | BlockOrigin::WarpSync => return false,
 		}
 		// Gap-sync parents don't have state, so we call at the finalized hash.

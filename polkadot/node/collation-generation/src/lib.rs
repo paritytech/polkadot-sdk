@@ -239,8 +239,8 @@ impl CollationGenerationSubsystem {
 		if params.collations.is_empty() {
 			return Err(Error::InvalidSegmentSize(params.collations.len()));
 		}
-		if params.candidates_descriptor_version == CandidateDescriptorVersion::V2 &&
-			params.collations.len() > 1
+		if params.candidates_descriptor_version == CandidateDescriptorVersion::V2
+			&& params.collations.len() > 1
 		{
 			return Err(Error::V2InvalidSegmentLength);
 		}

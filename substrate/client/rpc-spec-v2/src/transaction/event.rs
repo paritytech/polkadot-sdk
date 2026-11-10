@@ -100,10 +100,10 @@ impl<Hash> TransactionEvent<Hash> {
 	pub fn is_final(&self) -> bool {
 		matches!(
 			&self,
-			TransactionEvent::Finalized(_) |
-				TransactionEvent::Error(_) |
-				TransactionEvent::Invalid(_) |
-				TransactionEvent::Dropped(_)
+			TransactionEvent::Finalized(_)
+				| TransactionEvent::Error(_)
+				| TransactionEvent::Invalid(_)
+				| TransactionEvent::Dropped(_)
 		)
 	}
 }

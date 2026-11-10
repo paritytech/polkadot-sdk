@@ -24,11 +24,12 @@
 pub mod migration;
 
 use alloc::vec::Vec;
-use core::result;
+use core::{matches, result};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
+	storage::with_storage_layer,
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
@@ -290,6 +291,9 @@ pub mod pallet {
 		///
 		/// The deposit taken can be specified for this registration. Any `ParaId`
 		/// can be registered, including sub-1000 IDs which are System Parachains.
+		///
+		/// Deprecated where registration runs through `pallet-registrar-para`: use its
+		/// `force_register` there, since a para registered here is unknown to that pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_register())]
 		pub fn force_register(
@@ -348,16 +352,16 @@ pub mod pallet {
 					paras::Pallet::<T>::lifecycle(other).ok_or(Error::<T>::NotRegistered)?;
 				// identify which is a lease holding parachain and which is a parathread (on-demand
 				// parachain)
-				if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parathread
+				if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parathread
 				{
 					Self::do_thread_and_chain_swap(id, other);
-				} else if id_lifecycle == ParaLifecycle::Parathread &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parathread
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					Self::do_thread_and_chain_swap(other, id);
-				} else if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					// If both chains are currently parachains, there is nothing funny we
 					// need to do for their lifecycle management, just swap the underlying
@@ -612,18 +616,81 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
-	fn deregister(_para_id: u32) -> DispatchResult {
-		// TODO(ahm-v2): deregister the para and clear its registry entry.
-		Err(Error::<T>::NotImplemented.into())
+	// No origin, manager or lock check: the parachain registrar does those before asking.
+	fn deregister(para_id: u32) -> DispatchResult {
+		let id = ParaId::from(para_id);
+		// Rolls back if `schedule_para_cleanup` fails after earlier writes.
+		with_storage_layer(|| {
+			// A retry after a lost answer: cleanup is already scheduled.
+			if matches!(
+				paras::Pallet::<T>::lifecycle(id),
+				Some(ParaLifecycle::OffboardingParathread)
+					| Some(ParaLifecycle::OffboardingParachain)
+			) {
+				return Ok(());
+			}
+			Self::do_deregister(id)
+		})
 	}
 
-	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): validate the head data length against the active configuration.
-		Err(())
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+		use polkadot_runtime_parachains::shared;
+
+		// The sample size the paras pallet's own benchmarks assume for per-para lists.
+		const OTHER_PARAS: u32 = 1024;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
+
+		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
+		// gets no vote of its own, which would make offboarding fail.
+		let now = frame_system::Pallet::<T>::block_number();
+		let upgrade = ValidationCode(alloc::vec![1u8; MIN_CODE_SIZE as usize]);
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), upgrade.clone())?;
+		paras::Pallet::<T>::force_schedule_code_upgrade(
+			RawOrigin::Root.into(),
+			ParaId::from(para_id),
+			upgrade,
+			now,
+		)?;
+
+		let others: Vec<ParaId> =
+			(1..=OTHER_PARAS).map(|i| ParaId::from(para_id.saturating_add(i))).collect();
+		for other in &others {
+			// Unknown code, so each upgrade opens a vote of its own.
+			let mut code = alloc::vec![0u8; MIN_CODE_SIZE as usize];
+			code[..4].copy_from_slice(&u32::from(*other).to_le_bytes());
+			paras::Pallet::<T>::force_schedule_code_upgrade(
+				RawOrigin::Root.into(),
+				*other,
+				ValidationCode(code),
+				now,
+			)?;
+		}
+		paras::ActionsQueue::<T>::insert(shared::Pallet::<T>::scheduled_session(), others);
+		Ok(())
 	}
 
-	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
-		// TODO(ahm-v2): set the para's current head.
+	fn check_head_data(head_len: u32) -> Result<(), ()> {
+		let max = configuration::ActiveConfig::<T>::get().max_head_data_size;
+		if head_len <= max {
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+	fn set_current_head(para_id: u32, head: Vec<u8>) {
+		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
 	}
 
 	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {

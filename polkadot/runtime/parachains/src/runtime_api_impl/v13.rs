@@ -463,8 +463,8 @@ pub fn backing_constraints<T: initializer::Config>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	// Workaround for issue #64.
-	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
-		StorageVersion::new(1)
+	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version()
+		== StorageVersion::new(1)
 	{
 		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
@@ -598,8 +598,8 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 
 /// Implementation for `validation_code_bomb_limit` function from the runtime API
 pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
-	configuration::ActiveConfig::<T>::get().max_code_size *
-		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+	configuration::ActiveConfig::<T>::get().max_code_size
+		* configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
 }
 
 /// Implementation for `scheduling_lookahead` function from the runtime API

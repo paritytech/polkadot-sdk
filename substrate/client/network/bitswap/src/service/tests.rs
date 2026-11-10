@@ -1219,9 +1219,9 @@ mod proptests {
 					assert!(
 						matches!(
 							state.phase,
-							CidRequestPhase::Queued { .. } |
-								CidRequestPhase::InFlight { .. } |
-								CidRequestPhase::RetryAt(_)
+							CidRequestPhase::Queued { .. }
+								| CidRequestPhase::InFlight { .. }
+								| CidRequestPhase::RetryAt(_)
 						),
 						"stranded CID {cid}",
 					);

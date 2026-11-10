@@ -375,8 +375,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let mut parachain_config = prepare_node_config(parachain_config);
 
 			// Some additional customization in relation to starting the node as an ipfs server.
-			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
-				parachain_config.network.ipfs_server
+			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT
+				&& parachain_config.network.ipfs_server
 			{
 				debug!(
 					"Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.",
@@ -435,6 +435,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					let proto = new_statement_handler_proto(
 						&*client,
 						&parachain_config,
+						&config,
 						&metrics,
 						&mut net_config,
 					);

@@ -119,10 +119,10 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.block_entries.is_empty() &&
-			self.candidate_entries.is_empty() &&
-			self.blocks_at_height.is_empty() &&
-			self.stored_block_range == BlockRangeStatus::NotModified
+		self.block_entries.is_empty()
+			&& self.candidate_entries.is_empty()
+			&& self.blocks_at_height.is_empty()
+			&& self.stored_block_range == BlockRangeStatus::NotModified
 	}
 
 	pub fn load_all_blocks(&self) -> SubsystemResult<Vec<Hash>> {

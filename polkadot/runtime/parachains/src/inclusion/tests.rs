@@ -163,8 +163,8 @@ pub(crate) fn back_candidate(
 		|i| Some(validators[group[i].0 as usize].public().into()),
 	)
 	.ok()
-	.unwrap_or(0) >=
-		threshold;
+	.unwrap_or(0)
+		>= threshold;
 
 	match kind {
 		BackingKind::Unanimous | BackingKind::Threshold => assert!(successfully_backed),
@@ -219,8 +219,8 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	paras::Parachains::<Test>::get().len() +
-		configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
+	paras::Parachains::<Test>::get().len()
+		+ configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {

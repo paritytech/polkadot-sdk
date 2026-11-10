@@ -27,7 +27,7 @@ use sc_executor_common::{
 	wasm_runtime::{HeapAllocStrategy, WasmModule as _},
 };
 use sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeRuntime};
-use sp_core::storage::{ChildInfo, TrackedStorageKey};
+use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 use sp_externalities::MultiRemovalResults;
 use std::any::{Any, TypeId};
 
@@ -93,6 +93,7 @@ pub const DEFAULT_CONFIG: Config = Config {
 		wasm_simd: false,
 		wasm_bulk_memory: false,
 		wasm_multi_value: false,
+		epoch_interruption: false,
 	},
 };
 
@@ -184,10 +185,10 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
-			ExecutorParam::PrecheckingMaxMemory(_) |
-			ExecutorParam::PvfPrepTimeout(_, _) |
-			ExecutorParam::PvfExecTimeout(_, _) |
-			ExecutorParam::EnabledHostFunction(_) => (), // Not used here
+			ExecutorParam::PrecheckingMaxMemory(_)
+			| ExecutorParam::PvfPrepTimeout(_, _)
+			| ExecutorParam::PvfExecTimeout(_, _)
+			| ExecutorParam::EnabledHostFunction(_) => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -289,12 +290,20 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("place_child_storage: unsupported feature for parachain validation")
 	}
 
-	fn storage_root(&mut self, _: sp_core::storage::StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
 		panic!("storage_root: unsupported feature for parachain validation")
 	}
 
-	fn child_storage_root(&mut self, _: &ChildInfo, _: sp_core::storage::StateVersion) -> Vec<u8> {
+	fn storage_root_with_version(&mut self, _: StateVersion) -> Vec<u8> {
+		panic!("storage_root_with_version: unsupported feature for parachain validation")
+	}
+
+	fn child_storage_root(&mut self, _: &ChildInfo) -> Vec<u8> {
 		panic!("child_storage_root: unsupported feature for parachain validation")
+	}
+
+	fn child_storage_root_with_version(&mut self, _: &ChildInfo, _: StateVersion) -> Vec<u8> {
+		panic!("child_storage_root_with_version: unsupported feature for parachain validation")
 	}
 
 	fn next_child_storage_key(&mut self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {

@@ -372,8 +372,8 @@ mod benchmarks {
 
 		// commission of 50% deducted here.
 		assert!(
-			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)) >=
-				scenario.dest_weight / 2u32.into()
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1))
+				>= scenario.dest_weight / 2u32.into()
 		);
 	}
 
@@ -475,7 +475,7 @@ mod benchmarks {
 			1
 		);
 		// Set the current era
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		whitelist_account!(pool_account);
 
@@ -525,7 +525,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		whitelist_account!(joiner);
 
@@ -580,7 +580,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		// Some last checks that storage items we expect to get cleaned up are present
 		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
@@ -1030,8 +1030,8 @@ mod benchmarks {
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 		// verify delegated balance.
 		assert!(
-			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
-				Some(deposit_amount),
+			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone()))
+				== Some(deposit_amount),
 		);
 
 		// ugly type conversion between balances of pallet staking and pools (which really are same
@@ -1054,8 +1054,8 @@ mod benchmarks {
 		);
 		// verify delegated balance are not yet slashed.
 		assert!(
-			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
-				Some(deposit_amount),
+			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone()))
+				== Some(deposit_amount),
 		);
 
 		// Fill member's sub pools for the worst case.
@@ -1090,8 +1090,8 @@ mod benchmarks {
 			deposit_amount / 2u32.into()
 		);
 		assert!(
-			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
-				Some(deposit_amount / 2u32.into()),
+			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone()))
+				== Some(deposit_amount / 2u32.into()),
 		);
 	}
 
@@ -1209,8 +1209,8 @@ mod benchmarks {
 		}
 		// verify balances once more.
 		assert!(
-			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
-				Some(deposit_amount),
+			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone()))
+				== Some(deposit_amount),
 		);
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 	}

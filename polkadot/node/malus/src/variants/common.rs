@@ -78,10 +78,10 @@ impl FakeCandidateValidation {
 		use FakeCandidateValidation::*;
 
 		match *self {
-			ApprovalInvalid |
-			BackingAndApprovalInvalid |
-			ApprovalValid |
-			BackingAndApprovalValid => true,
+			ApprovalInvalid
+			| BackingAndApprovalInvalid
+			| ApprovalValid
+			| BackingAndApprovalValid => true,
 			_ => false,
 		}
 	}

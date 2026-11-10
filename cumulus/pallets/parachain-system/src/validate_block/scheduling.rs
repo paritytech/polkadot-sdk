@@ -197,8 +197,8 @@ pub fn check_scheduling(
 
 	// 6. Resubmission (relay_parent != ISP) requires signed_scheduling_info; initial
 	// submission may carry one optionally.
-	if relay_parent != internal_scheduling_parent &&
-		scheduling_proof.signed_scheduling_info.is_none()
+	if relay_parent != internal_scheduling_parent
+		&& scheduling_proof.signed_scheduling_info.is_none()
 	{
 		return Err(SchedulingValidationError::MissingSignedSchedulingInfo);
 	}

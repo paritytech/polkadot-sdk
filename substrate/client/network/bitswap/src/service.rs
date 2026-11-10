@@ -220,9 +220,9 @@ impl CidRequestState {
 		match &mut self.phase {
 			CidRequestPhase::Ready => self.phase = CidRequestPhase::RetryAt(at),
 			CidRequestPhase::Queued { retry_at: slot @ None } => *slot = Some(at),
-			CidRequestPhase::Queued { retry_at: Some(_) } |
-			CidRequestPhase::InFlight { .. } |
-			CidRequestPhase::RetryAt(_) => return false,
+			CidRequestPhase::Queued { retry_at: Some(_) }
+			| CidRequestPhase::InFlight { .. }
+			| CidRequestPhase::RetryAt(_) => return false,
 		}
 		true
 	}
@@ -336,8 +336,8 @@ impl RequestScheduler {
 	) -> Option<litep2p::PeerId> {
 		let has_window_capacity = self.has_window_capacity();
 		let cid_state = self.cid_states.get_mut(&cid)?;
-		if !cid_state.has_user_requests() ||
-			matches!(cid_state.phase, CidRequestPhase::InFlight { .. })
+		if !cid_state.has_user_requests()
+			|| matches!(cid_state.phase, CidRequestPhase::InFlight { .. })
 		{
 			return None;
 		}

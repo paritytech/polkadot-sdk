@@ -216,9 +216,9 @@ fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize
 	// the justification request should be scheduled to the
 	// new peer which is at the given block
 	assert!(sync.justification_requests().iter().any(|(p, r)| {
-		*p == peer_id3 &&
-			r.fields == BlockAttributes::JUSTIFICATION &&
-			r.from == FromBlock::Hash(b1_hash)
+		*p == peer_id3
+			&& r.fields == BlockAttributes::JUSTIFICATION
+			&& r.from == FromBlock::Hash(b1_hash)
 	}));
 
 	assert_eq!(
@@ -283,7 +283,6 @@ fn create_block_response(blocks: Vec<Block>) -> BlockResponse<Block> {
 				hash: b.hash(),
 				header: Some(b.header().clone()),
 				body: Some(b.deconstruct().1),
-				indexed_body: None,
 				receipt: None,
 				message_queue: None,
 				justification: None,
@@ -1628,7 +1627,6 @@ fn gap_sync_pauses_above_body_cutoff_while_major_syncing() {
 			hash: blocks[6].hash(),
 			header: Some(blocks[6].header().clone()),
 			body: None,
-			indexed_body: None,
 			receipt: None,
 			message_queue: None,
 			justification: None,

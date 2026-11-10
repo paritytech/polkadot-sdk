@@ -925,8 +925,8 @@ where
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
 	// - block pruning in archive mode: The block's body is kept around
-	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
-		blocks_pruning.is_archive();
+	let is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false)
+		&& blocks_pruning.is_archive();
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	if is_archive_node {
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
@@ -947,8 +947,13 @@ where
 	)
 	.into_rpc();
 
-	// Bitswap RPC-v2 (do not confuse with v1 from `bitswap_v1_get`).
-	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+	// Bitswap RPC-v2 (`bitswap_unstable_*`; `bitswap_v1_get` is registered as an alias of
+	// `bitswap_unstable_get` during the migration). Do not confuse with the Bitswap network
+	// protocol itself, which is the IPFS-style block-exchange wire format these methods may
+	// dispatch to.
+	let bitswap_v2 =
+		sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle, task_executor.clone())
+			.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -1089,8 +1094,8 @@ where
 			&mut net_config,
 			network_service_provider.handle(),
 			Arc::clone(&client),
-			config.network.default_peers_set.in_peers as usize +
-				config.network.default_peers_set.out_peers as usize,
+			config.network.default_peers_set.in_peers as usize
+				+ config.network.default_peers_set.out_peers as usize,
 			&spawn_handle,
 		),
 	};
@@ -1234,9 +1239,19 @@ where
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
-			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
-		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
+		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
+			&protocol_id,
+			fork_id,
+			client.clone(),
+			net_config.network_config.light_request_execution_timeout,
+		);
+		// Handling a request executes runtime code synchronously, see
+		// `LightClientRequestHandler::run`.
+		spawn_handle.spawn_blocking(
+			"light-client-request-handler",
+			Some("networking"),
+			handler.run(),
+		);
 		protocol_config
 	};
 
@@ -1584,8 +1599,8 @@ where
 	let genesis_hash = client.info().genesis_hash;
 
 	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize
+			+ net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) =
 			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);

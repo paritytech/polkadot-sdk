@@ -221,9 +221,9 @@ impl ParaLifecycle {
 	pub fn is_parachain(&self) -> bool {
 		matches!(
 			self,
-			ParaLifecycle::Parachain |
-				ParaLifecycle::DowngradingParachain |
-				ParaLifecycle::OffboardingParachain
+			ParaLifecycle::Parachain
+				| ParaLifecycle::DowngradingParachain
+				| ParaLifecycle::OffboardingParachain
 		)
 	}
 
@@ -233,9 +233,9 @@ impl ParaLifecycle {
 	pub fn is_parathread(&self) -> bool {
 		matches!(
 			self,
-			ParaLifecycle::Parathread |
-				ParaLifecycle::UpgradingParathread |
-				ParaLifecycle::OffboardingParathread
+			ParaLifecycle::Parathread
+				| ParaLifecycle::UpgradingParathread
+				| ParaLifecycle::OffboardingParathread
 		)
 	}
 
@@ -1509,10 +1509,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Called by the initializer to initialize the paras pallet.
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
-		Self::prune_old_code(now) +
-			Self::process_scheduled_upgrade_changes(now) +
-			Self::process_future_code_upgrades_at(now) +
-			Self::prune_expired_authorizations(now)
+		Self::prune_old_code(now)
+			+ Self::process_scheduled_upgrade_changes(now)
+			+ Self::process_future_code_upgrades_at(now)
+			+ Self::prune_expired_authorizations(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
@@ -1594,8 +1594,8 @@ impl<T: Config> Pallet<T> {
 					ParaLifecycles::<T>::insert(&para, ParaLifecycle::Parathread);
 				},
 				// Offboard a lease holding or on-demand parachain from the system
-				Some(ParaLifecycle::OffboardingParachain) |
-				Some(ParaLifecycle::OffboardingParathread) => {
+				Some(ParaLifecycle::OffboardingParachain)
+				| Some(ParaLifecycle::OffboardingParathread) => {
 					parachains.remove(para);
 
 					Heads::<T>::remove(&para);
@@ -1925,8 +1925,8 @@ impl<T: Config> Pallet<T> {
 		//
 		// we cannot onboard at the current session, so it must be at least one
 		// session ahead.
-		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get() +
-			cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
+		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get()
+			+ cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
 
 		ActionsQueue::<T>::mutate(onboard_at, |v| {
 			if let Err(i) = v.binary_search(&id) {

@@ -707,10 +707,12 @@ pub mod pallet {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
-			let deposit = info
-				.take_submission_deposit()
-				.map_err(|_| Error::<T, I>::BadStatus)?
-				.ok_or(Error::<T, I>::NoDeposit)?;
+			// Can only refund deposit if it's approved or cancelled.
+			ensure!(
+				matches!(info, ReferendumInfo::Approved(..) | ReferendumInfo::Cancelled(..)),
+				Error::<T, I>::BadStatus
+			);
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
 			Self::refund_deposit(Some(deposit.clone()));
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
@@ -719,6 +721,33 @@ pub mod pallet {
 				amount: deposit.amount,
 			};
 			Self::deposit_event(e);
+			Ok(())
+		}
+
+		/// Slash the Submission Deposit for a rejected or timed-out referendum.
+		///
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `index`: The index of a rejected or timed-out referendum whose Submission Deposit has
+		///   not yet been slashed.
+		///
+		/// Emits `DepositSlashed`.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::slash_submission_deposit())]
+		pub fn slash_submission_deposit(
+			origin: OriginFor<T>,
+			index: ReferendumIndex,
+		) -> DispatchResult {
+			ensure_signed_or_root(origin)?;
+			let mut info =
+				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
+			// Can only slash deposit if it's rejected or timed out.
+			ensure!(
+				matches!(info, ReferendumInfo::Rejected(..) | ReferendumInfo::TimedOut(..)),
+				Error::<T, I>::BadStatus
+			);
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
+			Self::slash_deposit(Some(deposit));
+			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
 
@@ -934,8 +963,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let alarm_interval = T::AlarmInterval::get().max(One::one());
 		// Alarm must go off no earlier than `when`.
 		// This rounds `when` upwards to the next multiple of `alarm_interval`.
-		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one())) /
-			alarm_interval)
+		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one()))
+			/ alarm_interval)
 			.saturating_mul(alarm_interval);
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),
@@ -1324,8 +1353,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		id: TrackIdOf<T, I>,
 	) -> bool {
 		let x = Perbill::from_rational(elapsed.min(period), period);
-		support_needed.passing(x, tally.support(id)) &&
-			approval_needed.passing(x, tally.approval(id))
+		support_needed.passing(x, tally.support(id))
+			&& approval_needed.passing(x, tally.approval(id))
 	}
 
 	/// Clear metadata if exist for a given referendum index.
@@ -1347,8 +1376,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		ensure!(
-			ReferendumCount::<T, I>::get() as usize ==
-				ReferendumInfoFor::<T, I>::iter_keys().count(),
+			ReferendumCount::<T, I>::get() as usize
+				== ReferendumInfoFor::<T, I>::iter_keys().count(),
 			"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
 		);
 
@@ -1386,8 +1415,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 					if let Some(deciding) = status.deciding {
 						ensure!(
-							deciding.since <
-								deciding
+							deciding.since
+								< deciding
 									.confirming
 									.unwrap_or(BlockNumberFor::<T, I>::max_value()),
 							"Deciding status cannot begin before confirming stage."

@@ -496,8 +496,8 @@ where
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
 			ensure!(
-				order_status.queue.len() <
-					config.scheduler_params.on_demand_queue_max_size as usize,
+				order_status.queue.len()
+					< config.scheduler_params.on_demand_queue_max_size as usize,
 				Error::<T>::QueueFull
 			);
 
@@ -662,8 +662,8 @@ where
 		// (queue_size / queue_capacity) - target_queue_utilisation
 		let queue_util_ratio = FixedU128::from_rational(queue_size.into(), queue_capacity.into());
 		let positive = queue_util_ratio >= target_queue_utilisation.into();
-		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into()) -
-			queue_util_ratio.min(target_queue_utilisation.into());
+		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into())
+			- queue_util_ratio.min(target_queue_utilisation.into());
 
 		// variability * queue_util_diff
 		let var_times_qud = queue_util_diff.saturating_mul(variability.into());

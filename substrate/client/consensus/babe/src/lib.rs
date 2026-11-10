@@ -1487,8 +1487,8 @@ where
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
 		// epoch change or because of missing epoch data in the tree, respectively.
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block_status == BlockStatus::InChain
+		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end)
+			|| block_status == BlockStatus::InChain
 		{
 			// When re-importing existing block strip away intermediates.
 			// In case of initial sync intermediates should not be present...
@@ -2015,8 +2015,8 @@ where
 		let mut hash = leaf;
 		loop {
 			let meta = client.header_metadata(hash)?;
-			if meta.number <= revert_up_to_number ||
-				!weight_keys.insert(aux_schema::block_weight_key(hash))
+			if meta.number <= revert_up_to_number
+				|| !weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
 				// We've reached the revert point or an already processed branch, stop here.
 				break;

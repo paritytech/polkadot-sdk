@@ -284,8 +284,9 @@ impl GridTracker {
 			//     the received manifest is partial.
 			ManifestKind::Full => receiving_from,
 			ManifestKind::Acknowledgement => {
-				sending_to &&
-					self.confirmed_backed
+				sending_to
+					&& self
+						.confirmed_backed
 						.get(&candidate_hash)
 						.map_or(false, |c| c.has_sent_manifest_to(sender))
 			},
@@ -1084,10 +1085,10 @@ impl KnownBackedCandidate {
 			.filter(|k| k.local_knowledge.is_some())
 			.and_then(|k| k.remote_knowledge.as_ref())
 			.map(|remote| StatementFilter {
-				seconded_in_group: full_local.seconded_in_group.clone() &
-					!remote.seconded_in_group.clone(),
-				validated_in_group: full_local.validated_in_group.clone() &
-					!remote.validated_in_group.clone(),
+				seconded_in_group: full_local.seconded_in_group.clone()
+					& !remote.seconded_in_group.clone(),
+				validated_in_group: full_local.validated_in_group.clone()
+					& !remote.validated_in_group.clone(),
 			})
 	}
 }

@@ -245,8 +245,8 @@ pub mod identity {
 		pub fn eq_platform(&self, other: &Social) -> bool {
 			matches!(
 				(&self, &other),
-				(Social::Twitter { .. }, Social::Twitter { .. }) |
-					(Social::Github { .. }, Social::Github { .. })
+				(Social::Twitter { .. }, Social::Twitter { .. })
+					| (Social::Github { .. }, Social::Github { .. })
 			)
 		}
 	}

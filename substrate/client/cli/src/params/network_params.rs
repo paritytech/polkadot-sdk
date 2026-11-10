@@ -24,7 +24,7 @@ use clap::Args;
 use sc_network::{
 	config::{
 		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
-		DEFAULT_IDLE_CONNECTION_TIMEOUT,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT, DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -32,7 +32,7 @@ use sc_service::{
 	config::{Multiaddr, MultiaddrWithPeerId},
 	ChainSpec, ChainType,
 };
-use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf};
+use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf, time::Duration};
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
@@ -182,6 +182,21 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
+	/// Wall-clock limit, in milliseconds, for a single runtime call serving an (untrusted)
+	/// light-client request.
+	///
+	/// `0` disables the limit.
+	///
+	/// The limit is enforced in 100ms steps, so a call may overrun it by up to 200ms.
+	///
+	/// Requests exceeding the limit are interrupted and answered with an empty proof.
+	#[arg(
+		long,
+		value_name = "MILLISECONDS",
+		default_value_t = DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT.as_millis() as u64
+	)]
+	pub light_request_execution_timeout_ms: u64,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -265,8 +280,8 @@ impl NetworkParams {
 				]
 			};
 
-			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
-				(self.force_enable_webrtc || !is_validator)
+			if matches!(self.network_backend, NetworkBackendType::Litep2p)
+				&& (self.force_enable_webrtc || !is_validator)
 			{
 				listen_addresses.extend([
 					Multiaddr::empty()
@@ -294,8 +309,8 @@ impl NetworkParams {
 		// Activate if the user explicitly requested local discovery, `--dev` is given or the
 		// chain type is `Local`/`Development`
 		let allow_non_globals_in_dht =
-			self.discover_local ||
-				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development);
+			self.discover_local
+				|| is_dev || matches!(chain_type, ChainType::Local | ChainType::Development);
 
 		let allow_private_ip = match (self.allow_private_ip, self.no_private_ip) {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
@@ -339,6 +354,10 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
+			light_request_execution_timeout: match self.light_request_execution_timeout_ms {
+				0 => None,
+				ms => Some(Duration::from_millis(ms)),
+			},
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}

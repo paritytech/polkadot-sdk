@@ -230,9 +230,9 @@ async fn watch_transaction_status<
 				);
 				return InvalidationStatus::Invalid;
 			},
-			Some(TransactionStatusOf::<C>::Future) |
-			Some(TransactionStatusOf::<C>::Ready) |
-			Some(TransactionStatusOf::<C>::Broadcast(_)) => {
+			Some(TransactionStatusOf::<C>::Future)
+			| Some(TransactionStatusOf::<C>::Ready)
+			| Some(TransactionStatusOf::<C>::Broadcast(_)) => {
 				// nothing important (for us) has happened
 			},
 			Some(TransactionStatusOf::<C>::InBlock(block_hash)) => {

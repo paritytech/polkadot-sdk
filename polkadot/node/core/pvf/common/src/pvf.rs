@@ -133,8 +133,8 @@ impl fmt::Debug for PvfPrepData {
 
 impl PartialEq for PvfPrepData {
 	fn eq(&self, other: &Self) -> bool {
-		self.code_hash == other.code_hash &&
-			self.executor_params.hash() == other.executor_params.hash()
+		self.code_hash == other.code_hash
+			&& self.executor_params.hash() == other.executor_params.hash()
 	}
 }
 

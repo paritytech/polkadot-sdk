@@ -437,8 +437,8 @@ pub async fn benchmark_availability_write(
 				.get(index)
 				.expect("all validators have keys");
 
-			if env.network().is_peer_connected(peer) &&
-				env.network().send_request_from_peer(peer, request).is_ok()
+			if env.network().is_peer_connected(peer)
+				&& env.network().send_request_from_peer(peer, request).is_ok()
 			{
 				Some(pending_response_receiver)
 			} else {

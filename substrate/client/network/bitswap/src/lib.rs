@@ -47,9 +47,9 @@ pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
 /// Returns whether Bitswap supports a CID.
 pub fn is_cid_supported(cid: &Cid) -> bool {
-	cid.version() != CidVersion::V0 &&
-		cid.hash().size() == 32 &&
-		matches!(
+	cid.version() != CidVersion::V0
+		&& cid.hash().size() == 32
+		&& matches!(
 			cid.hash().code(),
 			BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE
 		)
