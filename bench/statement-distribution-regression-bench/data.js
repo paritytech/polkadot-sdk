@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794302135810,
+  "lastUpdate": 1794309061738,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "52bb5ba83b1fca4a9127ebda188cfcc53cf49773",
-          "message": "statement-store: Remove double peer state clean up on flooding and add zombienet tests (#11701)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11535: covers\nflooding detection.\n\nFixed a bug with double peer state cleanup. The initial purpose was to\nadd flooding e2e tests, but the tests revealed a bug in the rate-limit\nmechanics: the peer was attempted to be removed twice.\n\nAdded two zombienet integration tests that verify statement-store\nflooding detection:\n\n- Sustained-rate flooding — submits statements continuously against a\nrate-limited node. Verifies the\nnode accepts early batches (token bucket not yet exhausted) then\ntriggers flooding detection as tokens\ndrain.\n- Burst flooding — submits a large batch at once against a tightly\nrate-limited node. Verifies immediate\n flooding detection with zero statements accepted.\n\nAlso refactors common test helpers to allow spawning custom network\nconfigurations for the flooding\ntests.\n\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:14:21Z",
-          "tree_id": "c62694fc30c295da247c3515559369a4ae688fe7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bb5ba83b1fca4a9127ebda188cfcc53cf49773"
-        },
-        "date": 1776811994972,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.05599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08205217985599988,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038731018684000015,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08436219744599992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9764c91c0711c4b366315672000f4f71e0c8a43d",
+          "message": "network/light: Process execution proof requests in parallel, queue QoS (#13677)\n\nAdd a thread pool for processing light client execution proof requests\nand extract them into a dedicated queue.\n\nThe number of workers is set to half the available CPU cores (at most 4)\nby default and can be increased via `--light-request-call-workers` cli.",
+          "timestamp": "2026-11-10T09:10:25Z",
+          "tree_id": "159f43394f9a369d76b2813be194bde0cf847944",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9764c91c0711c4b366315672000f4f71e0c8a43d"
+        },
+        "date": 1794309032470,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03864708688599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08392296969599991,
             "unit": "seconds"
           }
         ]
