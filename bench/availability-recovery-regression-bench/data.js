@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794338764533,
+  "lastUpdate": 1794342443734,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "319976c3a73784ddd8d0d892b3b470168c620dfd",
-          "message": "statement-store: zombienet initial sync (#11861)\n\nImplement #11534 for initial sync \n\n# Description\n- Add `statement_store_initial_sync_multiple_peers` integration test\n- Spawns a 2-node network, populates 20 statements from 4 keypairs\nacross 2 topics, then adds 3 new collators\n- Verifies each new peer receives all 20 statements via\n`schedule_initial_sync_for_peer`\n- Asserts `initial_sync_statements_sent` metric reflects both senders\ndelivering to all 3 new peers (2×3×20 = 120)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-27T14:08:14Z",
-          "tree_id": "cbd2536665933f44f3ac752f96d67482b94216bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/319976c3a73784ddd8d0d892b3b470168c620dfd"
-        },
-        "date": 1777305674608,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.088543730533333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12634489153333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13244865226666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "195690cff23241a0c20b2842698026d9f1d7b083",
+          "message": "Bump git2 from 0.20.0 to 0.20.4 (#12739)\n\nBumps [git2](https://github.com/rust-lang/git2-rs) from 0.20.0 to\n0.20.4.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/rust-lang/git2-rs/blob/main/CHANGELOG.md\">git2's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>0.20.4 - 2026-02-02</h2>\n<p><a\nhref=\"https://github.com/rust-lang/git2-rs/compare/git2-0.20.3...git2-0.20.4\">0.20.3...0.20.4</a></p>\n<h3>Fixed</h3>\n<ul>\n<li>Fix undefined behavior when dereferencing empty <code>Buf</code>.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1213\">#1213</a></li>\n</ul>\n<h2>0.20.3 - 2025-12-06</h2>\n<p><a\nhref=\"https://github.com/rust-lang/git2-rs/compare/git2-0.20.2...git2-0.20.3\">0.20.2...0.20.3</a></p>\n<h3>Changed</h3>\n<ul>\n<li>Bumped requirement to libgit2-sys 0.18.3, which updates libgit2 from\n1.9.0 to 1.9.2.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1197\">#1197</a></li>\n</ul>\n<h2>0.20.2 - 2025-05-05</h2>\n<p><a\nhref=\"https://github.com/rust-lang/git2-rs/compare/git2-0.20.1...git2-0.20.2\">0.20.1...0.20.2</a></p>\n<h3>Added</h3>\n<ul>\n<li>Added <code>Status::WT_UNREADABLE</code>.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1151\">#1151</a></li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Added missing codes for <code>GIT_EDIRECTORY</code>,\n<code>GIT_EMERGECONFLICT</code>, <code>GIT_EUNCHANGED</code>,\n<code>GIT_ENOTSUPPORTED</code>, and <code>GIT_EREADONLY</code> to\n<code>Error::raw_code</code>.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1153\">#1153</a></li>\n<li>Fixed missing initialization in <code>Indexer::new</code>.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1160\">#1160</a></li>\n</ul>\n<h2>0.20.1 - 2025-03-17</h2>\n<p><a\nhref=\"https://github.com/rust-lang/git2-rs/compare/git2-0.20.0...git2-0.20.1\">0.20.0...0.20.1</a></p>\n<h3>Added</h3>\n<ul>\n<li>Added <code>Repository::branch_upstream_merge()</code>\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1131\">#1131</a></li>\n<li>Added <code>Index::conflict_get()</code>\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1134\">#1134</a></li>\n<li>Added <code>Index::conflict_remove()</code>\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1133\">#1133</a></li>\n<li>Added <code>opts::set_cache_object_limit()</code>\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1118\">#1118</a></li>\n<li>Added <code>Repo::merge_file_from_index()</code> and associated\n<code>MergeFileOptions</code> and <code>MergeFileResult</code>.\n<a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/pull/1062\">#1062</a></li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li>The <code>url</code> dependency minimum raised to 2.5.4</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/8852d7dabd38d0df6d4524e04a1c2ee520ac7203\"><code>8852d7d</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/issues/1214\">#1214</a>\nfrom weihanglo/backport-from-raw-parts</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/0b274f76f70f717c3bda4be1f79ba8e1cb11afd4\"><code>0b274f7</code></a>\nBump to 0.20.4</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/73a5d5d7c49a7eb9d17c2ab6e40dafe3765ebf4d\"><code>73a5d5d</code></a>\nAdd test for dereference of an empty Buf</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/ce566831eb188b0fdb27962e154b8da6103071bf\"><code>ce56683</code></a>\nfix: check ptr nullity before calling from_raw_parts</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/7cf345c4f7967b7da3c728db6766362e51540cbe\"><code>7cf345c</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/issues/1197\">#1197</a>\nfrom ehuss/git2-0.20-br</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/dd41077750fe30bf780c9e7f7ab4717d264e098d\"><code>dd41077</code></a>\nBump git2 to 0.20.3</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/a6a58e2b0fd409ae33f2f6a68927ce62ebd114f0\"><code>a6a58e2</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/issues/1195\">#1195</a>\nfrom ehuss/update-libgit2</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/1fb5f64819a9f5b175e0fb09dc369d0a2ccd355a\"><code>1fb5f64</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/issues/1161\">#1161</a>\nfrom ehuss/bump-version</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/26bfd30ef25e6f7d7eab361f0ab118df3d1f6161\"><code>26bfd30</code></a>\nUpdate version of git2 to 0.20.2</li>\n<li><a\nhref=\"https://github.com/rust-lang/git2-rs/commit/eef4592abf3f688e1058e00b9297f6baf9026f22\"><code>eef4592</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/rust-lang/git2-rs/issues/1160\">#1160</a>\nfrom ehuss/indexer-init</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/rust-lang/git2-rs/compare/git2-0.20.0...git2-0.20.4\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=git2&package-manager=cargo&previous-version=0.20.0&new-version=0.20.4)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nYou can trigger a rebase of this PR by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-11-10T18:55:41Z",
+          "tree_id": "fd48b2ba4569242354264858a49d8c5c7b2feabd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/195690cff23241a0c20b2842698026d9f1d7b083"
+        },
+        "date": 1794342414807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.853928393233335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13494390176666668,
             "unit": "seconds"
           }
         ]
