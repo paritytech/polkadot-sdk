@@ -397,7 +397,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const MaxDistributableAssets: u32 = 1;
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
@@ -784,7 +783,7 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
-	type OnSlash = Dap<Runtime, Balances>;
+	type OnSlash = Dap;
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;

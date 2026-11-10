@@ -25,10 +25,6 @@
 //!
 //! ## Key Responsibilities:
 //!
-//! - **Burn Collection**: [`Dap`] implements `OnUnbalanced` to intercept any burn source wired to
-//!   it (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect
-//!   funds into the buffer account. Incoming funds are deactivated to exclude them from governance
-//!   voting.
 //! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
 //!   based on an [`IssuanceCurve`].
 //! - **Budget Distribution**: Distributes minted issuance across registered
@@ -39,6 +35,10 @@
 //!   Distribution happens at the same time as issuance drips and can be configured by
 //!   [`Config::IssuanceCadence`]. When the asset amount is insufficient, it will be
 //!   skipped(emitting an event), i.e. no retry mechanism is present.
+//! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
+//!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
+//!   into the buffer account. Incoming funds are deactivated to exclude them from governance
+//!   voting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -86,21 +86,15 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
-/// Type alias for the issued currency balance.
 pub type IssuedCurrencyBalanceOf<T> =
 	<<T as Config>::IssuedCurrency as FungibleInspect<AccountIdFor<T>>>::Balance;
-
-/// Type alias for the assets balance.
 pub type AssetsBalanceOf<T> = <<T as Config>::Assets as Inspect<AccountIdFor<T>>>::Balance;
-
-/// Type alias for asset kind.
 pub type AssetKindOf<T> = <<T as Config>::Assets as Inspect<AccountIdFor<T>>>::AssetId;
-
-/// Type alias for the native asset allocation map.
-pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
-
 type AssetAllocationMapOf<T> =
 	AssetAllocationMap<AssetKindOf<T>, AssetsBalanceOf<T>, <T as Config>::MaxDistributableAssets>;
+
+/// Type alias for the native assets allocation map.
+pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
 /// Type alias for the non-native assets allocation map.
 pub type AssetAllocationMap<AssetKind, Balance, MaxDistributableAssets> =
@@ -159,9 +153,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// Registry of assets. It must include both native asset and non-native assets.
+		/// Registry of assets that can be distributed.
 		///
-		/// In runtime, it can be configured as:
+		/// To distribute both native and non-native assets, it can be configured in runtime as:
 		/// ```ignore
 		/// pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 		///
@@ -242,6 +236,8 @@ pub mod pallet {
 			/// Amount drained.
 			amount: IssuedCurrencyBalanceOf<T>,
 		},
+		/// An unexpected/defensive event was triggered.
+		Unexpected(UnexpectedKind<AssetKindOf<T>, AssetsBalanceOf<T>>),
 		/// Assets are distributed to their recipients.
 		AssetDistributed {
 			/// Asset that was distributed.
@@ -251,8 +247,6 @@ pub mod pallet {
 			/// Elapsed time (ms) since last distribution.
 			elapsed_millis: u64,
 		},
-		/// An unexpected/defensive event was triggered.
-		Unexpected(UnexpectedKind<AssetKindOf<T>, AssetsBalanceOf<T>>),
 		/// Asset allocation was updated via governance.
 		AssetAllocationUpdated {
 			/// The new asset allocation map.
@@ -285,7 +279,7 @@ pub mod pallet {
 
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
-	/// This map controls *only* the native asset distribution.
+	/// This map controls *only* the issuance of the [`Config::IssuedCurrency`].
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
 	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
@@ -294,11 +288,11 @@ pub mod pallet {
 
 	/// Asset allocation map: `AssetKind -> (BudgetKey -> amount_per_ms)`.
 	///
-	/// This map controls *only* the non-native asset distribution.
+	/// This map controls *only* the distribution of the assets in [`Config::Assets`].
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. All `amount_per_ms` values must be
-	/// non-zero and every asset must be sufficient or match the [`Config::NativeCurrencyAssetId`],
-	/// otherwise `set_allocations` will reject such a config.
+	/// non-zero and every asset must be sufficient, otherwise `set_allocations` will reject such a
+	/// config.
 	#[pallet::storage]
 	pub type AssetAllocation<T> = StorageValue<_, AssetAllocationMapOf<T>, ValueQuery>;
 
@@ -434,7 +428,7 @@ pub mod pallet {
 		/// - For all `amount_per_ms`, the amount must be big enough so that every drip drips at
 		///   least assets' minimum balance, i.e. `amount_per_ms * max(1, IssuanceCadence) >=
 		///   minimum_balance(asset)`.
-		/// - Every asset must either be sufficient or match the [`Config::NativeCurrencyAssetId`].
+		/// - Every asset must be sufficient.
 		///
 		/// Recipients not included in any of the map receive nothing.
 		#[pallet::call_index(1)]

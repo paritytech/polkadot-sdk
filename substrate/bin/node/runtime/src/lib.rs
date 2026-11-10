@@ -770,7 +770,6 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapNativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const DapMaxDistributableAssets: u32 = 1;
 	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 0; // drip every block

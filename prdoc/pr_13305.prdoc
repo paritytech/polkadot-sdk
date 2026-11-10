@@ -19,9 +19,9 @@ doc:
       native tokens will be issued according to the budget AND distributed according 
       to the asset distribution.
 
-      `Config::Assets` is introduced, which must contain all the assets(native and 
-      non-native). For example, it can be configured as 
-      `type Assets = UnionOf<Balances, Assets, ...>` in runtime.
+      `Config::Assets` is introduced, which must contain all the distributable assets. 
+      For example, it can be configured as  `type Assets = UnionOf<Balances, Assets, ...>` 
+      in runtime.
   - audience: Runtime User
     description: |
       An ability to distribute arbitrary assets is added to `pallet-dap`. 
