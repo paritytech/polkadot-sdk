@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Registrar: add lock and unlock'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-registrar-para` gains `add_lock`, which shuts the manager out of a registered para,
+      and `remove_lock`, for root or the para itself only.
+
+      A para is also locked the first time it produces a head. `pallet-registrar-relay` now
+      implements `paras::OnNewHead`, so add it there: `type OnNewHead = (Registrar, RegistrarRelay);`.
+
+      `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
+      `receive` at call index 0, so the transport no longer picks a call index per message variant.
+      The `UnexpectedMessage` error is gone and weights split into `receive_register` and
+      `receive_cancel_registration`.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major

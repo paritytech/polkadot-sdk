@@ -197,7 +197,7 @@ macro_rules! decl_test_parachain {
 			>(
 				iter: I,
 				max_weight: $crate::Weight,
-			) -> $crate::Weight {
+			) -> (usize, $crate::Weight) {
 				use $crate::{TestExt, XcmpMessageHandlerT};
 
 				$name::execute_with(|| {

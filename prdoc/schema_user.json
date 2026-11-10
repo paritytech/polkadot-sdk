@@ -24,7 +24,7 @@
       "topic": {
         "title": "Topic",
         "type": "string",
-        "description": "Topic"
+        "description": "Optional changelog topic. Recommended values are the topic ids in `prdoc/topics.yaml`; if omitted, the topic is derived from the affected crates.\nSet it only when the derived topic would be wrong or the change belongs to a named initiative."
       },
 
       "doc": {

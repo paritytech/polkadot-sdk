@@ -130,10 +130,6 @@ pub use cumulus_client_service;
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;
 
-/// Migrates messages from the old DMP queue pallet.
-#[cfg(feature = "cumulus-pallet-dmp-queue")]
-pub use cumulus_pallet_dmp_queue;
-
 /// Base pallet for cumulus-based parachains.
 #[cfg(feature = "cumulus-pallet-parachain-system")]
 pub use cumulus_pallet_parachain_system;
@@ -182,6 +178,10 @@ pub use cumulus_primitives_parachain_inherent;
 /// Hostfunction exposing storage proof size to the runtime.
 #[cfg(feature = "cumulus-primitives-proof-size-hostfunction")]
 pub use cumulus_primitives_proof_size_hostfunction;
+
+/// Speculative Messaging primitives.
+#[cfg(feature = "cumulus-primitives-spec-messaging")]
+pub use cumulus_primitives_spec_messaging;
 
 /// Utilities to reclaim storage weight.
 #[cfg(feature = "cumulus-primitives-storage-weight-reclaim")]
@@ -488,10 +488,6 @@ pub use pallet_derivatives;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
-/// Dummy DIM Pallet.
-#[cfg(feature = "pallet-dummy-dim")]
-pub use pallet_dummy_dim;
-
 /// PALLET multi phase+block election providers.
 #[cfg(feature = "pallet-election-provider-multi-block")]
 pub use pallet_election_provider_multi_block;
@@ -612,6 +608,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Sale of on-demand Coretime from the Coretime chain.
+#[cfg(feature = "pallet-on-demand-para")]
+pub use pallet_on_demand_para;
+
 /// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]
 pub use pallet_oracle;
@@ -620,10 +620,6 @@ pub use pallet_oracle;
 #[cfg(feature = "pallet-oracle-runtime-api")]
 pub use pallet_oracle_runtime_api;
 
-/// Pallet to give some execution allowance for some origins.
-#[cfg(feature = "pallet-origin-restriction")]
-pub use pallet_origin_restriction;
-
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
@@ -631,10 +627,6 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
-
-/// Personhood-tracking pallet.
-#[cfg(feature = "pallet-people")]
-pub use pallet_people;
 
 /// Transaction extension that pays transaction fees with a gas allowance asset.
 #[cfg(feature = "pallet-pgas-allowance")]
@@ -706,10 +698,6 @@ pub use pallet_salary;
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
 
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
-
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
 pub use pallet_session;
@@ -739,6 +727,11 @@ pub use pallet_staking_async;
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-ah-client")]
 pub use pallet_staking_async_ah_client;
+
+/// Converts reported units of a validator service into era points, intended to be used in
+/// Asset Hub.
+#[cfg(feature = "pallet-staking-async-points-converter")]
+pub use pallet_staking_async_points_converter;
 
 /// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
@@ -808,6 +801,14 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// Pallet that selects the relay-chain validators with registered keys as collators.
+#[cfg(feature = "pallet-validator-collators")]
+pub use pallet_validator_collators;
+
+/// Pallet that announces each era's validator set to other system chains.
+#[cfg(feature = "pallet-validator-set-announcer")]
+pub use pallet_validator_set_announcer;
 
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
@@ -1183,6 +1184,10 @@ pub use sc_mixnet;
 /// Substrate network protocol.
 #[cfg(feature = "sc-network")]
 pub use sc_network;
+
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
 
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]

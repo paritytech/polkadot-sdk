@@ -34,7 +34,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeCall: Decode> {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
@@ -134,8 +134,10 @@ pub mod pallet {
 		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
 			max_weight: xcm::latest::Weight,
-		) -> xcm::latest::Weight {
+		) -> (usize, Weight) {
+			let mut num_processed_pages = 0;
 			for (sender, sent_at, data) in iter {
+				num_processed_pages += 1;
 				let mut data_ref = data;
 				let _ = XcmpMessageFormat::decode(&mut data_ref)
 					.expect("Simulator encodes with versioned xcm format; qed");
@@ -151,7 +153,7 @@ pub mod pallet {
 					}
 				}
 			}
-			max_weight
+			(num_processed_pages, max_weight)
 		}
 	}
 

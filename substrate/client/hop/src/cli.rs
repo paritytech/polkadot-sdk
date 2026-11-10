@@ -33,6 +33,7 @@
 //! ```
 
 use crate::{
+	metrics::HopMetrics,
 	pool::HopDataPool,
 	rate_limit::RateLimitConfig,
 	types::{
@@ -43,6 +44,7 @@ use crate::{
 	},
 };
 use clap::Parser;
+use prometheus_endpoint::Registry;
 use std::{path::PathBuf, sync::Arc};
 
 /// HOP (Hand-Off Protocol) configuration parameters
@@ -178,7 +180,14 @@ impl HopParams {
 	/// The resolved data directory is [`Self::data_dir`] if set, otherwise
 	/// `<database_path>/hop`; if neither is available, returns [`HopError::MissingDataDir`].
 	/// Callers gate on whether HOP is enabled (e.g. via `--enable-hop`) before calling this.
-	pub fn build_pool(&self, database_path: Option<PathBuf>) -> Result<Arc<HopDataPool>, HopError> {
+	///
+	/// Metrics are registered with `registry` when given; a registration failure
+	/// only disables metrics, it never fails pool construction.
+	pub fn build_pool(
+		&self,
+		database_path: Option<PathBuf>,
+		registry: Option<&Registry>,
+	) -> Result<Arc<HopDataPool>, HopError> {
 		let data_dir = match &self.data_dir {
 			Some(dir) => dir.clone(),
 			None => database_path.ok_or(HopError::MissingDataDir)?.join("hop"),
@@ -191,12 +200,22 @@ impl HopParams {
 			"Initializing HOP data pool",
 		);
 
+		let metrics = HopMetrics::new(registry).unwrap_or_else(|e| {
+			tracing::warn!(
+				target: "hop",
+				error = %e,
+				"Failed to register HOP metrics; continuing without metrics"
+			);
+			HopMetrics::disabled()
+		});
+
 		let pool = HopDataPool::new(
 			self.max_pool_size.saturating_mul(1024 * 1024),
 			self.max_user_size.saturating_mul(1024 * 1024),
 			self.retention_secs,
 			data_dir,
 			self.rate_limit_config(),
+			metrics,
 		)?;
 
 		tracing::info!(
@@ -223,7 +242,7 @@ mod tests {
 
 	#[test]
 	fn build_pool_without_any_dir_returns_missing_data_dir() {
-		match HopParams::default().build_pool(None) {
+		match HopParams::default().build_pool(None, None) {
 			Err(HopError::MissingDataDir) => (),
 			Err(other) => panic!("expected MissingDataDir, got: {other:?}"),
 			Ok(_) => panic!("expected MissingDataDir, got Ok"),

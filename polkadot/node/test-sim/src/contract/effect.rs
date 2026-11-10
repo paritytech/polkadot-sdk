@@ -71,6 +71,19 @@ pub enum Effect {
 		/// Candidate the request is about, if applicable.
 		candidate_hash: Option<CandidateHash>,
 	},
+	/// Subsystem fired an outgoing request.
+	SendRequestV3 {
+		/// Opaque identifier the harness assigned to this request. Tests use this with
+		/// `Sim::respond_fetch(request_id, payload)` to deliver a response into the oneshot
+		/// the subsystem is awaiting.
+		request_id: RequestId,
+		/// Target peer.
+		to: PeerId,
+		/// What kind of request.
+		kind: ReqKind,
+		/// Output head data hash of the candidate.
+		output_head_data_hash: Hash,
+	},
 	/// Subsystem requested a peer reputation change.
 	Reputation {
 		/// Affected peer.
@@ -107,12 +120,16 @@ pub enum Effect {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdvertisementSummary {
 	/// Scheduling parent (relay parent for V1, possibly different from the claim's relay parent
-	/// for V2/V3).
+	/// for V2/V3/V4).
 	pub scheduling_parent: Hash,
-	/// Candidate hash, when the advertisement format includes one (V2/V3). `None` for V1.
+	/// Candidate hash, when the advertisement format includes one (V2/V3). `None` for V1 and
+	/// for V4, whose fingerprints deliberately carry no candidate hash.
 	pub candidate_hash: Option<CandidateHash>,
-	/// Hash of the parent head data (V2/V3).
+	/// Hash of the parent head data (V2/V3, and the V4 tip fingerprint).
 	pub parent_head_hash: Option<Hash>,
+	/// Output head hash of the claimed parachain block — the claim identity of a V4
+	/// fingerprint (tip summarized). `None` for V1/V2/V3.
+	pub output_head_hash: Option<Hash>,
 }
 
 /// Coarse-grained kind of an outbound collation wire message.
@@ -142,6 +159,8 @@ pub enum ReqKind {
 	CollationFetchingV1,
 	/// `CollationFetchingRequest` v2 (with candidate hash).
 	CollationFetchingV2,
+	/// `CollationFetchingRequest` v3 (no candidate hash, with output head data hash)
+	CollationFetchingV3,
 }
 
 /// Coarse-grained kind of an outbound response.
@@ -174,11 +193,13 @@ impl Effect {
 		)
 	}
 
-	/// Returns `Some(request_id)` if this is a `SendRequest`. Useful for chaining
-	/// `Sim::expect(...)` with `Sim::respond_fetch(request_id, payload)`.
+	/// Returns `Some(request_id)` if this is a `SendRequest` or `SendRequestV3`. Useful for
+	/// chaining `Sim::expect(...)` with `Sim::respond_fetch(request_id, payload)`.
 	pub fn request_id(&self) -> Option<RequestId> {
 		match self {
-			Effect::SendRequest { request_id, .. } => Some(*request_id),
+			Effect::SendRequest { request_id, .. } | Effect::SendRequestV3 { request_id, .. } => {
+				Some(*request_id)
+			},
 			_ => None,
 		}
 	}

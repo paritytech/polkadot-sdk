@@ -39,7 +39,7 @@ use sc_service::{
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-use std::{iter, net::Ipv4Addr, pin::Pin, sync::Arc, task::Context, time::Duration};
+use std::{iter, net::Ipv4Addr, pin::Pin, sync::Arc, task::Context, thread, time::Duration};
 use tempfile::TempDir;
 use tokio::{runtime::Runtime, time};
 
@@ -72,7 +72,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	type Backend: Backend<Self::Block>;
 	type Executor: CallExecutor<Self::Block> + Send + Sync;
 	type RuntimeApi: Send + Sync;
-	type TransactionPool: TransactionPool<Block = Self::Block>;
+	type TransactionPool: TransactionPool<Block = Self::Block> + ?Sized;
 
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>>;
 	fn transaction_pool(&self) -> Arc<Self::TransactionPool>;
@@ -81,7 +81,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	fn spawn_handle(&self) -> SpawnTaskHandle;
 }
 
-pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
+pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> {
 	task_manager: Arc<Mutex<TaskManager>>,
 	client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 	transaction_pool: Arc<TExPool>,
@@ -89,7 +89,7 @@ pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
 	sync: Arc<SyncingService<TBl>>,
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized>
 	TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	pub fn new(
@@ -109,7 +109,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Clone
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	fn clone(&self) -> Self {
@@ -123,7 +123,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Future
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Future
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	type Output = Result<(), Error>;
@@ -140,7 +140,7 @@ where
 	TBackend: sc_client_api::Backend<TBl> + Send + Sync + 'static,
 	TExec: CallExecutor<TBl> + Send + Sync + 'static,
 	TRtApi: Send + Sync + 'static,
-	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static,
+	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static + ?Sized,
 {
 	type Block = TBl;
 	type Backend = TBackend;
@@ -364,6 +364,30 @@ fn tempdir_with_prefix(prefix: &str) -> TempDir {
 		.expect("Error creating test dir")
 }
 
+/// Removes `temp`'s directory, retrying on failure.
+///
+/// A node's storage backend (e.g. RocksDB) runs background compaction/WAL threads outside the
+/// tokio runtime, so they can still hold file handles open for a beat after `TestNet`'s `Drop`
+/// (which tears down the runtime) has already returned. Retrying absorbs that race instead of
+/// failing the test on it.
+fn close_tempdir_retrying(temp: TempDir) {
+	const MAX_ATTEMPTS: u32 = 10;
+	const RETRY_DELAY: Duration = Duration::from_millis(200);
+
+	for attempt in 1..=MAX_ATTEMPTS {
+		match std::fs::remove_dir_all(temp.path()) {
+			Ok(()) => return,
+			Err(err) if attempt < MAX_ATTEMPTS => {
+				debug!(
+					"Removing temp dir failed (attempt {attempt}/{MAX_ATTEMPTS}), retrying: {err}"
+				);
+				thread::sleep(RETRY_DELAY);
+			},
+			Err(err) => panic!("Error removing temp dir after {MAX_ATTEMPTS} attempts: {err}"),
+		}
+	}
+}
+
 pub fn connectivity<E, Fb, F>(spec: GenericChainSpec<E>, full_builder: Fb)
 where
 	E: ChainSpecExtension + Clone + 'static + Send + Sync,
@@ -402,7 +426,7 @@ where
 			});
 		};
 
-		temp.close().expect("Error removing temp dir");
+		close_tempdir_retrying(temp);
 	}
 	{
 		let temp = tempdir_with_prefix("substrate-connectivity-test");
@@ -436,7 +460,7 @@ where
 				connected == expected_full_connections
 			});
 		}
-		temp.close().expect("Error removing temp dir");
+		close_tempdir_retrying(temp);
 	}
 }
 

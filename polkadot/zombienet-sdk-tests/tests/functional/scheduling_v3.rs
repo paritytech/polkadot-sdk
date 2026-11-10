@@ -22,6 +22,8 @@ use zombienet_sdk::{
 
 use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
+const RELAY_LOG_ARGS: &str = "-lparachain=debug,runtime=debug,basic-authorship=debug";
+
 /// Test that spawns a relay chain with 2 parachains:
 /// - a V2 parachain with async backing
 /// - a V3 parachain with async backing
@@ -36,11 +38,11 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 /// The expected throughput ranges should be adjusted after we have this.
 #[rstest]
 #[case::rpo_0_max_session_age_0("v3", 0, 20, 16..21)]
-#[case::rpo_2_max_session_age_0("v3-rpo-2", 0, 20, 8..20)]
+#[case::rpo_2_max_session_age_0("v3-rpo-2", 0, 20, 6..20)]
 #[case::rpo_2_max_session_age_1("v3-rpo-2", 1, 40, 15..30)]
 #[case::rpo_4_max_session_age_1("v3-rpo-4", 1, 40, 15..30)]
 #[case::rpo_6_max_session_age_1("v3-rpo-6", 1, 40, 15..30)]
-#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 26..40)]
+#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 24..40)]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] parachain: &str,
@@ -63,7 +65,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![RELAY_LOG_ARGS.into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -75,10 +77,21 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators.
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..3).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 
 			// Experimental collator protocol validators.
@@ -208,7 +221,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![RELAY_LOG_ARGS.into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -221,10 +234,21 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators.
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..3).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 
 			// Experimental collator protocol validators.

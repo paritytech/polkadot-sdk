@@ -74,6 +74,8 @@ pub use signed::{EncodeAs, Signed, UncheckedSigned};
 pub mod async_backing;
 pub mod executor_params;
 pub mod slashing;
+pub mod speculative;
+pub use speculative::{CommitmentError, RequiresSet, StreamsRoot, MAX_COMMITMENT_ENTRIES};
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
@@ -1872,7 +1874,7 @@ pub enum CandidateDescriptorVersion {
 	/// An unknown/not yet supported version.
 	///
 	/// Such a candidate must be dropped by the runtime and rejected by backers.
-	Unknown,
+	Unknown(u8),
 }
 
 /// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
@@ -2083,7 +2085,7 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2106,7 +2108,7 @@ impl<H> CandidateDescriptorV2<H> {
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
 			1 => CandidateDescriptorVersion::V3,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2215,7 +2217,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V1 => self.relay_parent,
 			CandidateDescriptorVersion::V2 => self.relay_parent,
 			CandidateDescriptorVersion::V3 => self.scheduling_parent,
-			CandidateDescriptorVersion::Unknown => self.relay_parent,
+			CandidateDescriptorVersion::Unknown(_) => self.relay_parent,
 		}
 	}
 
@@ -2232,7 +2234,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2291,7 +2293,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2303,7 +2305,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		v3_ever_seen: bool,
 	) -> Option<SessionIndex> {
 		match self.version_for_candidate_validation(v3_ever_seen) {
-			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => None,
 			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 				Some(self.session_index)
 			},
@@ -2355,8 +2357,8 @@ where
 				.field("para_head", &self.para_head)
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
-			CandidateDescriptorVersion::Unknown => {
-				write!(f, "CandidateDescriptorV2(unknown version={})", self.version)
+			CandidateDescriptorVersion::Unknown(raw_version) => {
+				write!(f, "CandidateDescriptorV2(unknown version={})", raw_version)
 			},
 		}
 	}
@@ -2716,6 +2718,18 @@ pub enum UMPSignal {
 	SelectCore(CoreSelector, ClaimQueueOffset),
 	/// A message sent by a parachain to promote the reputation of a given peerid.
 	ApprovedPeer(ApprovedPeerId),
+	/// A message sent by a parachain carrying this candidate's outgoing stream commitment root
+	/// (`Provides(StreamsRoot)`). The relay chain records these into its provides window.
+	Provides(StreamsRoot),
+	/// A message sent by a parachain carrying this candidate's expected incoming per-source
+	/// stream commitment roots (`Requires(RequiresSet)`). The relay chain matches these against
+	/// the provides window of the corresponding source parachains.
+	Requires(RequiresSet),
+}
+
+impl UMPSignal {
+	/// Number of signal variants.
+	const COUNT: usize = 4;
 }
 
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
@@ -2732,6 +2746,8 @@ pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 pub struct CandidateUMPSignals {
 	pub(super) select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 	pub(super) approved_peer: Option<ApprovedPeerId>,
+	pub(super) provides: Option<StreamsRoot>,
+	pub(super) requires: Option<RequiresSet>,
 }
 
 impl CandidateUMPSignals {
@@ -2745,9 +2761,22 @@ impl CandidateUMPSignals {
 		self.approved_peer.as_ref()
 	}
 
+	/// Get a reference to the speculative-messaging `provides` UMP signal.
+	pub fn provides(&self) -> Option<&StreamsRoot> {
+		self.provides.as_ref()
+	}
+
+	/// Get a reference to the speculative-messaging `requires` UMP signal.
+	pub fn requires(&self) -> Option<&RequiresSet> {
+		self.requires.as_ref()
+	}
+
 	/// Returns `true` if UMP signals are empty.
 	pub fn is_empty(&self) -> bool {
-		self.select_core.is_none() && self.approved_peer.is_none()
+		self.select_core.is_none() &&
+			self.approved_peer.is_none() &&
+			self.provides.is_none() &&
+			self.requires.is_none()
 	}
 
 	fn try_decode_signal(
@@ -2762,6 +2791,12 @@ impl CandidateUMPSignals {
 			},
 			UMPSignal::SelectCore(core_selector, cq_offset) if self.select_core.is_none() => {
 				self.select_core = Some((core_selector, cq_offset));
+			},
+			UMPSignal::Provides(provides) if self.provides.is_none() => {
+				self.provides = Some(provides);
+			},
+			UMPSignal::Requires(requires) if self.requires.is_none() => {
+				self.requires = Some(requires);
 			},
 			_ => {
 				// This means that we got duplicate UMP signals.
@@ -2778,12 +2813,16 @@ impl CandidateUMPSignals {
 		select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 		approved_peer: Option<ApprovedPeerId>,
 	) -> Self {
-		Self { select_core, approved_peer }
+		Self { select_core, approved_peer, provides: None, requires: None }
 	}
 }
 
 /// Separator between `XCM` and `UMPSignal`.
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
+
+/// The maximum number of `UMPSignal` messages a candidate may carry — one per
+/// [`UMPSignal`] variant.
+pub const MAX_UMP_SIGNALS: usize = UMPSignal::COUNT;
 
 /// Utility function for skipping the ump signals.
 pub fn skip_ump_signals<'a>(
@@ -2806,15 +2845,15 @@ impl CandidateCommitments {
 			return Ok(res);
 		}
 
-		// Process first signal
-		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut first_signal.as_slice())?;
+		// At most one signal of each `UMPSignal` variant is allowed; `try_decode_signal`
+		// rejects duplicates. Bound the loop by the number of variants so a malformed
+		// candidate cannot force unbounded work.
+		for _ in 0..MAX_UMP_SIGNALS {
+			let Some(signal) = signals_iter.next() else { return Ok(res) };
+			res.try_decode_signal(&mut signal.as_slice())?;
+		}
 
-		// Process second signal
-		let Some(second_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut second_signal.as_slice())?;
-
-		// At most two signals are allowed
+		// No more signals than there are distinct variants are allowed.
 		if signals_iter.next().is_some() {
 			return Err(CommittedCandidateReceiptError::TooManyUMPSignals);
 		}
@@ -2899,97 +2938,118 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
-		let signals = self.commitments.ump_signals()?;
-
-		match self.descriptor.version() {
-			CandidateDescriptorVersion::V1 => {
-				// If the parachain runtime started sending ump signals, v1 descriptors are no
-				// longer allowed.
-				if !signals.is_empty() {
-					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
-				} else {
-					// Nothing else to check for v1 descriptors.
-					return Ok(CandidateUMPSignals::default());
-				}
-			},
-			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown => {
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
-			},
-			_ if signals.is_empty() => {
-				// V3 and above require UMP signals.
-				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
-			},
-			_ => {},
-		}
-
-		// Check the core index
-		let (maybe_core_index_selector, cq_offset) = signals
-			.core_selector()
-			.map(|(selector, offset)| (Some(selector), offset))
-			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
-
-		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
-
-		// Nothing to further check for the approved peer. If everything passed so far, return the
-		// signals.
-		Ok(signals)
+		parse_ump_signals_for_commitments(
+			&self.commitments,
+			self.descriptor.version(),
+			cores_per_para,
+			self.descriptor.para_id(),
+			CoreIndex(self.descriptor.core_index as u32),
+		)
 	}
+}
 
-	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
-	/// a mapping between `ParaId` and the cores assigned per depth.
-	fn check_core_index(
-		&self,
-		cores_per_para: &TransposedClaimQueue,
-		maybe_core_index_selector: Option<CoreSelector>,
-		cq_offset: ClaimQueueOffset,
-	) -> Result<(), CommittedCandidateReceiptError> {
-		let assigned_cores = cores_per_para
-			.get(&self.descriptor.para_id())
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?
-			.get(&cq_offset.0)
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+/// Performs the UMP-signal checks and returns the signals.
+///
+/// The check is on the commitments: it needs the claim queue plus the three descriptor
+/// fields the core-index check consumes, and nothing else from a receipt.
+/// [`CommittedCandidateReceiptV2::parse_ump_signals`] is the convenience wrapper for
+/// callers that already hold a receipt.
+pub fn parse_ump_signals_for_commitments(
+	commitments: &CandidateCommitments,
+	version: CandidateDescriptorVersion,
+	cores_per_para: &TransposedClaimQueue,
+	para_id: Id,
+	core_index: CoreIndex,
+) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+	let signals = commitments.ump_signals()?;
 
-		if assigned_cores.is_empty() {
-			return Err(CommittedCandidateReceiptError::NoAssignment);
-		}
-
-		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-
-		let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
-			// We have a committed core selector, we can use it.
-			core_index_selector
-		} else if assigned_cores.len() > 1 {
-			// We got more than one assigned core and no core selector. Special care is needed.
-			if !assigned_cores.contains(&descriptor_core_index) {
-				// core index in the descriptor is not assigned to the para. Error.
-				return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
-			} else {
-				// the descriptor core index is indeed assigned to the para. This is the most we can
-				// check for now
-				return Ok(());
+	match version {
+		CandidateDescriptorVersion::V1 => {
+			// If the parachain runtime started sending ump signals, v1 descriptors are no
+			// longer allowed.
+			if !signals.is_empty() {
+				return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
 			}
-		} else {
-			// No core selector but there's only one assigned core, use it.
-			CoreSelector(0)
-		};
 
-		let core_index = assigned_cores
-			.iter()
-			.nth(core_index_selector.0 as usize % assigned_cores.len())
-			.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
-			.copied()?;
-
-		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
-				descriptor: descriptor_core_index,
-				commitments: core_index,
-			});
-		}
-
-		Ok(())
+			// Nothing else to check for v1 descriptors.
+			return Ok(CandidateUMPSignals::default());
+		},
+		CandidateDescriptorVersion::V2 => {},
+		CandidateDescriptorVersion::Unknown(version_raw) => {
+			return Err(CommittedCandidateReceiptError::UnknownVersion(version_raw))
+		},
+		_ if signals.is_empty() => {
+			// V3 and above require UMP signals.
+			return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
+		},
+		_ => {},
 	}
+
+	// Check the core index
+	let (maybe_core_index_selector, cq_offset) = signals
+		.core_selector()
+		.map(|(selector, offset)| (Some(selector), offset))
+		.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
+
+	check_core_index(cores_per_para, maybe_core_index_selector, cq_offset, para_id, core_index)?;
+
+	// Nothing to further check for the approved peer. If everything passed so far, return the
+	// signals.
+	Ok(signals)
+}
+
+/// Checks if descriptor core index is equal to the committed core index.
+/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+/// a mapping between `ParaId` and the cores assigned per depth.
+fn check_core_index(
+	cores_per_para: &TransposedClaimQueue,
+	maybe_core_index_selector: Option<CoreSelector>,
+	cq_offset: ClaimQueueOffset,
+	para_id: Id,
+	descriptor_core_index: CoreIndex,
+) -> Result<(), CommittedCandidateReceiptError> {
+	let assigned_cores = cores_per_para
+		.get(&para_id)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?
+		.get(&cq_offset.0)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+
+	if assigned_cores.is_empty() {
+		return Err(CommittedCandidateReceiptError::NoAssignment);
+	}
+
+	let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
+		// We have a committed core selector, we can use it.
+		core_index_selector
+	} else if assigned_cores.len() > 1 {
+		// We got more than one assigned core and no core selector. Special care is needed.
+		if !assigned_cores.contains(&descriptor_core_index) {
+			// core index in the descriptor is not assigned to the para. Error.
+			return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
+		} else {
+			// the descriptor core index is indeed assigned to the para. This is the most we can
+			// check for now
+			return Ok(());
+		}
+	} else {
+		// No core selector but there's only one assigned core, use it.
+		CoreSelector(0)
+	};
+
+	let core_index = assigned_cores
+		.iter()
+		.nth(core_index_selector.0 as usize % assigned_cores.len())
+		.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
+		.copied()?;
+
+	if core_index != descriptor_core_index {
+		return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+			descriptor: descriptor_core_index,
+			commitments: core_index,
+		});
+	}
+
+	Ok(())
 }
 
 /// A backed (or backable, depending on context) candidate.
@@ -3293,6 +3353,130 @@ pub mod tests {
 
 		assert_eq!(info.next_rotation_at(), 20);
 		assert_eq!(info.last_rotation_at(), 15);
+	}
+
+	#[test]
+	fn ump_signals_extracts_provides_and_requires_roots() {
+		let provides = StreamsRoot(Hash::repeat_byte(1));
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::Provides(provides).encode(),
+			UMPSignal::Requires(requires.clone()).encode(),
+		];
+
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		let signals = commitments.ump_signals().expect("valid signals");
+		assert_eq!(signals.provides(), Some(&provides));
+		assert_eq!(signals.requires(), Some(&requires));
+	}
+
+	#[test]
+	fn ump_signals_accept_any_order() {
+		let provides = StreamsRoot(Hash::repeat_byte(1));
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::Requires(requires.clone()).encode(),
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+			UMPSignal::Provides(provides).encode(),
+			UMPSignal::ApprovedPeer(Default::default()).encode(),
+		];
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		let signals = commitments.ump_signals().expect("one of each, in any order");
+		assert_eq!(signals.provides(), Some(&provides));
+		assert_eq!(signals.requires(), Some(&requires));
+		assert_eq!(signals.core_selector(), Some((CoreSelector(1), ClaimQueueOffset(0))));
+	}
+
+	#[test]
+	fn ump_signals_reject_a_repeated_spec_msg_signal() {
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+		let provides = |b| UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(b))).encode();
+		for repeated in [
+			alloc::vec![provides(1), provides(1)],
+			alloc::vec![provides(1), provides(2)],
+			alloc::vec![
+				UMPSignal::Requires(requires.clone()).encode(),
+				provides(1),
+				UMPSignal::Requires(requires.clone()).encode(),
+			],
+		] {
+			let mut upward_messages = alloc::vec![UMP_SEPARATOR];
+			upward_messages.extend(repeated);
+			let commitments = CandidateCommitments {
+				upward_messages: upward_messages.try_into().unwrap(),
+				..Default::default()
+			};
+			assert_eq!(
+				commitments.ump_signals(),
+				Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+			);
+		}
+	}
+
+	#[test]
+	fn ump_signal_count_and_indices_are_pinned() {
+		let requires = RequiresSet::try_from_iter([(Id::from(1u32), Default::default())]).unwrap();
+		let all = [
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)),
+			UMPSignal::ApprovedPeer(Default::default()),
+			UMPSignal::Provides(Default::default()),
+			UMPSignal::Requires(requires),
+		];
+		for (index, signal) in all.iter().enumerate() {
+			// Exhaustive, so a new variant fails to compile until it is listed in `all`.
+			match signal {
+				UMPSignal::SelectCore(..) |
+				UMPSignal::ApprovedPeer(..) |
+				UMPSignal::Provides(..) |
+				UMPSignal::Requires(..) => {},
+			}
+			assert_eq!(signal.encode()[0] as usize, index);
+		}
+		assert_eq!(UMPSignal::COUNT, all.len());
+	}
+
+	#[test]
+	fn ump_signals_rejects_more_than_max_signals() {
+		// One of every variant (== `MAX_UMP_SIGNALS`) plus one extra is rejected.
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+			UMPSignal::ApprovedPeer(Default::default()).encode(),
+			UMPSignal::Provides(Default::default()).encode(),
+			UMPSignal::Requires(
+				RequiresSet::try_from_iter([(Id::from(3u32), StreamsRoot(Hash::repeat_byte(3)))])
+					.unwrap(),
+			)
+			.encode(),
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode(),
+		];
+
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		assert_eq!(
+			commitments.ump_signals(),
+			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+		);
 	}
 
 	#[test]

@@ -1,0 +1,15 @@
+title: 'cumulus: refactor slot based builder loop'
+doc:
+- audience: Node Dev
+  description: |
+    Splits the slot-based collator's block-builder loop into per-slot phases
+    (`prepare_slot`/`plan_cores` on a `BuilderEnv`), extracts small helpers,
+    and fixes one edge case: when the parent search ran with V3 scheduling
+    params but the context re-derived to V2 at the build parent, the included
+    head is now re-fetched at the relay parent instead of reusing a stale
+    snapshot.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: minor
