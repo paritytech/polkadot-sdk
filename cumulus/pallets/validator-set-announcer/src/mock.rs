@@ -49,7 +49,8 @@ impl frame_support::traits::ValidatorRegistration<u64> for AllRegistered {
 parameter_types! {
 	pub const Period: u64 = 10;
 	pub const Offset: u64 = 0;
-	pub const DefaultMaxCollators: Option<u32> = None;
+	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
+		pallet_validator_collators::CollatorDraw::All;
 }
 
 impl pallet_validator_collators::Config for Test {
