@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794312042013,
+  "lastUpdate": 1794314854678,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf",
-          "message": "Fix flaky zombienet test `zombienet-cumulus-0022-block_bundling_three_cores_glutton` (#11852)\n\nChange runner type to large.\nclose #11825",
-          "timestamp": "2026-04-24T08:01:36Z",
-          "tree_id": "16c5e9957971c2442b26c5d3e6416bc1b7752288",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf"
-        },
-        "date": 1777023449204,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14547491035333343,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009626688453333324,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.0241842253,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0072805681866666685,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009955226506666642,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bartlomiej@parity.io",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "41af275b1791b7547bb2827ddc3fe0490e60c057",
+          "message": "Implement handling on-demand coretime revenue (#13359)\n\n# Description\n\nSecond step towards completion of #12715 , closes #13177\n\nThis implements on-demand revenue claiming logic. The revenue used to be\nclaimed by `pallet-broker` sending an XCM to the Relay Chain asking for\non-demand revenue, which would then be teleported to the Coretime chain.\nNow that the order placing and payment logic lives on the Coretime chain\nas well, this is no longer necessary: the broker can just ask the\n`pallet-on-demand-para` directly, and the revenue is then transferred\nfrom the on-demand pot to the broker pot.\n\nThe PR also wires `pallet-on-demand-para` into the coretime-westend\nruntime and adds an emulated e2e test for the new pallet's\nfunctionality.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:39:47Z",
+          "tree_id": "d5b1b8f6a05c981cef340987aaaa93eae7cba051",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41af275b1791b7547bb2827ddc3fe0490e60c057"
+        },
+        "date": 1794314821890,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007895327013333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025460473546666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1467909881466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009895640753333322,
             "unit": "seconds"
           }
         ]
