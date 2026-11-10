@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794249144167,
+  "lastUpdate": 1794294237314,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "355926b3b4a7cc3fc37a48676bec59ee78a1221f",
-          "message": "[zombienet] fix flaky test `zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate` (#11834)\n\nuse a bigger rc block count.\n\nclose #11826",
-          "timestamp": "2026-04-22T09:28:11Z",
-          "tree_id": "3d251e88d069720dd9c55af9a9ae341b672ae863",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/355926b3b4a7cc3fc37a48676bec59ee78a1221f"
-        },
-        "date": 1776855454069,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.42,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.387289276812913,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.800819227309999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8781033291700013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7514608375499512,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.59627157822995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002112361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002112361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.843151276719999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002347575,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00566344083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8385713163800004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.47850215027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002347575,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.00001942863,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23105e867a35e26ed070920510214dc90f6ea3e3",
+          "message": "pallet-revive: fix receipt capture docs (#13688)\n\nTwo statements in the pallet-revive receipt capture docs were\ninaccurate. Documentation only, no behavior change.\n\nWhere a contract log ends up:\n- Before: decided by the entry point; `Revive::call` and an XCM\n`Transact` leave it substrate-only.\n- Now: decided by whether an ethereum transaction's receipt is open when\nthe log is emitted.\n- A `Revive::call` dispatched by `eth_substrate_call`, directly, through\na batch or through an XCM `Transact`, puts its logs on the receipt.\n\nWhat a receipt overflow fails:\n- Before: the emitting frame or transaction always fails.\n- Now: the overflow flag lives in the current storage layer and rolls\nback with it.\n- If that layer rolls back while the frame or transaction around it\ncontinues, nothing outside the layer fails. Example: a mirrored log from\na call that then fails inside `Utility::batch` or an XCM `Transact`.",
+          "timestamp": "2026-11-10T05:29:14Z",
+          "tree_id": "025dcf36ed160dfa5c148705a9261db88feb41c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23105e867a35e26ed070920510214dc90f6ea3e3"
+        },
+        "date": 1794294203256,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63561.05000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023012120000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020498209999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023012120000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005308728099999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.75140587116,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.15195709855,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76680066701,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020498209999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7279508716200014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8657821756600134,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5581366150427804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7093220137099983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.325386771289987,
             "unit": "seconds"
           }
         ]
