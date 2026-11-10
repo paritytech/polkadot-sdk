@@ -597,10 +597,9 @@ impl<T: Config> Ext<T> for ReservingExt {
 				//
 				// A refund is only recorded for a contract whose info was loaded during the call
 				// stack. That info is only removed by termination, and the charges of a
-				// terminated contract are never paid out. The info of a delegated EOA is written
-				// when its authorization is processed, before execution starts. The info
-				// therefore exists here. Should it be missing anyway, refund nothing: without it
-				// the base deposit is unknown.
+				// terminated contract are never paid out. The info therefore exists here.
+				// Should it be missing anyway, refund nothing: without it the base deposit is
+				// unknown.
 				let held = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, contract);
 				let refundable =
 					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
