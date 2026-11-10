@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794249040926,
+  "lastUpdate": 1794294135478,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "194c871e67eebfd8faa167ecd6ba770186e54313",
-          "message": "pallet-revive: reserve on_finalize per-tx weight for eth extrinsics (#11858)\n\n### Summary\nEth extrinsics using `with_ethereum_context` add per transaction work to\n`on_finalize` (closing out the Ethereum block). That cost should be\nreserved at dispatch via `on_finalize_block_per_tx`.\n\nThis PR adds the reservation to `eth_substrate_call` and\n`eth_instantiate_with_code`, matching `eth_call`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T17:24:42Z",
-          "tree_id": "2cb21ab35be903652d94b7cbaa943f3c8eb32510",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/194c871e67eebfd8faa167ecd6ba770186e54313"
-        },
-        "date": 1776969871584,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12988019416666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.016364060366666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12127781876666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23105e867a35e26ed070920510214dc90f6ea3e3",
+          "message": "pallet-revive: fix receipt capture docs (#13688)\n\nTwo statements in the pallet-revive receipt capture docs were\ninaccurate. Documentation only, no behavior change.\n\nWhere a contract log ends up:\n- Before: decided by the entry point; `Revive::call` and an XCM\n`Transact` leave it substrate-only.\n- Now: decided by whether an ethereum transaction's receipt is open when\nthe log is emitted.\n- A `Revive::call` dispatched by `eth_substrate_call`, directly, through\na batch or through an XCM `Transact`, puts its logs on the receipt.\n\nWhat a receipt overflow fails:\n- Before: the emitting frame or transaction always fails.\n- Now: the overflow flag lives in the current storage layer and rolls\nback with it.\n- If that layer rolls back while the frame or transaction around it\ncontinues, nothing outside the layer fails. Example: a mirrored log from\na call that then fails inside `Utility::batch` or an XCM `Transact`.",
+          "timestamp": "2026-11-10T05:29:14Z",
+          "tree_id": "025dcf36ed160dfa5c148705a9261db88feb41c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23105e867a35e26ed070920510214dc90f6ea3e3"
+        },
+        "date": 1794294100782,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12323136596666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.865398840366666,
             "unit": "seconds"
           }
         ]
