@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794294339533,
+  "lastUpdate": 1794302187481,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1eea8c142f2ed5db6a8a281e35e1bf6b32f48988",
-          "message": "Remove DDayBodyId from Westend relay chain (#11843)\n\nPost-AHM cleanup following #11796. The DDay plurality origin in\n`AuthorizeCurrentCodeOrigin` is no longer needed since governance lives\non AssetHub. Simplified to `EnsureRoot`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T18:36:59Z",
-          "tree_id": "40d254189b4c2b4208538cd037f86d25a672bd55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1eea8c142f2ed5db6a8a281e35e1bf6b32f48988"
-        },
-        "date": 1776802309475,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009149899010000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00923474714999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026583335500000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010128918809999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f91ecc274e751e727256ebca4e4a09802bf4880e",
+          "message": "Make the collator protocol revamp the default implementation (on Polkadot) (#13736)\n\nCurrently if a node binary is executed with a Kusama chainspec the\ncollator protocol revamp is the default validator side collator protocol\nimplementation. This PR takes this further by making the revamp the\ndefault implementation no matter what the chainspec is (polkadot\nincluded).\n\nThe `--experimental-collator-protocol` flag is kept so that we can run\nthe legacy implementation if needed (with\n`--experimental-collator-protocol=false`).\n\nBefore this change the CI was executing some tests with both collator\nprotocol implementations. To keep this behaviour, this PR\nadds`--experimental-collator-protocol=false` where necessary. The change\nis here:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/f02224d7863fae256f4675cc0825bfb009fcfb75/polkadot/zombienet-sdk-tests/tests/utils.rs#L58\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T07:39:56Z",
+          "tree_id": "4e631771489e81f62609c2294bf3f1ecac99d7cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f91ecc274e751e727256ebca4e4a09802bf4880e"
+        },
+        "date": 1794302152564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008781857999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025394474100000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009236798749999988,
             "unit": "seconds"
           }
         ]
