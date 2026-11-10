@@ -859,286 +859,283 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#709 id=709 data-nosnippet>709</a>						<span class="comment">// Make curator fee payment.
 <a href=#710 id=710 data-nosnippet>710</a>						</span><span class="kw">let </span>child_bounty_account =
 <a href=#711 id=711 data-nosnippet>711</a>							<span class="self">Self</span>::child_bounty_account_id(parent_bounty_id, child_bounty_id);
-<a href=#712 id=712 data-nosnippet>712</a>						<span class="kw">let </span>balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>child_bounty_account);
-<a href=#713 id=713 data-nosnippet>713</a>						<span class="kw">let </span>curator_fee = child_bounty.fee.min(balance);
-<a href=#714 id=714 data-nosnippet>714</a>						<span class="kw">let </span>payout = balance.saturating_sub(curator_fee);
-<a href=#715 id=715 data-nosnippet>715</a>
-<a href=#716 id=716 data-nosnippet>716</a>						<span class="comment">// Unreserve the curator deposit. Should not fail
-<a href=#717 id=717 data-nosnippet>717</a>						// because the deposit is always reserved when curator is
-<a href=#718 id=718 data-nosnippet>718</a>						// assigned.
-<a href=#719 id=719 data-nosnippet>719</a>						</span><span class="kw">let _ </span>= T::Currency::unreserve(curator, child_bounty.curator_deposit);
-<a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a>						<span class="comment">// Make payout to child-bounty curator.
-<a href=#722 id=722 data-nosnippet>722</a>						// Should not fail because curator fee is always less than bounty value.
-<a href=#723 id=723 data-nosnippet>723</a>						</span><span class="kw">let </span>fee_transfer_result = T::Currency::transfer(
+<a href=#712 id=712 data-nosnippet>712</a>						<span class="kw">let </span>balance =
+<a href=#713 id=713 data-nosnippet>713</a>							pallet_bounties::Pallet::&lt;T&gt;::spendable_balance(<span class="kw-2">&amp;</span>child_bounty_account);
+<a href=#714 id=714 data-nosnippet>714</a>						<span class="kw">let </span>curator_fee = child_bounty.fee.min(balance);
+<a href=#715 id=715 data-nosnippet>715</a>						<span class="kw">let </span>payout = balance.saturating_sub(curator_fee);
+<a href=#716 id=716 data-nosnippet>716</a>
+<a href=#717 id=717 data-nosnippet>717</a>						<span class="comment">// Unreserve the curator deposit. Should not fail
+<a href=#718 id=718 data-nosnippet>718</a>						// because the deposit is always reserved when curator is
+<a href=#719 id=719 data-nosnippet>719</a>						// assigned.
+<a href=#720 id=720 data-nosnippet>720</a>						</span><span class="kw">let _ </span>= T::Currency::unreserve(curator, child_bounty.curator_deposit);
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>						<span class="comment">// Make payout to child-bounty curator.
+<a href=#723 id=723 data-nosnippet>723</a>						</span>T::Currency::transfer(
 <a href=#724 id=724 data-nosnippet>724</a>							<span class="kw-2">&amp;</span>child_bounty_account,
 <a href=#725 id=725 data-nosnippet>725</a>							curator,
 <a href=#726 id=726 data-nosnippet>726</a>							curator_fee,
 <a href=#727 id=727 data-nosnippet>727</a>							AllowDeath,
-<a href=#728 id=728 data-nosnippet>728</a>						);
-<a href=#729 id=729 data-nosnippet>729</a>						<span class="macro">debug_assert!</span>(fee_transfer_result.is_ok());
-<a href=#730 id=730 data-nosnippet>730</a>
-<a href=#731 id=731 data-nosnippet>731</a>						<span class="comment">// Make payout to beneficiary.
-<a href=#732 id=732 data-nosnippet>732</a>						// Should not fail.
-<a href=#733 id=733 data-nosnippet>733</a>						</span><span class="kw">let </span>payout_transfer_result = T::Currency::transfer(
-<a href=#734 id=734 data-nosnippet>734</a>							<span class="kw-2">&amp;</span>child_bounty_account,
-<a href=#735 id=735 data-nosnippet>735</a>							beneficiary,
-<a href=#736 id=736 data-nosnippet>736</a>							payout,
-<a href=#737 id=737 data-nosnippet>737</a>							AllowDeath,
-<a href=#738 id=738 data-nosnippet>738</a>						);
-<a href=#739 id=739 data-nosnippet>739</a>						<span class="macro">debug_assert!</span>(payout_transfer_result.is_ok());
-<a href=#740 id=740 data-nosnippet>740</a>
-<a href=#741 id=741 data-nosnippet>741</a>						<span class="comment">// Trigger the Claimed event.
-<a href=#742 id=742 data-nosnippet>742</a>						</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Claimed {
-<a href=#743 id=743 data-nosnippet>743</a>							index: parent_bounty_id,
-<a href=#744 id=744 data-nosnippet>744</a>							child_index: child_bounty_id,
-<a href=#745 id=745 data-nosnippet>745</a>							payout,
-<a href=#746 id=746 data-nosnippet>746</a>							beneficiary: beneficiary.clone(),
-<a href=#747 id=747 data-nosnippet>747</a>						});
-<a href=#748 id=748 data-nosnippet>748</a>
-<a href=#749 id=749 data-nosnippet>749</a>						<span class="comment">// Update the active child-bounty tracking count.
-<a href=#750 id=750 data-nosnippet>750</a>						</span>ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
-<a href=#751 id=751 data-nosnippet>751</a>							count.saturating_dec()
-<a href=#752 id=752 data-nosnippet>752</a>						});
+<a href=#728 id=728 data-nosnippet>728</a>						)<span class="question-mark">?</span>;
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>						<span class="comment">// Make payout to beneficiary.
+<a href=#731 id=731 data-nosnippet>731</a>						</span>T::Currency::transfer(
+<a href=#732 id=732 data-nosnippet>732</a>							<span class="kw-2">&amp;</span>child_bounty_account,
+<a href=#733 id=733 data-nosnippet>733</a>							beneficiary,
+<a href=#734 id=734 data-nosnippet>734</a>							payout,
+<a href=#735 id=735 data-nosnippet>735</a>							AllowDeath,
+<a href=#736 id=736 data-nosnippet>736</a>						)<span class="question-mark">?</span>;
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>						<span class="comment">// Trigger the Claimed event.
+<a href=#739 id=739 data-nosnippet>739</a>						</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Claimed {
+<a href=#740 id=740 data-nosnippet>740</a>							index: parent_bounty_id,
+<a href=#741 id=741 data-nosnippet>741</a>							child_index: child_bounty_id,
+<a href=#742 id=742 data-nosnippet>742</a>							payout,
+<a href=#743 id=743 data-nosnippet>743</a>							beneficiary: beneficiary.clone(),
+<a href=#744 id=744 data-nosnippet>744</a>						});
+<a href=#745 id=745 data-nosnippet>745</a>
+<a href=#746 id=746 data-nosnippet>746</a>						<span class="comment">// Update the active child-bounty tracking count.
+<a href=#747 id=747 data-nosnippet>747</a>						</span>ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
+<a href=#748 id=748 data-nosnippet>748</a>							count.saturating_dec()
+<a href=#749 id=749 data-nosnippet>749</a>						});
+<a href=#750 id=750 data-nosnippet>750</a>
+<a href=#751 id=751 data-nosnippet>751</a>						<span class="comment">// Remove the child-bounty description.
+<a href=#752 id=752 data-nosnippet>752</a>						</span>ChildBountyDescriptionsV1::&lt;T&gt;::remove(parent_bounty_id, child_bounty_id);
 <a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a>						<span class="comment">// Remove the child-bounty description.
-<a href=#755 id=755 data-nosnippet>755</a>						</span>ChildBountyDescriptionsV1::&lt;T&gt;::remove(parent_bounty_id, child_bounty_id);
+<a href=#754 id=754 data-nosnippet>754</a>						<span class="comment">// Remove the child-bounty instance from the state.
+<a href=#755 id=755 data-nosnippet>755</a>						</span><span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
 <a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>						<span class="comment">// Remove the child-bounty instance from the state.
-<a href=#758 id=758 data-nosnippet>758</a>						</span><span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
-<a href=#759 id=759 data-nosnippet>759</a>
-<a href=#760 id=760 data-nosnippet>760</a>						<span class="prelude-val">Ok</span>(())
-<a href=#761 id=761 data-nosnippet>761</a>					} <span class="kw">else </span>{
-<a href=#762 id=762 data-nosnippet>762</a>						<span class="prelude-val">Err</span>(BountiesError::&lt;T&gt;::UnexpectedStatus.into())
-<a href=#763 id=763 data-nosnippet>763</a>					}
-<a href=#764 id=764 data-nosnippet>764</a>				},
-<a href=#765 id=765 data-nosnippet>765</a>			)
-<a href=#766 id=766 data-nosnippet>766</a>		}
-<a href=#767 id=767 data-nosnippet>767</a>
-<a href=#768 id=768 data-nosnippet>768</a>		<span class="doccomment">/// Cancel a proposed or active child-bounty. Child-bounty account funds
-<a href=#769 id=769 data-nosnippet>769</a>		/// are transferred to parent bounty account. The child-bounty curator
-<a href=#770 id=770 data-nosnippet>770</a>		/// deposit may be unreserved if possible.
+<a href=#757 id=757 data-nosnippet>757</a>						<span class="prelude-val">Ok</span>(())
+<a href=#758 id=758 data-nosnippet>758</a>					} <span class="kw">else </span>{
+<a href=#759 id=759 data-nosnippet>759</a>						<span class="prelude-val">Err</span>(BountiesError::&lt;T&gt;::UnexpectedStatus.into())
+<a href=#760 id=760 data-nosnippet>760</a>					}
+<a href=#761 id=761 data-nosnippet>761</a>				},
+<a href=#762 id=762 data-nosnippet>762</a>			)
+<a href=#763 id=763 data-nosnippet>763</a>		}
+<a href=#764 id=764 data-nosnippet>764</a>
+<a href=#765 id=765 data-nosnippet>765</a>		<span class="doccomment">/// Cancel a proposed or active child-bounty. Child-bounty account funds
+<a href=#766 id=766 data-nosnippet>766</a>		/// are transferred to parent bounty account. The child-bounty curator
+<a href=#767 id=767 data-nosnippet>767</a>		/// deposit may be unreserved if possible.
+<a href=#768 id=768 data-nosnippet>768</a>		///
+<a href=#769 id=769 data-nosnippet>769</a>		/// The dispatch origin for this call must be either parent curator or
+<a href=#770 id=770 data-nosnippet>770</a>		/// `T::RejectOrigin`.
 <a href=#771 id=771 data-nosnippet>771</a>		///
-<a href=#772 id=772 data-nosnippet>772</a>		/// The dispatch origin for this call must be either parent curator or
-<a href=#773 id=773 data-nosnippet>773</a>		/// `T::RejectOrigin`.
+<a href=#772 id=772 data-nosnippet>772</a>		/// If the state of child-bounty is `Active`, curator deposit is
+<a href=#773 id=773 data-nosnippet>773</a>		/// unreserved.
 <a href=#774 id=774 data-nosnippet>774</a>		///
-<a href=#775 id=775 data-nosnippet>775</a>		/// If the state of child-bounty is `Active`, curator deposit is
-<a href=#776 id=776 data-nosnippet>776</a>		/// unreserved.
+<a href=#775 id=775 data-nosnippet>775</a>		/// If the state of child-bounty is `PendingPayout`, call fails &amp;
+<a href=#776 id=776 data-nosnippet>776</a>		/// returns `PendingPayout` error.
 <a href=#777 id=777 data-nosnippet>777</a>		///
-<a href=#778 id=778 data-nosnippet>778</a>		/// If the state of child-bounty is `PendingPayout`, call fails &amp;
-<a href=#779 id=779 data-nosnippet>779</a>		/// returns `PendingPayout` error.
-<a href=#780 id=780 data-nosnippet>780</a>		///
-<a href=#781 id=781 data-nosnippet>781</a>		/// For the origin other than T::RejectOrigin, parent bounty must be in
-<a href=#782 id=782 data-nosnippet>782</a>		/// active state, for this child-bounty call to work. For origin
-<a href=#783 id=783 data-nosnippet>783</a>		/// T::RejectOrigin execution is forced.
+<a href=#778 id=778 data-nosnippet>778</a>		/// For the origin other than T::RejectOrigin, parent bounty must be in
+<a href=#779 id=779 data-nosnippet>779</a>		/// active state, for this child-bounty call to work. For origin
+<a href=#780 id=780 data-nosnippet>780</a>		/// T::RejectOrigin execution is forced.
+<a href=#781 id=781 data-nosnippet>781</a>		///
+<a href=#782 id=782 data-nosnippet>782</a>		/// Instance of child-bounty is removed from the state on successful
+<a href=#783 id=783 data-nosnippet>783</a>		/// call completion.
 <a href=#784 id=784 data-nosnippet>784</a>		///
-<a href=#785 id=785 data-nosnippet>785</a>		/// Instance of child-bounty is removed from the state on successful
-<a href=#786 id=786 data-nosnippet>786</a>		/// call completion.
-<a href=#787 id=787 data-nosnippet>787</a>		///
-<a href=#788 id=788 data-nosnippet>788</a>		/// - `parent_bounty_id`: Index of parent bounty.
-<a href=#789 id=789 data-nosnippet>789</a>		/// - `child_bounty_id`: Index of child bounty.
-<a href=#790 id=790 data-nosnippet>790</a>		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
-<a href=#791 id=791 data-nosnippet>791</a>		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::close_child_bounty_added()
-<a href=#792 id=792 data-nosnippet>792</a>			.max(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::close_child_bounty_active()))]
-<a href=#793 id=793 data-nosnippet>793</a>		</span><span class="kw">pub fn </span>close_child_bounty(
-<a href=#794 id=794 data-nosnippet>794</a>			origin: OriginFor&lt;T&gt;,
-<a href=#795 id=795 data-nosnippet>795</a>			<span class="attr">#[pallet::compact] </span>parent_bounty_id: BountyIndex,
-<a href=#796 id=796 data-nosnippet>796</a>			<span class="attr">#[pallet::compact] </span>child_bounty_id: BountyIndex,
-<a href=#797 id=797 data-nosnippet>797</a>		) -&gt; DispatchResult {
-<a href=#798 id=798 data-nosnippet>798</a>			<span class="kw">let </span>maybe_sender = ensure_signed(origin.clone())
-<a href=#799 id=799 data-nosnippet>799</a>				.map(<span class="prelude-val">Some</span>)
-<a href=#800 id=800 data-nosnippet>800</a>				.or_else(|<span class="kw">_</span>| T::RejectOrigin::ensure_origin(origin).map(|<span class="kw">_</span>| <span class="prelude-val">None</span>))<span class="question-mark">?</span>;
+<a href=#785 id=785 data-nosnippet>785</a>		/// - `parent_bounty_id`: Index of parent bounty.
+<a href=#786 id=786 data-nosnippet>786</a>		/// - `child_bounty_id`: Index of child bounty.
+<a href=#787 id=787 data-nosnippet>787</a>		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
+<a href=#788 id=788 data-nosnippet>788</a>		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::close_child_bounty_added()
+<a href=#789 id=789 data-nosnippet>789</a>			.max(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::close_child_bounty_active()))]
+<a href=#790 id=790 data-nosnippet>790</a>		</span><span class="kw">pub fn </span>close_child_bounty(
+<a href=#791 id=791 data-nosnippet>791</a>			origin: OriginFor&lt;T&gt;,
+<a href=#792 id=792 data-nosnippet>792</a>			<span class="attr">#[pallet::compact] </span>parent_bounty_id: BountyIndex,
+<a href=#793 id=793 data-nosnippet>793</a>			<span class="attr">#[pallet::compact] </span>child_bounty_id: BountyIndex,
+<a href=#794 id=794 data-nosnippet>794</a>		) -&gt; DispatchResult {
+<a href=#795 id=795 data-nosnippet>795</a>			<span class="kw">let </span>maybe_sender = ensure_signed(origin.clone())
+<a href=#796 id=796 data-nosnippet>796</a>				.map(<span class="prelude-val">Some</span>)
+<a href=#797 id=797 data-nosnippet>797</a>				.or_else(|<span class="kw">_</span>| T::RejectOrigin::ensure_origin(origin).map(|<span class="kw">_</span>| <span class="prelude-val">None</span>))<span class="question-mark">?</span>;
+<a href=#798 id=798 data-nosnippet>798</a>
+<a href=#799 id=799 data-nosnippet>799</a>			<span class="comment">// Ensure parent bounty exist, get parent curator.
+<a href=#800 id=800 data-nosnippet>800</a>			</span><span class="kw">let </span>(parent_curator, <span class="kw">_</span>) = <span class="self">Self</span>::ensure_bounty_active(parent_bounty_id)<span class="question-mark">?</span>;
 <a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>			<span class="comment">// Ensure parent bounty exist, get parent curator.
-<a href=#803 id=803 data-nosnippet>803</a>			</span><span class="kw">let </span>(parent_curator, <span class="kw">_</span>) = <span class="self">Self</span>::ensure_bounty_active(parent_bounty_id)<span class="question-mark">?</span>;
-<a href=#804 id=804 data-nosnippet>804</a>
-<a href=#805 id=805 data-nosnippet>805</a>			<span class="macro">ensure!</span>(maybe_sender.map_or(<span class="bool-val">true</span>, |sender| parent_curator == sender), BadOrigin);
-<a href=#806 id=806 data-nosnippet>806</a>
-<a href=#807 id=807 data-nosnippet>807</a>			<span class="self">Self</span>::impl_close_child_bounty(parent_bounty_id, child_bounty_id)<span class="question-mark">?</span>;
-<a href=#808 id=808 data-nosnippet>808</a>			<span class="prelude-val">Ok</span>(())
-<a href=#809 id=809 data-nosnippet>809</a>		}
-<a href=#810 id=810 data-nosnippet>810</a>	}
-<a href=#811 id=811 data-nosnippet>811</a>
-<a href=#812 id=812 data-nosnippet>812</a>	<span class="attr">#[pallet::hooks]
-<a href=#813 id=813 data-nosnippet>813</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;SystemBlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#814 id=814 data-nosnippet>814</a>		<span class="kw">fn </span>integrity_test() {
-<a href=#815 id=815 data-nosnippet>815</a>			<span class="kw">let </span>parent_bounty_id: BountyIndex = <span class="number">1</span>;
-<a href=#816 id=816 data-nosnippet>816</a>			<span class="kw">let </span>child_bounty_id: BountyIndex = <span class="number">2</span>;
-<a href=#817 id=817 data-nosnippet>817</a>			<span class="kw">let _</span>: T::AccountId = T::PalletId::get()
-<a href=#818 id=818 data-nosnippet>818</a>				.try_into_sub_account((<span class="string">"cb"</span>, parent_bounty_id, child_bounty_id))
-<a href=#819 id=819 data-nosnippet>819</a>				.expect(
-<a href=#820 id=820 data-nosnippet>820</a>					<span class="string">"The `AccountId` type must be large enough to fit the child bounty account ID."</span>,
-<a href=#821 id=821 data-nosnippet>821</a>				);
-<a href=#822 id=822 data-nosnippet>822</a>		}
-<a href=#823 id=823 data-nosnippet>823</a>	}
-<a href=#824 id=824 data-nosnippet>824</a>}
-<a href=#825 id=825 data-nosnippet>825</a>
-<a href=#826 id=826 data-nosnippet>826</a><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#827 id=827 data-nosnippet>827</a>	<span class="doccomment">/// Get the block number used in the treasury pallet.
-<a href=#828 id=828 data-nosnippet>828</a>	///
-<a href=#829 id=829 data-nosnippet>829</a>	/// It may be configured to use the relay chain block number on a parachain.
-<a href=#830 id=830 data-nosnippet>830</a>	</span><span class="kw">pub fn </span>treasury_block_number() -&gt; BlockNumberFor&lt;T&gt; {
-<a href=#831 id=831 data-nosnippet>831</a>		&lt;T <span class="kw">as </span>pallet_treasury::Config&gt;::BlockNumberProvider::current_block_number()
-<a href=#832 id=832 data-nosnippet>832</a>	}
-<a href=#833 id=833 data-nosnippet>833</a>
-<a href=#834 id=834 data-nosnippet>834</a>	<span class="comment">// This function will calculate the deposit of a curator.
-<a href=#835 id=835 data-nosnippet>835</a>	</span><span class="kw">fn </span>calculate_curator_deposit(
-<a href=#836 id=836 data-nosnippet>836</a>		parent_curator: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#837 id=837 data-nosnippet>837</a>		child_curator: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#838 id=838 data-nosnippet>838</a>		bounty_fee: <span class="kw-2">&amp;</span>BalanceOf&lt;T&gt;,
-<a href=#839 id=839 data-nosnippet>839</a>	) -&gt; BalanceOf&lt;T&gt; {
-<a href=#840 id=840 data-nosnippet>840</a>		<span class="kw">if </span>parent_curator == child_curator {
-<a href=#841 id=841 data-nosnippet>841</a>			<span class="kw">return </span>Zero::zero();
-<a href=#842 id=842 data-nosnippet>842</a>		}
-<a href=#843 id=843 data-nosnippet>843</a>
-<a href=#844 id=844 data-nosnippet>844</a>		<span class="comment">// We just use the same logic from the parent bounties pallet.
-<a href=#845 id=845 data-nosnippet>845</a>		</span>pallet_bounties::Pallet::&lt;T&gt;::calculate_curator_deposit(bounty_fee)
-<a href=#846 id=846 data-nosnippet>846</a>	}
-<a href=#847 id=847 data-nosnippet>847</a>
-<a href=#848 id=848 data-nosnippet>848</a>	<span class="doccomment">/// The account ID of a child-bounty account.
-<a href=#849 id=849 data-nosnippet>849</a>	</span><span class="kw">pub fn </span>child_bounty_account_id(
-<a href=#850 id=850 data-nosnippet>850</a>		parent_bounty_id: BountyIndex,
-<a href=#851 id=851 data-nosnippet>851</a>		child_bounty_id: BountyIndex,
-<a href=#852 id=852 data-nosnippet>852</a>	) -&gt; T::AccountId {
-<a href=#853 id=853 data-nosnippet>853</a>		<span class="comment">// This function is taken from the parent (bounties) pallet, but the
-<a href=#854 id=854 data-nosnippet>854</a>		// prefix is changed to have different AccountId when the index of
-<a href=#855 id=855 data-nosnippet>855</a>		// parent and child is same.
-<a href=#856 id=856 data-nosnippet>856</a>		</span>T::PalletId::get().into_sub_account_truncating((<span class="string">"cb"</span>, parent_bounty_id, child_bounty_id))
-<a href=#857 id=857 data-nosnippet>857</a>	}
-<a href=#858 id=858 data-nosnippet>858</a>
-<a href=#859 id=859 data-nosnippet>859</a>	<span class="kw">fn </span>create_child_bounty(
-<a href=#860 id=860 data-nosnippet>860</a>		parent_bounty_id: BountyIndex,
-<a href=#861 id=861 data-nosnippet>861</a>		child_bounty_id: BountyIndex,
-<a href=#862 id=862 data-nosnippet>862</a>		child_bounty_value: BalanceOf&lt;T&gt;,
-<a href=#863 id=863 data-nosnippet>863</a>		description: BoundedVec&lt;u8, T::MaximumReasonLength&gt;,
-<a href=#864 id=864 data-nosnippet>864</a>	) {
-<a href=#865 id=865 data-nosnippet>865</a>		<span class="kw">let </span>child_bounty = ChildBounty {
-<a href=#866 id=866 data-nosnippet>866</a>			parent_bounty: parent_bounty_id,
-<a href=#867 id=867 data-nosnippet>867</a>			value: child_bounty_value,
-<a href=#868 id=868 data-nosnippet>868</a>			fee: <span class="number">0u32</span>.into(),
-<a href=#869 id=869 data-nosnippet>869</a>			curator_deposit: <span class="number">0u32</span>.into(),
-<a href=#870 id=870 data-nosnippet>870</a>			status: ChildBountyStatus::Added,
-<a href=#871 id=871 data-nosnippet>871</a>		};
-<a href=#872 id=872 data-nosnippet>872</a>		ChildBounties::&lt;T&gt;::insert(parent_bounty_id, child_bounty_id, <span class="kw-2">&amp;</span>child_bounty);
-<a href=#873 id=873 data-nosnippet>873</a>		ChildBountyDescriptionsV1::&lt;T&gt;::insert(parent_bounty_id, child_bounty_id, description);
-<a href=#874 id=874 data-nosnippet>874</a>		<span class="self">Self</span>::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
-<a href=#875 id=875 data-nosnippet>875</a>	}
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>	<span class="kw">fn </span>ensure_bounty_active(
-<a href=#878 id=878 data-nosnippet>878</a>		bounty_id: BountyIndex,
-<a href=#879 id=879 data-nosnippet>879</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, BlockNumberFor&lt;T&gt;), DispatchError&gt; {
-<a href=#880 id=880 data-nosnippet>880</a>		<span class="kw">let </span>parent_bounty = pallet_bounties::Bounties::&lt;T&gt;::get(bounty_id)
-<a href=#881 id=881 data-nosnippet>881</a>			.ok_or(BountiesError::&lt;T&gt;::InvalidIndex)<span class="question-mark">?</span>;
-<a href=#882 id=882 data-nosnippet>882</a>		<span class="kw">if let </span>BountyStatus::Active { curator, update_due } = parent_bounty.get_status() {
-<a href=#883 id=883 data-nosnippet>883</a>			<span class="prelude-val">Ok</span>((curator, update_due))
-<a href=#884 id=884 data-nosnippet>884</a>		} <span class="kw">else </span>{
-<a href=#885 id=885 data-nosnippet>885</a>			<span class="prelude-val">Err</span>(Error::&lt;T&gt;::ParentBountyNotActive.into())
-<a href=#886 id=886 data-nosnippet>886</a>		}
-<a href=#887 id=887 data-nosnippet>887</a>	}
-<a href=#888 id=888 data-nosnippet>888</a>
-<a href=#889 id=889 data-nosnippet>889</a>	<span class="kw">fn </span>impl_close_child_bounty(
-<a href=#890 id=890 data-nosnippet>890</a>		parent_bounty_id: BountyIndex,
-<a href=#891 id=891 data-nosnippet>891</a>		child_bounty_id: BountyIndex,
-<a href=#892 id=892 data-nosnippet>892</a>	) -&gt; DispatchResult {
-<a href=#893 id=893 data-nosnippet>893</a>		ChildBounties::&lt;T&gt;::try_mutate_exists(
-<a href=#894 id=894 data-nosnippet>894</a>			parent_bounty_id,
-<a href=#895 id=895 data-nosnippet>895</a>			child_bounty_id,
-<a href=#896 id=896 data-nosnippet>896</a>			|maybe_child_bounty| -&gt; DispatchResult {
-<a href=#897 id=897 data-nosnippet>897</a>				<span class="kw">let </span>child_bounty =
-<a href=#898 id=898 data-nosnippet>898</a>					maybe_child_bounty.as_mut().ok_or(BountiesError::&lt;T&gt;::InvalidIndex)<span class="question-mark">?</span>;
-<a href=#899 id=899 data-nosnippet>899</a>
-<a href=#900 id=900 data-nosnippet>900</a>				<span class="kw">match </span><span class="kw-2">&amp;</span>child_bounty.status {
-<a href=#901 id=901 data-nosnippet>901</a>					ChildBountyStatus::Added | ChildBountyStatus::CuratorProposed { .. } =&gt; {
-<a href=#902 id=902 data-nosnippet>902</a>						<span class="comment">// Nothing extra to do besides the removal of the child-bounty below.
-<a href=#903 id=903 data-nosnippet>903</a>					</span>},
-<a href=#904 id=904 data-nosnippet>904</a>					ChildBountyStatus::Active { curator } =&gt; {
-<a href=#905 id=905 data-nosnippet>905</a>						<span class="comment">// Cancelled by parent curator or RejectOrigin,
-<a href=#906 id=906 data-nosnippet>906</a>						// refund deposit of the working child-bounty curator.
-<a href=#907 id=907 data-nosnippet>907</a>						</span><span class="kw">let _ </span>= T::Currency::unreserve(curator, child_bounty.curator_deposit);
-<a href=#908 id=908 data-nosnippet>908</a>						<span class="comment">// Then execute removal of the child-bounty below.
-<a href=#909 id=909 data-nosnippet>909</a>					</span>},
-<a href=#910 id=910 data-nosnippet>910</a>					ChildBountyStatus::PendingPayout { .. } =&gt; {
-<a href=#911 id=911 data-nosnippet>911</a>						<span class="comment">// Child-bounty is already in pending payout. If parent
-<a href=#912 id=912 data-nosnippet>912</a>						// curator or RejectOrigin wants to close this
-<a href=#913 id=913 data-nosnippet>913</a>						// child-bounty, it should mean the child-bounty curator
-<a href=#914 id=914 data-nosnippet>914</a>						// was acting maliciously. So first unassign the
-<a href=#915 id=915 data-nosnippet>915</a>						// child-bounty curator, slashing their deposit.
-<a href=#916 id=916 data-nosnippet>916</a>						</span><span class="kw">return </span><span class="prelude-val">Err</span>(BountiesError::&lt;T&gt;::PendingPayout.into());
-<a href=#917 id=917 data-nosnippet>917</a>					},
-<a href=#918 id=918 data-nosnippet>918</a>				}
-<a href=#919 id=919 data-nosnippet>919</a>
-<a href=#920 id=920 data-nosnippet>920</a>				<span class="comment">// Revert the curator fee back to parent bounty curator &amp;
-<a href=#921 id=921 data-nosnippet>921</a>				// reduce the active child-bounty count.
-<a href=#922 id=922 data-nosnippet>922</a>				</span>ChildrenCuratorFees::&lt;T&gt;::mutate(parent_bounty_id, |value| {
-<a href=#923 id=923 data-nosnippet>923</a>					<span class="kw-2">*</span>value = value.saturating_sub(child_bounty.fee)
+<a href=#802 id=802 data-nosnippet>802</a>			<span class="macro">ensure!</span>(maybe_sender.map_or(<span class="bool-val">true</span>, |sender| parent_curator == sender), BadOrigin);
+<a href=#803 id=803 data-nosnippet>803</a>
+<a href=#804 id=804 data-nosnippet>804</a>			<span class="self">Self</span>::impl_close_child_bounty(parent_bounty_id, child_bounty_id)<span class="question-mark">?</span>;
+<a href=#805 id=805 data-nosnippet>805</a>			<span class="prelude-val">Ok</span>(())
+<a href=#806 id=806 data-nosnippet>806</a>		}
+<a href=#807 id=807 data-nosnippet>807</a>	}
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a>	<span class="attr">#[pallet::hooks]
+<a href=#810 id=810 data-nosnippet>810</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;SystemBlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#811 id=811 data-nosnippet>811</a>		<span class="kw">fn </span>integrity_test() {
+<a href=#812 id=812 data-nosnippet>812</a>			<span class="kw">let </span>parent_bounty_id: BountyIndex = <span class="number">1</span>;
+<a href=#813 id=813 data-nosnippet>813</a>			<span class="kw">let </span>child_bounty_id: BountyIndex = <span class="number">2</span>;
+<a href=#814 id=814 data-nosnippet>814</a>			<span class="kw">let _</span>: T::AccountId = T::PalletId::get()
+<a href=#815 id=815 data-nosnippet>815</a>				.try_into_sub_account((<span class="string">"cb"</span>, parent_bounty_id, child_bounty_id))
+<a href=#816 id=816 data-nosnippet>816</a>				.expect(
+<a href=#817 id=817 data-nosnippet>817</a>					<span class="string">"The `AccountId` type must be large enough to fit the child bounty account ID."</span>,
+<a href=#818 id=818 data-nosnippet>818</a>				);
+<a href=#819 id=819 data-nosnippet>819</a>		}
+<a href=#820 id=820 data-nosnippet>820</a>	}
+<a href=#821 id=821 data-nosnippet>821</a>}
+<a href=#822 id=822 data-nosnippet>822</a>
+<a href=#823 id=823 data-nosnippet>823</a><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#824 id=824 data-nosnippet>824</a>	<span class="doccomment">/// Get the block number used in the treasury pallet.
+<a href=#825 id=825 data-nosnippet>825</a>	///
+<a href=#826 id=826 data-nosnippet>826</a>	/// It may be configured to use the relay chain block number on a parachain.
+<a href=#827 id=827 data-nosnippet>827</a>	</span><span class="kw">pub fn </span>treasury_block_number() -&gt; BlockNumberFor&lt;T&gt; {
+<a href=#828 id=828 data-nosnippet>828</a>		&lt;T <span class="kw">as </span>pallet_treasury::Config&gt;::BlockNumberProvider::current_block_number()
+<a href=#829 id=829 data-nosnippet>829</a>	}
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>	<span class="comment">// This function will calculate the deposit of a curator.
+<a href=#832 id=832 data-nosnippet>832</a>	</span><span class="kw">fn </span>calculate_curator_deposit(
+<a href=#833 id=833 data-nosnippet>833</a>		parent_curator: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#834 id=834 data-nosnippet>834</a>		child_curator: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#835 id=835 data-nosnippet>835</a>		bounty_fee: <span class="kw-2">&amp;</span>BalanceOf&lt;T&gt;,
+<a href=#836 id=836 data-nosnippet>836</a>	) -&gt; BalanceOf&lt;T&gt; {
+<a href=#837 id=837 data-nosnippet>837</a>		<span class="kw">if </span>parent_curator == child_curator {
+<a href=#838 id=838 data-nosnippet>838</a>			<span class="kw">return </span>Zero::zero();
+<a href=#839 id=839 data-nosnippet>839</a>		}
+<a href=#840 id=840 data-nosnippet>840</a>
+<a href=#841 id=841 data-nosnippet>841</a>		<span class="comment">// We just use the same logic from the parent bounties pallet.
+<a href=#842 id=842 data-nosnippet>842</a>		</span>pallet_bounties::Pallet::&lt;T&gt;::calculate_curator_deposit(bounty_fee)
+<a href=#843 id=843 data-nosnippet>843</a>	}
+<a href=#844 id=844 data-nosnippet>844</a>
+<a href=#845 id=845 data-nosnippet>845</a>	<span class="doccomment">/// The account ID of a child-bounty account.
+<a href=#846 id=846 data-nosnippet>846</a>	</span><span class="kw">pub fn </span>child_bounty_account_id(
+<a href=#847 id=847 data-nosnippet>847</a>		parent_bounty_id: BountyIndex,
+<a href=#848 id=848 data-nosnippet>848</a>		child_bounty_id: BountyIndex,
+<a href=#849 id=849 data-nosnippet>849</a>	) -&gt; T::AccountId {
+<a href=#850 id=850 data-nosnippet>850</a>		<span class="comment">// This function is taken from the parent (bounties) pallet, but the
+<a href=#851 id=851 data-nosnippet>851</a>		// prefix is changed to have different AccountId when the index of
+<a href=#852 id=852 data-nosnippet>852</a>		// parent and child is same.
+<a href=#853 id=853 data-nosnippet>853</a>		</span>T::PalletId::get().into_sub_account_truncating((<span class="string">"cb"</span>, parent_bounty_id, child_bounty_id))
+<a href=#854 id=854 data-nosnippet>854</a>	}
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>	<span class="kw">fn </span>create_child_bounty(
+<a href=#857 id=857 data-nosnippet>857</a>		parent_bounty_id: BountyIndex,
+<a href=#858 id=858 data-nosnippet>858</a>		child_bounty_id: BountyIndex,
+<a href=#859 id=859 data-nosnippet>859</a>		child_bounty_value: BalanceOf&lt;T&gt;,
+<a href=#860 id=860 data-nosnippet>860</a>		description: BoundedVec&lt;u8, T::MaximumReasonLength&gt;,
+<a href=#861 id=861 data-nosnippet>861</a>	) {
+<a href=#862 id=862 data-nosnippet>862</a>		<span class="kw">let </span>child_bounty = ChildBounty {
+<a href=#863 id=863 data-nosnippet>863</a>			parent_bounty: parent_bounty_id,
+<a href=#864 id=864 data-nosnippet>864</a>			value: child_bounty_value,
+<a href=#865 id=865 data-nosnippet>865</a>			fee: <span class="number">0u32</span>.into(),
+<a href=#866 id=866 data-nosnippet>866</a>			curator_deposit: <span class="number">0u32</span>.into(),
+<a href=#867 id=867 data-nosnippet>867</a>			status: ChildBountyStatus::Added,
+<a href=#868 id=868 data-nosnippet>868</a>		};
+<a href=#869 id=869 data-nosnippet>869</a>		ChildBounties::&lt;T&gt;::insert(parent_bounty_id, child_bounty_id, <span class="kw-2">&amp;</span>child_bounty);
+<a href=#870 id=870 data-nosnippet>870</a>		ChildBountyDescriptionsV1::&lt;T&gt;::insert(parent_bounty_id, child_bounty_id, description);
+<a href=#871 id=871 data-nosnippet>871</a>		<span class="self">Self</span>::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
+<a href=#872 id=872 data-nosnippet>872</a>	}
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>	<span class="kw">fn </span>ensure_bounty_active(
+<a href=#875 id=875 data-nosnippet>875</a>		bounty_id: BountyIndex,
+<a href=#876 id=876 data-nosnippet>876</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, BlockNumberFor&lt;T&gt;), DispatchError&gt; {
+<a href=#877 id=877 data-nosnippet>877</a>		<span class="kw">let </span>parent_bounty = pallet_bounties::Bounties::&lt;T&gt;::get(bounty_id)
+<a href=#878 id=878 data-nosnippet>878</a>			.ok_or(BountiesError::&lt;T&gt;::InvalidIndex)<span class="question-mark">?</span>;
+<a href=#879 id=879 data-nosnippet>879</a>		<span class="kw">if let </span>BountyStatus::Active { curator, update_due } = parent_bounty.get_status() {
+<a href=#880 id=880 data-nosnippet>880</a>			<span class="prelude-val">Ok</span>((curator, update_due))
+<a href=#881 id=881 data-nosnippet>881</a>		} <span class="kw">else </span>{
+<a href=#882 id=882 data-nosnippet>882</a>			<span class="prelude-val">Err</span>(Error::&lt;T&gt;::ParentBountyNotActive.into())
+<a href=#883 id=883 data-nosnippet>883</a>		}
+<a href=#884 id=884 data-nosnippet>884</a>	}
+<a href=#885 id=885 data-nosnippet>885</a>
+<a href=#886 id=886 data-nosnippet>886</a>	<span class="kw">fn </span>impl_close_child_bounty(
+<a href=#887 id=887 data-nosnippet>887</a>		parent_bounty_id: BountyIndex,
+<a href=#888 id=888 data-nosnippet>888</a>		child_bounty_id: BountyIndex,
+<a href=#889 id=889 data-nosnippet>889</a>	) -&gt; DispatchResult {
+<a href=#890 id=890 data-nosnippet>890</a>		ChildBounties::&lt;T&gt;::try_mutate_exists(
+<a href=#891 id=891 data-nosnippet>891</a>			parent_bounty_id,
+<a href=#892 id=892 data-nosnippet>892</a>			child_bounty_id,
+<a href=#893 id=893 data-nosnippet>893</a>			|maybe_child_bounty| -&gt; DispatchResult {
+<a href=#894 id=894 data-nosnippet>894</a>				<span class="kw">let </span>child_bounty =
+<a href=#895 id=895 data-nosnippet>895</a>					maybe_child_bounty.as_mut().ok_or(BountiesError::&lt;T&gt;::InvalidIndex)<span class="question-mark">?</span>;
+<a href=#896 id=896 data-nosnippet>896</a>
+<a href=#897 id=897 data-nosnippet>897</a>				<span class="kw">match </span><span class="kw-2">&amp;</span>child_bounty.status {
+<a href=#898 id=898 data-nosnippet>898</a>					ChildBountyStatus::Added | ChildBountyStatus::CuratorProposed { .. } =&gt; {
+<a href=#899 id=899 data-nosnippet>899</a>						<span class="comment">// Nothing extra to do besides the removal of the child-bounty below.
+<a href=#900 id=900 data-nosnippet>900</a>					</span>},
+<a href=#901 id=901 data-nosnippet>901</a>					ChildBountyStatus::Active { curator } =&gt; {
+<a href=#902 id=902 data-nosnippet>902</a>						<span class="comment">// Cancelled by parent curator or RejectOrigin,
+<a href=#903 id=903 data-nosnippet>903</a>						// refund deposit of the working child-bounty curator.
+<a href=#904 id=904 data-nosnippet>904</a>						</span><span class="kw">let _ </span>= T::Currency::unreserve(curator, child_bounty.curator_deposit);
+<a href=#905 id=905 data-nosnippet>905</a>						<span class="comment">// Then execute removal of the child-bounty below.
+<a href=#906 id=906 data-nosnippet>906</a>					</span>},
+<a href=#907 id=907 data-nosnippet>907</a>					ChildBountyStatus::PendingPayout { .. } =&gt; {
+<a href=#908 id=908 data-nosnippet>908</a>						<span class="comment">// Child-bounty is already in pending payout. If parent
+<a href=#909 id=909 data-nosnippet>909</a>						// curator or RejectOrigin wants to close this
+<a href=#910 id=910 data-nosnippet>910</a>						// child-bounty, it should mean the child-bounty curator
+<a href=#911 id=911 data-nosnippet>911</a>						// was acting maliciously. So first unassign the
+<a href=#912 id=912 data-nosnippet>912</a>						// child-bounty curator, slashing their deposit.
+<a href=#913 id=913 data-nosnippet>913</a>						</span><span class="kw">return </span><span class="prelude-val">Err</span>(BountiesError::&lt;T&gt;::PendingPayout.into());
+<a href=#914 id=914 data-nosnippet>914</a>					},
+<a href=#915 id=915 data-nosnippet>915</a>				}
+<a href=#916 id=916 data-nosnippet>916</a>
+<a href=#917 id=917 data-nosnippet>917</a>				<span class="comment">// Revert the curator fee back to parent bounty curator &amp;
+<a href=#918 id=918 data-nosnippet>918</a>				// reduce the active child-bounty count.
+<a href=#919 id=919 data-nosnippet>919</a>				</span>ChildrenCuratorFees::&lt;T&gt;::mutate(parent_bounty_id, |value| {
+<a href=#920 id=920 data-nosnippet>920</a>					<span class="kw-2">*</span>value = value.saturating_sub(child_bounty.fee)
+<a href=#921 id=921 data-nosnippet>921</a>				});
+<a href=#922 id=922 data-nosnippet>922</a>				ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
+<a href=#923 id=923 data-nosnippet>923</a>					<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>)
 <a href=#924 id=924 data-nosnippet>924</a>				});
-<a href=#925 id=925 data-nosnippet>925</a>				ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
-<a href=#926 id=926 data-nosnippet>926</a>					<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>)
-<a href=#927 id=927 data-nosnippet>927</a>				});
-<a href=#928 id=928 data-nosnippet>928</a>
-<a href=#929 id=929 data-nosnippet>929</a>				<span class="comment">// Transfer fund from child-bounty to parent bounty.
-<a href=#930 id=930 data-nosnippet>930</a>				</span><span class="kw">let </span>parent_bounty_account =
-<a href=#931 id=931 data-nosnippet>931</a>					pallet_bounties::Pallet::&lt;T&gt;::bounty_account_id(parent_bounty_id);
-<a href=#932 id=932 data-nosnippet>932</a>				<span class="kw">let </span>child_bounty_account =
-<a href=#933 id=933 data-nosnippet>933</a>					<span class="self">Self</span>::child_bounty_account_id(parent_bounty_id, child_bounty_id);
-<a href=#934 id=934 data-nosnippet>934</a>				<span class="kw">let </span>balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>child_bounty_account);
-<a href=#935 id=935 data-nosnippet>935</a>				<span class="kw">let </span>transfer_result = T::Currency::transfer(
-<a href=#936 id=936 data-nosnippet>936</a>					<span class="kw-2">&amp;</span>child_bounty_account,
-<a href=#937 id=937 data-nosnippet>937</a>					<span class="kw-2">&amp;</span>parent_bounty_account,
-<a href=#938 id=938 data-nosnippet>938</a>					balance,
-<a href=#939 id=939 data-nosnippet>939</a>					AllowDeath,
-<a href=#940 id=940 data-nosnippet>940</a>				); <span class="comment">// Should not fail; child bounty account gets this balance during creation.
-<a href=#941 id=941 data-nosnippet>941</a>				</span><span class="macro">debug_assert!</span>(transfer_result.is_ok());
+<a href=#925 id=925 data-nosnippet>925</a>
+<a href=#926 id=926 data-nosnippet>926</a>				<span class="comment">// Transfer fund from child-bounty to parent bounty.
+<a href=#927 id=927 data-nosnippet>927</a>				</span><span class="kw">let </span>parent_bounty_account =
+<a href=#928 id=928 data-nosnippet>928</a>					pallet_bounties::Pallet::&lt;T&gt;::bounty_account_id(parent_bounty_id);
+<a href=#929 id=929 data-nosnippet>929</a>				<span class="kw">let </span>child_bounty_account =
+<a href=#930 id=930 data-nosnippet>930</a>					<span class="self">Self</span>::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+<a href=#931 id=931 data-nosnippet>931</a>				<span class="kw">let </span>balance =
+<a href=#932 id=932 data-nosnippet>932</a>					pallet_bounties::Pallet::&lt;T&gt;::spendable_balance(<span class="kw-2">&amp;</span>child_bounty_account);
+<a href=#933 id=933 data-nosnippet>933</a>				T::Currency::transfer(
+<a href=#934 id=934 data-nosnippet>934</a>					<span class="kw-2">&amp;</span>child_bounty_account,
+<a href=#935 id=935 data-nosnippet>935</a>					<span class="kw-2">&amp;</span>parent_bounty_account,
+<a href=#936 id=936 data-nosnippet>936</a>					balance,
+<a href=#937 id=937 data-nosnippet>937</a>					AllowDeath,
+<a href=#938 id=938 data-nosnippet>938</a>				)<span class="question-mark">?</span>;
+<a href=#939 id=939 data-nosnippet>939</a>
+<a href=#940 id=940 data-nosnippet>940</a>				<span class="comment">// Remove the child-bounty description.
+<a href=#941 id=941 data-nosnippet>941</a>				</span>ChildBountyDescriptionsV1::&lt;T&gt;::remove(parent_bounty_id, child_bounty_id);
 <a href=#942 id=942 data-nosnippet>942</a>
-<a href=#943 id=943 data-nosnippet>943</a>				<span class="comment">// Remove the child-bounty description.
-<a href=#944 id=944 data-nosnippet>944</a>				</span>ChildBountyDescriptionsV1::&lt;T&gt;::remove(parent_bounty_id, child_bounty_id);
-<a href=#945 id=945 data-nosnippet>945</a>
-<a href=#946 id=946 data-nosnippet>946</a>				<span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
-<a href=#947 id=947 data-nosnippet>947</a>
-<a href=#948 id=948 data-nosnippet>948</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Canceled {
-<a href=#949 id=949 data-nosnippet>949</a>					index: parent_bounty_id,
-<a href=#950 id=950 data-nosnippet>950</a>					child_index: child_bounty_id,
-<a href=#951 id=951 data-nosnippet>951</a>				});
-<a href=#952 id=952 data-nosnippet>952</a>				<span class="prelude-val">Ok</span>(())
-<a href=#953 id=953 data-nosnippet>953</a>			},
-<a href=#954 id=954 data-nosnippet>954</a>		)
-<a href=#955 id=955 data-nosnippet>955</a>	}
-<a href=#956 id=956 data-nosnippet>956</a>}
-<a href=#957 id=957 data-nosnippet>957</a>
-<a href=#958 id=958 data-nosnippet>958</a><span class="doccomment">/// Implement ChildBountyManager to connect with the bounties pallet. This is
-<a href=#959 id=959 data-nosnippet>959</a>/// where we pass the active child bounties and child curator fees to the parent
-<a href=#960 id=960 data-nosnippet>960</a>/// bounty.
-<a href=#961 id=961 data-nosnippet>961</a>///
-<a href=#962 id=962 data-nosnippet>962</a>/// Function `children_curator_fees` not only returns the fee but also removes cumulative curator
-<a href=#963 id=963 data-nosnippet>963</a>/// fees during call.
-<a href=#964 id=964 data-nosnippet>964</a></span><span class="kw">impl</span>&lt;T: Config&gt; pallet_bounties::ChildBountyManager&lt;BalanceOf&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#965 id=965 data-nosnippet>965</a>	<span class="doccomment">/// Returns number of active child bounties for `bounty_id`
-<a href=#966 id=966 data-nosnippet>966</a>	</span><span class="kw">fn </span>child_bounties_count(
-<a href=#967 id=967 data-nosnippet>967</a>		bounty_id: pallet_bounties::BountyIndex,
-<a href=#968 id=968 data-nosnippet>968</a>	) -&gt; pallet_bounties::BountyIndex {
-<a href=#969 id=969 data-nosnippet>969</a>		ParentChildBounties::&lt;T&gt;::get(bounty_id)
-<a href=#970 id=970 data-nosnippet>970</a>	}
-<a href=#971 id=971 data-nosnippet>971</a>
-<a href=#972 id=972 data-nosnippet>972</a>	<span class="doccomment">/// Returns cumulative child bounty curator fees for `bounty_id` also removing the associated
-<a href=#973 id=973 data-nosnippet>973</a>	/// storage item. This function is assumed to be called when parent bounty is claimed.
-<a href=#974 id=974 data-nosnippet>974</a>	</span><span class="kw">fn </span>children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -&gt; BalanceOf&lt;T&gt; {
-<a href=#975 id=975 data-nosnippet>975</a>		<span class="comment">// This is asked for when the parent bounty is being claimed. No use of
-<a href=#976 id=976 data-nosnippet>976</a>		// keeping it in state after that. Hence removing.
-<a href=#977 id=977 data-nosnippet>977</a>		</span><span class="kw">let </span>children_fee_total = ChildrenCuratorFees::&lt;T&gt;::get(bounty_id);
-<a href=#978 id=978 data-nosnippet>978</a>		ChildrenCuratorFees::&lt;T&gt;::remove(bounty_id);
-<a href=#979 id=979 data-nosnippet>979</a>		children_fee_total
-<a href=#980 id=980 data-nosnippet>980</a>	}
-<a href=#981 id=981 data-nosnippet>981</a>
-<a href=#982 id=982 data-nosnippet>982</a>	<span class="doccomment">/// Clean up the storage on a parent bounty removal.
-<a href=#983 id=983 data-nosnippet>983</a>	</span><span class="kw">fn </span>bounty_removed(bounty_id: BountyIndex) {
-<a href=#984 id=984 data-nosnippet>984</a>		<span class="macro">debug_assert!</span>(ParentChildBounties::&lt;T&gt;::get(bounty_id).is_zero());
-<a href=#985 id=985 data-nosnippet>985</a>		<span class="macro">debug_assert!</span>(ChildrenCuratorFees::&lt;T&gt;::get(bounty_id).is_zero());
-<a href=#986 id=986 data-nosnippet>986</a>		<span class="macro">debug_assert!</span>(ChildBounties::&lt;T&gt;::iter_key_prefix(bounty_id).count().is_zero());
-<a href=#987 id=987 data-nosnippet>987</a>		<span class="macro">debug_assert!</span>(ChildBountyDescriptionsV1::&lt;T&gt;::iter_key_prefix(bounty_id).count().is_zero());
-<a href=#988 id=988 data-nosnippet>988</a>		ParentChildBounties::&lt;T&gt;::remove(bounty_id);
-<a href=#989 id=989 data-nosnippet>989</a>		ParentTotalChildBounties::&lt;T&gt;::remove(bounty_id);
-<a href=#990 id=990 data-nosnippet>990</a>	}
-<a href=#991 id=991 data-nosnippet>991</a>}
+<a href=#943 id=943 data-nosnippet>943</a>				<span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
+<a href=#944 id=944 data-nosnippet>944</a>
+<a href=#945 id=945 data-nosnippet>945</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Canceled {
+<a href=#946 id=946 data-nosnippet>946</a>					index: parent_bounty_id,
+<a href=#947 id=947 data-nosnippet>947</a>					child_index: child_bounty_id,
+<a href=#948 id=948 data-nosnippet>948</a>				});
+<a href=#949 id=949 data-nosnippet>949</a>				<span class="prelude-val">Ok</span>(())
+<a href=#950 id=950 data-nosnippet>950</a>			},
+<a href=#951 id=951 data-nosnippet>951</a>		)
+<a href=#952 id=952 data-nosnippet>952</a>	}
+<a href=#953 id=953 data-nosnippet>953</a>}
+<a href=#954 id=954 data-nosnippet>954</a>
+<a href=#955 id=955 data-nosnippet>955</a><span class="doccomment">/// Implement ChildBountyManager to connect with the bounties pallet. This is
+<a href=#956 id=956 data-nosnippet>956</a>/// where we pass the active child bounties and child curator fees to the parent
+<a href=#957 id=957 data-nosnippet>957</a>/// bounty.
+<a href=#958 id=958 data-nosnippet>958</a>///
+<a href=#959 id=959 data-nosnippet>959</a>/// Function `children_curator_fees` not only returns the fee but also removes cumulative curator
+<a href=#960 id=960 data-nosnippet>960</a>/// fees during call.
+<a href=#961 id=961 data-nosnippet>961</a></span><span class="kw">impl</span>&lt;T: Config&gt; pallet_bounties::ChildBountyManager&lt;BalanceOf&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#962 id=962 data-nosnippet>962</a>	<span class="doccomment">/// Returns number of active child bounties for `bounty_id`
+<a href=#963 id=963 data-nosnippet>963</a>	</span><span class="kw">fn </span>child_bounties_count(
+<a href=#964 id=964 data-nosnippet>964</a>		bounty_id: pallet_bounties::BountyIndex,
+<a href=#965 id=965 data-nosnippet>965</a>	) -&gt; pallet_bounties::BountyIndex {
+<a href=#966 id=966 data-nosnippet>966</a>		ParentChildBounties::&lt;T&gt;::get(bounty_id)
+<a href=#967 id=967 data-nosnippet>967</a>	}
+<a href=#968 id=968 data-nosnippet>968</a>
+<a href=#969 id=969 data-nosnippet>969</a>	<span class="doccomment">/// Returns cumulative child bounty curator fees for `bounty_id` also removing the associated
+<a href=#970 id=970 data-nosnippet>970</a>	/// storage item. This function is assumed to be called when parent bounty is claimed.
+<a href=#971 id=971 data-nosnippet>971</a>	</span><span class="kw">fn </span>children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -&gt; BalanceOf&lt;T&gt; {
+<a href=#972 id=972 data-nosnippet>972</a>		<span class="comment">// This is asked for when the parent bounty is being claimed. No use of
+<a href=#973 id=973 data-nosnippet>973</a>		// keeping it in state after that. Hence removing.
+<a href=#974 id=974 data-nosnippet>974</a>		</span><span class="kw">let </span>children_fee_total = ChildrenCuratorFees::&lt;T&gt;::get(bounty_id);
+<a href=#975 id=975 data-nosnippet>975</a>		ChildrenCuratorFees::&lt;T&gt;::remove(bounty_id);
+<a href=#976 id=976 data-nosnippet>976</a>		children_fee_total
+<a href=#977 id=977 data-nosnippet>977</a>	}
+<a href=#978 id=978 data-nosnippet>978</a>
+<a href=#979 id=979 data-nosnippet>979</a>	<span class="doccomment">/// Clean up the storage on a parent bounty removal.
+<a href=#980 id=980 data-nosnippet>980</a>	</span><span class="kw">fn </span>bounty_removed(bounty_id: BountyIndex) {
+<a href=#981 id=981 data-nosnippet>981</a>		<span class="macro">debug_assert!</span>(ParentChildBounties::&lt;T&gt;::get(bounty_id).is_zero());
+<a href=#982 id=982 data-nosnippet>982</a>		<span class="macro">debug_assert!</span>(ChildrenCuratorFees::&lt;T&gt;::get(bounty_id).is_zero());
+<a href=#983 id=983 data-nosnippet>983</a>		<span class="macro">debug_assert!</span>(ChildBounties::&lt;T&gt;::iter_key_prefix(bounty_id).count().is_zero());
+<a href=#984 id=984 data-nosnippet>984</a>		<span class="macro">debug_assert!</span>(ChildBountyDescriptionsV1::&lt;T&gt;::iter_key_prefix(bounty_id).count().is_zero());
+<a href=#985 id=985 data-nosnippet>985</a>		ParentChildBounties::&lt;T&gt;::remove(bounty_id);
+<a href=#986 id=986 data-nosnippet>986</a>		ParentTotalChildBounties::&lt;T&gt;::remove(bounty_id);
+<a href=#987 id=987 data-nosnippet>987</a>	}
+<a href=#988 id=988 data-nosnippet>988</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

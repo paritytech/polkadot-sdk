@@ -157,7 +157,7 @@ behaviour, and batteries-included implementations of common subscriber
 functionality.</p>
 <p><code>tracing-subscriber</code> is intended for use by both <code>Subscriber</code> authors and
 application authors using <code>tracing</code> to instrument their applications.</p>
-<p><em>Compiler support: <a href="#supported-rust-versions">requires <code>rustc</code> 1.63+</a></em></p>
+<p><em>Compiler support: <a href="#supported-rust-versions">requires <code>rustc</code> 1.65+</a></em></p>
 <h3 id="layers-and-filters"><a class="doc-anchor" href="#layers-and-filters">§</a><code>Layer</code>s and <code>Filter</code>s</h3>
 <p>The most important component of the <code>tracing-subscriber</code> API is the
 <a href="trait.Layer.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::Layer"><code>Layer</code></a> trait, which provides a composable abstraction for building
@@ -243,7 +243,7 @@ project to automatically enable the cfg flag for that project:</p>
 <div class="example-wrap"><pre class="language-toml"><code>[build]
 rustflags = [&quot;--cfg&quot;, &quot;tracing_unstable&quot;]</code></pre></div><h3 id="supported-rust-versions"><a class="doc-anchor" href="#supported-rust-versions">§</a>Supported Rust Versions</h3>
 <p>Tracing is built against the latest stable release. The minimum supported
-version is 1.63. The current Tracing version is not guaranteed to build on
+version is 1.65. The current Tracing version is not guaranteed to build on
 Rust versions earlier than the minimum supported version.</p>
 <p>Tracing follows the same compiler support policies as the rest of the Tokio
 project. The current stable Rust compiler and the three most recent minor

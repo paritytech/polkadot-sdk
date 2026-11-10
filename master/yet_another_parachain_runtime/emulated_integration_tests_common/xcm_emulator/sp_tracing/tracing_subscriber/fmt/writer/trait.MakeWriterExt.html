@@ -180,7 +180,7 @@ output will be written.</p>
 <span class="kw">use </span>tracing_subscriber::fmt::writer::MakeWriterExt;
 
 <span class="comment">// Construct a writer that outputs events to `stderr` only if the span or
-// event's level is &gt;= WARN (WARN and ERROR).
+// event's level is &lt;= WARN (WARN and ERROR).
 </span><span class="kw">let </span>mk_writer = std::io::stderr.with_max_level(Level::WARN);
 
 tracing_subscriber::fmt().with_writer(mk_writer).init();</code></pre></div>
@@ -216,7 +216,7 @@ output will be written.</p>
 <span class="kw">use </span>tracing_subscriber::fmt::writer::MakeWriterExt;
 
 <span class="comment">// Construct a writer that outputs events to `stdout` only if the span or
-// event's level is &lt;= DEBUG (DEBUG and TRACE).
+// event's level is &gt;= DEBUG (DEBUG and TRACE).
 </span><span class="kw">let </span>mk_writer = std::io::stdout.with_min_level(Level::DEBUG);
 
 tracing_subscriber::fmt().with_writer(mk_writer).init();</code></pre></div>
@@ -327,7 +327,7 @@ a new <a href="../trait.MakeWriter.html" title="trait yet_another_parachain_runt
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::Level;
 <span class="kw">use </span>tracing_subscriber::fmt::writer::MakeWriterExt;
 
-<span class="comment">// Produces a writer that writes to `stderr` if the level is &gt;= WARN,
+<span class="comment">// Produces a writer that writes to `stderr` if the level is &lt;= WARN,
 // or returns `OptionalWriter::none()` otherwise.
 </span><span class="kw">let </span>stderr = std::io::stderr.with_max_level(Level::WARN);
 

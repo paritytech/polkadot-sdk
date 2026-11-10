@@ -163,7 +163,7 @@ type that implements the <a href="time::formatting::Formattable"><code>Formattab
 <p>Typically, the format will be a format description string, or one of the
 <code>time</code> crate’s <a href="time::format_description::well_known">well-known formats</a>.</p>
 <p>If the format description is statically known, then the
-<a href="time::macros::format_description!"><code>format_description!</code></a> macro should be used. This is identical to the
+<a href="https://docs.rs/time/0.3/time/macros/macro.format_description.html"><code>format_description!</code></a> macro should be used. This is identical to the
 <a href="time::format_description::parse"><code>time::format_description::parse</code></a> method, but runs at compile-time,
 failing  an error if the format description is invalid. If the desired format
 is not known statically (e.g., a user is providing a format string), then the
@@ -171,7 +171,7 @@ is not known statically (e.g., a user is providing a format string), then the
 method is fallible.</p>
 <p>See the <a href="https://time-rs.github.io/book/api/format-description.html"><code>time</code> book</a> for details on the format description syntax.</p>
 <h5 id="examples-1"><a class="doc-anchor" href="#examples-1">§</a>Examples</h5>
-<p>Using the <a href="time::macros::format_description!"><code>format_description!</code></a> macro:</p>
+<p>Using the <a href="https://docs.rs/time/0.3/time/macros/macro.format_description.html"><code>format_description!</code></a> macro:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing_subscriber::fmt::{<span class="self">self</span>, time::UtcTime};
 <span class="kw">use </span>time::macros::format_description;
@@ -179,7 +179,7 @@ method is fallible.</p>
 <span class="kw">let </span>timer = UtcTime::new(<span class="macro">format_description!</span>(<span class="string">"[hour]:[minute]:[second]"</span>));
 <span class="kw">let </span>subscriber = tracing_subscriber::fmt()
     .with_timer(timer);</code></pre></div>
-<p>Using the <a href="time::macros::format_description!"><code>format_description!</code></a> macro requires enabling the <code>time</code>
+<p>Using the <a href="https://docs.rs/time/0.3/time/macros/macro.format_description.html"><code>format_description!</code></a> macro requires enabling the <code>time</code>
 crate’s “macros” feature flag.</p>
 <p>Using <a href="time::format_description::parse"><code>time::format_description::parse</code></a>:</p>
 

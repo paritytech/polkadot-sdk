@@ -505,9 +505,9 @@ common forms of filtering. For custom filtering policies, the <a href="../filter
 and <a href="../filter/struct.DynFilterFn.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::filter::DynFilterFn"><code>DynFilterFn</code></a> types allow implementing a <a href="../filter/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::filter"><code>Filter</code></a> with a closure or
 function pointer. In addition, when more control is required, the <a href="../filter/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::filter"><code>Filter</code></a>
 trait may also be implemented for user-defined types.</p>
-<p>//! <a href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option"><code>Option&lt;Filter&gt;</code></a> also implements <a href="../filter/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::filter"><code>Filter</code></a>, which allows for an optional
-filter. <a href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html#variant.None" title="variant core::option::Option::None"><code>None</code></a> filters out <em>nothing</em> (that is, allows
-everything through). For example:</p>
+<p><a href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option"><code>Option&lt;Filter&gt;</code></a> also implements <a href="../filter/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::sp_tracing::tracing_subscriber::filter"><code>Filter</code></a>, which allows for an optional
+filter. <a href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html#variant.None" title="variant core::option::Option::None"><code>None</code></a> filters out <em>nothing</em> (that is, allows everything through). For
+example:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>setup_tracing&lt;S: Subscriber&gt;(filter_config: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) {
     <span class="kw">let </span>layer = MyLayer::&lt;S&gt;::new()
