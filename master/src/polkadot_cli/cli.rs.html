@@ -297,42 +297,41 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#147 id=147 data-nosnippet>147</a>	</span><span class="attr">#[arg(long, hide = <span class="bool-val">true</span>)]
 <a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">pub </span>collator_protocol_hold_off: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 <a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
-<a href=#151 id=151 data-nosnippet>151</a>	/// Defaults to enabled on Kusama and disabled everywhere else. Pass `=false` to opt out.
-<a href=#152 id=152 data-nosnippet>152</a>	</span><span class="attr">#[arg(
-<a href=#153 id=153 data-nosnippet>153</a>		long,
-<a href=#154 id=154 data-nosnippet>154</a>		hide = <span class="bool-val">true</span>,
-<a href=#155 id=155 data-nosnippet>155</a>		<span class="comment">// to support `--experimental-collator-protocol=[true|false]` and
-<a href=#156 id=156 data-nosnippet>156</a>		// just `--experimental-collator-protocol`
-<a href=#157 id=157 data-nosnippet>157</a>		</span>num_args = <span class="number">0</span>..=<span class="number">1</span>,
-<a href=#158 id=158 data-nosnippet>158</a>		<span class="comment">// otherwise the parameter becomes greedy and consumes the first value after it,
-<a href=#159 id=159 data-nosnippet>159</a>		// e.g. `--experimental-collator-protocol chain-info`
-<a href=#160 id=160 data-nosnippet>160</a>		</span>require_equals = <span class="bool-val">true</span>,
-<a href=#161 id=161 data-nosnippet>161</a>		<span class="comment">// means that `--experimental-collator-protocol` w/o explicit value equals to "on" (`true`)
-<a href=#162 id=162 data-nosnippet>162</a>		</span>default_missing_value = <span class="string">"true"
-<a href=#163 id=163 data-nosnippet>163</a>	</span>)]
-<a href=#164 id=164 data-nosnippet>164</a>	</span><span class="kw">pub </span>experimental_collator_protocol: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Collator reputation persistence interval in seconds.
-<a href=#167 id=167 data-nosnippet>167</a>	/// If not specified, defaults to 600 seconds (10 minutes).
-<a href=#168 id=168 data-nosnippet>168</a>	/// This should be used only with experimental_collator_protocol
-<a href=#169 id=169 data-nosnippet>169</a>	/// and only on validators.
-<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="attr">#[arg(long, requires = <span class="string">"experimental_collator_protocol"</span>, requires = <span class="string">"validator"</span>)]
-<a href=#171 id=171 data-nosnippet>171</a>	</span><span class="kw">pub </span>collator_reputation_persist_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#172 id=172 data-nosnippet>172</a>}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a><span class="attr">#[allow(missing_docs)]
-<a href=#175 id=175 data-nosnippet>175</a>#[derive(Debug, Parser)]
-<a href=#176 id=176 data-nosnippet>176</a></span><span class="kw">pub struct </span>Cli {
-<a href=#177 id=177 data-nosnippet>177</a>	<span class="attr">#[command(subcommand)]
-<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a>	<span class="attr">#[clap(flatten)]
-<a href=#181 id=181 data-nosnippet>181</a>	</span><span class="kw">pub </span>run: RunCmd,
-<a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a>	<span class="attr">#[clap(flatten)]
-<a href=#184 id=184 data-nosnippet>184</a>	</span><span class="kw">pub </span>storage_monitor: sc_storage_monitor::StorageMonitorParams,
-<a href=#185 id=185 data-nosnippet>185</a>}
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Enable experimental collator protocol. Defaults to enabled. Pass `=false` to opt out.
+<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="attr">#[arg(
+<a href=#152 id=152 data-nosnippet>152</a>		long,
+<a href=#153 id=153 data-nosnippet>153</a>		hide = <span class="bool-val">true</span>,
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="comment">// to support `--experimental-collator-protocol=[true|false]` and
+<a href=#155 id=155 data-nosnippet>155</a>		// just `--experimental-collator-protocol`
+<a href=#156 id=156 data-nosnippet>156</a>		</span>num_args = <span class="number">0</span>..=<span class="number">1</span>,
+<a href=#157 id=157 data-nosnippet>157</a>		<span class="comment">// otherwise the parameter becomes greedy and consumes the first value after it,
+<a href=#158 id=158 data-nosnippet>158</a>		// e.g. `--experimental-collator-protocol chain-info`
+<a href=#159 id=159 data-nosnippet>159</a>		</span>require_equals = <span class="bool-val">true</span>,
+<a href=#160 id=160 data-nosnippet>160</a>		<span class="comment">// means that `--experimental-collator-protocol` w/o explicit value equals to "on" (`true`)
+<a href=#161 id=161 data-nosnippet>161</a>		</span>default_missing_value = <span class="string">"true"
+<a href=#162 id=162 data-nosnippet>162</a>	</span>)]
+<a href=#163 id=163 data-nosnippet>163</a>	</span><span class="kw">pub </span>experimental_collator_protocol: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>	<span class="doccomment">/// Collator reputation persistence interval in seconds.
+<a href=#166 id=166 data-nosnippet>166</a>	/// If not specified, defaults to 600 seconds (10 minutes).
+<a href=#167 id=167 data-nosnippet>167</a>	/// Requires the experimental collator protocol (enabled by default, see
+<a href=#168 id=168 data-nosnippet>168</a>	/// `--experimental-collator-protocol`) and only applies to validators.
+<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="attr">#[arg(long, requires = <span class="string">"validator"</span>)]
+<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="kw">pub </span>collator_reputation_persist_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#171 id=171 data-nosnippet>171</a>}
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a><span class="attr">#[allow(missing_docs)]
+<a href=#174 id=174 data-nosnippet>174</a>#[derive(Debug, Parser)]
+<a href=#175 id=175 data-nosnippet>175</a></span><span class="kw">pub struct </span>Cli {
+<a href=#176 id=176 data-nosnippet>176</a>	<span class="attr">#[command(subcommand)]
+<a href=#177 id=177 data-nosnippet>177</a>	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a>	<span class="attr">#[clap(flatten)]
+<a href=#180 id=180 data-nosnippet>180</a>	</span><span class="kw">pub </span>run: RunCmd,
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>	<span class="attr">#[clap(flatten)]
+<a href=#183 id=183 data-nosnippet>183</a>	</span><span class="kw">pub </span>storage_monitor: sc_storage_monitor::StorageMonitorParams,
+<a href=#184 id=184 data-nosnippet>184</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
