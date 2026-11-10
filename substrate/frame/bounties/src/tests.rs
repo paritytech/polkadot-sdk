@@ -32,7 +32,8 @@ use frame_support::{
 		fungible,
 		fungible::{NativeFromLeft, NativeOrWithId},
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, LockableCurrency,
+		OnInitialize, WithdrawReasons,
 	},
 	PalletId,
 };
@@ -883,6 +884,36 @@ fn award_and_claim_bounty_works() {
 
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
+	});
+}
+
+#[test]
+fn claim_bounty_leaves_locked_funds_behind() {
+	ExtBuilder::default().build_and_execute(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&4, 10);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 4));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
+		go_to_block(5);
+
+		// Anyone can lock funds in the bounty account with a vested transfer.
+		let bounty_account = Bounties::bounty_account_id(0);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(0), bounty_account, 10));
+		Balances::set_lock(*b"vesting ", &bounty_account, 10, WithdrawReasons::all());
+
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0));
+
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyClaimed { index: 0, payout: 46, beneficiary: 3 }
+		);
+		assert_eq!(Balances::free_balance(4), 14);
+		assert_eq!(Balances::free_balance(3), 46);
+		assert_eq!(Balances::free_balance(bounty_account), 10);
 	});
 }
 
