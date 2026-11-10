@@ -340,7 +340,8 @@ where
 				&params.relay_client,
 				&*params.para_backend,
 				params.para_id,
-				ParentSearchParams::V2 { scheduling_parent: relay_parent },
+				ParentSearchParams::V2 { relay_parent, scheduling_parent: relay_parent },
+				|_| false,
 				|_| true,
 			)
 			.await

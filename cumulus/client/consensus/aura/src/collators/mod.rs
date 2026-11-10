@@ -237,6 +237,7 @@ async fn find_parent<Block>(
 	para_backend: &impl sc_client_api::Backend<Block>,
 	para_id: ParaId,
 	params: ParentSearchParams,
+	v3_enabled_at: impl Fn(Block::Hash) -> bool,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
@@ -250,6 +251,7 @@ where
 		para_backend,
 		para_id,
 		params.clone(),
+		v3_enabled_at,
 		filter_parent,
 	)
 	.await

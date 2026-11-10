@@ -36,7 +36,7 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
-	ParachainBlockImportMarker, ParentSearchParams,
+	has_runtime_upgrade_digest, ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -165,13 +165,28 @@ impl SchedulingParams {
 		Client: ProvideRuntimeApi<Block>,
 		Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
 	{
-		let api = onchain_runtime_api(para_client);
-
 		Self {
-			v3_enabled: api.scheduling_v3_enabled(at).unwrap_or(false),
-			relay_parent_offset: api.relay_parent_offset(at).unwrap_or_default(),
+			v3_enabled: v3_enabled_at(para_client, at),
+			relay_parent_offset: onchain_runtime_api(para_client)
+				.relay_parent_offset(at)
+				.unwrap_or_default(),
 		}
 	}
+}
+
+/// Whether the runtime at `at` has scheduling V3 enabled, i.e. whether its children run under V3.
+fn v3_enabled_at<Block: BlockT, Client>(para_client: &Client, at: Block::Hash) -> bool
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block> + ApiExt<Block>,
+{
+	onchain_runtime_api(para_client)
+		.scheduling_v3_enabled(at)
+		.unwrap_or_else(|error| {
+			tracing::debug!(target: LOG_TARGET, ?error, ?at, "Failed to read V3 status.");
+			// V2 is the conservative reading: the parent search never resubmits such blocks.
+			false
+		})
 }
 
 /// Everything the builder needs for one slot, all derived from a single [`SchedulingParams`].
@@ -451,6 +466,8 @@ where
 			&*self.para_backend,
 			self.para_id,
 			search_params,
+			// Runtime-only: the relay chain enables `CandidateReceiptV3` before any V3 runtime.
+			|hash| v3_enabled_at(&*self.para_client, hash),
 			|parent| {
 				// Never build on a "middle block" that isn't the last block in a core. Without the
 				// digest we run in compatibility mode and all parents are valid.
@@ -929,6 +946,7 @@ where
 				};
 
 				let has_fresh = maybe_parts.is_some();
+				let mut upgraded = false;
 
 				// Chain the next core's PoV parent onto the freshly-built tip. No fresh block this
 				// slot (resubmit-only) is fine; built parts with no blocks are not — the builder
@@ -943,6 +961,8 @@ where
 						break;
 					};
 					pov_parent_header = tip_header.clone();
+					// A bundle ends at an upgrade, so only the tip can carry the digest.
+					upgraded = has_runtime_upgrade_digest(tip_header);
 				}
 
 				// Breaking here assumes the next cores will not be able to build a new block
@@ -996,6 +1016,17 @@ where
 						has_fresh,
 						"Nothing to submit for this core.",
 					),
+				}
+
+				// Later cores would build on the new runtime with this slot's old context. Drops
+				// the other cores' resubmissions for this one slot.
+				if upgraded {
+					tracing::info!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						"Built a runtime upgrade; ending the slot's core loop.",
+					);
+					break;
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
@@ -1377,11 +1408,7 @@ where
 		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
-		let runtime_upgrade_digest = parent_header
-			.digest()
-			.logs
-			.iter()
-			.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated));
+		let runtime_upgrade_digest = has_runtime_upgrade_digest(&parent_header);
 
 		if full_core_digest || runtime_upgrade_digest {
 			tracing::trace!(

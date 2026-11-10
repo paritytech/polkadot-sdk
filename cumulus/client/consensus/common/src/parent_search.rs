@@ -26,7 +26,7 @@ use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use std::future::Future;
+use std::collections::HashSet;
 
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
@@ -34,8 +34,9 @@ const LOG_TARGET: &str = "consensus::common::parent_search";
 pub enum ParentSearchParams {
 	/// Candidate version V2
 	V2 {
-		/// The scheduling-parent that is intended to be used.
-		/// For V2, the scheduling parent is equal to the relay parent.
+		/// The relay parent: anchors the included/pending lookup and the V2 lookahead window.
+		relay_parent: RelayHash,
+		/// The relay chain tip the relay parent trails; V3-executed blocks are judged from it.
 		scheduling_parent: RelayHash,
 	},
 	/// Candidate version V3
@@ -46,20 +47,29 @@ pub enum ParentSearchParams {
 }
 
 impl ParentSearchParams {
-	/// The params for the scheduling version: V3 anchors at the scheduling parent, V2 at the
-	/// relay parent.
+	/// The params for the scheduling version.
 	pub fn new(v3_enabled: bool, scheduling_parent: RelayHash, relay_parent: RelayHash) -> Self {
 		if v3_enabled {
 			Self::V3 { scheduling_parent }
 		} else {
-			Self::V2 { scheduling_parent: relay_parent }
+			Self::V2 { relay_parent, scheduling_parent }
 		}
 	}
 
-	fn scheduling_parent(&self) -> &RelayHash {
+	/// Anchor for the included/pending lookup and the V2 window: V2 uses the relay parent. V3
+	/// uses the tip, where a V2-executed block's original submission could still land.
+	fn anchor(&self) -> RelayHash {
 		match self {
-			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
-			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
+			ParentSearchParams::V2 { relay_parent, .. } => *relay_parent,
+			ParentSearchParams::V3 { scheduling_parent } => *scheduling_parent,
+		}
+	}
+
+	/// Anchor V3-executed blocks are judged from.
+	fn scheduling_parent(&self) -> RelayHash {
+		match self {
+			ParentSearchParams::V2 { scheduling_parent, .. } |
+			ParentSearchParams::V3 { scheduling_parent } => *scheduling_parent,
 		}
 	}
 }
@@ -71,7 +81,7 @@ pub struct ParentSearchResult<Block: BlockT> {
 	pub included_at_scheduling: Block::Header,
 	/// Block to build on.
 	pub best_parent_header: Block::Header,
-	/// V3 resubmittable segment, oldest first; empty for V2.
+	/// V3 resubmittable segment, oldest first; empty for V2 and free of V2-executed blocks.
 	pub resubmittable_segment: Vec<Block::Header>,
 }
 
@@ -233,21 +243,63 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 	})
 }
 
+/// The relay parents a V2-executed block may use: the lookahead window ending at `anchor`.
+async fn v2_window(
+	relay_client: &impl RelayChainInterface,
+	anchor: RelayHash,
+) -> RelayChainResult<Vec<(RelayHash, RelayHash)>> {
+	let lookback = relay_client
+		.scheduling_lookahead(anchor)
+		.await
+		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+		.saturating_sub(1) as usize;
+	build_relay_parent_ancestry(relay_client, anchor, lookback).await
+}
+
+/// Whether `header` carries the runtime upgrade digest.
+pub fn has_runtime_upgrade_digest<H: HeaderT>(header: &H) -> bool {
+	header
+		.digest()
+		.logs
+		.iter()
+		.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated))
+}
+
 /// Find the deepest valid parent block starting from `start`.
 ///
-/// The `start` block (pending or included) is always valid by construction.
-/// This function explores its descendants via DFS, returning the deepest block
-/// whose relay-parent is within the allowed ancestry.
-async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
+/// The `start` block (pending or included) is always valid by construction. Descendants are
+/// explored via DFS and judged by the rules of the runtime that executed them: V3-executed blocks
+/// need a relay parent the relay chain still knows from the scheduling parent, V2-executed blocks
+/// need one in the V2 window. Also returns the valid V2-executed blocks.
+async fn find_deepest_valid_parent<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
+	params: &ParentSearchParams,
 	start_header: Block::Header,
 	start_hash: Block::Hash,
-	is_valid: impl Fn(&Block::Header) -> Fut,
-) -> Block::Header {
-	let mut best = start_header;
+	v3_enabled_at: &impl Fn(Block::Hash) -> bool,
+) -> RelayChainResult<(Block::Header, HashSet<Block::Hash>)> {
+	// Pure V2 needs the window anyway and keeps propagating its fetch error; V3 fetches it lazily.
+	let mut v2_ancestry = match params {
+		ParentSearchParams::V2 { relay_parent, .. } => {
+			Some(v2_window(relay_client, *relay_parent).await?)
+		},
+		ParentSearchParams::V3 { .. } => None,
+	};
+	let mut v2_executed = HashSet::new();
 
-	let mut frontier: Vec<Block::Hash> =
-		backend.blockchain().children(start_hash).ok().into_iter().flatten().collect();
+	// Each entry carries whether its block was executed under V3. The flag only changes across a
+	// code change, which always carries the upgrade digest, so the runtime is only queried at the
+	// start block and at digest-carrying parents.
+	let mut frontier: Vec<(Block::Hash, bool)> = Vec::new();
+	let push_children = |frontier: &mut Vec<_>, parent: Block::Hash, v3: Option<bool>| {
+		let children = backend.blockchain().children(parent).unwrap_or_default();
+		if !children.is_empty() {
+			let v3 = v3.unwrap_or_else(|| v3_enabled_at(parent));
+			frontier.extend(children.into_iter().map(|child| (child, v3)));
+		}
+	};
+	push_children(&mut frontier, start_hash, None);
 
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -256,22 +308,52 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 		"Searching for deepest valid parent."
 	);
 
-	while let Some(hash) = frontier.pop() {
+	let mut best = start_header;
+	while let Some((hash, executed_by_v3)) = frontier.pop() {
 		let Ok(Some(header)) = backend.blockchain().header(hash) else { continue };
 
-		if !is_valid(&header).await {
+		let is_valid = if executed_by_v3 {
+			has_ancestor_relay_parent_info::<Block>(
+				relay_client,
+				params.scheduling_parent(),
+				&header,
+			)
+			.await
+			.unwrap_or(false)
+		} else {
+			if v2_ancestry.is_none() {
+				let ancestry =
+					v2_window(relay_client, params.anchor()).await.unwrap_or_else(|error| {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?error,
+							"Failed to fetch the V2 window; V2-executed blocks are invalid.",
+						);
+						Vec::new()
+					});
+				v2_ancestry = Some(ancestry);
+			}
+			v2_ancestry
+				.as_deref()
+				.is_some_and(|ancestry| is_relay_parent_in_ancestry::<Block>(&header, ancestry))
+		};
+		if !is_valid {
 			continue;
 		}
+		if !executed_by_v3 {
+			v2_executed.insert(hash);
+		}
+
+		let v3 = (!has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
+		push_children(&mut frontier, hash, v3);
 
 		// This block is valid - update best if it's deeper.
 		if header.number() > best.number() {
 			best = header;
 		}
-
-		frontier.extend(backend.blockchain().children(hash).ok().into_iter().flatten());
 	}
 
-	best
+	Ok((best, v2_executed))
 }
 
 /// The chain from `best` back to `start_hash` (exclusive), oldest first.
@@ -350,12 +432,17 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 /// The search starts from either the pending block (if one exists) or the included block,
 /// and finds the deepest descendant whose relay-parent is within the allowed ancestry.
 ///
+/// `v3_enabled_at` tells whether the runtime at a block has scheduling V3 enabled, i.e. whether
+/// its children are executed under V3. Each unincluded block is judged by the rules of the runtime
+/// that executed it, and V2-executed blocks never enter the V3 resubmittable segment.
+///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
 pub async fn find_parent_for_building<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
 	para_id: ParaId,
 	params: ParentSearchParams,
+	v3_enabled_at: impl Fn(Block::Hash) -> bool,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
@@ -365,9 +452,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		"Parent search"
 	);
 
-	let scheduling_parent = *params.scheduling_parent();
+	let anchor = params.anchor();
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
+		fetch_included_from_relay_chain(relay_client, backend, anchor, para_id).await?
 	else {
 		return Ok(None);
 	};
@@ -379,7 +466,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// before being returned to us.
 		let maybe_header = fetch_pvd_header::<Block>(
 			relay_client,
-			scheduling_parent,
+			anchor,
 			para_id,
 			OccupiedCoreAssumption::Included,
 		)
@@ -401,57 +488,34 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let result = match params {
-		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
-			let ancestry_lookback = relay_client
-				.scheduling_lookahead(relay_parent)
-				.await
-				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-				.saturating_sub(1) as usize;
-			// Build up the ancestry record of the relay chain to compare against.
-			let rp_ancestry =
-				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
+	let (best_parent_header, v2_executed) = find_deepest_valid_parent(
+		relay_client,
+		backend,
+		&params,
+		start_header,
+		start_hash,
+		&v3_enabled_at,
+	)
+	.await?;
 
-			// V2 has no resubmittable segment.
-			let best_parent_header =
-				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-					let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
-					async move { is_valid }
-				})
-				.await;
+	// Only V3 resubmits, and only the chain above the last V2-executed block. A lost V2 submission
+	// of that block is never resubmitted: the chain extends it until its relay parent leaves the V2
+	// window (at most `scheduling_lookahead - 1` relay blocks), then the search forks below it.
+	let resubmittable_segment = if matches!(params, ParentSearchParams::V3 { .. }) {
+		let mut segment =
+			reconstruct_resubmittable_segment(backend, &best_parent_header, start_hash);
+		if let Some(last_v2) = segment.iter().rposition(|h| v2_executed.contains(&h.hash())) {
+			segment.drain(..=last_v2);
+		}
+		segment
+	} else {
+		Vec::new()
+	};
 
-			ParentSearchResult {
-				included_at_scheduling: included_header,
-				best_parent_header,
-				resubmittable_segment: Vec::new(),
-			}
-		},
-		ParentSearchParams::V3 { scheduling_parent } => {
-			let best_parent_header =
-				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-					let header = header.clone();
-					async move {
-						has_ancestor_relay_parent_info::<Block>(
-							relay_client,
-							scheduling_parent,
-							&header,
-						)
-						.await
-						.unwrap_or(false)
-					}
-				})
-				.await;
-
-			// V3 also carries the resubmittable segment.
-			let resubmittable_segment =
-				reconstruct_resubmittable_segment(backend, &best_parent_header, start_hash);
-
-			ParentSearchResult {
-				included_at_scheduling: included_header,
-				best_parent_header,
-				resubmittable_segment,
-			}
-		},
+	let result = ParentSearchResult {
+		included_at_scheduling: included_header,
+		best_parent_header,
+		resubmittable_segment,
 	};
 
 	// Trim the best parent (and its segment) back to the first ancestor passing the filter, so the
