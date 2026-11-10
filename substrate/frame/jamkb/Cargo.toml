@@ -34,8 +34,12 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-assets-holder/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [

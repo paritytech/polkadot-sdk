@@ -20,8 +20,9 @@
 use crate::{
 	messages::{AccumulateLog, TransferError, UpwardMessage},
 	mock::*,
-	transport::{MessageSendError, OnJamOutcome},
-	AllocationMode, AllocationState, Error, Event, FailureReason, OperationState,
+	transport::{MessageSendError, OnIncomingTransfers, OnJamOutcome},
+	AllocationMode, AllocationState, Error, Event, FailureReason, OperationState, PalletAccount,
+	ReturnClass,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -61,8 +62,13 @@ fn op(n: u64) -> u64 {
 	OPERATION_ID_BASE + n
 }
 
+/// The ids of the operations listed for `on_poll`, in order.
+fn listed() -> Vec<u64> {
+	crate::Resolved::<Test>::get().into_iter().map(|(id, _)| id).collect()
+}
+
 fn failed(error: TransferError) -> OperationState<Balance> {
-	OperationState::Failed(FailureReason::Transfer(error))
+	OperationState::Failed(FailureReason::TransferFailed(error))
 }
 
 // ── Setup and control ──────────────────────────────────────────────────────
@@ -87,9 +93,8 @@ fn initialize_creates_the_asset_and_mints_the_cap_into_custody() {
 			assert_eq!(System::providers(&account), 1);
 		}
 		assert_eq!(Mapped::get(), vec![custody()]);
-		assert_eq!(last_event(), RuntimeEvent::Jamkb(Event::Initialized));
 
-		assert_noop!(Jamkb::initialize(RuntimeOrigin::root()), Error::<Test>::AlreadyInitialized);
+		assert_noop!(Jamkb::initialize(RuntimeOrigin::root()), pallet_assets::Error::<Test>::InUse);
 	});
 }
 
@@ -118,6 +123,22 @@ fn every_call_except_initialize_and_attest_waits_for_the_attestation() {
 			Error::<Test>::NotAttested
 		);
 		assert_noop!(Jamkb::settle(RuntimeOrigin::signed(ALICE), 1), Error::<Test>::NotAttested);
+		assert_noop!(Jamkb::claim(RuntimeOrigin::signed(ALICE), ALICE), Error::<Test>::NotAttested);
+		assert_noop!(
+			Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 10, false, MEMO),
+			Error::<Test>::NotAttested
+		);
+		assert_noop!(
+			Jamkb::force_transfer(
+				RuntimeOrigin::root(),
+				ANCHOR,
+				PalletAccount::Custody,
+				PalletAccount::Released,
+				10
+			),
+			Error::<Test>::NotAttested
+		);
+		assert_eq!(<Jamkb as OnIncomingTransfers<Balance>>::capacity(), 0);
 
 		assert_ok!(Jamkb::attest(RuntimeOrigin::root(), ANCHOR, 0));
 		assert_eq!(
@@ -190,7 +211,6 @@ fn grant_moves_units_from_custody() {
 			Jamkb::grant(RuntimeOrigin::signed(ALICE), ALICE, 10),
 			sp_runtime::DispatchError::BadOrigin
 		);
-		assert_noop!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 0), Error::<Test>::ZeroAmount);
 
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 250));
 
@@ -226,11 +246,6 @@ fn approve_release_holds_the_amount_on_custody() {
 			Error::<Test>::BelowMinTransfer
 		);
 
-		assert_noop!(
-			Jamkb::approve_release(RuntimeOrigin::root(), SERVICE, 100, MEMO, None, 0),
-			Error::<Test>::EmptyValidity
-		);
-
 		assert_ok!(Jamkb::approve_release(RuntimeOrigin::root(), SERVICE, 100, MEMO, Some(5), 10));
 
 		let allocation = Jamkb::allocation(1).unwrap();
@@ -251,9 +266,9 @@ fn approve_release_holds_the_amount_on_custody() {
 }
 
 #[test]
-fn valid_from_none_means_the_current_block() {
+fn valid_from_none_means_the_current_timeslot() {
 	ready(|| {
-		run_to_block(7);
+		run_to_timeslot(7);
 		assert_ok!(Jamkb::approve_release(RuntimeOrigin::root(), SERVICE, 100, MEMO, None, 3));
 		let allocation = Jamkb::allocation(1).unwrap();
 		assert_eq!(allocation.valid_from, 7);
@@ -275,15 +290,15 @@ fn execute_release_respects_the_validity_window() {
 			Error::<Test>::NotYetValid
 		);
 
-		run_to_block(15);
+		run_to_timeslot(15);
 		assert_noop!(Jamkb::execute_release(RuntimeOrigin::signed(BOB), 1), Error::<Test>::Expired);
 
-		run_to_block(14);
+		run_to_timeslot(14);
 		assert_ok!(Jamkb::execute_release(RuntimeOrigin::signed(BOB), 1));
 		assert_eq!(Jamkb::allocation(1).unwrap().state, AllocationState::Delivering);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::Jamkb(Event::OperationSubmitted { id: op(1), allocation: Some(1) })
+			RuntimeEvent::Jamkb(Event::OperationRequested { id: op(1), allocation: Some(1) })
 		);
 		assert_noop!(
 			Jamkb::execute_release(RuntimeOrigin::signed(BOB), 1),
@@ -315,7 +330,7 @@ fn execute_release_queues_one_deferred_transfer_out_with_the_memo_and_gas() {
 		);
 		let operation = Jamkb::operation(op).unwrap();
 		assert_eq!(operation.state, OperationState::Requested);
-		assert_eq!(operation.submitted_at, None);
+		assert_eq!(operation.accumulated_at, None);
 	});
 }
 
@@ -334,7 +349,7 @@ fn a_release_moves_the_units_on_jam_and_settles_into_released() {
 		assert_eq!(Jam::balance(PARACHAIN_SERVICE), CAP - 100);
 		let operation = Jamkb::operation(op).unwrap();
 		assert_eq!(operation.state, OperationState::Confirmed(None));
-		assert_eq!(operation.submitted_at, Some(3));
+		assert_eq!(operation.accumulated_at, Some(3));
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::Jamkb(Event::OperationConfirmed { id: op, entry: None })
@@ -368,7 +383,7 @@ fn a_release_to_an_unknown_service_fails_and_returns_the_allocation_to_approved(
 			last_event(),
 			RuntimeEvent::Jamkb(Event::OperationFailed {
 				id: op,
-				error: FailureReason::Transfer(TransferError::UnknownDestination),
+				error: FailureReason::TransferFailed(TransferError::UnknownDestination),
 			})
 		);
 		// The allocation is locked until the failure is settled.
@@ -401,10 +416,7 @@ fn a_release_to_an_unknown_service_fails_and_returns_the_allocation_to_approved(
 #[test]
 fn a_target_that_asks_more_memo_gas_than_memo_gas_refuses_the_transfer() {
 	ready(|| {
-		Jam::set_service(
-			SERVICE,
-			JamService { balance: 0, threshold: 0, min_memo_gas: MEMO_GAS + 1 },
-		);
+		Jam::set_service(SERVICE, JamService { min_memo_gas: MEMO_GAS + 1, ..Default::default() });
 		let (id, op) = release_to(SERVICE, 100);
 
 		accumulate_all(1);
@@ -451,19 +463,19 @@ fn outcomes_for_another_sender_unknown_or_resolved_operations_are_ignored() {
 		let mut meter = WeightMeter::new();
 
 		// Another sender's outcome under the same id leaves the operation alone.
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(JAMKB_SENDER + 1, op, 1, &failure, &mut meter);
+		<Jamkb as OnJamOutcome>::on_outcome(JAMKB_SENDER + 1, op, 1, &failure, &mut meter);
 		assert_eq!(Jamkb::operation(op).unwrap().state, OperationState::Requested);
 
 		accumulate_all(1);
 		assert_eq!(Jamkb::operation(op).unwrap().state, OperationState::Confirmed(None));
 
 		// A second report for the same operation, and one for an unknown id, change nothing.
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(JAMKB_SENDER, op, 2, &failure, &mut meter);
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(JAMKB_SENDER, 99, 2, &failure, &mut meter);
+		<Jamkb as OnJamOutcome>::on_outcome(JAMKB_SENDER, op, 2, &failure, &mut meter);
+		<Jamkb as OnJamOutcome>::on_outcome(JAMKB_SENDER, 99, 2, &failure, &mut meter);
 		let operation = Jamkb::operation(op).unwrap();
 		assert_eq!(operation.state, OperationState::Confirmed(None));
-		assert_eq!(operation.submitted_at, Some(1));
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![op]);
+		assert_eq!(operation.accumulated_at, Some(1));
+		assert_eq!(listed(), vec![op]);
 		assert!(Jamkb::operation(99).is_none());
 	});
 }
@@ -497,7 +509,7 @@ fn on_poll_settles_within_the_settlement_weight_and_keeps_the_rest_in_order() {
 		assert!(Jamkb::operation(op(2)).is_none());
 		assert!(Jamkb::operation(op(3)).is_none());
 		assert_eq!(Jamkb::operation(op(4)).unwrap().state, OperationState::Confirmed(None));
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![op(4)]);
+		assert_eq!(listed(), vec![op(4)]);
 		assert_eq!(free(released()), 30);
 
 		poll();
@@ -508,16 +520,20 @@ fn on_poll_settles_within_the_settlement_weight_and_keeps_the_rest_in_order() {
 }
 
 #[test]
-fn a_failed_settlement_does_not_hold_up_the_rest_and_only_settle_retries_it() {
+fn a_failed_settlement_blocks_its_target_but_not_the_others() {
 	ready(|| {
+		const OTHER: ServiceId = 7;
+		Jam::set_service(OTHER, JamService::default());
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 100));
 		let (id, release) = release_to(SERVICE, 100);
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 50, SERVICE, MEMO));
-		let redemption = sent().last().unwrap().id;
+		let same_target = sent().last().unwrap().id;
+		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 20, OTHER, MEMO));
+		let other_target = sent().last().unwrap().id;
 		accumulate_all(1);
 
-		// The release's hold is gone from custody, so its settlement fails; the redemption,
-		// sent after it, still settles.
+		// The release's hold is gone from custody, so its settlement fails. The redemption to
+		// the same target waits behind it; the one to another target settles.
 		let releasing = RuntimeHoldReason::Jamkb(HoldReason::Releasing);
 		assert_ok!(<AssetsHolder as MutateHold<AccountId>>::release(
 			JAMKB,
@@ -535,10 +551,19 @@ fn a_failed_settlement_does_not_hold_up_the_rest_and_only_settle_retries_it() {
 		)));
 		assert_eq!(Jamkb::operation(release).unwrap().state, OperationState::Confirmed(None));
 		assert_eq!(Jamkb::allocation(id).unwrap().state, AllocationState::Delivering);
-		assert!(Jamkb::operation(redemption).is_none());
-		assert!(crate::Resolved::<Test>::get().is_empty());
+		assert_eq!(crate::Blocked::<Test>::get(SERVICE), Some(release));
+		assert_eq!(Jamkb::operation(same_target).unwrap().state, OperationState::Confirmed(None));
+		assert!(Jamkb::operation(other_target).is_none());
+		assert!(listed().is_empty());
 
-		// Once the cause is gone, `on_poll` does not pick it up again; `settle` does.
+		// The waiting operation cannot be settled ahead of the failed one.
+		assert_noop!(
+			Jamkb::settle(RuntimeOrigin::signed(BOB), same_target),
+			Error::<Test>::OutOfOrder
+		);
+
+		// Once the cause is gone, `on_poll` does not pick it up again; `settle` does, and the
+		// target's later operation is next in line for `on_poll`.
 		assert_ok!(<AssetsHolder as MutateHold<AccountId>>::hold(
 			JAMKB,
 			&releasing,
@@ -550,27 +575,34 @@ fn a_failed_settlement_does_not_hold_up_the_rest_and_only_settle_retries_it() {
 		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), release));
 		assert_eq!(Jamkb::allocation(id).unwrap().state, AllocationState::Delivered);
 		assert!(Jamkb::operation(release).is_none());
+		assert!(crate::Blocked::<Test>::get(SERVICE).is_none());
+		assert_eq!(listed(), vec![same_target]);
+		poll();
+		assert!(Jamkb::operation(same_target).is_none());
 		assert_books_match_jam();
 	});
 }
 
 #[test]
-fn settle_settles_a_resolved_operation_at_once() {
+fn settle_takes_only_a_failed_settlement() {
 	ready(|| {
-		let (id, op) = release_to(SERVICE, 100);
-		assert_noop!(Jamkb::settle(RuntimeOrigin::signed(ALICE), op), Error::<Test>::NotResolved);
+		let (_, op) = release_to(SERVICE, 100);
+		assert_noop!(
+			Jamkb::settle(RuntimeOrigin::signed(ALICE), op),
+			Error::<Test>::SettlementNotFailed
+		);
 
 		accumulate_all(1);
-		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(ALICE), op));
+		assert_noop!(
+			Jamkb::settle(RuntimeOrigin::signed(ALICE), op),
+			Error::<Test>::SettlementNotFailed
+		);
 
-		assert_eq!(Jamkb::allocation(id).unwrap().state, AllocationState::Delivered);
-		assert!(crate::Resolved::<Test>::get().is_empty());
+		poll();
 		assert_noop!(
 			Jamkb::settle(RuntimeOrigin::signed(ALICE), op),
 			Error::<Test>::UnknownOperation
 		);
-		// `on_poll` finds nothing left.
-		poll();
 		assert_eq!(free(released()), 100);
 	});
 }
@@ -599,7 +631,7 @@ fn redeem_holds_on_the_caller_and_confirms_into_released() {
 		assert_eq!(free(ALICE), 100);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::Jamkb(Event::OperationSubmitted { id: op(1), allocation: None })
+			RuntimeEvent::Jamkb(Event::OperationRequested { id: op(1), allocation: None })
 		);
 		assert!(matches!(
 			sent()[0].messages[0],
@@ -690,14 +722,14 @@ fn anyone_cancels_an_approved_allocation_from_its_expiry_on() {
 
 		assert_noop!(
 			Jamkb::cancel_allocation(RuntimeOrigin::signed(BOB), 1),
-			Error::<Test>::NotExpired
+			sp_runtime::DispatchError::BadOrigin
 		);
-		run_to_block(10);
+		run_to_timeslot(10);
 		assert_noop!(
 			Jamkb::cancel_allocation(RuntimeOrigin::signed(BOB), 1),
-			Error::<Test>::NotExpired
+			sp_runtime::DispatchError::BadOrigin
 		);
-		run_to_block(11);
+		run_to_timeslot(11);
 		// The origin is checked before anything else.
 		assert_noop!(
 			Jamkb::cancel_allocation(RuntimeOrigin::none(), 99),
@@ -800,12 +832,12 @@ fn events_follow_the_operation_lifecycle() {
 		assert_eq!(
 			jamkb_events(),
 			vec![
-				Event::OperationSubmitted { id: redemption, allocation: None },
+				Event::OperationRequested { id: redemption, allocation: None },
 				Event::ReleaseApproved { id, target: SERVICE, amount: 100 },
-				Event::OperationSubmitted { id: release, allocation: Some(id) },
+				Event::OperationRequested { id: release, allocation: Some(id) },
 				Event::OperationFailed {
 					id: redemption,
-					error: FailureReason::Transfer(TransferError::UnknownDestination),
+					error: FailureReason::TransferFailed(TransferError::UnknownDestination),
 				},
 				Event::OperationConfirmed { id: release, entry: None },
 			]
@@ -819,10 +851,7 @@ fn events_follow_the_operation_lifecycle() {
 fn asset_hub_and_jam_agree_after_a_mix_of_releases_and_redemptions() {
 	ready(|| {
 		const OTHER: ServiceId = 7;
-		Jam::set_service(
-			OTHER,
-			JamService { balance: 0, threshold: 0, min_memo_gas: MEMO_GAS + 1 },
-		);
+		Jam::set_service(OTHER, JamService { min_memo_gas: MEMO_GAS + 1, ..Default::default() });
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 500));
 
 		// Block 1: two releases and a redemption; the one to `OTHER` is refused for its gas.
@@ -833,7 +862,7 @@ fn asset_hub_and_jam_agree_after_a_mix_of_releases_and_redemptions() {
 		poll();
 
 		// Block 2: one redemption to a service that does not exist, one that lands.
-		run_to_block(2);
+		run_to_timeslot(2);
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 30, UNKNOWN_SERVICE, MEMO));
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 20, SERVICE, MEMO));
 		accumulate_all(2);
@@ -848,7 +877,7 @@ fn asset_hub_and_jam_agree_after_a_mix_of_releases_and_redemptions() {
 		assert_eq!(free(ALICE), 500 - 40 - 20);
 		assert_eq!(held(ALICE), 0);
 		assert_eq!(Assets::total_issuance(JAMKB), CAP);
-		assert!(crate::Resolved::<Test>::get().is_empty());
+		assert!(listed().is_empty());
 		assert_books_match_jam();
 	});
 }
@@ -863,7 +892,7 @@ fn a_transfer_failed_for_another_message_does_not_fail_the_operation() {
 			id: last_message_id() + 1,
 			error: TransferError::UnknownDestination,
 		}];
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(
+		<Jamkb as OnJamOutcome>::on_outcome(
 			JAMKB_SENDER,
 			op,
 			1,
@@ -928,7 +957,7 @@ fn on_poll_settles_only_what_the_weight_left_in_the_block_allows() {
 		let one = settlement_overhead().saturating_add(<() as WeightInfo>::settle());
 		assert_eq!(poll_within(one), one);
 		assert!(Jamkb::operation(op(1)).is_none());
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![op(2), op(3)]);
+		assert_eq!(listed(), vec![op(2), op(3)]);
 
 		// Not even the reads fit: nothing is read, nothing settles.
 		let reads = MockDbWeight::get().reads(1);
@@ -937,19 +966,22 @@ fn on_poll_settles_only_what_the_weight_left_in_the_block_allows() {
 		assert_eq!(poll_within(settlement_overhead() - Weight::from_parts(1, 0)), reads);
 		// Only the overhead fits: the lists are read, nothing settles.
 		assert_eq!(poll_within(settlement_overhead()), settlement_overhead());
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![op(2), op(3)]);
+		assert_eq!(listed(), vec![op(2), op(3)]);
 	});
 }
 
 #[test]
-fn failed_settlements_leave_the_queue_and_wait_for_settle() {
+fn a_blocked_target_does_not_use_the_settlement_budget() {
 	ready(|| {
+		const OTHER: ServiceId = 7;
+		Jam::set_service(OTHER, JamService::default());
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 100));
 		let releases: Vec<u64> =
 			(0..SETTLEMENTS_PER_BLOCK).map(|_| release_to(SERVICE, 10).1).collect();
 		accumulate_all(1);
 
-		// Every release's settlement fails: their holds are gone from custody.
+		// The first release's settlement fails: the holds are gone from custody. The other
+		// releases to the same target wait and are not tried.
 		let releasing = RuntimeHoldReason::Jamkb(HoldReason::Releasing);
 		let all = 10 * SETTLEMENTS_PER_BLOCK as Balance;
 		assert_ok!(<AssetsHolder as MutateHold<AccountId>>::release(
@@ -960,30 +992,38 @@ fn failed_settlements_leave_the_queue_and_wait_for_settle() {
 			Precision::Exact,
 		));
 		poll_unchecked();
-		assert!(crate::Resolved::<Test>::get().is_empty());
-		for release in &releases {
-			assert_eq!(Jamkb::operation(*release).unwrap().state, OperationState::Confirmed(None));
-		}
+		assert!(listed().is_empty());
+		let failures = System::events()
+			.iter()
+			.filter(|r| matches!(r.event, RuntimeEvent::Jamkb(Event::SettlementFailed { .. })))
+			.count();
+		assert_eq!(failures, 1);
+		assert_eq!(crate::Blocked::<Test>::get(SERVICE), Some(releases[0]));
 
-		// A redemption resolved later gets the whole budget in the next block.
+		// A redemption to the blocked target resolved later waits too; one to another target
+		// settles.
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 10, SERVICE, MEMO));
-		let redemption = sent().last().unwrap().id;
+		let waiting = sent().last().unwrap().id;
+		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 10, OTHER, MEMO));
+		let other = sent().last().unwrap().id;
 		accumulate_all(2);
+		assert_eq!(listed(), vec![other]);
 		poll_unchecked();
-		assert!(Jamkb::operation(redemption).is_none());
+		assert!(Jamkb::operation(other).is_none());
+		assert!(Jamkb::operation(waiting).is_some());
 		assert_eq!(free(released()), 10);
 
-		// Once the cause is gone, `settle` settles each failed one.
+		// Once the cause is gone, `settle` settles the failed one and `on_poll` the rest.
 		assert_ok!(<AssetsHolder as MutateHold<AccountId>>::hold(
 			JAMKB,
 			&releasing,
 			&custody(),
 			all
 		));
-		for release in releases {
-			assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), release));
-		}
-		assert_eq!(free(released()), 10 + all);
+		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), releases[0]));
+		poll();
+		assert!(Jamkb::operation(waiting).is_none());
+		assert_eq!(free(released()), 10 + all + 10);
 		assert_books_match_jam();
 	});
 }
@@ -1002,11 +1042,409 @@ fn a_failed_call_rolls_back_what_it_queued_at_the_transport() {
 	});
 }
 
+// ── Voluntary returns ──────────────────────────────────────────────────────
+
+/// Releases `amount` to `SERVICE` and settles it, so that `SERVICE` holds units to return.
+fn released_to_service(amount: Balance) {
+	release_to(SERVICE, amount);
+	accumulate_all(1);
+	poll();
+}
+
+fn unclaimed_of(who: AccountId) -> Balance {
+	crate::Unclaimed::<Test>::get(who)
+}
+
+fn excess_of(source: ServiceId) -> Balance {
+	crate::Excess::<Test>::get(source)
+}
+
 #[test]
-fn incoming_transfers_are_not_taken_yet() {
+fn buckets_are_taken_only_while_attested_and_not_paused() {
 	ready(|| {
-		use crate::transport::OnIncomingTransfers;
+		assert_eq!(<Jamkb as OnIncomingTransfers<Balance>>::capacity(), BUCKETS_PER_BLOCK);
+		assert_ok!(Jamkb::pause(RuntimeOrigin::root()));
 		assert_eq!(<Jamkb as OnIncomingTransfers<Balance>>::capacity(), 0);
+		assert_eq!(
+			<Jamkb as OnIncomingTransfers<Balance>>::on_incoming_transfers(
+				vec![],
+				&mut WeightMeter::new()
+			),
+			Err(())
+		);
+		assert_ok!(Jamkb::resume(RuntimeOrigin::root()));
+		assert_eq!(<Jamkb as OnIncomingTransfers<Balance>>::capacity(), BUCKETS_PER_BLOCK);
+	});
+}
+
+#[test]
+fn a_return_naming_a_beneficiary_is_booked_unclaimed_and_claimed() {
+	ready(|| {
+		released_to_service(100);
+		let transfer = return_from(SERVICE, 60, memo_for(ALICE), false);
+		assert_eq!(deliver(vec![transfer]), Ok(()));
+
+		assert_eq!(free(released()), 40);
+		assert_eq!(free(unclaimed()), 60);
+		assert_eq!(unclaimed_of(ALICE), 60);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::Jamkb(Event::ReturnBooked {
+				source: SERVICE,
+				amount: 60,
+				class: ReturnClass::Unclaimed(ALICE),
+				memo: memo_for(ALICE),
+			})
+		);
+		assert_books_match_jam();
+
+		// Anyone may pay it out to the beneficiary.
+		assert_ok!(Jamkb::claim(RuntimeOrigin::signed(BOB), ALICE));
+		assert_eq!(free(ALICE), 60);
+		assert_eq!(free(unclaimed()), 0);
+		assert_eq!(unclaimed_of(ALICE), 0);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::Jamkb(Event::Claimed { beneficiary: ALICE, amount: 60 })
+		);
+		assert_noop!(
+			Jamkb::claim(RuntimeOrigin::signed(BOB), ALICE),
+			Error::<Test>::NothingToClaim
+		);
+		assert_books_match_jam();
+	});
+}
+
+#[test]
+fn a_return_without_a_valid_memo_is_booked_as_excess() {
+	ready(|| {
+		released_to_service(100);
+		let mut malformed = memo_for(ALICE);
+		malformed[100] = 1;
+		let bucket = vec![
+			return_from(SERVICE, 10, [0; 128], false),
+			return_from(SERVICE, 20, malformed, false),
+			return_from(SERVICE, 30, MEMO, false),
+			// A pallet account is no beneficiary: its claim would break the books.
+			return_from(SERVICE, 5, memo_for(released()), false),
+			return_from(SERVICE, 5, memo_for(unclaimed()), false),
+		];
+		assert_eq!(deliver(bucket), Ok(()));
+
+		assert_eq!(excess_of(SERVICE), 70);
+		assert_eq!(free(excess()), 70);
+		assert_eq!(free(released()), 30);
+		assert_eq!(unclaimed_of(released()), 0);
+		assert_eq!(unclaimed_of(unclaimed()), 0);
+		assert_eq!(unclaimed_of(ALICE), 0);
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Jamkb(Event::ReturnBooked { amount: 20, class: ReturnClass::Excess, .. })
+		)));
+		assert_books_match_jam();
+	});
+}
+
+#[test]
+fn a_bucket_released_cannot_cover_is_refused_whole() {
+	ready(|| {
+		released_to_service(100);
+		let transfer = |amount| crate::transport::IncomingTransfer {
+			source: SERVICE,
+			amount,
+			to_supervisor_balance: false,
+			memo: memo_for(ALICE),
+		};
+		assert_eq!(deliver(vec![transfer(50), transfer(80)]), Err(()));
+
+		assert_eq!(free(released()), 100);
+		assert_eq!(unclaimed_of(ALICE), 0);
+		assert_eq!(free(unclaimed()), 0);
+	});
+}
+
+#[test]
+fn transfers_to_the_supervisor_balance_are_moved_then_booked() {
+	ready(|| {
+		released_to_service(100);
+		let bucket = vec![
+			return_from(SERVICE, 30, memo_for(BOB), true),
+			return_from(SERVICE, 10, memo_for(ALICE), false),
+			return_from(SERVICE, 20, [0; 128], true),
+		];
+		assert_eq!(Jam::supervisor_balance(PARACHAIN_SERVICE), 50);
+		let fees_before = native(ALICE) + native(BOB);
+		assert_eq!(deliver(bucket), Ok(()));
+
+		// The transfer to the regular balance is booked at once; the others wait for the move.
+		assert_eq!(unclaimed_of(ALICE), 10);
+		assert_eq!(unclaimed_of(BOB), 0);
+		assert_eq!(excess_of(SERVICE), 0);
+		let queued = sent();
+		assert_eq!(queued.len(), 1);
+		assert_eq!(
+			queued[0].messages,
+			vec![UpwardMessage::TransferOut {
+				source: None,
+				dest: PARACHAIN_SERVICE,
+				amount: 50,
+				id: last_message_id(),
+				source_supervisor_balance: true,
+				dest_supervisor_balance: false,
+				deferred: None,
+			}]
+		);
+		let mv = queued[0].id;
+		assert_eq!(Jamkb::operation(mv).unwrap().target, PARACHAIN_SERVICE);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::Jamkb(Event::OperationRequested { id: mv, allocation: None })
+		);
+		// A move pays no fee.
+		assert_eq!(native(ALICE) + native(BOB), fees_before);
+
+		accumulate_all(2);
+		assert_eq!(Jam::supervisor_balance(PARACHAIN_SERVICE), 0);
+		poll();
+
+		assert_eq!(unclaimed_of(BOB), 30);
+		assert_eq!(excess_of(SERVICE), 20);
+		assert_eq!(free(released()), 40);
+		assert_books_match_jam();
+	});
+}
+
+#[test]
+fn a_failed_move_books_nothing() {
+	ready(|| {
+		released_to_service(100);
+		assert_eq!(deliver(vec![return_from(SERVICE, 30, memo_for(BOB), true)]), Ok(()));
+		fail_next(2, TransferError::InsufficientServiceBalance);
+		poll();
+
+		assert_eq!(unclaimed_of(BOB), 0);
+		assert_eq!(free(released()), 100);
+		// The units stay on the supervisor balance, counted as released.
+		assert_eq!(Jam::supervisor_balance(PARACHAIN_SERVICE), 30);
+		assert_books_match_jam();
+	});
+}
+
+#[test]
+fn a_bucket_whose_move_cannot_be_recorded_is_refused_whole() {
+	ready(|| {
+		released_to_service(100);
+		let bucket = vec![
+			crate::transport::IncomingTransfer {
+				source: SERVICE,
+				amount: 10,
+				to_supervisor_balance: false,
+				memo: memo_for(ALICE),
+			},
+			crate::transport::IncomingTransfer {
+				source: SERVICE,
+				amount: 20,
+				to_supervisor_balance: true,
+				memo: memo_for(ALICE),
+			},
+		];
+		SendFailure::set(Some(MessageSendError::QueueFull));
+		assert_eq!(deliver(bucket.clone()), Err(()));
+		assert_eq!(unclaimed_of(ALICE), 0);
+		assert_eq!(free(released()), 100);
+
+		// A bucket over `MaxTransfersPerBucket` is not taken either.
+		SendFailure::set(None);
+		let big = vec![bucket[1].clone(); TRANSFERS_PER_BUCKET as usize + 1];
+		assert_eq!(deliver(big), Err(()));
+		assert!(sent().is_empty());
+
+		assert_eq!(deliver(bucket), Ok(()));
+		assert_eq!(unclaimed_of(ALICE), 10);
+	});
+}
+
+#[test]
+fn a_claim_to_an_account_that_cannot_hold_jamkb_is_rejected() {
+	ready(|| {
+		use frame_support::traits::fungible::Mutate as _;
+		released_to_service(100);
+		assert_eq!(deliver(vec![return_from(SERVICE, 25, memo_for(NOBODY), false)]), Ok(()));
+
+		assert_noop!(Jamkb::claim(RuntimeOrigin::signed(BOB), NOBODY), Error::<Test>::CannotCreate);
+		assert_eq!(unclaimed_of(NOBODY), 25);
+
+		assert_ok!(Balances::mint_into(&NOBODY, 10));
+		assert_ok!(Jamkb::claim(RuntimeOrigin::signed(BOB), NOBODY));
+		assert_eq!(free(NOBODY), 25);
+		assert_books_match_jam();
+	});
+}
+
+#[test]
+fn dispose_excess_returns_to_custody_or_refunds_the_source() {
+	ready(|| {
+		released_to_service(100);
+		assert_eq!(deliver(vec![return_from(SERVICE, 50, [0; 128], false)]), Ok(()));
+		assert_eq!(excess_of(SERVICE), 50);
+
+		assert_noop!(
+			Jamkb::dispose_excess(RuntimeOrigin::signed(ALICE), SERVICE, 10, false, MEMO),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert_noop!(
+			Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 51, false, MEMO),
+			Error::<Test>::InsufficientExcess
+		);
+		assert_noop!(
+			Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, MIN_TRANSFER - 1, true, MEMO),
+			Error::<Test>::BelowMinTransfer
+		);
+
+		// Back to custody.
+		assert_ok!(Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 20, false, MEMO));
+		assert_eq!(excess_of(SERVICE), 30);
+		assert_eq!(free(custody()), CAP - 100 + 20);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::Jamkb(Event::ExcessDisposed { source: SERVICE, amount: 20 })
+		);
+		assert_books_match_jam();
+
+		// Refunded to the source, without a fee.
+		let fees_before = native(ALICE) + native(BOB);
+		assert_ok!(Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 20, true, MEMO));
+		assert_eq!(excess_of(SERVICE), 10);
+		assert_eq!(held(excess()), 20);
+		assert!(matches!(
+			sent()[0].messages[0],
+			UpwardMessage::TransferOut {
+				dest: SERVICE,
+				amount: 20,
+				deferred: Some((MEMO, MEMO_GAS)),
+				..
+			}
+		));
+		assert_eq!(native(ALICE) + native(BOB), fees_before);
+		accumulate_all(2);
+		poll();
+		assert_eq!(held(excess()), 0);
+		assert_eq!(free(excess()), 10);
+		assert_eq!(free(released()), 50 + 20);
+		assert_books_match_jam();
+
+		// A refund cannot hold the last plank of the excess account.
+		assert_noop!(
+			Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 10, true, MEMO),
+			TokenError::FundsUnavailable
+		);
+		assert_ok!(Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 10, false, MEMO));
+		assert_eq!(excess_of(SERVICE), 0);
+	});
+}
+
+#[test]
+fn a_failed_refund_restores_the_excess() {
+	ready(|| {
+		released_to_service(100);
+		assert_eq!(deliver(vec![return_from(SERVICE, 50, [0; 128], false)]), Ok(()));
+		Jam::set_service(
+			SERVICE,
+			JamService { min_memo_gas: MEMO_GAS + 1, ..Jam::service(SERVICE).unwrap() },
+		);
+		assert_ok!(Jamkb::dispose_excess(RuntimeOrigin::root(), SERVICE, 20, true, MEMO));
+		accumulate_all(2);
+		poll();
+
+		assert_eq!(excess_of(SERVICE), 50);
+		assert_eq!(held(excess()), 0);
+		assert_eq!(free(excess()), 50);
+		assert_books_match_jam();
+	});
+}
+
+// ── Corrections ────────────────────────────────────────────────────────────
+
+#[test]
+fn force_transfer_corrects_the_pallet_accounts() {
+	ready(|| {
+		released_to_service(100);
+		// `SERVICE` returned 40 on JAM that the Parachain Service did not record.
+		Jam::set_balance(SERVICE, 60);
+		Jam::set_balance(PARACHAIN_SERVICE, Jam::balance(PARACHAIN_SERVICE) + 40);
+		let force = |from, to, amount| {
+			Jamkb::force_transfer(RuntimeOrigin::root(), ANCHOR, from, to, amount)
+		};
+
+		assert_noop!(
+			Jamkb::force_transfer(
+				RuntimeOrigin::signed(ALICE),
+				ANCHOR,
+				PalletAccount::Released,
+				PalletAccount::Custody,
+				40
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert_noop!(
+			force(PalletAccount::Released, PalletAccount::Custody, 101),
+			Error::<Test>::InsufficientBalance
+		);
+
+		assert_ok!(force(PalletAccount::Released, PalletAccount::Excess(SERVICE), 40));
+		assert_eq!(excess_of(SERVICE), 40);
+		assert_eq!(free(released()), 60);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::Jamkb(Event::ForceTransferred {
+				anchor: ANCHOR,
+				from: PalletAccount::Released,
+				to: PalletAccount::Excess(SERVICE),
+				amount: 40,
+			})
+		);
+		assert_books_match_jam();
+
+		assert_noop!(
+			force(PalletAccount::Excess(SERVICE), PalletAccount::Custody, 41),
+			Error::<Test>::InsufficientBalance
+		);
+		assert_ok!(force(PalletAccount::Excess(SERVICE), PalletAccount::Unclaimed(ALICE), 15));
+		assert_eq!(excess_of(SERVICE), 25);
+		assert_eq!(unclaimed_of(ALICE), 15);
+		assert_eq!(free(unclaimed()), 15);
+
+		// Between two entries of the same account only the books move.
+		assert_ok!(force(PalletAccount::Unclaimed(ALICE), PalletAccount::Unclaimed(BOB), 5));
+		assert_eq!(unclaimed_of(ALICE), 10);
+		assert_eq!(unclaimed_of(BOB), 5);
+		assert_eq!(free(unclaimed()), 15);
+		assert_noop!(
+			force(PalletAccount::Unclaimed(BOB), PalletAccount::Custody, 6),
+			Error::<Test>::InsufficientBalance
+		);
+		assert_books_match_jam();
+	});
+}
+
+// ── Delivery fee ───────────────────────────────────────────────────────────
+
+#[test]
+fn signed_calls_that_record_an_operation_pay_the_delivery_fee() {
+	ready(|| {
+		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 100));
+		release_to(SERVICE, 100);
+		assert_eq!(native(BOB), NATIVE - FEE_PER_MESSAGE);
+		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 10, SERVICE, MEMO));
+		assert_eq!(native(ALICE), NATIVE - FEE_PER_MESSAGE);
+
+		// A caller that cannot pay the fee cannot record the operation.
+		assert_ok!(Jamkb::approve_release(RuntimeOrigin::root(), SERVICE, 10, MEMO, None, 100));
+		let id = crate::LastAllocationId::<Test>::get();
+		assert_noop!(
+			Jamkb::execute_release(RuntimeOrigin::signed(NOBODY), id),
+			TokenError::FundsUnavailable
+		);
 	});
 }
 
@@ -1018,13 +1456,7 @@ fn an_entry_carrying_the_operation_id_instead_of_the_message_id_is_not_a_failure
 		let (_, op) = release_to(SERVICE, 100);
 		assert_ne!(op, last_message_id());
 		let wrong = [AccumulateLog::TransferFailed { id: op, error: TransferError::UnknownSource }];
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(
-			JAMKB_SENDER,
-			op,
-			1,
-			&wrong,
-			&mut WeightMeter::new(),
-		);
+		<Jamkb as OnJamOutcome>::on_outcome(JAMKB_SENDER, op, 1, &wrong, &mut WeightMeter::new());
 		assert_eq!(Jamkb::operation(op).unwrap().state, OperationState::Confirmed(None));
 	});
 }
@@ -1061,7 +1493,7 @@ fn transport_refusals_map_to_pallet_errors_and_leave_nothing_behind() {
 }
 
 #[test]
-fn settle_undoes_a_failed_redemption_and_a_failed_delivery() {
+fn failed_outcomes_are_undone_by_on_poll() {
 	ready(|| {
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 100));
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 40, SERVICE, MEMO));
@@ -1069,17 +1501,16 @@ fn settle_undoes_a_failed_redemption_and_a_failed_delivery() {
 		let redemption = fail_next(1, TransferError::GasBelowDestinationMinimum);
 		let release = fail_next(1, TransferError::InsufficientServiceBalance);
 
-		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), redemption));
+		assert_eq!(listed(), vec![redemption, release]);
+		poll();
 		assert_eq!(held(ALICE), 0);
 		assert_eq!(free(ALICE), 100);
-
-		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), release));
 		assert_eq!(Jamkb::allocation(id).unwrap().state, AllocationState::Approved);
 		assert!(crate::PendingOperationOf::<Test>::get(id).is_none());
 		assert_eq!(held(custody()), 100);
 
 		assert_eq!(free(released()), 0);
-		assert!(crate::Resolved::<Test>::get().is_empty());
+		assert!(listed().is_empty());
 		assert_books_match_jam();
 	});
 }
@@ -1098,7 +1529,7 @@ fn settle_retries_a_failed_settlement_until_its_cause_is_gone() {
 			Precision::Exact,
 		));
 		poll_unchecked();
-		assert!(crate::Resolved::<Test>::get().is_empty());
+		assert!(listed().is_empty());
 
 		assert_noop!(Jamkb::settle(RuntimeOrigin::signed(BOB), op), TokenError::Frozen);
 		assert!(Jamkb::operation(op).is_some());
@@ -1177,9 +1608,9 @@ fn an_allocation_whose_delivery_failed_can_be_cancelled_once_settled() {
 		// Before expiry only the approver may cancel; after it anyone may.
 		assert_noop!(
 			Jamkb::cancel_allocation(RuntimeOrigin::signed(BOB), id),
-			Error::<Test>::NotExpired
+			sp_runtime::DispatchError::BadOrigin
 		);
-		run_to_block(101);
+		run_to_timeslot(101);
 		assert_ok!(Jamkb::cancel_allocation(RuntimeOrigin::signed(BOB), id));
 
 		assert_eq!(Jamkb::allocation(id).unwrap().state, AllocationState::Closed);
@@ -1202,7 +1633,7 @@ fn a_refusal_between_successes_in_one_block_keeps_send_order_and_the_books() {
 		accumulate(1, 1);
 		assert_eq!(fail_next(1, TransferError::GasBelowDestinationMinimum), second);
 		accumulate(1, 1);
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![first, second, third]);
+		assert_eq!(listed(), vec![first, second, third]);
 
 		poll();
 		assert_eq!(free(released()), 40);
@@ -1214,17 +1645,14 @@ fn a_refusal_between_successes_in_one_block_keeps_send_order_and_the_books() {
 }
 
 #[test]
-fn settle_may_settle_an_operation_ahead_of_send_order() {
+fn settle_rejects_an_operation_behind_an_earlier_one_of_its_target() {
 	ready(|| {
 		assert_ok!(Jamkb::grant(RuntimeOrigin::root(), ALICE, 100));
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 10, SERVICE, MEMO));
 		assert_ok!(Jamkb::redeem(RuntimeOrigin::signed(ALICE), 20, SERVICE, MEMO));
 		accumulate_all(1);
 
-		// The later operation is settled first, by hand; `on_poll` then settles the earlier one.
-		assert_ok!(Jamkb::settle(RuntimeOrigin::signed(BOB), op(2)));
-		assert_eq!(crate::Resolved::<Test>::get().into_inner(), vec![op(1)]);
-		assert_eq!(free(released()), 20);
+		assert_noop!(Jamkb::settle(RuntimeOrigin::signed(BOB), op(2)), Error::<Test>::OutOfOrder);
 		poll();
 		assert_eq!(free(released()), 30);
 		assert_books_match_jam();

@@ -20,9 +20,14 @@
 //! Manages the Asset Hub representation of JAMKB, the state-footprint token of JAM, as
 //! described in `designs/jamkb-management/jamkb-management.md`.
 //!
-//! This prototype covers the permanent release and holder redemption flows and the asynchronous
-//! operation machinery they rely on. Leases, lease recovery and voluntary returns are not
-//! implemented; the types reserve their encodings so that adding them needs no migration.
+//! This prototype covers the permanent release, holder redemption and voluntary return flows,
+//! the governance corrections and the asynchronous operation machinery they rely on. Leases and
+//! lease recovery are not implemented; the enums reserve their encodings.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
@@ -34,9 +39,10 @@
 //! The transport to JAM is the responsibility of `pallet-parachain-system`. This crate does not
 //! depend on it; the [`transport`] traits are the boundary. The pallet queues each operation's
 //! messages through [`transport::JamMessageSender`], and parachain-system reports each
-//! operation's outcome, once and in send order, through [`transport::OnJamOutcome`]. The
-//! [`messages`] module carries a minimal mirror of the Parachain Service message and log entry
-//! shapes.
+//! operation's outcome, once and in send order, through [`transport::OnJamOutcome`], and hands
+//! over the Parachain Service's `incoming_transfers` buckets through
+//! [`transport::OnIncomingTransfers`]. The [`messages`] module carries a minimal mirror of the
+//! Parachain Service message and log entry shapes.
 //!
 //! ## Flows
 //!
@@ -46,23 +52,34 @@
 //! - Holder redemption: `redeem` holds the amount on the caller and sends a `Redemption` operation;
 //!   its settlement moves the held units to the `released` account on Confirmed, or releases the
 //!   hold on Failed.
-//! - `grant` moves undistributed units from custody to an Asset Hub account.
+//! - Voluntary return: each incoming transfer is booked from the `released` account into the
+//!   `unclaimed` account for the beneficiary its memo names, or into the `excess` account for its
+//!   source. Transfers that landed on the Parachain Service's supervisor balance are first moved to
+//!   its regular balance by a `Move` operation and booked once it is confirmed. `claim` pays an
+//!   unclaimed balance out; `dispose_excess` returns an excess to custody or refunds it to its
+//!   source by a `Refund` operation.
+//! - `grant` moves undistributed units from custody to an Asset Hub account; `force_transfer`
+//!   corrects the pallet accounts after a drift from JAM.
 //!
 //! ## Accounts
 //!
-//! - `custody`: undistributed units. Once every operation has settled, the Parachain Service's
-//!   regular balance equals the supply minus the `released` account (design §2).
+//! - `custody`: undistributed units.
 //! - `released`: units that left Parachain Service control on JAM.
-//! - `custodial`, `excess`: reserved for voluntary returns, unused by this prototype.
+//! - `unclaimed`: voluntary returns awaiting their `claim`.
+//! - `excess`: unattributed inflows.
+//!
+//! Once every operation has settled, the Parachain Service's regular balance equals the supply
+//! minus the `released` account (design §2).
 //!
 //! ## Resolution and settlement
 //!
 //! An operation is `Requested` from the moment its messages are queued. Its outcome marks it
 //! `Failed` when the reported entries hold a `TransferFailed` for its message, and `Confirmed`
-//! otherwise. In the next `on_poll`, the resolved operations are settled in the order they were
-//! sent, within `SettlementWeight`: a Confirmed operation applies its effect, a Failed one is
-//! undone. A settlement that fails is rolled back and left for the permissionless `settle`
-//! call; it does not hold up the operations after it.
+//! otherwise. Every operation has a target, and the operations of one target settle in the order
+//! they were sent. In each `on_poll`, the resolved operations are settled within
+//! `SettlementWeight`: a Confirmed operation applies its effect, a Failed one is undone. A
+//! settlement that fails is rolled back and blocks its target's later operations until the
+//! permissionless `settle` call retries it.
 
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -70,203 +87,41 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, MaxEncodedLen};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	storage::with_storage_layer,
 	traits::{
 		fungibles::{Create, Inspect, InspectHold, Mutate, MutateHold},
-		tokens::{Fortitude, Precision, Preservation, Restriction},
+		tokens::{DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction},
 		EnsureOrigin,
 	},
 	weights::WeightMeter,
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use scale_info::TypeInfo;
-use sp_core::H256;
-use sp_runtime::traits::{AccountIdConversion, One, Saturating, Zero};
+use messages::{AccumulateLog, MessageId, UpwardMessage};
+use sp_runtime::traits::{
+	AccountIdConversion, BlockNumberProvider, CheckedSub, One, Saturating, Zero,
+};
+use transport::{
+	ChargeDeliveryFee, IncomingTransfer, IncomingTransfers, JamMessageSender, MessageSendError,
+	OnIncomingTransfers, OnJamOutcome, OperationId, SenderId,
+};
 
 pub use pallet::*;
+pub use types::*;
 pub use weights::WeightInfo;
 
+pub mod messages;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod transport;
+mod types;
 pub mod weights;
-
-/// A JAM service index.
-pub type ServiceId = u32;
-/// Identifier of an allocation, assigned from 1.
-pub type AllocationId = u64;
-/// A JAM timeslot.
-pub type Timeslot = u32;
-/// A JAM transfer memo: 128 octets, as the Gray Paper fixes it.
-pub type Memo = [u8; 128];
-/// The header hash of the JAM block whose state the balances were checked against. The pallet
-/// records it and does not verify it.
-pub type Anchor = H256;
-
-/// Minimal mirror of the Parachain Service messages and log entries the pallet uses.
-///
-/// The authoritative definitions live in the Parachain Service design. Only the fields the
-/// pallet reads or writes are carried here.
-pub mod messages {
-	use super::*;
-
-	/// The id a `TransferOut` carries, echoed by the Parachain Service in `TransferFailed`.
-	pub type MessageId = u64;
-
-	/// An upward message from Asset Hub to the Parachain Service.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-	pub enum UpwardMessage<Balance> {
-		/// Transfer balance from the Parachain Service to another JAM service.
-		TransferOut {
-			/// The debited service; `None` is the Parachain Service itself.
-			source: Option<ServiceId>,
-			/// The credited service.
-			dest: ServiceId,
-			/// The amount moved.
-			amount: Balance,
-			/// The id allocated by parachain-system, echoed back in `TransferFailed`.
-			id: MessageId,
-			/// Debit the source's supervisor balance instead of its regular balance.
-			source_supervisor_balance: bool,
-			/// Credit the destination's supervisor balance instead of its regular balance.
-			dest_supervisor_balance: bool,
-			/// The memo and gas of a deferred transfer, which runs the destination's code. A
-			/// plain transfer carries `None`.
-			deferred: Option<(Memo, u64)>,
-		},
-	}
-
-	/// Why a JAM `transfer` failed, as reported by the Parachain Service.
-	#[derive(
-		Clone,
-		Copy,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		PartialEq,
-		Eq,
-		Debug,
-		TypeInfo,
-	)]
-	pub enum TransferError {
-		/// `source` is not a known service.
-		UnknownSource,
-		/// `dest` is not a known service.
-		UnknownDestination,
-		/// The Parachain Service is not `source`'s effective supervisor.
-		SourceNotSupervised,
-		/// A plain transfer needs the Parachain Service to be `dest`'s effective supervisor.
-		DestinationNotSupervised,
-		/// The supplied gas is below `dest`'s `min_memo_gas`.
-		GasBelowDestinationMinimum,
-		/// The `source` service cannot cover `amount` and stay at its threshold balance.
-		InsufficientServiceBalance,
-	}
-
-	/// An accumulate entry of `parachain_log` the pallet acts on.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-	pub enum AccumulateLog {
-		/// A `TransferOut` was rejected by JAM.
-		TransferFailed {
-			/// The id the `TransferOut` carried.
-			id: MessageId,
-			/// The JAM error.
-			error: TransferError,
-		},
-	}
-}
-
-/// The boundary to the AH→JAM transport in `pallet-parachain-system`.
-pub mod transport {
-	use super::*;
-	use messages::{AccumulateLog, MessageId, UpwardMessage};
-
-	/// Identifies a sender; each sender has its own budget share.
-	pub type SenderId = u8;
-	/// One atomic batch of upward messages, allocated by parachain-system.
-	pub type OperationId = u64;
-
-	/// Why parachain-system refused to queue an operation.
-	#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, Debug, TypeInfo)]
-	pub enum MessageSendError {
-		/// A `(kind, target)` name in the batch is in flight for another operation.
-		Conflict,
-		/// The batch can never fit one block.
-		TooBig,
-		/// There is no room in the queue now.
-		QueueFull,
-	}
-
-	/// Implemented by parachain-system. An operation's messages are sent in one block, in the
-	/// order the sender queued them. An operation is in flight from `send` until `on_outcome`.
-	pub trait JamMessageSender<Balance> {
-		/// Allocates the id for one `TransferOut`. The sender puts it in the message before
-		/// `send`.
-		fn next_message_id() -> MessageId;
-		/// Queues `messages` as one operation and returns its id. On `Err` nothing is queued.
-		fn send(
-			sender: SenderId,
-			messages: Vec<UpwardMessage<Balance>>,
-		) -> Result<OperationId, MessageSendError>;
-	}
-
-	/// Implemented by each sender. Called by parachain-system.
-	pub trait OnJamOutcome<BlockNumber> {
-		/// Operation `id` of `sender` was accumulated. Once per operation, in send order.
-		/// `sent_at` is the block that carried its messages; `entries` are its `parachain_log`
-		/// entries, at most one per message. The sender records the outcome and nothing else.
-		/// It cannot fail and charges what it writes to `meter`.
-		fn on_outcome(
-			sender: SenderId,
-			id: OperationId,
-			sent_at: BlockNumber,
-			entries: &[AccumulateLog],
-			meter: &mut WeightMeter,
-		);
-	}
-
-	/// One transfer the Parachain Service received (Parachain Service design §5.1).
-	#[derive(Clone, Encode, Decode, PartialEq, Eq, Debug, TypeInfo)]
-	pub struct IncomingTransfer<Balance> {
-		/// The sending service.
-		pub source: ServiceId,
-		/// The amount received.
-		pub amount: Balance,
-		/// Whether it landed on the Parachain Service's supervisor balance.
-		pub to_supervisor_balance: bool,
-		/// The memo it carried.
-		pub memo: Memo,
-	}
-
-	/// One whole `incoming_transfers` bucket, in queue order.
-	pub type IncomingTransfers<Balance> = Vec<IncomingTransfer<Balance>>;
-
-	/// Implemented by `pallet-jamkb`. Called by parachain-system.
-	pub trait OnIncomingTransfers<Balance> {
-		/// How many buckets `on_incoming_transfers` takes this block. Asked before any bucket
-		/// is read.
-		fn capacity() -> u32;
-		/// One whole bucket, booked all or nothing and charged to `meter`. `Err`: the bucket
-		/// was not booked; parachain-system rolls the call back and delivers it again later.
-		fn on_incoming_transfers(
-			transfers: IncomingTransfers<Balance>,
-			meter: &mut WeightMeter,
-		) -> Result<(), ()>;
-	}
-}
-
-use messages::{AccumulateLog, MessageId, TransferError, UpwardMessage};
-use transport::{
-	IncomingTransfers, JamMessageSender, MessageSendError, OnIncomingTransfers, OnJamOutcome,
-	OperationId, SenderId,
-};
 
 /// Maps an account in pallet-revive, so that contracts can address it. The runtime implements it
 /// with pallet-revive's address mapper; `()` maps nothing.
@@ -280,216 +135,6 @@ impl<AccountId> MapAccount<AccountId> for () {
 		Ok(())
 	}
 }
-
-/// Whether an allocation is a lease or a permanent release. Index 0 is reserved for `Lease`.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-)]
-pub enum AllocationMode {
-	/// A permanent release to the target's regular balance.
-	#[codec(index = 1)]
-	Permanent {
-		/// The memo the delivery carries, as supplied at `approve_release`.
-		memo: Memo,
-	},
-}
-
-/// Lifecycle of an allocation. Index 3 is reserved for `Reclaiming`.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-)]
-pub enum AllocationState {
-	/// Approved; the units are held.
-	#[codec(index = 0)]
-	Approved,
-	/// A delivery is in flight. On Failed, back to `Approved`.
-	#[codec(index = 1)]
-	Delivering,
-	/// The delivery settled Confirmed. Terminal for a permanent release.
-	#[codec(index = 2)]
-	Delivered,
-	/// Cancelled.
-	#[codec(index = 4)]
-	Closed,
-}
-
-/// One approved allocation.
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
-)]
-pub struct Allocation<AccountId, Balance, BlockNumber> {
-	/// The allocation's id.
-	pub id: AllocationId,
-	/// Lease or permanent release.
-	pub mode: AllocationMode,
-	/// The credited JAM service.
-	pub target: ServiceId,
-	/// The units held for the allocation.
-	pub amount: Balance,
-	/// Lifecycle state.
-	pub state: AllocationState,
-	/// The block the delivery was sent in.
-	pub delivered_at: Option<BlockNumber>,
-	/// The signing account or contract that approved it; `None`: governance is the approver.
-	pub approver: Option<AccountId>,
-	/// `execute_release` is rejected before this block.
-	pub valid_from: BlockNumber,
-	/// `execute_release` is rejected from this block on.
-	pub expires_at: BlockNumber,
-}
-
-/// The data payload of an operation. Index 1 is reserved for `Increase`.
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
-)]
-pub enum OperationPayload<AccountId, Balance> {
-	/// A permanent release: one deferred `TransferOut` from the Parachain Service's regular
-	/// balance to the target's regular balance, with the allocation's memo.
-	///
-	/// Confirmed: the allocation moves to `Delivered` and the held units move from custody to
-	/// the `released` account. Failed: the allocation returns to `Approved`.
-	#[codec(index = 0)]
-	Delivery {
-		/// The allocation delivered.
-		allocation: AllocationId,
-		/// The units locked for the transfer.
-		amount: Balance,
-	},
-	/// A redemption of holder funds: one deferred `TransferOut` from the Parachain Service's
-	/// regular balance to `target`'s regular balance, with the redeemer's memo.
-	///
-	/// Confirmed: the held units move from `holder` to the `released` account. Failed: the
-	/// hold is released.
-	#[codec(index = 2)]
-	Redemption {
-		/// The redeemer; the hold sits on it.
-		holder: AccountId,
-		/// The credited JAM service.
-		target: ServiceId,
-		/// The units locked for the transfer.
-		amount: Balance,
-		/// The memo the transfer carries.
-		memo: Memo,
-	},
-}
-
-/// The success entry of an operation that has one, cut to what the settlement reads. None of
-/// the operations of this prototype has one.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-)]
-pub enum SuccessEntry<Balance> {
-	/// `ServiceUpgraded`, for a freeze.
-	Upgraded {
-		/// The code hash the freeze replaced.
-		previous_code_hash: H256,
-		/// The `min_acc_gas` the freeze replaced.
-		previous_min_acc_gas: u64,
-		/// The `min_memo_gas` the freeze replaced.
-		previous_min_memo_gas: u64,
-	},
-	/// `ServiceEjected`, for an ejection.
-	Ejected {
-		/// The amount credited to the Parachain Service.
-		credited: Balance,
-	},
-	/// `ForgetAgainAt`, for a preimage release that needs a second `Forget`.
-	ForgetAgainAt {
-		/// The timeslot after which the second `Forget` may be sent.
-		due: Timeslot,
-	},
-}
-
-/// The state of an unsettled operation; a settled one is removed.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-)]
-pub enum OperationState<Balance> {
-	/// Recorded and queued.
-	Requested,
-	/// Resolved to success; not settled yet.
-	Confirmed(Option<SuccessEntry<Balance>>),
-	/// Resolved to failure; not settled yet.
-	Failed(FailureReason),
-}
-
-/// The failure carried by `OperationFailed`: one variant per failure entry class.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-)]
-pub enum FailureReason {
-	/// A `TransferFailed` entry.
-	Transfer(TransferError),
-}
-
-/// One cross-system operation between Asset Hub and JAM.
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
-)]
-pub struct Operation<AccountId, Balance, BlockNumber> {
-	/// The id parachain-system assigned.
-	pub id: OperationId,
-	/// What the operation does.
-	pub payload: OperationPayload<AccountId, Balance>,
-	/// Lifecycle state.
-	pub state: OperationState<Balance>,
-	/// The block the messages were sent in; unset until reported.
-	pub submitted_at: Option<BlockNumber>,
-	/// The id of the operation's `TransferOut`, which a `TransferFailed` echoes.
-	pub message_id: MessageId,
-}
-
-/// Convenience alias for the allocation record.
-pub type AllocationOf<T> =
-	Allocation<<T as frame_system::Config>::AccountId, <T as Config>::Balance, BlockNumberFor<T>>;
-/// Convenience alias for the operation record.
-pub type OperationOf<T> =
-	Operation<<T as frame_system::Config>::AccountId, <T as Config>::Balance, BlockNumberFor<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -530,6 +175,13 @@ pub mod pallet {
 		/// The AH→JAM transport that queues the pallet's operations.
 		type MessageSender: JamMessageSender<Self::Balance>;
 
+		/// Charges the delivery fee of a signed call's messages.
+		type DeliveryFee: ChargeDeliveryFee<Self::AccountId, Self::Balance>;
+
+		/// The current JAM timeslot: the timeslot of the block's anchor, provided by the
+		/// transport.
+		type TimeslotProvider: BlockNumberProvider<BlockNumber = Timeslot>;
+
 		/// The pallet's sender id at the transport.
 		#[pallet::constant]
 		type SenderId: Get<SenderId>;
@@ -542,7 +194,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type Cap: Get<Self::Balance>;
 
-		/// The least amount `approve_release` and `redeem` accept. At least one unit.
+		/// The least amount `approve_release`, `redeem` and a `dispose_excess` refund accept. At
+		/// least one unit.
 		#[pallet::constant]
 		type MinTransfer: Get<Self::Balance>;
 
@@ -569,6 +222,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnsettledOperations: Get<u32>;
 
+		/// The most `incoming_transfers` buckets taken per block.
+		#[pallet::constant]
+		type MaxBucketsPerBlock: Get<u32>;
+
+		/// The most transfers in one `incoming_transfers` bucket. At least the Parachain
+		/// Service's bucket size; a larger bucket is not taken.
+		#[pallet::constant]
+		type MaxTransfersPerBucket: Get<u32>;
+
 		/// Maps the custody account in pallet-revive, so contracts can address it.
 		type CustodyMapping: MapAccount<Self::AccountId>;
 
@@ -582,7 +244,7 @@ pub mod pallet {
 	/// The hold classes. Indices 0 and 2 are reserved for `Leased` and `RecoveryDeposit`.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Units backing outstanding permanent releases and redemptions.
+		/// Units backing outstanding permanent releases, redemptions and refunds.
 		#[codec(index = 1)]
 		Releasing,
 	}
@@ -614,35 +276,51 @@ pub mod pallet {
 	pub type PendingOperationOf<T: Config> =
 		StorageMap<_, Blake2_128Concat, AllocationId, OperationId, OptionQuery>;
 
-	/// Operations resolved and not yet tried by `on_poll`, in the order sent. An operation whose
-	/// settlement failed is no longer listed; it waits in `Operations` for `settle`.
+	/// The unsettled operations of each target, in send order.
 	#[pallet::storage]
-	pub type Resolved<T: Config> =
-		StorageValue<_, BoundedVec<OperationId, T::MaxUnsettledOperations>, ValueQuery>;
+	pub type TargetOperations<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ServiceId,
+		BoundedVec<OperationId, T::MaxUnsettledOperations>,
+		ValueQuery,
+	>;
+
+	/// The targets whose earliest unsettled operation failed to settle, with that operation. The
+	/// target's later operations wait until `settle` retries it.
+	#[pallet::storage]
+	pub type Blocked<T: Config> = StorageMap<_, Twox64Concat, ServiceId, OperationId, OptionQuery>;
+
+	/// Operations resolved and not yet tried by `on_poll`, in the order sent, with their
+	/// targets. An operation of a blocked target is not listed.
+	#[pallet::storage]
+	pub type Resolved<T: Config> = StorageValue<
+		_,
+		BoundedVec<(OperationId, ServiceId), T::MaxUnsettledOperations>,
+		ValueQuery,
+	>;
+
+	/// Voluntary returns awaiting `claim`, per beneficiary. Their sum equals the balance of the
+	/// `unclaimed` account.
+	#[pallet::storage]
+	pub type Unclaimed<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance, ValueQuery>;
+
+	/// Unattributed inflows, per source service. Their sum equals the free balance of the
+	/// `excess` account.
+	#[pallet::storage]
+	pub type Excess<T: Config> = StorageMap<_, Twox64Concat, ServiceId, T::Balance, ValueQuery>;
 
 	/// Events.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The JAMKB asset was created and the cap minted into custody.
-		Initialized,
 		/// The genesis attestation is recorded.
 		Attested {
 			/// The JAM block the balances were checked against.
 			anchor: Anchor,
 			/// The units held by services other than the Parachain Service at `anchor`.
 			released: T::Balance,
-		},
-		/// The pallet is paused.
-		Paused,
-		/// The pallet is resumed.
-		Resumed,
-		/// Units moved from custody to an Asset Hub account.
-		BudgetGranted {
-			/// The receiving account.
-			beneficiary: T::AccountId,
-			/// The amount moved.
-			amount: T::Balance,
 		},
 		/// A permanent release was approved.
 		ReleaseApproved {
@@ -659,10 +337,10 @@ pub mod pallet {
 			id: AllocationId,
 		},
 		/// An operation was recorded and its messages queued.
-		OperationSubmitted {
+		OperationRequested {
 			/// The operation.
 			id: OperationId,
-			/// The allocation; `None` for a redemption.
+			/// The allocation; `None` for a redemption, a refund or a move.
 			allocation: Option<AllocationId>,
 		},
 		/// The operation resolved to success.
@@ -679,59 +357,110 @@ pub mod pallet {
 			/// The Parachain Service failure.
 			error: FailureReason,
 		},
-		/// The settlement of the operation failed; `settle` retries it.
+		/// The settlement of the operation failed; `settle` retries it, and the target's later
+		/// operations wait.
 		SettlementFailed {
 			/// The operation.
 			id: OperationId,
 			/// The error the settlement failed with.
 			error: DispatchError,
 		},
+		/// An incoming transfer was booked as `class`, with the raw memo it carried. A transfer
+		/// to the supervisor balance is booked when its `Move` is confirmed.
+		ReturnBooked {
+			/// The sending service.
+			source: ServiceId,
+			/// The amount booked.
+			amount: T::Balance,
+			/// Where it was booked.
+			class: ReturnClass<T::AccountId>,
+			/// The memo of the return.
+			memo: Memo,
+		},
+		/// A beneficiary's unclaimed balance was claimed.
+		Claimed {
+			/// The beneficiary paid.
+			beneficiary: T::AccountId,
+			/// The amount paid.
+			amount: T::Balance,
+		},
+		/// Units moved from custody to an Asset Hub account.
+		BudgetGranted {
+			/// The receiving account.
+			beneficiary: T::AccountId,
+			/// The amount moved.
+			amount: T::Balance,
+		},
+		/// An excess was disposed: returned to custody or refunded to its source.
+		ExcessDisposed {
+			/// The source service of the excess.
+			source: ServiceId,
+			/// The amount disposed.
+			amount: T::Balance,
+		},
+		/// Governance moved units between the pallet accounts to correct a drift.
+		ForceTransferred {
+			/// The JAM block whose balances show the difference.
+			anchor: Anchor,
+			/// The debited account.
+			from: PalletAccount<T::AccountId>,
+			/// The credited account.
+			to: PalletAccount<T::AccountId>,
+			/// The amount moved.
+			amount: T::Balance,
+		},
+		/// The pallet is paused.
+		Paused,
+		/// The pallet is resumed.
+		Resumed,
 	}
 
 	/// Errors.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The asset already exists.
-		AlreadyInitialized,
-		/// The asset does not exist yet.
-		NotInitialized,
-		/// The attestation is already recorded.
-		AlreadyAttested,
 		/// The pallet is not attested yet.
 		NotAttested,
 		/// The pallet is paused.
 		Paused,
-		/// The target is the Parachain Service.
-		TargetIsParachainService,
-		/// The amount is zero.
-		ZeroAmount,
-		/// The beneficiary is one of the pallet's accounts.
-		PalletAccount,
 		/// The amount is below `MinTransfer`.
 		BelowMinTransfer,
-		/// The validity window is empty.
-		EmptyValidity,
-		/// No allocation with this id.
-		UnknownAllocation,
-		/// No unsettled operation with this id.
-		UnknownOperation,
-		/// The operation is not resolved yet.
-		NotResolved,
 		/// The allocation is not in the state the call needs.
 		WrongState,
 		/// The allocation is not valid yet.
 		NotYetValid,
 		/// The allocation has expired.
 		Expired,
-		/// The allocation has not expired yet.
-		NotExpired,
+		/// The target is the Parachain Service.
+		TargetIsParachainService,
 		/// The allocation has an unsettled operation.
 		UnsettledOperation,
+		/// The operation's settlement has not failed.
+		SettlementNotFailed,
 		/// `MaxUnsettledOperations` operations are unsettled.
 		TooManyOperations,
+		/// The beneficiary has no JAMKB account and cannot have one created.
+		CannotCreate,
 		/// The transport refused the operation: no room now, too big for one block, or naming
 		/// something already in flight.
 		Transport,
+		/// No allocation with this id.
+		UnknownAllocation,
+		/// No unsettled operation with this id.
+		UnknownOperation,
+		/// The source's excess does not cover the amount.
+		InsufficientExcess,
+		/// The debited pallet account does not cover the amount.
+		InsufficientBalance,
+		/// The beneficiary has nothing to claim.
+		NothingToClaim,
+		/// The operation is not the earliest unsettled one of its target.
+		OutOfOrder,
+		/// The asset does not exist yet.
+		NotInitialized,
+		/// The attestation is already recorded.
+		AlreadyAttested,
+		/// The beneficiary is one of the pallet's accounts.
+		PalletAccount,
 	}
 
 	impl<T> From<MessageSendError> for Error<T> {
@@ -752,15 +481,13 @@ pub mod pallet {
 		pub fn initialize(origin: OriginFor<T>) -> DispatchResult {
 			T::GovernanceOrigin::ensure_origin(origin)?;
 			let asset = T::JamkbAssetId::get();
-			ensure!(!T::Assets::asset_exists(asset.clone()), Error::<T>::AlreadyInitialized);
 			let custody = Self::custody_account();
+			T::Assets::create(asset.clone(), custody.clone(), false, One::one())?;
 			for account in Self::pallet_accounts() {
 				frame_system::Pallet::<T>::inc_providers(&account);
 			}
-			T::Assets::create(asset.clone(), custody.clone(), false, One::one())?;
 			T::Assets::mint_into(asset, &custody, T::Cap::get())?;
 			T::CustodyMapping::map(&custody)?;
-			Self::deposit_event(Event::Initialized);
 			Ok(())
 		}
 
@@ -793,8 +520,8 @@ pub mod pallet {
 		}
 
 		/// Sets the pause flag. While set, a call that creates an allocation, records an
-		/// operation or distributes units from custody is rejected. Operations already sent
-		/// still settle.
+		/// operation or distributes units from custody is rejected, and no `incoming_transfers`
+		/// bucket is taken. Operations already sent still settle.
 		///
 		/// Origin: governance.
 		#[pallet::call_index(2)]
@@ -823,7 +550,7 @@ pub mod pallet {
 		/// Moves `amount` of undistributed units from custody to `beneficiary`.
 		///
 		/// Origin: governance. Rejected when `beneficiary` is one of the pallet's accounts, whose
-		/// balances mirror JAM.
+		/// balances mirror JAM; `force_transfer` corrects those.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::grant())]
 		pub fn grant(
@@ -833,7 +560,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::GovernanceOrigin::ensure_origin(origin)?;
 			Self::ensure_active()?;
-			ensure!(!amount.is_zero(), Error::<T>::ZeroAmount);
 			ensure!(!Self::pallet_accounts().contains(&beneficiary), Error::<T>::PalletAccount);
 			T::Assets::transfer(
 				T::JamkbAssetId::get(),
@@ -849,9 +575,9 @@ pub mod pallet {
 		/// Approves a permanent release of `amount` to `target` and holds the amount on custody.
 		///
 		/// Origin: governance, which becomes the approver. `memo` goes to `target` unchanged
-		/// with the delivery. `valid_from` `None` means the current block; the allocation
-		/// expires `valid_for` blocks after `valid_from`. Rejected when `target` is the
-		/// Parachain Service, `amount` is below `MinTransfer` or `valid_for` is zero.
+		/// with the delivery. `valid_from` `None` means the current timeslot; the allocation
+		/// expires `valid_for` timeslots after `valid_from`. Rejected when `target` is the
+		/// Parachain Service or `amount` is below `MinTransfer`.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::approve_release())]
 		pub fn approve_release(
@@ -859,15 +585,14 @@ pub mod pallet {
 			target: ServiceId,
 			amount: T::Balance,
 			memo: Memo,
-			valid_from: Option<BlockNumberFor<T>>,
-			valid_for: BlockNumberFor<T>,
+			valid_from: Option<Timeslot>,
+			valid_for: Timeslot,
 		) -> DispatchResult {
 			T::GovernanceOrigin::ensure_origin(origin)?;
 			Self::ensure_active()?;
 			ensure!(target != T::ParachainService::get(), Error::<T>::TargetIsParachainService);
 			ensure!(amount >= T::MinTransfer::get(), Error::<T>::BelowMinTransfer);
-			ensure!(!valid_for.is_zero(), Error::<T>::EmptyValidity);
-			let valid_from = valid_from.unwrap_or_else(frame_system::Pallet::<T>::block_number);
+			let valid_from = valid_from.unwrap_or_else(Self::now);
 			let expires_at = valid_from.saturating_add(valid_for);
 			T::AssetsHolder::hold(
 				T::JamkbAssetId::get(),
@@ -888,6 +613,7 @@ pub mod pallet {
 					amount,
 					state: AllocationState::Approved,
 					delivered_at: None,
+					target_reclaim_from: None,
 					approver: None,
 					valid_from,
 					expires_at,
@@ -900,38 +626,21 @@ pub mod pallet {
 		/// Executes an approved release: sends a `Delivery` operation and moves the allocation
 		/// to `Delivering`.
 		///
-		/// Origin: any signed account. Legal while the allocation is `Approved`, within its
-		/// validity window and without an unsettled operation.
+		/// Origin: any signed account, which pays the delivery fee. Legal while the allocation is
+		/// `Approved` and within its validity window.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::execute_release())]
 		pub fn execute_release(origin: OriginFor<T>, id: AllocationId) -> DispatchResult {
-			ensure_signed(origin)?;
-			Self::ensure_active()?;
-			let mut allocation = Allocations::<T>::get(id).ok_or(Error::<T>::UnknownAllocation)?;
-			ensure!(allocation.state == AllocationState::Approved, Error::<T>::WrongState);
-			ensure!(PendingOperationOf::<T>::get(id).is_none(), Error::<T>::UnsettledOperation);
-			let now = frame_system::Pallet::<T>::block_number();
-			ensure!(now >= allocation.valid_from, Error::<T>::NotYetValid);
-			ensure!(now < allocation.expires_at, Error::<T>::Expired);
-			let AllocationMode::Permanent { memo } = allocation.mode;
-			let op_id = Self::send_operation(
-				OperationPayload::Delivery { allocation: id, amount: allocation.amount },
-				allocation.target,
-				allocation.amount,
-				memo,
-			)?;
-			allocation.state = AllocationState::Delivering;
-			Allocations::<T>::insert(id, allocation);
-			PendingOperationOf::<T>::insert(id, op_id);
-			Self::deposit_event(Event::OperationSubmitted { id: op_id, allocation: Some(id) });
-			Ok(())
+			let who = ensure_signed(origin)?;
+			Self::do_execute_release(&who, id).map(|_| ())
 		}
 
 		/// Moves `amount` of the caller's own units to `target`: holds the amount on the caller
 		/// and sends a `Redemption` operation.
 		///
-		/// Origin: any signed account. `memo` goes to `target` unchanged. Rejected when `target`
-		/// is the Parachain Service or `amount` is below `MinTransfer`.
+		/// Origin: any signed account, which pays the delivery fee. `memo` goes to `target`
+		/// unchanged. Rejected when `target` is the Parachain Service or `amount` is below
+		/// `MinTransfer`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::redeem())]
 		pub fn redeem(
@@ -941,23 +650,7 @@ pub mod pallet {
 			memo: Memo,
 		) -> DispatchResult {
 			let holder = ensure_signed(origin)?;
-			Self::ensure_active()?;
-			ensure!(target != T::ParachainService::get(), Error::<T>::TargetIsParachainService);
-			ensure!(amount >= T::MinTransfer::get(), Error::<T>::BelowMinTransfer);
-			T::AssetsHolder::hold(
-				T::JamkbAssetId::get(),
-				&HoldReason::Releasing.into(),
-				&holder,
-				amount,
-			)?;
-			let op_id = Self::send_operation(
-				OperationPayload::Redemption { holder, target, amount, memo },
-				target,
-				amount,
-				memo,
-			)?;
-			Self::deposit_event(Event::OperationSubmitted { id: op_id, allocation: None });
-			Ok(())
+			Self::do_redeem(holder, amount, target, memo).map(|_| ())
 		}
 
 		/// Cancels an allocation in `Approved`: the hold is released and the allocation moves
@@ -971,18 +664,289 @@ pub mod pallet {
 			let signer = ensure_signed(origin.clone()).ok();
 			let governance = T::GovernanceOrigin::try_origin(origin).is_ok();
 			ensure!(governance || signer.is_some(), DispatchError::BadOrigin);
+			Self::do_cancel_allocation(signer.as_ref(), governance, id)
+		}
+
+		/// Retries a failed settlement.
+		///
+		/// Origin: any signed account. Rejected with `OutOfOrder` unless the operation is the
+		/// earliest unsettled one of its target, and with `SettlementNotFailed` unless its
+		/// settlement has failed.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::settle())]
+		pub fn settle(origin: OriginFor<T>, op_id: OperationId) -> DispatchResult {
+			ensure_signed(origin)?;
+			Self::ensure_attested()?;
+			let operation = Operations::<T>::get(op_id).ok_or(Error::<T>::UnknownOperation)?;
+			let target = operation.target;
+			ensure!(
+				TargetOperations::<T>::get(target).first() == Some(&op_id),
+				Error::<T>::OutOfOrder
+			);
+			ensure!(Blocked::<T>::get(target) == Some(op_id), Error::<T>::SettlementNotFailed);
+			Self::apply_settlement(&operation)?;
+			Self::remove_settled(op_id, target);
+			Blocked::<T>::remove(target);
+			// The target's resolved operations waited unlisted; they are next in line.
+			for id in TargetOperations::<T>::get(target) {
+				let resolved = Operations::<T>::get(id)
+					.is_some_and(|op| op.state != OperationState::Requested);
+				if resolved && Resolved::<T>::mutate(|list| list.try_push((id, target))).is_err() {
+					defensive!("resolved operations exceed their bound");
+				}
+			}
+			Ok(())
+		}
+
+		/// Corrects the pallet accounts after a drift from JAM (design §2): an unrecorded
+		/// return, or a lost failure entry.
+		///
+		/// Origin: governance. Rejected with `InsufficientBalance` if `from` cannot cover
+		/// `amount`. `anchor` is the JAM block whose balances show the difference.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::force_transfer())]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			anchor: Anchor,
+			from: PalletAccount<T::AccountId>,
+			to: PalletAccount<T::AccountId>,
+			amount: T::Balance,
+		) -> DispatchResult {
+			T::GovernanceOrigin::ensure_origin(origin)?;
+			Self::ensure_attested()?;
+			let asset = T::JamkbAssetId::get();
+			match &from {
+				PalletAccount::Custody | PalletAccount::Released => {
+					let available = T::Assets::reducible_balance(
+						asset.clone(),
+						&Self::account_of(&from),
+						Preservation::Expendable,
+						Fortitude::Polite,
+					);
+					ensure!(available >= amount, Error::<T>::InsufficientBalance);
+				},
+				PalletAccount::Unclaimed(who) => Unclaimed::<T>::try_mutate_exists(who, |entry| {
+					let left = entry
+						.unwrap_or_default()
+						.checked_sub(&amount)
+						.ok_or(Error::<T>::InsufficientBalance)?;
+					*entry = (!left.is_zero()).then_some(left);
+					Ok::<_, Error<T>>(())
+				})?,
+				PalletAccount::Excess(source) => Excess::<T>::try_mutate_exists(source, |entry| {
+					let left = entry
+						.unwrap_or_default()
+						.checked_sub(&amount)
+						.ok_or(Error::<T>::InsufficientBalance)?;
+					*entry = (!left.is_zero()).then_some(left);
+					Ok::<_, Error<T>>(())
+				})?,
+			}
+			match &to {
+				PalletAccount::Custody | PalletAccount::Released => {},
+				PalletAccount::Unclaimed(who) => {
+					Unclaimed::<T>::mutate(who, |b| *b = b.saturating_add(amount))
+				},
+				PalletAccount::Excess(source) => {
+					Excess::<T>::mutate(source, |b| *b = b.saturating_add(amount))
+				},
+			}
+			let (debited, credited) = (Self::account_of(&from), Self::account_of(&to));
+			if debited != credited {
+				T::Assets::transfer(asset, &debited, &credited, amount, Preservation::Expendable)?;
+			}
+			Self::deposit_event(Event::ForceTransferred { anchor, from, to, amount });
+			Ok(())
+		}
+
+		/// Pays `beneficiary`'s voluntarily returned balance out of the `unclaimed` account.
+		///
+		/// Origin: any signed account. Rejected with `CannotCreate` when `beneficiary` has no
+		/// JAMKB account and no native balance to create one; the unclaimed balance stays booked.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::claim())]
+		pub fn claim(origin: OriginFor<T>, beneficiary: T::AccountId) -> DispatchResult {
+			ensure_signed(origin)?;
+			Self::do_claim(beneficiary).map(|_| ())
+		}
+
+		/// Disposes `amount` of the excess booked for `source`.
+		///
+		/// Origin: governance. Lowers `Excess[source]` by `amount`. With `refund` it holds
+		/// `amount` on the `excess` account and records a `Refund` operation sending the units
+		/// back to `source`'s regular balance with `memo` unchanged; a refund cannot hold the
+		/// last plank of the `excess` account. Without `refund` it moves the units from the
+		/// `excess` account to custody and `memo` is ignored.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::dispose_excess())]
+		pub fn dispose_excess(
+			origin: OriginFor<T>,
+			source: ServiceId,
+			amount: T::Balance,
+			refund: bool,
+			memo: Memo,
+		) -> DispatchResult {
+			T::GovernanceOrigin::ensure_origin(origin)?;
+			if refund {
+				Self::ensure_active()?;
+				ensure!(amount >= T::MinTransfer::get(), Error::<T>::BelowMinTransfer);
+			} else {
+				Self::ensure_attested()?;
+			}
+			Excess::<T>::try_mutate_exists(source, |entry| {
+				let left = entry
+					.unwrap_or_default()
+					.checked_sub(&amount)
+					.ok_or(Error::<T>::InsufficientExcess)?;
+				*entry = (!left.is_zero()).then_some(left);
+				Ok::<_, Error<T>>(())
+			})?;
+			let asset = T::JamkbAssetId::get();
+			if refund {
+				T::AssetsHolder::hold(
+					asset,
+					&HoldReason::Releasing.into(),
+					&Self::excess_account(),
+					amount,
+				)?;
+				Self::send_operation(
+					OperationPayload::Refund { source, amount, memo },
+					source,
+					None,
+					None,
+					|id| Self::transfer_out(source, amount, id, Some(memo)),
+				)?;
+			} else {
+				T::Assets::transfer(
+					asset,
+					&Self::excess_account(),
+					&Self::custody_account(),
+					amount,
+					Preservation::Expendable,
+				)?;
+			}
+			Self::deposit_event(Event::ExcessDisposed { source, amount });
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// The custody account: undistributed DAO units.
+		pub fn custody_account() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+
+		/// The released account: units that left Parachain Service control.
+		pub fn released_account() -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(b"rlsd")
+		}
+
+		/// The unclaimed account: voluntary returns awaiting their claim.
+		pub fn unclaimed_account() -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(b"uncl")
+		}
+
+		/// The excess account: unattributed inflows.
+		pub fn excess_account() -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(b"xces")
+		}
+
+		/// The four pallet accounts.
+		pub fn pallet_accounts() -> [T::AccountId; 4] {
+			[
+				Self::custody_account(),
+				Self::released_account(),
+				Self::unclaimed_account(),
+				Self::excess_account(),
+			]
+		}
+
+		/// The allocation with `id`, if any.
+		pub fn allocation(id: AllocationId) -> Option<AllocationOf<T>> {
+			Allocations::<T>::get(id)
+		}
+
+		/// The unsettled operation with `id`, if any.
+		pub fn operation(id: OperationId) -> Option<OperationOf<T>> {
+			Operations::<T>::get(id)
+		}
+
+		/// The current JAM timeslot.
+		pub fn now() -> Timeslot {
+			T::TimeslotProvider::current_block_number()
+		}
+
+		/// Shared by `execute_release` and the precompile. Returns the new operation's id.
+		pub fn do_execute_release(
+			who: &T::AccountId,
+			id: AllocationId,
+		) -> Result<OperationId, DispatchError> {
+			Self::ensure_active()?;
+			let mut allocation = Allocations::<T>::get(id).ok_or(Error::<T>::UnknownAllocation)?;
+			ensure!(allocation.state == AllocationState::Approved, Error::<T>::WrongState);
+			ensure!(PendingOperationOf::<T>::get(id).is_none(), Error::<T>::UnsettledOperation);
+			let now = Self::now();
+			ensure!(now >= allocation.valid_from, Error::<T>::NotYetValid);
+			ensure!(now < allocation.expires_at, Error::<T>::Expired);
+			let AllocationMode::Permanent { memo } = allocation.mode;
+			let (target, amount) = (allocation.target, allocation.amount);
+			let op_id = Self::send_operation(
+				OperationPayload::Delivery { allocation: id, amount },
+				target,
+				Some(id),
+				Some(who),
+				|message_id| Self::transfer_out(target, amount, message_id, Some(memo)),
+			)?;
+			allocation.state = AllocationState::Delivering;
+			Allocations::<T>::insert(id, allocation);
+			PendingOperationOf::<T>::insert(id, op_id);
+			Ok(op_id)
+		}
+
+		/// Shared by `redeem` and the precompile. Returns the new operation's id.
+		pub fn do_redeem(
+			holder: T::AccountId,
+			amount: T::Balance,
+			target: ServiceId,
+			memo: Memo,
+		) -> Result<OperationId, DispatchError> {
+			Self::ensure_active()?;
+			ensure!(target != T::ParachainService::get(), Error::<T>::TargetIsParachainService);
+			ensure!(amount >= T::MinTransfer::get(), Error::<T>::BelowMinTransfer);
+			T::AssetsHolder::hold(
+				T::JamkbAssetId::get(),
+				&HoldReason::Releasing.into(),
+				&holder,
+				amount,
+			)?;
+			let payer = holder.clone();
+			Self::send_operation(
+				OperationPayload::Redemption { holder, target, amount, memo },
+				target,
+				None,
+				Some(&payer),
+				|message_id| Self::transfer_out(target, amount, message_id, Some(memo)),
+			)
+		}
+
+		/// Shared by `cancel_allocation` and the precompile. `signer` is the signing account,
+		/// if any; `governance` whether the origin is governance.
+		pub fn do_cancel_allocation(
+			signer: Option<&T::AccountId>,
+			governance: bool,
+			id: AllocationId,
+		) -> DispatchResult {
 			Self::ensure_attested()?;
 			let allocation = Allocations::<T>::get(id).ok_or(Error::<T>::UnknownAllocation)?;
 			ensure!(allocation.state == AllocationState::Approved, Error::<T>::WrongState);
 			let is_approver = match &allocation.approver {
 				None => governance,
-				Some(approver) => signer.as_ref() == Some(approver),
+				Some(approver) => signer == Some(approver),
 			};
-			if !is_approver {
-				ensure!(signer.is_some(), DispatchError::BadOrigin);
-				let now = frame_system::Pallet::<T>::block_number();
-				ensure!(now >= allocation.expires_at, Error::<T>::NotExpired);
-			}
+			ensure!(
+				is_approver || (signer.is_some() && Self::now() >= allocation.expires_at),
+				DispatchError::BadOrigin
+			);
 			T::AssetsHolder::release(
 				T::JamkbAssetId::get(),
 				&HoldReason::Releasing.into(),
@@ -999,63 +963,27 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Settles a resolved operation at once, without waiting for `on_poll`. Its use is to
-		/// retry a failed settlement.
-		///
-		/// Origin: any signed account. Rejected unless the operation is resolved.
-		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::settle())]
-		pub fn settle(origin: OriginFor<T>, op_id: OperationId) -> DispatchResult {
-			ensure_signed(origin)?;
+		/// Shared by `claim` and the precompile. Returns the amount paid.
+		pub fn do_claim(beneficiary: T::AccountId) -> Result<T::Balance, DispatchError> {
 			Self::ensure_attested()?;
-			let operation = Operations::<T>::get(op_id).ok_or(Error::<T>::UnknownOperation)?;
-			ensure!(operation.state != OperationState::Requested, Error::<T>::NotResolved);
-			Self::apply_settlement(&operation)?;
-			Operations::<T>::remove(op_id);
-			Resolved::<T>::mutate(|list| list.retain(|id| *id != op_id));
-			Ok(())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// The custody account: undistributed DAO units.
-		pub fn custody_account() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
-		}
-
-		/// The released account: units that left Parachain Service control.
-		pub fn released_account() -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(b"rlsd")
-		}
-
-		/// The custodial account: voluntary returns awaiting their claim.
-		pub fn custodial_account() -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(b"cstd")
-		}
-
-		/// The excess account: unattributed inflows.
-		pub fn excess_account() -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(b"xces")
-		}
-
-		/// The four pallet accounts.
-		pub fn pallet_accounts() -> [T::AccountId; 4] {
-			[
-				Self::custody_account(),
-				Self::released_account(),
-				Self::custodial_account(),
-				Self::excess_account(),
-			]
-		}
-
-		/// The allocation with `id`, if any.
-		pub fn allocation(id: AllocationId) -> Option<AllocationOf<T>> {
-			Allocations::<T>::get(id)
-		}
-
-		/// The unsettled operation with `id`, if any.
-		pub fn operation(id: OperationId) -> Option<OperationOf<T>> {
-			Operations::<T>::get(id)
+			let amount = Unclaimed::<T>::get(&beneficiary);
+			ensure!(!amount.is_zero(), Error::<T>::NothingToClaim);
+			let asset = T::JamkbAssetId::get();
+			ensure!(
+				T::Assets::can_deposit(asset.clone(), &beneficiary, amount, Provenance::Extant) !=
+					DepositConsequence::CannotCreate,
+				Error::<T>::CannotCreate
+			);
+			T::Assets::transfer(
+				asset,
+				&Self::unclaimed_account(),
+				&beneficiary,
+				amount,
+				Preservation::Expendable,
+			)?;
+			Unclaimed::<T>::remove(&beneficiary);
+			Self::deposit_event(Event::Claimed { beneficiary, amount });
+			Ok(amount)
 		}
 
 		fn ensure_attested() -> DispatchResult {
@@ -1069,42 +997,153 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Queues one deferred `TransferOut` from the Parachain Service's regular balance to
-		/// `dest`'s regular balance as a new operation, and records it as `Requested`. Nothing
-		/// after the transport accepts the operation can fail.
-		fn send_operation(
-			payload: OperationPayload<T::AccountId, T::Balance>,
+		/// The asset account behind a `PalletAccount`.
+		fn account_of(account: &PalletAccount<T::AccountId>) -> T::AccountId {
+			match account {
+				PalletAccount::Custody => Self::custody_account(),
+				PalletAccount::Released => Self::released_account(),
+				PalletAccount::Unclaimed(_) => Self::unclaimed_account(),
+				PalletAccount::Excess(_) => Self::excess_account(),
+			}
+		}
+
+		/// A `TransferOut` from the Parachain Service's regular balance to `dest`'s regular
+		/// balance; deferred with `MemoGas` when it carries a memo.
+		fn transfer_out(
 			dest: ServiceId,
 			amount: T::Balance,
-			memo: Memo,
+			id: MessageId,
+			memo: Option<Memo>,
+		) -> UpwardMessage<T::Balance> {
+			UpwardMessage::TransferOut {
+				source: None,
+				dest,
+				amount,
+				id,
+				source_supervisor_balance: false,
+				dest_supervisor_balance: false,
+				deferred: memo.map(|memo| (memo, T::MemoGas::get())),
+			}
+		}
+
+		/// Queues the message `build` makes as a new operation on `target`, charges `payer` its
+		/// delivery fee, and records it as `Requested`. Nothing after the transport accepts the
+		/// operation can fail.
+		fn send_operation(
+			payload: OperationPayloadOf<T>,
+			target: ServiceId,
+			allocation: Option<AllocationId>,
+			payer: Option<&T::AccountId>,
+			build: impl FnOnce(MessageId) -> UpwardMessage<T::Balance>,
 		) -> Result<OperationId, DispatchError> {
 			ensure!(
 				Operations::<T>::count() < T::MaxUnsettledOperations::get(),
 				Error::<T>::TooManyOperations
 			);
 			let message_id = T::MessageSender::next_message_id();
-			let message = UpwardMessage::TransferOut {
-				source: None,
-				dest,
-				amount,
-				id: message_id,
-				source_supervisor_balance: false,
-				dest_supervisor_balance: false,
-				deferred: Some((memo, T::MemoGas::get())),
-			};
-			let id = T::MessageSender::send(T::SenderId::get(), vec![message])
-				.map_err(Error::<T>::from)?;
+			let messages = vec![build(message_id)];
+			if let Some(payer) = payer {
+				T::DeliveryFee::charge(payer, &messages)?;
+			}
+			let id =
+				T::MessageSender::send(T::SenderId::get(), messages).map_err(Error::<T>::from)?;
+			TargetOperations::<T>::try_mutate(target, |queue| queue.try_push(id))
+				.map_err(|_| Error::<T>::TooManyOperations)?;
 			Operations::<T>::insert(
 				id,
 				Operation {
 					id,
 					payload,
 					state: OperationState::Requested,
-					submitted_at: None,
+					accumulated_at: None,
+					target,
 					message_id,
 				},
 			);
+			Self::deposit_event(Event::OperationRequested { id, allocation });
 			Ok(id)
+		}
+
+		/// The Asset Hub beneficiary a voluntary return's memo names: the account in its first 32
+		/// bytes, the rest zero. `None` for a missing (all zero) or malformed memo, and for one
+		/// naming a pallet account, whose balance a claim would put out of step with JAM.
+		fn beneficiary(memo: &Memo) -> Option<T::AccountId> {
+			if memo.iter().all(|b| *b == 0) || memo[32..].iter().any(|b| *b != 0) {
+				return None;
+			}
+			let mut input = &memo[..32];
+			let who = T::AccountId::decode(&mut input).ok()?;
+			let valid = input.iter().all(|b| *b == 0) && !Self::pallet_accounts().contains(&who);
+			valid.then_some(who)
+		}
+
+		/// Books one incoming transfer from the `released` account: into `unclaimed` for the
+		/// beneficiary its memo names, or into `excess` for its source.
+		fn book(transfer: &IncomingTransfer<T::Balance>) -> DispatchResult {
+			let IncomingTransfer { source, amount, memo, .. } = transfer;
+			let (class, into) = match Self::beneficiary(memo) {
+				Some(who) => {
+					Unclaimed::<T>::mutate(&who, |b| *b = b.saturating_add(*amount));
+					(ReturnClass::Unclaimed(who), Self::unclaimed_account())
+				},
+				None => {
+					Excess::<T>::mutate(source, |b| *b = b.saturating_add(*amount));
+					(ReturnClass::Excess, Self::excess_account())
+				},
+			};
+			if !amount.is_zero() {
+				T::Assets::transfer(
+					T::JamkbAssetId::get(),
+					&Self::released_account(),
+					&into,
+					*amount,
+					Preservation::Expendable,
+				)?;
+			}
+			Self::deposit_event(Event::ReturnBooked {
+				source: *source,
+				amount: *amount,
+				class,
+				memo: *memo,
+			});
+			Ok(())
+		}
+
+		/// Books a bucket: the transfers to the regular balance at once, those to the supervisor
+		/// balance by one `Move` of their sum.
+		fn book_bucket(transfers: IncomingTransfers<T::Balance>) -> DispatchResult {
+			let mut to_move = Vec::new();
+			for transfer in transfers {
+				if transfer.to_supervisor_balance {
+					to_move.push(transfer);
+				} else {
+					Self::book(&transfer)?;
+				}
+			}
+			if to_move.is_empty() {
+				return Ok(());
+			}
+			let sum =
+				to_move.iter().fold(T::Balance::zero(), |acc, t| acc.saturating_add(t.amount));
+			let transfers = BoundedVec::try_from(to_move)
+				.map_err(|_| DispatchError::Other("the bucket exceeds `MaxTransfersPerBucket`"))?;
+			let parachain_service = T::ParachainService::get();
+			Self::send_operation(
+				OperationPayload::Move { transfers },
+				parachain_service,
+				None,
+				None,
+				|id| UpwardMessage::TransferOut {
+					source: None,
+					dest: parachain_service,
+					amount: sum,
+					id,
+					source_supervisor_balance: true,
+					dest_supervisor_balance: false,
+					deferred: None,
+				},
+			)?;
+			Ok(())
 		}
 
 		/// Applies the outcome of a resolved operation.
@@ -1112,50 +1151,61 @@ pub mod pallet {
 			match operation.state {
 				OperationState::Confirmed(_) => Self::confirm(operation),
 				OperationState::Failed(_) => Self::undo(operation),
-				OperationState::Requested => Err(Error::<T>::NotResolved.into()),
+				OperationState::Requested => Err(Error::<T>::SettlementNotFailed.into()),
 			}
 		}
 
 		fn confirm(operation: &OperationOf<T>) -> DispatchResult {
 			let asset = T::JamkbAssetId::get();
 			let reason: T::RuntimeHoldReason = HoldReason::Releasing.into();
+			let move_held = |from: &T::AccountId, amount: T::Balance| {
+				T::AssetsHolder::transfer_on_hold(
+					asset.clone(),
+					&reason,
+					from,
+					&Self::released_account(),
+					amount,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)
+				.map(|_| ())
+			};
 			match &operation.payload {
 				OperationPayload::Delivery { allocation, amount } => {
-					T::AssetsHolder::transfer_on_hold(
-						asset,
-						&reason,
-						&Self::custody_account(),
-						&Self::released_account(),
-						*amount,
-						Precision::Exact,
-						Restriction::Free,
-						Fortitude::Polite,
-					)?;
+					move_held(&Self::custody_account(), *amount)?;
 					Allocations::<T>::mutate(allocation, |a| {
 						if let Some(a) = a {
 							a.state = AllocationState::Delivered;
-							a.delivered_at = operation.submitted_at;
+							a.delivered_at = operation.accumulated_at;
 						}
 					});
 					PendingOperationOf::<T>::remove(allocation);
 				},
-				OperationPayload::Redemption { holder, amount, .. } => {
-					T::AssetsHolder::transfer_on_hold(
-						asset,
-						&reason,
-						holder,
-						&Self::released_account(),
-						*amount,
-						Precision::Exact,
-						Restriction::Free,
-						Fortitude::Polite,
-					)?;
+				OperationPayload::Redemption { holder, amount, .. } => move_held(holder, *amount)?,
+				OperationPayload::Move { transfers } => {
+					for transfer in transfers {
+						Self::book(transfer)?;
+					}
+				},
+				OperationPayload::Refund { amount, .. } => {
+					move_held(&Self::excess_account(), *amount)?
 				},
 			}
 			Ok(())
 		}
 
 		fn undo(operation: &OperationOf<T>) -> DispatchResult {
+			let release = |from: &T::AccountId, amount: T::Balance| {
+				T::AssetsHolder::release(
+					T::JamkbAssetId::get(),
+					&HoldReason::Releasing.into(),
+					from,
+					amount,
+					Precision::Exact,
+				)
+				.map(|_| ())
+			};
 			match &operation.payload {
 				OperationPayload::Delivery { allocation, .. } => {
 					Allocations::<T>::mutate(allocation, |a| {
@@ -1165,34 +1215,57 @@ pub mod pallet {
 					});
 					PendingOperationOf::<T>::remove(allocation);
 				},
-				OperationPayload::Redemption { holder, amount, .. } => {
-					T::AssetsHolder::release(
-						T::JamkbAssetId::get(),
-						&HoldReason::Releasing.into(),
-						holder,
-						*amount,
-						Precision::Exact,
-					)?;
+				OperationPayload::Redemption { holder, amount, .. } => release(holder, *amount)?,
+				OperationPayload::Move { .. } => {},
+				OperationPayload::Refund { source, amount, .. } => {
+					release(&Self::excess_account(), *amount)?;
+					Excess::<T>::mutate(source, |b| *b = b.saturating_add(*amount));
 				},
 			}
 			Ok(())
 		}
 
-		/// Settles `id` in its own storage layer. On failure the layer is rolled back and the
-		/// failure is reported.
-		fn try_settle(id: OperationId) {
+		/// Removes a settled operation: from the operations and from the front of its target's
+		/// queue.
+		fn remove_settled(id: OperationId, target: ServiceId) {
+			Operations::<T>::remove(id);
+			TargetOperations::<T>::mutate_exists(target, |queue| {
+				let Some(q) = queue else { return };
+				if q.first() == Some(&id) {
+					q.remove(0);
+				} else {
+					defensive!("a settled operation is not the earliest of its target");
+					q.retain(|op| *op != id);
+				}
+				if q.is_empty() {
+					*queue = None;
+				}
+			});
+		}
+
+		/// Settles `id` in its own storage layer. On failure the layer is rolled back, the
+		/// target is blocked and the failure is reported. Returns whether it settled.
+		fn try_settle(id: OperationId, target: ServiceId) -> bool {
 			let Some(operation) = Operations::<T>::get(id) else {
 				defensive!("a listed operation is missing");
-				return;
+				return true;
 			};
 			match with_storage_layer(|| Self::apply_settlement(&operation)) {
-				Ok(()) => Operations::<T>::remove(id),
-				Err(error) => Self::deposit_event(Event::SettlementFailed { id, error }),
+				Ok(()) => {
+					Self::remove_settled(id, target);
+					true
+				},
+				Err(error) => {
+					Blocked::<T>::insert(target, id);
+					Self::deposit_event(Event::SettlementFailed { id, error });
+					false
+				},
 			}
 		}
 
 		/// Settles the resolved operations in send order, as long as `meter` has room. A
-		/// settlement that fails leaves the list and waits for `settle`.
+		/// settlement that fails blocks its target: its later operations leave the list and wait
+		/// for `settle`.
 		fn settle_resolved(meter: &mut WeightMeter) {
 			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
 				return;
@@ -1205,13 +1278,22 @@ pub mod pallet {
 				return;
 			}
 			let each = T::WeightInfo::settle();
-			let mut ids = resolved.into_inner().into_iter().peekable();
-			while ids.peek().is_some() && meter.try_consume(each).is_ok() {
-				let id = ids.next().expect("peeked above; qed");
-				Self::try_settle(id);
+			let mut blocked: Vec<ServiceId> = Vec::new();
+			let mut left = Vec::new();
+			for (id, target) in resolved {
+				if blocked.contains(&target) {
+					continue;
+				}
+				if !left.is_empty() || meter.try_consume(each).is_err() {
+					left.push((id, target));
+					continue;
+				}
+				if !Self::try_settle(id, target) {
+					blocked.push(target);
+				}
 			}
-			// What is left is a tail of a bounded list, so it fits the bound.
-			Resolved::<T>::put(BoundedVec::truncate_from(ids.collect::<Vec<_>>()));
+			// What is left is part of a bounded list, so it fits the bound.
+			Resolved::<T>::put(BoundedVec::truncate_from(left));
 		}
 
 		/// Checks the invariants the pallet maintains. Fails when they do not hold.
@@ -1240,20 +1322,37 @@ pub mod pallet {
 				"custody hold does not match the committed allocations"
 			);
 
-			// Every holder's hold backs exactly its unsettled redemptions.
-			let mut redeeming: BTreeMap<T::AccountId, T::Balance> = BTreeMap::new();
+			// Every other hold backs exactly its unsettled redemptions and refunds.
+			let mut holds: BTreeMap<T::AccountId, T::Balance> = BTreeMap::new();
 			for op in Operations::<T>::iter_values() {
-				if let OperationPayload::Redemption { holder, amount, .. } = op.payload {
-					let sum = redeeming.entry(holder).or_insert_with(Zero::zero);
-					*sum = sum.saturating_add(amount);
-				}
+				let (account, amount) = match op.payload {
+					OperationPayload::Redemption { holder, amount, .. } => (holder, amount),
+					OperationPayload::Refund { amount, .. } => (Self::excess_account(), amount),
+					_ => continue,
+				};
+				let sum = holds.entry(account).or_insert_with(Zero::zero);
+				*sum = sum.saturating_add(amount);
 			}
-			for (holder, sum) in redeeming {
+			for (account, sum) in holds {
 				frame_support::ensure!(
-					T::AssetsHolder::balance_on_hold(asset.clone(), &reason, &holder) == sum,
-					"a holder's hold does not match its redemptions"
+					T::AssetsHolder::balance_on_hold(asset.clone(), &reason, &account) == sum,
+					"a hold does not match its redemptions and refunds"
 				);
 			}
+
+			// The books of the returns match their accounts.
+			let unclaimed = Unclaimed::<T>::iter_values()
+				.fold(T::Balance::zero(), |acc, b| acc.saturating_add(b));
+			frame_support::ensure!(
+				T::Assets::balance(asset.clone(), &Self::unclaimed_account()) == unclaimed,
+				"the unclaimed account does not match `Unclaimed`"
+			);
+			let excess =
+				Excess::<T>::iter_values().fold(T::Balance::zero(), |acc, b| acc.saturating_add(b));
+			frame_support::ensure!(
+				T::Assets::balance(asset.clone(), &Self::excess_account()) == excess,
+				"the excess account does not match `Excess`"
+			);
 
 			// A delivery operation and its delivering allocation point at each other.
 			for (allocation, op_id) in PendingOperationOf::<T>::iter() {
@@ -1285,41 +1384,78 @@ pub mod pallet {
 				}
 			}
 
-			// Only resolved operations are listed, each once; a resolved one that is not listed
-			// had its settlement fail. A requested one has no sending block yet.
+			// Each operation is queued once, on its own target. Per target, the resolved
+			// operations come first; they are listed in queue order, unless the target is blocked
+			// by its earliest operation, when none of them is listed.
 			frame_support::ensure!(
 				Operations::<T>::count() <= T::MaxUnsettledOperations::get(),
 				"too many unsettled operations"
 			);
-			let mut listed: Vec<OperationId> = Resolved::<T>::get().into_inner();
-			let listed_count = listed.len();
-			listed.sort();
-			listed.dedup();
-			frame_support::ensure!(listed.len() == listed_count, "operation listed twice");
-			for (id, op) in Operations::<T>::iter() {
-				let requested = op.state == OperationState::Requested;
-				frame_support::ensure!(
-					requested == op.submitted_at.is_none(),
-					"operation state and sending block disagree"
-				);
-				frame_support::ensure!(
-					!requested || listed.binary_search(&id).is_err(),
-					"a requested operation is listed"
-				);
+			let listed = Resolved::<T>::get().into_inner();
+			let mut queued = 0u32;
+			for (target, queue) in TargetOperations::<T>::iter() {
+				frame_support::ensure!(!queue.is_empty(), "an empty queue is stored");
+				queued += queue.len() as u32;
+				let mut resolved = Vec::new();
+				let mut requested_seen = false;
+				for id in queue.iter() {
+					let op = Operations::<T>::get(id).ok_or("queued operation is missing")?;
+					frame_support::ensure!(
+						op.target == target,
+						"operation queued on another target"
+					);
+					let requested = op.state == OperationState::Requested;
+					frame_support::ensure!(
+						requested == op.accumulated_at.is_none(),
+						"operation state and accumulation timeslot disagree"
+					);
+					frame_support::ensure!(
+						!requested_seen || requested,
+						"a resolved operation follows a requested one"
+					);
+					requested_seen |= requested;
+					if !requested {
+						resolved.push((*id, target));
+					}
+				}
+				let of_target: Vec<_> =
+					listed.iter().filter(|(_, t)| *t == target).cloned().collect();
+				match Blocked::<T>::get(target) {
+					Some(head) => {
+						frame_support::ensure!(
+							queue.first() == Some(&head) &&
+								resolved.first().map(|r| r.0) == Some(head),
+							"a target is blocked by an operation that is not its earliest resolved"
+						);
+						frame_support::ensure!(of_target.is_empty(), "a blocked target is listed");
+					},
+					None => frame_support::ensure!(
+						of_target == resolved,
+						"the listed operations of a target are not its resolved ones in order"
+					),
+				}
 			}
 			frame_support::ensure!(
-				listed.iter().all(|id| Operations::<T>::contains_key(id)),
+				queued == Operations::<T>::count(),
+				"the queues do not hold every operation once"
+			);
+			frame_support::ensure!(
+				listed.iter().all(|(id, _)| Operations::<T>::contains_key(id)),
 				"listed operation is missing"
+			);
+			frame_support::ensure!(
+				Blocked::<T>::iter_keys().all(|t| TargetOperations::<T>::contains_key(t)),
+				"a target without operations is blocked"
 			);
 			Ok(())
 		}
 	}
 
-	impl<T: Config> OnJamOutcome<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> OnJamOutcome for Pallet<T> {
 		fn on_outcome(
 			sender: SenderId,
 			id: OperationId,
-			sent_at: BlockNumberFor<T>,
+			accumulated_at: Timeslot,
 			entries: &[AccumulateLog],
 			meter: &mut WeightMeter,
 		) {
@@ -1328,18 +1464,18 @@ pub mod pallet {
 				return;
 			}
 			let resolved = Operations::<T>::mutate(id, |op| {
-				let Some(op) = op else { return false };
+				let op = op.as_mut()?;
 				if op.state != OperationState::Requested {
-					return false;
+					return None;
 				}
 				// Only an entry naming this operation's message counts (§5.1).
 				let error = entries.iter().find_map(|entry| match entry {
 					AccumulateLog::TransferFailed { id, error } if *id == op.message_id => {
-						Some(FailureReason::Transfer(*error))
+						Some(FailureReason::TransferFailed(*error))
 					},
 					_ => None,
 				});
-				op.submitted_at = Some(sent_at);
+				op.accumulated_at = Some(accumulated_at);
 				match error {
 					Some(error) => {
 						op.state = OperationState::Failed(error);
@@ -1350,27 +1486,36 @@ pub mod pallet {
 						Self::deposit_event(Event::OperationConfirmed { id, entry: None });
 					},
 				}
-				true
+				Some(op.target)
 			});
-			if resolved && Resolved::<T>::mutate(|list| list.try_push(id)).is_err() {
-				// Only if `MaxUnsettledOperations` was lowered below the unsettled operations.
-				defensive!("resolved operations exceed their bound; settle it with `settle`");
+			// A blocked target's operations wait unlisted until `settle` unblocks it.
+			if let Some(target) = resolved.filter(|t| !Blocked::<T>::contains_key(t)) {
+				if Resolved::<T>::mutate(|list| list.try_push((id, target))).is_err() {
+					// Only if `MaxUnsettledOperations` was lowered below the unsettled operations.
+					defensive!("resolved operations exceed their bound");
+				}
 			}
 		}
 	}
 
 	impl<T: Config> OnIncomingTransfers<T::Balance> for Pallet<T> {
-		/// Voluntary returns are not implemented: no bucket is taken, so every bucket stays on
-		/// JAM until they are.
 		fn capacity() -> u32 {
-			0
+			if Attestation::<T>::exists() && !Paused::<T>::get() {
+				T::MaxBucketsPerBlock::get()
+			} else {
+				0
+			}
 		}
 
 		fn on_incoming_transfers(
-			_transfers: IncomingTransfers<T::Balance>,
-			_meter: &mut WeightMeter,
+			transfers: IncomingTransfers<T::Balance>,
+			meter: &mut WeightMeter,
 		) -> Result<(), ()> {
-			Err(())
+			let weight = T::WeightInfo::on_incoming_transfers(transfers.len() as u32);
+			if Self::capacity() == 0 || meter.try_consume(weight).is_err() {
+				return Err(());
+			}
+			with_storage_layer(|| Self::book_bucket(transfers)).map_err(|_| ())
 		}
 	}
 
@@ -1386,6 +1531,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(!T::MinTransfer::get().is_zero(), "`MinTransfer` must be at least one unit");
 			assert!(T::MaxUnsettledOperations::get() > 0, "`MaxUnsettledOperations` is zero");
+			assert!(T::MaxTransfersPerBucket::get() > 0, "`MaxTransfersPerBucket` is zero");
 			let first =
 				T::DbWeight::get().reads_writes(1, 1).saturating_add(T::WeightInfo::settle());
 			assert!(

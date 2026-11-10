@@ -105,6 +105,8 @@ std = [
 	"pallet-im-online?/std",
 	"pallet-indices?/std",
 	"pallet-insecure-randomness-collective-flip?/std",
+	"pallet-jamkb-precompiles?/std",
+	"pallet-jamkb?/std",
 	"pallet-lottery?/std",
 	"pallet-membership?/std",
 	"pallet-message-queue?/std",
@@ -311,6 +313,8 @@ runtime-benchmarks = [
 	"pallet-identity?/runtime-benchmarks",
 	"pallet-im-online?/runtime-benchmarks",
 	"pallet-indices?/runtime-benchmarks",
+	"pallet-jamkb-precompiles?/runtime-benchmarks",
+	"pallet-jamkb?/runtime-benchmarks",
 	"pallet-lottery?/runtime-benchmarks",
 	"pallet-membership?/runtime-benchmarks",
 	"pallet-message-queue?/runtime-benchmarks",
@@ -464,6 +468,8 @@ try-runtime = [
 	"pallet-im-online?/try-runtime",
 	"pallet-indices?/try-runtime",
 	"pallet-insecure-randomness-collective-flip?/try-runtime",
+	"pallet-jamkb-precompiles?/try-runtime",
+	"pallet-jamkb?/try-runtime",
 	"pallet-lottery?/try-runtime",
 	"pallet-membership?/try-runtime",
 	"pallet-message-queue?/try-runtime",
@@ -685,6 +691,8 @@ runtime-full = [
 	"pallet-im-online",
 	"pallet-indices",
 	"pallet-insecure-randomness-collective-flip",
+	"pallet-jamkb",
+	"pallet-jamkb-precompiles",
 	"pallet-lottery",
 	"pallet-membership",
 	"pallet-message-queue",
@@ -1561,6 +1569,16 @@ path = "../substrate/frame/indices"
 default-features = false
 optional = true
 path = "../substrate/frame/insecure-randomness-collective-flip"
+
+[dependencies.pallet-jamkb]
+default-features = false
+optional = true
+path = "../substrate/frame/jamkb"
+
+[dependencies.pallet-jamkb-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/jamkb/precompiles"
 
 [dependencies.pallet-lottery]
 default-features = false

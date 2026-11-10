@@ -24,18 +24,21 @@
 //! - [`MockSender`] is parachain-system's send queue: it allocates message and operation ids from
 //!   distinct ranges and keeps the queued operations, up to [`TransportCapacity`]. A test can make
 //!   every send fail with [`SendFailure`]. Per-block message, byte and gas limits are not modelled.
-//! - [`Jam`] is the JAM side: the services, their regular balances, threshold balances and
-//!   `min_memo_gas`. The Parachain Service starts with the whole `CAP`.
+//! - [`Jam`] is the JAM side: the services, their regular and supervisor balances, threshold
+//!   balances and `min_memo_gas`. The Parachain Service starts with the whole `CAP`.
 //! - [`accumulate`] plays the accumulation of the queued operations: the Parachain Service executes
 //!   each `TransferOut` as JAM's `transfer` does (`WHO`, then `LOW`, then `CASH`), credits the
 //!   destination at once, writes a `TransferFailed` for each one refused, and parachain-system
 //!   reports each outcome to the pallet.
 //! - [`fail_next`] reports the oldest queued operation as refused by JAM, without the ledger.
+//! - [`return_from`] plays a voluntary return on JAM and [`deliver`] hands a bucket to the pallet
+//!   as parachain-system would, rolling it back on `Err`.
 //! - [`poll`] runs the pallet's settlement hook.
+//! - [`DeliveryFee`] burns [`FEE_PER_MESSAGE`] native units from the payer per message.
 //!
-//! The test settings ([`TransportCapacity`], [`SendFailure`]) are thread-local and stay until
-//! the test changes them; the backend state is in storage and rolls back with a failed call.
-//! [`poll`] and [`build_and_execute`] check the pallet's invariants after they run.
+//! The test settings ([`TransportCapacity`], [`SendFailure`], [`CurrentTimeslot`]) are thread-local
+//! and stay until the test changes them; the backend state is in storage and rolls back with a
+//! failed call. [`poll`] and [`build_and_execute`] check the pallet's invariants after they run.
 
 use crate as pallet_jamkb;
 pub use crate::*;
@@ -43,14 +46,24 @@ use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	storage::unhashed,
-	traits::{AsEnsureOriginWithArg, Hooks},
+	storage::{unhashed, with_storage_layer},
+	traits::{
+		fungible,
+		tokens::{Fortitude, Precision, Preservation},
+		AsEnsureOriginWithArg, Hooks,
+	},
 	weights::WeightMeter,
 	PalletId,
 };
 use messages::{AccumulateLog, MessageId, TransferError, UpwardMessage};
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
-use transport::{JamMessageSender, MessageSendError, OnJamOutcome, OperationId, SenderId};
+use sp_runtime::{
+	traits::{BlockNumberProvider, IdentityLookup},
+	BuildStorage,
+};
+use transport::{
+	ChargeDeliveryFee, IncomingTransfer, IncomingTransfers, JamMessageSender, MessageSendError,
+	OnIncomingTransfers, OnJamOutcome, OperationId, SenderId,
+};
 
 pub type AccountId = <Test as frame_system::Config>::AccountId;
 pub type Balance = <Test as pallet_balances::Config>::Balance;
@@ -90,6 +103,16 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 /// A memo.
 pub const MEMO: Memo = [0xAB; 128];
+/// The native units a signed call pays per message it sends.
+pub const FEE_PER_MESSAGE: u64 = 3;
+/// The native balance `ALICE` and `BOB` start with.
+pub const NATIVE: u64 = 1_000;
+/// An account with no native balance, so it cannot hold the non-sufficient JAMKB.
+pub const NOBODY: AccountId = 99;
+/// The buckets the pallet takes per block.
+pub const BUCKETS_PER_BLOCK: u32 = 2;
+/// The most transfers in one bucket.
+pub const TRANSFERS_PER_BUCKET: u32 = 4;
 
 #[frame_support::runtime]
 mod runtime {
@@ -161,6 +184,8 @@ pub struct Queued {
 pub struct JamService {
 	/// The regular balance.
 	pub balance: Balance,
+	/// The supervisor balance.
+	pub supervisor_balance: Balance,
 	/// The balance its state footprint requires; a transfer may not take it below.
 	pub threshold: Balance,
 	/// The least gas a deferred transfer to it must carry.
@@ -219,6 +244,39 @@ impl JamMessageSender<Balance> for MockSender {
 	}
 }
 
+/// Burns [`FEE_PER_MESSAGE`] native units from the payer per message.
+pub struct DeliveryFee;
+
+impl ChargeDeliveryFee<AccountId, Balance> for DeliveryFee {
+	fn charge(payer: &AccountId, messages: &[UpwardMessage<Balance>]) -> DispatchResult {
+		let fee = FEE_PER_MESSAGE * messages.len() as u64;
+		<Balances as fungible::Mutate<AccountId>>::burn_from(
+			payer,
+			fee,
+			Preservation::Preserve,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
+		Ok(())
+	}
+}
+
+/// The current timeslot, set by the tests.
+pub struct Timeslots;
+
+impl BlockNumberProvider for Timeslots {
+	type BlockNumber = Timeslot;
+
+	fn current_block_number() -> Timeslot {
+		CurrentTimeslot::get()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_block_number(n: Timeslot) {
+		CurrentTimeslot::set(n);
+	}
+}
+
 /// Records the accounts the pallet maps in pallet-revive.
 pub struct RecordingMapping;
 
@@ -253,9 +311,22 @@ impl Jam {
 		with_backend(|b| b.services.get_mut(&id).expect("the service exists").balance = balance);
 	}
 
+	/// The supervisor balance of `id`, zero for a service that does not exist.
+	pub fn supervisor_balance(id: ServiceId) -> Balance {
+		Self::service(id).map_or(0, |s| s.supervisor_balance)
+	}
+
 	/// The Parachain Service executes one `TransferOut` as JAM's `transfer` would.
 	fn transfer(message: &UpwardMessage<Balance>) -> Option<AccumulateLog> {
-		let UpwardMessage::TransferOut { source, dest, amount, id, deferred, .. } = message;
+		let UpwardMessage::TransferOut {
+			source,
+			dest,
+			amount,
+			id,
+			deferred,
+			source_supervisor_balance,
+			dest_supervisor_balance,
+		} = message;
 		let source = source.unwrap_or(PARACHAIN_SERVICE);
 		let error = with_backend(|b| {
 			let Some(from) = b.services.get(&source).copied() else {
@@ -268,11 +339,24 @@ impl Jam {
 			if deferred.is_some() && gas < to.min_memo_gas {
 				return Some(TransferError::GasBelowDestinationMinimum);
 			}
-			if from.balance.checked_sub(*amount).map_or(true, |rest| rest < from.threshold) {
-				return Some(TransferError::InsufficientServiceBalance);
+			if *source_supervisor_balance {
+				if from.supervisor_balance < *amount {
+					return Some(TransferError::InsufficientServiceBalance);
+				}
+				b.services.get_mut(&source).expect("checked above; qed").supervisor_balance -=
+					amount;
+			} else {
+				if from.balance.checked_sub(*amount).map_or(true, |rest| rest < from.threshold) {
+					return Some(TransferError::InsufficientServiceBalance);
+				}
+				b.services.get_mut(&source).expect("checked above; qed").balance -= amount;
 			}
-			b.services.get_mut(&source).expect("checked above; qed").balance -= amount;
-			b.services.get_mut(dest).expect("checked above; qed").balance += amount;
+			let to = b.services.get_mut(dest).expect("checked above; qed");
+			if *dest_supervisor_balance {
+				to.supervisor_balance += amount;
+			} else {
+				to.balance += amount;
+			}
 			None
 		});
 		error.map(|error| AccumulateLog::TransferFailed { id: *id, error })
@@ -285,6 +369,7 @@ parameter_types! {
 	pub static TransportCapacity: usize = DEFAULT_TRANSPORT_CAPACITY;
 	pub static SendFailure: Option<MessageSendError> = None;
 	pub static Mapped: Vec<AccountId> = vec![];
+	pub static CurrentTimeslot: Timeslot = 1;
 	pub const JamkbAssetId: u32 = JAMKB;
 	pub const Cap: Balance = CAP;
 	pub const MinTransfer: Balance = MIN_TRANSFER;
@@ -295,6 +380,8 @@ parameter_types! {
 	pub const JamkbPalletId: PalletId = PalletId(*b"py/jamkb");
 	pub const ParachainService: ServiceId = PARACHAIN_SERVICE;
 	pub const MaxUnsettledOperations: u32 = 6;
+	pub const MaxBucketsPerBlock: u32 = BUCKETS_PER_BLOCK;
+	pub const MaxTransfersPerBucket: u32 = TRANSFERS_PER_BUCKET;
 }
 
 impl Config for Test {
@@ -305,6 +392,8 @@ impl Config for Test {
 	type Assets = Assets;
 	type AssetsHolder = AssetsHolder;
 	type MessageSender = MockSender;
+	type DeliveryFee = DeliveryFee;
+	type TimeslotProvider = Timeslots;
 	type SenderId = JamkbSender;
 	type JamkbAssetId = JamkbAssetId;
 	type Cap = Cap;
@@ -314,6 +403,8 @@ impl Config for Test {
 	type PalletId = JamkbPalletId;
 	type ParachainService = ParachainService;
 	type MaxUnsettledOperations = MaxUnsettledOperations;
+	type MaxBucketsPerBlock = MaxBucketsPerBlock;
+	type MaxTransfersPerBucket = MaxTransfersPerBucket;
 	type CustodyMapping = RecordingMapping;
 	type GovernanceOrigin = frame_system::EnsureRoot<u128>;
 	type WeightInfo = ();
@@ -324,7 +415,7 @@ impl Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		balances: pallet_balances::GenesisConfig {
-			balances: vec![(ALICE, 1_000), (BOB, 1_000)],
+			balances: vec![(ALICE, NATIVE), (BOB, NATIVE)],
 			..Default::default()
 		},
 		..Default::default()
@@ -334,15 +425,21 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
+		CurrentTimeslot::set(1);
 		with_backend(|b| {
 			b.last_message_id = MESSAGE_ID_BASE;
 			b.last_operation_id = OPERATION_ID_BASE;
 		});
 		Jam::set_service(
 			PARACHAIN_SERVICE,
-			JamService { balance: CAP, threshold: PS_THRESHOLD, min_memo_gas: 0 },
+			JamService {
+				balance: CAP,
+				supervisor_balance: 0,
+				threshold: PS_THRESHOLD,
+				min_memo_gas: 0,
+			},
 		);
-		Jam::set_service(SERVICE, JamService { balance: 0, threshold: 0, min_memo_gas: MEMO_GAS });
+		Jam::set_service(SERVICE, JamService { min_memo_gas: MEMO_GAS, ..Default::default() });
 	});
 	ext
 }
@@ -357,21 +454,21 @@ pub fn last_message_id() -> MessageId {
 	read_backend(|b| b.last_message_id)
 }
 
-/// The oldest `count` queued operations are sent in block `sent_at` and accumulated on JAM;
+/// The oldest `count` queued operations are accumulated on JAM at timeslot `at`;
 /// parachain-system reports each outcome to its sender. Returns the weight the pallet charged.
-pub fn accumulate(count: usize, sent_at: u64) -> Weight {
+pub fn accumulate(count: usize, at: Timeslot) -> Weight {
 	let operations: Vec<Queued> = with_backend(|b| b.queued.drain(..count).collect());
 	let mut meter = WeightMeter::new();
 	for op in operations {
 		let entries: Vec<AccumulateLog> = op.messages.iter().filter_map(Jam::transfer).collect();
-		<Jamkb as OnJamOutcome<u64>>::on_outcome(op.sender, op.id, sent_at, &entries, &mut meter);
+		<Jamkb as OnJamOutcome>::on_outcome(op.sender, op.id, at, &entries, &mut meter);
 	}
 	meter.consumed()
 }
 
-/// The oldest queued operation is sent in block `sent_at` and JAM refuses its transfer with
+/// The oldest queued operation is accumulated at timeslot `at` and JAM refuses its transfer with
 /// `error`; the ledger is not touched. Returns the operation's id.
-pub fn fail_next(sent_at: u64, error: TransferError) -> OperationId {
+pub fn fail_next(at: Timeslot, error: TransferError) -> OperationId {
 	let op = with_backend(|b| b.queued.remove(0));
 	let entries: Vec<AccumulateLog> = op
 		.messages
@@ -381,13 +478,7 @@ pub fn fail_next(sent_at: u64, error: TransferError) -> OperationId {
 			error,
 		})
 		.collect();
-	<Jamkb as OnJamOutcome<u64>>::on_outcome(
-		op.sender,
-		op.id,
-		sent_at,
-		&entries,
-		&mut WeightMeter::new(),
-	);
+	<Jamkb as OnJamOutcome>::on_outcome(op.sender, op.id, at, &entries, &mut WeightMeter::new());
 	op.id
 }
 
@@ -396,9 +487,52 @@ pub fn settlement_overhead() -> Weight {
 	MockDbWeight::get().reads_writes(1, 1)
 }
 
-/// Every queued operation is sent in block `sent_at` and accumulated on JAM.
-pub fn accumulate_all(sent_at: u64) -> Weight {
-	accumulate(sent().len(), sent_at)
+/// Every queued operation is accumulated on JAM at timeslot `at`.
+pub fn accumulate_all(at: Timeslot) -> Weight {
+	accumulate(sent().len(), at)
+}
+
+/// `source` returns `amount` to the Parachain Service on JAM, to its supervisor balance when
+/// `to_supervisor`; the Parachain Service queues it in `incoming_transfers`.
+pub fn return_from(
+	source: ServiceId,
+	amount: Balance,
+	memo: Memo,
+	to_supervisor: bool,
+) -> IncomingTransfer<Balance> {
+	with_backend(|b| {
+		b.services.get_mut(&source).expect("the source exists").balance -= amount;
+		let ps = b.services.get_mut(&PARACHAIN_SERVICE).expect("the Parachain Service exists");
+		if to_supervisor {
+			ps.supervisor_balance += amount;
+		} else {
+			ps.balance += amount;
+		}
+	});
+	IncomingTransfer { source, amount, to_supervisor_balance: to_supervisor, memo }
+}
+
+/// Hands one bucket to the pallet as parachain-system does: within the capacity, and rolled
+/// back on `Err`.
+pub fn deliver(bucket: IncomingTransfers<Balance>) -> Result<(), ()> {
+	if <Jamkb as OnIncomingTransfers<Balance>>::capacity() == 0 {
+		return Err(());
+	}
+	with_storage_layer(|| {
+		<Jamkb as OnIncomingTransfers<Balance>>::on_incoming_transfers(
+			bucket,
+			&mut WeightMeter::new(),
+		)
+		.map_err(|()| DispatchError::Other("bucket refused"))
+	})
+	.map_err(|_| ())
+}
+
+/// A voluntary return memo naming `who` as its beneficiary.
+pub fn memo_for(who: AccountId) -> Memo {
+	let mut memo = [0u8; 128];
+	memo[..16].copy_from_slice(&who.to_le_bytes());
+	memo
 }
 
 /// Runs the settlement hook with the whole block weight available. Returns the weight used.
@@ -428,9 +562,9 @@ pub fn build_and_execute(f: impl FnOnce()) {
 	});
 }
 
-/// Advances to block `n`.
-pub fn run_to_block(n: u64) {
-	System::set_block_number(n);
+/// Advances to timeslot `n`.
+pub fn run_to_timeslot(n: Timeslot) {
+	CurrentTimeslot::set(n);
 }
 
 /// The custody account.
@@ -441,6 +575,21 @@ pub fn custody() -> AccountId {
 /// The released account.
 pub fn released() -> AccountId {
 	Jamkb::released_account()
+}
+
+/// The unclaimed account.
+pub fn unclaimed() -> AccountId {
+	Jamkb::unclaimed_account()
+}
+
+/// The excess account.
+pub fn excess() -> AccountId {
+	Jamkb::excess_account()
+}
+
+/// The native balance of `who`.
+pub fn native(who: AccountId) -> u64 {
+	Balances::free_balance(who)
 }
 
 /// The free JAMKB balance of `who`.

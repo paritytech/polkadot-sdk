@@ -532,6 +532,14 @@ pub use pallet_indices;
 #[cfg(feature = "pallet-insecure-randomness-collective-flip")]
 pub use pallet_insecure_randomness_collective_flip;
 
+/// FRAME pallet managing JAMKB on Asset Hub (prototype).
+#[cfg(feature = "pallet-jamkb")]
+pub use pallet_jamkb;
+
+/// Precompile exposing pallet-jamkb to contracts via pallet-revive (prototype).
+#[cfg(feature = "pallet-jamkb-precompiles")]
+pub use pallet_jamkb_precompiles;
+
 /// FRAME Participation Lottery Pallet.
 #[cfg(feature = "pallet-lottery")]
 pub use pallet_lottery;

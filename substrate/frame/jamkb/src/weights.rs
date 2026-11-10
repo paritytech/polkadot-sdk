@@ -46,6 +46,14 @@ pub trait WeightInfo {
 	fn settle() -> Weight;
 	/// Weight of recording one operation's outcome.
 	fn on_outcome() -> Weight;
+	/// Weight of `force_transfer`.
+	fn force_transfer() -> Weight;
+	/// Weight of `claim`.
+	fn claim() -> Weight;
+	/// Weight of `dispose_excess`.
+	fn dispose_excess() -> Weight;
+	/// Weight of booking one `incoming_transfers` bucket of `n` transfers.
+	fn on_incoming_transfers(n: u32) -> Weight;
 }
 
 const PLACEHOLDER: Weight = Weight::from_parts(10_000_000, 10_000);
@@ -83,5 +91,17 @@ impl WeightInfo for () {
 	}
 	fn on_outcome() -> Weight {
 		PLACEHOLDER
+	}
+	fn force_transfer() -> Weight {
+		PLACEHOLDER
+	}
+	fn claim() -> Weight {
+		PLACEHOLDER
+	}
+	fn dispose_excess() -> Weight {
+		PLACEHOLDER
+	}
+	fn on_incoming_transfers(n: u32) -> Weight {
+		PLACEHOLDER.saturating_add(PLACEHOLDER.saturating_mul(n.into()))
 	}
 }
