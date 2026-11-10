@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794315095574,
+  "lastUpdate": 1794318364712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "355926b3b4a7cc3fc37a48676bec59ee78a1221f",
-          "message": "[zombienet] fix flaky test `zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate` (#11834)\n\nuse a bigger rc block count.\n\nclose #11826",
-          "timestamp": "2026-04-22T09:28:11Z",
-          "tree_id": "3d251e88d069720dd9c55af9a9ae341b672ae863",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/355926b3b4a7cc3fc37a48676bec59ee78a1221f"
-        },
-        "date": 1776855507484,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009186807909999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00875884221999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026660626099999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026063846699999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372",
+          "message": "Fix weights accuracy (#13720)\n\nWorst case can now wrap calls\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-10T12:02:28Z",
+          "tree_id": "6f6959f1f294a628e349e2e75fb0f0f22a493f8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372"
+        },
+        "date": 1794318334670,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009173812879999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009515239490000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025466375399999996,
             "unit": "seconds"
           }
         ]
