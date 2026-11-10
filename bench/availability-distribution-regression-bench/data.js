@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794294186723,
+  "lastUpdate": 1794302031287,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429432898aa850850e12f313f4442cbd95f134c4",
-          "message": "asset-conversion precompile: expose getReserves (#11817)\n\n## Summary\n- Add `getReserves(bytes asset1, bytes asset2)` view function to the\nasset-conversion precompile, returning the reserve balances of both\ntokens in the pool\n- This exposes `pallet_asset_conversion::Pallet::get_reserves()` to\nEVM/PVM contracts and frontends via the precompile interface\n\n## Motivation\nThe precompile already exposes `quoteExactTokensForTokens` and\n`quoteTokensForExactTokens`, which allow contracts to estimate swap\noutputs. However, there is no way to query the raw pool reserves\ndirectly. This forces frontends and contracts to probe with arbitrary\namounts to infer pool state. Exposing `getReserves` gives direct access\nto pool balances, enabling:\n- DEX UIs to display pool composition and depth\n- Contracts to make routing decisions based on actual liquidity\n- Parity with Uniswap V2's `getReserves` interface that Solidity\ndevelopers expect\n\n## Test plan\n- [x] `get_reserves_works` — verifies correct reserve values for an\nexisting pool\n- [x] `get_reserves_fails_for_nonexistent_pool` — verifies revert for\nmissing pool\n- [x] All 23 existing tests continue to pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T10:20:24Z",
-          "tree_id": "1c7080e3b20a8c09d50a59cfd6b96594321d37c9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/429432898aa850850e12f313f4442cbd95f134c4"
-        },
-        "date": 1776944578461,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02387282160666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14509586013999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009562810653333316,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007084717126666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025255810873333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f91ecc274e751e727256ebca4e4a09802bf4880e",
+          "message": "Make the collator protocol revamp the default implementation (on Polkadot) (#13736)\n\nCurrently if a node binary is executed with a Kusama chainspec the\ncollator protocol revamp is the default validator side collator protocol\nimplementation. This PR takes this further by making the revamp the\ndefault implementation no matter what the chainspec is (polkadot\nincluded).\n\nThe `--experimental-collator-protocol` flag is kept so that we can run\nthe legacy implementation if needed (with\n`--experimental-collator-protocol=false`).\n\nBefore this change the CI was executing some tests with both collator\nprotocol implementations. To keep this behaviour, this PR\nadds`--experimental-collator-protocol=false` where necessary. The change\nis here:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/f02224d7863fae256f4675cc0825bfb009fcfb75/polkadot/zombienet-sdk-tests/tests/utils.rs#L58\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T07:39:56Z",
+          "tree_id": "4e631771489e81f62609c2294bf3f1ecac99d7cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f91ecc274e751e727256ebca4e4a09802bf4880e"
+        },
+        "date": 1794301996596,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009992162486666649,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14894993719333346,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007355229560000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02533215383333333,
             "unit": "seconds"
           }
         ]
