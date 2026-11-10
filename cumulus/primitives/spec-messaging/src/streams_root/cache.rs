@@ -165,21 +165,26 @@ impl NodeStore for BTreeMap<NodeKey, InnerNode> {
 pub enum TreeError {
 	/// An expected inner node was missing from the node store.
 	MissingNode(NodeKey),
-	/// A stored inner node does not branch at its key's prefix length, below its parent.
+	/// A stored inner node does not branch at its key's prefix length, below its parent, or a
+	/// child lies off the side of its parent the walk took.
 	CorruptNode(NodeKey),
 }
 
-/// Load the inner node at `key`. Requiring each node to branch at its key's prefix length, strictly
-/// below `parent`'s split bit and within the key, bounds every walk at [`KEY_BITS`] steps, even
-/// over a corrupt store.
+/// Load the inner node at `key`, reached from a parent that splits at `parent.0` while walking to
+/// the stream key `parent.1`. Requiring each node to branch at its key's prefix length, strictly
+/// below its parent's split bit and within the key, bounds every walk at [`KEY_BITS`] steps, even
+/// over a corrupt store. Requiring its prefix to match the walked key through the parent's split
+/// bit keeps the walk on its side of every parent.
 fn load_node(
 	store: &impl NodeLookup,
 	key: NodeKey,
-	parent: Option<u8>,
+	parent: Option<(u8, &[u8; STREAM_ID_LEN])>,
 ) -> Result<InnerNode, TreeError> {
 	let node = store.get_node(&key).ok_or(TreeError::MissingNode(key))?;
-	let below_parent = parent.map_or(true, |p| node.split_bit > p);
-	if node.split_bit != key.prefix_len || (node.split_bit as usize) >= KEY_BITS || !below_parent {
+	let under_parent = parent.map_or(true, |(p, walked)| {
+		node.split_bit > p && first_diverging_bit(&key.prefix, walked) > p as usize
+	});
+	if node.split_bit != key.prefix_len || (node.split_bit as usize) >= KEY_BITS || !under_parent {
 		return Err(TreeError::CorruptNode(key));
 	}
 	Ok(node)
@@ -223,7 +228,7 @@ fn insert_inner_node(
 	stream_root: Hash,
 	store: &mut impl NodeStore,
 ) -> Result<(NodeKey, Hash), TreeError> {
-	let mut inner = load_node(store, curr_key, parent)?;
+	let mut inner = load_node(store, curr_key, parent.map(|p| (p, key)))?;
 	let d = first_diverging_bit(key, &curr_key.prefix);
 
 	// `key` leaves this node's prefix above its split bit: a new inner node goes above it.
@@ -240,6 +245,12 @@ fn insert_inner_node(
 	} else {
 		(&mut inner.left_child, &mut inner.left_hash)
 	};
+	// A leaf on this side shares `key`'s bits through the split bit.
+	if let TreeChild::Leaf { key: leaf_key, .. } = *child {
+		if first_diverging_bit(key, &leaf_key) <= inner.split_bit as usize {
+			return Err(TreeError::CorruptNode(curr_key));
+		}
+	}
 	(*child, *child_hash) = match *child {
 		TreeChild::Leaf { key: leaf_key, .. } if &leaf_key == key => leaf(key, stream_root),
 		TreeChild::Leaf { key: leaf_key, value } => {
@@ -326,7 +337,7 @@ pub fn gen_stream_proof_from_nodes(
 			let mut parent = None;
 			let mut steps = Vec::new();
 			loop {
-				let inner = load_node(lookup, curr_key, parent).ok()?;
+				let inner = load_node(lookup, curr_key, parent.map(|p| (p, &key))).ok()?;
 				parent = Some(inner.split_bit);
 				let d = first_diverging_bit(&key, &curr_key.prefix);
 				if d < inner.split_bit as usize {

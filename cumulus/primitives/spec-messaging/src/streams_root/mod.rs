@@ -527,6 +527,50 @@ mod tests {
 	}
 
 	#[test]
+	fn a_child_off_the_walked_side_is_corrupt() {
+		// The root holds a node on one side and a leaf on the other.
+		let streams = [ch(1000), ch(1001), ch(3000)];
+		let (mut entry, mut store) = (None, BTreeMap::new());
+		for stream in streams {
+			update_tree_leaf(&mut entry, stream, root(0x1), &mut store).unwrap();
+		}
+		let Some(TreeRootEntry::Node { key, .. }) = entry else { panic!("three streams") };
+		let node = store[&key];
+		assert!(
+			matches!(
+				(node.left_child, node.right_child),
+				(TreeChild::Node { .. }, TreeChild::Leaf { .. }) |
+					(TreeChild::Leaf { .. }, TreeChild::Node { .. })
+			),
+			"a node and a leaf under the root"
+		);
+
+		// Swap the root's children: each is now on the side the other's keys walk.
+		let mut swapped = store.clone();
+		swapped.insert(
+			key,
+			InnerNode {
+				left_child: node.right_child,
+				left_hash: node.right_hash,
+				right_child: node.left_child,
+				right_hash: node.left_hash,
+				..node
+			},
+		);
+		for stream in streams {
+			let mut e = entry;
+			assert!(
+				matches!(
+					update_tree_leaf(&mut e, stream, root(0x2), &mut swapped.clone()),
+					Err(TreeError::CorruptNode(_))
+				),
+				"{stream:?}"
+			);
+			assert_eq!(gen_stream_proof_from_nodes(&entry, stream, &swapped), None, "{stream:?}");
+		}
+	}
+
+	#[test]
 	fn missing_node_returns_error() {
 		// Tree with an entry pointing to a missing inner node
 		let node_key = NodeKey::new(&ch(1000).to_bytes(), 10);
