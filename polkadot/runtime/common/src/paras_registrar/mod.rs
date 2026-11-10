@@ -641,7 +641,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		// The sample size the paras pallet's own benchmarks assume for per-para lists.
 		const OTHER_PARAS: u32 = 1024;
 
-		<Self as registrar_primitives::ParachainRegistrar>::setup_code_upgrade(para_id)?;
+		<Self as registrar_primitives::ParachainRegistrar>::setup_worst_case_code_upgrade(para_id)?;
 
 		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
 		// gets no vote of its own, which would make offboarding fail.
@@ -689,7 +689,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		let id = ParaId::from(para_id);
 		let max = configuration::ActiveConfig::<T>::get().max_code_size as u32;
 		// `paras` would still schedule an upgrade for a para on its way out.
-		if !paras::Pallet::<T>::lifecycle(id).is_some_and(|l| !l.is_offboarding()) ||
+		if paras::Pallet::<T>::lifecycle(id).is_none_or(|l| l.is_offboarding()) ||
 			!polkadot_runtime_parachains::can_upgrade_validation_code::<T>(id) ||
 			code_len > max ||
 			code_len < MIN_CODE_SIZE
@@ -700,7 +700,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_code_upgrade(para_id: u32) -> DispatchResult {
+	fn setup_worst_case_code_upgrade(para_id: u32) -> DispatchResult {
 		use frame_system::RawOrigin;
 
 		let code = Self::worst_validation_code();

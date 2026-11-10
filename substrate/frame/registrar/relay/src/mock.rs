@@ -162,7 +162,7 @@ impl ParachainRegistrar for MockRegistrar {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult {
+	fn setup_worst_case_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult {
 		AlreadyKnown::mutate(|v| v.push(para_id));
 		Ok(())
 	}

@@ -2797,7 +2797,9 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_code_upgrade(para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+	fn setup_worst_case_code_upgrade(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
 		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
 		Ok(())
 	}

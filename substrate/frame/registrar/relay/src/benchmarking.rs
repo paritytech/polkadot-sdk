@@ -54,7 +54,7 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 
 /// Register `PARA_ID` and authorize a code upgrade for it expecting exactly `code`.
 fn authorize<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
-	T::Registrar::setup_code_upgrade(PARA_ID)?;
+	T::Registrar::setup_worst_case_code_upgrade(PARA_ID)?;
 	let expire_at =
 		frame_system::Pallet::<T>::block_number().saturating_add(T::CodeUpgradeValidPeriod::get());
 	PendingCodeUpgrades::<T>::insert(
@@ -151,7 +151,7 @@ mod benchmarks {
 	/// Authorizing a code upgrade. One look at the registry, one write, one report.
 	#[benchmark]
 	fn receive_authorize_code_upgrade() -> Result<(), BenchmarkError> {
-		T::Registrar::setup_code_upgrade(PARA_ID)?;
+		T::Registrar::setup_worst_case_code_upgrade(PARA_ID)?;
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 			para_id: PARA_ID,
