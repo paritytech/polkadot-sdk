@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794309010247,
+  "lastUpdate": 1794312095459,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429432898aa850850e12f313f4442cbd95f134c4",
-          "message": "asset-conversion precompile: expose getReserves (#11817)\n\n## Summary\n- Add `getReserves(bytes asset1, bytes asset2)` view function to the\nasset-conversion precompile, returning the reserve balances of both\ntokens in the pool\n- This exposes `pallet_asset_conversion::Pallet::get_reserves()` to\nEVM/PVM contracts and frontends via the precompile interface\n\n## Motivation\nThe precompile already exposes `quoteExactTokensForTokens` and\n`quoteTokensForExactTokens`, which allow contracts to estimate swap\noutputs. However, there is no way to query the raw pool reserves\ndirectly. This forces frontends and contracts to probe with arbitrary\namounts to infer pool state. Exposing `getReserves` gives direct access\nto pool balances, enabling:\n- DEX UIs to display pool composition and depth\n- Contracts to make routing decisions based on actual liquidity\n- Parity with Uniswap V2's `getReserves` interface that Solidity\ndevelopers expect\n\n## Test plan\n- [x] `get_reserves_works` — verifies correct reserve values for an\nexisting pool\n- [x] `get_reserves_fails_for_nonexistent_pool` — verifies revert for\nmissing pool\n- [x] All 23 existing tests continue to pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T10:20:24Z",
-          "tree_id": "1c7080e3b20a8c09d50a59cfd6b96594321d37c9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/429432898aa850850e12f313f4442cbd95f134c4"
-        },
-        "date": 1776944608912,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.98999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8378669600100017,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.28067088652286,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.823210413140001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.478365958059948,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025206370000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7476514393100007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.465787850429995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022944680000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8176382918900034,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025206370000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7810674321899466,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022944680000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005143571090000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00002062982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202d749ecfa8ce03e35f80c21a87d502187d2435",
+          "message": "Update EVM Opcode Benchmarking and Weights (#13190)\n\n# Description\n\nReplace JUMPDEST-based estimates for selected EVM opcodes with their own\nbenchmark weights. Charge memory expansion and RETURN/REVERT output\ncopying from their own benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:20:39Z",
+          "tree_id": "a3dcdeed4e29934494207bda678aadb6ec4484fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202d749ecfa8ce03e35f80c21a87d502187d2435"
+        },
+        "date": 1794312067849,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63572.65,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.736045949200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3290129089199914,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018739010000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005140940220000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001818835,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001818835,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.061911293520003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.702573620709998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.82191896092001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7544717714499987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.389477709262909,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7127471421000027,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018739010000000002,
             "unit": "seconds"
           }
         ]
