@@ -173,9 +173,10 @@ const INDIRECT_JUMP_LAPS: u32 = 400_000 / (crate::metering::INDIRECT_JUMP_GAS - 
 /// [`VmBinaryModule::with_load_chain`]). The loads follow a random cycle through the
 /// [`VmBinaryModule::LOAD_CHAIN_SLOTS`] slots of the contract's read-write data, and `r` may go
 /// around the cycle several times. Every value is at `LOAD_CHAIN_SLOT_OFFSET - 8 * m` in its
-/// slot, so in one of the variants every load spans two host cache lines (see the comment on
-/// `LOAD_CHAIN_SLOT_OFFSET` below). Writing the chain brings it into the CPU caches, where it
-/// stays in the L2 but not in the L1 data cache of the reference hardware (see
+/// slot, so in one of the variants every load spans two host cache lines. This assumes that the
+/// eight variants, which run the same setup, get the same address modulo 64 for the read-write
+/// data (see the comment on `LOAD_CHAIN_SLOT_OFFSET` below). Writing the chain brings it into the
+/// CPU caches, where it stays in the L2 but not in the L1 data cache of the reference hardware (see
 /// [`VmBinaryModule::LOAD_CHAIN_SLOTS`]). Every load therefore waits for the previous one to
 /// come from the L2 cache, which is where the cost per gas assumes contract memory to be.
 ///
@@ -194,18 +195,15 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 	// known to be 8 byte aligned. No offset makes a load span two lines for every such address.
 	// The 8 offsets start 4 bytes past an 8 byte boundary and take all 8 such positions modulo
 	// 64. The slots are a multiple of 64 bytes apart, so for any 8 byte aligned host address
-	// exactly one variant has every load span two cache lines. This relies on all 8 variants
-	// placing the read-write data at the same host address, which holds because they run the same
-	// setup with the same allocations. Every value ends within its slot, so values of different
-	// slots do not overlap.
+	// exactly one variant has every load span two cache lines. This assumes that all 8 variants
+	// get the same host address modulo 64 for the read-write data, since they run the same setup
+	// with the same allocations. Every value ends within its slot, so values of different slots
+	// do not overlap.
 	const LOAD_CHAIN_SLOT_OFFSET: u32 = 60;
 	const {
 		let slot_bytes = VmBinaryModule::LOAD_CHAIN_SLOT_BYTES;
-		// All values of a variant have the same position modulo 64.
 		assert!(slot_bytes.is_multiple_of(64));
-		// The 8 offsets are the 8 positions modulo 64 that are 4 past an 8 byte boundary.
 		assert!(LOAD_CHAIN_SLOT_OFFSET % 8 == 4 && LOAD_CHAIN_SLOT_OFFSET >= 8 * 7);
-		// The value at the largest offset ends within its slot.
 		assert!(LOAD_CHAIN_SLOT_OFFSET + 8 <= slot_bytes);
 	}
 
@@ -222,7 +220,7 @@ fn prepare_load_chain<E: Ext>(prepared: &mut pvm::PreparedCall<E>, m: u32, r: u3
 		let next = order[(k + 1) % order.len()];
 		prepared
 			.write_memory(address(slot), &u64::from(address(next)).to_le_bytes())
-			.unwrap();
+			.expect("every value ends within its slot of the read-write data; qed");
 	}
 	prepared.set_reg(polkavm::Reg::A0, address(order[0]).into());
 	prepared.set_reg(polkavm::Reg::A1, r.into());
@@ -671,19 +669,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
-	// the execution engine.
-	//
-	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`, minus the ref time slope
-	// of `interpreter_code_map_per_byte`.
-	//
-	// This does **not** include the actual execution for which the gas meter
-	// is responsible. The code used here will just return on call.
-	//
-	// The callee allocates its map of compiled blocks, one entry per byte of code. The
-	// interpreter charges that as gas, so the code load charge leaves out its slope. The
-	// remaining slope is reading the code from storage and decoding it. We are primarily
-	// interested in the `proof_size` result of this benchmark.
+	/// Measures loading PVM code of `c` bytes from storage into the execution engine.
+	///
+	/// The slope per byte of the code blob is charged for loading PVM code, minus the ref time
+	/// slope of `interpreter_code_map_per_byte`. The callee allocates its map of compiled blocks,
+	/// which the interpreter charges as gas. The entry block of `VmBinaryModule::sized(c)` grows
+	/// with `c` for small `c`, so part of its compilation is in the slope, and the interpreter
+	/// charges it as well. The called code returns right away; its execution is charged by the
+	/// gas meter.
+	///
+	/// The proof size is the main result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
@@ -820,13 +815,13 @@ mod benchmarks {
 	/// Measures allocating the interpreter's map of compiled blocks, per byte of the code
 	/// section.
 	///
-	/// The map has one entry for every byte of the code section. Before a call or an
-	/// instantiation the caller drops its compiled code, and the first block it compiles
-	/// afterwards allocates the map again. A new instance starts with no map. The measured block
-	/// drops the compiled code of a prepared instance and runs it, which compiles its entry block
-	/// of two instructions and stops. The code section has `c` bytes and the entry block is the
-	/// same for every `c` (see [`VmBinaryModule::with_code_bytes`]), so the slope is the code
-	/// map per byte of code. The compilation of the entry block is in the intercept.
+	/// The map has one entry for every byte of the code section. The measured block resets the
+	/// interpreter cache of a freshly prepared instance, which has no map yet, and runs it. The
+	/// first compilation allocates the map for the `c` bytes of the code section and charges it.
+	/// Every later reset, such as the one before each call or instantiation the contract makes,
+	/// forces the same allocation again. The entry block of two instructions is the same for
+	/// every `c` (see [`VmBinaryModule::with_code_bytes`]) and is in the intercept, so the slope
+	/// is the code map per byte of code.
 	///
 	/// The interpreter charges the slope per byte of code section whenever it allocates or
 	/// rewrites the map, see [`crate::metering::EngineMeter::interpreter_compilation_cost`].

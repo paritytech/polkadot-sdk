@@ -47,6 +47,8 @@ pub fn slope(weight: fn(u32) -> Weight, x: u32) -> Weight {
 pub struct EngineMeter<T: Config> {
 	fuel: u64,
 	/// The cached [`Self::ref_time_per_fuel`].
+	///
+	/// It is computed once when the meter is created, since `set_fuel` runs on every host call.
 	ref_time_per_fuel: u64,
 	_phantom: PhantomData<T>,
 }
@@ -79,9 +81,6 @@ impl<T: Config> EngineMeter<T> {
 	}
 
 	/// How much ref time each PolkaVM gas corresponds to.
-	///
-	/// The meter caches the result when it is created, since its `set_fuel` runs on every host
-	/// call.
 	///
 	/// It is the largest ref time per gas of nine benchmarks, each rounded up. All run only
 	/// instructions that cost one gas each, so the slope of one iteration divided by its gas is
@@ -125,10 +124,9 @@ impl<T: Config> EngineMeter<T> {
 	///   instruction, minus the compilation of that instruction (`per_instruction_millis`) and
 	///   minus one gas for its execution.
 	/// - `per_code_byte_millis`: `interpreter_code_map_per_byte`. The interpreter charges it for
-	///   the whole code section when it allocates its map of compiled blocks. That happens on the
+	///   the whole code section when it allocates or rewrites its map of compiled blocks: on the
 	///   first compilation of a call, on the first compilation after every call, delegate call,
-	///   pre-compile call and instantiation the contract makes, and when the map is rewritten after
-	///   many cache resets.
+	///   pre-compile call and instantiation the contract makes, and after many cache resets.
 	pub fn interpreter_compilation_cost() -> polkavm::InterpreterCompilationCost {
 		let ref_time_slope = |weight: fn(u32) -> Weight| slope(weight, 1).ref_time();
 		let ref_time_per_fuel = Self::ref_time_per_fuel();

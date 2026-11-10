@@ -155,7 +155,7 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 /// What `SubCaller` does in a loop.
 ///
 /// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
-/// no output, so the code of a loop does not depend on the rest of the contract.
+/// no output, so the loops of `SubCaller` and `SubCallerLarge` compile to nearly the same code.
 enum SubCall {
 	/// Calls the identity pre-compile, a builtin pre-compile.
 	BuiltinPrecompile,

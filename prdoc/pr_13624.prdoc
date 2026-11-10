@@ -5,7 +5,7 @@ doc:
   description: |-
     PolkaVM is bumped from 0.36 to 0.38 (`polkavm`, `polkavm-common`, `polkavm-derive`,
     `polkavm-linker`). PolkaVM 0.38 lets the interpreter charge gas for compiling contract code,
-    and `pallet-revive` now configures that cost from its benchmarks. The `pallet-revive`
+    and `pallet-revive` configures that cost from its benchmarks. The `pallet-revive`
     fixtures build template follows the workspace pin.
 
     Compilation cost, charged as PolkaVM gas by the interpreter:
@@ -15,37 +15,31 @@ doc:
       charged when it is compiled, and again whenever it is compiled after the interpreter
       dropped its compiled code.
     - Per byte of the code section: `ceil(code_len * per_code_byte_millis / 1000)`, charged when
-      the interpreter allocates its map of compiled blocks. That happens on the first compilation
+      the interpreter allocates or rewrites its map of compiled blocks: on the first compilation
       of a call, on the first compilation after every call, delegate call, pre-compile call and
-      instantiation the contract makes, and when the map is rewritten after many cache resets.
+      instantiation the contract makes, and after many cache resets.
     - The values come from the slopes of `interpreter_compile_per_instruction`,
       `interpreter_compile_per_block` and `interpreter_code_map_per_byte`, converted with the ref
       time per gas and rounded up. The first two compile the instruction and the block
-      terminator that took the longest to compile in a local measurement:
-      `store_imm_indirect_u64` and a branch. `per_block` leaves out the compilation of the
-      block's one instruction and one gas for executing it.
+      terminator that take the longest to compile: `store_imm_indirect_u64` and a branch.
+      `per_block` leaves out the compilation of the block's one instruction and one gas for
+      executing it.
     - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
       the ref time slope of `interpreter_code_map_per_byte`, since the interpreter charges the
-      map of compiled blocks as gas. The code load charge no longer adds the compilation of one
-      maximum-sized basic block. The pallet's `integrity_test` asserts that the first slope is
-      larger than the second.
-    - Compiling a block and allocating the map of compiled blocks can both leave the
+      map of compiled blocks as gas. The pallet's `integrity_test` asserts that the first slope
+      is larger than the second.
+    - Compiling a block and allocating or rewriting the map of compiled blocks can leave the
       interpreter's gas negative. `pallet-revive` then charges all the ref time it handed to the
       interpreter and fails the call frame with `OutOfGas`. The proof size is not affected.
 
     Ref time per PolkaVM gas, the largest of nine measurements:
 
-    - `instr_load_chain_<m>(r)` for `m` in `0..8` runs `r` iterations of dependent 8 byte loads.
-      They follow a random cycle through 1024 slots 128 bytes apart, which stays in the L2 but
-      not in the L1 data cache of the reference hardware, and `r` goes around the cycle several
-      times. Contract memory is priced as L2 resident. Variant `m` places every value at the
-      `m`-th of the 8 offsets modulo 64 an 8 byte aligned host buffer can give it, so in one
-      variant every load spans two cache lines. Each slope is divided by the gas of one
-      iteration.
-    - `instr_indirect_jump(r)` runs `r` laps of indirect jumps through a random cycle of 3000
-      compiled basic blocks. The interpreter data a lap reads, about 205 KiB, stays in the L2
-      but not in the L1 data cache of the reference hardware. Its slope is divided by the gas
-      of one lap.
+    - `instr_load_chain_<m>(r)` for `m` in `0..8` runs `r` iterations of dependent loads through
+      a cycle of memory slots, one variant per 8 byte offset of the loaded value, so that one
+      variant has every load spanning two cache lines.
+    - `instr_indirect_jump(r)` runs `r` laps of indirect jumps through a cycle of 3000 compiled
+      basic blocks.
+    - Each slope is divided by the gas of one iteration or lap.
     - The pallet's `integrity_test` asserts that the derived ref time per gas is not zero.
 
     `WeightInfo` changes, which break every runtime that implements it with its own weights:
@@ -117,10 +111,9 @@ doc:
 
     Compiling contract code is charged as gas: on Asset Hub Westend 3 gas per basic block,
     1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
-    byte part is charged again after every call a PVM contract makes. The weight charged for
-    loading the code of a PVM contract no longer includes the compilation of one maximum-sized
-    basic block or the map of compiled blocks, which the interpreter charges as gas. On Asset Hub
-    Westend it is 1545 ps of ref time per byte of the code blob.
+    byte part is charged again after every call a PVM contract makes. Loading the code of a PVM
+    contract is charged per byte of the code blob, 1545 ps of ref time on Asset Hub Westend; the
+    interpreter charges the compiled blocks and the map of compiled blocks as gas.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
     limits to their sub-calls may need to raise those limits.

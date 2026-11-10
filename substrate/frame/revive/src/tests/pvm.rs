@@ -486,7 +486,7 @@ mod compilation_cost_benchmark {
 	/// gas, `millis = ceil(1000 * I / r)` exceeds `1000 * I / r` by less than 1, which adds less
 	/// than `dn * r / 1000` to the `dn` instructions. Each entry block's compilation is rounded
 	/// up to whole gas once, so the difference of the two moves by less than one gas either way.
-	/// The compilation part is thus within `(dn * I - r, dn * I + (dn / 1000 + 1) * r)`.
+	/// The compilation part is thus within `(dn * I - r, dn * I + dn * r / 1000 + r)`.
 	#[test]
 	fn entry_block_compilation_is_charged_per_instruction() {
 		ExtBuilder::default().build().execute_with(|| {
@@ -566,7 +566,8 @@ mod compilation_cost_benchmark {
 	}
 
 	/// A call's ref time grows with the size of its code at the `call_with_pvm_code_per_byte`
-	/// slope.
+	/// slope, less the `interpreter_code_map_per_byte` slope of the blob bytes outside the code
+	/// section.
 	///
 	/// The pallet charges that slope minus the `interpreter_code_map_per_byte` slope `M` for
 	/// every byte of the blob. The interpreter charges `M` back as gas for every byte of the code

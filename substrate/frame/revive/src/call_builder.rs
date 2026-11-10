@@ -498,10 +498,8 @@ impl VmBinaryModule {
 	/// instructions for every `b`, so its size does not depend on `b`.
 	///
 	/// The branch is a `branch_eq` of two registers. Of the instructions that end a basic block
-	/// and continue at another one, branches took the longest to compile and run per block in a
-	/// local measurement: 40 to 60% longer than a `fallthrough` and 25% longer than a `jump`, a
-	/// `load_imm_and_jump` or a `load_imm_and_jump_indirect`. Branches with an immediate, taken
-	/// or not, were within the noise of it.
+	/// and continue at another one, a register branch is the slowest to compile and run per
+	/// block, so the slope is an upper bound for the other terminators.
 	///
 	/// `b` is within `0..=BRANCH_BLOCKS`.
 	pub fn with_branch_blocks(b: u32) -> Self {
@@ -528,12 +526,9 @@ impl VmBinaryModule {
 	/// for every `n`, so its size does not depend on `n`.
 	///
 	/// The filler is a `store_imm_indirect_u64` with two 4 byte immediates. It never executes.
-	/// Of the instructions that do not end a basic block, the `store_imm_indirect` kinds took
-	/// the longest to compile per instruction in a local measurement of arithmetic with
-	/// registers and immediates, 32 and 64 bit immediate loads, register moves, and loads and
-	/// stores with absolute and indirect addresses. The others took up to 13% less. With short
-	/// immediates it is still among the slowest, so the difference is not only the size of the
-	/// instruction.
+	/// Of the instructions that do not end a basic block, the `store_imm_indirect` kinds are the
+	/// slowest to compile per instruction, with short immediates as well, so the slope is an
+	/// upper bound for the others.
 	///
 	/// `n` is within `2..=BASIC_BLOCK_SIZE`.
 	pub fn with_entry_block(n: u32) -> Self {
@@ -651,7 +646,6 @@ impl VmBinaryModule {
 		let head = address(0);
 		let block = |i: u32| address(1 + i);
 		let warm_up = address(1 + blocks);
-		// The distance between the addresses of consecutive jump table entries.
 		let step = block(0) - head;
 
 		let mut order: Vec<u32> = (0..blocks).collect();

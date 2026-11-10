@@ -121,10 +121,11 @@ impl ExportedFunction {
 
 /// Cost of code loading from storage.
 ///
-/// For PVM code the slope of `interpreter_code_map_per_byte` is left out: the callee of
-/// `call_with_pvm_code_per_byte` allocates its map of compiled blocks, which the interpreter
-/// charges as gas. The compilation of its entry block is in the benchmark's intercept and is
-/// charged by the interpreter too.
+/// For PVM code the ref time slope of `interpreter_code_map_per_byte` per blob byte is left out:
+/// the callee allocates its map of compiled blocks, which the interpreter charges as gas per byte
+/// of the code section. The slope of `call_with_pvm_code_per_byte` also holds part of the entry
+/// block compilation of its contract, which the interpreter charges too, so the remaining charge
+/// is not below the measured load.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeLoadToken {

@@ -16,7 +16,7 @@ contract Reverter {
 /// Calls, delegate calls or creates contracts a given number of times.
 ///
 /// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
-/// no output, so the code of a loop does not depend on the rest of the contract.
+/// no output, so the loops of `SubCaller` and `SubCallerLarge` compile to nearly the same code.
 contract SubCaller {
     function callN(address target, uint256 n) external {
         for (uint256 i = 0; i < n; i++) {
@@ -60,7 +60,8 @@ contract SubCaller {
 
 /// `SubCaller` with more code that its functions never run.
 ///
-/// The extra functions do arithmetic on their arguments and use no memory.
+/// The extra functions do arithmetic on their arguments. They take and return single words,
+/// with no arrays, strings or hashing.
 contract SubCallerLarge is SubCaller {
     function mix(uint256 x) external pure returns (uint256) {
         x = (x * 31 + 7) ^ (x >> 3);
@@ -129,7 +130,6 @@ contract SubCallerLarge is SubCaller {
         y = (y * 163 + x) | (x & 0x3333333333333333);
         return x + y;
     }
-
 
     function mix5(int256 x, int256 y) external pure returns (int256) {
         x = (x * 223 - y) >> 3;
