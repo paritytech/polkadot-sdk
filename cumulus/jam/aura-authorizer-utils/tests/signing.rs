@@ -1,0 +1,152 @@
+// This file is part of Cumulus.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Published JAM work-package signing and authorization.
+
+use codec::DecodeAll;
+use cumulus_aura_authorizer_utils::{
+	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
+	AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
+};
+use jam_types::Encode as JamEncode;
+
+struct Verifier;
+impl SignatureVerifier for Verifier {
+	fn verify(_: &[u8; 32], signature: &[u8; 64], payload: &[u8]) -> bool {
+		&signature[..32] == payload
+	}
+}
+
+fn package_body() -> WorkPackageBody {
+	WorkPackageBody {
+		auth_code_host: 1,
+		authorizer: jam_types::Authorizer { code_hash: [3; 32].into(), config: vec![4, 5].into() },
+		context: jam_types::RefineContext {
+			anchor: [6; 32].into(),
+			anchor_slot: 14,
+			state_root: [7; 32].into(),
+			beefy_root: [8; 32].into(),
+			lookup_anchor: [6; 32].into(),
+			lookup_anchor_slot: 9,
+			lookup_anchor_state_root: [15; 32].into(),
+			prerequisites: Default::default(),
+		},
+		items: vec![jam_types::WorkItem {
+			service: 1,
+			code_hash: [10; 32].into(),
+			refine_gas_limit: 11,
+			accumulate_gas_limit: 12,
+			export_count: 0,
+			payload: vec![13].into(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		}]
+		.try_into()
+		.expect("one work item fits"),
+	}
+}
+
+#[test]
+fn signing_vectors_works() {
+	let package = package_body();
+	let payload = JamEncode::encode(&(
+		&package.auth_code_host,
+		&package.authorizer.code_hash,
+		&package.context,
+		&package.authorizer.config,
+		&package.items,
+	));
+	let hash = package.signing_hash();
+	// Independently assembled for jam-types 0.1.29: fixed-width integers are little-endian,
+	// hashes are raw bytes, and these sequence lengths fit in one JAM compact byte.
+	// Pin the bytes as well as the hash so codec changes cannot silently update the expectation.
+	let expected_payload = [
+		1, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+		3, 3, 3, 3, 3, 3, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+		6, 6, 6, 6, 6, 6, 6, 6, 14, 0, 0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 0, 0, 0, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 0, 2, 4, 5, 1, 1, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+		10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11, 0, 0, 0, 0,
+		0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 13, 0, 0,
+	];
+	// Python: hashlib.blake2b(b"jam:parachain-service:aura:work-package:v1" +
+	//                         bytes(expected_payload), digest_size=32).digest()
+	let expected_hash = [
+		70, 105, 60, 131, 151, 80, 76, 5, 177, 87, 22, 96, 11, 137, 229, 127, 177, 19, 158, 211,
+		40, 155, 16, 66, 206, 255, 187, 237, 245, 39, 119, 106,
+	];
+	assert_eq!(payload, expected_payload);
+	assert_eq!(hash.as_bytes(), &expected_hash);
+	assert_eq!(hash_signing_payload(&payload).as_bytes(), &expected_hash);
+	let mut expected = WORK_PACKAGE_SIGN_CTX.to_vec();
+
+	expected.extend_from_slice(&payload);
+	assert_eq!(hash.as_bytes(), &sp_crypto_hashing::blake2_256(&expected));
+}
+
+#[test]
+fn authorization_round_trip_works() {
+	let package = package_body();
+	let hash = package.signing_hash();
+	let expected_fields = JamEncode::encode(&(
+		&package.auth_code_host,
+		&package.authorizer.code_hash,
+		&package.context,
+		&package.authorizer.config,
+		&package.items,
+	));
+	let (root, _) = build_collator_proof(&[[7; 32]], 0).expect("valid test collator set");
+	let config = AuthConfig {
+		para_ids: vec![cumulus_aura_authorizer_utils::ParaId::new(0)],
+		parachain_service: 1,
+		collator_set_root: root,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
+	};
+
+	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
+	token.signature[..32].copy_from_slice(hash.as_bytes());
+	let mut package = package.with_authorization(&token);
+	assert_eq!(
+		JamEncode::encode(&(
+			&package.auth_code_host,
+			&package.authorizer.code_hash,
+			&package.context,
+			&package.authorizer.config,
+			&package.items,
+		)),
+		expected_fields,
+	);
+	let decoded = AuthToken::decode_all(&mut &package.authorization.0[..]).expect("encoded token");
+	assert_eq!(decoded.key, token.key);
+	assert_eq!(decoded.proof, token.proof);
+	assert_eq!(decoded.signature, token.signature);
+	assert_eq!(
+		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0)
+			.expect("valid authorization"),
+		AuthTrace { author_key: token.key }
+	);
+
+	package.auth_code_host += 1;
+	assert!(matches!(
+		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0),
+		Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
+	));
+}
