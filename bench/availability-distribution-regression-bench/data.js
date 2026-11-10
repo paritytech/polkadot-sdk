@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794314854678,
+  "lastUpdate": 1794318192960,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4104feeeb1c940addf6e2527b52352fdf2545e23",
-          "message": "[pallet-revive] Add vestedTransfer to vesting precompile (#11630)\n\n## Summary\n\nAdd `vestedTransfer(address, uint256, uint256, uint256)` to the vesting\nprecompile, allowing Solidity contracts to create vesting schedules for\ntarget accounts via `pallet_vesting::vested_transfer`. Updates the\n`IVesting.sol` interface with the new function signature and NatSpec\ndocs. Includes tests covering success, below-minimum revert,\ninsufficient balance revert, and read-only/delegate-call guards.\n\nAlso fixes weight charging order across all precompile methods — weight\nis now charged upfront (right after the `ensure_mutable` check) before\nany account derivation, type conversions, or schedule construction.\nPreviously, `caller_account_id`, `to_account_id`, `T::Lookup::unlookup`,\nand U256 conversions all happened before the weight charge.\n\n## Test plan\n\n- [x] `vested_transfer_succeeds` — verifies schedule creation on target\n- [x] `vested_transfer_reverts_below_min` — reverts when locked <\n`MinVestedTransfer`\n- [x] `vested_transfer_reverts_insufficient_balance` — reverts when\ncaller lacks funds\n- [x] Guard test cases — rejects in read-only and delegate-call contexts\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-24T09:02:04Z",
-          "tree_id": "f2aa5d8a56f5d4f1e043b2331cb02b8bfefee249",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4104feeeb1c940addf6e2527b52352fdf2545e23"
-        },
-        "date": 1777027134457,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009350999999999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023821100353333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006976129346666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14501698720000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009895640753333322,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372",
+          "message": "Fix weights accuracy (#13720)\n\nWorst case can now wrap calls\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-10T12:02:28Z",
+          "tree_id": "6f6959f1f294a628e349e2e75fb0f0f22a493f8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ddfcc0dcbb1c0e89386c1d6f0d388ee44593372"
+        },
+        "date": 1794318162919,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075122044999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009903299973333323,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14536368176666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025037861226666666,
             "unit": "seconds"
           }
         ]
