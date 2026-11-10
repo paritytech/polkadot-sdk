@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794294288392,
+  "lastUpdate": 1794302135810,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d1ad712f881477a0991cb0003d4646b3da6817f4",
-          "message": "statement-store: fix metrics accuracy (#11838)\n\n# Description\n\nFixes accuracy gaps and clarify help text in statement store and network\nmetrics.\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:05:32Z",
-          "tree_id": "48b5bc5ad345f7ae8e73cc8409cdad067cbf23e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1ad712f881477a0991cb0003d4646b3da6817f4"
-        },
-        "date": 1776807364451,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.084,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08015931597799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038363818268000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08383882716199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f91ecc274e751e727256ebca4e4a09802bf4880e",
+          "message": "Make the collator protocol revamp the default implementation (on Polkadot) (#13736)\n\nCurrently if a node binary is executed with a Kusama chainspec the\ncollator protocol revamp is the default validator side collator protocol\nimplementation. This PR takes this further by making the revamp the\ndefault implementation no matter what the chainspec is (polkadot\nincluded).\n\nThe `--experimental-collator-protocol` flag is kept so that we can run\nthe legacy implementation if needed (with\n`--experimental-collator-protocol=false`).\n\nBefore this change the CI was executing some tests with both collator\nprotocol implementations. To keep this behaviour, this PR\nadds`--experimental-collator-protocol=false` where necessary. The change\nis here:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/f02224d7863fae256f4675cc0825bfb009fcfb75/polkadot/zombienet-sdk-tests/tests/utils.rs#L58\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T07:39:56Z",
+          "tree_id": "4e631771489e81f62609c2294bf3f1ecac99d7cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f91ecc274e751e727256ebca4e4a09802bf4880e"
+        },
+        "date": 1794302100892,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.142,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038514161098,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08436219744599992,
             "unit": "seconds"
           }
         ]
