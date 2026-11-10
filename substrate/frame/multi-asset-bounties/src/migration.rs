@@ -265,20 +265,20 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV
 		}
 
 		for (parent, child, old) in old_children {
-			// A child inherits the parent's asset kind. If the parent is missing (should be
-			// impossible) skip the asset row but still migrate the struct.
+			// A child inherits the parent's asset kind. A child without a parent cannot be reached
+			// by any call; `pre_upgrade` fails on it so try-runtime catches it before enactment.
+			// Here the struct is still migrated so it stays decodable.
 			if let Some(asset_kind) = parent_asset_kind.get(&parent) {
 				let payment_state = derive_payment_state(&old.status);
 				ChildBountyAssets::<T, I>::insert(
-					(parent, child),
-					asset_kind,
+					(parent, child, asset_kind.clone()),
 					AssetEntryOf::<T, I> { value: old.value, payment_state },
 				);
 				writes += 1;
 			} else {
 				log::error!(
 					target: LOG_TARGET,
-					"child-bounty ({}, {}) has no parent asset kind; skipping asset row.",
+					"child-bounty ({}, {}) has no parent bounty; skipping its asset row.",
 					parent,
 					child,
 				);
@@ -313,38 +313,107 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		// Number of parent bounties, and the per-(index, asset_kind) committed value, so we can
-		// assert conservation post-upgrade. `AssetKind` is not `Ord`, so we use a `Vec` of
-		// `((index, asset_kind), value)` rather than a map.
-		let bounty_count = v1::Bounties::<T, I>::iter_keys().count() as u32;
-		let asset_values = v1::Bounties::<T, I>::iter()
-			.map(|(index, b)| ((index, b.asset_kind), b.value))
-			.collect::<Vec<((BountyIndex, T::AssetKind), T::Balance)>>();
-		Ok((bounty_count, asset_values).encode())
+		// Count both keys and decoded values: `iter` silently skips an entry that fails to decode,
+		// so a mismatch means some v1 entry would be lost.
+		let bounties = v1::Bounties::<T, I>::iter().collect::<Vec<_>>();
+		ensure!(
+			bounties.len() == v1::Bounties::<T, I>::iter_keys().count(),
+			"a v1 bounty does not decode"
+		);
+		let children = v1::ChildBounties::<T, I>::iter().collect::<Vec<_>>();
+		ensure!(
+			children.len() == v1::ChildBounties::<T, I>::iter_keys().count(),
+			"a v1 child-bounty does not decode"
+		);
+		for (parent, _, _) in children.iter() {
+			ensure!(
+				bounties.iter().any(|(index, _)| index == parent),
+				"a v1 child-bounty has no parent bounty"
+			);
+		}
+
+		// What each entry must look like after the migration.
+		let parents: Vec<ParentSnapshot<T, I>> = bounties
+			.into_iter()
+			.map(|(index, old)| ParentSnapshot::<T, I> {
+				index,
+				payment_state: derive_payment_state(&old.status),
+				status: map_status(old.status),
+				asset_kind: old.asset_kind,
+				value: old.value,
+				allocated: v1::ChildBountiesValuePerParent::<T, I>::get(index),
+			})
+			.collect();
+		let children: Vec<ChildSnapshot<T, I>> = children
+			.into_iter()
+			.map(|(parent, child, old)| ChildSnapshot::<T, I> {
+				parent,
+				child,
+				payment_state: derive_payment_state(&old.status),
+				status: map_status(old.status),
+				value: old.value,
+			})
+			.collect();
+
+		Ok((parents, children).encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		type StateOf<T, I> =
-			(u32, Vec<((BountyIndex, <T as Config<I>>::AssetKind), <T as Config<I>>::Balance)>);
-		let (old_count, old_values) =
-			<StateOf<T, I>>::decode(&mut &state[..]).expect("Failed to decode pre_upgrade state");
+		let (parents, children) =
+			<(Vec<ParentSnapshot<T, I>>, Vec<ChildSnapshot<T, I>>)>::decode(&mut &state[..])
+				.map_err(|_| "failed to decode the pre_upgrade state")?;
 
-		let new_count = Bounties::<T, I>::iter_keys().count() as u32;
-		ensure!(old_count == new_count, "bounty count changed during migration");
+		let bounty_keys = Bounties::<T, I>::iter_keys().count();
+		ensure!(bounty_keys == Bounties::<T, I>::iter().count(), "a v2 bounty does not decode");
+		ensure!(bounty_keys == parents.len(), "bounty count changed during migration");
+		let child_keys = ChildBounties::<T, I>::iter_keys().count();
+		ensure!(
+			child_keys == ChildBounties::<T, I>::iter().count(),
+			"a v2 child-bounty does not decode"
+		);
+		ensure!(child_keys == children.len(), "child-bounty count changed during migration");
 
-		for (index, _bounty) in Bounties::<T, I>::iter() {
-			// Every migrated bounty must have exactly one asset row...
-			let rows = BountyAssets::<T, I>::iter_prefix(index).collect::<Vec<_>>();
-			ensure!(rows.len() == 1, "migrated bounty must hold exactly one asset row");
-			// ...and that row's value must equal the old inline value (per-asset conservation).
-			let (asset_kind, entry) = &rows[0];
-			let expected = old_values
+		for p in parents.iter() {
+			let bounty = Bounties::<T, I>::get(p.index).ok_or("migrated bounty is missing")?;
+			ensure!(bounty.status == p.status, "bounty status not mapped correctly");
+
+			let rows = BountyAssets::<T, I>::iter_prefix(p.index).collect::<Vec<_>>();
+			let expected =
+				AssetEntryOf::<T, I> { value: p.value, payment_state: p.payment_state.clone() };
+			ensure!(
+				rows == alloc::vec![(p.asset_kind.clone(), expected)],
+				"bounty asset row does not match its v1 value and payment state"
+			);
+
+			let allocated =
+				ChildValuePerParentAsset::<T, I>::iter_prefix(p.index).collect::<Vec<_>>();
+			let expected = if p.allocated.is_zero() {
+				Vec::new()
+			} else {
+				alloc::vec![(p.asset_kind.clone(), p.allocated)]
+			};
+			ensure!(allocated == expected, "child allocation guard not ported correctly");
+		}
+
+		for c in children.iter() {
+			let child = ChildBounties::<T, I>::get(c.parent, c.child)
+				.ok_or("migrated child-bounty is missing")?;
+			ensure!(child.status == c.status, "child-bounty status not mapped correctly");
+
+			let asset_kind = parents
 				.iter()
-				.find(|((i, ak), _)| *i == index && ak == asset_kind)
-				.map(|(_, v)| *v)
-				.expect("migrated asset row must correspond to an old bounty asset");
-			ensure!(entry.value == expected, "per-asset value not conserved during migration");
+				.find(|p| p.index == c.parent)
+				.map(|p| p.asset_kind.clone())
+				.ok_or("child-bounty has no parent bounty")?;
+			let rows =
+				ChildBountyAssets::<T, I>::iter_prefix((c.parent, c.child)).collect::<Vec<_>>();
+			let expected =
+				AssetEntryOf::<T, I> { value: c.value, payment_state: c.payment_state.clone() };
+			ensure!(
+				rows == alloc::vec![(asset_kind, expected)],
+				"child-bounty asset row does not match its v1 value and payment state"
+			);
 		}
 
 		ensure!(
@@ -352,8 +421,32 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV
 			"old ChildBountiesValuePerParent storage was not drained"
 		);
 
-		Ok(())
+		Pallet::<T, I>::do_try_state()
 	}
+}
+
+/// What a migrated parent bounty must look like, recorded by `pre_upgrade`.
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+struct ParentSnapshot<T: Config<I>, I: 'static> {
+	index: BountyIndex,
+	status: BountyStatus<T::AccountId, T::Beneficiary>,
+	asset_kind: T::AssetKind,
+	value: T::Balance,
+	payment_state: PaymentState<PaymentIdOf<T, I>>,
+	/// The v1 `ChildBountiesValuePerParent` of this bounty.
+	allocated: T::Balance,
+}
+
+/// What a migrated child-bounty must look like, recorded by `pre_upgrade`.
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+struct ChildSnapshot<T: Config<I>, I: 'static> {
+	parent: BountyIndex,
+	child: BountyIndex,
+	status: BountyStatus<T::AccountId, T::Beneficiary>,
+	value: T::Balance,
+	payment_state: PaymentState<PaymentIdOf<T, I>>,
 }
 
 /// A `BTreeMap` alias used to remember each parent's single asset kind during the migration.
@@ -421,6 +514,10 @@ mod tests {
 				},
 			);
 			v1::ChildBountiesValuePerParent::<Test, ()>::insert(1u32, 20u64);
+			// Counters are unchanged by the migration but must be consistent for `try_state`.
+			crate::BountyCount::<Test, ()>::put(2);
+			crate::ChildBountiesPerParent::<Test, ()>::insert(1, 1);
+			crate::TotalChildBountiesPerParent::<Test, ()>::insert(1, 1);
 
 			// Run the migration. Under `try-runtime` this also exercises pre/post_upgrade,
 			// which assert bounty-count and per-asset value conservation.
@@ -458,7 +555,7 @@ mod tests {
 
 			// Child asset row inherits parent's asset kind.
 			let child_asset =
-				crate::ChildBountyAssets::<Test, ()>::get((1, 0), 9).expect("child asset row");
+				crate::ChildBountyAssets::<Test, ()>::get((1, 0, 9)).expect("child asset row");
 			assert_eq!(child_asset.value, 20);
 			assert_eq!(child_asset.payment_state, PaymentState::Succeeded);
 

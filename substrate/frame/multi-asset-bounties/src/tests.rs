@@ -100,7 +100,7 @@ fn fund_bounty_works() {
 		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
 		assert!(Preimage::is_requested(&metadata));
 		expect_events(vec![
-			BountiesEvent::Paid { index, child_index: None, payment_id },
+			BountiesEvent::Paid { index, child_index: None, asset_kind, payment_id },
 			BountiesEvent::BountyCreated { index },
 		]);
 	});
@@ -304,10 +304,10 @@ fn fund_child_bounty_subset_works() {
 		// Then: the child has a row for asset 1 only, in `Attempted`, and `Funding`.
 		let id = get_payment_id(parent, Some(child), 1).expect("no payment attempt");
 		assert_eq!(
-			pallet_bounties::ChildBountyAssets::<Test>::get((parent, child), 1).unwrap(),
+			pallet_bounties::ChildBountyAssets::<Test>::get((parent, child, 1)).unwrap(),
 			AssetEntry { value: 20, payment_state: PaymentState::Attempted { id } }
 		);
-		assert!(pallet_bounties::ChildBountyAssets::<Test>::get((parent, child), 2).is_none());
+		assert!(pallet_bounties::ChildBountyAssets::<Test>::get((parent, child, 2)).is_none());
 		// Allocation against the parent's asset 1 is recorded.
 		assert_eq!(pallet_bounties::ChildValuePerParentAsset::<Test>::get(parent, 1), 20);
 		assert_eq!(pallet_bounties::ChildValuePerParentAsset::<Test>::get(parent, 2), 0);
@@ -1194,5 +1194,267 @@ fn increase_value_reverts_when_curator_cannot_fund_deposit() {
 			consideration(s.value)
 		);
 		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+	});
+}
+
+// -----------------------------------------------------------------------------
+// Leg isolation, zero legs and closing from `Funding`
+// -----------------------------------------------------------------------------
+
+/// Empties the bounty account in `asset_kind`, so the mock `Paymaster` rejects the next payment of
+/// that asset inside the call, as `LocalPay` does for a frozen asset or a recipient that cannot
+/// hold it. Returns what the account held.
+fn drain(index: BountyIndex, asset_kind: u32) -> u64 {
+	let account = Bounties::bounty_account(index, asset_kind).expect("conversion failed");
+	let held = paid(account, asset_kind);
+	unpay(account, asset_kind, held);
+	held
+}
+
+fn has_event(event: BountiesEvent<Test>) -> bool {
+	System::events()
+		.iter()
+		.any(|r| r.event == RuntimeEvent::Bounties(event.clone()))
+}
+
+#[test]
+fn award_isolates_a_rejected_leg() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active 2-asset parent whose account cannot pay asset 2.
+		let (parent, curator, _metadata) = active_multi_asset_parent();
+		let beneficiary = 5;
+		let held = drain(parent, 2);
+		System::reset_events();
+
+		// When: award.
+		assert_ok!(Bounties::award_bounty(
+			RuntimeOrigin::signed(curator),
+			parent,
+			None,
+			beneficiary
+		));
+
+		// Then: asset 1 is paid, asset 2 is marked failed, and the bounty is awarding.
+		assert_eq!(status(parent), BountyStatus::Awarding { curator, beneficiary });
+		assert_eq!(paid(beneficiary, 1), 50);
+		assert_eq!(paid(beneficiary, 2), 0);
+		assert!(matches!(
+			bounty_asset(parent, 1).unwrap().payment_state,
+			PaymentState::Attempted { .. }
+		));
+		assert_eq!(bounty_asset(parent, 2).unwrap().payment_state, PaymentState::Failed);
+		assert!(has_event(BountiesEvent::PaymentFailed {
+			index: parent,
+			child_index: None,
+			asset_kind: 2,
+			payment_id: None,
+		}));
+
+		// When: asset 2 can be paid again and the failed leg is retried.
+		top_up(Bounties::bounty_account(parent, 2).unwrap(), 2, held);
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), parent, None));
+		let id1 = get_payment_id(parent, None, 1).unwrap();
+		let id2 = get_payment_id(parent, None, 2).unwrap();
+		approve_all_payments(parent, None, &[(1, id1), (2, id2)]);
+
+		// Then: both assets are paid and the bounty is removed.
+		assert_eq!(paid(beneficiary, 2), 40);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(parent), None);
+	});
+}
+
+#[test]
+fn award_reverts_when_every_leg_is_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active 2-asset parent whose account cannot pay either asset.
+		let (parent, curator, _metadata) = active_multi_asset_parent();
+		drain(parent, 1);
+		drain(parent, 2);
+
+		// Then: nothing could be paid, so the call reverts and the bounty stays `Active`, and the
+		// curator can award it to another beneficiary, as with a single-asset bounty.
+		assert_noop!(
+			Bounties::award_bounty(RuntimeOrigin::signed(curator), parent, None, 5),
+			Error::<Test>::PayoutError
+		);
+	});
+}
+
+#[test]
+fn close_isolates_a_rejected_leg_and_retry_reverts_if_it_is_rejected_again() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active 2-asset parent whose account cannot pay asset 2.
+		let (parent, curator, _metadata) = active_multi_asset_parent();
+		let source = Bounties::funding_source_account(1).expect("conversion failed");
+		let before = paid(source, 1);
+		let held = drain(parent, 2);
+
+		// When: close.
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), parent, None));
+
+		// Then: asset 1 is refunded and asset 2 is marked failed.
+		assert_eq!(status(parent), BountyStatus::Closing { curator: Some(curator) });
+		assert_eq!(paid(source, 1), before + 50);
+		assert_eq!(bounty_asset(parent, 2).unwrap().payment_state, PaymentState::Failed);
+
+		// A retry that is rejected again reverts.
+		assert_noop!(
+			Bounties::retry_payment(RuntimeOrigin::signed(1), parent, None),
+			Error::<Test>::RefundError
+		);
+
+		// Once asset 2 can be paid, the retry goes through and the close completes.
+		top_up(Bounties::bounty_account(parent, 2).unwrap(), 2, held);
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), parent, None));
+		let id1 = get_payment_id(parent, None, 1).unwrap();
+		let id2 = get_payment_id(parent, None, 2).unwrap();
+		approve_all_payments(parent, None, &[(1, id1), (2, id2)]);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(parent), None);
+	});
+}
+
+#[test]
+fn funding_rejects_a_zero_leg() {
+	ExtBuilder::default().build_and_execute(|| {
+		let metadata = note_preimage(1);
+		assert_noop!(
+			Bounties::fund_bounty(
+				RuntimeOrigin::root(),
+				basket(vec![(1, 50), (2, 0)]),
+				4,
+				metadata
+			),
+			Error::<Test>::InvalidValue
+		);
+
+		let (parent, curator, metadata) = active_multi_asset_parent();
+		assert_noop!(
+			Bounties::fund_child_bounty(
+				RuntimeOrigin::signed(curator),
+				parent,
+				basket(vec![(1, 20), (2, 0)]),
+				metadata,
+				None,
+			),
+			Error::<Test>::InvalidValue
+		);
+	});
+}
+
+#[test]
+fn award_parent_settles_a_zero_leg_without_paying() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a child took all 40 of the parent's asset 2 and was paid out.
+		let (parent, curator, metadata) = active_multi_asset_parent();
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(curator),
+			parent,
+			basket(vec![(2, 40)]),
+			metadata,
+			None,
+		));
+		let child = 0;
+		let fund_id = get_payment_id(parent, Some(child), 2).unwrap();
+		approve_all_payments(parent, Some(child), &[(2, fund_id)]);
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(curator), parent, Some(child), 9));
+		let payout_id = get_payment_id(parent, Some(child), 2).unwrap();
+		approve_all_payments(parent, Some(child), &[(2, payout_id)]);
+		assert_eq!(paid(9, 2), 40);
+		System::reset_events();
+
+		// When: the parent is awarded.
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(curator), parent, None, 5));
+
+		// Then: asset 2 has nothing left, so it settles at once without a payment.
+		assert_eq!(bounty_asset(parent, 2).unwrap().payment_state, PaymentState::Succeeded);
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Bounties(BountiesEvent::Paid { asset_kind: 2, .. })
+		)));
+		let id1 = get_payment_id(parent, None, 1).unwrap();
+		approve_all_payments(parent, None, &[(1, id1)]);
+		assert_eq!(paid(5, 1), 50);
+		assert_eq!(paid(5, 2), 0);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(parent), None);
+	});
+}
+
+#[test]
+fn close_from_funding_refunds_only_the_assets_that_arrived() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a 2-asset bounty whose funding payments are in flight.
+		let curator = 4;
+		let metadata = note_preimage(1);
+		assert_ok!(Bounties::fund_bounty(
+			RuntimeOrigin::root(),
+			basket(vec![(1, 30), (2, 20)]),
+			curator,
+			metadata
+		));
+		let index = 0;
+
+		// While a funding payment is in flight, the bounty cannot be closed.
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::root(), index, None),
+			Error::<Test>::FundingInconclusive
+		);
+
+		// When: asset 1 arrives and asset 2's funding payment fails.
+		let id1 = get_payment_id(index, None, 1).unwrap();
+		let id2 = get_payment_id(index, None, 2).unwrap();
+		set_status(id1, PaymentStatus::Success);
+		let account = Bounties::bounty_account(index, 2).expect("conversion failed");
+		reject_payment(account, index, None, 2, 20);
+		assert!(has_event(BountiesEvent::PaymentFailed {
+			index,
+			child_index: None,
+			asset_kind: 2,
+			payment_id: Some(id2),
+		}));
+		assert_eq!(status(index), BountyStatus::Funding { curator });
+
+		// Then: the bounty can be closed, and only asset 1 is refunded.
+		let source = Bounties::funding_source_account(1).expect("conversion failed");
+		let before = paid(source, 1);
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), index, None));
+		assert_eq!(status(index), BountyStatus::Closing { curator: Some(curator) });
+		assert_eq!(bounty_asset(index, 2).unwrap().payment_state, PaymentState::Succeeded);
+		let refund_id = get_payment_id(index, None, 1).unwrap();
+		approve_all_payments(index, None, &[(1, refund_id)]);
+		assert_eq!(paid(source, 1), before + 30);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(index), None);
+	});
+}
+
+#[test]
+fn close_child_from_funding_hands_the_allocation_back() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a child funded with two assets, one of whose funding payments failed.
+		let (parent, curator, metadata) = active_multi_asset_parent();
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(curator),
+			parent,
+			basket(vec![(1, 20), (2, 10)]),
+			metadata,
+			Some(8),
+		));
+		let child = 0;
+		let id1 = get_payment_id(parent, Some(child), 1).unwrap();
+		set_status(id1, PaymentStatus::Success);
+		let account = Bounties::child_bounty_account(parent, child, 2).expect("conversion failed");
+		reject_payment(account, parent, Some(child), 2, 10);
+		assert!(matches!(child_status(parent, child), BountyStatus::Funding { .. }));
+
+		// When: the parent curator closes the child and the refund of asset 1 settles.
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::signed(curator), parent, Some(child)));
+		let refund_id = get_payment_id(parent, Some(child), 1).unwrap();
+		approve_all_payments(parent, Some(child), &[(1, refund_id)]);
+
+		// Then: the child is gone and the parent can allocate both assets in full again.
+		assert_eq!(pallet_bounties::ChildBounties::<Test>::get(parent, child), None);
+		assert_eq!(pallet_bounties::ChildValuePerParentAsset::<Test>::get(parent, 1), 0);
+		assert_eq!(pallet_bounties::ChildValuePerParentAsset::<Test>::get(parent, 2), 0);
+		assert_eq!(Bounties::bounty_account(parent, 1).map(|a| paid(a, 1)), Ok(50));
+		assert_eq!(Bounties::bounty_account(parent, 2).map(|a| paid(a, 2)), Ok(40));
 	});
 }

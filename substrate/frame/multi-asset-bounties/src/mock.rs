@@ -373,10 +373,11 @@ pub fn get_payment_id(
 ) -> Option<u64> {
 	let entry = match child_bounty_id {
 		None => pallet_bounties::BountyAssets::<Test>::get(parent_bounty_id, asset_kind),
-		Some(child_bounty_id) => pallet_bounties::ChildBountyAssets::<Test>::get(
-			(parent_bounty_id, child_bounty_id),
+		Some(child_bounty_id) => pallet_bounties::ChildBountyAssets::<Test>::get((
+			parent_bounty_id,
+			child_bounty_id,
 			asset_kind,
-		),
+		)),
 	}?;
 
 	entry.payment_state.get_attempt_id()

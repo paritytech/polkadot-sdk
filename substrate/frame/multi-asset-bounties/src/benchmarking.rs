@@ -100,10 +100,11 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 ) -> Option<PaymentIdOf<T, I>> {
 	let entry = match child_bounty_id {
 		None => pallet_bounties::BountyAssets::<T, I>::get(parent_bounty_id, asset_kind),
-		Some(child_bounty_id) => pallet_bounties::ChildBountyAssets::<T, I>::get(
-			(parent_bounty_id, child_bounty_id),
+		Some(child_bounty_id) => pallet_bounties::ChildBountyAssets::<T, I>::get((
+			parent_bounty_id,
+			child_bounty_id,
 			asset_kind,
-		),
+		)),
 	}?;
 
 	entry.payment_state.get_attempt_id()
@@ -278,15 +279,15 @@ pub fn set_payment_status<T: Config<I>, I: 'static>(
 			pallet_bounties::BountyAssets::<T, I>::insert(parent_bounty_id, asset_kind, entry);
 		},
 		Some(child_bounty_id) => {
-			let mut entry = pallet_bounties::ChildBountyAssets::<T, I>::get(
-				(parent_bounty_id, child_bounty_id),
+			let mut entry = pallet_bounties::ChildBountyAssets::<T, I>::get((
+				parent_bounty_id,
+				child_bounty_id,
 				asset_kind.clone(),
-			)
+			))
 			.ok_or(BenchmarkError::Stop("no asset row"))?;
 			entry.payment_state = new_payment_status;
 			pallet_bounties::ChildBountyAssets::<T, I>::insert(
-				(parent_bounty_id, child_bounty_id),
-				asset_kind,
+				(parent_bounty_id, child_bounty_id, asset_kind),
 				entry,
 			);
 		},
@@ -331,7 +332,13 @@ mod benchmarks {
 		let payment_id = get_payment_id::<T, I>(parent_bounty_id, None, s.asset_kind.clone())
 			.expect("no payment attempt");
 		assert_has_event::<T, I>(
-			Event::Paid { index: s.parent_bounty_id, child_index: None, payment_id }.into(),
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: None,
+				asset_kind: s.asset_kind.clone(),
+				payment_id,
+			}
+			.into(),
 		);
 		assert_ne!(
 			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
@@ -370,6 +377,7 @@ mod benchmarks {
 			Event::Paid {
 				index: s.parent_bounty_id,
 				child_index: Some(child_bounty_id),
+				asset_kind: s.asset_kind.clone(),
 				payment_id,
 			}
 			.into(),
@@ -545,7 +553,13 @@ mod benchmarks {
 		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, None, s.asset_kind.clone())
 			.expect("no payment attempt");
 		assert_has_event::<T, I>(
-			Event::Paid { index: s.parent_bounty_id, child_index: None, payment_id }.into(),
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: None,
+				asset_kind: s.asset_kind.clone(),
+				payment_id,
+			}
+			.into(),
 		);
 		assert_ne!(
 			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
@@ -589,6 +603,7 @@ mod benchmarks {
 			Event::Paid {
 				index: s.parent_bounty_id,
 				child_index: Some(s.child_bounty_id),
+				asset_kind: s.asset_kind.clone(),
 				payment_id,
 			}
 			.into(),
@@ -769,6 +784,7 @@ mod benchmarks {
 			Event::Paid {
 				index: s.parent_bounty_id,
 				child_index: Some(s.child_bounty_id),
+				asset_kind: s.asset_kind.clone(),
 				payment_id,
 			}
 			.into(),
@@ -835,6 +851,7 @@ mod benchmarks {
 			Event::Paid {
 				index: s.parent_bounty_id,
 				child_index: Some(s.child_bounty_id),
+				asset_kind: s.asset_kind.clone(),
 				payment_id,
 			}
 			.into(),
@@ -904,6 +921,7 @@ mod benchmarks {
 			Event::Paid {
 				index: s.parent_bounty_id,
 				child_index: Some(s.child_bounty_id),
+				asset_kind: s.asset_kind.clone(),
 				payment_id,
 			}
 			.into(),
