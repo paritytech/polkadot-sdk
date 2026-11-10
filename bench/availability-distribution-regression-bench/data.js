@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794302031287,
+  "lastUpdate": 1794308958274,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "194c871e67eebfd8faa167ecd6ba770186e54313",
-          "message": "pallet-revive: reserve on_finalize per-tx weight for eth extrinsics (#11858)\n\n### Summary\nEth extrinsics using `with_ethereum_context` add per transaction work to\n`on_finalize` (closing out the Ethereum block). That cost should be\nreserved at dispatch via `on_finalize_block_per_tx`.\n\nThis PR adds the reservation to `eth_substrate_call` and\n`eth_instantiate_with_code`, matching `eth_call`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-23T17:24:42Z",
-          "tree_id": "2cb21ab35be903652d94b7cbaa943f3c8eb32510",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/194c871e67eebfd8faa167ecd6ba770186e54313"
-        },
-        "date": 1776969903148,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14512338339333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00708900426666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023902473953333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009559180113333308,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02533215383333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9764c91c0711c4b366315672000f4f71e0c8a43d",
+          "message": "network/light: Process execution proof requests in parallel, queue QoS (#13677)\n\nAdd a thread pool for processing light client execution proof requests\nand extract them into a dedicated queue.\n\nThe number of workers is set to half the available CPU cores (at most 4)\nby default and can be increased via `--light-request-call-workers` cli.",
+          "timestamp": "2026-11-10T09:10:25Z",
+          "tree_id": "159f43394f9a369d76b2813be194bde0cf847944",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9764c91c0711c4b366315672000f4f71e0c8a43d"
+        },
+        "date": 1794308928858,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14695208311333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007445941413333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025006434580000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009842204526666629,
             "unit": "seconds"
           }
         ]
