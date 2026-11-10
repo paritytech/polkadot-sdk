@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794309114841,
+  "lastUpdate": 1794312198886,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "52bb5ba83b1fca4a9127ebda188cfcc53cf49773",
-          "message": "statement-store: Remove double peer state clean up on flooding and add zombienet tests (#11701)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11535: covers\nflooding detection.\n\nFixed a bug with double peer state cleanup. The initial purpose was to\nadd flooding e2e tests, but the tests revealed a bug in the rate-limit\nmechanics: the peer was attempted to be removed twice.\n\nAdded two zombienet integration tests that verify statement-store\nflooding detection:\n\n- Sustained-rate flooding — submits statements continuously against a\nrate-limited node. Verifies the\nnode accepts early batches (token bucket not yet exhausted) then\ntriggers flooding detection as tokens\ndrain.\n- Burst flooding — submits a large batch at once against a tightly\nrate-limited node. Verifies immediate\n flooding detection with zero statements accepted.\n\nAlso refactors common test helpers to allow spawning custom network\nconfigurations for the flooding\ntests.\n\n\n## Integration\n\nNo integration needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2026-04-21T20:14:21Z",
-          "tree_id": "c62694fc30c295da247c3515559369a4ae688fe7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bb5ba83b1fca4a9127ebda188cfcc53cf49773"
-        },
-        "date": 1776812026604,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026611235900000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00924655315999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009450583790000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011163688139999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "202d749ecfa8ce03e35f80c21a87d502187d2435",
+          "message": "Update EVM Opcode Benchmarking and Weights (#13190)\n\n# Description\n\nReplace JUMPDEST-based estimates for selected EVM opcodes with their own\nbenchmark weights. Charge memory expansion and RETURN/REVERT output\ncopying from their own benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:20:39Z",
+          "tree_id": "a3dcdeed4e29934494207bda678aadb6ec4484fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/202d749ecfa8ce03e35f80c21a87d502187d2435"
+        },
+        "date": 1794312171697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009536373159999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010854437120000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025528810599999992,
             "unit": "seconds"
           }
         ]
