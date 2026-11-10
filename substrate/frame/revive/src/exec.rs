@@ -318,6 +318,9 @@ pub trait Ext: PrecompileWithInfoExt + BuiltinPrecompileExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
+	/// Returns whether `address` has a `frame_system` account.
+	fn has_system_account(&self, address: &H160) -> bool;
 }
 
 /// Environment functions available to builtin pre-compiles and host functions, but not to
@@ -476,7 +479,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// Fails with [`Error::ReceiptTooLarge`] when the log would take the open ethereum
 	/// transaction's receipt past [`limits::MAX_RECEIPT_LOGS_BYTES`]. Nothing is deposited then.
-	/// The frame fails with the same error when it returns, also if the error is ignored here.
+	/// The frame fails with the same error when it returns, also if the error is ignored here,
+	/// unless a storage layer opened inside the frame around this call is rolled back: the
+	/// overflow then rolls back with that layer's changes.
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
@@ -1681,7 +1686,12 @@ where
 					<CodeInfo<T>>::increment_refcount(code_hash)?;
 				}
 
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				// Root pays no storage deposit, so a base deposit recorded here would never be
+				// held. It stays zero, as storage refunds are bounded by the deposit held above it.
+				let deposit = match &self.origin {
+					Origin::Signed(_) => frame.contract_info().update_base_deposit(code_deposit),
+					Origin::Root => Zero::zero(),
+				};
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),
@@ -1701,7 +1711,8 @@ where
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			// A log that did not fit the receipt fails the frame it was emitted in, also when the
-			// runtime mirrored it or a precompile did not propagate the error.
+			// runtime mirrored it or a precompile did not propagate the error, unless the storage
+			// layer that recorded the overflow was rolled back inside the frame.
 			block_storage::ensure_receipt_within_limit::<T>()
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
@@ -2423,6 +2434,10 @@ where
 		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&frame.account_id), &data);
 		Ok(())
 	}
+
+	fn has_system_account(&self, address: &H160) -> bool {
+		System::<T>::account_exists(&account_id_of::<T, E>(address))
+	}
 }
 
 impl<'a, T, E> BuiltinPrecompileExt for Stack<'a, T, E>
@@ -2542,12 +2557,7 @@ where
 		let try_call = || {
 			let call_protections = call_protections.inherit(self.top_frame());
 
-			// We can skip the stateful lookup for pre-compiles.
-			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
-				T::AddressMapper::to_fallback_account_id(dest_addr)
-			} else {
-				T::AddressMapper::to_account_id(dest_addr)
-			};
+			let dest = account_id_of::<T, E>(dest_addr);
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -2984,6 +2994,16 @@ where
 /// Returns true if the address has a precompile contract, else false.
 pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
+}
+
+/// Returns the account id of `address`.
+fn account_id_of<T: Config, E: Executable<T>>(address: &H160) -> T::AccountId {
+	// We can skip the stateful lookup for pre-compiles.
+	if is_precompile::<T, E>(address) {
+		T::AddressMapper::to_fallback_account_id(address)
+	} else {
+		T::AddressMapper::to_account_id(address)
+	}
 }
 
 /// Runs the teardown of a terminated contract at the end of the call stack.

@@ -32,18 +32,21 @@ use crate::{
 	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
 	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
 	Weight,
-	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized, Warmth},
+	access_list::{
+		Access, CodeLoadItems, CodeLoadWarmth, InstantiateItems, Summarized, TransferItems, Warmth,
+		WarmthSummary,
+	},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	metering::{ResourceMeter, State, Token},
+	metering::{ChargedAmount, ResourceMeter, State, Token},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H160, H256, U256};
 use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
 /// Validated Vm module ready for execution.
@@ -463,6 +466,56 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 		(_, Callee) => Ok(CalleeTrapped),
 		(err, _) => Err(err),
 	}
+}
+
+/// Charges the transfer of `value` to `callee`.
+pub fn charge_call_transfer<E: Ext>(
+	ext: &mut E,
+	callee: H160,
+	value: U256,
+	callee_is_precompile: bool,
+) -> Result<(), DispatchError> {
+	let dust = Pallet::<E::T>::has_dust(value);
+	// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
+	if callee_is_precompile {
+		ext.frame_meter_mut().charge_weight_token(RuntimeCosts::CallTransferSurcharge(
+			TransferAccessKind::Untracked { dust },
+		))?;
+	} else {
+		let warmth = ext.warm(TransferItems { from: ext.address(), to: callee, dust });
+		let charged =
+			ext.frame_meter_mut().charge_weight_token(RuntimeCosts::CallTransferSurcharge(
+				TransferAccessKind::Tracked { warmth, callee_exists: None },
+			))?;
+		// Look the account up only after the charge has paid for reading it.
+		let callee_exists = Some(ext.has_system_account(&callee));
+		ext.frame_meter_mut().adjust_weight(
+			charged,
+			RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+				warmth,
+				callee_exists,
+			}),
+		);
+	}
+	Ok(())
+}
+
+/// Warms the entries of the contract `instantiate_result` created, if any, and lowers the
+/// worst-case registration charge to what they cost.
+pub fn adjust_instantiate_registration_charge<E: Ext>(
+	ext: &mut E,
+	worst_case_charge: ChargedAmount,
+	instantiate_result: &Result<H160, ExecError>,
+) {
+	let summary = match instantiate_result {
+		// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
+		Ok(address) if !ext.last_frame_output().did_revert() => ext
+			.warm(InstantiateItems { address: *address, deployer: ext.address() })
+			.summary(),
+		Ok(_) | Err(_) => WarmthSummary::new(InstantiateItems::KEY_FAMILY),
+	};
+	ext.frame_meter_mut()
+		.adjust_weight(worst_case_charge, RuntimeCosts::AccessListRegistration(summary));
 }
 
 /// The stipend and protections a call gets from its value, gas limit and read-only flag.

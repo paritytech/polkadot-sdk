@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	Pallet, RuntimeCosts,
-	access_list::{CallItems, TransferItems},
+	RuntimeCosts,
+	access_list::CallItems,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		Ext, TransferAccessKind,
+		Ext, charge_call_transfer,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -48,7 +48,7 @@ pub fn resize_memory<'a, E: Ext>(
 	let len = as_usize_or_halt::<E::T>(len)?;
 	if len != 0 {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.memory.resize(offset, len, interpreter.ext)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {
 		// unrealistic value so we are sure it is not used
@@ -96,21 +96,10 @@ pub fn charge_call_gas<'a, E: Ext>(
 	};
 
 	if !value.is_zero() {
-		let dust_transfer = Pallet::<E::T>::has_dust(value);
-		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
-		let transfer = if precompile.is_none() {
-			TransferAccessKind::Tracked(interpreter.ext.warm(TransferItems {
-				from: interpreter.ext.address(),
-				to: callee,
-				dust: dust_transfer,
-			}))
-		} else {
-			TransferAccessKind::Untracked { dust: dust_transfer }
-		};
-		interpreter
-			.ext
-			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge(transfer))?;
+		if let Err(err) = charge_call_transfer(interpreter.ext, callee, value, precompile.is_some())
+		{
+			return ControlFlow::Break(Halt::Err(err));
+		}
 	}
 
 	ControlFlow::Continue(())

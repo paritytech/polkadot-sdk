@@ -26,6 +26,8 @@ doc:
       was not accessed earlier in the same transaction.
     - `seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate` and
       `evm_instantiate_transfer` also measure a read of the new address's `OriginalAccount` entry.
+    - `seal_call_transfer` and `seal_call_transfer_to_existing` also measure checking whether the
+      callee has a `frame_system` account.
     - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
       measures an upgrade; `access_list_touch_hot_upgrade` measures that.
     - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
@@ -45,10 +47,11 @@ doc:
       ```
     - `StorageOp` and `Warmth` are no longer re-exported.
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
-      entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
-      `dust_transfer`, and `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that
-      charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
-      variants; it should charge the cold price from `WeightInfo` instead, for example
+      entries as a new parameter, `CallTransferSurcharge` replaces `dust_transfer` with the
+      transfer's warmth and whether the callee has a `frame_system` account, and
+      `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that charged `CallBase`,
+      `DelegateCallBase` or `CallTransferSurcharge` can no longer build these variants; it should
+      charge the cold price from `WeightInfo` instead, for example
       `env.charge(T::WeightInfo::seal_call(0))`, `seal_delegate_call()` for a delegate call, or
       `seal_call_transfer(dust).max(seal_call_transfer_to_existing(dust))` for a call with value.
 
@@ -81,10 +84,19 @@ doc:
     deployed contract now also pays for reading the target's account info, which tells whether
     the target is itself delegated.
 
+    A call with value pays for creating the callee's `frame_system` account only when that
+    account does not exist, regardless of whether the transfer's state items are cold or hot.
+    Before, every call with value paid for creating it. A call with value to a precompile still
+    always pays for creating the precompile's `frame_system` account.
+
     A contract creation now sets aside the weight to register the new contract in the access list
     before the constructor runs, so the constructor gets that much less weight. If the constructor
     fails or reverts after using up all of its weight, the caller gets the set-aside weight back and
     can continue with it.
+
+    The `call` and `instantiate` dispatchables used to include loading the contract's code in
+    their own weight. Now it is charged to their `weight_limit`, so a `weight_limit` that was just
+    enough before can be too low. The `weight_limit` should be estimated again with a dry run.
 crates:
 - name: pallet-revive
   bump: major

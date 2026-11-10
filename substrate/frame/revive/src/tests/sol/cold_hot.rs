@@ -20,8 +20,8 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, CallProtections, CallResources, Code, Config, ExecConfig, Weight,
-	WeightInfo, WeightToken,
+	AccountInfo, AddressMapper, BalanceOf, CallProtections, CallResources, Code, Config,
+	ExecConfig, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -45,7 +45,7 @@ use pallet_revive_fixtures::{
 };
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256, U256};
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
@@ -428,6 +428,102 @@ fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
 			"the rest of the value-transfer entries are newly touched",
 		);
 	});
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		// Half the caller's balance, in one cold transfer.
+		&[50],
+		// Twice the caller's balance, which fails, then half of it to the same receiver, now hot.
+		&[200, 50],
+	],
+	[false, true]
+)]
+fn a_transfer_pays_for_creating_the_account_only_when_it_is_missing(
+	fixture_type: FixtureType,
+	percents_of_caller_balance: &[u64],
+	dust: bool,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let (call_each_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
+	let caller_balance = 100_000_000_000u64;
+
+	let transfer_values: Vec<u64> = percents_of_caller_balance
+		.iter()
+		.map(|percent| caller_balance * percent / 100 + u64::from(dust))
+		.collect();
+	let receiver = H160::from([0xfe; 20]);
+
+	let transfers_weight = |receiver_has_account: bool| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let caller = builder::bare_instantiate(Code::Upload(caller_code.clone()))
+				.build_and_unwrap_contract()
+				.addr;
+			let call_each = builder::bare_instantiate(Code::Upload(call_each_code.clone()))
+				.build_and_unwrap_contract()
+				.addr;
+			let _ = crate::Pallet::<Test>::set_evm_balance(&caller, caller_balance.into());
+			if receiver_has_account {
+				let receiver_account = <Test as Config>::AddressMapper::to_account_id(&receiver);
+				let _ = <Test as Config>::Currency::set_balance(
+					&receiver_account,
+					crate::Pallet::<Test>::min_balance(),
+				);
+			}
+			let transfer_data = |value: u64| {
+				Caller::normalCall {
+					_callee: receiver.0.into(),
+					_value: value,
+					_data: Vec::<u8>::new().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode()
+				.into()
+			};
+
+			let transaction_weight = builder::bare_call(call_each)
+				.data(
+					CallEach::callEachCall {
+						targets: vec![caller.0.into(); transfer_values.len()],
+						data: transfer_values.iter().map(|value| transfer_data(*value)).collect(),
+					}
+					.abi_encode(),
+				)
+				.build()
+				.weight_consumed;
+			assert_eq!(
+				crate::Pallet::<Test>::evm_balance(&receiver),
+				U256::from(*transfer_values.last().unwrap())
+			);
+			transaction_weight
+		})
+	};
+
+	let to_missing_account = transfers_weight(false);
+	let to_existing_account = transfers_weight(true);
+
+	let to_missing_account_bench = <Test as Config>::WeightInfo::seal_call_transfer(dust.into());
+	let to_existing_account_bench =
+		<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into());
+
+	// Creating the account costs more ref time, but reading an existing one adds more proof.
+	let creating_account_surcharge =
+		to_missing_account_bench.saturating_sub(to_existing_account_bench);
+	let existing_account_surcharge =
+		to_existing_account_bench.saturating_sub(to_missing_account_bench);
+
+	assert_eq!(
+		to_missing_account.saturating_sub(to_existing_account),
+		creating_account_surcharge.saturating_mul(transfer_values.len() as u64),
+		"each transfer to a missing account pays for creating it",
+	);
+	assert_eq!(
+		to_existing_account.saturating_sub(to_missing_account),
+		existing_account_surcharge,
+		"the cold transfer to an existing account pays its surcharge",
+	);
 }
 
 #[test_case(FixtureType::Solc)]

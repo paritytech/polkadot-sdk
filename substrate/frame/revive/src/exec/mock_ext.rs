@@ -312,6 +312,10 @@ impl<T: Config> Ext for MockExt<T> {
 	fn set_immutable_data(&mut self, _data: ImmutableData) -> Result<(), DispatchError> {
 		panic!("MockExt::set_immutable_data")
 	}
+
+	fn has_system_account(&self, _address: &H160) -> bool {
+		panic!("MockExt::has_system_account")
+	}
 }
 
 impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
