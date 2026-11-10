@@ -1380,7 +1380,11 @@ fn unnamed_reserve_operations_leave_holds_and_named_reserves_intact() {
 			assert_eq!(reserved_held_named(), (50, 10, 20));
 		});
 		hypothetically!({
-			assert_eq!(Balances::slash_reserved(&1, 10).1, 0);
+			let issuance = Balances::total_issuance();
+			let (slashed, not_slashed) = Balances::slash_reserved(&1, 10);
+			assert_eq!((slashed.peek(), not_slashed), (10, 0));
+			drop(slashed);
+			assert_eq!(Balances::total_issuance(), issuance - 10);
 			assert_eq!(reserved_held_named(), (50, 10, 20));
 		});
 		hypothetically!({
@@ -1400,7 +1404,11 @@ fn unnamed_reserve_operations_leave_holds_and_named_reserves_intact() {
 			assert_eq!(reserved_held_named(), (30, 10, 20));
 		});
 		hypothetically!({
-			assert_eq!(Balances::slash_reserved(&1, 60).1, 30);
+			let issuance = Balances::total_issuance();
+			let (slashed, not_slashed) = Balances::slash_reserved(&1, 60);
+			assert_eq!((slashed.peek(), not_slashed), (30, 30));
+			drop(slashed);
+			assert_eq!(Balances::total_issuance(), issuance - 30);
 			assert_eq!(reserved_held_named(), (30, 10, 20));
 		});
 		hypothetically!({
