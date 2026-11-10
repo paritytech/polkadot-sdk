@@ -316,6 +316,11 @@ impl Metrics {
 			Event::PeerIdentified { .. } => {
 				self.events_total.with_label_values(&["peer-identified", "sent", name]).inc();
 			},
+			Event::ConnectionEstablished { .. } => {
+				self.events_total
+					.with_label_values(&["connection-established", "sent", name])
+					.inc();
+			},
 			Event::NotificationStreamOpened { protocol, .. } => {
 				format_label("notif-open-", protocol, |protocol_label| {
 					self.events_total.with_label_values(&[protocol_label, "sent", name]).inc();
@@ -352,6 +357,11 @@ impl Metrics {
 			Event::PeerIdentified { .. } => {
 				self.events_total
 					.with_label_values(&["peer-identified", "received", name])
+					.inc();
+			},
+			Event::ConnectionEstablished { .. } => {
+				self.events_total
+					.with_label_values(&["connection-established", "received", name])
 					.inc();
 			},
 			Event::NotificationStreamOpened { protocol, .. } => {

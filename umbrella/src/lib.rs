@@ -957,8 +957,8 @@ pub use polkadot_node_core_chain_selection;
 #[cfg(feature = "polkadot-node-core-dispute-coordinator")]
 pub use polkadot_node_core_dispute_coordinator;
 
-/// The health subsystem: consumes the observations the node's components report, judges them
-/// against the reference values and tells the operator when the node underperforms.
+/// The health subsystem consumes observations from the node's components and reports when the
+/// node underperforms.
 #[cfg(feature = "polkadot-node-core-health")]
 pub use polkadot_node_core_health;
 

@@ -16,32 +16,30 @@
 
 //! The health subsystem.
 //!
-//! The components of the node report observations through a [`HealthHandle`]: a fire-and-forget
+//! The components of the node report observations through a [`HealthHandle`], a fire-and-forget
 //! call that never waits. The subsystem consumes them, judges them against the reference values
 //! and produces the output. A producer reports a measurement and does not decide whether it is
 //! good or bad.
-//!
-//! Substrate components stay generic and never report: what they expose is read on the polkadot
-//! side.
-//!
-//! This is the skeleton: the channel, the loop and a placeholder observation.
 
+mod checks;
+mod observation;
+
+pub use observation::Observation;
+
+use checks::{Checks, Event};
 use futures::{FutureExt, StreamExt};
 use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
+use std::time::Duration;
 
 const LOG_TARGET: &str = "parachain::health";
 
-/// The capacity of the report channel. Sized for bursts, not for the average rate.
+/// The capacity of the report channel.
 const CHANNEL_CAPACITY: usize = 4096;
 
-/// One measurement = one variant. Fields are the concrete values.
-#[derive(Debug, Clone)]
-pub enum Observation {
-	/// A placeholder, until the first real producer is wired.
-	Dummy { value: u64 },
-}
+/// How often the checks judged on time, not on a chain event, are judged.
+const TICK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 
 /// The producers' end: cloneable, cheap, and never waits.
 #[derive(Clone)]
@@ -90,16 +88,23 @@ impl<Context> HealthSubsystem {
 async fn run<Context>(mut ctx: Context, mut reports: HealthReceiver) {
 	gum::info!(target: LOG_TARGET, capacity = reports.capacity(), "Health subsystem running");
 
+	let mut checks = Checks::default();
+	let mut tick = futures_timer::Delay::new(TICK_INTERVAL).fuse();
+
 	loop {
 		futures::select! {
 			from_overseer = ctx.recv().fuse() => match from_overseer {
 				Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => return,
-				// The chain signals and the messages are of no use until a check needs them.
 				Ok(_) => {},
 			},
-			observation = reports.next() => {
-				// The checks that consume the observation will update their state here.
-				gum::trace!(target: LOG_TARGET, ?observation, "Applying report");
+			observation = reports.next() => match observation {
+				Some(observation) => checks.on_observation(observation),
+				// Every producer dropped its handle: nothing more will arrive.
+				None => return,
+			},
+			_ = tick => {
+				checks.on_event(Event::Tick);
+				tick = futures_timer::Delay::new(TICK_INTERVAL).fuse();
 			},
 		}
 	}

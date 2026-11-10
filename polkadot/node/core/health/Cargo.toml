@@ -4,7 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The health subsystem: consumes the observations the node's components report and tells the operator when the node underperforms."
+description = "The health subsystem consumes observations from the node's components and reports when the node underperforms."
 homepage.workspace = true
 repository.workspace = true
 
@@ -14,5 +14,7 @@ workspace = true
 [dependencies]
 async-channel = { workspace = true }
 futures = { workspace = true }
+futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
