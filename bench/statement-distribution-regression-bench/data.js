@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794312147254,
+  "lastUpdate": 1794315015097,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "355926b3b4a7cc3fc37a48676bec59ee78a1221f",
-          "message": "[zombienet] fix flaky test `zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate` (#11834)\n\nuse a bigger rc block count.\n\nclose #11826",
-          "timestamp": "2026-04-22T09:28:11Z",
-          "tree_id": "3d251e88d069720dd9c55af9a9ae341b672ae863",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/355926b3b4a7cc3fc37a48676bec59ee78a1221f"
-        },
-        "date": 1776855480702,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04399999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038574638132,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08366368847399991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08369339445999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bartlomiej@parity.io",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "41af275b1791b7547bb2827ddc3fe0490e60c057",
+          "message": "Implement handling on-demand coretime revenue (#13359)\n\n# Description\n\nSecond step towards completion of #12715 , closes #13177\n\nThis implements on-demand revenue claiming logic. The revenue used to be\nclaimed by `pallet-broker` sending an XCM to the Relay Chain asking for\non-demand revenue, which would then be teleported to the Coretime chain.\nNow that the order placing and payment logic lives on the Coretime chain\nas well, this is no longer necessary: the broker can just ask the\n`pallet-on-demand-para` directly, and the revenue is then transferred\nfrom the on-demand pot to the broker pot.\n\nThe PR also wires `pallet-on-demand-para` into the coretime-westend\nruntime and adds an emulated e2e test for the new pallet's\nfunctionality.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-10T10:39:47Z",
+          "tree_id": "d5b1b8f6a05c981cef340987aaaa93eae7cba051",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41af275b1791b7547bb2827ddc3fe0490e60c057"
+        },
+        "date": 1794314983241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.132,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039518802934,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09003263094799988,
             "unit": "seconds"
           }
         ]
