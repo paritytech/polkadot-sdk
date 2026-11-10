@@ -928,6 +928,67 @@ mod tests {
 		assert_eq!(checked, (2..=120u64).map(|n| n * (n - 1) / 2).sum::<u64>());
 	}
 
+	/// The extension from `from` over `leaves`, built from `from`'s peaks alone, so `from` can
+	/// stand for any count up to [`MAX_MMR_LEAF_COUNT`].
+	fn extension_from(from: &MmrFrontier, leaves: &[Hash]) -> MmrExtensionProof {
+		let store = MemStore::<Hash>::default();
+		let old_size = mmr_size(from.leaf_count() as usize);
+		for (pos, peak) in mmr_lib::helper::get_peaks(old_size).into_iter().zip(from.peaks()) {
+			mmr_lib::MMRStoreWriteOps::append(&mut &store, pos, vec![*peak]).unwrap();
+		}
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(old_size, &store);
+		for leaf in leaves {
+			mmr.push(*leaf).unwrap();
+		}
+		let new_count = from.leaf_count() + leaves.len() as u64;
+		let proof = mmr.gen_ancestry_proof(old_size).unwrap();
+		MmrExtensionProof {
+			leaf_count: new_count,
+			connecting_nodes: BoundedVec::truncate_from(
+				proof.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
+			),
+		}
+	}
+
+	/// The rebase check of [`a_rebased_extension_is_the_one_built_from_the_leaves`] at counts up to
+	/// [`MAX_MMR_LEAF_COUNT`]: made-up peaks stand for every subtree before the start, real
+	/// leaves follow it.
+	#[test]
+	fn a_rebase_at_large_counts_is_the_extension_built_from_the_leaves() {
+		let all = leaves(24);
+		let mut checked = 0;
+		for start in [(1 << 33) - 1, (1 << 40) + 12_345, (1 << 47) - 5, MAX_MMR_LEAF_COUNT - 24] {
+			let peaks = (0..u64::from(start.count_ones()))
+				.map(|i| H256::from_low_u64_be(0xF000_0000 + i))
+				.collect();
+			let base = MmrFrontier::from_parts(peaks, start).expect("one peak per set bit");
+			let at = |n: usize| {
+				let mut frontier = base.clone();
+				all[..n].iter().for_each(|leaf| frontier.append(*leaf));
+				frontier
+			};
+			for count in 1..=all.len() {
+				for later in 1..=count {
+					let given = if later == count {
+						MmrExtensionProof::identity(&at(count))
+					} else {
+						extension_from(&at(later), &all[later..count])
+					};
+					for from in 0..later {
+						let rebased = given.rebase(&at(from), &all[from..later]);
+						assert_eq!(
+							rebased.as_ref(),
+							Some(&extension_from(&at(from), &all[from..count])),
+							"{start} + {from}, {later}, {count}"
+						);
+						checked += 1;
+					}
+				}
+			}
+		}
+		assert_eq!(checked, 4 * (1..=24u64).map(|n| n * (n + 1) / 2).sum::<u64>());
+	}
+
 	#[test]
 	fn a_rebase_needs_a_start_and_a_proof_that_fits() {
 		let all = leaves(9);
