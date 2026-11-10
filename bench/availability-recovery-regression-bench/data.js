@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794301979871,
+  "lastUpdate": 1794308905199,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf",
-          "message": "Fix flaky zombienet test `zombienet-cumulus-0022-block_bundling_three_cores_glutton` (#11852)\n\nChange runner type to large.\nclose #11825",
-          "timestamp": "2026-04-24T08:01:36Z",
-          "tree_id": "16c5e9957971c2442b26c5d3e6416bc1b7752288",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf"
-        },
-        "date": 1777023418447,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1303060566,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.945488355600002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.8599623158,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9764c91c0711c4b366315672000f4f71e0c8a43d",
+          "message": "network/light: Process execution proof requests in parallel, queue QoS (#13677)\n\nAdd a thread pool for processing light client execution proof requests\nand extract them into a dedicated queue.\n\nThe number of workers is set to half the available CPU cores (at most 4)\nby default and can be increased via `--light-request-call-workers` cli.",
+          "timestamp": "2026-11-10T09:10:25Z",
+          "tree_id": "159f43394f9a369d76b2813be194bde0cf847944",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9764c91c0711c4b366315672000f4f71e0c8a43d"
+        },
+        "date": 1794308875723,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.216911428033333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12333963993333333,
             "unit": "seconds"
           }
         ]
