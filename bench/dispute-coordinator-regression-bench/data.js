@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794349069985,
+  "lastUpdate": 1794354553423,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf",
-          "message": "Fix flaky zombienet test `zombienet-cumulus-0022-block_bundling_three_cores_glutton` (#11852)\n\nChange runner type to large.\nclose #11825",
-          "timestamp": "2026-04-24T08:01:36Z",
-          "tree_id": "16c5e9957971c2442b26c5d3e6416bc1b7752288",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbb457dcb76c9146a4ba5e3e1d62e368dd3a9baf"
-        },
-        "date": 1777023541129,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009152198389999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00929465331000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026517482700000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00948103651999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e49d3022e4936c89fd32bd4caaa8813b4a4392cb",
+          "message": "build(deps): bump openssl from 0.10.79 to 0.10.82 (#12126)\n\nBumps [openssl](https://github.com/rust-openssl/rust-openssl) from\n0.10.79 to 0.10.82.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/rust-openssl/rust-openssl/releases\">openssl's\nreleases</a>.</em></p>\n<blockquote>\n<h2>openssl-v0.10.82</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Bump actions/checkout from 6.0.3 to 7.0.0 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2657\">rust-openssl/rust-openssl#2657</a></li>\n<li>Check return values of reference-count increment functions by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2659\">rust-openssl/rust-openssl#2659</a></li>\n<li>Bump actions/cache from 5.0.5 to 6.1.0 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2660\">rust-openssl/rust-openssl#2660</a></li>\n<li>Fix unrelated CI failures: clippy 1.97 lint and stale wasip2 pin by\n<a href=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2663\">rust-openssl/rust-openssl#2663</a></li>\n<li>Add brainpoolP192r1 and brainpoolP192t1 curve constants by <a\nhref=\"https://github.com/butteronarchbtw\"><code>@​butteronarchbtw</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2662\">rust-openssl/rust-openssl#2662</a></li>\n<li>Bump actions/checkout from 7.0.0 to 7.0.1 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2664\">rust-openssl/rust-openssl#2664</a></li>\n<li>Remove unnecessary casts by <a\nhref=\"https://github.com/FranciscoTGouveia\"><code>@​FranciscoTGouveia</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2665\">rust-openssl/rust-openssl#2665</a></li>\n<li>Bump aws-lc-fips-sys; expose pkcs7 support by <a\nhref=\"https://github.com/justsmth\"><code>@​justsmth</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2666\">rust-openssl/rust-openssl#2666</a></li>\n<li>Fix reference to Verifier in Signer documentation by <a\nhref=\"https://github.com/jeremycline\"><code>@​jeremycline</code></a> in\n<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2668\">rust-openssl/rust-openssl#2668</a></li>\n<li>Re-mint expired X.509 test fixtures by <a\nhref=\"https://github.com/justsmth\"><code>@​justsmth</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2669\">rust-openssl/rust-openssl#2669</a></li>\n<li>fix clippy by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2674\">rust-openssl/rust-openssl#2674</a></li>\n<li>x509: replace X509CrlBuilder::build panics with\nErrorStack::internal_… by <a\nhref=\"https://github.com/DavidFontaineOcd\"><code>@​DavidFontaineOcd</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2676\">rust-openssl/rust-openssl#2676</a></li>\n<li>ssl: add full SslAlert alert descriptions by <a\nhref=\"https://github.com/tiran\"><code>@​tiran</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2684\">rust-openssl/rust-openssl#2684</a></li>\n<li>Update syn to version 3 by <a\nhref=\"https://github.com/TomFryersMidsummer\"><code>@​TomFryersMidsummer</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2686\">rust-openssl/rust-openssl#2686</a></li>\n<li>dsa: reject parameterless public keys and stop minting null\nBigNumRefs by <a\nhref=\"https://github.com/shoemoney\"><code>@​shoemoney</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2688\">rust-openssl/rust-openssl#2688</a></li>\n<li>Add brainpoolP224 NIDs and expose Brainpool NIDs for aws-lc by <a\nhref=\"https://github.com/sfarestam-iproov\"><code>@​sfarestam-iproov</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2689\">rust-openssl/rust-openssl#2689</a></li>\n<li>Fix CI: remove unused path attributes for aws-lc and BoringSSL / fix\nvcpkg on arm64. by <a\nhref=\"https://github.com/botovq\"><code>@​botovq</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2696\">rust-openssl/rust-openssl#2696</a></li>\n<li>Expose X509 key usage and extended key usage by <a\nhref=\"https://github.com/rstreich\"><code>@​rstreich</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2695\">rust-openssl/rust-openssl#2695</a></li>\n<li>LibreSSL 4.4 by <a\nhref=\"https://github.com/vishwin\"><code>@​vishwin</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2698\">rust-openssl/rust-openssl#2698</a></li>\n<li>CI: update LibreSSL to latest stable, drop 4.1 by <a\nhref=\"https://github.com/botovq\"><code>@​botovq</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2701\">rust-openssl/rust-openssl#2701</a></li>\n<li>Check output buffer length in PkeyCtxRef::verify_recover by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2702\">rust-openssl/rust-openssl#2702</a></li>\n<li>Fix output buffer bound for the Triple-DES key wrap cipher by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2704\">rust-openssl/rust-openssl#2704</a></li>\n<li>Clear borrowed certificates when X509StoreContextRef::init returns\nby <a href=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2703\">rust-openssl/rust-openssl#2703</a></li>\n<li>Ask OpenSSL for the output size of wrap-mode ciphers by <a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2705\">rust-openssl/rust-openssl#2705</a></li>\n<li>Release openssl 0.10.82 and openssl-sys 0.9.118 by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2711\">rust-openssl/rust-openssl#2711</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a\nhref=\"https://github.com/FranciscoTGouveia\"><code>@​FranciscoTGouveia</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2665\">rust-openssl/rust-openssl#2665</a></li>\n<li><a\nhref=\"https://github.com/jeremycline\"><code>@​jeremycline</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2668\">rust-openssl/rust-openssl#2668</a></li>\n<li><a href=\"https://github.com/tiran\"><code>@​tiran</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2684\">rust-openssl/rust-openssl#2684</a></li>\n<li><a\nhref=\"https://github.com/TomFryersMidsummer\"><code>@​TomFryersMidsummer</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2686\">rust-openssl/rust-openssl#2686</a></li>\n<li><a href=\"https://github.com/shoemoney\"><code>@​shoemoney</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2688\">rust-openssl/rust-openssl#2688</a></li>\n<li><a href=\"https://github.com/rstreich\"><code>@​rstreich</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2695\">rust-openssl/rust-openssl#2695</a></li>\n<li><a\nhref=\"https://github.com/JakeHuneau\"><code>@​JakeHuneau</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2702\">rust-openssl/rust-openssl#2702</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.81...openssl-v0.10.82\">https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.81...openssl-v0.10.82</a></p>\n<h2>openssl-v0.10.81</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Bump aws-ls-sys to 0.41 by <a\nhref=\"https://github.com/joshgodsiff\"><code>@​joshgodsiff</code></a> in\n<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2640\">rust-openssl/rust-openssl#2640</a></li>\n<li>Add brainpoolP224r1 and brainpoolP224t1 NID constants by <a\nhref=\"https://github.com/sfarestam-iproov\"><code>@​sfarestam-iproov</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2642\">rust-openssl/rust-openssl#2642</a></li>\n<li>x509: add minimal support for CRL building by <a\nhref=\"https://github.com/DavidFontaineOcd\"><code>@​DavidFontaineOcd</code></a>\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2538\">rust-openssl/rust-openssl#2538</a></li>\n<li>add mldsa.h to the boringssl bindgen by <a\nhref=\"https://github.com/reaperhulk\"><code>@​reaperhulk</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2650\">rust-openssl/rust-openssl#2650</a></li>\n<li>Deprecate Asn1StringRef::as_utf8 in favor of a NUL-safe to_string by\n<a href=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2652\">rust-openssl/rust-openssl#2652</a></li>\n<li>Fix verify_mode() panic on unmodeled verify mode bits by <a\nhref=\"https://github.com/alex\"><code>@​alex</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2651\">rust-openssl/rust-openssl#2651</a></li>\n<li>Bump actions/checkout from 6.0.2 to 6.0.3 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot]\nin <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2653\">rust-openssl/rust-openssl#2653</a></li>\n<li>Release openssl 0.10.81 and openssl-sys 0.9.117 by <a\nhref=\"https://github.com/reaperhulk\"><code>@​reaperhulk</code></a> in <a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/pull/2655\">rust-openssl/rust-openssl#2655</a></li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/321ba6c2877ecdd475e4a43043ea8f8f0500e37a\"><code>321ba6c</code></a>\nRelease openssl 0.10.82 and openssl-sys 0.9.118 (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2711\">#2711</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/ad29ed570acf233a2239ecb07747a147d11d42e8\"><code>ad29ed5</code></a>\nAsk OpenSSL for the output size of wrap-mode ciphers (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2705\">#2705</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/baa5c7038d263b1b1517b6d47fd2dbf7a1074ada\"><code>baa5c70</code></a>\nClear borrowed certificates when X509StoreContextRef::init returns (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2703\">#2703</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/23b53a52bcb33cc63fd07670511eccb8ee854eb7\"><code>23b53a5</code></a>\nFix output buffer bound for the Triple-DES key wrap cipher (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2704\">#2704</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/d2820a7db875ffee020cbd221186ee5cb432a150\"><code>d2820a7</code></a>\nCheck output buffer length in PkeyCtxRef::verify_recover (<a\nhref=\"https://redirect.github.com/rust-openssl/rust-openssl/issues/2702\">#2702</a>)</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/5e76216476173ef105cdd5c94369e0f07d5215f2\"><code>5e76216</code></a>\nCI: update LibreSSL to latest stable, drop 4.1</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/194909440418fd74e6637edebdfc13f750423ae4\"><code>1949094</code></a>\nClear SSL_OP_ALL for LibreSSL 4.4</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/986a4f2e621abb03d9fb0caa1e2c00bdacb22555\"><code>986a4f2</code></a>\nAllow LibreSSL 4.4.x</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/6a639a04f435371cbe9c63440f8b53e27daafbfc\"><code>6a639a0</code></a>\nExpose X509 key usage and extended key usage</li>\n<li><a\nhref=\"https://github.com/rust-openssl/rust-openssl/commit/dc6b02f32f29e27a1d9805aa7b1f5caa68302a6d\"><code>dc6b02f</code></a>\nBuild vcpkg OpenSSL with MSVC 14.44 on Windows arm64</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/rust-openssl/rust-openssl/compare/openssl-v0.10.79...openssl-v0.10.82\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-11-10T21:36:04Z",
+          "tree_id": "6e912b351200ae1be0270bbdc0e88e8a553837c2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e49d3022e4936c89fd32bd4caaa8813b4a4392cb"
+        },
+        "date": 1794354516835,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00250263317,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009427850119999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010693871510000005,
             "unit": "seconds"
           }
         ]
