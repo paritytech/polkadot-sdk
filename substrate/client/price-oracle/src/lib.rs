@@ -68,6 +68,13 @@ pub struct Params<Client, SyncService, Recipients, Id, Signature> {
 	pub protocol_name: ProtocolName,
 	/// Where the reports are sent.
 	pub recipients: Recipients,
+	/// How many of the peers that stopped being recipients stay reserved, the most recent ones.
+	///
+	/// A peer that is no longer a recipient may still be sending its reports to this node. For
+	/// example, when the recipients are the authors of the next 4 slots, the authors of the last
+	/// 4 slots may still be sending to this node while it is one of their next authors, so
+	/// `keep` should be 4.
+	pub keep: usize,
 	/// Keystore to look the signer key up in and to sign reports with.
 	pub keystore: KeystorePtr,
 	/// Pool the service inserts reports into. The same pool is given to the inherent data
@@ -113,6 +120,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 		mut notification_service,
 		protocol_name,
 		recipients,
+		keep,
 		keystore,
 		pool,
 		prometheus_registry,
@@ -134,7 +142,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	// before the first tick and while the node is syncing: reports are then dropped without
 	// judging the sender.
 	let mut tick_setup: Option<TickSetup<Block::Hash, Id>> = None;
-	let mut targets = Targets::new(network.clone(), protocol_name.clone());
+	let mut targets = Targets::new(network.clone(), protocol_name.clone(), keep);
 
 	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -255,8 +263,14 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 							},
 						}
 					},
-					Some(NotificationStreamOpened { peer, .. }) => targets.opened(peer),
-					Some(NotificationStreamClosed { peer }) => targets.closed(&peer),
+					Some(NotificationStreamOpened { peer, direction, .. }) => {
+						log::debug!(target: LOG_TARGET, "Substream with {peer} opened, {direction:?}");
+						targets.opened(peer);
+					},
+					Some(NotificationStreamClosed { peer }) => {
+						log::debug!(target: LOG_TARGET, "Substream with {peer} closed");
+						targets.closed(&peer);
+					},
 					Some(ValidateInboundSubstream { result_tx, .. }) => {
 						// TODO: any peer can take the inbound slots signers need. Accept only peers
 						// whose authority discovery keys are in the collator set: look them up with

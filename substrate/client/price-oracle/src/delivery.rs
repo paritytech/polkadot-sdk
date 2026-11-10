@@ -25,7 +25,11 @@ use sc_network::{
 	Multiaddr, NetworkBackend, NotificationMetrics, PeerId, ProtocolName,
 };
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashSet, future::Future, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet, VecDeque},
+	future::Future,
+	sync::Arc,
+};
 
 /// Suffix of the protocol name, after the genesis hash and the optional fork id.
 const PROTOCOL_SUFFIX: &str = "/price-oracle/1";
@@ -84,50 +88,98 @@ pub trait ReportRecipients<Block: BlockT>: Send + Sync {
 /// The peers the reports go to.
 ///
 /// The recipients of a tick are reserved on the protocol, so the network keeps a substream open
-/// to each of them. A report is sent to the reserved peers whose substream is open at that
-/// moment.
+/// to each of them. A report is sent to the recipients whose substream is open at that moment.
+///
+/// The last few peers that stopped being recipients stay reserved. A substream is shared by both
+/// sides, and a node that drops a peer from its reservation closes the substream it opened, while
+/// the peer may still be sending its reports over it.
 pub struct Targets {
-	/// The network the peers are reserved on.
-	network: Arc<dyn NetworkService>,
-	/// The protocol the peers are reserved for.
-	protocol: ProtocolName,
+	/// Where the peers are reserved.
+	reservation: Box<dyn Reservation>,
 	/// The peer id of this node, never a target.
 	local_peer_id: PeerId,
+	/// The recipients, then the peers that were recipients until recently, the most recent
+	/// first, with their addresses.
+	peers: VecDeque<(PeerId, HashSet<Multiaddr>)>,
+	/// How many of `peers`, from the front, are recipients.
+	recipients: usize,
+	/// How many peers that stopped being recipients stay reserved.
+	keep: usize,
 	/// The addresses reserved on the protocol.
 	reserved: HashSet<Multiaddr>,
-	/// The peers of the reserved addresses.
-	peers: HashSet<PeerId>,
 	/// Peers with an open substream of the protocol, in either direction.
 	open: HashSet<PeerId>,
 }
 
+// Helper trait to mock the network service for testing.
+/// The reserved peers of the protocol.
+trait Reservation: Send + Sync {
+	/// Reserve `addresses` in place of the current ones.
+	fn set(&self, addresses: HashSet<Multiaddr>) -> Result<(), String>;
+}
+
+impl Reservation for (Arc<dyn NetworkService>, ProtocolName) {
+	fn set(&self, addresses: HashSet<Multiaddr>) -> Result<(), String> {
+		self.0.set_reserved_peers(self.1.clone(), addresses)
+	}
+}
+
 impl Targets {
-	/// No targets yet.
-	pub fn new(network: Arc<dyn NetworkService>, protocol: ProtocolName) -> Self {
+	/// No targets yet. The last `keep` peers that stopped being recipients stay reserved.
+	pub fn new(network: Arc<dyn NetworkService>, protocol: ProtocolName, keep: usize) -> Self {
 		let local_peer_id = network.local_peer_id();
+		Self::with(Box::new((network, protocol)), local_peer_id, keep)
+	}
+
+	fn with(reservation: Box<dyn Reservation>, local_peer_id: PeerId, keep: usize) -> Self {
 		Self {
-			network,
-			protocol,
+			reservation,
 			local_peer_id,
+			keep,
+			peers: VecDeque::new(),
+			recipients: 0,
 			reserved: HashSet::new(),
-			peers: HashSet::new(),
 			open: HashSet::new(),
 		}
 	}
 
-	/// Reserve `addresses` on the protocol in place of the current ones. Addresses without a peer
-	/// id and those of the local peer are dropped. The network is only told when the set
-	/// changed; if it refuses, the current reservation stays.
+	/// Make the peers at `addresses` the recipients. Reserve them and the last `self.keep` past
+	/// recipients on the protocol. Addresses without a peer id and those of the local peer are
+	/// dropped. The network is only told when the reserved addresses changed.
 	pub fn reserve(&mut self, addresses: Vec<Multiaddr>) {
-		let (reserved, peers) = select_peers(addresses, &self.local_peer_id);
+		// Group the addresses by peer, dropping those without a peer id and those of this node.
+		let mut recipients: HashMap<PeerId, HashSet<Multiaddr>> = HashMap::new();
+		for address in addresses {
+			match PeerId::try_from_multiaddr(&address) {
+				Some(peer) if peer != self.local_peer_id => {
+					recipients.entry(peer).or_default().insert(address);
+				},
+				_ => {},
+			}
+		}
+		// Put the recipients at the front, ahead of the peers that were recipients before, and
+		// keep at most `keep` of them.
+		self.recipients = recipients.len();
+		self.peers.retain(|(peer, _)| !recipients.contains_key(peer));
+		for recipient in recipients {
+			self.peers.push_front(recipient);
+		}
+		self.peers.truncate(self.recipients + self.keep);
+		// Reserve the recipients and the kept peers on the network, unless nothing changed.
+		let reserved: HashSet<Multiaddr> =
+			self.peers.iter().flat_map(|(_, addresses)| addresses).cloned().collect();
 		if reserved == self.reserved {
 			return;
 		}
-		match self.network.set_reserved_peers(self.protocol.clone(), reserved.clone()) {
+		match self.reservation.set(reserved.clone()) {
 			Ok(()) => {
-				log::debug!(target: LOG_TARGET, "Reports go to {} peers", peers.len());
+				log::debug!(
+					target: LOG_TARGET,
+					"Reports go to {} peers, {} more kept connected",
+					self.recipients,
+					self.peers.len() - self.recipients,
+				);
 				self.reserved = reserved;
-				self.peers = peers;
 			},
 			Err(e) => log::warn!(target: LOG_TARGET, "Cannot reserve the recipients: {e}"),
 		}
@@ -145,50 +197,106 @@ impl Targets {
 
 	/// The targets a report can be sent to now.
 	pub fn reachable(&self) -> impl Iterator<Item = &PeerId> {
-		self.peers.iter().filter(|peer| self.open.contains(peer))
+		self.peers
+			.iter()
+			.take(self.recipients)
+			.map(|(peer, _)| peer)
+			.filter(|peer| self.open.contains(peer))
 	}
 
 	/// The number of targets.
 	pub fn len(&self) -> usize {
-		self.peers.len()
+		self.recipients
 	}
-}
-
-/// The addresses worth reserving, and their peers: those with a peer id other than
-/// `local`.
-fn select_peers(
-	addresses: Vec<Multiaddr>,
-	local: &PeerId,
-) -> (HashSet<Multiaddr>, HashSet<PeerId>) {
-	let mut reserved = HashSet::new();
-	let mut peers = HashSet::new();
-	for address in addresses {
-		match PeerId::try_from_multiaddr(&address) {
-			Some(peer) if peer != *local => {
-				reserved.insert(address);
-				peers.insert(peer);
-			},
-			_ => {},
-		}
-	}
-	(reserved, peers)
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::sync::Mutex;
+
+	/// Records every set of addresses reserved.
+	#[derive(Default)]
+	struct Recorded(Arc<Mutex<Vec<HashSet<Multiaddr>>>>);
+
+	impl Reservation for Recorded {
+		fn set(&self, addresses: HashSet<Multiaddr>) -> Result<(), String> {
+			self.0.lock().unwrap().push(addresses);
+			Ok(())
+		}
+	}
+
+	fn address(peer: &PeerId) -> Multiaddr {
+		format!("/ip4/127.0.0.1/tcp/30333/p2p/{peer}").parse().unwrap()
+	}
+
+	fn targets(keep: usize) -> (Targets, PeerId, Arc<Mutex<Vec<HashSet<Multiaddr>>>>) {
+		let local = PeerId::random();
+		let recorded = Recorded::default();
+		let sets = recorded.0.clone();
+		(Targets::with(Box::new(recorded), local, keep), local, sets)
+	}
 
 	#[test]
-	fn select_peers_drops_the_local_peer_and_addresses_without_one() {
-		let (local, other) = (PeerId::random(), PeerId::random());
-		let with = |peer: &PeerId| -> Multiaddr {
-			format!("/ip4/127.0.0.1/tcp/30333/p2p/{peer}").parse().unwrap()
-		};
+	fn the_local_peer_and_addresses_without_a_peer_id_are_dropped() {
+		let (mut targets, local, sets) = targets(0);
+		let other = PeerId::random();
 		let without: Multiaddr = "/ip4/127.0.0.1/tcp/30333".parse().unwrap();
-		let (reserved, peers) =
-			select_peers(vec![with(&local), with(&other), without, with(&other)], &local);
-		assert_eq!(reserved, HashSet::from([with(&other)]));
-		assert_eq!(peers, HashSet::from([other]));
+		targets.reserve(vec![address(&local), address(&other), without, address(&other)]);
+		assert_eq!(targets.len(), 1);
+		assert_eq!(*sets.lock().unwrap(), vec![HashSet::from([address(&other)])]);
+	}
+
+	#[test]
+	fn the_last_past_recipients_are_kept() {
+		let (mut targets, _, _) = targets(2);
+		let [a, b, c, d, e] = [(); 5].map(|_| PeerId::random());
+		// The peers after the recipients, the most recent first.
+		let mut tick = |recipients: &[PeerId]| -> Vec<PeerId> {
+			targets.reserve(recipients.iter().map(address).collect());
+			assert_eq!(targets.len(), recipients.len());
+			targets.peers.iter().skip(recipients.len()).map(|(p, _)| *p).collect()
+		};
+		assert_eq!(tick(&[a, b]), vec![]);
+		// The window moves on by one each time: the one that leaves is kept, most recent first.
+		assert_eq!(tick(&[b, c]), vec![a]);
+		assert_eq!(tick(&[c, d]), vec![b, a]);
+		// Past `keep`, the oldest is dropped.
+		assert_eq!(tick(&[d, e]), vec![c, b]);
+		// A kept peer that is a recipient again is no longer kept.
+		assert_eq!(tick(&[e, b]), vec![d, c]);
+	}
+
+	#[test]
+	fn the_network_is_told_when_the_reserved_addresses_change() {
+		let (mut targets, _, sets) = targets(1);
+		let (a, b) = (PeerId::random(), PeerId::random());
+		targets.reserve(vec![address(&a)]);
+		targets.reserve(vec![address(&a)]);
+		assert_eq!(sets.lock().unwrap().len(), 1);
+		// `a` is kept, so the reservation grows.
+		targets.reserve(vec![address(&b)]);
+		assert_eq!(
+			*sets.lock().unwrap(),
+			vec![HashSet::from([address(&a)]), HashSet::from([address(&a), address(&b)])]
+		);
+	}
+
+	#[test]
+	fn reachable_are_the_recipients_with_an_open_substream() {
+		let (mut targets, _, _) = targets(1);
+		let (a, b) = (PeerId::random(), PeerId::random());
+		targets.reserve(vec![address(&a), address(&b)]);
+		assert_eq!(targets.reachable().count(), 0);
+		targets.opened(a);
+		targets.opened(b);
+		assert_eq!(targets.reachable().count(), 2);
+		targets.closed(&a);
+		assert_eq!(targets.reachable().collect::<Vec<_>>(), vec![&b]);
+		// A kept peer is not reachable.
+		targets.reserve(vec![address(&a)]);
+		targets.opened(a);
+		assert_eq!(targets.reachable().collect::<Vec<_>>(), vec![&a]);
 	}
 
 	#[test]

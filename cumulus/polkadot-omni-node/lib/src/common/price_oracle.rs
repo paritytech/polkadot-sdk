@@ -35,10 +35,13 @@ use std::{future::Future, marker::PhantomData, sync::Arc};
 
 /// Log target for the price oracle.
 const LOG_TARGET: &str = "price-oracle";
-/// How many slots past the best block's the reports are sent to the authors of. With slots of
-/// 6 s or more, this reaches at least 18 s ahead: time to open a substream and send a report
-/// before an author's turn.
-const LOOKAHEAD: u64 = 3;
+/// The number of slots whose authors get the reports: the slot of the best block and the next
+/// ones. With slots of 6 s or more, the last one starts at least 18 s ahead, which leaves time to
+/// open a substream before that author's turn.
+///
+/// As many past recipients stay reserved, because they may still be sending their reports to
+/// this node.
+const RECIPIENT_SLOTS: u64 = 4;
 /// Addresses used per author at most. Bounds the dial attempts an author's record can cause.
 const MAX_ADDRESSES_PER_AUTHOR: usize = 4;
 
@@ -63,11 +66,10 @@ pub struct PriceOracleNetwork<Block: BlockT> {
 
 /// The collators authoring in the coming Aura slots, found through authority discovery.
 ///
-/// The slot is taken from the best block, and the authors of that slot and the next
-/// [`LOOKAHEAD`] slots from the Aura authorities at the best block. Their authority
-/// discovery keys are the entries of `AuthorityDiscoveryApi::authorities` at the same positions, so
-/// the runtime must return them in authoring order, as `cumulus-client-collator-discovery` requires
-/// too.
+/// The authors are those of [`RECIPIENT_SLOTS`] slots, starting with the slot of the best block,
+/// taken from the Aura authorities at the best block. Their authority discovery keys are the
+/// entries of `AuthorityDiscoveryApi::authorities` at the same positions, so the runtime must
+/// return them in authoring order, as `cumulus-client-collator-discovery` requires too.
 pub struct AuraRecipients<Block: BlockT, RuntimeApi, AuraId> {
 	client: Arc<ParachainClient<Block, RuntimeApi>>,
 	authority_discovery: sc_authority_discovery::Service,
@@ -135,7 +137,7 @@ where
 		//   minus the relay parent lag, would point at them.
 
 		// Consecutive slots have consecutive authors, so at most `count` distinct ones.
-		(0..(LOOKAHEAD + 1).min(count))
+		(0..RECIPIENT_SLOTS.min(count))
 			.map(|ahead| discovery_ids[((*best_slot + ahead) % count) as usize].clone())
 			.collect()
 	}
@@ -231,6 +233,7 @@ impl<AuraId: AuraIdT + Send + Sync> PriceOracle<AuraId> {
 						notification_service: network.notification_service,
 						protocol_name: network.protocol_name,
 						recipients,
+						keep: RECIPIENT_SLOTS as usize,
 						keystore,
 						pool: pool.clone(),
 						prometheus_registry: network.prometheus_registry,

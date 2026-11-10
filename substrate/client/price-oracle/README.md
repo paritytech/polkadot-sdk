@@ -88,14 +88,17 @@ that author next, and nothing is forwarded.
 
 Every tick, the service asks its `ReportRecipients` for the addresses of the coming authors and
 reserves them on the protocol, so the network keeps a substream open to each. The signed report
-is sent to every recipient whose substream is open at that moment. An author therefore receives
-the reports of all signers directly, and a signer talks to a handful of peers. The protocol dials
-only the reserved peers, and accepts an inbound substream from any peer.
+is sent to every recipient whose substream is open at that moment. The last few peers that
+stopped being recipients stay reserved: a substream is shared by both sides, and a node that
+drops a peer from its reservation closes the substream it opened, while the peer may still be
+sending its reports over it. An author therefore receives the reports of all signers directly,
+and a signer talks to a handful of peers. The protocol dials only the reserved peers, and
+accepts an inbound substream from any peer.
 
 `polkadot-omni-node` sends to the authors of the Aura slot of the best block and the next
-three, with the authorities from the best block. The authors are found through the parachain's
-authority discovery, so the runtime must return its authority discovery keys in authoring order,
-as `cumulus-client-collator-discovery` requires.
+three, with the authorities from the best block, and keeps the last four past ones reserved.
+The authors are found through the parachain's authority discovery, so the runtime must return
+its authority discovery keys in authoring order, as `cumulus-client-collator-discovery` requires.
 
 Every incoming message is validated. A message is rejected, and the sending peer's reputation
 lowered, if it does not decode, is anchored before a window, comes from a signer outside the
