@@ -558,8 +558,9 @@ where
 	/// Who signs this slot and which resubmittable headers they cover; `None` skips the slot.
 	///
 	/// The PVF checks a resubmission's signature against the candidate's parent state, so a bundle
-	/// from before an authority-set change needs the prior set's author; such a handover takes the
-	/// slot, since building above those blocks is useless until they land.
+	/// from before an authority-set change needs the prior set's author. A handover outranks our
+	/// own claim since the slot has one signer; our tip bundles and a fresh build wait for a later
+	/// slot. Recovery needs a running collator that still holds the prior set's key.
 	fn slot_role(
 		&self,
 		para_slot: Slot,
@@ -576,9 +577,10 @@ where
 				} else {
 					let mut first = Some(first_author);
 					let bundles = group_into_bundles(headers).into_iter().map(|bundle| {
-						let author = first
-							.take()
-							.unwrap_or_else(|| self.author_at(*bundle[0].parent_hash(), para_slot));
+						let author = first.take().unwrap_or_else(|| {
+							let parent = *bundle.first()?.parent_hash();
+							self.author_at(parent, para_slot)
+						});
 						(author, bundle)
 					});
 					let classified = classify_bundles(bundles, tip_author, |author| {

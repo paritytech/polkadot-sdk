@@ -74,7 +74,9 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 	fn into_bundles(self) -> Result<Vec<Vec<Block::Header>>, HydrateError> {
 		let bundles = group_into_bundles(self.0);
 		for bundle in &bundles {
-			let first = CumulusDigestItem::find_block_bundle_info(bundle[0].digest());
+			let first = bundle
+				.first()
+				.and_then(|h| CumulusDigestItem::find_block_bundle_info(h.digest()));
 			if let Some(idx) = first.map(|info| info.index).filter(|idx| *idx != 0) {
 				return Err(HydrateError::MalformedBundleStart(idx));
 			}
@@ -152,7 +154,8 @@ pub(super) fn group_into_bundles<H: HeaderT>(headers: Vec<H>) -> Vec<Vec<H>> {
 	for header in headers {
 		let index =
 			CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
-		let continues = matches!((prev_index, index), (Some(prev), Some(idx)) if prev.checked_add(1) == Some(idx));
+		let next_index = prev_index.and_then(|prev| prev.checked_add(1));
+		let continues = index.is_some() && index == next_index;
 		if !continues && !current.is_empty() {
 			bundles.push(core::mem::take(&mut current));
 		}

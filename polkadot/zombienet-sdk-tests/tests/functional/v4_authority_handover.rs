@@ -27,7 +27,9 @@ const PARA_ID: u32 = 2900;
 const NUM_COLLATORS: usize = 3;
 const NUM_VALIDATORS: usize = 6;
 const MIN_START_HEIGHT: u32 = 5;
-const RELAY_ADVANCE: u32 = 3;
+const LOOKAHEAD: u32 = 5;
+// Past the implicit view's leaf plus `LOOKAHEAD - 1` ancestors, so originals expire.
+const RELAY_ADVANCE: u32 = LOOKAHEAD + 1;
 const FINALIZED_PAST_ROTATION: u32 = 10;
 const HANDOVER_LOG: &str = "Authority handover: resubmitting the prior era's blocks";
 
@@ -58,7 +60,7 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 								"num_cores": 2,
 								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4,
-								"lookahead": 5
+								"lookahead": LOOKAHEAD
 							},
 							// V2 (bit 4) and V3 (bit 3) descriptors enabled.
 							"node_features": {"bits": 8, "data": [0b00011000]},
@@ -180,8 +182,8 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 	let relay_at_rotation = best_number(&relay_rpc).await?;
 	log::info!("Rotation in para block #{rotation_number} {rotation_hash:?}");
 
-	// Original submissions must be out of the allowed relay-parent window (genesis ancestry is
-	// small), so only a resubmission can still back the rotation block.
+	// Original submissions must be out of the allowed scheduling-parent window, so only a
+	// resubmission can still back the rotation block.
 	let target = relay_at_rotation + RELAY_ADVANCE;
 	let start = Instant::now();
 	loop {
@@ -190,7 +192,8 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 			log::info!("Relay advanced to #{best} (rotation seen at #{relay_at_rotation})");
 			break;
 		}
-		if start.elapsed() > Duration::from_secs(360) {
+		// One live validator authors ~1 in 6 relay slots.
+		if start.elapsed() > Duration::from_secs(600) {
 			return Err(anyhow!("relay stuck at #{best}, wanted #{target} while paused"));
 		}
 		tokio::time::sleep(Duration::from_secs(5)).await;
@@ -228,7 +231,7 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 		tokio::time::sleep(Duration::from_secs(5)).await;
 	}
 
-	// Proves the rotation block landed through a handover, not a surviving original submission.
+	// The originals expired above; this only confirms the handover path ran.
 	let mut handovers = 0;
 	for name in &collator_names {
 		handovers += network.get_node(name.as_str())?.logs().await?.matches(HANDOVER_LOG).count();

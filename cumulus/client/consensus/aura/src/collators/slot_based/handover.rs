@@ -33,7 +33,7 @@ pub(super) struct Classified<A, H> {
 ///
 /// Each input bundle comes with the author expected at its first header's parent, or `None` when
 /// that read failed.
-pub(super) fn classify_bundles<A: Clone + PartialEq, H: HeaderT>(
+pub(super) fn classify_bundles<A: PartialEq, H: HeaderT>(
 	bundles: impl IntoIterator<Item = (Option<A>, Vec<H>)>,
 	tip_author: Option<&A>,
 	is_ours: impl Fn(&A) -> bool,
