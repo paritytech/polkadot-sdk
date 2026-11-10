@@ -81,8 +81,10 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_multi_asset_bounties`.
 pub trait WeightInfo {
-	fn fund_bounty(n: u32, ) -> Weight;
-	fn fund_child_bounty(n: u32, ) -> Weight;
+	fn fund_bounty() -> Weight;
+	fn fund_bounty_with_assets(n: u32, ) -> Weight;
+	fn fund_child_bounty() -> Weight;
+	fn fund_child_bounty_with_assets(n: u32, ) -> Weight;
 	fn propose_curator_parent_bounty(n: u32, ) -> Weight;
 	fn propose_curator_child_bounty() -> Weight;
 	fn accept_curator(n: u32, ) -> Weight;
@@ -96,7 +98,8 @@ pub trait WeightInfo {
 	fn retry_payment_funding(n: u32, ) -> Weight;
 	fn retry_payment_refund(n: u32, ) -> Weight;
 	fn retry_payment_payout(n: u32, ) -> Weight;
-	fn increase_value(n: u32, ) -> Weight;
+	fn increase_value() -> Weight;
+	fn increase_asset_value(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_multi_asset_bounties` using the Substrate node and recommended hardware.
@@ -121,7 +124,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiAssetBounties::Bounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(109), added: 2584, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn fund_bounty(n: u32, ) -> Weight {
+	fn fund_bounty_with_assets(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `702 + n * (195 ±0)`
 		//  Estimated: `3593 + n * (5218 ±0)`
@@ -134,6 +137,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5218).saturating_mul(n.into()))
+	}
+	fn fund_child_bounty() -> Weight {
+		Self::fund_child_bounty_with_assets(1)
 	}
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
@@ -162,7 +168,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(125), added: 2600, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn fund_child_bounty(n: u32, ) -> Weight {
+	fn fund_child_bounty_with_assets(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `839 + n * (239 ±0)`
 		//  Estimated: `3593 + n * (5218 ±0)`
@@ -513,6 +519,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5218).saturating_mul(n.into()))
 	}
+	fn increase_value() -> Weight {
+		Self::increase_asset_value(1)
+	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(109), added: 2584, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::BountyAssets` (r:6 w:1)
@@ -526,7 +535,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn increase_value(n: u32, ) -> Weight {
+	fn increase_asset_value(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `521 + n * (145 ±0)`
 		//  Estimated: `4072 + n * (2525 ±0)`
@@ -540,10 +549,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2525).saturating_mul(n.into()))
 	}
+	fn fund_bounty() -> Weight {
+		Self::fund_bounty_with_assets(1)
+	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	fn fund_bounty() -> Weight {
+		Self::fund_bounty_with_assets(1)
+	}
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:1)
@@ -563,7 +578,7 @@ impl WeightInfo for () {
 	/// Storage: `MultiAssetBounties::Bounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(109), added: 2584, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn fund_bounty(n: u32, ) -> Weight {
+	fn fund_bounty_with_assets(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `702 + n * (195 ±0)`
 		//  Estimated: `3593 + n * (5218 ±0)`
@@ -576,6 +591,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5218).saturating_mul(n.into()))
+	}
+	fn fund_child_bounty() -> Weight {
+		Self::fund_child_bounty_with_assets(1)
 	}
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
@@ -604,7 +622,7 @@ impl WeightInfo for () {
 	/// Storage: `MultiAssetBounties::ChildBounties` (r:0 w:1)
 	/// Proof: `MultiAssetBounties::ChildBounties` (`max_values`: None, `max_size`: Some(125), added: 2600, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn fund_child_bounty(n: u32, ) -> Weight {
+	fn fund_child_bounty_with_assets(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `839 + n * (239 ±0)`
 		//  Estimated: `3593 + n * (5218 ±0)`
@@ -955,6 +973,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5218).saturating_mul(n.into()))
 	}
+	fn increase_value() -> Weight {
+		Self::increase_asset_value(1)
+	}
 	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:0)
 	/// Proof: `MultiAssetBounties::Bounties` (`max_values`: None, `max_size`: Some(109), added: 2584, mode: `MaxEncodedLen`)
 	/// Storage: `MultiAssetBounties::BountyAssets` (r:6 w:1)
@@ -968,7 +989,7 @@ impl WeightInfo for () {
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 5]`.
-	fn increase_value(n: u32, ) -> Weight {
+	fn increase_asset_value(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `521 + n * (145 ±0)`
 		//  Estimated: `4072 + n * (2525 ±0)`

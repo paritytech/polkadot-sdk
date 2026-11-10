@@ -156,7 +156,8 @@ fn assert_paid<T: Config<I>, I: 'static>(
 	}
 }
 
-/// Create the pre-requisite information needed to `fund_bounty` with a basket of `n` assets.
+/// Create the pre-requisite information needed to `fund_bounty_with_assets` with a basket of `n`
+/// assets.
 fn setup_bounty<T: Config<I>, I: 'static>(n: u32) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let min_native_value = T::BountyValueMinimum::get();
 	let mut assets = Vec::new();
@@ -227,7 +228,7 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 	let curator_lookup = T::Lookup::unlookup(s.curator.clone());
 	ensure_funding_source::<T, I>(&s);
 
-	Bounties::<T, I>::fund_bounty(
+	Bounties::<T, I>::fund_bounty_with_assets(
 		spend_origin,
 		bounded::<T, I>(&s.assets),
 		curator_lookup,
@@ -269,7 +270,7 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 	let mut s = create_active_parent_bounty::<T, I>(n)?;
 	let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
-	Bounties::<T, I>::fund_child_bounty(
+	Bounties::<T, I>::fund_child_bounty_with_assets(
 		RawOrigin::Signed(s.curator.clone()).into(),
 		s.parent_bounty_id,
 		bounded::<T, I>(&s.child_assets),
@@ -354,10 +355,35 @@ fn set_phase<T: Config<I>, I: 'static>(
 mod benchmarks {
 	use super::*;
 
-	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case `fund_bounty` is un-callable and can use weight=0.
+	/// The deprecated single-asset call. This benchmark is short-circuited if `SpendOrigin` cannot
+	/// provide a successful origin, in which case `fund_bounty` is un-callable and can use
+	/// weight=0.
 	#[benchmark]
-	fn fund_bounty(n: Linear<1, { T::MaxAssetsPerBounty::get() }>) -> Result<(), BenchmarkError> {
+	fn fund_bounty() -> Result<(), BenchmarkError> {
+		let s = setup_bounty::<T, I>(1)?;
+
+		let spend_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
+		ensure_funding_source::<T, I>(&s);
+		let (asset_kind, value) = s.assets[0].clone();
+
+		#[extrinsic_call]
+		_(spend_origin, Box::new(asset_kind), value, curator_lookup, s.metadata);
+
+		let parent_bounty_id = BountyCount::<T, I>::get() - 1;
+		assert_last_event::<T, I>(Event::BountyCreated { index: parent_bounty_id }.into());
+		assert_paid::<T, I>(parent_bounty_id, None, &s.assets);
+
+		Ok(())
+	}
+
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide a successful origin, in
+	/// which case `fund_bounty_with_assets` is un-callable and can use weight=0.
+	#[benchmark]
+	fn fund_bounty_with_assets(
+		n: Linear<1, { T::MaxAssetsPerBounty::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let s = setup_bounty::<T, I>(n)?;
 
 		let spend_origin =
@@ -376,8 +402,35 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The deprecated single-asset call, on a parent holding one asset.
 	#[benchmark]
-	fn fund_child_bounty(
+	fn fund_child_bounty() -> Result<(), BenchmarkError> {
+		let s = create_active_parent_bounty::<T, I>(1)?;
+		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
+		let (_, value) = s.child_assets[0].clone();
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(s.curator),
+			s.parent_bounty_id,
+			value,
+			s.metadata,
+			Some(child_curator_lookup),
+		);
+
+		let child_bounty_id =
+			pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
+		assert_last_event::<T, I>(
+			Event::ChildBountyCreated { index: s.parent_bounty_id, child_index: child_bounty_id }
+				.into(),
+		);
+		assert_paid::<T, I>(s.parent_bounty_id, Some(child_bounty_id), &s.child_assets);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn fund_child_bounty_with_assets(
 		n: Linear<1, { T::MaxAssetsPerBounty::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let s = create_active_parent_bounty::<T, I>(n)?;
@@ -872,8 +925,38 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The deprecated single-asset call, on a bounty holding one asset.
 	#[benchmark]
-	fn increase_value(
+	fn increase_value() -> Result<(), BenchmarkError> {
+		let s = create_active_parent_bounty::<T, I>(1)?;
+		let caller = s.curator.clone();
+		let (asset_kind, value) = s.assets[0].clone();
+		let new_value = value + value;
+
+		// Ensure the curator can fund the larger deposit for the new value.
+		<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
+			&caller,
+			s.native_value.saturating_add(s.native_value),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), s.parent_bounty_id, value);
+
+		assert_last_event::<T, I>(
+			Event::BountyValueIncreased {
+				index: s.parent_bounty_id,
+				asset_kind,
+				old_value: value,
+				new_value,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn increase_asset_value(
 		n: Linear<1, { T::MaxAssetsPerBounty::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let s = create_active_parent_bounty::<T, I>(n)?;

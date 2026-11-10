@@ -510,7 +510,7 @@ pub fn setup_bounty() -> TestBounty {
 pub fn create_parent_bounty() -> TestBounty {
 	let mut s = setup_bounty();
 
-	assert_ok!(Bounties::fund_bounty(
+	assert_ok!(Bounties::fund_bounty_with_assets(
 		RuntimeOrigin::root(),
 		BoundedVec::try_from(vec![(s.asset_kind, s.value)]).unwrap(),
 		s.curator,
@@ -580,7 +580,7 @@ pub fn create_canceled_parent_bounty() -> TestBounty {
 pub fn create_child_bounty_with_curator() -> TestBounty {
 	let mut s = create_active_parent_bounty();
 
-	assert_ok!(Bounties::fund_child_bounty(
+	assert_ok!(Bounties::fund_child_bounty_with_assets(
 		RuntimeOrigin::signed(s.curator),
 		s.parent_bounty_id,
 		BoundedVec::try_from(vec![(s.asset_kind, s.child_value)]).unwrap(),

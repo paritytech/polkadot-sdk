@@ -4069,7 +4069,7 @@ mod multi_asset_bounties {
 			.collect::<Vec<_>>()
 			.try_into()
 			.unwrap();
-		assert_ok!(MultiAssetBounties::fund_bounty(
+		assert_ok!(MultiAssetBounties::fund_bounty_with_assets(
 			RuntimeOrigin::root(),
 			basket,
 			AccountId::from(CURATOR).into(),
@@ -4168,7 +4168,7 @@ mod multi_asset_bounties {
 			// Funding is all-or-nothing, so asset 1 is not allocated either.
 			let metadata = Preimage::note(vec![2u8].into()).unwrap();
 			assert_noop!(
-				MultiAssetBounties::fund_child_bounty(
+				MultiAssetBounties::fund_child_bounty_with_assets(
 					RuntimeOrigin::signed(AccountId::from(CURATOR)),
 					0,
 					vec![(asset_kind(1), 5 * UNITS), (asset_kind(2), 5 * UNITS)]
@@ -4192,7 +4192,7 @@ mod multi_asset_bounties {
 			// on its own (RFC #13772 open question 6).
 			let metadata = Preimage::note(vec![3u8].into()).unwrap();
 			assert_noop!(
-				MultiAssetBounties::fund_bounty(
+				MultiAssetBounties::fund_bounty_with_assets(
 					RuntimeOrigin::root(),
 					vec![(asset_kind(3), 10 * UNITS)].try_into().unwrap(),
 					AccountId::from(CURATOR).into(),
