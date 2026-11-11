@@ -17,7 +17,7 @@
 
 use crate::{
 	mock::*, Call, Config, Error, Event, FailedReleases, PendingRequests, PendingSides,
-	RequestWindows, WeightInfo, RECEIVE_CALL_INDEX,
+	PruneCursor, RequestWindows, WeightInfo, RECEIVE_CALL_INDEX,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -708,5 +708,75 @@ fn window_restarts_at_the_next_request() {
 		System::set_block_number(11 * len);
 		assert_ok!(try_set(init(2001, 2400)));
 		assert_eq!(window(2001), Some((11 * len, 1)));
+	});
+}
+
+/// `on_idle` looks at one window per block and removes it if it is over. Past the last one, it
+/// starts over from the first.
+#[test]
+fn on_idle_removes_the_windows_that_are_over() {
+	new_test_ext(|| {
+		let len: u64 = <Test as Config>::RequestWindow::get();
+		let idle = || HrmpRelay::on_idle(1, Weight::MAX);
+		let windows = || RequestWindows::<Test>::iter().count();
+
+		// Nothing to look at.
+		assert_eq!(idle(), <() as WeightInfo>::prune_request_window());
+		assert_eq!(PruneCursor::<Test>::get(), None);
+
+		for para in 2001..2004 {
+			assert_ok!(try_set(init(para, 2100)));
+		}
+		// The window of 2004 starts later than the others.
+		System::set_block_number(2);
+		assert_ok!(try_set(init(2004, 2100)));
+
+		// No window is over yet: a whole round removes nothing, then starts over.
+		System::set_block_number(len);
+		for _ in 0..4 {
+			idle();
+			assert!(PruneCursor::<Test>::get().is_some());
+		}
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+		assert_eq!(windows(), 4);
+
+		// All are over but the one of 2004: one is removed per block.
+		System::set_block_number(1 + len);
+		for looked_at in 1..=4 {
+			idle();
+			let over = (2001..2004).filter(|para| window(*para).is_none()).count();
+			assert!(over == looked_at || over == looked_at - 1);
+		}
+		assert_eq!(windows(), 1);
+		assert_eq!(window(2004), Some((2, 1)));
+
+		// The round ends, and the next one removes the last window once it is over.
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+		System::set_block_number(2 + len);
+		idle();
+		assert_eq!(windows(), 0);
+		assert_eq!(PruneCursor::<Test>::get(), Some(ParaId::from(2004u32)));
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+	});
+}
+
+/// `on_idle` does nothing without the weight to look at a window.
+#[test]
+fn on_idle_respects_remaining_weight() {
+	new_test_ext(|| {
+		let len: u64 = <Test as Config>::RequestWindow::get();
+		assert_ok!(try_set(init(2001, 2100)));
+		System::set_block_number(1 + len);
+
+		let weight = <() as WeightInfo>::prune_request_window();
+		let short = weight.saturating_sub(Weight::from_parts(1, 0));
+		assert_eq!(HrmpRelay::on_idle(1, short), Weight::zero());
+		assert_eq!(window(2001), Some((1, 1)));
+
+		assert_eq!(HrmpRelay::on_idle(1, weight), weight);
+		assert_eq!(window(2001), None);
 	});
 }

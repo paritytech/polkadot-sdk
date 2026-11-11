@@ -16,7 +16,8 @@ doc:
     To explain further, this is necessary because the cost of sending request XCM back and forth
     from the relay chain to the parachain is not accounted in the transaction weight. But we
     want to allow some usage for free and not charge on the relay chain, so we simply allow a number
-    of request per time window.
+    of request per time window. A window that is over is removed in `on_idle`, which looks at
+    one per block.
 
     In `xcm-builder`: add the barrier `AllowUnpaidTransactFrom`, which lets an origin have one
     call dispatched as itself without paying, under a weight bound, and the filter

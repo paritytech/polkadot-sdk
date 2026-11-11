@@ -130,5 +130,24 @@ mod benchmarks {
 		assert!(FailedReleases::<T>::get().is_empty());
 	}
 
+	/// A window that is over, found after the cursor and removed.
+	#[benchmark]
+	fn prune_request_window() {
+		for para in [SENDER, SENDER + 1] {
+			RequestWindows::<T>::insert(ParaId::from(para), (BlockNumberFor::<T>::default(), 1));
+		}
+		frame_system::Pallet::<T>::set_block_number(T::RequestWindow::get());
+		// Removes one of the two, and leaves the cursor on it.
+		Pallet::<T>::prune_request_window();
+		assert_eq!(RequestWindows::<T>::iter().count(), 1);
+
+		#[block]
+		{
+			Pallet::<T>::prune_request_window();
+		}
+
+		assert_eq!(RequestWindows::<T>::iter().count(), 0);
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);
 }

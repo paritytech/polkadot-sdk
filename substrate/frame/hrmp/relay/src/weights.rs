@@ -75,6 +75,7 @@ pub trait WeightInfo {
 	fn try_set_deposit_both_sides() -> Weight;
 	fn try_set_deposit_release() -> Weight;
 	fn retry_failed_releases(n: u32, ) -> Weight;
+	fn prune_request_window() -> Weight;
 }
 
 /// Weights for `pallet_hrmp_relay` using the Substrate node and recommended hardware.
@@ -135,6 +136,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `HrmpRelay::PruneCursor` (r:1 w:1)
+	/// Storage: `HrmpRelay::RequestWindows` (r:2 w:1)
+	fn prune_request_window() -> Weight {
+		// Not benchmarked yet: an estimate, to be replaced when the weights are generated again.
+		Weight::from_parts(15_000_000, 6500)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -193,5 +202,13 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(1_821_931, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `HrmpRelay::PruneCursor` (r:1 w:1)
+	/// Storage: `HrmpRelay::RequestWindows` (r:2 w:1)
+	fn prune_request_window() -> Weight {
+		// Not benchmarked yet: an estimate, to be replaced when the weights are generated again.
+		Weight::from_parts(15_000_000, 6500)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

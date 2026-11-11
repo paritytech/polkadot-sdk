@@ -28,7 +28,7 @@
 //! The requests are sent without payment, to avoid payment on the relay chain, but it must be
 //! limited to avoid filling up the DMP/UMP capacities. So a parachain may only make
 //! [`Config::MaxRequestsPerWindow`] of them per [`Config::RequestWindow`], unless it is a system
-//! parachain.
+//! parachain. A window that is over is removed in `on_idle`, which looks at one per block.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -149,7 +149,7 @@ pub mod pallet {
 		/// How many requests a non-system parachain may make in one [`Config::RequestWindow`].
 		///
 		/// Releases are not counted: they are never refused. Neither are the requests of a
-		/// system parachain: it may make any number of them.
+		/// system parachain.
 		#[pallet::constant]
 		type MaxRequestsPerWindow: Get<u32>;
 
@@ -188,9 +188,16 @@ pub mod pallet {
 
 	/// For each non-system parachain, the block at which its current request window started and
 	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
+	///
+	/// A window that is over is removed in `on_idle`, see [`PruneCursor`].
 	#[pallet::storage]
 	pub type RequestWindows<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
+
+	/// The parachain whose entry of [`RequestWindows`] `on_idle` looked at last: it looks at the
+	/// one after it next, in the order the map iterates. `None` to look at the first one.
+	#[pallet::storage]
+	pub type PruneCursor<T: Config> = StorageValue<_, ParaId, OptionQuery>;
 
 	/// Releases that could not be sent yet, oldest first.
 	///
@@ -239,6 +246,15 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
 			Self::retry_failed_releases(meter);
+		}
+
+		fn on_idle(_: BlockNumberFor<T>, remaining: Weight) -> Weight {
+			let weight = T::WeightInfo::prune_request_window();
+			if !remaining.all_gte(weight) {
+				return Weight::zero();
+			}
+			Self::prune_request_window();
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -299,15 +315,35 @@ impl<T: Config> Pallet<T> {
 	/// Writes nothing. Fails with [`Error::TooManyRequests`] if `para` already made
 	/// [`Config::MaxRequestsPerWindow`] requests in its window.
 	fn count_request(para: ParaId) -> Result<(BlockNumberFor<T>, u32), Error<T>> {
-		let now = frame_system::Pallet::<T>::block_number();
 		let (start, used) = match RequestWindows::<T>::get(para) {
-			Some((start, used)) if now.saturating_sub(start) < T::RequestWindow::get() => {
-				(start, used)
-			},
-			_ => (now, 0),
+			Some((start, used)) if !Self::is_window_over(start) => (start, used),
+			_ => (frame_system::Pallet::<T>::block_number(), 0),
 		};
 		ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
 		Ok((start, used.saturating_add(1)))
+	}
+
+	/// Whether a window that started at `start` is over.
+	fn is_window_over(start: BlockNumberFor<T>) -> bool {
+		let now = frame_system::Pallet::<T>::block_number();
+		now.saturating_sub(start) >= T::RequestWindow::get()
+	}
+
+	/// Looks at one entry of [`RequestWindows`], the one after [`PruneCursor`], and removes it if
+	/// its window is over. Starts over from the first entry once past the last.
+	pub(crate) fn prune_request_window() {
+		let mut windows = match PruneCursor::<T>::get() {
+			Some(para) => RequestWindows::<T>::iter_from_key(para),
+			None => RequestWindows::<T>::iter(),
+		};
+		let Some((para, (start, _))) = windows.next() else {
+			PruneCursor::<T>::kill();
+			return;
+		};
+		if Self::is_window_over(start) {
+			RequestWindows::<T>::remove(para);
+		}
+		PruneCursor::<T>::put(para);
 	}
 
 	/// The parachain `request` is counted for, see [`Config::MaxRequestsPerWindow`]: the side of
