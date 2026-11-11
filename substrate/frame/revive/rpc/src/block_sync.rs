@@ -254,7 +254,7 @@ impl Client {
 		.await
 	}
 
-	/// Resume backward sync by filling the top gap (new blocks) and bottom gap (backfill).
+	/// Resumes backward sync by filling the top gap (new blocks), then the bottom gap (backfill).
 	async fn sync_backward_resume(
 		&self,
 		tail: SyncCheckpoint,
@@ -262,47 +262,37 @@ impl Client {
 		latest_finalized: SyncCheckpoint,
 		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
-		let top_gap = async {
-			// Top gap: sync from latest_finalized down to head + 1.
-			if head.block_number < latest_finalized.block_number {
-				self.sync_backward_range(BackwardSyncRange {
-					from: latest_finalized.block_number,
-					to: head.block_number.saturating_add(1),
-					set_head: false,
-					checkpoint_tail: false,
-					persist_first_evm_block: false,
-					rate_limiter,
-				})
+		// Top gap: sync from latest_finalized down to head + 1.
+		if head.block_number < latest_finalized.block_number {
+			self.sync_backward_range(BackwardSyncRange {
+				from: latest_finalized.block_number,
+				to: head.block_number.saturating_add(1),
+				set_head: false,
+				checkpoint_tail: false,
+				persist_first_evm_block: false,
+				rate_limiter,
+			})
+			.await?;
+
+			// Mark top gap complete so a restart won't redo it.
+			self.receipt_provider()
+				.advance_sync_label(SyncLabel::Head, latest_finalized)
 				.await?;
+		}
 
-				// Mark top gap complete so a restart won't redo it.
-				self.receipt_provider()
-					.advance_sync_label(SyncLabel::Head, latest_finalized)
-					.await?;
-			}
-			Ok::<_, ClientError>(())
-		};
-
-		let bottom_gap = async {
-			// Bottom gap: sync from tail - 1 down to the first EVM block.
-			let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
-			if tail.block_number > first_evm {
-				self.sync_backward_range(BackwardSyncRange {
-					from: tail.block_number.saturating_sub(1),
-					to: first_evm,
-					set_head: false,
-					checkpoint_tail: true,
-					persist_first_evm_block: true,
-					rate_limiter,
-				})
-				.await?;
-			} else {
-				log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
-			}
-			Ok::<_, ClientError>(())
-		};
-
-		tokio::try_join!(top_gap, bottom_gap)?;
+		// Bottom gap: sync from tail - 1 down to the first EVM block.
+		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
+		if tail.block_number > first_evm {
+			self.sync_backward_range(BackwardSyncRange {
+				from: tail.block_number.saturating_sub(1),
+				to: first_evm,
+				set_head: false,
+				checkpoint_tail: true,
+				persist_first_evm_block: true,
+				rate_limiter,
+			})
+			.await?;
+		}
 
 		Ok(())
 	}

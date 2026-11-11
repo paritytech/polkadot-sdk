@@ -2808,6 +2808,14 @@ async fn test_block_sync_honors_rate_limit() -> anyhow::Result<()> {
 	client.sync_backward(Some(NonZeroU32::MIN)).await?;
 	let sync_elapsed = start.elapsed();
 
+	// `sync_backward` returns `Ok` even when a transient error stops the sync.
+	let head_after_sync = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("the test stored Head before the sync");
+	assert_eq!(head_after_sync.block_number, finalized, "the sync did not complete the gap",);
+
 	// 100ms of slack: the limiter and the test read different clocks.
 	assert!(
 		sync_elapsed + std::time::Duration::from_millis(100) >= min_sync_time,
