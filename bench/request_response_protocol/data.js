@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794391238724,
+  "lastUpdate": 1794398416225,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -144719,6 +144719,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2805423788,
             "range": "± 22950458",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23b84ba442d0b22fb21ab50ba5156153539528a4",
+          "message": "frame-system: refund authorize weight when AuthorizeCall skips it (#13364)\n\n# Description\n\n`AuthorizeCall::weight` books `call.weight_of_authorize()` for every\ntransaction, but `validate` only runs\nthe call's `#[pallet::authorize]` callback when the origin is not\nalready authorized. On the other branch\n(e.g. a signed transaction) it reported `Weight::zero()` as unspent, so\nthe authorize weight stayed booked\nalthough the callback never ran.\n\nThis reports `call.weight_of_authorize()` as unspent on that branch; the\nexisting\n`Val`/`Pre`/`post_dispatch_details` plumbing then refunds it.\n\nSurfaced while reviewing #12452, where a signed dispatch of a call with\n`#[pallet::authorize]` can succeed,\nso the over-booking becomes visible.\n\n## Integration\n\nNo action needed. Signed transactions of calls that carry\n`#[pallet::authorize]` now report a lower\n`actual_weight` (and so a lower fee) by exactly the call's\n`weight_of_authorize`. Calls without the\nattribute are unaffected (their authorize weight is zero).\n\n## Review Notes\n\nOne-line change in\n`substrate/frame/system/src/extensions/authorize_call.rs`, plus\n`skipped_authorization_refunds_its_weight`, which fails on master\n(`unspent == 0`) and passes here.",
+          "timestamp": "2026-11-11T10:01:29Z",
+          "tree_id": "03e257677a23a12e56035b2bdc453a298ae5b304",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23b84ba442d0b22fb21ab50ba5156153539528a4"
+        },
+        "date": 1794398380414,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20025960,
+            "range": "± 135846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20579216,
+            "range": "± 176592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22017138,
+            "range": "± 153791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26530560,
+            "range": "± 102922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60906034,
+            "range": "± 645321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 386546152,
+            "range": "± 7227341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2546586903,
+            "range": "± 258603916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17374566,
+            "range": "± 141120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17594981,
+            "range": "± 182173",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18180200,
+            "range": "± 134832",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22875833,
+            "range": "± 149536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64026208,
+            "range": "± 998683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376248596,
+            "range": "± 5736025",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2840893632,
+            "range": "± 23605379",
             "unit": "ns/iter"
           }
         ]
