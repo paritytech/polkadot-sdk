@@ -185,7 +185,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 	// Expected responses are OK.
 	AllowKnownQueryResponses<XcmPallet>,
 	// A non-system parachain gets a call executed without paying, as long as it weighs no more
-	// than an HRMP request. `Hrmp` bounds how many requests a parachain makes.
+	// than an HRMP request.
 	AllowUnpaidTransactFrom<IsChildNonSystemParachain<ParaId>, MaxUnpaidParaRequestWeight>,
 	WithComputedOrigin<
 		(

@@ -13963,6 +13963,7 @@ dependencies = [
  "pallet-balances",
  "pallet-hrmp-para",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",

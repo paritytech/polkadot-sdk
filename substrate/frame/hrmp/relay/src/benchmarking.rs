@@ -22,14 +22,18 @@ use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use polkadot_runtime_parachains::hrmp::deposits::DepositChange;
 
+/// The sender of [`both_sides_request`]. Not a system parachain, so that its requests are
+/// counted.
+const SENDER: u32 = 2_000;
+
 /// A request that changes both sides of a channel and is counted for its sender: a poke by it.
 fn both_sides_request() -> DepositChangeRequest {
 	let change = DepositChange { current: 0, target: 1_000 };
 	DepositChangeRequest {
-		channel_id: HrmpChannelId { sender: 1.into(), recipient: 2.into() },
+		channel_id: HrmpChannelId { sender: SENDER.into(), recipient: 2_001.into() },
 		sender: Some(change),
 		recipient: Some(change),
-		action: DepositAction::PokeChannelDeposits { by: Some(1.into()) },
+		action: DepositAction::PokeChannelDeposits { by: Some(SENDER.into()) },
 	}
 }
 
@@ -64,7 +68,7 @@ mod benchmarks {
 		T::BenchmarkHelper::ensure_send_to_para();
 		let request = both_sides_request();
 		RequestWindows::<T>::insert(
-			ParaId::from(1),
+			ParaId::from(SENDER),
 			(frame_system::Pallet::<T>::block_number(), 1),
 		);
 		let response;

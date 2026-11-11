@@ -151,10 +151,10 @@ fn window(para: u32) -> Option<(u64, u32)> {
 	RequestWindows::<Test>::get(ParaId::from(para))
 }
 
-/// Makes `para` use up the requests of its window, opening channels to the paras from 100 on.
+/// Makes `para` use up the requests of its window, opening channels to the paras from 2100 on.
 fn use_up_requests(para: u32) {
 	for i in 0..max_requests() {
-		assert_ok!(try_set(init(para, 100 + i)));
+		assert_ok!(try_set(init(para, 2100 + i)));
 	}
 	sent();
 	events();
@@ -556,19 +556,19 @@ fn force_answer_resumes() {
 fn open_requests_are_counted_for_the_sender() {
 	new_test_ext(|| {
 		for i in 0..max_requests() {
-			assert_ok!(try_set(init(1, 2 + i)));
+			assert_ok!(try_set(init(2001, 2002 + i)));
 		}
-		assert_eq!(window(1), Some((1, max_requests())));
+		assert_eq!(window(2001), Some((1, max_requests())));
 		// The recipient is not counted.
-		assert_eq!(window(2), None);
+		assert_eq!(window(2002), None);
 		sent();
 
-		assert_noop!(try_set(init(1, 50)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(init(2001, 2050)), Error::<Test>::TooManyRequests);
 		assert!(sent().is_empty());
 
 		// Another para is not held back, even to open a channel to the first.
-		assert_ok!(try_set(init(50, 1)));
-		assert_eq!(window(50), Some((1, 1)));
+		assert_ok!(try_set(init(2050, 2001)));
+		assert_eq!(window(2050), Some((1, 1)));
 	});
 }
 
@@ -582,14 +582,14 @@ fn accept_requests_are_counted_for_the_recipient() {
 		let accept =
 			|sender, recipient| request((sender, recipient), None, Some((0, 10)), accept_action);
 		for i in 0..max_requests() {
-			assert_ok!(try_set(accept(2 + i, 1)));
+			assert_ok!(try_set(accept(2002 + i, 2001)));
 		}
-		assert_eq!(window(1), Some((1, max_requests())));
+		assert_eq!(window(2001), Some((1, max_requests())));
 		// The sender is not counted.
-		assert_eq!(window(2), None);
+		assert_eq!(window(2002), None);
 
-		assert_noop!(try_set(accept(50, 1)), Error::<Test>::TooManyRequests);
-		assert_noop!(try_set(init(1, 50)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(accept(2050, 2001)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(init(2001, 2050)), Error::<Test>::TooManyRequests);
 	});
 }
 
@@ -598,19 +598,41 @@ fn accept_requests_are_counted_for_the_recipient() {
 #[test]
 fn pokes_are_counted_for_the_side_that_asks() {
 	new_test_ext(|| {
-		assert_ok!(try_set(poke((1, 2), Some(2))));
-		assert_eq!((window(1), window(2)), (None, Some((1, 1))));
-		assert_ok!(try_set(poke((3, 4), None)));
-		assert_eq!((window(3), window(4)), (None, None));
+		assert_ok!(try_set(poke((2001, 2002), Some(2002))));
+		assert_eq!((window(2001), window(2002)), (None, Some((1, 1))));
+		assert_ok!(try_set(poke((2003, 2004), None)));
+		assert_eq!((window(2003), window(2004)), (None, None));
 
 		// A para that made all its requests cannot poke its channels, but the other side of
 		// each can, and so can someone else.
-		use_up_requests(5);
-		assert_noop!(try_set(poke((5, 6), Some(5))), Error::<Test>::TooManyRequests);
-		assert_noop!(try_set(poke((7, 5), Some(5))), Error::<Test>::TooManyRequests);
-		assert_ok!(try_set(poke((5, 6), Some(6))));
-		assert_ok!(try_set(poke((7, 5), None)));
-		assert_eq!(window(5), Some((1, max_requests())));
+		use_up_requests(2005);
+		assert_noop!(try_set(poke((2005, 2006), Some(2005))), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(poke((2007, 2005), Some(2005))), Error::<Test>::TooManyRequests);
+		assert_ok!(try_set(poke((2005, 2006), Some(2006))));
+		assert_ok!(try_set(poke((2007, 2005), None)));
+		assert_eq!(window(2005), Some((1, max_requests())));
+	});
+}
+
+/// A system para is not counted, whichever request it makes: it may make any number of them.
+#[test]
+fn system_paras_are_not_counted() {
+	new_test_ext(|| {
+		let accept_action =
+			DepositAction::AcceptOpenChannel { max_capacity: 8, max_message_size: 8 };
+		for i in 0..2 * max_requests() {
+			assert_ok!(try_set(init(1000, 2001 + i)));
+			assert_ok!(try_set(request((3001 + i, 1000), None, Some((0, 10)), accept_action)));
+			assert_ok!(try_set(poke((1000, 4001 + i), Some(1000))));
+		}
+		assert_eq!(window(1000), None);
+		assert_eq!(RequestWindows::<Test>::iter().count(), 0);
+
+		// The last system para and the first that is not.
+		assert_ok!(try_set(init(1999, 2001)));
+		assert_eq!(window(1999), None);
+		assert_ok!(try_set(init(2000, 2001)));
+		assert_eq!(window(2000), Some((1, 1)));
 	});
 }
 
@@ -619,8 +641,8 @@ fn pokes_are_counted_for_the_side_that_asks() {
 #[test]
 fn force_open_and_release_are_not_counted() {
 	new_test_ext(|| {
-		use_up_requests(1);
-		use_up_requests(2);
+		use_up_requests(2001);
+		use_up_requests(2002);
 
 		let force_open = DepositAction::InitAndAcceptOpenChannel {
 			max_capacity: 8,
@@ -628,13 +650,13 @@ fn force_open_and_release_are_not_counted() {
 			max_total_size: 64,
 		};
 		assert_eq!(
-			try_set(request((1, 2), Some((0, 10)), Some((0, 10)), force_open)),
+			try_set(request((2001, 2002), Some((0, 10)), Some((0, 10)), force_open)),
 			Ok(DepositChangeResponse::Pending)
 		);
-		assert_eq!(try_set(release_request((2, 1))), Ok(DepositChangeResponse::Applied));
+		assert_eq!(try_set(release_request((2002, 2001))), Ok(DepositChangeResponse::Applied));
 		assert_eq!(sent().len(), 2);
-		assert_eq!(window(1), Some((1, max_requests())));
-		assert_eq!(window(2), Some((1, max_requests())));
+		assert_eq!(window(2001), Some((1, max_requests())));
+		assert_eq!(window(2002), Some((1, max_requests())));
 	});
 }
 
@@ -642,19 +664,19 @@ fn force_open_and_release_are_not_counted() {
 #[test]
 fn refused_request_is_not_counted() {
 	new_test_ext(|| {
-		assert_ok!(try_set(init(1, 2)));
+		assert_ok!(try_set(init(2001, 2002)));
 
 		// Its side awaits its answer.
-		assert_noop!(try_set(init(1, 2)), Error::<Test>::DepositPending);
+		assert_noop!(try_set(init(2001, 2002)), Error::<Test>::DepositPending);
 		// The transport refuses it.
 		ACCEPT.set(Some(0));
-		assert_noop!(try_set(init(1, 3)), Error::<Test>::SendFailed);
+		assert_noop!(try_set(init(2001, 2003)), Error::<Test>::SendFailed);
 		ACCEPT.set(None);
 		// A release waits for the transport.
 		queue_release((8, 9));
-		assert_noop!(try_set(init(1, 3)), Error::<Test>::TransportBusy);
+		assert_noop!(try_set(init(2001, 2003)), Error::<Test>::TransportBusy);
 
-		assert_eq!(window(1), Some((1, 1)));
+		assert_eq!(window(2001), Some((1, 1)));
 	});
 }
 
@@ -664,27 +686,27 @@ fn refused_request_is_not_counted() {
 fn window_restarts_at_the_next_request() {
 	new_test_ext(|| {
 		let len: u64 = <Test as Config>::RequestWindow::get();
-		use_up_requests(1);
-		assert_eq!(window(1), Some((1, max_requests())));
+		use_up_requests(2001);
+		assert_eq!(window(2001), Some((1, max_requests())));
 
 		// The window started at block 1: its last block is `len`.
 		System::set_block_number(len);
-		assert_noop!(try_set(init(1, 200)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(init(2001, 2200)), Error::<Test>::TooManyRequests);
 		System::set_block_number(1 + len);
-		assert_ok!(try_set(init(1, 200)));
-		assert_eq!(window(1), Some((1 + len, 1)));
+		assert_ok!(try_set(init(2001, 2200)));
+		assert_eq!(window(2001), Some((1 + len, 1)));
 
 		// Long after that window is over, the next request starts a whole new one.
 		System::set_block_number(10 * len);
-		assert_ok!(try_set(init(1, 300)));
-		assert_eq!(window(1), Some((10 * len, 1)));
+		assert_ok!(try_set(init(2001, 2300)));
+		assert_eq!(window(2001), Some((10 * len, 1)));
 		for i in 1..max_requests() {
-			assert_ok!(try_set(init(1, 300 + i)));
+			assert_ok!(try_set(init(2001, 2300 + i)));
 		}
 		System::set_block_number(11 * len - 1);
-		assert_noop!(try_set(init(1, 400)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(init(2001, 2400)), Error::<Test>::TooManyRequests);
 		System::set_block_number(11 * len);
-		assert_ok!(try_set(init(1, 400)));
-		assert_eq!(window(1), Some((11 * len, 1)));
+		assert_ok!(try_set(init(2001, 2400)));
+		assert_eq!(window(2001), Some((11 * len, 1)));
 	});
 }

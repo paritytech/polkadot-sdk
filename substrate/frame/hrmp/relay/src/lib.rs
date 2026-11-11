@@ -25,10 +25,10 @@
 //!
 //! [`Call::force_answer`] is called by governance to fix potential inconsistent state.
 //!
-//! The requests are sent without payment, and each makes the parachain work and answer. So a
-//! parachain may only make [`Config::MaxRequestsPerWindow`] of them per
-//! [`Config::RequestWindow`]: the requests to open or accept a channel, or to poke its deposits,
-//! that it makes as a side of the channel.
+//! The requests are sent without payment, to avoid payment on the relay chain, but it must be
+//! limited to avoid filling up the DMP/UMP capacities. So a parachain may only make
+//! [`Config::MaxRequestsPerWindow`] of them per [`Config::RequestWindow`], unless it is a system
+//! parachain.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,6 +43,7 @@ use hrmp_primitives::{
 	ChannelId, DepositError as WireDepositError, DepositSide, MessageToPara, MessageToParaV1,
 	MessageToRelay, MessageToRelayV1,
 };
+use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{HrmpChannelId, Id as ParaId};
 use polkadot_runtime_parachains::{
 	ensure_parachain,
@@ -145,16 +146,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxFailedReleases: Get<u32>;
 
-		/// How many requests a parachain may make as a side of a channel in one
-		/// [`Config::RequestWindow`]: to open it as its sender, to accept it as its recipient, or
-		/// to poke its deposits. Any more is refused with [`Error::TooManyRequests`].
+		/// How many requests a non-system parachain may make in one [`Config::RequestWindow`].
 		///
-		/// Only the requests sent to the parachain that holds the deposits are counted. Releases
-		/// are not: they are never refused.
+		/// Releases are not counted: they are never refused. Neither are the requests of a
+		/// system parachain: it may make any number of them.
 		#[pallet::constant]
 		type MaxRequestsPerWindow: Get<u32>;
 
-		/// The length, in blocks, of the window over which a parachain's requests are counted.
+		/// The length, in blocks, of the window over which a non-system parachain's requests are
+		/// counted.
 		///
 		/// A parachain's first window starts at its first request. Once a window is over, the
 		/// next one starts at the parachain's next request.
@@ -186,8 +186,8 @@ pub mod pallet {
 	pub type PendingSides<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
 
-	/// For each parachain, the block at which its current request window started and the number
-	/// of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
+	/// For each non-system parachain, the block at which its current request window started and
+	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
 	#[pallet::storage]
 	pub type RequestWindows<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
@@ -310,10 +310,10 @@ impl<T: Config> Pallet<T> {
 		Ok((start, used.saturating_add(1)))
 	}
 
-	/// The side of the channel that makes `request`, if it comes from one of them: its requests
-	/// are counted, see [`Config::MaxRequestsPerWindow`].
-	fn requesting_side(request: &DepositChangeRequest) -> Option<ParaId> {
-		match request.action {
+	/// The parachain `request` is counted for, see [`Config::MaxRequestsPerWindow`]: the side of
+	/// the channel that makes it, if it comes from one of them and is not a system parachain.
+	fn counted_for(request: &DepositChangeRequest) -> Option<ParaId> {
+		let side = match request.action {
 			DepositAction::InitOpenChannel { .. } => Some(request.channel_id.sender),
 			DepositAction::AcceptOpenChannel { .. } => Some(request.channel_id.recipient),
 			DepositAction::PokeChannelDeposits { by } => by,
@@ -321,7 +321,8 @@ impl<T: Config> Pallet<T> {
 			DepositAction::InitAndAcceptOpenChannel { .. } => None,
 			// Never refused, so never counted.
 			DepositAction::Release => None,
-		}
+		};
+		side.filter(|para| !para.is_system())
 	}
 
 	/// The sides `request` changes.
@@ -473,7 +474,7 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 		// A request must not overtake a release made before it.
 		ensure!(Self::failed_releases_is_empty(), Error::<T>::TransportBusy);
 		// Recorded once the request is sent.
-		let window = match Self::requesting_side(&request) {
+		let window = match Self::counted_for(&request) {
 			Some(para) => Some((para, Self::count_request(para)?)),
 			None => None,
 		};

@@ -10,10 +10,13 @@ doc:
     - `DepositAction::PokeChannelDeposits` carries `by`: the side of the channel that asked for
       the poke, if one did.
 
-    In `pallet-hrmp-relay`: bound how many requests a parachain makes as a side of a channel, as
+    In `pallet-hrmp-relay`: bound how many requests a non-system parachain makes as a side of a channel, as
     they are sent to the parachain holding the deposits without payment:
-    `MaxRequestsPerWindow` per window of `RequestWindow` blocks. Both are new `Config` items. A
-    request over the bound is refused with `TooManyRequests`. Releases are not counted.
+    `MaxRequestsPerWindow` per window of `RequestWindow` blocks.
+    To explain further, this is necessary because the cost of sending request XCM back and forth
+    from the relay chain to the parachain is not accounted in the transaction weight. But we
+    want to allow some usage for free and not charge on the relay chain, so we simply allow a number
+    of request per time window.
 
     In `xcm-builder`: add the barrier `AllowUnpaidTransactFrom`, which lets an origin have one
     call dispatched as itself without paying, under a weight bound, and the filter
