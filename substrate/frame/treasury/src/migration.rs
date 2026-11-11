@@ -71,13 +71,13 @@ pub mod v0 {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	///
-	/// `MaxApprovals` is the same getter the runtime used to pass as
-	/// `pallet_treasury::Config::MaxApprovals`. It bounds the decoded queue and is not part of the
-	/// storage key.
+	/// Declared as a `Vec`, which has the same encoding as the `BoundedVec` the pallet used to
+	/// store. The queue is only read and pruned here, so it needs no bound, and a bound below the
+	/// stored length would decode the whole queue as empty.
 	#[allow(invalid_type_param_default)]
 	#[storage_alias]
-	pub type Approvals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> =
-		StorageValue<Pallet<T, I>, BoundedVec<ProposalIndex, MaxApprovals>, ValueQuery>;
+	pub type Approvals<T: Config<I>, I: 'static> =
+		StorageValue<Pallet<T, I>, alloc::vec::Vec<ProposalIndex>, ValueQuery>;
 }
 
 /// Invariants of the v0 proposal storage.
@@ -90,8 +90,7 @@ pub mod v0 {
 /// 2. Every key in [`v0::Proposals`] is strictly less than [`v0::ProposalCount`].
 /// 3. Every index in [`v0::Approvals`] exists as a key in [`v0::Proposals`].
 #[cfg(any(feature = "try-runtime", test))]
-pub fn try_state_proposals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static>(
-) -> Result<(), sp_runtime::TryRuntimeError> {
+pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime::TryRuntimeError> {
 	use frame_support::ensure;
 
 	let current_proposal_count = v0::ProposalCount::<T, I>::get();
@@ -111,7 +110,7 @@ pub fn try_state_proposals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 's
 		},
 	)?;
 
-	v0::Approvals::<T, I, MaxApprovals>::get().iter().try_for_each(
+	v0::Approvals::<T, I>::get().iter().try_for_each(
 		|proposal_index| -> Result<(), sp_runtime::TryRuntimeError> {
 			ensure!(
 				v0::Proposals::<T, I>::contains_key(proposal_index),
@@ -142,6 +141,9 @@ mod v1 {
 	/// is kept. The migration logs a warning naming each deferred index and amount. Because the
 	/// storage version is then 1, a later upgrade does not retry those entries.
 	///
+	/// A deferred proposal also keeps its bond reserved, until Root calls `force_unreserve`.
+	/// `post_upgrade` fails if any proposal is deferred, so a `try-runtime` check catches it.
+	///
 	/// **Warning:** before enacting the upgrade, a chain whose pot cannot cover an approved
 	/// proposal must pay it out manually, fund the pot, or remove the approval. After this
 	/// migration has run, deferred entries are orphaned.
@@ -151,20 +153,19 @@ mod v1 {
 	/// settlement. Each processed proposal also reads the proposer account, and each payout reads
 	/// the beneficiary account. Up to three writes per proposal actually processed, plus the
 	/// treasury `settle` write when something was paid. One extra write when pruning `Approvals`
-	/// for deferred payouts, two when deleting all legacy storage.
+	/// for deferred payouts, plus one read per approval it keeps; two writes when deleting all
+	/// legacy storage.
 	///
 	/// # Defensive
 	/// A non-zero `unreserve` remainder (bond partially slashed, or the proposer reaped since the
 	/// proposal was created) emits a `defensive!` and the migration continues; the stranded amount
 	/// cannot be recovered automatically.
-	pub struct UncheckedMigrateToV1<T, I, MaxApprovals>(PhantomData<(T, I, MaxApprovals)>);
+	pub struct UncheckedMigrateToV1<T, I>(PhantomData<(T, I)>);
 
-	impl<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> UncheckedOnRuntimeUpgrade
-		for UncheckedMigrateToV1<T, I, MaxApprovals>
-	{
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T, I> {
 		fn on_runtime_upgrade() -> Weight {
 			let approved: BTreeSet<ProposalIndex> =
-				v0::Approvals::<T, I, MaxApprovals>::get().into_iter().collect();
+				v0::Approvals::<T, I>::get().into_iter().collect();
 
 			let mut budget_remaining = Pallet::<T, I>::pot();
 			let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
@@ -219,11 +220,11 @@ mod v1 {
 						 approval before enacting this upgrade",
 					);
 				}
-				v0::Approvals::<T, I, MaxApprovals>::mutate(|approvals| {
+				v0::Approvals::<T, I>::mutate(|approvals| {
 					approvals.retain(|index| v0::Proposals::<T, I>::contains_key(index))
 				});
 			} else {
-				v0::Approvals::<T, I, MaxApprovals>::kill();
+				v0::Approvals::<T, I>::kill();
 				v0::ProposalCount::<T, I>::kill();
 			}
 
@@ -250,9 +251,9 @@ mod v1 {
 			// One read per proposal visited, plus pot, `Approvals` and settlement. Each processed
 			// proposal reads the proposer account, and each payout reads the beneficiary account.
 			// Up to three writes per processed proposal, plus the treasury `settle` write when
-			// something was paid. One extra write when pruning `Approvals` for deferred payouts,
-			// two when deleting all legacy storage.
-			let fixed_reads = if deferred { 4 } else { 3 };
+			// something was paid. When pruning `Approvals` for deferred payouts, one extra write
+			// and one read per approval checked; two writes when deleting all legacy storage.
+			let fixed_reads = if deferred { 4 + approved.len() as u64 } else { 3 };
 			let fixed_writes = if deferred { 1 } else { 2 };
 			let settle_write = u64::from(paid > 0);
 			T::DbWeight::get().reads_writes(
@@ -269,10 +270,10 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			super::try_state_proposals::<T, I, MaxApprovals>()?;
+			super::try_state_proposals::<T, I>()?;
 
 			let proposals_count = v0::Proposals::<T, I>::iter_values().count() as u32;
-			let approvals_count = v0::Approvals::<T, I, MaxApprovals>::get().len() as u32;
+			let approvals_count = v0::Approvals::<T, I>::get().len() as u32;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -289,30 +290,20 @@ mod v1 {
 			let (old_proposals, old_approvals) =
 				<(u32, u32)>::decode(&mut &state[..]).expect("Known good");
 
+			// Only an approved payout the pot could not cover survives. The storage version is 1 by
+			// now, so it would never be retried: fail, so the chain resolves it before enacting.
 			let remaining = v0::Proposals::<T, I>::iter().count() as u32;
 			ensure!(
-				remaining <= old_proposals,
-				"post_upgrade: legacy Proposals grew during the migration"
+				remaining == 0,
+				"post_upgrade: legacy treasury payouts were deferred; fund the pot, pay them out \
+				 manually or remove the approvals before enacting this upgrade"
 			);
-
-			// Whatever survived must be an approved payout the pot could not cover; everything
-			// else has to be gone.
-			let approvals = v0::Approvals::<T, I, MaxApprovals>::get();
-			for (index, _) in v0::Proposals::<T, I>::iter() {
-				ensure!(
-					approvals.contains(&index),
-					"post_upgrade: an unapproved legacy proposal survived the migration"
-				);
-			}
 
 			log::info!(
 				target: LOG_TARGET,
-				"post_upgrade MigrateV0ToV1: {} of {} proposals removed \
-				 ({} approvals before, {} left unpaid).",
-				old_proposals.saturating_sub(remaining),
+				"post_upgrade MigrateV0ToV1: removed all {} proposals ({} approvals before).",
 				old_proposals,
 				old_approvals,
-				remaining,
 			);
 
 			Ok(())
@@ -321,13 +312,10 @@ mod v1 {
 }
 
 /// Migrate treasury storage from version 0 to 1 by paying out and deleting legacy proposals.
-///
-/// `MaxApprovals` bounds the decoded v0 approvals queue. Pass the same getter the runtime used for
-/// `Config::MaxApprovals` before that constant moved to the bounties pallet.
-pub type MigrateV0ToV1<T, I, MaxApprovals> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
 	0,
 	1,
-	v1::UncheckedMigrateToV1<T, I, MaxApprovals>,
+	v1::UncheckedMigrateToV1<T, I>,
 	Pallet<T, I>,
 	<T as frame_system::Config>::DbWeight,
 >;

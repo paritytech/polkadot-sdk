@@ -1741,7 +1741,7 @@ pub mod migrations {
         pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
-        pallet_treasury::migration::MigrateV0ToV1<Runtime, (), MaxApprovals>,
+        pallet_treasury::migration::MigrateV0ToV1<Runtime, ()>,
 
         // Delete all Gov v1 pallet storage key/values.
 
