@@ -43,17 +43,17 @@ struct DeployedContract {
 	code_hash: H256,
 }
 
-/// The entries accesses have, each with its operation.
+/// The entries one or more accesses declare, each with its operation.
 #[derive(Default)]
 struct DeclaredEntries(BTreeMap<AccessEntry, StorageOp>);
 
 impl DeclaredEntries {
-	/// Returns the entries one access has.
+	/// Returns the entries one access declares.
 	fn of(access: impl Access) -> Self {
 		Self::default().and(access)
 	}
 
-	/// Adds the entries `access` has.
+	/// Adds the entries `access` declares.
 	fn and(mut self, access: impl Access) -> Self {
 		access.expand(|entry, op| {
 			self.insert_or_update(entry, op);
@@ -67,11 +67,11 @@ impl DeclaredEntries {
 		self.0.remove(entry)
 	}
 
-	/// Inserts or updates `entry` with `op`.
+	/// Adds `entry` with `op`; an entry declared as both a read and a write stays a write.
 	fn insert_or_update(&mut self, entry: AccessEntry, op: StorageOp) {
-		let charged = self.0.entry(entry).or_insert(op);
-		if !charged.covers(op) {
-			*charged = op;
+		let declared_op = self.0.entry(entry).or_insert(op);
+		if !declared_op.covers(op) {
+			*declared_op = op;
 		}
 	}
 }
@@ -82,7 +82,7 @@ struct ReadsAndWrites {
 	/// Keys the access list tracks, as entries.
 	read: BTreeSet<AccessEntry>,
 	written: BTreeSet<AccessEntry>,
-	/// Keys it does not track, named by their pallet and storage item.
+	/// Keys the access list does not track, named by their pallet and storage item.
 	other_read: BTreeSet<String>,
 	other_written: BTreeSet<String>,
 }
@@ -109,7 +109,7 @@ impl ReadsAndWrites {
 	}
 
 	/// Splits recorded keys into the entries the access list tracks and, for the rest, the pallet
-	/// and storage item they belong to. Keys the benchmarks whitelist are dropped.
+	/// and storage item they belong to. Keys the benchmarks already cover are dropped.
 	fn from_keys(read: &[Vec<u8>], written: &[Vec<u8>]) -> Self {
 		let covered = keys_the_benchmarks_cover();
 		let storage_items = crate::tests::AllPalletsWithSystem::storage_info();
@@ -145,13 +145,13 @@ fn keys_the_benchmarks_cover() -> BTreeSet<Vec<u8>> {
 		.map(|whitelisted| whitelisted.key)
 		// The benchmark macro whitelists the transactional layer itself, outside any pallet.
 		.chain(core::iter::once(TRANSACTION_LEVEL_KEY.to_vec()))
-		// Not whitelisted, but the `call` benchmark declares it: one read when the stack is built.
+		// Not whitelisted, but the `call` benchmark measures it: one read when the stack is built.
 		.chain(core::iter::once(pallet_timestamp::Now::<Test>::hashed_key().to_vec()))
 		.collect()
 }
 
-/// Returns the name of a key as its pallet and storage item, or its raw bytes when no pallet
-/// claims it.
+/// Returns the name of a key as its pallet and storage item, `"child trie root"` for a key that
+/// holds a child trie's root, or the key in hex when no pallet claims it.
 fn label_key(key: &[u8], storage_items: &[StorageInfo]) -> String {
 	use sp_core::storage::well_known_keys::is_default_child_storage_key;
 	if is_default_child_storage_key(key) {
@@ -223,12 +223,12 @@ fn reads_and_writes_of<R>(
 		.collect::<Vec<_>>();
 	assert_eq!(ext.overlayed_changes().children().count(), 0, "contract storage is out of scope");
 
-	// Mapping an account id back to its address reads `OriginalAccount`.
+	// Checking whether an account id is mapped reads `OriginalAccount`.
 	(ext.execute_with(|| ReadsAndWrites::from_keys(&read, &written)), outcome)
 }
 
-/// Returns the reads and writes of calling `caller` with `payload`, and the two deployed
-/// contracts.
+/// Deploys both codes, calls the caller with the data `payload` builds for the target, and
+/// returns the call's reads and writes along with the two deployed contracts.
 fn reads_and_writes_of_call(
 	caller_code: &[u8],
 	target_code: &[u8],
@@ -247,7 +247,7 @@ fn reads_and_writes_of_call(
 fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 	let (mut ext, [contract]) = deploy_contracts([code.as_slice()]);
-	// a call that reads no contract storage.
+	// `whoSender` reads no contract storage: the harness covers only the main trie.
 	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
 		builder::bare_call(contract.addr)
 			.data(Callee::whoSenderCall {}.abi_encode())
@@ -452,10 +452,10 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 	// Warmed by InstantiateItems, never read: seal_instantiate and evm_instantiate pay for it.
 	assert!(
 		declared.remove(&AccessEntry::OriginalAccount { address: child }).is_some(),
-		"the instantiate no longer has the new address's mapping",
+		"the instantiate no longer declares the new address's mapping",
 	);
 	let mut expected = ReadsAndWrites::from_declared(declared);
-	// Never warmed: the origin pays the new contract's deposit, which writes its account.
+	// Never warmed: the new contract's deposit is charged to the origin's account.
 	expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
 	expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
 
@@ -477,7 +477,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		.map(String::from),
 	);
 	if !child_code_uploaded_up_front {
-		// The code deposit sits on the pallet's own account.
+		// The code deposit is held on the pallet's own account.
 		deposit_items.insert("System::Account".into());
 	}
 	let deposit_writes = deposit_items.clone();
@@ -535,10 +535,10 @@ fn a_transfer_accesses_what_it_declares(fixture_type: FixtureType, dust: bool) {
 
 	let mut expected = DeclaredEntries::of(TransferItems { from: from.addr, to: to.addr, dust });
 	if !dust {
-		// The access has the receiver's info; a dust-free transfer never touches it.
+		// `TransferItems` declares the receiver's info; a transfer without dust does not touch it.
 		assert!(
 			expected.remove(&AccessEntry::AccountInfo { address: to.addr }).is_some(),
-			"the transfer no longer has the receiver's info",
+			"the transfer no longer declares the receiver's info",
 		);
 	}
 	assert_eq!(reads_writes, ReadsAndWrites::from_declared(expected));
