@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794354344522,
+  "lastUpdate": 1794359703689,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7333c29c30e9c95dc0f061712c626db03b067d10",
-          "message": "Add pallet-gas-allowance with ChargePGAS transaction extension (#11818)\n\n## Summary\n\n- Introduces `pallet-pgas-allowance` providing a new `ChargePGAS<T, S>`\ntransaction extension that wraps an inner fee extension `S`.\n- When a signed transaction dispatches a call matching\n`Config::CallFilter` and the signer holds enough PGAS (a trusted asset\non Asset Hub), the fee is withdrawn as a `fungibles::Credit`. In\n`post_dispatch` the `actual_fee` portion is dropped and burned and the\nunused remainder refunded to the payer.\n- A `PGASFeePaid { who, actual_fee }` event is emitted when the fee is\npaid in PGAS.\n- Wires the extension into `asset-hub-westend`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2026-04-28T08:45:05Z",
-          "tree_id": "11dd2b4f354287f389088fade03698eabd920b6d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7333c29c30e9c95dc0f061712c626db03b067d10"
-        },
-        "date": 1777372593758,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13407030763333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.934460692100002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12448112626666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "727efe8bc1a66cad0dd2f7a8fd770ebe56985969",
+          "message": "Fix deprecated `UnboundedReceiver::try_next` (#13798)\n\nFix `cargo test --doc` on master.",
+          "timestamp": "2026-11-10T23:28:21Z",
+          "tree_id": "1d0c1ca330f2068fb548b2f5ac097e2104fe77e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/727efe8bc1a66cad0dd2f7a8fd770ebe56985969"
+        },
+        "date": 1794359676073,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13249522890000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.6816792415,
             "unit": "seconds"
           }
         ]
