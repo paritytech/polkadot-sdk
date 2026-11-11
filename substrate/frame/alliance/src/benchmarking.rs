@@ -71,6 +71,17 @@ fn generate_unscrupulous_account<T: Config<I>, I: 'static>(index: u32) -> T::Acc
 	funded_account::<T, I>("unscrupulous", index)
 }
 
+// `add_unscrupulous_items` rejects a website repeated in one call, so each index needs its own
+// bytes. They need 4 bytes, so below that the website is 4 bytes long rather than `len`.
+fn generate_unscrupulous_website<T: Config<I>, I: 'static>(
+	index: u32,
+	len: u32,
+) -> BoundedVec<u8, T::MaxWebsiteUrlLength> {
+	let mut website = index.to_le_bytes().to_vec();
+	website.resize(len.max(4) as usize, 0);
+	BoundedVec::try_from(website).unwrap()
+}
+
 fn set_members<T: Config<I>, I: 'static>() {
 	let fellows: BoundedVec<_, T::MaxMembersCount> =
 		BoundedVec::try_from(vec![fellow::<T, I>(1), fellow::<T, I>(2)]).unwrap();
@@ -763,11 +774,8 @@ mod benchmarks {
 		set_members::<T, I>();
 
 		let accounts = (0..n).map(|i| generate_unscrupulous_account::<T, I>(i)).collect::<Vec<_>>();
-		let websites = (0..n)
-			.map(|i| -> BoundedVec<u8, T::MaxWebsiteUrlLength> {
-				BoundedVec::try_from(vec![i as u8; l as usize]).unwrap()
-			})
-			.collect::<Vec<_>>();
+		let websites =
+			(0..n).map(|i| generate_unscrupulous_website::<T, I>(i, l)).collect::<Vec<_>>();
 
 		let mut unscrupulous_list = Vec::with_capacity(accounts.len() + websites.len());
 		unscrupulous_list.extend(accounts.into_iter().map(UnscrupulousItem::AccountId));
@@ -799,11 +807,8 @@ mod benchmarks {
 		let accounts: BoundedVec<_, T::MaxUnscrupulousItems> = accounts.try_into().unwrap();
 		UnscrupulousAccounts::<T, I>::put(accounts.clone());
 
-		let mut websites = (0..n)
-			.map(|i| -> BoundedVec<_, T::MaxWebsiteUrlLength> {
-				BoundedVec::try_from(vec![i as u8; l as usize]).unwrap()
-			})
-			.collect::<Vec<_>>();
+		let mut websites =
+			(0..n).map(|i| generate_unscrupulous_website::<T, I>(i, l)).collect::<Vec<_>>();
 		websites.sort();
 		let websites: BoundedVec<_, T::MaxUnscrupulousItems> = websites.try_into().unwrap();
 		UnscrupulousWebsites::<T, I>::put(websites.clone());
