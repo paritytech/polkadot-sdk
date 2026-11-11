@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794359848472,
+  "lastUpdate": 1794392326975,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1dc3f352af493eb6eeef7ed67b217d93f9282039",
-          "message": "[zombienet] fix flaky zombienet tests (#11872)\n\nAdd `authoring` flag to test using _glutton_",
-          "timestamp": "2026-04-24T14:01:29Z",
-          "tree_id": "dfcad914162aa1f106a42d2668f88e05b2745751",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1dc3f352af493eb6eeef7ed67b217d93f9282039"
-        },
-        "date": 1777044359151,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.056,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038724373536000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07904974229799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03854588038400002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "366b877215debd328cef56068b4ef3817369702c",
+          "message": "[CI/CD] Add Dockerfile that will be used for the polkadot arm builds (#13799)",
+          "timestamp": "2026-11-11T08:36:49Z",
+          "tree_id": "fd67a8a930fd323963b95c690785ef250b40b4f1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/366b877215debd328cef56068b4ef3817369702c"
+        },
+        "date": 1794392292217,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.138,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09169938329999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038870171706000003,
             "unit": "seconds"
           }
         ]
