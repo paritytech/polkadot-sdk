@@ -9,8 +9,10 @@ doc:
 
     The log line that starts the historical sync now also shows the stored first EVM block.
 
-    `CliCommand` has a new public field, `historical_sync_max_blocks_per_sec`. Code that constructs
-    it with a struct literal must set the field; `None` keeps the previous behavior.
+    `CliCommand` has a new public field, `historical_sync_max_blocks_per_sec`, and
+    `Client::sync_backward` takes the limit as a new parameter. Code that constructs `CliCommand`
+    with a struct literal must set the field, and callers of `sync_backward` must pass the limit;
+    `None` keeps the previous behavior.
 crates:
 - name: pallet-revive-eth-rpc
   bump: major

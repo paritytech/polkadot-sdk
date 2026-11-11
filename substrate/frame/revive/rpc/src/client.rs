@@ -28,7 +28,6 @@ use crate::{
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use futures::TryStreamExt;
-use governor::DefaultDirectRateLimiter;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
@@ -336,9 +335,6 @@ pub struct Client {
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
-	/// Caps the number of blocks synced per second for historical block sync. `None` means no
-	/// limit.
-	historical_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -479,7 +475,6 @@ impl Client {
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
-		historical_sync_rate_limiter: Option<DefaultDirectRateLimiter>,
 		chain_id: u64,
 	) -> Result<Self, ClientError> {
 		let (max_block_weight, automine) = tokio::try_join!(max_block_weight(&api), async {
@@ -526,7 +521,6 @@ impl Client {
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
 			runtime_api_provider,
-			historical_sync_rate_limiter: historical_sync_rate_limiter.map(Arc::new),
 		};
 
 		Ok(client)
@@ -576,13 +570,6 @@ impl Client {
 
 	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
 		&self.block_provider
-	}
-
-	/// Waits until the historical sync rate limit, if set, lets another block through.
-	pub async fn throttle_historical_sync(&self) {
-		if let Some(limiter) = &self.historical_sync_rate_limiter {
-			limiter.until_ready().await;
-		}
 	}
 
 	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {

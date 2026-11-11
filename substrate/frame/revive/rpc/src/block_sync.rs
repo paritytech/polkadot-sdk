@@ -81,14 +81,12 @@ impl SyncCheckpoint {
 const BLOCK_INTERVAL: u32 = 128;
 
 /// Returns a limiter that lets through at most `max_blocks_per_sec` blocks per second on average.
-pub fn new_historical_sync_rate_limiter(
-	max_blocks_per_sec: NonZeroU32,
-) -> DefaultDirectRateLimiter {
+fn new_historical_sync_rate_limiter(max_blocks_per_sec: NonZeroU32) -> DefaultDirectRateLimiter {
 	RateLimiter::direct(Quota::per_second(max_blocks_per_sec).allow_burst(NonZeroU32::MIN))
 }
 
 /// Options for [`Client::sync_backward_range`].
-struct BackwardSyncRange {
+struct BackwardSyncRange<'a> {
 	from: SubstrateBlockNumber,
 	to: SubstrateBlockNumber,
 	/// Set `Head` label after syncing the first block.
@@ -97,8 +95,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
-	/// Whether this range is subject to rate limiting.
-	rate_limit: bool,
+	/// Limits how many blocks per second the range syncs; `None` means no limit.
+	rate_limiter: Option<&'a DefaultDirectRateLimiter>,
 }
 
 impl Client {
@@ -163,11 +161,16 @@ impl Client {
 	/// Resumes from the last checkpoint if a previous sync was interrupted.
 	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are swallowed
 	/// to avoid taking down the RPC server.
-	pub async fn sync_backward(&self) -> Result<(), ClientError> {
+	/// `max_blocks_per_sec` caps the number of blocks synced per second; `None` means no limit.
+	pub async fn sync_backward(
+		&self,
+		max_blocks_per_sec: Option<NonZeroU32>,
+	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET,
 			"🔄 Historical block sync enabled. \
 			 For a complete sync, the connected node should be an archive node.");
-		match self.sync_backward_inner().await {
+		let rate_limiter = max_blocks_per_sec.map(new_historical_sync_rate_limiter);
+		match self.sync_backward_inner(rate_limiter.as_ref()).await {
 			Ok(()) => Ok(()),
 			Err(err) if err.is_chain_validation_error() => Err(err),
 			Err(err) => {
@@ -177,7 +180,10 @@ impl Client {
 		}
 	}
 
-	async fn sync_backward_inner(&self) -> Result<(), ClientError> {
+	async fn sync_backward_inner(
+		&self,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
+	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
 		let latest_finalized_block = self.latest_finalized_block().await;
 		let latest_finalized = SyncCheckpoint::new(
@@ -207,19 +213,20 @@ impl Client {
 					"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}, \
 					 first EVM block {first_evm_block}",
 					tail.block_number, head.block_number, latest_finalized.block_number);
-				self.sync_backward_resume(tail, head, latest_finalized).await?;
+				self.sync_backward_resume(tail, head, latest_finalized, rate_limiter).await?;
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
 					"🗄️ Tail exists without Head — possible partial corruption, \
-					 starting fresh sync from #{}", latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number).await?;
+					 starting fresh sync from #{}, first EVM block {first_evm_block}",
+					latest_finalized.block_number);
+				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
 					"🗄️ Fresh sync: syncing backward from #{}, first EVM block {first_evm_block}",
 					latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number).await?;
+				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
 			},
 		}
 
@@ -233,6 +240,7 @@ impl Client {
 	async fn sync_backward_fresh(
 		&self,
 		latest_finalized: SubstrateBlockNumber,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
 		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
 		self.sync_backward_range(BackwardSyncRange {
@@ -241,7 +249,7 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
-			rate_limit: true,
+			rate_limiter,
 		})
 		.await
 	}
@@ -252,6 +260,7 @@ impl Client {
 		tail: SyncCheckpoint,
 		head: SyncCheckpoint,
 		latest_finalized: SyncCheckpoint,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
 		let top_gap = async {
 			// Top gap: sync from latest_finalized down to head + 1.
@@ -262,7 +271,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
-					rate_limit: true,
+					rate_limiter,
 				})
 				.await?;
 
@@ -284,7 +293,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
-					rate_limit: true,
+					rate_limiter,
 				})
 				.await?;
 			} else {
@@ -308,8 +317,8 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
-			rate_limit,
-		}: BackwardSyncRange,
+			rate_limiter,
+		}: BackwardSyncRange<'_>,
 	) -> Result<(), ClientError> {
 		if from < to {
 			log::debug!(target: LOG_TARGET,	"⬇️ Backward sync: nothing to sync (#{from}..#{to})");
@@ -330,8 +339,8 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
-			if rate_limit {
-				self.throttle_historical_sync().await;
+			if let Some(limiter) = rate_limiter {
+				limiter.until_ready().await;
 			}
 
 			let block_number = block.block_number();
@@ -452,7 +461,9 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
-					rate_limit: false,
+					// Not rate-limited: the gap is expected to be small, and it covers blocks
+					// just below the chain head that cannot be queried until it is filled.
+					rate_limiter: None,
 				})
 				.await
 			{

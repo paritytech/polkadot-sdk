@@ -19,7 +19,6 @@ use crate::{
 	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	block_sync::new_historical_sync_rate_limiter,
 	client::{
 		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
@@ -281,7 +280,6 @@ fn build_client(
 	max_response_size: u32,
 	abort_signal: Signals,
 	subscription_gap_queue: SubscriptionGapQueue,
-	historical_sync_max_blocks_per_sec: Option<NonZeroU32>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) =
@@ -330,7 +328,6 @@ fn build_client(
 			eth_pruning.is_archive(),
 			subscription_gap_queue,
 			runtime_api_provider,
-			historical_sync_max_blocks_per_sec.map(new_historical_sync_rate_limiter),
 			chain_id,
 		)
 		.await?;
@@ -418,7 +415,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 		subscription_gap_queue,
-		historical_sync_max_blocks_per_sec,
 	)?;
 
 	// Prometheus metrics.
@@ -452,7 +448,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			];
 
 			if eth_pruning.is_archive() {
-				futures.push(Box::pin(client.sync_backward()));
+				futures.push(Box::pin(client.sync_backward(historical_sync_max_blocks_per_sec)));
 			}
 
 			// Backfill gaps caused by subscription reconnects.
