@@ -142,9 +142,7 @@ pub enum MessageToRelayV1<AccountId> {
 /// Registrar report messages sent back to the parachain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToPara {
 	/// Version 1 of the registrar report messages to the parachain.
 	#[codec(index = 0)]
@@ -152,9 +150,7 @@ pub enum MessageToPara {
 }
 
 /// Version 1 payloads for [`MessageToPara`].
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToParaV1 {
 	/// Report how a registration requested with [`MessageToRelayV1::Register`] ended.
 	///
@@ -245,6 +241,53 @@ pub enum MessageToParaV1 {
 	HeadNoted {
 		/// The para id that produced a head.
 		para_id: ParaId,
+	},
+	/// A para's request about itself, relayed by the relay chain.
+	#[codec(index = 7)]
+	Relayed {
+		/// The para that sent the request, taken from its origin on the relay chain.
+		para_id: ParaId,
+		/// What the para asks for.
+		request: ParaRequestV1,
+	},
+}
+
+/// A request a para makes about itself through the relay chain, for a para with no channel to
+/// the registrar parachain.
+///
+/// The variant's `#[codec(index)]` is the on-wire version tag.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum ParaRequest {
+	/// Version 1 of the para requests.
+	#[codec(index = 0)]
+	V1(ParaRequestV1),
+}
+
+/// Version 1 payloads for [`ParaRequest`], each running the registrar call of the same name.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum ParaRequestV1 {
+	/// Lock the para, keeping its manager out.
+	#[codec(index = 0)]
+	AddLock,
+	/// Lift the para's lock.
+	#[codec(index = 1)]
+	RemoveLock,
+	/// Drop the para.
+	#[codec(index = 2)]
+	Deregister,
+	/// Authorize a validation code upgrade.
+	#[codec(index = 3)]
+	ScheduleCodeUpgrade {
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
+	},
+	/// Set the para's current head.
+	#[codec(index = 4)]
+	SetCurrentHead {
+		/// The new head data.
+		head: Vec<u8>,
 	},
 }
 

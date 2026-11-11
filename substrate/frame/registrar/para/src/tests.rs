@@ -2278,3 +2278,254 @@ mod schedule_code_upgrade {
 		});
 	}
 }
+
+mod relayed {
+	use super::*;
+	use crate::{Origin, WeightInfo};
+	use frame_support::dispatch::GetDispatchInfo;
+	use registrar_primitives::ParaRequestV1;
+
+	fn relayed(para_id: u32, request: ParaRequestV1) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::Relayed { para_id, request })
+	}
+
+	/// Deliver `request` from `para_id` the way the relay chain does.
+	fn relay(para_id: u32, request: ParaRequestV1) {
+		assert_ok!(Registrar::receive(RuntimeOrigin::root(), relayed(para_id, request)));
+	}
+
+	fn relayed_origin(para_id: u32) -> RuntimeOrigin {
+		Origin::RelayedPara(para_id).into()
+	}
+
+	#[test]
+	fn a_locked_para_unlocks_itself() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			relay(para_id, ParaRequestV1::RemoveLock);
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ParaUnlocked { para_id },
+					Event::RelayedRequest { para_id, result: Ok(()) },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_locks_itself() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+
+			relay(para_id, ParaRequestV1::AddLock);
+
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ParaLocked { para_id },
+					Event::RelayedRequest { para_id, result: Ok(()) }
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_locked_para_still_sets_its_head_and_upgrades_its_code() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+			let code_hash = hash_of(&code(300));
+
+			relay(para_id, ParaRequestV1::SetCurrentHead { head: head(20) });
+			relay(para_id, ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len: 300 });
+
+			// Registration was message 0.
+			assert_eq!(
+				take_sent(),
+				vec![
+					MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+						para_id,
+						message_id: 1,
+						head: head(20),
+					}),
+					MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+						para_id,
+						message_id: 2,
+						code_hash,
+						code_len: 300,
+					}),
+				]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::HeadUpdateRequested { para_id, message_id: 1 },
+					Event::RelayedRequest { para_id, result: Ok(()) },
+					Event::CodeUpgradeRequested { para_id, message_id: 2, code_hash },
+					Event::RelayedRequest { para_id, result: Ok(()) },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_locked_para_deregisters_itself_and_the_manager_gets_the_deposits() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			relay(para_id, ParaRequestV1::Deregister);
+
+			assert_eq!(take_sent(), vec![deregister_request(para_id, 1)]);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { .. }
+			));
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Ok(()))
+			));
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+		});
+	}
+
+	#[test]
+	fn a_failed_request_is_reported_and_rolled_back() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+			let info = Paras::<Test>::get(para_id).unwrap();
+
+			// Not locked, so there is nothing to lift.
+			relay(para_id, ParaRequestV1::RemoveLock);
+			// Never reserved here.
+			relay(4242, ParaRequestV1::AddLock);
+			// The deregistration gets as far as the transport, and all of it unwinds.
+			SendFails::set(true);
+			relay(para_id, ParaRequestV1::Deregister);
+
+			assert_eq!(Paras::<Test>::get(para_id).unwrap(), info);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
+			assert!(take_sent().is_empty());
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::RelayedRequest { para_id, result: Err(Error::<Test>::NotLocked.into()) },
+					Event::RelayedRequest {
+						para_id: 4242,
+						result: Err(Error::<Test>::NotReserved.into())
+					},
+					Event::RelayedRequest {
+						para_id,
+						result: Err(Error::<Test>::SendFailed.into())
+					},
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_relayed_para_acts_only_for_itself() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::remove_lock(relayed_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+			assert_noop!(
+				Registrar::set_current_head(relayed_origin(para_id + 1), para_id, head(20)),
+				Error::<Test>::NotOwner
+			);
+		});
+	}
+
+	#[test]
+	fn the_relayed_origin_opens_nothing_else() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			let origin = relayed_origin(para_id);
+			let hash = hash_of(&code(300));
+
+			assert_noop!(Registrar::reserve(origin.clone()), DispatchError::BadOrigin);
+			assert_noop!(
+				Registrar::register(origin.clone(), para_id, head(20), 300, hash),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::cancel_registration(origin.clone(), para_id),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::force_register(
+					origin.clone(),
+					SYSTEM_PARA_ID,
+					ALICE,
+					head(20),
+					300,
+					hash,
+					true
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::receive(origin, relayed(para_id, ParaRequestV1::AddLock)),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_relay_chain_may_relay() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+			let message = relayed(para_id, ParaRequestV1::RemoveLock);
+
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), message.clone()),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::receive(para_origin(para_id), message),
+				DispatchError::BadOrigin
+			);
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+		});
+	}
+
+	#[test]
+	fn weighs_relaying_plus_the_call_it_runs() {
+		let weight = |request| {
+			crate::Call::<Test>::receive { message: relayed(FIRST_PARA_ID, request) }
+				.get_dispatch_info()
+				.call_weight
+		};
+		let relaying = |call| <() as WeightInfo>::receive_relayed().saturating_add(call);
+
+		assert_eq!(weight(ParaRequestV1::AddLock), relaying(<() as WeightInfo>::add_lock()));
+		assert_eq!(weight(ParaRequestV1::RemoveLock), relaying(<() as WeightInfo>::remove_lock()));
+		assert_eq!(
+			weight(ParaRequestV1::Deregister),
+			relaying(
+				<() as WeightInfo>::deregister_reserved()
+					.max(<() as WeightInfo>::deregister_registered())
+					.max(<() as WeightInfo>::deregister_retry())
+			)
+		);
+		assert_eq!(
+			weight(ParaRequestV1::ScheduleCodeUpgrade {
+				code_hash: hash_of(&code(9)),
+				code_len: 9
+			}),
+			relaying(<() as WeightInfo>::schedule_code_upgrade())
+		);
+		assert_eq!(
+			weight(ParaRequestV1::SetCurrentHead { head: head(64) }),
+			relaying(<() as WeightInfo>::set_current_head(64))
+		);
+	}
+}
