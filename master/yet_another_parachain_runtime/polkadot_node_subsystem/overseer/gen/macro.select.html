@@ -191,7 +191,7 @@ activated by default.</p>
 <span class="macro">select!</span> {
     x = st.next() =&gt; <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="number">2</span>), x),
     <span class="kw">_ </span>= fut =&gt; <span class="macro">panic!</span>(),
-};</code></pre></div>
+}</code></pre></div>
 <p>As described earlier, <code>select</code> can directly select on expressions
 which return <code>Future</code>s - even if those do not implement <code>Unpin</code>:</p>
 
@@ -212,12 +212,13 @@ which return <code>Future</code>s - even if those do not implement <code>Unpin</
 <p>If a similar async function is called outside of <code>select</code> to produce
 a <code>Future</code>, the <code>Future</code> must be pinned in order to be able to pass
 it to <code>select</code>. This can be achieved via <code>Box::pin</code> for pinning a
-<code>Future</code> on the heap or the <code>pin_mut!</code> macro for pinning a <code>Future</code>
+<code>Future</code> on the heap or the <code>pin!</code> macro for pinning a <code>Future</code>
 on the stack.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>core::pin::pin;
+
+<span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>futures::select;
-<span class="kw">use </span>futures::pin_mut;
 
 <span class="comment">// Calling the following async fn returns a Future which does not
 // implement Unpin
@@ -228,7 +229,7 @@ on the stack.</p>
 <span class="kw">let </span>fut_1 = async_identity_fn(<span class="number">1</span>).fuse();
 <span class="kw">let </span>fut_2 = async_identity_fn(<span class="number">2</span>).fuse();
 <span class="kw">let </span><span class="kw-2">mut </span>fut_1 = Box::pin(fut_1); <span class="comment">// Pins the Future on the heap
-</span><span class="macro">pin_mut!</span>(fut_2); <span class="comment">// Pins the Future on the stack
+</span><span class="kw">let </span><span class="kw-2">mut </span>fut_2 = <span class="macro">pin!</span>(fut_2); <span class="comment">// Pins the Future on the stack
 
 </span><span class="kw">let </span>res = <span class="macro">select!</span> {
     a_res = fut_1 =&gt; a_res,
@@ -256,7 +257,7 @@ demonstrated in the following example:</p>
         b = b_fut =&gt; total += b,
         complete =&gt; <span class="kw">break</span>,
         default =&gt; <span class="macro">panic!</span>(), <span class="comment">// never runs (futures run first, then complete)
-    </span>};
+    </span>}
 }
 <span class="macro">assert_eq!</span>(total, <span class="number">10</span>);</code></pre></div>
 <p>Note that the futures that have been matched over can still be mutated

@@ -727,8 +727,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#577 id=577 data-nosnippet>577</a>			</span><span class="kw">let </span>sim_t = <span class="self">self</span>.now_sim_t();
 <a href=#578 id=578 data-nosnippet>578</a>			<span class="kw">let </span><span class="kw-2">mut </span>progressed = <span class="bool-val">false</span>;
 <a href=#579 id=579 data-nosnippet>579</a>			<span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.outbound_rxs.len() {
-<a href=#580 id=580 data-nosnippet>580</a>				<span class="kw">match </span><span class="self">self</span>.outbound_rxs[idx].try_next() {
-<a href=#581 id=581 data-nosnippet>581</a>					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(msg)) =&gt; {
+<a href=#580 id=580 data-nosnippet>580</a>				<span class="kw">match </span><span class="self">self</span>.outbound_rxs[idx].try_recv() {
+<a href=#581 id=581 data-nosnippet>581</a>					<span class="prelude-val">Ok</span>(msg) =&gt; {
 <a href=#582 id=582 data-nosnippet>582</a>						progressed = <span class="bool-val">true</span>;
 <a href=#583 id=583 data-nosnippet>583</a>						<span class="kw">let </span>uut_route = UutRouteFor::&lt;S&gt; { uut: <span class="kw-2">&amp;</span><span class="self">self</span>.uut };
 <a href=#584 id=584 data-nosnippet>584</a>						<span class="kw">let </span>aux = <span class="self">self</span>.aux.as_slice();
@@ -748,7 +748,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#598 id=598 data-nosnippet>598</a>						// reached their inboxes; oneshot replies unblocked someone).
 <a href=#599 id=599 data-nosnippet>599</a>						</span><span class="self">self</span>.executor.poll_until_pending();
 <a href=#600 id=600 data-nosnippet>600</a>					},
-<a href=#601 id=601 data-nosnippet>601</a>					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
+<a href=#601 id=601 data-nosnippet>601</a>					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
 <a href=#602 id=602 data-nosnippet>602</a>				}
 <a href=#603 id=603 data-nosnippet>603</a>			}
 <a href=#604 id=604 data-nosnippet>604</a>			<span class="kw">if </span>!progressed {

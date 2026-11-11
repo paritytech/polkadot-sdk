@@ -176,7 +176,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#26 id=26 data-nosnippet>26</a>	NODE_UNDER_TEST,
 <a href=#27 id=27 data-nosnippet>27</a>};
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>codec::Encode;
-<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>futures::SinkExt;
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>futures::{channel::mpsc::TryRecvError, SinkExt};
 <a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>itertools::Itertools;
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
 <a href=#32 id=32 data-nosnippet>32</a>
@@ -359,8 +359,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#209 id=209 data-nosnippet>209</a>		<span class="kw">let </span><span class="kw-2">mut </span>all_messages: BTreeMap&lt;u64, Vec&lt;MessagesBundle&gt;&gt; = BTreeMap::new();
 <a href=#210 id=210 data-nosnippet>210</a>		<span class="comment">// Receive all messages and sort them by Tick they have to be sent.
 <a href=#211 id=211 data-nosnippet>211</a>		</span><span class="kw">loop </span>{
-<a href=#212 id=212 data-nosnippet>212</a>			<span class="kw">match </span>rx.try_next() {
-<a href=#213 id=213 data-nosnippet>213</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((block_hash, messages))) =&gt; {
+<a href=#212 id=212 data-nosnippet>212</a>			<span class="kw">match </span>rx.try_recv() {
+<a href=#213 id=213 data-nosnippet>213</a>				<span class="prelude-val">Ok</span>((block_hash, messages)) =&gt; {
 <a href=#214 id=214 data-nosnippet>214</a>					<span class="kw">for </span>message <span class="kw">in </span>messages {
 <a href=#215 id=215 data-nosnippet>215</a>						<span class="kw">let </span>block_info = blocks
 <a href=#216 id=216 data-nosnippet>216</a>							.iter()
@@ -375,8 +375,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#225 id=225 data-nosnippet>225</a>						to_add.push(message);
 <a href=#226 id=226 data-nosnippet>226</a>					}
 <a href=#227 id=227 data-nosnippet>227</a>				},
-<a href=#228 id=228 data-nosnippet>228</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">break</span>,
-<a href=#229 id=229 data-nosnippet>229</a>				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+<a href=#228 id=228 data-nosnippet>228</a>				<span class="prelude-val">Err</span>(TryRecvError::Closed) =&gt; <span class="kw">break</span>,
+<a href=#229 id=229 data-nosnippet>229</a>				<span class="prelude-val">Err</span>(TryRecvError::Empty) =&gt; {
 <a href=#230 id=230 data-nosnippet>230</a>					std::thread::sleep(Duration::from_millis(<span class="number">50</span>));
 <a href=#231 id=231 data-nosnippet>231</a>				},
 <a href=#232 id=232 data-nosnippet>232</a>			}

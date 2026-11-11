@@ -182,7 +182,7 @@ helper trait to “register” your back-end. See the <code>MyF32</code> example
 Those methods should include an assert to check the range is valid (i.e.
 <code>low &lt; high</code>). The example below merely wraps another back-end.</p>
 <p>The <code>new</code>, <code>new_inclusive</code> and <code>sample_single</code> functions use arguments of
-type SampleBorrow<X> in order to support passing in values by reference or
+type <code>SampleBorrow&lt;X&gt;</code> in order to support passing in values by reference or
 by value. In the implementation of these functions, you can choose to
 simply use the reference returned by <a href="trait.SampleBorrow.html#tymethod.borrow" title="method yet_another_parachain_runtime::polkadot_node_subsystem_util::rand::distributions::uniform::SampleBorrow::borrow"><code>SampleBorrow::borrow</code></a>, or you can choose
 to copy or clone the value, whatever is appropriate for your type.</p>

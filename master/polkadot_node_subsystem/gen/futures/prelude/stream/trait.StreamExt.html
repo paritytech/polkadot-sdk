@@ -487,8 +487,7 @@ destination, returning a future representing the end result.</p>
 <p>This combinator will extend the first item with the contents
 of all the subsequent results of the stream. If the stream is
 empty, the default value will be returned.</p>
-<p>Works with all collections that implement the
-<a href="https://doc.rust-lang.org/1.93.0/core/iter/traits/collect/trait.Extend.html" title="trait core::iter::traits::collect::Extend"><code>Extend</code></a> trait.</p>
+<p>Works with all collections that implement the <a href="https://doc.rust-lang.org/1.93.0/core/iter/traits/collect/trait.Extend.html" title="trait core::iter::traits::collect::Extend"><code>Extend</code></a> trait.</p>
 <h5 id="examples-9"><a class="doc-anchor" href="#examples-9">§</a>Examples</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::channel::mpsc;
 <span class="kw">use </span>futures::stream::StreamExt;

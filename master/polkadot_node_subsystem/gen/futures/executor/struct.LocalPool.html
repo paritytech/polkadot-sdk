@@ -152,8 +152,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <p>This executor allows you to multiplex any number of tasks onto a single
 thread. It’s appropriate to poll strictly I/O-bound futures that do very
 little work in between I/O actions.</p>
-<p>To get a handle to the pool that implements
-<a href="../task/trait.Spawn.html" title="trait polkadot_node_subsystem::gen::futures::task::Spawn"><code>Spawn</code></a>, use the
+<p>To get a handle to the pool that implements <a href="../task/trait.Spawn.html" title="trait polkadot_node_subsystem::gen::futures::task::Spawn"><code>Spawn</code></a>, use the
 <a href="struct.LocalPool.html#method.spawner" title="method polkadot_node_subsystem::gen::futures::executor::LocalPool::spawner"><code>spawner()</code></a> method. Because the executor is
 single-threaded, it supports a special form of task spawning for non-<code>Send</code>
 futures, via <a href="../task/trait.LocalSpawn.html#tymethod.spawn_local_obj" title="method polkadot_node_subsystem::gen::futures::task::LocalSpawn::spawn_local_obj"><code>spawn_local_obj</code></a>.</p>

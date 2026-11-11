@@ -186,7 +186,7 @@ version of them.</p>
     </span><span class="macro">assert_eq!</span>(<span class="number">1</span>, out.select_next_some().<span class="kw">await</span>);
 }</code></pre></div><h4 id="round-robin"><a class="doc-anchor" href="#round-robin">§</a>Round Robin</h4>
 <p>This example shows how to select from both streams round robin.
-Note: this special case is provided by [<code>futures-util::stream::select</code>].</p>
+Note: this special case is provided by <a href="../../../fn.select.html" title="fn polkadot_node_subsystem::gen::select"><code>stream::select</code></a>.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::stream::{ repeat, select_with_strategy, PollNext, StreamExt };
 

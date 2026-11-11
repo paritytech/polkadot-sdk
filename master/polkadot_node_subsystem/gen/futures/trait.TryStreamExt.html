@@ -586,8 +586,11 @@ it resolves to <a href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option
 wrapped version of it, similar to the existing <code>filter_map</code> methods in
 the standard library.</p>
 <h5 id="examples-14"><a class="doc-anchor" href="#examples-14">§</a>Examples</h5>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::stream::{<span class="self">self</span>, StreamExt, TryStreamExt};
-<span class="kw">use </span>futures::pin_mut;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>core::pin::pin;
+
+<span class="kw">use </span>futures::stream;
+<span class="kw">use </span>futures::stream::StreamExt;
+<span class="kw">use </span>futures::stream::TryStreamExt;
 
 <span class="kw">let </span>stream = stream::iter(<span class="macro">vec!</span>[<span class="prelude-val">Ok</span>(<span class="number">1i32</span>), <span class="prelude-val">Ok</span>(<span class="number">6i32</span>), <span class="prelude-val">Err</span>(<span class="string">"error"</span>)]);
 <span class="kw">let </span>halves = stream.try_filter_map(|x| <span class="kw">async move </span>{
@@ -595,7 +598,7 @@ the standard library.</p>
     <span class="prelude-val">Ok</span>(ret)
 });
 
-<span class="macro">pin_mut!</span>(halves);
+<span class="kw">let </span><span class="kw-2">mut </span>halves = <span class="macro">pin!</span>(halves);
 <span class="macro">assert_eq!</span>(halves.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="number">3</span>)));
 <span class="macro">assert_eq!</span>(halves.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="string">"error"</span>)));</code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="method.try_flatten_unordered" class="method"><h4 class="code-header">fn <a href="#method.try_flatten_unordered" class="fn">try_flatten_unordered</a>(
     self,

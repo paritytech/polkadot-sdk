@@ -153,10 +153,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 applying the provided closure, the repeater, <code>F: FnMut() -&gt; A</code>.</p>
 <p>The <code>repeat_with()</code> function calls the repeater over and over again.</p>
 <p>Infinite stream like <code>repeat_with()</code> are often used with adapters like
-[<code>stream.take()</code>], in order to make them finite.</p>
+<a href="../../../trait.StreamExt.html#method.take" title="method yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::StreamExt::take"><code>stream.take()</code></a>, in order to make them finite.</p>
 <p>If the element type of the stream you need implements <a href="https://doc.rust-lang.org/1.93.0/core/clone/trait.Clone.html" title="trait core::clone::Clone"><code>Clone</code></a>, and
 it is OK to keep the source element in memory, you should instead use
-the [<code>stream.repeat()</code>] function.</p>
+the <a href="fn.repeat.html" title="fn yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::futures::prelude::stream::repeat"><code>stream::repeat()</code></a> function.</p>
 <h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
 <p>Basic usage:</p>
 

@@ -370,7 +370,7 @@ to the same result.</p>
 <p>The <code>shared</code> combinator method provides a method to convert any future
 into a cloneable future. It enables a future to be polled by multiple
 threads.</p>
-<p>This method is only available when the <code>std</code> feature of this
+<p>This method is only available when the <code>std</code> or ‘spin’ feature of this
 library is activated, and it is activated by default.</p>
 <h5 id="examples-9"><a class="doc-anchor" href="#examples-9">§</a>Examples</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
