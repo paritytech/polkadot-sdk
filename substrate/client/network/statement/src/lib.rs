@@ -1012,6 +1012,8 @@ struct PendingInitialSync {
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
 	/// apart once its result arrives.
 	sync_id: u64,
+	/// The filter the peer advertised before the one this sync serves.
+	already_served: Option<AffinityFilter>,
 }
 
 enum SendOutcome {
@@ -1097,6 +1099,7 @@ fn fetch_admitted_chunk(
 	who: &PeerId,
 	peer_data: &Peer,
 	is_dht_target: &dyn Fn(&Statement) -> bool,
+	already_served: Option<&AffinityFilter>,
 	cursor: u64,
 	watermark: u64,
 	max_size: usize,
@@ -1111,8 +1114,14 @@ fn fetch_admitted_chunk(
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
-				(peer_data.is_light || !is_dht_target(stmt))
+			let matches_filter =
+				peer_data.topic_affinity.as_ref().is_none_or(|a| a.matches_statement(stmt));
+			let newly_matched = matches_filter &&
+				already_served.is_none_or(|served| !served.matches_statement(stmt));
+			// A sync after a filter change skips the DHT routing targets too: the sync for the
+			// previous filter delivered them.
+			if !newly_matched &&
+				(already_served.is_some() || peer_data.is_light || !is_dht_target(stmt))
 			{
 				return FilterDecision::Skip;
 			}
@@ -1846,7 +1855,7 @@ where
 				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
 				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
 				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
-					self.schedule_initial_sync_for_peer(peer);
+					self.schedule_initial_sync_for_peer(peer, None);
 				} else if !is_light {
 					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
@@ -1956,11 +1965,10 @@ where
 									}
 
 									// Record the filter for propagation decisions, and route it
-									// through the pending-affinity path so
-									// `schedule_initial_sync_for_peer` replays the matching
-									// already-stored statements (filtered by `topic_affinity`
-									// and DHT routing targets). Without this a late subscriber
-									// sees only the statements that arrive after it subscribes.
+									// through the pending-affinity path so the sync replays the
+									// stored statements it newly matches. Without this a late
+									// subscriber sees only the statements that arrive after it
+									// subscribes.
 									let mut was_assumed_match_all = false;
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
@@ -2585,15 +2593,22 @@ where
 		self.recently_received_statements.clear();
 	}
 
-	/// Schedule an initial sync for a peer, sending all known statements.
+	/// Schedule an initial sync for a peer, replacing any pending one.
 	///
-	/// This is called both when a new peer connects and when a peer's topic
-	/// affinity changes (so that newly-matching statements get sent).
-	/// If the peer already has a pending initial sync, it is replaced.
-	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
+	/// This is called both when a new peer connects and when a peer's topic affinity changes.
+	/// `already_served` is the filter the peer advertised before a change: the sync then sends
+	/// only what its new filter matches beyond it. Without it the sync sends everything due to
+	/// the peer.
+	///
+	/// Returns `false` when the store failed to give the admission watermark.
+	fn schedule_initial_sync_for_peer(
+		&mut self,
+		peer: PeerId,
+		already_served: Option<AffinityFilter>,
+	) -> bool {
 		// A peer absent from the map has no entry to mirror the sync's watermark into.
 		if !self.peers.contains_key(&peer) {
-			return;
+			return true;
 		}
 		// The watermark is read before the existing sync is touched, so a store error
 		// leaves an in-progress sync running instead of destroying it with no successor.
@@ -2604,7 +2619,7 @@ where
 					target: LOG_TARGET,
 					"Failed to read the admission watermark, skipping initial sync for {peer}: {e:?}",
 				);
-				return;
+				return false;
 			},
 		};
 		let sync_id = self.next_initial_sync_id;
@@ -2614,22 +2629,33 @@ where
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		if watermark > 0 {
-			if let Some(peer_data) = self.peers.get_mut(&peer) {
-				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
+			// A sync after a filter change skips what the previous filter matched, so the outbox
+			// and the propagation watermark of the previous sync still have to deliver it.
+			if already_served.is_none() {
+				if let Some(peer_data) = self.peers.get_mut(&peer) {
+					peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
+				}
+				// Hashes queued for propagation before this scheduling sit below the new
+				// watermark, so the cursor already covers them; dropping the outbox keeps
+				// them from arriving twice.
+				self.propagation_outboxes.remove(&peer);
 			}
-			// Hashes queued for propagation before this scheduling sit below the new
-			// watermark, so the cursor already covers them; dropping the outbox keeps
-			// them from arriving twice.
-			self.propagation_outboxes.remove(&peer);
 			self.pending_initial_syncs.insert(
 				peer,
-				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
+				PendingInitialSync {
+					cursor: 0,
+					watermark,
+					started_at: Instant::now(),
+					sync_id,
+					already_served,
+				},
 			);
 			self.initial_sync_peer_queue.push_back(peer);
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
 			});
 		}
+		true
 	}
 
 	/// Treat peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] as nodes without the v2 DHT path:
@@ -2664,7 +2690,7 @@ where
 				self.v2dht.on_peer_filter_update(peer, filter);
 				self.v2dht.on_peer_without_dht(peer);
 			}
-			self.schedule_initial_sync_for_peer(peer);
+			self.schedule_initial_sync_for_peer(peer, None);
 			self.send_match_all_filter(&peer).await;
 		}
 		self.update_peers_without_dht();
@@ -2697,10 +2723,20 @@ where
 			.collect();
 
 		for peer_id in ready_peers {
-			if let Some(peer_data) = self.peers.get_mut(&peer_id) {
-				peer_data.topic_affinity = peer_data.pending_topic_affinity.take();
+			let Some(peer_data) = self.peers.get_mut(&peer_id) else { continue };
+			let Some(filter) = peer_data.pending_topic_affinity.take() else { continue };
+			// A filter repeated unchanged asks for a full replay: that is how a peer recovers
+			// what it dropped during major sync.
+			let previous = std::mem::replace(&mut peer_data.topic_affinity, Some(filter.clone()));
+			let already_served = previous.clone().filter(|previous| *previous != filter);
+			if !self.schedule_initial_sync_for_peer(peer_id, already_served) {
+				// A filter counts as served only once its sync is scheduled, so it waits for the
+				// next pass.
+				if let Some(peer_data) = self.peers.get_mut(&peer_id) {
+					peer_data.topic_affinity = previous;
+					peer_data.pending_topic_affinity = Some(filter);
+				}
 			}
-			self.schedule_initial_sync_for_peer(peer_id);
 		}
 	}
 
@@ -2847,6 +2883,7 @@ where
 			&peer_id,
 			peer_data,
 			&self.v2dht.dht_target_predicate(peer_id),
+			entry.get().already_served.as_ref(),
 			entry.get().cursor,
 			entry.get().watermark,
 			max_size,
@@ -3434,6 +3471,9 @@ mod tests {
 		}
 
 		fn admission_watermark(&self) -> sp_statement_store::Result<u64> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("injected watermark failure".into()));
+			}
 			Ok(self.admissions.lock().unwrap().len() as u64)
 		}
 
@@ -4769,7 +4809,7 @@ mod tests {
 			})
 			.collect();
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
 
 		// The network layer rejects the send with a real error, not a timeout.
@@ -4825,7 +4865,7 @@ mod tests {
 		statement_store.insert(statement);
 		handler.propagation_outboxes.push(peer_id, vec![hash]);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		assert!(
 			handler.propagation_outboxes.get(&peer_id).is_none(),
@@ -4840,6 +4880,40 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn a_sync_after_a_filter_change_keeps_the_outbox_and_the_watermark() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// No topic, so every filter matches it and the previous one delivered it.
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"queued before the filter change".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+		handler.propagation_outboxes.push(peer_id, vec![hash]);
+		let watermark_before = handler.peers.get(&peer_id).unwrap().sync_watermark;
+
+		handler.schedule_initial_sync_for_peer(peer_id, Some(filter_over(&[topic(7)])));
+
+		assert!(
+			handler.propagation_outboxes.get(&peer_id).is_some(),
+			"the outbox stays the only path for what the sync skips"
+		);
+		assert_eq!(
+			handler.peers.get(&peer_id).unwrap().sync_watermark,
+			watermark_before,
+			"propagation stays the only path for what the sync skips"
+		);
+
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert!(sent.is_empty(), "the sync skips what the previous filter matched");
+	}
+
+	#[tokio::test]
 	async fn missing_sink_leaves_the_initial_sync_to_retry() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(1);
@@ -4850,7 +4924,7 @@ mod tests {
 		let hash = statement.hash();
 		statement_store.insert(statement);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		// No sink is available for the first burst.
 		notification_service.serve_sinks(0);
@@ -4888,7 +4962,7 @@ mod tests {
 		let hash = statement.hash();
 		statement_store.insert(statement);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		let watermark = handler.pending_initial_syncs.get(&peer_id).unwrap().watermark;
 
 		statement_store.fail_fetches.store(true, Ordering::Relaxed);
@@ -4981,7 +5055,7 @@ mod tests {
 			peer.protocol_version = PeerProtocolVersion::V2;
 			peer.topic_affinity = Some(filter);
 		}
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		// No chunk means no send result to advance the sync, so the burst has to requeue the peer
 		// itself or the sync stalls with its entry alive and the peer out of the queue.
@@ -5013,7 +5087,7 @@ mod tests {
 
 		// The peer never reads its substream.
 		notification_service.block_sends();
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		for _ in 0..10 {
 			handler.process_initial_sync_burst();
@@ -5033,13 +5107,13 @@ mod tests {
 		statement.set_plain_data(b"superseded".to_vec());
 		statement_store.insert(statement);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		handler.process_initial_sync_burst();
 		assert_eq!(handler.pending_sends.len(), 1);
 		assert!(handler.initial_sync_in_flight_bytes > 0);
 
 		// An affinity change re-schedules the sync while the chunk is still in flight.
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		handler.flush_pending_sends().await;
 
 		assert_eq!(
@@ -5060,12 +5134,12 @@ mod tests {
 		statement_store.insert(statement);
 
 		// Queue a chunk, then arrange for that very send to come back as a failure.
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		handler.process_initial_sync_burst();
 		notification_service.fail_sends();
 
 		// A reconnect replaces the sync while that chunk is still in flight.
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		let sync_id = handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id;
 		handler.flush_pending_sends().await;
 
@@ -5105,7 +5179,7 @@ mod tests {
 		statement_store.insert(exact);
 		statement_store.insert(oversized);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		for _ in 0..10 {
 			if !handler.pending_initial_syncs.contains_key(&peer_id) {
 				break;
@@ -5138,7 +5212,7 @@ mod tests {
 		// No peer reads, so nothing ever leaves the budget.
 		notification_service.block_sends();
 		for peer_id in &peer_ids {
-			handler.schedule_initial_sync_for_peer(*peer_id);
+			handler.schedule_initial_sync_for_peer(*peer_id, None);
 		}
 
 		let mut bursts = 0;
@@ -5254,7 +5328,7 @@ mod tests {
 		statement.set_plain_data(b"backlog".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
-		handler.schedule_initial_sync_for_peer(sync_peer);
+		handler.schedule_initial_sync_for_peer(sync_peer, None);
 		assert!(handler.pending_initial_syncs.contains_key(&sync_peer));
 
 		// Propagation holds the whole budget and one peer waits parked.
@@ -5309,8 +5383,8 @@ mod tests {
 		statement.set_plain_data(b"burst behind a busy slot".to_vec());
 		statement_store.insert(statement);
 
-		handler.schedule_initial_sync_for_peer(peer_ids[0]);
-		handler.schedule_initial_sync_for_peer(peer_ids[1]);
+		handler.schedule_initial_sync_for_peer(peer_ids[0], None);
+		handler.schedule_initial_sync_for_peer(peer_ids[1], None);
 		// The first queued peer's send slot is taken by a propagation chunk.
 		handler.in_flight_chunks.insert(peer_ids[0], 42);
 
@@ -5338,7 +5412,7 @@ mod tests {
 		synced.set_plain_data(b"snapshot statement".to_vec());
 		let synced_hash = synced.hash();
 		statement_store.insert(synced);
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 		handler.process_initial_sync_burst();
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
@@ -5372,7 +5446,7 @@ mod tests {
 		let mut statement = new_live_statement();
 		statement.set_plain_data(b"shared budget".to_vec());
 		statement_store.insert(statement);
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		// Propagation bytes alone exhaust the shared budget, so the burst must wait.
 		handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
@@ -5401,8 +5475,8 @@ mod tests {
 				hash
 			})
 			.collect();
-		handler.schedule_initial_sync_for_peer(throttled);
-		handler.schedule_initial_sync_for_peer(served);
+		handler.schedule_initial_sync_for_peer(throttled, None);
+		handler.schedule_initial_sync_for_peer(served, None);
 
 		// One statement per second with a burst of ten, drained by a propagation chunk.
 		let clock = FakeRelativeClock::default();
@@ -6186,6 +6260,132 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn a_changed_filter_syncs_beyond_the_previous_one_and_a_repeated_filter_in_full() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		statement_store.insert(new_live_statement());
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		let already_served = |handler: &StatementHandler<TestNetwork, TestSync>| {
+			handler
+				.pending_initial_syncs
+				.get(&peer_id)
+				.expect("a sync is pending")
+				.already_served
+				.clone()
+		};
+		let complete_sync = |handler: &mut StatementHandler<TestNetwork, TestSync>| {
+			handler.pending_initial_syncs.remove(&peer_id);
+			handler.initial_sync_peer_queue.clear();
+		};
+		// With the gate off a full peer gets its sync on connect, ahead of any filter.
+		complete_sync(&mut handler);
+
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
+		assert!(already_served(&handler).is_none(), "the first filter asks for everything");
+		complete_sync(&mut handler);
+
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		let mut first = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		first.insert(&[0xAA; 32]);
+		assert_eq!(already_served(&handler), Some(first), "a changed filter asks for the rest");
+		complete_sync(&mut handler);
+
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		assert!(already_served(&handler).is_none(), "a repeated filter asks for everything");
+	}
+
+	#[tokio::test]
+	async fn a_changed_filter_waits_for_the_running_sync() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		statement_store.insert(new_live_statement());
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
+		let first_sync_id = handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id;
+
+		// The sync for the first filter has sent nothing yet, so the next filter waits: a sync
+		// that skips the first filter's matches is sound only once they were all delivered.
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.topic_affinity.as_ref().unwrap().contains(&[0xAA; 32]));
+		assert!(peer.pending_topic_affinity.is_some());
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id, first_sync_id);
+
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+		handler.process_pending_affinities();
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.topic_affinity.as_ref().unwrap().contains(&[0xBB; 32]));
+		assert!(peer.pending_topic_affinity.is_none());
+		assert!(handler.pending_initial_syncs.get(&peer_id).unwrap().already_served.is_some());
+	}
+
+	#[tokio::test]
+	async fn a_changed_filter_stays_pending_while_the_watermark_is_unreadable() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		statement_store.insert(new_live_statement());
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.topic_affinity.as_ref().unwrap().contains(&[0xAA; 32]));
+		assert!(peer.pending_topic_affinity.is_some());
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.process_pending_affinities();
+		let mut first = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		first.insert(&[0xAA; 32]);
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().already_served,
+			Some(first),
+			"the retry skips only what the last served filter matched"
+		);
+	}
+
+	#[tokio::test]
 	async fn a_peer_silent_past_the_grace_period_is_asked_for_everything() {
 		let (mut handler, _statement_store, _network, notification_service) =
 			build_handler_no_peers();
@@ -6610,10 +6810,10 @@ mod tests {
 			sent_hashes_bb.contains(&hash_bb),
 			"stmt_bb should now be sent after affinity changed to topic_bb"
 		);
-		// Known statements are redelivered on affinity change.
+		// The first sync delivered the broadcast statement under the previous filter.
 		assert!(
-			sent_hashes_bb.contains(&hash_no_topic),
-			"stmt_no_topic should be re-sent (initial sync resends everything matching)"
+			!sent_hashes_bb.contains(&hash_no_topic),
+			"stmt_no_topic should not be re-sent after the affinity change"
 		);
 	}
 
@@ -6776,10 +6976,10 @@ mod tests {
 			sent_hashes.contains(&hash_bb),
 			"stmt_bb should now be sent after affinity expanded to include topic_bb"
 		);
-		// stmt_aa is also redelivered on affinity change.
+		// The first sync delivered stmt_aa under the previous filter.
 		assert!(
-			sent_hashes.contains(&hash_aa),
-			"stmt_aa should be re-sent (initial sync resends everything matching)"
+			!sent_hashes.contains(&hash_aa),
+			"stmt_aa should not be re-sent after the affinity change"
 		);
 	}
 
@@ -6876,7 +7076,7 @@ mod tests {
 
 		// Send to V1 peer.
 		notification_service.clear_sent_notifications();
-		handler.schedule_initial_sync_for_peer(v1_peer);
+		handler.schedule_initial_sync_for_peer(v1_peer, None);
 		while handler.pending_initial_syncs.contains_key(&v1_peer) {
 			handler.process_initial_sync_burst();
 			handler.flush_pending_sends().await;
@@ -6891,7 +7091,7 @@ mod tests {
 
 		// Send to V2 peer.
 		notification_service.clear_sent_notifications();
-		handler.schedule_initial_sync_for_peer(v2_peer);
+		handler.schedule_initial_sync_for_peer(v2_peer, None);
 		while handler.pending_initial_syncs.contains_key(&v2_peer) {
 			handler.process_initial_sync_burst();
 			handler.flush_pending_sends().await;
@@ -6946,7 +7146,7 @@ mod tests {
 		stmt2.set_plain_data(b"stmt2".to_vec());
 		statement_store.insert(stmt2);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		// Peer should still appear exactly once in the queue (no duplicates).
 		assert_eq!(
@@ -7043,7 +7243,7 @@ mod tests {
 		);
 
 		// Scheduling during major sync should queue the peer.
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		assert!(
 			handler.pending_initial_syncs.contains_key(&peer_id),
@@ -7103,7 +7303,7 @@ mod tests {
 			},
 		);
 
-		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.schedule_initial_sync_for_peer(peer_id, None);
 
 		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
 		// The whole admission journal is covered for redelivery.
@@ -7990,6 +8190,7 @@ mod tests {
 			&who,
 			&peer,
 			&|_| false,
+			None,
 			0,
 			watermark,
 			max_size,
@@ -8037,6 +8238,7 @@ mod tests {
 				&who,
 				peer,
 				is_dht_target,
+				None,
 				0,
 				watermark,
 				max_size,
@@ -8059,6 +8261,80 @@ mod tests {
 		light_peer.is_light = true;
 		let batch = fetch(&light_peer, &|_| true);
 		assert!(batch.statements.is_empty(), "a light peer gets filter matches only");
+	}
+
+	#[test]
+	fn a_sync_after_a_filter_change_serves_only_the_newly_matched_statements() {
+		let mut kept = new_live_statement();
+		kept.set_plain_data(vec![1u8; 16]);
+		kept.set_topic(0, topic(7));
+		let mut added = new_live_statement();
+		added.set_plain_data(vec![2u8; 16]);
+		added.set_topic(0, topic(9));
+		let added_hash = added.hash();
+		let mut routed = new_live_statement();
+		routed.set_plain_data(vec![3u8; 16]);
+		routed.set_topic(0, topic(5));
+
+		let store = TestStatementStore::new();
+		store.insert(kept);
+		store.insert(added);
+		store.insert(routed);
+
+		let peer = Peer {
+			statement_rate_limiter: default_statement_limiter(),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_budget: default_statement_limiter(),
+			protocol_version: PeerProtocolVersion::V2,
+			topic_affinity: Some(filter_over(&[topic(7), topic(9)])),
+			is_light: false,
+			inbound: true,
+			pending_topic_affinity: None,
+			assumed_match_all: false,
+			sync_watermark: 0,
+		};
+		let previous = filter_over(&[topic(7)]);
+		let is_dht_target = |stmt: &Statement| stmt.topics().contains(&topic(5));
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+		let watermark = store.admission_watermark().expect("watermark is readable");
+
+		let fetch = |peer: &Peer, already_served: Option<&AffinityFilter>| {
+			fetch_admitted_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				peer,
+				&is_dht_target,
+				already_served,
+				0,
+				watermark,
+				max_size,
+			)
+			.expect("the test store never fails a walk")
+			.0
+		};
+
+		let batch = fetch(&peer, None);
+		assert_eq!(batch.statements.len(), 3, "a full sync serves the filter and the DHT targets");
+
+		let batch = fetch(&peer, Some(&previous));
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![added_hash],
+			"only the statement matched by the new filter alone is due"
+		);
+
+		let mut light_peer = peer;
+		light_peer.is_light = true;
+		let batch = fetch(&light_peer, Some(&previous));
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![added_hash],
+		);
 	}
 
 	#[test]

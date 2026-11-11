@@ -297,15 +297,19 @@ pub trait Mutate<AccountId>:
 		// NOTE: This doesn't change the total balance of the account so there's no need to
 		// check liquidity.
 
+		// Get the amount we can actually take from the hold. This might be less than what we want
+		// if we're only doing a best-effort.
+		let amount = match precision {
+			BestEffort => amount.min(Self::balance_on_hold(asset.clone(), reason, who)),
+			Exact => amount,
+		};
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(
 			Self::can_deposit(asset.clone(), who, amount, Extant) == Success,
 			TokenError::CannotCreate
 		);
-		// Get the amount we can actually take from the hold. This might be less than what we want
-		// if we're only doing a best-effort.
-		let amount = Self::decrease_balance_on_hold(asset.clone(), reason, who, amount, precision)?;
+		let amount = Self::decrease_balance_on_hold(asset.clone(), reason, who, amount, Exact)?;
 		// Increase the main balance by what we took. We always do a best-effort here because we
 		// already checked that we can deposit before.
 		let actual = Self::increase_balance(asset.clone(), who, amount, BestEffort)?;
