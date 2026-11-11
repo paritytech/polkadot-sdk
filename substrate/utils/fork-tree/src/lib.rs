@@ -86,7 +86,7 @@ pub enum FilterAction {
 /// when interacting with the tree to establish a node's ancestry.
 #[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub struct ForkTree<H, N, V> {
-	roots: Vec<Node<H, N, V>>,
+	roots: Nodes<H, N, V>,
 	best_finalized_number: Option<N>,
 }
 
@@ -97,7 +97,7 @@ where
 {
 	/// Create a new empty tree instance.
 	pub fn new() -> ForkTree<H, N, V> {
-		ForkTree { roots: Vec::new(), best_finalized_number: None }
+		ForkTree { roots: Default::default(), best_finalized_number: None }
 	}
 
 	/// Rebalance the tree.
@@ -174,9 +174,7 @@ where
 	}
 
 	fn node_iter(&self) -> impl Iterator<Item = &Node<H, N, V>> {
-		// we need to reverse the order of roots to maintain the expected
-		// ordering since the iterator uses a stack to track state.
-		ForkTreeIterator { stack: self.roots.iter().rev().collect() }
+		self.roots.preorder()
 	}
 
 	/// Iterates the nodes in the tree in pre-order.
@@ -205,7 +203,7 @@ where
 					hash: node.hash,
 					number: node.number,
 					data: new_data,
-					children: Vec::with_capacity(node.children.len()),
+					children: Nodes(Vec::with_capacity(node.children.len())),
 				};
 
 				let node_id = output.len();
@@ -228,7 +226,7 @@ where
 			}
 		}
 
-		ForkTree { roots, best_finalized_number: self.best_finalized_number }
+		ForkTree { roots: Nodes(roots), best_finalized_number: self.best_finalized_number }
 	}
 
 	/// Find a node in the tree that is the deepest ancestor of the given
@@ -381,15 +379,15 @@ where
 				None => return Ok(RemovedIterator { stack: Vec::new() }),
 			};
 
-		let mut removed = std::mem::take(&mut self.roots);
+		let mut removed = std::mem::take(&mut self.roots.0);
 
 		// Find and detach the new root from the removed nodes
 		let root_siblings = new_root_path
 			.iter()
 			.take(new_root_path.len() - 1)
-			.fold(&mut removed, |curr, idx| &mut curr[*idx].children);
+			.fold(&mut removed, |curr, idx| &mut curr[*idx].children.0);
 		let root = root_siblings.remove(new_root_path[new_root_path.len() - 1]);
-		self.roots = vec![root];
+		self.roots = Nodes(vec![root]);
 
 		// If, because of the `predicate`, the new root is not the deepest ancestor
 		// of `hash` then we can remove all the nodes that are descendants of the new
@@ -410,7 +408,7 @@ where
 			// Preserve only the ancestor node, the siblings are removed
 			let mut next_siblings = std::mem::take(&mut curr.children);
 			let next = next_siblings.remove(ancestor_idx);
-			curr.children = vec![next];
+			curr.children = Nodes(vec![next]);
 			removed.append(&mut next_siblings);
 			curr = &mut curr.children[0];
 		}
@@ -772,17 +770,19 @@ where
 }
 
 // Workaround for: https://github.com/rust-lang/rust/issues/34537
-use node_implementation::Node;
+use node_implementation::{Node, Nodes};
 
 mod node_implementation {
 	use super::*;
+	use codec::{Compact, Input, Output};
+	use std::ops::{Deref, DerefMut};
 
 	#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 	pub struct Node<H, N, V> {
 		pub hash: H,
 		pub number: N,
 		pub data: V,
-		pub children: Vec<Node<H, N, V>>,
+		pub children: Nodes<H, N, V>,
 	}
 
 	impl<H: PartialEq, N: Ord, V> Node<H, N, V> {
@@ -797,6 +797,156 @@ mod node_implementation {
 				node.children.iter().for_each(|n| stack.push((n, height + 1)));
 			}
 			max
+		}
+	}
+
+	/// Sibling nodes, each one owning its subtree.
+	pub struct Nodes<H, N, V>(pub(super) Vec<Node<H, N, V>>);
+
+	impl<H, N, V> Nodes<H, N, V> {
+		/// Iterates these nodes and all their descendants in pre-order.
+		pub(crate) fn preorder(&self) -> ForkTreeIterator<'_, H, N, V> {
+			// we need to reverse the order of the nodes to maintain the expected
+			// ordering since the iterator uses a stack to track state.
+			ForkTreeIterator { stack: self.iter().rev().collect() }
+		}
+
+		/// Builds sibling nodes and their descendants out of their pre-order `listing`, where
+		/// each entry is the hash, number, data and number of children of a node.
+		///
+		/// Fails if an entry declares more children than the entries after it provide.
+		pub(crate) fn from_preorder(
+			listing: Vec<(H, N, V, usize)>,
+		) -> Result<Self, InvalidPreorder> {
+			let mut nodes = Vec::new();
+
+			for (hash, number, data, children) in listing.into_iter().rev() {
+				let first = nodes.len().checked_sub(children).ok_or(InvalidPreorder)?;
+				let mut children = nodes.split_off(first);
+				children.reverse();
+				nodes.push(Node { hash, number, data, children: Nodes(children) });
+			}
+
+			nodes.reverse();
+			Ok(Nodes(nodes))
+		}
+	}
+
+	/// A listing that is not the pre-order listing of any nodes.
+	///
+	/// Only [`Nodes::from_preorder`] fails with it.
+	#[derive(Debug)]
+	pub(crate) struct InvalidPreorder;
+
+	impl<H, N, V> Default for Nodes<H, N, V> {
+		fn default() -> Self {
+			Nodes(Vec::new())
+		}
+	}
+
+	impl<H, N, V> Deref for Nodes<H, N, V> {
+		type Target = Vec<Node<H, N, V>>;
+
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
+	}
+
+	impl<H, N, V> DerefMut for Nodes<H, N, V> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.0
+		}
+	}
+
+	impl<H, N, V> IntoIterator for Nodes<H, N, V> {
+		type Item = Node<H, N, V>;
+		type IntoIter = std::vec::IntoIter<Node<H, N, V>>;
+
+		fn into_iter(mut self) -> Self::IntoIter {
+			std::mem::take(&mut self.0).into_iter()
+		}
+	}
+
+	impl<H, N, V> Drop for Nodes<H, N, V> {
+		fn drop(&mut self) {
+			// Flatten the subtrees, so that every node is dropped without children.
+			let mut nodes = std::mem::take(&mut self.0);
+			while let Some(mut node) = nodes.pop() {
+				nodes.append(&mut node.children);
+			}
+		}
+	}
+
+	impl<H: Clone, N: Clone, V: Clone> Clone for Nodes<H, N, V> {
+		fn clone(&self) -> Self {
+			let listing = self
+				.preorder()
+				.map(|node| {
+					(node.hash.clone(), node.number.clone(), node.data.clone(), node.children.len())
+				})
+				.collect();
+
+			Self::from_preorder(listing)
+				.expect("`from_preorder` cannot fail on the pre-order of existing nodes; qed")
+		}
+	}
+
+	impl<H: PartialEq, N: PartialEq, V: PartialEq> PartialEq for Nodes<H, N, V> {
+		fn eq(&self, other: &Self) -> bool {
+			// The number of roots and the number of children of every node in pre-order fix the
+			// shape, hence listings that agree on these have the same length.
+			self.len() == other.len() &&
+				self.preorder().zip(other.preorder()).all(|(a, b)| {
+					a.hash == b.hash &&
+						a.number == b.number &&
+						a.data == b.data &&
+						a.children.len() == b.children.len()
+				})
+		}
+	}
+
+	/// Prints the pre-order listing, i.e. the hash, number, data and number of children of
+	/// every node.
+	impl<H: fmt::Debug, N: fmt::Debug, V: fmt::Debug> fmt::Debug for Nodes<H, N, V> {
+		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+			let listing = self
+				.preorder()
+				.map(|node| (&node.hash, &node.number, &node.data, node.children.len()));
+			f.debug_list().entries(listing).finish()
+		}
+	}
+
+	/// Encodes like the `Vec` of nodes it wraps, i.e. every node is followed by its children.
+	impl<H: Encode, N: Encode, V: Encode> Encode for Nodes<H, N, V> {
+		fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
+			// Any length a `Vec` can encode gives the same bytes as its `Compact<u32>` prefix.
+			Compact(self.len() as u64).encode_to(dest);
+
+			for node in self.preorder() {
+				node.hash.encode_to(dest);
+				node.number.encode_to(dest);
+				node.data.encode_to(dest);
+				Compact(node.children.len() as u64).encode_to(dest);
+			}
+		}
+	}
+
+	/// Decodes what a `Vec` of nodes encodes to.
+	impl<H: Decode, N: Decode, V: Decode> Decode for Nodes<H, N, V> {
+		fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+			let len = |input: &mut I| Compact::<u32>::decode(input).map(|len| len.0 as usize);
+
+			// The nodes still to be read, i.e. the roots and the children of the nodes read so far.
+			let mut missing = len(input)?;
+			let mut listing = Vec::new();
+
+			while missing > 0 {
+				let entry = (H::decode(input)?, N::decode(input)?, V::decode(input)?, len(input)?);
+				missing = (missing - 1).saturating_add(entry.3);
+				listing.push(entry);
+			}
+
+			Self::from_preorder(listing).map_err(|InvalidPreorder| "Invalid fork tree nodes".into())
 		}
 	}
 }
@@ -842,7 +992,8 @@ impl<H, N, V> Iterator for RemovedIterator<H, N, V> {
 mod test {
 	use crate::FilterAction;
 
-	use super::{Error, FinalizationResult, ForkTree};
+	use super::{Error, FinalizationResult, ForkTree, Node, Nodes};
+	use codec::{Decode, Encode};
 
 	#[derive(Debug, PartialEq)]
 	struct TestError;
@@ -1603,5 +1754,194 @@ mod test {
 			tree.iter().map(|node| *node.0).collect::<Vec<_>>(),
 			vec!["A", "B", "C", "D", "E", "F", "H", "L", "M", "O", "I", "G", "J", "K", "Z"],
 		);
+	}
+
+	// The tree as it was encoded when its codec was derived.
+	#[derive(Encode)]
+	struct DerivedTree {
+		roots: Vec<DerivedNode>,
+		best_finalized_number: Option<u32>,
+	}
+
+	#[derive(Encode)]
+	struct DerivedNode {
+		hash: u8,
+		number: u32,
+		data: u64,
+		children: Vec<DerivedNode>,
+	}
+
+	fn derived_node(hash: u8, number: u32, children: Vec<DerivedNode>) -> DerivedNode {
+		DerivedNode { hash, number, data: hash as u64 * 1000, children }
+	}
+
+	#[test]
+	fn codec_matches_the_derived_one() {
+		//     +---2---4
+		//     |
+		// 1---+---3
+		//
+		// 5
+		let derived = DerivedTree {
+			roots: vec![
+				derived_node(
+					1,
+					10,
+					vec![
+						derived_node(2, 20, vec![derived_node(4, 30, vec![])]),
+						derived_node(3, 20, vec![]),
+					],
+				),
+				derived_node(5, 10, vec![]),
+			],
+			best_finalized_number: Some(7),
+		};
+		let encoded = derived.encode();
+
+		let tree = ForkTree::<u8, u32, u64>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(tree.encode(), encoded);
+		assert_eq!(tree.best_finalized_number, Some(7));
+		assert_eq!(tree.roots().map(|(hash, _, _)| *hash).collect::<Vec<_>>(), vec![1, 5]);
+		assert_eq!(
+			tree.iter().map(|(hash, number, data)| (*hash, *number, *data)).collect::<Vec<_>>(),
+			vec![(1, 10, 1000), (2, 20, 2000), (4, 30, 4000), (3, 20, 3000), (5, 10, 5000)],
+		);
+		let children = |hash| {
+			let node = tree.node_iter().find(|node| node.hash == hash).unwrap();
+			node.children.iter().map(|child| child.hash).collect::<Vec<_>>()
+		};
+		assert_eq!(children(1), vec![2, 3]);
+		assert_eq!(children(2), vec![4]);
+		assert!(children(3).is_empty() && children(4).is_empty() && children(5).is_empty());
+
+		// An input that ends early is an error at any point.
+		for len in 0..encoded.len() {
+			assert!(ForkTree::<u8, u32, u64>::decode(&mut &encoded[..len]).is_err());
+		}
+
+		let empty = ForkTree::<u8, u32, u64>::new();
+		let derived = DerivedTree { roots: vec![], best_finalized_number: None };
+		assert_eq!(empty.encode(), derived.encode());
+		assert_eq!(ForkTree::decode(&mut &empty.encode()[..]), Ok(empty));
+	}
+
+	#[test]
+	fn from_preorder_rejects_missing_children() {
+		// One child is declared, two follow: the second one is a root.
+		let nodes = Nodes::from_preorder(vec![(1u8, 1u32, (), 1), (2, 2, (), 0), (3, 1, (), 0)]);
+		let nodes = nodes.unwrap();
+		assert_eq!(nodes.iter().map(|node| node.hash).collect::<Vec<_>>(), vec![1, 3]);
+		assert_eq!(nodes[0].children.iter().map(|node| node.hash).collect::<Vec<_>>(), vec![2]);
+
+		// Two children are declared, one follows.
+		assert!(Nodes::from_preorder(vec![(1u8, 1u32, (), 2), (2, 2, (), 0)]).is_err());
+		assert!(Nodes::from_preorder(vec![(1u8, 1u32, (), 1)]).is_err());
+	}
+
+	#[test]
+	fn clone_and_eq_see_the_whole_tree() {
+		let (tree, is_descendent_of) = test_fork_tree();
+
+		let clone = tree.clone();
+		assert_eq!(clone, tree);
+		assert_eq!(
+			clone.node_iter().map(|node| (node.hash, node.children.len())).collect::<Vec<_>>(),
+			tree.node_iter().map(|node| (node.hash, node.children.len())).collect::<Vec<_>>(),
+		);
+
+		// A difference in the deepest node.
+		let mut other = tree.clone();
+		let node = other.find_node_where_mut(&"N", &60, &is_descendent_of, &|_| true).unwrap();
+		node.unwrap().data = 0;
+		assert_ne!(other, tree);
+
+		// Same nodes in the same pre-order, laid out as `1 - 2 - 3` and as `2 - 1 - 3`.
+		let is_descendent_of = |_: &u8, _: &u8| Ok::<_, TestError>(true);
+		let mut chain = ForkTree::new();
+		chain.import(1u8, 1u32, (), &is_descendent_of).unwrap();
+		chain.import(2, 2, (), &is_descendent_of).unwrap();
+		chain.import(3, 3, (), &is_descendent_of).unwrap();
+		let mut fork = ForkTree::new();
+		fork.import(1u8, 1u32, (), &is_descendent_of).unwrap();
+		fork.import(2, 2, (), &is_descendent_of).unwrap();
+		fork.import(3, 2, (), &is_descendent_of).unwrap();
+		fork.roots[0].children[1].number = 3;
+		assert_eq!(
+			chain.iter().map(|(hash, number, _)| (*hash, *number)).collect::<Vec<_>>(),
+			fork.iter().map(|(hash, number, _)| (*hash, *number)).collect::<Vec<_>>(),
+		);
+		assert_ne!(chain, fork);
+	}
+
+	// Every operation over a tree deeper than any stack could hold with a frame per level.
+	#[test]
+	fn deep_tree_does_not_overflow_the_stack() {
+		const DEPTH: u32 = 1_000_000;
+		const STACK_SIZE: usize = 256 * 1024;
+
+		struct Count(usize);
+
+		impl std::fmt::Write for Count {
+			fn write_str(&mut self, s: &str) -> std::fmt::Result {
+				self.0 += s.len();
+				Ok(())
+			}
+		}
+
+		let test = || {
+			// A single chain where the hash of a node is its number.
+			let mut nodes = Nodes::default();
+			for number in (0..DEPTH).rev() {
+				nodes = Nodes(vec![Node { hash: number, number, data: number, children: nodes }]);
+			}
+			let tree = ForkTree { roots: nodes, best_finalized_number: None };
+			let is_descendent_of = |base: &u32, block: &u32| Ok::<_, TestError>(base < block);
+
+			let mut clone = tree.clone();
+			assert!(clone == tree);
+
+			let encoded = tree.encode();
+			assert!(ForkTree::decode(&mut &encoded[..]).as_ref() == Ok(&tree));
+			// Drops what was decoded before the input ended.
+			assert!(ForkTree::<u32, u32, u32>::decode(&mut &encoded[..encoded.len() - 2]).is_err());
+
+			let mut printed = Count(0);
+			std::fmt::write(&mut printed, format_args!("{tree:?}")).unwrap();
+			assert!(printed.0 > DEPTH as usize);
+
+			assert_eq!(tree.iter().count(), DEPTH as usize);
+			let mut tree = tree.map(&mut |_, _, data| data as u64);
+
+			assert_eq!(tree.import(DEPTH, DEPTH, 0, &is_descendent_of), Ok(false));
+			tree.rebalance();
+			let next = DEPTH + 1;
+			let node = tree.find_node_where(&next, &next, &is_descendent_of, &|_| true);
+			assert_eq!(node.unwrap().unwrap().hash, DEPTH);
+
+			// Keep the upper half, then leave only the last node of it.
+			let removed = tree.drain_filter(|_, number, _| match *number < DEPTH / 2 {
+				true => FilterAction::KeepNode,
+				false => FilterAction::Remove,
+			});
+			assert_eq!(removed.count(), (DEPTH / 2 + 1) as usize);
+			let removed = tree.prune(&(DEPTH / 2), &(DEPTH / 2), &is_descendent_of, &|_| true);
+			assert_eq!(removed.unwrap().count(), (DEPTH / 2 - 1) as usize);
+			assert_eq!(tree.iter().count(), 1);
+
+			// Nodes that are removed without being iterated.
+			let mut fork = clone.clone();
+			let finalized = fork.finalize(&u32::MAX, 0, &is_descendent_of);
+			assert_eq!(finalized, Ok(FinalizationResult::Changed(None)));
+			assert_eq!(fork.iter().count(), 0);
+			drop(clone.prune(&(DEPTH - 1), &(DEPTH - 1), &is_descendent_of, &|_| true).unwrap());
+			assert_eq!(clone.iter().count(), 2);
+		};
+
+		std::thread::Builder::new()
+			.stack_size(STACK_SIZE)
+			.spawn(test)
+			.unwrap()
+			.join()
+			.unwrap();
 	}
 }
