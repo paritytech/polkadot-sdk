@@ -875,27 +875,20 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 	) -> Result<CachedHeaderMetadata<Block>, Self::Error> {
 		self.header_metadata_cache.header_metadata(hash).map_or_else(
 			|| {
-				if let Some(header) = self.header(hash)? {
-					let header_metadata = CachedHeaderMetadata::from(&header);
-					self.header_metadata_cache
-						.insert_header_metadata(header_metadata.hash, header_metadata.clone());
-					// `remove_leaf_block` may have deleted the header after it was read above.
-					// Recheck the database so a removed header is never re-cached.
-					if utils::read_header::<Block>(
-						&*self.db,
-						columns::KEY_LOOKUP,
-						columns::HEADER,
-						BlockId::<Block>::Hash(hash),
-					)?
-					.is_some()
-					{
-						return Ok(header_metadata);
-					}
-					self.remove_header_metadata(hash);
-				}
-				Err(ClientError::UnknownBlock(format!(
-					"Header was not found in the database: {hash:?}",
-				)))
+				self.header(hash)?
+					.map(|header| {
+						let header_metadata = CachedHeaderMetadata::from(&header);
+						self.header_metadata_cache.insert_header_metadata_if_not_deleted(
+							header_metadata.hash,
+							header_metadata.clone(),
+						);
+						header_metadata
+					})
+					.ok_or_else(|| {
+						ClientError::UnknownBlock(format!(
+							"Header was not found in the database: {hash:?}",
+						))
+					})
 			},
 			Ok,
 		)
@@ -5446,25 +5439,25 @@ pub(crate) mod tests {
 		let best_hash = insert_header(&backend, 1, block0, None, sp_core::H256::random());
 		assert_eq!(backend.blockchain().info().best_hash, best_hash);
 
-		// Control: an existing header's metadata is read from the database and cached.
-		backend.blockchain.remove_header_metadata(best_hash);
-		let metadata = backend.blockchain.header_metadata(best_hash).unwrap();
-		assert_eq!((metadata.hash, metadata.number), (best_hash, 1));
-		assert!(backend.blockchain.header_metadata_cache.header_metadata(best_hash).is_some());
-
-		// Simulate a reader that read `block1` before `remove_leaf_block` committed and
-		// inserts its metadata after the caches were cleared.
-		let header = backend.blockchain().header(block1).unwrap();
+		// A reader reads `block1` on a cache miss, then `remove_leaf_block` removes it before
+		// the reader inserts the metadata into the cache.
+		let header = backend.blockchain().header(block1).unwrap().unwrap();
 		backend.remove_leaf_block(block1).unwrap();
-		cache_header(&mut backend.blockchain.header_cache.lock(), block1, header);
+		backend
+			.blockchain
+			.header_metadata_cache
+			.insert_header_metadata_if_not_deleted(block1, CachedHeaderMetadata::from(&header));
 
-		for _ in 0..2 {
-			assert!(matches!(
-				backend.blockchain.header_metadata(block1),
-				Err(sp_blockchain::Error::UnknownBlock(_))
-			));
-			assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_none());
-		}
+		assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_none());
+		assert!(matches!(
+			backend.blockchain.header_metadata(block1),
+			Err(sp_blockchain::Error::UnknownBlock(_))
+		));
+
+		// Re-importing the header through the normal insert path makes it cacheable again.
+		let reimported = insert_header(&backend, 1, block0, None, Default::default());
+		assert_eq!(reimported, block1);
+		assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_some());
 	}
 
 	#[test]
