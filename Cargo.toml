@@ -1180,7 +1180,7 @@ polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "36.
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "34.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "30.0.0" }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "30.0.0" }
-polkadot-sdk = { path = "umbrella", default-features = false, version = "2610.0.0" }
+polkadot-sdk = { path = "umbrella", default-features = false, version = "2609.3.0" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "43.0.0" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "36.0.0" }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false, version = "27.0.0" }
