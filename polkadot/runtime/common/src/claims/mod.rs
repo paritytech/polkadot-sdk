@@ -544,7 +544,7 @@ pub mod pallet {
 				priority: PRIORITY,
 				requires: vec![],
 				provides: vec![("claims", signer).encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		}

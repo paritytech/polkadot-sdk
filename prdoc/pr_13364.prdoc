@@ -1,0 +1,11 @@
+title: 'frame-system: refund authorize weight when AuthorizeCall skips the callback'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `AuthorizeCall` books `weight_of_authorize` for every transaction, but when the origin is
+    already authorized (for example a signed transaction) it does not run the call's
+    `#[pallet::authorize]` callback. It now reports that weight as unspent, so it is refunded after
+    dispatch instead of staying booked for work that never ran.
+crates:
+- name: frame-system
+  bump: patch
