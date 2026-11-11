@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794392223863,
+  "lastUpdate": 1794399344168,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7333c29c30e9c95dc0f061712c626db03b067d10",
-          "message": "Add pallet-gas-allowance with ChargePGAS transaction extension (#11818)\n\n## Summary\n\n- Introduces `pallet-pgas-allowance` providing a new `ChargePGAS<T, S>`\ntransaction extension that wraps an inner fee extension `S`.\n- When a signed transaction dispatches a call matching\n`Config::CallFilter` and the signer holds enough PGAS (a trusted asset\non Asset Hub), the fee is withdrawn as a `fungibles::Credit`. In\n`post_dispatch` the `actual_fee` portion is dropped and burned and the\nunused remainder refunded to the payer.\n- A `PGASFeePaid { who, actual_fee }` event is emitted when the fee is\npaid in PGAS.\n- Wires the extension into `asset-hub-westend`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2026-04-28T08:45:05Z",
-          "tree_id": "11dd2b4f354287f389088fade03698eabd920b6d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7333c29c30e9c95dc0f061712c626db03b067d10"
-        },
-        "date": 1777372623113,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024002100420000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00695954542666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14687269331333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009498994713333311,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009640884606666636,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23b84ba442d0b22fb21ab50ba5156153539528a4",
+          "message": "frame-system: refund authorize weight when AuthorizeCall skips it (#13364)\n\n# Description\n\n`AuthorizeCall::weight` books `call.weight_of_authorize()` for every\ntransaction, but `validate` only runs\nthe call's `#[pallet::authorize]` callback when the origin is not\nalready authorized. On the other branch\n(e.g. a signed transaction) it reported `Weight::zero()` as unspent, so\nthe authorize weight stayed booked\nalthough the callback never ran.\n\nThis reports `call.weight_of_authorize()` as unspent on that branch; the\nexisting\n`Val`/`Pre`/`post_dispatch_details` plumbing then refunds it.\n\nSurfaced while reviewing #12452, where a signed dispatch of a call with\n`#[pallet::authorize]` can succeed,\nso the over-booking becomes visible.\n\n## Integration\n\nNo action needed. Signed transactions of calls that carry\n`#[pallet::authorize]` now report a lower\n`actual_weight` (and so a lower fee) by exactly the call's\n`weight_of_authorize`. Calls without the\nattribute are unaffected (their authorize weight is zero).\n\n## Review Notes\n\nOne-line change in\n`substrate/frame/system/src/extensions/authorize_call.rs`, plus\n`skipped_authorization_refunds_its_weight`, which fails on master\n(`unspent == 0`) and passes here.",
+          "timestamp": "2026-11-11T10:01:29Z",
+          "tree_id": "03e257677a23a12e56035b2bdc453a298ae5b304",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23b84ba442d0b22fb21ab50ba5156153539528a4"
+        },
+        "date": 1794399308699,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010116685179999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14803901124000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02555454802666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007678893460000002,
             "unit": "seconds"
           }
         ]
