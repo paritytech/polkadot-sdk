@@ -1,0 +1,12 @@
+title: 'pvf: avoid leaking job pipes on PoV decompression failures'
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Allocate execution job pipes only after PoV decompression succeeds, so
+      repeated malformed PoVs cannot exhaust file descriptors in a reused
+      execution worker. No API changes or storage migration are required.
+crates:
+  - name: polkadot-node-core-pvf-execute-worker
+    bump: patch
+  - name: polkadot-node-core-pvf
+    bump: none

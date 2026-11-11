@@ -200,15 +200,6 @@ pub fn worker_entrypoint(
 					continue;
 				}
 
-				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
-					map_and_send_err!(
-						e,
-						InternalValidationError::CouldNotCreatePipe,
-						&mut stream,
-						worker_info
-					)
-				})?;
-
 				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 					.map_err(|errno| {
 						let e = stringify_errno("getrusage before", errno);
@@ -275,6 +266,17 @@ pub fn worker_entrypoint(
 				encoded_params.extend(extension.encode());
 
 				let params = Arc::new(encoded_params);
+
+				// Only allocate the job pipe once request validation has succeeded. In particular,
+				// a PoV decompression failure continues the loop without spawning a job.
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotCreatePipe,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
