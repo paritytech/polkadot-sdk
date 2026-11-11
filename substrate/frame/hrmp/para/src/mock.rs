@@ -25,11 +25,27 @@ use sp_runtime::{traits::Convert, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+/// Stands for a migration: only the reason it holds the deposits it hands over for.
+#[frame_support::pallet]
+pub mod migration {
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		HrmpDeposit,
+	}
+}
+
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		HrmpPara: pallet_hrmp_para,
+		Migration: migration,
 	}
 );
 
@@ -74,6 +90,8 @@ impl SendToRelay for RecordingTransport {
 		Ok(())
 	}
 }
+
+impl migration::Config for Test {}
 
 impl pallet_hrmp_para::Config for Test {
 	type Currency = Balances;

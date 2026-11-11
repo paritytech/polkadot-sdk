@@ -73,7 +73,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn receive_set_deposits() -> Weight;
 	fn receive_release() -> Weight;
-	/// `receive_deposit` holding the whole deposit on a side that held nothing.
+	/// `receive_deposit` moving the whole deposit to a side that held nothing.
 	fn receive_deposit() -> Weight;
 }
 

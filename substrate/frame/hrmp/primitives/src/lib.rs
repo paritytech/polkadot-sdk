@@ -217,18 +217,26 @@ impl DepositKey {
 }
 
 /// Receive a migrated HRMP deposit.
-pub trait ReceiveMigratedDeposits {
-	/// Hold or release so that `key` holds `amount`, or as much of it as the paying para can
-	/// cover. A side is one deposit: what it held before is overridden, so a deposit delivered
-	/// twice is held once.
-	fn receive_deposit(key: DepositKey, amount: Balance) -> sp_runtime::DispatchResult;
+///
+/// `HoldReason` is the hold reason type of the currency the deposits are held in.
+pub trait ReceiveMigratedDeposits<HoldReason> {
+	/// Set the deposit of `key` to `amount`, by moving the balance from/into the `source` hold
+	/// reason.
+	///
+	/// The function is indempotent, the current deposit is reset, so a deposit can be delivered
+	/// twice.
+	fn receive_deposit(
+		key: DepositKey,
+		amount: Balance,
+		source: &HoldReason,
+	) -> sp_runtime::DispatchResult;
 
 	/// The weight of [`Self::receive_deposit`].
 	fn weight_of_receive_deposit() -> sp_runtime::Weight;
 }
 
-impl ReceiveMigratedDeposits for () {
-	fn receive_deposit(_: DepositKey, _: Balance) -> sp_runtime::DispatchResult {
+impl<HoldReason> ReceiveMigratedDeposits<HoldReason> for () {
+	fn receive_deposit(_: DepositKey, _: Balance, _: &HoldReason) -> sp_runtime::DispatchResult {
 		Err(sp_runtime::DispatchError::Unavailable)
 	}
 
