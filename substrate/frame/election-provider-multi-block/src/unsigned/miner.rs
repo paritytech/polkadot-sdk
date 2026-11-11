@@ -2096,6 +2096,41 @@ mod offchain_worker_miner {
 	}
 
 	#[test]
+	fn altering_voter_snapshot_invalidates_solution_cache() {
+		let (mut ext, pool) = ExtBuilder::mock_signed().unsigned_phase(999).build_offchainify();
+		ext.execute_with_sanity_checks(|| {
+			let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
+			roll_to_unsigned_open();
+			roll_next_with_ocw(None);
+			assert_eq!(pool.read().transactions.len(), 1);
+			pool.try_write().unwrap().transactions.clear();
+			assert!(OffchainWorkerMiner::<Runtime>::cached_solution().is_some());
+
+			// A fork can change the voter snapshot without changing the targets or round.
+			let targets = crate::Snapshot::<Runtime>::targets();
+			let page = MultiBlock::msp();
+			let mut voters = crate::Snapshot::<Runtime>::voters(page).unwrap();
+			voters[0].1 += 1;
+			crate::Snapshot::<Runtime>::set_voters(page, voters);
+			assert_eq!(crate::Snapshot::<Runtime>::targets(), targets);
+
+			let now = System::block_number();
+			roll_to_with_ocw(now + offchain_repeat + 1, None);
+			assert!(
+				pool.read().transactions.is_empty(),
+				"the stale solution must not be submitted"
+			);
+			assert!(OffchainWorkerMiner::<Runtime>::cached_solution().is_none());
+
+			// The next attempt mines and caches a solution for the updated snapshot.
+			roll_to_with_ocw(now + offchain_repeat * 2 + 2, None);
+			assert_eq!(pool.read().transactions.len(), 1);
+			let (_, fingerprint) = OffchainWorkerMiner::<Runtime>::restore_solution().unwrap();
+			assert_eq!(fingerprint, crate::Snapshot::<Runtime>::fingerprint());
+		});
+	}
+
+	#[test]
 	fn wont_resubmit_if_weak_score() {
 		// common case, if the score is weak, don't bother with anything, ideally check from the
 		// logs that we don't run feasibility in this call path. Score check must come before.
