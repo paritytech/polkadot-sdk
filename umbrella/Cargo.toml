@@ -166,6 +166,7 @@ std = [
 	"pallet-treasury?/std",
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
+	"pallet-utility-ext?/std",
 	"pallet-utility?/std",
 	"pallet-validator-collators?/std",
 	"pallet-validator-set-announcer?/std",
@@ -358,6 +359,7 @@ runtime-benchmarks = [
 	"pallet-treasury?/runtime-benchmarks",
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
+	"pallet-utility-ext?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-validator-collators?/runtime-benchmarks",
 	"pallet-validator-set-announcer?/runtime-benchmarks",
@@ -510,6 +512,7 @@ try-runtime = [
 	"pallet-treasury?/try-runtime",
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
+	"pallet-utility-ext?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-validator-collators?/try-runtime",
 	"pallet-validator-set-announcer?/try-runtime",
@@ -745,6 +748,7 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-utility-ext",
 	"pallet-validator-collators",
 	"pallet-validator-set-announcer",
 	"pallet-verify-signature",
@@ -1894,6 +1898,11 @@ path = "../cumulus/pallets/validator-collators"
 default-features = false
 optional = true
 path = "../cumulus/pallets/validator-set-announcer"
+
+[dependencies.pallet-utility-ext]
+default-features = false
+optional = true
+path = "../substrate/frame/utility-ext"
 
 [dependencies.pallet-verify-signature]
 default-features = false
