@@ -19,12 +19,12 @@
 //! types name.
 
 use crate::{
-	BalanceWithDust, Code, Config, Pallet,
+	AccountInfo, BalanceWithDust, Code, Config, Pallet,
 	access_list::{
 		Access, AccessEntry, CallItems, CodeLoadItems, InstantiateItems, StorageOp, TransferItems,
 		Warmth,
 	},
-	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	test_utils::{ALICE, ALICE_ADDR, EVE_ADDR, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
@@ -487,6 +487,23 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 	assert_eq!(accessed, expected);
 }
 
+#[test]
+fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
+	let (mut ext, []) = deploy_contracts::<0>([]);
+	let eoa = H160::from([0xfe; 20]);
+
+	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
+		builder::bare_call(eoa).build_and_unwrap_result();
+	});
+
+	let mut expected =
+		ReadsAndWrites::from_declared(DeclaredEntries::of(CallItems::new(eoa, false)));
+	// No frame runs at an address with no code, so its info is read and never written back.
+	// `CallItems` declares that write, so the call overpays by one write.
+	assert!(expected.written.remove(&AccessEntry::AccountInfo { address: eoa }));
+	assert_eq!(accessed, expected);
+}
+
 #[test_case(false; "no dust")]
 #[test_case(true;  "dust")]
 fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
@@ -542,4 +559,30 @@ fn a_transfer_accesses_what_it_declares(fixture_type: FixtureType, dust: bool) {
 		);
 	}
 	assert_eq!(reads_writes, ReadsAndWrites::from_declared(expected));
+}
+
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn a_call_to_a_delegated_account_accesses_what_it_declares(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+	let (mut ext, [target]) = deploy_contracts([code.as_slice()]);
+	ext.execute_with(|| {
+		AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(target.addr), &ALICE).unwrap();
+	});
+	ext.commit_all().unwrap();
+
+	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
+		builder::bare_call(EVE_ADDR)
+			.data(Callee::whoSenderCall {}.abi_encode())
+			.build_and_unwrap_result();
+	});
+
+	assert_eq!(
+		accessed,
+		ReadsAndWrites::from_declared(
+			DeclaredEntries::of(CallItems::new(EVE_ADDR, false))
+				// The delegated account runs the target's code.
+				.and(CodeLoadItems::new(target.code_hash))
+		),
+	);
 }

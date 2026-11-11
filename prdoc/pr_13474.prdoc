@@ -5,9 +5,10 @@ doc:
     description: |
       Adds tests that compare the entries each operation declares with the keys it reads and
       writes. On both the EVM and PolkaVM backends, they cover successful calls (plain, delegate,
-      static and with value) and a contract created by another contract. They also cover value
-      transfers to a contract and to an account without code. No runtime behaviour changes, so
-      nothing needs to be migrated.
+      static and with value), a call to an account delegated with EIP-7702, and a contract created
+      by another contract. They also cover calls to an account without code, with and without
+      value, and value transfers to a contract. No runtime behaviour changes, so nothing needs to
+      be migrated.
 
 crates:
   - name: pallet-revive
