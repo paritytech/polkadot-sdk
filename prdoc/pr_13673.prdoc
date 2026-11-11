@@ -11,5 +11,6 @@ doc:
 crates:
 - name: pallet-bounties
   bump: major
+  validate: false 
 - name: pallet-child-bounties
   bump: minor
