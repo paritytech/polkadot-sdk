@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794392378851,
+  "lastUpdate": 1794399499343,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1dc3f352af493eb6eeef7ed67b217d93f9282039",
-          "message": "[zombienet] fix flaky zombienet tests (#11872)\n\nAdd `authoring` flag to test using _glutton_",
-          "timestamp": "2026-04-24T14:01:29Z",
-          "tree_id": "dfcad914162aa1f106a42d2668f88e05b2745751",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1dc3f352af493eb6eeef7ed67b217d93f9282039"
-        },
-        "date": 1777044390803,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264675515,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009584665399999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009253881189999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010462345759999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23b84ba442d0b22fb21ab50ba5156153539528a4",
+          "message": "frame-system: refund authorize weight when AuthorizeCall skips it (#13364)\n\n# Description\n\n`AuthorizeCall::weight` books `call.weight_of_authorize()` for every\ntransaction, but `validate` only runs\nthe call's `#[pallet::authorize]` callback when the origin is not\nalready authorized. On the other branch\n(e.g. a signed transaction) it reported `Weight::zero()` as unspent, so\nthe authorize weight stayed booked\nalthough the callback never ran.\n\nThis reports `call.weight_of_authorize()` as unspent on that branch; the\nexisting\n`Val`/`Pre`/`post_dispatch_details` plumbing then refunds it.\n\nSurfaced while reviewing #12452, where a signed dispatch of a call with\n`#[pallet::authorize]` can succeed,\nso the over-booking becomes visible.\n\n## Integration\n\nNo action needed. Signed transactions of calls that carry\n`#[pallet::authorize]` now report a lower\n`actual_weight` (and so a lower fee) by exactly the call's\n`weight_of_authorize`. Calls without the\nattribute are unaffected (their authorize weight is zero).\n\n## Review Notes\n\nOne-line change in\n`substrate/frame/system/src/extensions/authorize_call.rs`, plus\n`skipped_authorization_refunds_its_weight`, which fails on master\n(`unspent == 0`) and passes here.",
+          "timestamp": "2026-11-11T10:01:29Z",
+          "tree_id": "03e257677a23a12e56035b2bdc453a298ae5b304",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23b84ba442d0b22fb21ab50ba5156153539528a4"
+        },
+        "date": 1794399464239,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024764303699999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010182310929999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009319561989999977,
             "unit": "seconds"
           }
         ]
