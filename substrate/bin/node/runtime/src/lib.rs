@@ -77,6 +77,7 @@ use frame_system::{
 	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
 	EnsureWithSuccess,
 };
+use hrmp_primitives::{MessageToPara, MessageToRelay};
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
@@ -95,6 +96,11 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
 use pallet_vesting_precompiles::Vesting as VestingPrecompile;
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
+	hrmp::deposits::{DepositAction, DepositChangeRequest, DepositError, OnDepositSet},
+	origin as parachains_origin,
+};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -2478,6 +2484,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2501,6 +2508,11 @@ impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
 	fn pool_cores() -> u32 {
 		1
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		assert!(cores <= Self::pool_cores(), "the on-demand pool has a fixed size");
+	}
 }
 
 impl pallet_on_demand_para::Config for Runtime {
@@ -2513,6 +2525,8 @@ impl pallet_on_demand_para::Config for Runtime {
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
+	type MaxUnclaimedTimeslices = ConstU32<5>;
 	type PalletId = OnDemandPalletId;
 }
 
@@ -2813,6 +2827,66 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxPendingRegistrations = ConstU32<128>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
+}
+
+impl parachains_origin::Config for Runtime {}
+
+/// Discards HRMP deposit messages; the counterpart chain is not modelled here.
+pub struct DiscardHrmpMessages;
+
+impl pallet_hrmp_relay::SendToPara for DiscardHrmpMessages {
+	fn send(_message: MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+impl pallet_hrmp_para::SendToRelay for DiscardHrmpMessages {
+	fn send(_message: MessageToRelay) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+/// Ignores the answers to HRMP deposit requests; the relay chain's `hrmp` pallet is not here.
+pub struct IgnoreDepositAnswers;
+
+impl OnDepositSet for IgnoreDepositAnswers {
+	fn on_deposit_set(_request: DepositChangeRequest, _result: Result<(), DepositError>) {}
+
+	fn weight_of_on_deposit_set(_action: &DepositAction) -> Weight {
+		Weight::zero()
+	}
+}
+
+parameter_types! {
+	pub const HrmpHolderParaId: ParaId = ParaId::new(1005);
+}
+
+impl pallet_hrmp_relay::Config for Runtime {
+	type OnDepositSet = IgnoreDepositAnswers;
+	type HolderParaId = HrmpHolderParaId;
+	type SendToPara = DiscardHrmpMessages;
+	type MaxFailedReleases = ConstU32<16>;
+	type WeightInfo = pallet_hrmp_relay::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+/// A para's sovereign account, as the relay chain derives it.
+pub struct ParaSovereignAccount;
+
+impl Convert<hrmp_primitives::ParaId, AccountId> for ParaSovereignAccount {
+	fn convert(para: hrmp_primitives::ParaId) -> AccountId {
+		ParaId::from(para).into_account_truncating()
+	}
+}
+
+impl pallet_hrmp_para::Config for Runtime {
+	type Currency = Balances;
+	type SendToRelay = DiscardHrmpMessages;
+	type SovereignAccountOf = ParaSovereignAccount;
+	type WeightInfo = pallet_hrmp_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[frame_support::runtime]
@@ -3122,6 +3196,15 @@ mod runtime {
 
 	#[runtime::pallet_index(97)]
 	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
+
+	#[runtime::pallet_index(98)]
+	pub type ParachainsOrigin = parachains_origin::Pallet<Runtime>;
+
+	#[runtime::pallet_index(99)]
+	pub type HrmpRelay = pallet_hrmp_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(100)]
+	pub type HrmpPara = pallet_hrmp_para::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3450,6 +3533,8 @@ mod benches {
 		[pallet_nis, Nis]
 		[pallet_parameters, Parameters]
 		[pallet_grandpa, Grandpa]
+		[pallet_hrmp_para, HrmpPara]
+		[pallet_hrmp_relay, HrmpRelay]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
