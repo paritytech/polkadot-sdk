@@ -61,6 +61,9 @@ mod test_runtime {
 
 	#[runtime::pallet_index(1)]
 	pub type Registrar = pallet_registrar_relay::Pallet<Test>;
+
+	#[runtime::pallet_index(2)]
+	pub type ParasOrigin = polkadot_runtime_parachains::origin::Pallet<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -69,6 +72,8 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
+
+impl polkadot_runtime_parachains::origin::Config for Test {}
 
 parameter_types! {
 	/// Paras `MockRegistrar` has onboarded, in order.

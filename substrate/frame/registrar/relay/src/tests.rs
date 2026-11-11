@@ -1344,3 +1344,73 @@ mod head_noted {
 		});
 	}
 }
+
+mod relay {
+	use super::*;
+	use registrar_primitives::{ParaRequest, ParaRequestV1};
+
+	fn para(para_id: ParaId) -> RuntimeOrigin {
+		polkadot_runtime_parachains::Origin::Parachain(para_id.into()).into()
+	}
+
+	fn relayed(para_id: ParaId, request: ParaRequestV1) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::Relayed { para_id, request })
+	}
+
+	#[test]
+	fn forwards_the_request_under_the_callers_para_id() {
+		new_test_ext().execute_with(|| {
+			let request =
+				ParaRequestV1::ScheduleCodeUpgrade { code_hash: hash_of(&code(20)), code_len: 20 };
+
+			assert_ok!(Registrar::relay(para(PARA_A), ParaRequest::V1(request.clone())));
+
+			assert_eq!(take_sent(), vec![relayed(PARA_A, request)]);
+			assert_eq!(registrar_events(), vec![Event::Relayed { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn nothing_is_checked_or_applied_here() {
+		new_test_ext().execute_with(|| {
+			// Unknown to the registry, with a head it would refuse: forwarded all the same.
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize + 1) };
+
+			assert_ok!(Registrar::relay(para(PARA_B), ParaRequest::V1(request.clone())));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(take_sent(), vec![relayed(PARA_B, request)]);
+		});
+	}
+
+	#[test]
+	fn only_a_para_may_relay() {
+		new_test_ext().execute_with(|| {
+			let request = ParaRequest::V1(ParaRequestV1::RemoveLock);
+
+			assert_noop!(
+				Registrar::relay(RuntimeOrigin::signed(ALICE), request.clone()),
+				DispatchError::BadOrigin
+			);
+			// Root has no para id to speak for.
+			assert_noop!(
+				Registrar::relay(RuntimeOrigin::root(), request),
+				DispatchError::BadOrigin
+			);
+			assert!(take_sent().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_bounced_request_fails_so_the_para_can_retry() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::relay(para(PARA_A), ParaRequest::V1(ParaRequestV1::AddLock)),
+				Error::<Test>::SendFailed
+			);
+			assert!(take_sent().is_empty());
+		});
+	}
+}

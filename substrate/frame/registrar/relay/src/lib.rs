@@ -53,6 +53,12 @@
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding the
 //! manager relationship can lock the para. Add this pallet to `paras::Config::OnNewHead`.
 //!
+//! ## Relaying para requests
+//!
+//! A para with no channel to the parachain calls [`Pallet::relay`] instead. The request is
+//! forwarded as [`MessageToParaV1::Relayed`] under the para id of the caller's origin, and the
+//! parachain decides whether it is allowed.
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -74,10 +80,10 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, weights::Weight};
 pub use pallet::*;
 use polkadot_primitives::{HeadData, Id};
-use polkadot_runtime_parachains::paras::OnNewHead;
+use polkadot_runtime_parachains::{ensure_parachain, paras::OnNewHead, Origin as ParachainOrigin};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId, ParachainRegistrar,
+	ParaId, ParaRequest, ParaRequestV1, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -156,7 +162,11 @@ pub mod pallet {
 	use sp_runtime::traits::{BlakeTwo256, Hash, SaturatedConversion, Saturating};
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeOrigin: Into<Result<ParachainOrigin, <Self as frame_system::Config>::RuntimeOrigin>>,
+	>
+	{
 		/// The overarching event type.
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -257,6 +267,8 @@ pub mod pallet {
 		HeadUpdated { para_id: ParaId, message_id: u64 },
 		/// A head update was refused.
 		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A para's request about itself was forwarded to the parachain.
+		Relayed { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -273,6 +285,8 @@ pub mod pallet {
 		AuthorizationExpired,
 		/// The registry would refuse this code upgrade right now.
 		CannotUpgradeCode,
+		/// The request could not be handed to the transport.
+		SendFailed,
 	}
 
 	#[pallet::call]
@@ -403,6 +417,27 @@ pub mod pallet {
 			Self::report_code_upgrade_scheduled(para_id, message_id);
 			Self::deposit_event(Event::CodeUpgradeApplied { para_id, message_id });
 			Ok(Pays::No.into())
+		}
+
+		/// Forward a para's request about itself to the parachain it has no channel to.
+		///
+		/// The para id comes from the origin. The parachain
+		/// checks the request.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::relay(match request {
+			ParaRequest::V1(ParaRequestV1::SetCurrentHead { head }) => head.len() as u32,
+			_ => 0,
+		}))]
+		pub fn relay(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
+			let para_id: ParaId = ensure_parachain(origin)?.into();
+			let ParaRequest::V1(request) = request;
+
+			// Nothing is written here, so failing lets the para simply try again.
+			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Relayed { para_id, request }))
+				.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::Relayed { para_id });
+			Ok(())
 		}
 	}
 
@@ -584,6 +619,7 @@ pub mod pallet {
 				Error::<T>::CodeTooLarge => 3,
 				Error::<T>::AuthorizationExpired => 4,
 				Error::<T>::CannotUpgradeCode => 5,
+				Error::<T>::SendFailed => 6,
 			}
 		}
 
