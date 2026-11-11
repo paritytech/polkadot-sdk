@@ -175,7 +175,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-		relay_proof_request: Option<RelayProofRequest>,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
@@ -224,7 +224,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-		relay_proof_request: Option<RelayProofRequest>,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
@@ -373,10 +373,6 @@ where
 		max_pov_size: usize,
 		scheduling_proof: Option<cumulus_primitives_core::SchedulingProof>,
 	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
-		// NOTE: the basic and lookahead collators do NOT support the V3 additional-data channel
-		// (it requires `ParachainBlockData::V3`, which is only produced when V3 scheduling is
-		// enabled — and only the slot-based collator gates on `v3_enabled`). No additional data is
-		// carried here, so the produced `ParachainBlockData` is V1/V2.
 		let maybe_candidate = self
 			.build_block_and_import(BuildBlockAndImportParams {
 				parent_header,
@@ -387,7 +383,7 @@ where
 				proposal_duration,
 				max_pov_size,
 				storage_proof_recorder: None,
-				extra_extensions: Extensions::default(),
+				extra_extensions: Default::default(),
 			})
 			.await?;
 
@@ -399,7 +395,6 @@ where
 			hash,
 			candidate.into(),
 			scheduling_proof,
-			vec![None],
 		) {
 			block_data.log_size_info();
 

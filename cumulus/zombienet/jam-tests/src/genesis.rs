@@ -6,7 +6,7 @@
 //!
 //! It is the collator that decides this hash: it reads its set from the runtime, hashes the blob
 //! it was handed and builds the config out of both (`AuraAuthorizer::new` in
-//! `polkadot-omni-node/lib/src/nodes/jam/authorizer.rs`). Genesis has to arrive at the very same
+//! `cumulus/jam/client-authorizer/src/authorizer.rs`). Genesis has to arrive at the very same
 //! value, because a core's queue holds a hash and nothing else — a hash the collators do not
 //! reproduce is a core that authorizes nothing, with a stalled para as the only symptom. So this
 //! module walks the same steps through the same crate the collator and the guest use, and the

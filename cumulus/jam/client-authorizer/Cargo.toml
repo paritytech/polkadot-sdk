@@ -1,0 +1,46 @@
+[package]
+name = "cumulus-client-jam-authorizer"
+description = "Node side of the para's JAM authorizer: signing work packages and blocks, and verifying block seals on import."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+array-bytes = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+cumulus-jam-interface = { workspace = true, default-features = true }
+cumulus-jam-state-reader = { workspace = true, features = ["std"] }
+cumulus-primitives-core = { workspace = true, default-features = true }
+jam-std-common = { workspace = true }
+jam-types = { workspace = true, features = ["std"] }
+parachain-authorizer = { workspace = true, default-features = true, features = ["std"] }
+parachain-service-core = { workspace = true, default-features = true, features = [
+	"authorize-block",
+	"std",
+] }
+sc-consensus = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
+
+[dev-dependencies]
+parachain-authorizer-ed25519 = { workspace = true, default-features = true }
+parachain-authorizer-sr25519 = { workspace = true, default-features = true }
+# No verifier reveals the transcript context it checks under, and `b"substrate"` — which
+# `Keystore::sr25519_sign` gives a signer no say over — is the thing that has to be pinned.
+schnorrkel = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+
+[features]
+test-utils = ["dep:sp-consensus-aura"]

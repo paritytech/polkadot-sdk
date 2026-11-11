@@ -443,10 +443,7 @@ where
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
-						// The lookahead collator does not register the additional-data extension,
-						// so it always carries the legacy inherent relay-state proof (V2
-						// path).
-						Some(relay_proof_request),
+						relay_proof_request,
 						params.collator_peer_id,
 					)
 					.await

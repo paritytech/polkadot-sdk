@@ -30,14 +30,13 @@
 //! from: an authorizer hash commits to the whole config, so a config this node cannot reproduce
 //! byte for byte is a core it cannot use.
 
-use super::LOG_TARGET;
-use crate::common::aura::AuraIdT;
+use crate::LOG_TARGET;
 use codec::Encode;
-use jam_interface::{ServiceId, Slot as JamSlot};
+use cumulus_jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use parachain_authorizer::{
 	aura::{
-		build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
+		build_collator_proof, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
 		CollatorSignature,
 	},
 	block::signable_block_hash,
@@ -51,7 +50,7 @@ use sp_api::StorageChanges;
 use sp_consensus::BlockOrigin;
 use sp_core::{
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
-	ed25519, sr25519, Pair, H256,
+	ed25519, sr25519, H256,
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{
@@ -59,14 +58,10 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	DigestItem,
 };
-use std::path::Path;
-
-/// The public key of one aura authority, as `AuraApi::authorities()` hands it out for a runtime
-/// whose authority id is `AuraId`.
-pub(crate) type AuraPublic<AuraId> = <<AuraId as AuraIdT>::BoundedPair as Pair>::Public;
+use std::{num::NonZero, path::Path};
 
 /// The AURA authorizer of one para, together with this collator's place in its set.
-pub(crate) struct AuraAuthorizer {
+pub struct AuraAuthorizer {
 	authorizer: Authorizer,
 	hash: AuthorizerHash,
 	config: AuthConfig,
@@ -90,17 +85,17 @@ impl AuraAuthorizer {
 	///
 	/// Fails loudly rather than starting a collator that could never author: a set this node
 	/// holds no key of, an unreadable blob, or a degenerate config the guest itself rejects.
-	pub(crate) fn new<AuraId: AuraIdT>(
-		authorities: &[AuraPublic<AuraId>],
+	pub fn new<AuraId: AppCrypto>(
+		authorities: &[impl ByteArray],
 		blob_path: &Path,
 		para_id: u32,
 		parachain_service: ServiceId,
 		slot_duration: u32,
 		keystore: KeystorePtr,
 	) -> Result<Self, String> {
-		if slot_duration == 0 {
+		let Some(slot_duration) = NonZero::new(slot_duration) else {
 			return Err("`--jam-slot-duration` must be at least one JAM timeslot".into());
-		}
+		};
 
 		let blob = std::fs::read(blob_path).map_err(|error| {
 			format!("cannot read `--jam-authorizer-blob` {blob_path:?}: {error}")
@@ -108,22 +103,12 @@ impl AuraAuthorizer {
 		let code_hash = CodeHash::from(jam_std_common::hash_raw(&blob));
 
 		let collators = collator_keys(authorities)?;
-		if collators.is_empty() {
+		let Some(collator_set_size) = u32::try_from(collators.len()).ok().and_then(NonZero::new)
+		else {
 			return Err("the runtime's aura authority set is empty, so there is no collator set \
 			            to authorize against"
 				.into());
-		}
-		let (collator_set_root, proofs) = build_collator_proofs(&collators)
-			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
-		let config = AuthConfig {
-			para_ids: vec![para_id.into()],
-			parachain_service,
-			collator_set_root,
-			collator_set_size: collators.len() as u32,
-			slot_duration,
 		};
-		let authorizer = Authorizer { code_hash, config: AuthConfigBlob(config.encode()) };
-		let hash = authorizer_hash(&authorizer);
 
 		let key_type = <AuraId as AppCrypto>::ID;
 		let crypto_id = <AuraId as AppCrypto>::CRYPTO_ID;
@@ -131,11 +116,23 @@ impl AuraAuthorizer {
 		let own_index = own_index(&*keystore, key_type, &collators)
 			.ok_or_else(|| own_key_missing(&*keystore, key_type, &scheme, &collators))?;
 
+		let (collator_set_root, own_proof) = build_collator_proof(&collators, own_index as u32)
+			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
+		let config = AuthConfig {
+			para_ids: vec![para_id.into()],
+			parachain_service,
+			collator_set_root,
+			collator_set_size,
+			slot_duration,
+		};
+		let authorizer = Authorizer { code_hash, config: AuthConfigBlob(config.encode()) };
+		let hash = authorizer_hash(&authorizer);
+
 		tracing::info!(
 			target: LOG_TARGET,
 			para_id,
 			parachain_service,
-			slot_duration,
+			slot_duration = slot_duration.get(),
 			%scheme,
 			blob = ?blob_path,
 			blob_len = blob.len(),
@@ -147,7 +144,7 @@ impl AuraAuthorizer {
 			authorizer_hash = ?hash,
 			own_index,
 			own_key = %hex(&collators[own_index]),
-			proof_len = proofs[own_index].len(),
+			proof_len = own_proof.len(),
 			"Derived the para's AURA authorizer from the runtime's aura authorities; this is the \
 			 hash a core's pool must hold for our packages to be authorized.",
 		);
@@ -158,7 +155,7 @@ impl AuraAuthorizer {
 			config,
 			own_index: own_index as u32,
 			own_key: collators[own_index],
-			own_proof: proofs[own_index].clone(),
+			own_proof,
 			key_type,
 			crypto_id,
 			keystore,
@@ -166,49 +163,50 @@ impl AuraAuthorizer {
 	}
 
 	/// The hash a core's authorizer pool has to hold for this para's packages to run on it.
-	pub(crate) fn hash(&self) -> AuthorizerHash {
+	pub fn hash(&self) -> AuthorizerHash {
 		self.hash
 	}
 
 	/// The authorizer a work package of this para carries.
-	pub(crate) fn authorizer(&self) -> Authorizer {
+	pub fn authorizer(&self) -> Authorizer {
 		self.authorizer.clone()
 	}
 
-	pub(crate) fn own_index(&self) -> u32 {
+	pub fn own_index(&self) -> u32 {
 		self.own_index
 	}
 
-	pub(crate) fn collator_set_size(&self) -> u32 {
-		self.config.collator_set_size
+	pub fn collator_set_size(&self) -> u32 {
+		self.config.collator_set_size.get()
 	}
 
 	/// The collator the round-robin names for `slot` — what the guest computes from the package's
 	/// *lookup* anchor slot, and therefore what the lookup-anchor policy has to satisfy.
-	pub(crate) fn collator_for(&self, slot: JamSlot) -> u32 {
-		self.config
-			.expected_collator_index(slot)
-			.expect("`new` rejects a zero slot duration and an empty collator set; qed")
+	pub fn collator_for(&self, slot: JamSlot) -> u32 {
+		self.config.expected_collator_index(slot)
 	}
 
 	/// Whether `slot` names this collator.
-	pub(crate) fn names_us(&self, slot: JamSlot) -> bool {
+	pub fn names_us(&self, slot: JamSlot) -> bool {
 		self.collator_for(slot) == self.own_index
 	}
 
 	/// How far back a search for a slot naming this collator has to look: one full turn of the
 	/// round-robin, past which the arithmetic only repeats itself.
-	pub(crate) fn round_robin_window(&self) -> u32 {
-		self.config.collator_set_size.saturating_mul(self.config.slot_duration)
+	pub fn round_robin_window(&self) -> u32 {
+		self.config
+			.collator_set_size
+			.get()
+			.saturating_mul(self.config.slot_duration.get())
 	}
 
 	/// This collator's key, the one it signs packages and blocks with.
-	pub(crate) fn own_key(&self) -> CollatorKey {
+	pub fn own_key(&self) -> CollatorKey {
 		self.own_key
 	}
 
 	/// The state key of the authorizer code, a preimage held by the parachain service.
-	pub(crate) fn code_state_key(&self) -> parachain_service_core::StateKey {
+	pub fn code_state_key(&self) -> parachain_service_core::StateKey {
 		parachain_service_core::service_preimage_state_key(
 			self.config.parachain_service,
 			&self.authorizer.code_hash.0,
@@ -220,10 +218,7 @@ impl AuraAuthorizer {
 	/// The runtime runs the very same authorizer on it (issue #62), so the block is valid exactly
 	/// when a package carrying it would be authorized: by the collator the block's lookup anchor
 	/// names, under an authorizer in an auth pool at the block's anchor.
-	pub(crate) fn authorize_block(
-		&self,
-		pre_hash: &[u8; 32],
-	) -> Result<BlockAuthorization, String> {
+	pub fn authorize_block(&self, pre_hash: &[u8; 32]) -> Result<BlockAuthorization, String> {
 		let signature = self.sign(signable_block_hash(pre_hash).as_bytes())?;
 		let token = AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature };
 
@@ -260,7 +255,7 @@ impl AuraAuthorizer {
 	/// The signed hash excludes the authorization by construction, which is exactly what lets the
 	/// signature live inside the package it signs — so this runs *after* the package is otherwise
 	/// complete, and re-anchoring re-signs.
-	pub(crate) fn authorize(&self, package: &mut WorkPackage) -> Result<(), String> {
+	pub fn authorize(&self, package: &mut WorkPackage) -> Result<(), String> {
 		let wp_hash = signable_work_package_hash(package);
 		let signature = self.sign(wp_hash.as_bytes())?;
 		let token = AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature };
@@ -283,7 +278,7 @@ impl AuraAuthorizer {
 }
 
 /// Seal `block` with the authorizer's [`BlockAuthorization`] of it, ready for import.
-pub(crate) fn seal<Block: BlockT>(
+pub fn seal<Block: BlockT>(
 	block: Block,
 	storage_changes: StorageChanges<Block>,
 	authorizer: &AuraAuthorizer,
@@ -372,8 +367,9 @@ fn scheme_name(crypto_id: CryptoTypeId) -> String {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
 	use super::*;
+	use crate::testing::*;
 	use codec::DecodeAll;
 	use jam_types::{RefineContext, WorkItem, WorkPayload};
 	use parachain_authorizer::aura::AuthToken as GuestToken;
@@ -383,69 +379,6 @@ pub(crate) mod tests {
 	use sp_consensus_aura::{
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
-	use sp_keystore::testing::MemoryKeystore;
-	use std::sync::Arc;
-
-	pub(crate) use parachain_service_core::PARACHAIN_SERVICE_ID as SERVICE_ID;
-	pub(crate) const PARA_ID: u32 = 1000;
-
-	/// Any file will do: the blob reaches the config only through its hash, and nothing here
-	/// asserts what that hash is.
-	const SOME_BLOB: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
-
-	/// The authorities a dev runtime returns for `names`: the `//Name` keys on the runtime's own
-	/// curve, which is what its genesis session keys are made of.
-	fn authorities<AuraId: AuraIdT>(names: &str) -> Vec<AuraPublic<AuraId>> {
-		names.split(',').map(|name| dev_key::<AuraId>(name.trim())).collect()
-	}
-
-	fn dev_key<AuraId: AuraIdT>(name: &str) -> AuraPublic<AuraId> {
-		<AuraId::BoundedPair as Pair>::from_string(&dev_suri(name), None)
-			.expect("a dev suri derives; qed")
-			.public()
-	}
-
-	/// Capitalisation is the operator's convenience, not a different key.
-	fn dev_suri(name: &str) -> String {
-		let mut capitalized = name.trim().to_string();
-		capitalized[..1].make_ascii_uppercase();
-		format!("//{capitalized}")
-	}
-
-	/// A keystore provisioned as a dev collator's is: `aura` keys of the runtime's scheme,
-	/// exactly what `--alice` puts there in memory.
-	fn keystore_of<AuraId: AuraIdT>(names: &str) -> KeystorePtr {
-		let keystore = MemoryKeystore::new();
-		for name in names.split(',') {
-			let public = dev_key::<AuraId>(name);
-			keystore
-				.insert(<AuraId as AppCrypto>::ID, &dev_suri(name), public.as_slice())
-				.expect("the memory keystore takes any key; qed");
-		}
-		Arc::new(keystore)
-	}
-
-	fn authorizer_for<AuraId: AuraIdT>(
-		names: &str,
-		own: &str,
-		slot_duration: u32,
-	) -> AuraAuthorizer {
-		AuraAuthorizer::new::<AuraId>(
-			&authorities::<AuraId>(names),
-			Path::new(SOME_BLOB),
-			PARA_ID,
-			SERVICE_ID,
-			slot_duration,
-			keystore_of::<AuraId>(own),
-		)
-		.expect("the authority set names the node; qed")
-	}
-
-	/// sr25519 is the parachain template's scheme, so it is what the tests that are not about
-	/// schemes run on.
-	pub(crate) fn authorizer_of(names: &str, own: &str, slot_duration: u32) -> AuraAuthorizer {
-		authorizer_for::<Sr25519AuraId>(names, own, slot_duration)
-	}
 
 	fn package(lookup_anchor_slot: JamSlot, authorizer: &AuraAuthorizer) -> WorkPackage {
 		let item = WorkItem {
@@ -559,7 +492,7 @@ pub(crate) mod tests {
 		);
 	}
 
-	/// A block authorization this node assembles must pass the guest's `authorize_block_ext`:
+	/// A block authorization this node assembles must pass the guest's `authorize_block`:
 	/// the very code the runtime runs on the block's seal, under the ed25519 verifier.
 	#[test]
 	fn a_block_authorization_satisfies_the_guest_verifier_works() {

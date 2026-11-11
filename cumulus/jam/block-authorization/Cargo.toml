@@ -1,0 +1,25 @@
+[package]
+name = "cumulus-jam-block-authorization"
+description = "Runtime side of the JAM block seal: the block executor that runs the para's JAM authorizer on the block's seal."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = false
+
+[lints]
+workspace = true
+
+# Only a JAM runtime (`--cfg jam`) uses this crate; everywhere else it compiles to nothing.
+[target.'cfg(jam)'.dependencies]
+codec = { workspace = true }
+cumulus-jam-state-reader = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+frame-support = { workspace = true }
+parachain-service-core = { workspace = true, features = [
+	"authorize-block",
+] }
+sp-runtime = { workspace = true }

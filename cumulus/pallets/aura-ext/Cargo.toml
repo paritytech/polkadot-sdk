@@ -29,13 +29,6 @@ sp-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
-# JAM: the seal carries a block authorization the runtime runs the JAM authorizer on.
-[target.'cfg(jam)'.dependencies]
-cumulus-jam-state-reader = { workspace = true }
-parachain-service-core = { path = "../../../../parachain-service/core", default-features = false, features = [
-	"authorize-block",
-] }
-
 [dev-dependencies]
 rstest = { workspace = true }
 

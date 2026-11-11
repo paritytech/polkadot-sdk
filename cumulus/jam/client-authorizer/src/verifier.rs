@@ -38,7 +38,7 @@ use sp_runtime::{
 };
 
 /// Whether `header` is sealed with a JAM block authorization.
-pub(crate) fn has_jam_seal<Header: HeaderT>(header: &Header) -> bool {
+pub fn has_jam_seal<Header: HeaderT>(header: &Header) -> bool {
 	matches!(
 		header.digest().logs().last(),
 		Some(DigestItem::Seal(id, _)) if *id == BLOCK_AUTHORIZATION_ENGINE_ID
@@ -47,7 +47,7 @@ pub(crate) fn has_jam_seal<Header: HeaderT>(header: &Header) -> bool {
 
 /// Verify the JAM block authorization seal of a block of `para_id` and move it to the post
 /// digests, as the Aura verifier does with an Aura seal.
-pub(crate) fn verify<Block: BlockT>(
+pub fn verify<Block: BlockT>(
 	mut params: BlockImportParams<Block>,
 	para_id: u32,
 ) -> Result<BlockImportParams<Block>, String> {

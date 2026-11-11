@@ -28,7 +28,7 @@ zombienet-configuration = { workspace = true }
 cumulus-jam-interface = { workspace = true, optional = true }
 cumulus-jam-rpc-interface = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
-parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"], optional = true }
+parachain-service-core = { workspace = true, default-features = true, features = ["std"], optional = true }
 # The JAM node RPC client (`jam_rpc`): polkajam's methods, with the base64 spelling of its byte
 # strings taken from `jam-types`' own serde.
 jam-std-common = { workspace = true }

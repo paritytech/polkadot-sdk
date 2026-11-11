@@ -48,13 +48,8 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// that the underlying block has been fully imported into the underlying client,
 	/// as implementations will fetch underlying runtime API data.
 	///
-	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`], or
-	/// [`ParachainBlockData::V3`] when additional data is carried) and `None` for legacy candidates
-	/// (produces [`ParachainBlockData::V1`]).
-	///
-	/// `additional_data` is a per-block vec of optional maps; a non-empty `Some` entry produces
-	/// [`ParachainBlockData::V3`]. It can only ride in a V3 candidate (a V3 extension of V2), so it
-	/// is carried only when `scheduling_proof` is `Some`; otherwise it is dropped.
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
 	///
 	/// This also returns the unencoded parachain block data, in case that is desired.
 	fn build_collation(
@@ -63,7 +58,6 @@ pub trait ServiceInterface<Block: BlockT> {
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Build a multi-block collation.
@@ -71,20 +65,14 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// Does the same as [`Self::build_collation`], but includes multiple blocks into one collation.
 	/// The given `parent_header` should be the header from the parent of the first block.
 	///
-	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`], or
-	/// [`ParachainBlockData::V3`] when additional data is carried) and `None` for legacy candidates
-	/// (produces [`ParachainBlockData::V1`]).
-	///
-	/// `additional_data` is a per-block vec of optional maps; a non-empty `Some` entry produces
-	/// [`ParachainBlockData::V3`]. It can only ride in a V3 candidate (a V3 extension of V2), so it
-	/// is carried only when `scheduling_proof` is `Some`; otherwise it is dropped.
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Directly announce a block on the network.
@@ -393,7 +381,6 @@ where
 		_: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
 			self,
@@ -401,7 +388,7 @@ where
 			vec![candidate.block],
 			candidate.proof,
 			scheduling_proof,
-			additional_data,
+			Vec::new(),
 		)
 	}
 
@@ -415,7 +402,6 @@ where
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
 			self,
@@ -423,7 +409,7 @@ where
 			blocks,
 			proof,
 			scheduling_proof,
-			additional_data,
+			Vec::new(),
 		)
 	}
 }

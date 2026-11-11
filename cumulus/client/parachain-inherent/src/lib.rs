@@ -238,7 +238,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
-		relay_proof_request: Option<RelayProofRequest>,
+		relay_proof_request: impl Into<Option<RelayProofRequest>>,
 		collator_peer_id: PeerId,
 	) -> Option<ParachainInherentData> {
 		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
@@ -257,7 +257,7 @@ impl ParachainInherentDataProvider {
 		// parachains read relay state dynamically via the `read_relay_chain_state` host function
 		// (recorded into the block's additional data, verified in `validate_block`) and pass
 		// `None`.
-		let relay_chain_state = match relay_proof_request {
+		let relay_chain_state = match relay_proof_request.into() {
 			Some(request) => {
 				collect_relay_storage_proof(
 					relay_chain_interface,

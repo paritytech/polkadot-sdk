@@ -119,7 +119,6 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		relay_parent,
 		core_index,
 		validation_data,
-		additional_data,
 	} = message;
 
 	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
@@ -130,7 +129,6 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		blocks,
 		proof,
 		scheduling_proof,
-		additional_data,
 	) {
 		Some(collation) => collation,
 		None => {

@@ -1480,11 +1480,9 @@ impl<Block: BlockT> PackageSource<Block> {
 
 #[cfg(test)]
 mod tests {
-	use super::{
-		super::{authorizer::tests::authorizer_of, hash_ledger::test_support::ledger},
-		*,
-	};
+	use super::{super::hash_ledger::test_support::ledger, *};
 	use codec::{Decode, DecodeAll, Encode};
+	use cumulus_client_jam_authorizer::testing::authorizer_of;
 	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_primitives_core::{JamParent, ParachainBlockData};
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};

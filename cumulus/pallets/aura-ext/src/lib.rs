@@ -39,8 +39,6 @@ use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
-#[cfg(jam)]
-mod jam;
 pub mod migration;
 pub mod signature_verifier;
 #[cfg(test)]
@@ -120,26 +118,9 @@ pub mod pallet {
 /// The block executor used when validating a PoV at the relay chain.
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
-/// the block. On JAM the seal carries a JAM block authorization instead, see [`jam`].
+/// the block.
 pub struct BlockExecutor<T, I>(core::marker::PhantomData<(T, I)>);
 
-#[cfg(jam)]
-impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
-where
-	Block: BlockT,
-	T: Config + cumulus_pallet_parachain_system::Config,
-	I: ExecuteBlock<Block>,
-{
-	fn verify_and_remove_seal(block: &mut <Block as BlockT>::LazyBlock) {
-		jam::verify_and_remove_seal::<T, _>(block.header_mut());
-	}
-
-	fn execute_verified_block(block: Block::LazyBlock) {
-		I::execute_verified_block(block);
-	}
-}
-
-#[cfg(not(jam))]
 impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
 where
 	Block: BlockT,

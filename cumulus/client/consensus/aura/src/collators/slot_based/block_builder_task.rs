@@ -802,10 +802,7 @@ where
 				parent_hash,
 				slot_claim.timestamp(),
 				Some(relay_parent_data.clone()),
-				// V2 parachains carry a fixed relay-state proof in the inherent (built from this
-				// request); V3 parachains read relay state dynamically and pass `None`.
-				(!v3_enabled)
-					.then(|| crate::collators::get_relay_proof_request(para_client, parent_hash)),
+				crate::collators::get_relay_proof_request(para_client, parent_hash),
 				collator_peer_id,
 			)
 			.await
@@ -981,7 +978,6 @@ where
 		validation_code_hash,
 		core_index,
 		validation_data,
-		additional_data: Vec::new(),
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())

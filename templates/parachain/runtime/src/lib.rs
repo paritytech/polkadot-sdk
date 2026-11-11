@@ -341,8 +341,14 @@ mod runtime {
 	pub type TemplatePallet = pallet_parachain_template;
 }
 
+/// On JAM the block seal is a JAM block authorization instead of an Aura seal.
+#[cfg(all(not(feature = "std"), not(jam)))]
+type ValidateBlockExecutor = cumulus_pallet_aura_ext::BlockExecutor<Runtime, Executive>;
+#[cfg(all(not(feature = "std"), jam))]
+type ValidateBlockExecutor = cumulus_jam_block_authorization::BlockExecutor<Runtime, Executive>;
+
 #[docify::export(register_validate_block)]
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = ValidateBlockExecutor,
 }

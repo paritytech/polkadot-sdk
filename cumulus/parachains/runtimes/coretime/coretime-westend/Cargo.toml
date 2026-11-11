@@ -92,6 +92,7 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 pallet-broker = { workspace = true }
 
 [target.'cfg(jam)'.dependencies]
+cumulus-jam-block-authorization = { workspace = true }
 pallet-jam-broker = { workspace = true }
 
 [dev-dependencies]

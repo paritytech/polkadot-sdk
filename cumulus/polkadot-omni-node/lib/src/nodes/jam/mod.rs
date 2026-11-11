@@ -46,7 +46,6 @@
 //! streams built from the parachain service's per-para state entry: `ParaInfo.head_data` holds
 //! the head's header hash, which is resolved to the header from the local database.
 
-pub(crate) mod authorizer;
 pub(crate) mod block_import;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
@@ -54,7 +53,8 @@ pub(crate) mod hash_ledger;
 pub(crate) mod package;
 pub(crate) mod pov_store;
 pub(crate) mod resubmission;
-pub(crate) mod verifier;
+
+pub(crate) use cumulus_client_jam_authorizer::{authorizer, verifier};
 
 use crate::common::{
 	types::{ParachainBackend, ParachainClient},
@@ -723,8 +723,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::{authorizer::tests::authorizer_of, *};
+	use super::*;
 	use codec::Encode;
+	use cumulus_client_jam_authorizer::testing::authorizer_of;
 	use futures::{channel::mpsc, FutureExt};
 	use sp_core::H256;
 
