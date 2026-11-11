@@ -22,7 +22,9 @@ use super::{
 	XcmPallet,
 };
 
-use crate::governance::StakingAdmin;
+use crate::{
+	governance::StakingAdmin, weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight,
+};
 
 use frame_support::{
 	parameter_types,
@@ -30,6 +32,12 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetMatcher, AssetTypes, AutoXcmWeight, AutoXcmWeightConfig, MatchedAssetWeigher,
+	},
+};
 use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
@@ -187,6 +195,45 @@ pub type Barrier = TrailingSetTopicAsId<(
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
+
+// Rococo only knows about one asset, the balances pallet.
+const MAX_ASSETS: u64 = 1;
+
+pub struct RococoAssetMatcher;
+impl AssetMatcher for RococoAssetMatcher {
+	fn classify(asset: &xcm::latest::prelude::Asset) -> AssetTypes {
+		match asset {
+			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } => {
+				AssetTypes::Balances
+			},
+			_ => AssetTypes::Unknown,
+		}
+	}
+
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+}
+
+pub struct RococoXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for RococoXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher = MatchedAssetWeigher<RococoAssetMatcher>;
+
+	fn universal_origin() -> Weight {
+		Weight::MAX
+	}
+
+	fn alias_origin() -> Weight {
+		Weight::MAX
+	}
+}
+
+pub type RococoXcmWeight<RuntimeCall> = AutoXcmWeight<RuntimeCall, RococoXcmWeightConfig>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -198,11 +245,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::RococoXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WeightInfoBounds<RococoXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = XcmPallet;
