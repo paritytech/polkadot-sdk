@@ -80,7 +80,7 @@ pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::{
-		atomic::{AtomicUsize, Ordering as AtomicOrdering},
+		atomic::{AtomicU64, AtomicUsize, Ordering as AtomicOrdering},
 		Arc, Weak,
 	},
 	time::{Duration, Instant},
@@ -944,6 +944,9 @@ pub struct Store {
 	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
 	/// exact value by up to one sweep cycle.
 	known_accounts_count: AtomicUsize,
+	/// Mirror of `SubmitIndex::next_seq`, so the gossip loop reads the watermark without waiting
+	/// for a writer stalled on the disk.
+	admission_watermark: AtomicU64,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
@@ -1474,7 +1477,7 @@ impl Store {
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
-		task_spawner.spawn(
+		task_spawner.spawn_blocking(
 			"statement-store-maintenance",
 			Some("statement-store"),
 			Box::pin(async move {
@@ -1534,6 +1537,7 @@ impl Store {
 			retention_fn: std::sync::OnceLock::new(),
 			keystore,
 			known_accounts_count: AtomicUsize::new(0),
+			admission_watermark: AtomicU64::new(0),
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -1669,6 +1673,7 @@ impl Store {
 					submit_index.next_seq = seq.saturating_add(1);
 				}
 			}
+			self.admission_watermark.store(submit_index.next_seq, AtomicOrdering::Release);
 
 			let mut evicted_count = 0usize;
 			self.db
@@ -2780,8 +2785,8 @@ impl StatementStore for Store {
 	fn admission_watermark(&self) -> Result<u64> {
 		// Every admission commits its journal row under the submit-index write lock before
 		// releasing it, so a lock holder observes every sequence number below `next_seq`
-		// already persisted.
-		Ok(self.submit_index.read().next_seq)
+		// already persisted. The mirror advances after that commit, so the same holds for it.
+		Ok(self.admission_watermark.load(AtomicOrdering::Acquire))
 	}
 
 	fn admitted_statements(
@@ -3417,6 +3422,7 @@ impl StatementStore for Store {
 			}
 			let seq = plan.seq;
 			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, track, &plan);
+			self.admission_watermark.store(submit_index.next_seq, AtomicOrdering::Release);
 			if stale_banned_at.is_some() {
 				submit_index.evicted_count = submit_index.evicted_count.saturating_sub(1);
 			}
