@@ -814,7 +814,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			statement_store.set_retention_resolver(resolver);
 		}
 	}
-	task_manager.spawn_handle().spawn(
+	task_manager.spawn_handle().spawn_blocking(
 		"network-statement-handler",
 		Some("networking"),
 		statement_handler.run(),

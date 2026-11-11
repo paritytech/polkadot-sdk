@@ -102,7 +102,7 @@ pub(crate) fn build_statement_store<
 			statement_store.set_retention_resolver(resolver);
 		}
 	}
-	task_manager.spawn_handle().spawn(
+	task_manager.spawn_handle().spawn_blocking(
 		"network-statement-handler",
 		Some("networking"),
 		statement_handler.run(),
