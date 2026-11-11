@@ -4307,8 +4307,8 @@ reason = "changed"
 # umbrella
 name = "polkadot-sdk"
 from = "2609.2.0"
-to = "2610.0.0"
-bump = "major"
+to = "2609.3.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]

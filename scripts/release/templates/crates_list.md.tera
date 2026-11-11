@@ -54,7 +54,7 @@ The following crates were updated to the corresponding versions:
 - polkadot@42.0.0
 - polkadot-omni-node-lib@0.25.0
 - polkadot-omni-node@0.25.0
-- polkadot-sdk@2610.0.0
+- polkadot-sdk@2609.3.0
 - revive-dev-runtime@0.13.0
 - yet-another-parachain-runtime@0.18.0
 - pallet-revive-eth-rpc@0.25.0
