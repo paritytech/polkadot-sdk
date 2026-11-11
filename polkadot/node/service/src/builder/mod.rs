@@ -501,8 +501,8 @@ where
 				gap_sync_body_policy: None,
 			})?;
 
-		// Subscribe to `ConnectionEstablished` from `sc-network` and convert them to
-		// `InboundConnection` observations for the health subsystem.
+		// Listen for events from `sc-network` and report every inbound connection from a globally
+		// routable address (from any address with `--allow-private-ip`) to the health subsystem.
 		if ext_overseer_args.is_some() {
 			use futures::StreamExt;
 			use polkadot_node_core_health::Observation;
