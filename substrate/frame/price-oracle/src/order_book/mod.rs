@@ -161,6 +161,32 @@ pub enum HealthError {
 	Overflow,
 }
 
+// The text of an error is the node's metric label and log text: see `MarketPricing::Error`.
+impl core::fmt::Display for Error {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::UnknownQuery => f.write_str("unknown_query"),
+			Self::Schema(e) => e.fmt(f),
+			Self::Overflow => f.write_str("contract_size_overflow"),
+			Self::NoOrderBook => f.write_str("no_book_response"),
+			Self::NoTrades => f.write_str("no_trades_response"),
+			Self::Unhealthy(e) => e.fmt(f),
+		}
+	}
+}
+
+// The text of an error is the node's metric label and log text: see `MarketPricing::Error`.
+impl core::fmt::Display for HealthError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str(match self {
+			Self::EmptyBook => "empty_book",
+			Self::CrossedBook => "crossed_book",
+			Self::StaleTrades => "stale_trades",
+			Self::Overflow => "fill_overflow",
+		})
+	}
+}
+
 impl MarketPricing for OrderBookPricing {
 	type Params = OrderBookParams;
 	type Output = Interval;

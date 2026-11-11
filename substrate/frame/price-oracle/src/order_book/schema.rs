@@ -146,6 +146,20 @@ pub enum ResponseSchemaError {
 	NoTrades,
 }
 
+// The text of an error is the node's metric label and log text: see `MarketPricing::Error`.
+impl core::fmt::Display for ResponseSchemaError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str(match self {
+			Self::NotJson => "not_json",
+			Self::PathNotFound => "path_not_found",
+			Self::NotAnArray => "not_an_array",
+			Self::MalformedLevel => "malformed_level",
+			Self::MalformedTime => "malformed_time",
+			Self::NoTrades => "no_trades",
+		})
+	}
+}
+
 impl ResponseSchema {
 	/// Read `body` according to this schema.
 	pub fn read(&self, body: &[u8]) -> Result<Parsed, ResponseSchemaError> {

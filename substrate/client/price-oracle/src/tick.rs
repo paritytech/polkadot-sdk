@@ -370,8 +370,9 @@ where
 					outputs.push((market, output));
 				},
 				Ok(Err(e)) => {
-					log_state.market_not_priced(market, e.to_string());
-					metrics.on_market_result(market, "parse");
+					let reason = e.to_string();
+					metrics.on_market_result(market, &format!("parse_{reason}"));
+					log_state.market_not_priced(market, reason);
 				},
 				Err(e) => {
 					log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}");

@@ -64,7 +64,8 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.tick_duration.start_timer())
 	}
 
-	/// Count `market` ending a tick with `result`.
+	/// Count `market` ending a tick with `result`: `priced`, how the fetch failed, or the reason
+	/// the runtime did not price it, prefixed with `parse_`.
 	pub(crate) fn on_market_result(&self, market: MarketId, result: &str) {
 		if let Some(metrics) = &self.0 {
 			metrics.market_results.with_label_values(&[&market.0.to_string(), result]).inc();
@@ -140,7 +141,9 @@ impl Inner {
 				CounterVec::new(
 					Opts::new(
 						"substrate_price_oracle_market_results_total",
-						"Number of ticks a market was priced or failed in, by market and result",
+						"Number of ticks a market ended with a result, by market and result: priced, \
+						how the fetch failed, or the reason the runtime did not price it, prefixed \
+						with parse_",
 					),
 					&["market", "result"],
 				)?,
