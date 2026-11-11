@@ -4,7 +4,7 @@
 // Test that a parachain can keep producing blocks even if the other parachain with which it's
 // sharing a core doesn't
 
-use crate::utils::maybe_enable_experimental_collator_protocol;
+use crate::utils::maybe_enable_legacy_collator_protocol;
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
@@ -30,7 +30,7 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				.with_default_args(maybe_enable_legacy_collator_protocol(vec![
 					("-lparachain=debug").into(),
 				]))
 				.with_genesis_overrides(json!({
