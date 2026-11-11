@@ -26,14 +26,13 @@ use crate::{
 	},
 	tests::{
 		Assets, AssetsFreezer, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID,
-		RuntimeOrigin, System, Test, builder, test_utils::get_contract_checked,
+		PGasRefundPercent, RuntimeOrigin, Test, builder, test_utils::get_contract_checked,
 	},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::{
 	assert_ok,
 	traits::{
-		OnIdle,
 		fungible::{Inspect as _, InspectHold, Mutate as _},
 		tokens::{
 			Fortitude, Precision, Preservation,
@@ -43,7 +42,6 @@ use frame_support::{
 			},
 		},
 	},
-	weights::Weight,
 };
 use pallet_revive_fixtures::{
 	FixtureType, MultiContributorStorage, compile_module, compile_module_with_type,
@@ -457,13 +455,9 @@ fn minted_contract_pgas_ed_not_extractable_due_to_freeze() {
 	});
 }
 
-/// A contract whose storage was paid for by two different signers, both via the native
-/// fallback path, can still be terminated. [`Deposit::refund_all`] bypasses the per-payer
-/// [`NativeDepositOf`] cap (one recipient at termination, contract gone), so the full native
-/// hold goes to the terminator and any PGAS hold is settled via `settle_pgas_refund`.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
+fn terminate_keeps_native_deposits_of_pre_existing_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::set_balance(&ALICE, 100_000_000_000);
@@ -492,73 +486,8 @@ fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 
 		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
 		let native_held = Balances::balance_on_hold(&hold, &account_id);
-		let pgas_held = AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &account_id);
-		assert_eq!(pgas_held, 0, "every charge fell back to native");
 		assert_eq!(native_held, alice_entry + charlie_entry);
-
 		let alice_before = Balances::balance(&ALICE);
-		assert_ok!(
-			builder::bare_call(addr)
-				.data(
-					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
-						.abi_encode(),
-				)
-				.build()
-				.result,
-		);
-		let alice_after = Balances::balance(&ALICE);
-
-		assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
-		assert_eq!(
-			Balances::balance_on_hold(&hold, &account_id),
-			0,
-			"the full multi-contributor native hold has been released",
-		);
-		// ALICE receives the full storage-deposit hold (her own + CHARLIE's). The actual delta
-		// also picks up the code-upload deposit refund and any tx-level deposit accounting,
-		// so it is at least `native_held`.
-		assert!(
-			alice_after.saturating_sub(alice_before) >= native_held,
-			"expected ALICE balance delta >= {}, got {}",
-			native_held,
-			alice_after.saturating_sub(alice_before),
-		);
-	});
-}
-
-/// Terminating a contract reaps its system account (native and PGAS EDs are burned by
-/// `destroy_contract`, the manual consumer is decremented), and the `on_idle` deletion-queue
-/// drain clears its [`NativeDepositOf`] rows. We charge a multi-contributor native deposit
-/// first so the double map is genuinely populated and we can observe both rows disappear.
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::set_balance(&ALICE, 100_000_000_000);
-		Balances::set_balance(&CHARLIE, 100_000_000_000);
-
-		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		// Two distinct payers grow distinct slots so that `NativeDepositOf[contract][_]` has
-		// two rows once the deletion queue starts draining.
-		assert_ok!(
-			builder::bare_call(addr)
-				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
-				.build()
-				.result,
-		);
-		assert_ok!(
-			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
-				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
-				.build()
-				.result,
-		);
-
-		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
-		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
-		assert!(System::account_exists(&account_id), "contract account is alive pre-terminate");
 
 		assert_ok!(
 			builder::bare_call(addr)
@@ -570,27 +499,12 @@ fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: Fi
 				.result,
 		);
 
-		assert!(get_contract_checked(&addr).is_none(), "contract info should be gone");
-		assert!(
-			!System::account_exists(&account_id),
-			"system account should be reaped once destroy_contract burns the EDs",
-		);
-		assert_eq!(Balances::balance(&account_id), 0);
-		assert_eq!(Assets::balance(PGAS_ASSET_ID, &account_id), 0);
-
-		// `NativeDepositOf` rows survive termination; they're cleared lazily by `on_idle`.
-		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
-		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
-		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "contract is queued for deletion");
-
-		Contracts::on_idle(System::block_number(), Weight::MAX);
-
-		assert_eq!(
-			DeletionQueue::<Test>::iter().count(),
-			0,
-			"deletion queue drained to completion",
-		);
-		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
+		assert!(get_contract_checked(&addr).is_some(), "contract should stay");
+		assert_eq!(Balances::balance_on_hold(&hold, &account_id), native_held);
+		assert_eq!(Balances::balance(&ALICE), alice_before, "nothing is refunded");
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), alice_entry);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE), charlie_entry);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "nothing is queued for deletion");
 	});
 }
 
@@ -730,5 +644,70 @@ fn code_upload_and_remove_with_pgas() {
 				0,
 				"hold released",
 			);
+		});
+}
+
+/// [`Deposit::refund_all`] only releases as much of the storage deposit as the freezes on the
+/// account allow. Holds count towards a freeze, so the part of the freeze that the free balance
+/// does not cover stays on hold instead of failing the refund.
+#[test]
+fn refund_all_leaves_frozen_part_on_hold() {
+	use frame_support::traits::{LockableCurrency, WithdrawReasons, fungible::MutateHold};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+		Balances::set_balance(&BOB, 1_000);
+		assert_ok!(Balances::hold(&hold, &BOB, 600));
+		// 400 free and 600 held: the free balance covers 400 of the lock, the hold the rest.
+		Balances::set_lock(*b"test/lck", &BOB, 900, WithdrawReasons::all());
+
+		let alice_before = Balances::balance(&ALICE);
+		let refunded =
+			<<Test as Config>::Deposit as Deposit<Test>>::refund_all(&BOB, Funds::Balance(&ALICE))
+				.unwrap();
+
+		assert_eq!(refunded, 100);
+		assert_eq!(Balances::balance_on_hold(&hold, &BOB), 500);
+		assert_eq!(Balances::balance(&ALICE), alice_before + 100);
+	});
+}
+
+/// [`Deposit::refund_all`] returns the deposit released from the native and the PGAS hold. Of the
+/// PGAS hold, `PGasRefundPercent` is credited to the destination and the rest is burned. Both
+/// parts count as released.
+#[test]
+fn refund_all_returns_native_and_whole_pgas_hold() {
+	use frame_support::traits::{fungible::MutateHold, tokens::fungibles::MutateHold as _};
+
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			let hold: <Test as Config>::RuntimeHoldReason =
+				HoldReason::StorageDepositReserve.into();
+			Balances::set_balance(&BOB, 1_000);
+			assert_ok!(Balances::hold(&hold, &BOB, 600));
+			assert_ok!(Assets::mint_into(PGAS_ASSET_ID, &BOB, 1_001));
+			assert_ok!(AssetsHolder::hold(PGAS_ASSET_ID, &hold, &BOB, 1_000));
+
+			let native_before = Balances::balance(&ALICE);
+			let pgas_before = Assets::balance(PGAS_ASSET_ID, &ALICE);
+			let issuance_before = Assets::total_issuance(PGAS_ASSET_ID);
+
+			let released = <<Test as Config>::Deposit as Deposit<Test>>::refund_all(
+				&BOB,
+				Funds::Balance(&ALICE),
+			)
+			.unwrap();
+
+			let credited = PGasRefundPercent::get().mul_floor(1_000u128);
+			let burned = 1_000 - credited;
+			assert!(credited > 0 && burned > 0);
+			assert_eq!(released, 600 + credited + burned);
+			assert_eq!(Balances::balance(&ALICE), native_before + 600);
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &ALICE), pgas_before + credited);
+			assert_eq!(Assets::total_issuance(PGAS_ASSET_ID), issuance_before - burned);
+			assert_eq!(Balances::balance_on_hold(&hold, &BOB), 0);
+			assert_eq!(AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &BOB), 0);
 		});
 }

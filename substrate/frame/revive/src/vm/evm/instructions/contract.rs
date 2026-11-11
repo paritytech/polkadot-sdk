@@ -23,7 +23,7 @@ use crate::{
 	access_list::InstantiateItems,
 	exec::CallResources,
 	vm::{
-		Ext, RuntimeCosts,
+		Ext, RuntimeCosts, adjust_instantiate_registration_charge,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -64,7 +64,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		}
 
 		let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
-		interpreter.memory.resize(code_offset, len)?;
+		interpreter.memory.resize(code_offset, len, interpreter.ext)?;
 		code = interpreter.memory.slice_len(code_offset, len).to_vec();
 	}
 
@@ -75,12 +75,20 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		None
 	};
 
+	let worst_case_registration_charge = interpreter.ext.charge_or_halt(
+		RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
+	)?;
 	let call_result = interpreter.ext.instantiate(
 		&CallResources::NoLimits,
 		Code::Upload(code),
 		value,
 		vec![],
 		salt.as_ref(),
+	);
+	adjust_instantiate_registration_charge(
+		interpreter.ext,
+		worst_case_registration_charge,
+		&call_result,
 	);
 
 	match call_result {
@@ -92,12 +100,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
 				*interpreter.ext.last_frame_output_mut() = Default::default();
-				// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
-				let deployer = interpreter.ext.address();
-				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
-				interpreter
-					.ext
-					.charge_or_halt(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
 				interpreter.stack.push(address)
 			}
 		},

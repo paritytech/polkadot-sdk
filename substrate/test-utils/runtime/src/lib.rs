@@ -254,6 +254,8 @@ decl_runtime_apis! {
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool;
 		/// Write the given `value` under the given `key` into the storage and then optional panic.
 		fn write_key_value(key: Vec<u8>, value: Vec<u8>, panic: bool);
+		/// Spin in an infinite loop (for execution-timeout tests).
+		fn spin();
 	}
 }
 
@@ -267,12 +269,6 @@ pub type Executive = frame_executive::Executive<
 
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
-
-impl sp_runtime::traits::Printable for CheckSubstrateCall {
-	fn print(&self) {
-		"CheckSubstrateCall".print()
-	}
-}
 
 impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
@@ -670,6 +666,13 @@ impl_runtime_apis! {
 				panic!("I'm just following my master");
 			}
 		}
+
+		fn spin() {
+			let mut i = 0u64;
+			loop {
+				i = core::hint::black_box(i).wrapping_add(1);
+			}
+		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -945,11 +948,12 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 		&backend,
 		#[cfg(feature = "std")]
 		None,
+		crate::VERSION.state_version(),
 	);
 	assert!(ext.storage(b"value3").is_some());
-	assert!(ext.storage_root(Default::default()).as_slice() == &root[..]);
+	assert!(ext.storage_root().as_slice() == &root[..]);
 	ext.place_storage(vec![0], Some(vec![1]));
-	assert!(ext.storage_root(Default::default()).as_slice() != &root[..]);
+	assert!(ext.storage_root().as_slice() != &root[..]);
 }
 
 /// Some tests require the hashed keys of the storage. As the values of hashed keys are not trivial

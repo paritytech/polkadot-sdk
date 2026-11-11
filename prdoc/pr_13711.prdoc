@@ -1,0 +1,27 @@
+title: 'Westend AH and People: configurable validator inactivity, StakingOperator session keys'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Follow-ups to #13464 for deploying validator-collators on Westend.
+
+    Asset Hub Westend replaces `pallet_staking_async::AllZero` with its own `IsValidatorInactive`,
+    which reads the `IsValidatorInactiveThresholds` storage parameter,
+    `Option<(min_relay_consensus, min_collation)>`. With `Some`, a validator is inactive in an era
+    if it earned fewer relay consensus points than the first value or fewer collation points than
+    the second. The default is `None`: no validator is inactive, so `chill_inactive` chills no one
+    until Root sets the parameter with `System::set_storage` at
+    `twox_128(":IsValidatorInactiveThresholds:")`. Benchmarks use `Some((1, 1))`, so that a
+    validator with no points is inactive.
+
+    The Asset Hub Westend `StakingOperator` proxy can also call `Session::set_keys` and
+    `Session::purge_keys`, to manage the session keys with which a validator collates on Asset
+    Hub, next to the relay chain keys it already managed through `StakingRcClient`.
+
+    People Westend gains a `StakingOperator` proxy type, encoded as index 6. It can call
+    `Session::set_keys`, `Session::purge_keys` and the `Utility` batch calls (`batch`,
+    `batch_all`, `force_batch`), and nothing else. `NonTransfer` is a superset of it.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: major

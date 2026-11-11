@@ -1511,8 +1511,7 @@ fn in_memory_changes_not_discarded() {
 fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 	// Exercises a banked refund: self-reenter, `charge_storage` a removal (no cache reload),
 	// self-reenter again. The second bank fires on an invalidated frame; `load()` reloads so
-	// the removal's pro-rata refund is applied. 30 bytes (not 1) so the refund doesn't round
-	// to 0.
+	// the removal's pro-rata refund is applied.
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		if ctx.input_data[0] == 0 {
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
@@ -1558,9 +1557,9 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 		));
 		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
 
-		// K1 = 35 bytes → deposit 37; 30-byte removal refunds floor(30/35 * 35) = 29 → net 8.
+		// K1 = 35 bytes → deposit 37; 30-byte removal refunds 30/35 of 35 = 30 → net 7.
 		let charged = min_balance * 1000 - get_balance(&ALICE);
-		assert_eq!(charged, 8, "banked removal refund not applied: expected net deposit 8");
+		assert_eq!(charged, 7, "banked removal refund not applied: expected net deposit 7");
 	});
 }
 
@@ -3483,8 +3482,8 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 }
 
 #[test]
-fn cold_hot_first_frame_warms_entry_target() {
-	let exec_config = ExecConfig::new_substrate_tx().with_first_frame_reads_paid();
+fn cold_hot_first_frame_prewarms_the_called_contract_and_its_transfer() {
+	let exec_config = Pallet::<Test>::substrate_call_exec_config();
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }).entries(),
@@ -3492,7 +3491,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
-			"the entry target's mapping and contract info are pre-warmed by the first frame",
+			"the called contract's mapping and contract info are pre-warmed by the first frame",
 		);
 		assert_matches!(
 			ctx.ext
@@ -3521,7 +3520,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
-			"a transaction carrying value pre-warms both sides of the transfer as well",
+			"the called contract's mapping and contract info are pre-warmed by the first frame",
 		);
 		assert_matches!(
 			ctx.ext
@@ -3550,10 +3549,10 @@ fn cold_hot_first_frame_warms_entry_target() {
 				.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: true })
 				.entries(),
 			TransferWarmth {
-				receiver_account: Warmth::write_paid(),
-				sender_account: Warmth::write_paid(),
-				receiver_account_info: Warmth::write_paid(),
-				sender_account_info: Warmth::write_paid(),
+				receiver_account: Warmth::new_write_paid(),
+				sender_account: Warmth::new_write_paid(),
+				receiver_account_info: Warmth::new_write_paid(),
+				sender_account_info: Warmth::new_write_paid(),
 				dust: true,
 			}
 		);
@@ -3642,7 +3641,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 		let own_hash = *ctx.ext.own_code_hash();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(own_hash)).entries(),
-			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
+			CodeLoadWarmth { info: Warmth::new_read_paid(), blob: Warmth::new_read_paid() },
 			"a call warms the code it loads",
 		);
 
@@ -3659,7 +3658,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(dummy_code_hash)).entries(),
-			CodeLoadWarmth { info: Warmth::write_paid(), blob: Warmth::read_paid() },
+			CodeLoadWarmth { info: Warmth::new_write_paid(), blob: Warmth::new_read_paid() },
 			"an instantiate warms the code it loads, and pays for its refcount write to the code info",
 		);
 		exec_success()
@@ -3694,8 +3693,12 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				Warmth::Cold { revertible: nested },
 				"{frame_type}: nothing reads EVE's account info before the call",
 			);
-			let expected_charge = Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(
-				Summarized::from_warmth(KeyFamily::Address, warmth_before, StorageOp::Read),
+			let expected_charge = Token::<Test>::weight(&RuntimeCosts::ChainedDelegationCheck(
+				Summarized::from_warmth(
+					KeyFamily::PalletStorageSlot,
+					warmth_before,
+					StorageOp::Read,
+				),
 			));
 			let weight_before = ctx.ext.frame_meter().weight_consumed();
 
@@ -3709,7 +3712,11 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 			);
 
 			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
-			assert_eq!(account_info_warmth(ctx.ext, EVE_ADDR), Warmth::read_paid(), "{frame_type}");
+			assert_eq!(
+				account_info_warmth(ctx.ext, EVE_ADDR),
+				Warmth::new_read_paid(),
+				"{frame_type}"
+			);
 			assert_eq!(
 				ctx.ext.frame_meter().weight_consumed().saturating_sub(weight_before),
 				expected_charge,

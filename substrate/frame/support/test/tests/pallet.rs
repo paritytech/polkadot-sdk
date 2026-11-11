@@ -162,10 +162,17 @@ pub mod pallet {
 		fn some_extra() -> T::AccountId {
 			SomeType2.into()
 		}
+	}
 
+	// A separate block with different bounds must contribute its constants to metadata too.
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType3>,
+	{
 		/// Some doc
 		fn some_extra_extra() -> T::AccountId {
-			SomeType1.into()
+			SomeType3.into()
 		}
 
 		/// Some doc

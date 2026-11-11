@@ -37,6 +37,7 @@ pub(crate) fn new_statement_handler_proto<
 >(
 	client: &ParachainClient<Block, RuntimeApi>,
 	parachain_config: &Configuration,
+	statement_store_config: &sc_statement_store::Config,
 	metrics: &sc_network::NotificationMetrics,
 	net_config: &mut FullNetworkConfiguration<Block, Hash, Net>,
 ) -> sc_network_statement::StatementHandlerPrototype {
@@ -46,6 +47,8 @@ pub(crate) fn new_statement_handler_proto<
 			parachain_config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&net_config.peer_store_handle()),
+			&net_config.network_config,
+			statement_store_config.v2dht.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_config);
 	statement_handler_proto

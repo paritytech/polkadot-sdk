@@ -22,14 +22,14 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, InstantiateItems, StorageOp, TransferItems},
+	access_list::{CallItems, InstantiateItems, StorageOp},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
-	vm::TransferAccessKind,
+	vm::{adjust_instantiate_registration_charge, charge_call_transfer},
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -63,6 +63,9 @@ pub trait Memory<T: Config> {
 	/// - requested buffer is not within the bounds of the sandbox memory.
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
 
+	/// Returns whether `len` bytes starting at `ptr` are within the bounds of the sandbox memory.
+	fn is_readable(&self, ptr: u32, len: u32) -> bool;
+
 	/// Write the given buffer to the designated location in the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -90,6 +93,9 @@ pub trait Memory<T: Config> {
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
 	fn read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
+		if !self.is_readable(ptr, len) {
+			return Err(Error::<T>::OutOfBounds.into());
+		}
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
@@ -149,6 +155,10 @@ pub trait PolkaVmInstance<T: Config>: Memory<T> {
 // in the streaming implementation while it could fail with a segfault in the copy implementation.
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> Memory<T> for [u8] {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		(ptr as usize).checked_add(len as usize).is_some_and(|end| end <= self.len())
+	}
+
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		let ptr = ptr as usize;
 		let bound_checked =
@@ -173,6 +183,10 @@ impl<T: Config> Memory<T> for [u8] {
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		self.is_memory_accessible(ptr, len, polkavm::MemoryProtection::Read)
+	}
+
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		self.read_memory_into(ptr, buf)
 			.map(|_| ())
@@ -686,18 +700,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					let dust_transfer = Pallet::<E::T>::has_dust(value);
-					// A precompile's account state is untracked, so its transfer pays cold.
-					let transfer = if precompile.is_none() {
-						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
-							from: self.ext.address(),
-							to: callee,
-							dust: dust_transfer,
-						}))
-					} else {
-						TransferAccessKind::Untracked { dust: dust_transfer }
-					};
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
+					charge_call_transfer(self.ext, callee, value, precompile.is_some())?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
@@ -795,19 +798,24 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.reset_interpreter_cache();
 
-		match self.ext.instantiate(
+		let worst_case_registration_charge = self.charge_gas(
+			RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
+		)?;
+		let instantiate_result = self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
 			salt.as_ref(),
-		) {
+		);
+		adjust_instantiate_registration_charge(
+			self.ext,
+			worst_case_registration_charge,
+			&instantiate_result,
+		);
+		match instantiate_result {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
-					let warmth =
-						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
-					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -902,5 +910,41 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		self.instance.set_reg(polkavm::Reg::A0, a0.into());
 		self.instance.set_reg(polkavm::Reg::A1, a1);
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::Test;
+
+	struct Unreadable;
+
+	impl Memory<Test> for Unreadable {
+		fn is_readable(&self, _ptr: u32, _len: u32) -> bool {
+			false
+		}
+
+		fn read_into_buf(&mut self, _ptr: u32, _buf: &mut [u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn write(&mut self, _ptr: u32, _buf: &[u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn zero(&mut self, _ptr: u32, _len: u32) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn reset_interpreter_cache(&mut self) {}
+	}
+
+	#[test]
+	fn mem_read_early_return() {
+		assert_eq!(
+			Memory::<Test>::read(&mut Unreadable, 0, 1024 * 1024),
+			Err(Error::<Test>::OutOfBounds.into())
+		);
 	}
 }

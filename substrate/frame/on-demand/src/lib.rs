@@ -29,6 +29,11 @@
 //!   derived from that estimate using [`PriceParameters`].
 //! - Orders accepted within a block are accumulated in [`PendingBatch`] and forwarded to the Relay
 //!   chain in one go on finalization, via [`QueueOnDemandOrders`].
+//! - The spot prices paid are collected in the pallet's pot and booked as [`Revenue`] against the
+//!   timeslice the order was placed in. `pallet-broker` claims the revenue of each timeslice once
+//!   it has ended, along with that of any earlier timeslice which could not be paid out before,
+//!   through [`fp_coretime::revenue::OnDemandRevenue`], and pays it out to the contributors to the
+//!   Instantaneous Coretime Pool.
 //!
 //!   NOTE: It is important to make sure that this pallet is ordered before `ParachainSystem` in the
 //!   runtime - otherwise the messages will not be sent in the block in which they are created,
@@ -50,14 +55,17 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use alloc::vec::Vec;
-use fp_coretime::TaskId;
+use alloc::{collections::BTreeMap, vec::Vec};
+use fp_coretime::{TaskId, Timeslice};
 use frame_support::traits::EnsureOrigin;
 use sp_runtime::traits::BlockNumberProvider;
 
 pub use types::*;
 pub use weightinfo_extension::WeightInfoExt;
 pub use weights::WeightInfo;
+
+/// The logging target of this pallet.
+const LOG_TARGET: &str = "runtime::on-demand";
 
 /// The default maximum number of outstanding on-demand orders beyond which new orders will be
 /// rejected.
@@ -89,15 +97,25 @@ pub trait QueueOnDemandOrders<RelayBlockNumber> {
 	/// Each entry is the parachain the order was placed for and the Relay-chain block number it was
 	/// ordered at.
 	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>);
+
+	/// Make sure that the batches queued afterwards reach the Relay chain.
+	///
+	/// Used to set up the benchmarks, so that they measure a successful delivery.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery();
 }
 
 impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
 	fn queue_batch(_batch: Vec<(TaskId, RelayBlockNumber)>) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {}
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use fp_coretime::revenue::{OnDemandRevenue, RevenueClaim};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -107,7 +125,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::traits::{SaturatedConversion, Saturating};
+	use sp_arithmetic::traits::{SaturatedConversion, Saturating, Zero};
 	use sp_runtime::traits::AccountIdConversion;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -148,6 +166,24 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBatchSize: Get<u32>;
 
+		/// The number of Relay-chain blocks in a timeslice.
+		///
+		/// Revenue is booked against the timeslice an order was placed in, so this must match the
+		/// `TimeslicePeriod` of the `pallet-broker` instance claiming it.
+		#[pallet::constant]
+		type TimeslicePeriod: Get<RelayBlockNumberOf<Self>>;
+
+		/// The maximum number of timeslices whose unclaimed revenue is kept apart.
+		///
+		/// Normally only the revenue of the current timeslice and of the one which has just ended
+		/// is unclaimed, but more builds up while the revenue cannot be paid out. Once this many
+		/// timeslices have unclaimed revenue, the revenue of the oldest one is merged into the
+		/// next oldest one, so it is never lost, but is attributed to a later timeslice. This may
+		/// cause the revenue to be paid to a different set of contributors, which is why this
+		/// number should be big enough to minimize the probability of that happening.
+		#[pallet::constant]
+		type MaxUnclaimedTimeslices: Get<u32>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -169,6 +205,27 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Revenue from on-demand sales which has not been claimed yet, by the timeslice the orders
+	/// were placed in.
+	///
+	/// The funds themselves sit in the pallet's pot until they are claimed through
+	/// [`OnDemandRevenue::claim_revenue`].
+	#[pallet::storage]
+	pub type Revenue<T: Config> = StorageValue<
+		_,
+		BoundedBTreeMap<Timeslice, BalanceOf<T>, T::MaxUnclaimedTimeslices>,
+		ValueQuery,
+	>;
+
+	/// Whether on-demand Coretime is sold here.
+	///
+	/// Orders are only accepted once it is, as the revenue from them is only claimed through
+	/// [`OnDemandRevenue::claim_revenue`] once it is; otherwise it would never be distributed.
+	///
+	/// It is `false` until enabled with [`Pallet::enable`], and stays `true` from then on.
+	#[pallet::storage]
+	pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -181,6 +238,28 @@ pub mod pallet {
 			/// The account that placed and paid for the order.
 			ordered_by: T::AccountId,
 		},
+		/// Revenue from on-demand sales was claimed and paid out to `beneficiary`.
+		RevenueClaimed {
+			/// The timeslice the orders the revenue came from were placed in.
+			when: Timeslice,
+			/// The amount that was paid out.
+			amount: BalanceOf<T>,
+			/// The account the revenue was paid out to.
+			beneficiary: T::AccountId,
+		},
+		/// The funds in pot were unexpectedly too low to handle a revenue claim. The revenue of
+		/// the oldest timeslices was paid out as far as the funds allowed; the rest stays booked
+		/// until the pot is topped up.
+		UnexpectedLowFunds {
+			/// The amount that was being claimed.
+			attempted_to_claim: BalanceOf<T>,
+			/// The claimable amount in the pot.
+			claimable: BalanceOf<T>,
+			/// The amount that was actually paid out.
+			paid_out: BalanceOf<T>,
+		},
+		/// On-demand Coretime sales were enabled.
+		Enabled,
 	}
 
 	#[pallet::error]
@@ -200,12 +279,25 @@ pub mod pallet {
 		InsufficientFunds,
 		/// The price parameters allow the price to overflow with too many outstanding orders.
 		OrderPriceCanOverflow,
+		/// On-demand Coretime sales are disabled.
+		Disabled,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			T::WeightInfo::on_finalize_block_fixed()
+		}
+
+		fn integrity_test() {
+			assert!(
+				T::MaxUnclaimedTimeslices::get() > 1,
+				"`MaxUnclaimedTimeslices` must allow for the revenue of at least two timeslices"
+			);
+			assert!(
+				T::TimeslicePeriod::get() > 0u32.into(),
+				"The length of a timeslice cannot be 0"
+			);
 		}
 
 		fn on_finalize(_now: BlockNumberFor<T>) {
@@ -217,6 +309,11 @@ pub mod pallet {
 			T::OrderQueue::queue_batch(
 				batch.into_iter().map(|order| (order.para_id, order.ordered_at)).collect(),
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -259,6 +356,50 @@ pub mod pallet {
 			// TODO(ahm-v2): add a check that the para_id is valid
 			Self::do_place_order(who, para_id, max_amount)
 		}
+
+		/// Enable on-demand Coretime sales.
+		///
+		/// Until they are enabled, no orders are accepted. Once they are, they cannot be disabled
+		/// again, and calling this does nothing.
+		///
+		/// This should be called after the AHM v2 migration is completed.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		#[pallet::call_index(2)]
+		pub fn enable(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			if !Enabled::<T>::get() {
+				Enabled::<T>::put(true);
+				Self::deposit_event(Event::<T>::Enabled);
+			}
+			Ok(Pays::No.into())
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Check the invariants of the pallet's storage.
+		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			let revenue = Revenue::<T>::get();
+
+			// No revenue is booked for the future.
+			let now = T::RelayBlockNumberProvider::current_block_number();
+			let current: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
+			ensure!(
+				revenue.last_key_value().map_or(true, |(&when, _)| when <= current),
+				"Revenue is booked against a timeslice which has not started yet"
+			);
+
+			// The pot holds the revenue booked. If it does not, the revenue is held back until the
+			// pot is topped up.
+			let booked = revenue
+				.values()
+				.fold(BalanceOf::<T>::zero(), |booked, &amount| booked.saturating_add(amount));
+			let reducible = T::Currency::reducible_balance(&Self::account_id(), Preserve, Polite);
+			ensure!(reducible >= booked, "The pot holds less than can be paid out as revenue");
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -272,6 +413,9 @@ pub mod pallet {
 			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
+			// Fail early if the parachain does not yet accept orders (so the migration is not yet
+			// complete).
+			ensure!(Enabled::<T>::get(), Error::<T>::Disabled);
 			// Fail early if the batch is already full.
 			ensure!(
 				PendingBatch::<T>::decode_len().unwrap_or(0) < T::MaxBatchSize::get() as usize,
@@ -307,8 +451,11 @@ pub mod pallet {
 
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
-			// Charge the sending account the spot price.
+			// Charge the sending account the spot price. The funds stay in the pot until the
+			// revenue they represent is claimed.
 			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
+			let when: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
+			Self::book_revenue(when, spot_price);
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {
@@ -326,6 +473,139 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::OrderPlaced { para_id, spot_price, ordered_by: who });
 
 			Ok(())
+		}
+
+		/// Book `amount` of revenue against timeslice `when`.
+		fn book_revenue(when: Timeslice, amount: BalanceOf<T>) {
+			let booked = Revenue::<T>::get().try_mutate(|revenue| {
+				revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
+				if revenue.len() <= T::MaxUnclaimedTimeslices::get() as usize {
+					return;
+				}
+
+				// The revenue of the oldest timeslice has not been claimed for too long; keep it
+				// with the next oldest one.
+				let Some((overdue, overdue_amount)) = revenue.pop_first() else { return };
+				log::warn!(
+					target: LOG_TARGET,
+					"Unclaimed revenue of timeslice {overdue} merged into a later timeslice",
+				);
+				// This will never lose revenue: if we had to remove an entry above, the number of
+				// entries must have been over the limit, which is at least 2. So there are at least
+				// two entries left at this point, and first_entry will never return None.
+				if let Some(mut oldest) = revenue.first_entry() {
+					oldest.get_mut().saturating_accrue(overdue_amount);
+				}
+			});
+			match booked {
+				Some(revenue) => Revenue::<T>::put(revenue),
+				// At most one timeslice too many is booked, and then the oldest one is merged away.
+				None => {
+					frame_support::defensive!("Revenue could not be booked");
+				},
+			}
+		}
+	}
+
+	impl<T: Config> OnDemandRevenue<BalanceOf<T>, T::AccountId> for Pallet<T> {
+		fn is_enabled() -> bool {
+			Enabled::<T>::get()
+		}
+
+		fn claim_revenue(
+			up_to: Timeslice,
+			beneficiary: &T::AccountId,
+		) -> RevenueClaim<BalanceOf<T>> {
+			let (paid, claimable) = Self::do_claim_revenue(up_to, beneficiary);
+			RevenueClaim { paid, weight: <T as Config>::WeightInfo::claim_revenue(claimable) }
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Implements [`OnDemandRevenue::claim_revenue`], returning the paid out revenue and the
+		/// number of timeslices whose revenue was claimable.
+		fn do_claim_revenue(
+			up_to: Timeslice,
+			beneficiary: &T::AccountId,
+		) -> (BTreeMap<Timeslice, BalanceOf<T>>, u32) {
+			let mut revenue = Revenue::<T>::get().into_inner();
+			let pot = Self::account_id();
+			let maximum_transfer_amount = T::Currency::reducible_balance(&pot, Preserve, Polite);
+
+			let mut claimable_entries = 0u32;
+			let mut total = BalanceOf::<T>::zero();
+			let mut total_ignoring_max_transfer_amount = BalanceOf::<T>::zero();
+			let mut paid = BTreeMap::new();
+			let mut is_enough_funds_for_transfer = true;
+			for (&when, &amount) in revenue.range(..=up_to) {
+				claimable_entries += 1;
+
+				total_ignoring_max_transfer_amount =
+					total_ignoring_max_transfer_amount.saturating_add(amount);
+
+				if total_ignoring_max_transfer_amount > maximum_transfer_amount {
+					is_enough_funds_for_transfer = false;
+				}
+
+				if is_enough_funds_for_transfer {
+					total = total_ignoring_max_transfer_amount;
+					paid.insert(when, amount);
+				}
+			}
+
+			// Early return when nothing to be claimed: everything up to `up_to` is already paid
+			// out, so it is settled even without revenue.
+			if claimable_entries == 0 {
+				return (BTreeMap::from([(up_to, Zero::zero())]), 0);
+			}
+
+			if is_enough_funds_for_transfer {
+				paid.entry(up_to).or_default();
+			} else {
+				log::error!(
+					target: LOG_TARGET,
+					"The pot holds less than the {:?} of revenue booked up to timeslice {}; paying \
+					 out {:?} instead.",
+					total_ignoring_max_transfer_amount, up_to, total,
+				);
+				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
+					attempted_to_claim: total_ignoring_max_transfer_amount,
+					claimable: maximum_transfer_amount,
+					paid_out: total,
+				});
+			}
+
+			if !total.is_zero() {
+				if let Err(err) = T::Currency::transfer(&pot, beneficiary, total, Preserve) {
+					log::error!(
+						target: LOG_TARGET,
+						"Paying out {total:?} of revenue failed: {err:?}",
+					);
+					return (BTreeMap::new(), claimable_entries);
+				}
+			}
+
+			// Everything up to the last timeslice paid out has been claimed, so drop it.
+			if let Some((&last_paid, _)) = paid.last_key_value() {
+				revenue = revenue.split_off(&last_paid);
+				// In the unlikely case that last_paid is Timeslice::MAX, doing this separately
+				// instead of splitting at last_paid + 1 avoids an overflow.
+				revenue.remove(&last_paid);
+			}
+			Revenue::<T>::put(
+				BoundedBTreeMap::try_from(revenue)
+					.expect("entries were only removed from a bounded map; qed"),
+			);
+
+			for (&when, &amount) in paid.iter().filter(|(_, amount)| !amount.is_zero()) {
+				Self::deposit_event(Event::<T>::RevenueClaimed {
+					when,
+					amount,
+					beneficiary: beneficiary.clone(),
+				});
+			}
+
+			(paid, claimable_entries)
 		}
 	}
 }

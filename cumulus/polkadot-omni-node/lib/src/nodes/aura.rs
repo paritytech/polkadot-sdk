@@ -47,6 +47,7 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_client_service::ParachainTracingExecuteBlock;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -268,6 +269,7 @@ where
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
+				ss_config,
 				&metrics,
 				&mut net_config,
 			);
@@ -463,7 +465,7 @@ where
 
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
-			client,
+			client: client.clone(),
 			keystore: keystore_container.keystore(),
 			task_manager: &mut task_manager,
 			transaction_pool,
@@ -474,7 +476,7 @@ where
 			sync_service,
 			config,
 			telemetry: telemetry.as_mut(),
-			tracing_execute_block: None,
+			tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client))),
 		})?;
 
 		// Spawn the storage monitor.

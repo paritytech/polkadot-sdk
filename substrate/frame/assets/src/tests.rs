@@ -34,7 +34,7 @@ use pallet_balances::Error as BalancesError;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{ConstU32, ConvertInto},
-	TokenError,
+	ArithmeticError, TokenError,
 };
 
 mod sets;
@@ -1706,6 +1706,34 @@ fn freezing_and_holds_work() {
 }
 
 #[test]
+fn releasing_hold_at_minimum_balance_keeps_freeze() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 1010));
+		set_balance_on_hold(0, 1, 1000);
+		set_frozen_balance(0, 1, 1000);
+
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10),
+			Error::<Test>::BalanceLow
+		);
+
+		clear_balance_on_hold(0, 1);
+		assert_eq!(Assets::balance(0, 1), 1010);
+		assert_eq!(TestFreezer::frozen_balance(0, &1), Some(1000));
+		assert_eq!(Assets::total_supply(0), 1010);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 11),
+			Error::<Test>::BalanceLow
+		);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
+		assert_eq!(Assets::balance(0, 1), 1000);
+		assert_eq!(Assets::total_supply(0), 1010);
+	});
+}
+
+#[test]
 fn imbalances_should_work() {
 	use frame_support::traits::fungibles::Balanced;
 
@@ -2187,6 +2215,54 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 			vec![(asset, dest, move_amount).encode()],
 			"fungibles `burn_from` must fire `burned` exactly once"
 		);
+	});
+}
+
+/// `burn_from` with `Expendable` on a balance that would be left below the minimum returns the
+/// dust as part of the burned amount and takes it out of the supply. Callers that reconcile
+/// against the returned amount, such as `pallet-psm`'s debt, rely on this.
+#[test]
+fn burn_from_expendable_returns_dust_in_burned_amount() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let (asset, who, min_balance) = (0u32, 1u64, 10u64);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, 1, true, min_balance));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 109));
+
+		// Burning 100 leaves 9, below the minimum: the 9 go with it.
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(109)
+		);
+		assert_eq!(Assets::balance(asset, who), 0);
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert!(!Account::<Test>::contains_key(asset, who));
+
+		// Leaving exactly the minimum burns only what was asked.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 110));
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(100)
+		);
+		assert_eq!(Assets::balance(asset, who), min_balance);
+		assert_eq!(Assets::total_supply(asset), min_balance);
 	});
 }
 
@@ -2675,5 +2751,205 @@ fn fungibles_inspect_is_sufficient_works() {
 			false
 		));
 		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
+	});
+}
+
+/// `Mutate::transfer` must not destroy the remainder it sweeps.
+///
+/// For an asset whose `min_balance` is above one, `decrease_balance` takes the source's
+/// sub-`min_balance` remainder along with `amount`. Crediting the destination with `amount`
+/// leaves that difference debited from the source, credited to nobody, and still counted in
+/// `total_supply`, since neither `Unbalanced` method touches the supply.
+#[test]
+fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
+	use frame_support::traits::tokens::Preservation::Expendable;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Leaves the source with 5, below the asset's `min_balance` of 10, so the remainder is
+		// swept and the destination is credited with the whole 100.
+		assert_eq!(<Assets as fungibles::Mutate<_>>::transfer(0, &1, &2, 95, Expendable), Ok(100));
+
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(
+			Assets::balance(0, 1) + Assets::balance(0, 2),
+			Assets::total_supply(0),
+			"balances must sum to the reported supply",
+		);
+		// Indexers read this, so it must report what moved rather than what was asked for.
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 2,
+			amount: 100,
+		}));
+	});
+}
+
+/// A credit that fails after the debit must fail the transfer, not strand the debit.
+#[test]
+fn fungibles_transfer_fails_when_the_credit_is_rejected() {
+	use frame_support::{storage::with_storage_layer, traits::tokens::Preservation::Expendable};
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, u64::MAX - 100));
+
+		// `can_deposit` skips the supply check that the credit then fails.
+		assert_noop!(
+			with_storage_layer(|| <Assets as fungibles::Mutate<_>>::transfer(
+				0, &1, &2, 95, Expendable
+			)),
+			ArithmeticError::Overflow
+		);
+		assert_eq!(Assets::balance(0, 1), 100);
+	});
+}
+
+/// A delegate approved for `N` must never move more than `N`.
+///
+/// `do_transfer_approved` moves whatever the debit resolves to, which exceeds the requested
+/// `amount` once the owner's remainder falls below `min_balance`. Measuring the approval
+/// against the requested amount would let the delegate overspend it.
+#[test]
+fn transfer_approved_cannot_sweep_past_the_approval() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
+
+		// Moving 91 would sweep the owner's remaining 9, spending 100 of a 95 approval.
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
+			Error::<Test>::Unapproved
+		);
+		assert_eq!(Assets::balance(0, 1), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 95);
+
+		// Leaving the owner at exactly `min_balance` stays within the approval.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90));
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_eq!(Assets::balance(0, 3), 90);
+		assert_eq!(Assets::allowance(0, &1, &2), 5);
+	});
+}
+
+/// The approval is charged the debit, not the request, so a sweep spends the difference too.
+///
+/// Gating on the debit while still booking `amount` against the approval passes every other
+/// test here, since they all leave the approval either untouched or exhausted.
+#[test]
+fn transfer_approved_charges_the_debit_not_the_request() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 110));
+
+		// Requesting 91 would strand 9, so the whole 100 moves and the whole 100 is charged.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 3), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 10);
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 3,
+			amount: 100,
+		}));
+	});
+}
+
+#[test]
+fn transfer_approved_sweep_can_exhaust_a_larger_approval() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_eq!(Balances::reserved_balance(&1), 1);
+
+		// Requesting 91 sweeps the whole 100, which spends the whole approval.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+	});
+}
+
+#[test]
+fn transfer_approved_does_not_sweep_an_owner_with_a_freeze_or_hold() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 110));
+
+		set_frozen_balance(0, 1, 1);
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
+			Error::<Test>::BalanceLow
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 1);
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90),
+			Error::<Test>::BalanceLow
+		);
+	});
+}
+
+/// A request larger than both the approval and the balance reports the approval failure, which
+/// is the order callers saw before the debit was resolved up front.
+#[test]
+fn transfer_approved_checks_the_approval_before_the_balance() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 150),
+			Error::<Test>::Unapproved
+		);
+	});
+}
+
+#[test]
+fn transfer_approved_to_self_charges_the_request() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
+
+		// Requesting 95 would strand 5, but nothing moves, so only the 95 is charged.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 1, 95));
+		assert_eq!(Assets::balance(0, 1), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 0);
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 1,
+			amount: 95,
+		}));
 	});
 }

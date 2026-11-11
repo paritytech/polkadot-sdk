@@ -94,7 +94,7 @@ pub fn ticket_id_threshold(
 ) -> TicketId {
 	let num = redundancy as u64 * slots as u64;
 	let den = attempts as u64 * validators as u64;
-	TicketId::max_value()
+	TicketId::MAX
 		.checked_div(den.into())
 		.unwrap_or_default()
 		.saturating_mul(num.into())

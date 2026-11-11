@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
 				.unwrap_or_else(|| {
-					frame_support::print("Error: start_session_index must be set for current_era");
+					log!(error, "start_session_index must be set for current_era");
 					0
 				});
 
@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 			} else if next_active_era_start_session_index < start_session {
 				// This arm should never happen, but better handle it than to stall the staking
 				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
+				log!(warn, "A session appears to have been skipped.");
 				Self::start_era(start_session);
 			}
 		}

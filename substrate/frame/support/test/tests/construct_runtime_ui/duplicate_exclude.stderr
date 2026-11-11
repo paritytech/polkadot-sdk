@@ -1,5 +1,5 @@
 error: `Call` was already declared before. Please remove the duplicate declaration
-  --> tests/construct_runtime_ui/duplicate_exclude.rs:26:46
+  --> tests/construct_runtime_ui/duplicate_exclude.rs:22:46
    |
-26 |         System: frame_system exclude_parts { Call, Call },
+22 |         System: frame_system exclude_parts { Call, Call },
    |                                                    ^^^^

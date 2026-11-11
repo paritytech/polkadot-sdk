@@ -12,6 +12,12 @@ contract Factory {
         child = address(new ReceivingChild());
     }
 
+    function createAndFund() external payable returns (address child) {
+        child = address(new ReceivingChild());
+        (bool success, ) = child.call{value: msg.value}("");
+        require(success, "funding failed");
+    }
+
     function createThenCall(uint256 value) external returns (address child) {
         child = address(new ReceivingChild());
         child.call{value: value}("");
@@ -24,6 +30,10 @@ contract Factory {
 
     function createReverting() external {
         try new RevertingChild() {} catch {}
+    }
+
+    function createGasBurning() external {
+        try new GasBurningChild() {} catch {}
     }
 }
 
@@ -42,5 +52,17 @@ contract ReceivingChild {
 contract RevertingChild {
     constructor() {
         revert();
+    }
+}
+
+/**
+ * @title GasBurningChild
+ * @dev Uses up all the gas it gets in the constructor.
+ */
+contract GasBurningChild {
+    constructor() {
+        assembly {
+            invalid()
+        }
     }
 }

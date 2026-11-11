@@ -57,7 +57,7 @@ impl DeclaredEntries {
 	fn and(mut self, access: impl Access) -> Self {
 		access.expand(|entry, op| {
 			self.insert_or_update(entry, op);
-			Warmth::cold_non_revertible()
+			Warmth::new_cold_non_revertible()
 		});
 		self
 	}
@@ -461,7 +461,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 
 	if !child_code_uploaded_up_front {
 		// The list does not track this write: the create stores the code and is billed cold.
-		expected.write_instead_of_read(AccessEntry::CodeBlob { hash: child_hash });
+		expected.write_instead_of_read(AccessEntry::PristineCode { hash: child_hash });
 	}
 
 	// The deposit entries, which the access list does not track.

@@ -688,6 +688,8 @@ pub mod pallet {
 		CollectionNotEmpty,
 		/// The witness data should be provided.
 		WitnessRequired,
+		/// The collection deposit could not be fully moved due to a lock or freeze on the owner.
+		IncompleteDepositTransfer,
 	}
 
 	#[pallet::call]
@@ -1177,6 +1179,10 @@ pub mod pallet {
 		///
 		/// Origin must be Signed and the sender should be the Owner of the `collection`.
 		///
+		/// The collection deposit is moved from the current to the new owner. Fails with
+		/// [`Error::IncompleteDepositTransfer`] if a lock or freeze on the current owner blocks
+		/// the full transfer; clear it and retry.
+		///
 		/// - `collection`: The collection whose owner should be changed.
 		/// - `owner`: The new Owner of this collection. They must have called
 		///   `set_accept_ownership` with `collection` in order for this operation to succeed.
@@ -1233,6 +1239,10 @@ pub mod pallet {
 		/// Change the Owner of a collection.
 		///
 		/// Origin must be `ForceOrigin`.
+		///
+		/// The collection deposit is moved from the current to the new owner. Fails with
+		/// [`Error::IncompleteDepositTransfer`] if a lock or freeze on the current owner blocks
+		/// the full transfer; clear it and retry.
 		///
 		/// - `collection`: The identifier of the collection.
 		/// - `owner`: The new Owner of this collection.

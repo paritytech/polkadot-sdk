@@ -219,7 +219,17 @@ impl<B: BlockT> ConsensusGossip<B> {
 		message: Vec<u8>,
 		sender: Option<PeerId>,
 	) {
-		if self.known_messages.insert(message_hash, ()) {
+		// `LruMap::insert` also returns true on key replacement, so detect a
+		// true insert via `get_or_insert` (callback runs only for missing keys).
+		let mut is_new = false;
+		if self
+			.known_messages
+			.get_or_insert(message_hash, || {
+				is_new = true;
+			})
+			.is_some() &&
+			is_new
+		{
 			self.messages.push(MessageEntry { message_hash, topic, message, sender });
 
 			if let Some(ref metrics) = self.metrics {
@@ -311,7 +321,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 	/// Prune old or no longer relevant consensus messages. Provide a predicate
 	/// for pruning, which returns `false` when the items with a given topic should be pruned.
 	pub fn collect_garbage(&mut self) {
-		let known_messages = &mut self.known_messages;
+		let known_messages = &self.known_messages;
 		let before = self.messages.len();
 
 		let mut message_expired = self.validator.message_expired();
@@ -333,7 +343,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		);
 
 		for (_, ref mut peer) in self.peers.iter_mut() {
-			peer.known_messages.retain(|h| known_messages.get(h).is_some());
+			peer.known_messages.retain(|h| known_messages.peek(h).is_some());
 		}
 	}
 
@@ -570,7 +580,15 @@ mod tests {
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
-			if $consensus.known_messages.insert($hash, ()) {
+			let mut is_new = false;
+			if $consensus
+				.known_messages
+				.get_or_insert($hash, || {
+					is_new = true;
+				})
+				.is_some() &&
+				is_new
+			{
 				$consensus.messages.push(MessageEntry {
 					message_hash: $hash,
 					topic: $topic,
@@ -931,6 +949,86 @@ mod tests {
 			vec![(peer_id, rep::GOSSIP_SUCCESS)],
 			network.inner.lock().unwrap().peer_reports
 		);
+	}
+
+	#[test]
+	fn duplicate_register_not_doubly_stored() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+		let topic = [1u8; 32].into();
+		let message = vec![1, 2, 3, 4];
+
+		consensus.register_message(topic, message.clone());
+		consensus.register_message(topic, message.clone());
+
+		let count = consensus
+			.messages_for(topic)
+			.filter(|notification| notification.message == message)
+			.count();
+		assert_eq!(count, 1, "registering the same message twice must not store it twice");
+	}
+
+	#[test]
+	fn message_broadcast_by_validator_is_stored_once() {
+		// Like GRANDPA, which re-broadcasts every message it keeps.
+		struct BroadcastAndKeep;
+		impl Validator<Block> for BroadcastAndKeep {
+			fn validate(
+				&self,
+				context: &mut dyn ValidatorContext<Block>,
+				_sender: &PeerId,
+				data: &[u8],
+			) -> ValidationResult<H256> {
+				context.broadcast_message(H256::default(), data.to_vec(), false);
+				ValidationResult::ProcessAndKeep(H256::default())
+			}
+		}
+
+		let mut consensus =
+			ConsensusGossip::<Block>::new(Arc::new(BroadcastAndKeep), "/foo".into(), None);
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+
+		let message = vec![1, 2, 3];
+		// Keeps the broadcast from sending it back, which `NoOpNotificationService` can't do.
+		let message_hash = HashingFor::<Block>::hash(&message);
+		consensus.peers.get_mut(&peer_id).unwrap().known_messages.insert(message_hash);
+
+		consensus.on_incoming(
+			&mut NoOpNetwork::default(),
+			&mut notification_service,
+			peer_id,
+			vec![message],
+		);
+
+		assert_eq!(consensus.messages.len(), 1);
+	}
+
+	#[test]
+	fn collect_garbage_does_not_refresh_known_messages() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+		let topic = H256::default();
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+
+		let oldest = vec![0];
+		let oldest_hash = HashingFor::<Block>::hash(&oldest);
+		consensus.register_message(topic, oldest);
+		consensus.peers.get_mut(&peer_id).unwrap().known_messages.insert(oldest_hash);
+
+		for i in 1..KNOWN_MESSAGES_CACHE_SIZE {
+			consensus.register_message(topic, i.to_le_bytes().to_vec());
+		}
+		consensus.collect_garbage();
+
+		// The cache is full, so the next message evicts the least recently used one.
+		consensus.register_message(topic, u32::MAX.to_le_bytes().to_vec());
+		assert!(consensus.known_messages.peek(&oldest_hash).is_none());
 	}
 
 	#[test]

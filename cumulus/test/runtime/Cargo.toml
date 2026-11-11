@@ -144,7 +144,6 @@ relay-parent-offset-15 = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []
-
 # A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
 # spec_version so that a set_code upgrade from the default runtime triggers migrations.
 with-authority-discovery = ["spec-version-4"]

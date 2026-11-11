@@ -607,7 +607,8 @@ pub mod pallet {
 
 			let initial_validators_0 =
 				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
+					log!(
+						warn,
 						"No initial validator provided by `SessionManager`, use \
 						session config keys to generate initial validator set.",
 					);
@@ -929,11 +930,12 @@ impl<T: Config> Pallet<T> {
 	/// it's recommended to initialize the keys to a (unique) dummy value with the expectation
 	/// that all validators should invoke `set_keys` before those keys are actually
 	/// required.
-	pub fn upgrade_keys<Old, F>(upgrade: F)
+	pub fn upgrade_keys<Old, F>(upgrade: F) -> u64
 	where
 		Old: OpaqueKeys + Member + Decode,
 		F: Fn(T::ValidatorId, Old) -> T::Keys,
 	{
+		let mut keys_count = 0;
 		let old_ids = Old::key_ids();
 		let new_ids = T::Keys::key_ids();
 
@@ -952,6 +954,7 @@ impl<T: Config> Pallet<T> {
 				Self::put_key_owner(*i, new_keys.get_raw(*i), &val);
 			}
 
+			keys_count += 1;
 			Some(new_keys)
 		});
 
@@ -962,6 +965,8 @@ impl<T: Config> Pallet<T> {
 					.collect::<Vec<_>>()
 			})
 		});
+
+		keys_count
 	}
 
 	/// Perform the set_key operation, checking for duplicates. Does not set `Changed`.

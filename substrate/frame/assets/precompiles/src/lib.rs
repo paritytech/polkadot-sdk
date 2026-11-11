@@ -424,7 +424,7 @@ where
 			num_topic: topics.len() as u32,
 			len: data.len() as u32,
 		})?;
-		env.deposit_event(topics, data.to_vec());
+		env.deposit_event(topics, data.to_vec())?;
 		Ok(())
 	}
 

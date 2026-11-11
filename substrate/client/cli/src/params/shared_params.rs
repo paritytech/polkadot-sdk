@@ -27,7 +27,8 @@ pub struct SharedParams {
 	/// Specify the chain specification.
 	///
 	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to
-	/// a file with the chainspec (such as one exported by the `build-spec` subcommand).
+	/// a file with the chainspec (such as one exported by a node's chain specification export
+	/// subcommand).
 	#[arg(long, value_name = "CHAIN_SPEC")]
 	pub chain: Option<String>,
 

@@ -1,0 +1,13 @@
+title: 'bags-list: fix on_idle cursor skipping nodes on weight exhaustion'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Pallet::on_idle`'s auto-rebag cursor resumed from a count-based split computed before the
+    per-item loop ran, so it skipped past nodes the weight meter or a lock stopped the loop from
+    actually reaching.
+
+    The cursor is now computed after the loop, from how far it actually got, so it correctly
+    resumes at the first node that was skipped.
+crates:
+- name: pallet-bags-list
+  bump: patch

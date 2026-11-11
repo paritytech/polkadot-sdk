@@ -58,17 +58,14 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
 	/// Export blocks.
 	ExportBlocks(sc_cli::ExportBlocksCmd),
-
-	/// Export the chain specification.
-	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Export the state of a given block into a chain spec.
 	ExportState(sc_cli::ExportStateCmd),

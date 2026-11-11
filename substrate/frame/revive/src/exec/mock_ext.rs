@@ -142,7 +142,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) {
+	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) -> Result<(), DispatchError> {
 		panic!("MockExt::deposit_event")
 	}
 
@@ -307,6 +307,10 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn set_immutable_data(&mut self, _data: ImmutableData) -> Result<(), DispatchError> {
 		panic!("MockExt::set_immutable_data")
+	}
+
+	fn has_system_account(&self, _address: &H160) -> bool {
+		panic!("MockExt::has_system_account")
 	}
 }
 

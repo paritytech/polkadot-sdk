@@ -138,10 +138,18 @@ pub mod accounts {
 pub mod collators {
 	use super::*;
 
-	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
+	pub fn invulnerables() -> Vec<(AccountId, AuraId, AuthorityDiscoveryId)> {
 		vec![
-			(Sr25519Keyring::Dave.to_account_id(), Sr25519Keyring::Dave.public().into()),
-			(Sr25519Keyring::Eve.to_account_id(), Sr25519Keyring::Eve.public().into()),
+			(
+				Sr25519Keyring::Dave.to_account_id(),
+				Sr25519Keyring::Dave.public().into(),
+				Sr25519Keyring::Dave.public().into(),
+			),
+			(
+				Sr25519Keyring::Eve.to_account_id(),
+				Sr25519Keyring::Eve.public().into(),
+				Sr25519Keyring::Eve.public().into(),
+			),
 		]
 	}
 }
