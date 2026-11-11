@@ -450,7 +450,9 @@ where
 mod tests {
 	use super::{signal_tail, split_at_separator};
 	use codec::Encode;
-	use cumulus_primitives_core::{SchedulingSignalError, SchedulingSignals};
+	use cumulus_primitives_core::{
+		SchedulingInfoPayload, SchedulingSignalError, SchedulingSignals, SignedSchedulingInfo,
+	};
 	use polkadot_primitives::{
 		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
 	};
@@ -494,6 +496,25 @@ mod tests {
 			with_separator(&current)
 		);
 		assert_eq!(signal_tail(None, Vec::new()), Ok(Vec::new()));
+	}
+
+	#[test]
+	fn a_signed_scheduling_info_replaces_the_blocks_signals() {
+		// The PVF ignores the blocks' signals on this path, even ones it would reject otherwise.
+		let peer = ApprovedPeerId::try_from(vec![0xCC; 4]).expect("4 bytes fit; qed");
+		let signed = SignedSchedulingInfo {
+			payload: SchedulingInfoPayload::new(CoreSelector(5), 1, peer, Default::default()),
+			signature: [0u8; 64],
+		};
+		let expected = SchedulingSignals::from_scheduling_info(&signed).into_ump_messages();
+		for signals in [
+			vec![],
+			vec![approved_peer(), select_core()],
+			vec![select_core(), other_core()],
+			vec![vec![0xFF]],
+		] {
+			assert_eq!(signal_tail(Some(&signed), signals), Ok(expected.clone()));
+		}
 	}
 
 	#[test]
