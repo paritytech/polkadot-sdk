@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794392275079,
+  "lastUpdate": 1794399396218,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecdc3a28de64c3014e12354c12191dc4fc24d051",
-          "message": "Polkadot: Increase block size limit on the node side (#11900)\n\nThis pull request increases the block size limit allowed while building\na block. This block size limit is checked on the node side. The ultimate\nauthority about the actual block size limit is the runtime.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2026-04-27T17:33:01Z",
-          "tree_id": "3efed41be4a945617946fd785c6ae1e0504df49a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecdc3a28de64c3014e12354c12191dc4fc24d051"
-        },
-        "date": 1777316025043,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.18999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.376408752529983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000235188,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4379384273499984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7807624997099787,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002463753,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8456860033700027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002463753,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000235188,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.801434240789999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7231372195600008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7811723746400014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0062779871100000035,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.308641339352802,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001987034,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23b84ba442d0b22fb21ab50ba5156153539528a4",
+          "message": "frame-system: refund authorize weight when AuthorizeCall skips it (#13364)\n\n# Description\n\n`AuthorizeCall::weight` books `call.weight_of_authorize()` for every\ntransaction, but `validate` only runs\nthe call's `#[pallet::authorize]` callback when the origin is not\nalready authorized. On the other branch\n(e.g. a signed transaction) it reported `Weight::zero()` as unspent, so\nthe authorize weight stayed booked\nalthough the callback never ran.\n\nThis reports `call.weight_of_authorize()` as unspent on that branch; the\nexisting\n`Val`/`Pre`/`post_dispatch_details` plumbing then refunds it.\n\nSurfaced while reviewing #12452, where a signed dispatch of a call with\n`#[pallet::authorize]` can succeed,\nso the over-booking becomes visible.\n\n## Integration\n\nNo action needed. Signed transactions of calls that carry\n`#[pallet::authorize]` now report a lower\n`actual_weight` (and so a lower fee) by exactly the call's\n`weight_of_authorize`. Calls without the\nattribute are unaffected (their authorize weight is zero).\n\n## Review Notes\n\nOne-line change in\n`substrate/frame/system/src/extensions/authorize_call.rs`, plus\n`skipped_authorization_refunds_its_weight`, which fails on master\n(`unspent == 0`) and passes here.",
+          "timestamp": "2026-11-11T10:01:29Z",
+          "tree_id": "03e257677a23a12e56035b2bdc453a298ae5b304",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23b84ba442d0b22fb21ab50ba5156153539528a4"
+        },
+        "date": 1794399360503,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63552.490000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7181639650600005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.154162394689973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017039270000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001817266,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7531168384600004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.354823904140004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.491276651472826,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.737096248399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.767595058360002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005019914319999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001817266,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8183464659499682,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017039270000000003,
             "unit": "seconds"
           }
         ]
