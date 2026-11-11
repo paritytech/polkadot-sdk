@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794354500768,
+  "lastUpdate": 1794359848472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d9b5afd8535d72a436fe6ffdffac82dcca771cf",
-          "message": "[zombienet] allow more time to check new blocks (#11866)\n\nClose #11865 \n\nAllow more time since the node was still syncing.",
-          "timestamp": "2026-04-24T10:37:14Z",
-          "tree_id": "669168daba9e247ed07c6b7ce3309b2bcc5d22a7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d9b5afd8535d72a436fe6ffdffac82dcca771cf"
-        },
-        "date": 1777033892314,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.042,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03852801037600002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07711448383199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09282316795599996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "727efe8bc1a66cad0dd2f7a8fd770ebe56985969",
+          "message": "Fix deprecated `UnboundedReceiver::try_next` (#13798)\n\nFix `cargo test --doc` on master.",
+          "timestamp": "2026-11-10T23:28:21Z",
+          "tree_id": "1d0c1ca330f2068fb548b2f5ac097e2104fe77e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/727efe8bc1a66cad0dd2f7a8fd770ebe56985969"
+        },
+        "date": 1794359821154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.088,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08314475271199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03854588038400002,
             "unit": "seconds"
           }
         ]
