@@ -1282,6 +1282,10 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				if flags.should_send_concatenated_opaque_versioned_xcm_notification() {
 					match WeakBoundedVec::try_from(XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm.encode()) {
 						Ok(page) => {
+							// A free message slot does not imply sufficient byte capacity.
+							if page.len() > max_size_now {
+								return true;
+							}
 							flags.notice_concatenated_opaque_versioned_xcm_notification_sent();
 							break 'page_fetch page;
 						}
