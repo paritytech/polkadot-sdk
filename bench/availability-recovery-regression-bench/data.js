@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794392172079,
+  "lastUpdate": 1794399292049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77a735ba012ff2de30923ce209cc1ea4e0ace243",
-          "message": "cli: Update list of AH Polkadot relay chain side peers (#11906)\n\nThis PR updates the list of relay chain side peer IDs corresponding to\nthe AH Polkadot collators.\n\nPreviously, the list contained the parachain side peer IDs. This\nbehavior resulted in all collations being held off for 300 ms.\n\nThe peer IDs have been confirmed with their respective node operators.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-28T12:01:58Z",
-          "tree_id": "6003abc7b636695a7ba55e276cb6d34f55496bbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77a735ba012ff2de30923ce209cc1ea4e0ace243"
-        },
-        "date": 1777384978462,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.185704960533332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12875208063333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12769376083333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23b84ba442d0b22fb21ab50ba5156153539528a4",
+          "message": "frame-system: refund authorize weight when AuthorizeCall skips it (#13364)\n\n# Description\n\n`AuthorizeCall::weight` books `call.weight_of_authorize()` for every\ntransaction, but `validate` only runs\nthe call's `#[pallet::authorize]` callback when the origin is not\nalready authorized. On the other branch\n(e.g. a signed transaction) it reported `Weight::zero()` as unspent, so\nthe authorize weight stayed booked\nalthough the callback never ran.\n\nThis reports `call.weight_of_authorize()` as unspent on that branch; the\nexisting\n`Val`/`Pre`/`post_dispatch_details` plumbing then refunds it.\n\nSurfaced while reviewing #12452, where a signed dispatch of a call with\n`#[pallet::authorize]` can succeed,\nso the over-booking becomes visible.\n\n## Integration\n\nNo action needed. Signed transactions of calls that carry\n`#[pallet::authorize]` now report a lower\n`actual_weight` (and so a lower fee) by exactly the call's\n`weight_of_authorize`. Calls without the\nattribute are unaffected (their authorize weight is zero).\n\n## Review Notes\n\nOne-line change in\n`substrate/frame/system/src/extensions/authorize_call.rs`, plus\n`skipped_authorization_refunds_its_weight`, which fails on master\n(`unspent == 0`) and passes here.",
+          "timestamp": "2026-11-11T10:01:29Z",
+          "tree_id": "03e257677a23a12e56035b2bdc453a298ae5b304",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/23b84ba442d0b22fb21ab50ba5156153539528a4"
+        },
+        "date": 1794399256492,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12105221846666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.649555923133333,
             "unit": "seconds"
           }
         ]
