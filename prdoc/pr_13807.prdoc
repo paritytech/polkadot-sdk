@@ -1,0 +1,29 @@
+title: 'Registrar: relayed para requests + deprecations'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      A para with no channel to the registrar parachain can now manage itself through the relay
+      chain. It calls the new `pallet-registrar-relay::relay` with a `ParaRequest` (add or remove
+      lock, deregister, schedule code upgrade, set current head), which is forwarded as
+      `MessageToParaV1::Relayed` under the para id of its origin. `pallet-registrar-para` runs the
+      request as the new `Origin::RelayedPara`, accepted wherever `ParachainOrigin` is, and reports
+      the outcome in `RelayedRequest`.
+
+      `pallet-registrar-relay::Config` now requires a `RuntimeOrigin` convertible into the
+      parachains `Origin`, and `pallet-registrar-para::Config` one built from its own `Origin`. Both
+      `WeightInfo` traits gain a function: `relay` and `receive_relayed`. `MessageToPara` no longer
+      implements `MaxEncodedLen`.
+
+      The `paras_registrar` calls in `polkadot-runtime-common` get a `Deprecated` doc note naming
+      their replacement.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: polkadot-runtime-common
+    bump: none
