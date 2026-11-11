@@ -213,6 +213,8 @@ impl PartialEq for AffinityFilter {
 	}
 }
 
+impl Eq for AffinityFilter {}
+
 impl Encode for AffinityFilter {
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		let encoded = EncodedBloomFilter {

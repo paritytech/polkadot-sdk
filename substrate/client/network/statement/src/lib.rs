@@ -2595,17 +2595,20 @@ where
 
 	/// Schedule an initial sync for a peer, replacing any pending one.
 	///
+	/// This is called both when a new peer connects and when a peer's topic affinity changes.
 	/// `already_served` is the filter the peer advertised before a change: the sync then sends
-	/// only what its new filter matches beyond it. Without it the sync sends every known
-	/// statement.
+	/// only what its new filter matches beyond it. Without it the sync sends everything due to
+	/// the peer.
+	///
+	/// Returns `false` when the store failed to give the admission watermark.
 	fn schedule_initial_sync_for_peer(
 		&mut self,
 		peer: PeerId,
 		already_served: Option<AffinityFilter>,
-	) {
+	) -> bool {
 		// A peer absent from the map has no entry to mirror the sync's watermark into.
 		if !self.peers.contains_key(&peer) {
-			return;
+			return true;
 		}
 		// The watermark is read before the existing sync is touched, so a store error
 		// leaves an in-progress sync running instead of destroying it with no successor.
@@ -2616,7 +2619,7 @@ where
 					target: LOG_TARGET,
 					"Failed to read the admission watermark, skipping initial sync for {peer}: {e:?}",
 				);
-				return;
+				return false;
 			},
 		};
 		let sync_id = self.next_initial_sync_id;
@@ -2626,8 +2629,8 @@ where
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		if watermark > 0 {
-			// A sync after a filter change skips exactly what the outbox and propagation below
-			// the watermark deliver, so both stay in place.
+			// A sync after a filter change skips what the previous filter matched, so the outbox
+			// and the propagation watermark of the previous sync still have to deliver it.
 			if already_served.is_none() {
 				if let Some(peer_data) = self.peers.get_mut(&peer) {
 					peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
@@ -2652,6 +2655,7 @@ where
 				metrics.initial_sync_peers_active.inc();
 			});
 		}
+		true
 	}
 
 	/// Treat peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] as nodes without the v2 DHT path:
@@ -2724,8 +2728,15 @@ where
 			// A filter repeated unchanged asks for a full replay: that is how a peer recovers
 			// what it dropped during major sync.
 			let previous = std::mem::replace(&mut peer_data.topic_affinity, Some(filter.clone()));
-			let already_served = previous.filter(|previous| *previous != filter);
-			self.schedule_initial_sync_for_peer(peer_id, already_served);
+			let already_served = previous.clone().filter(|previous| *previous != filter);
+			if !self.schedule_initial_sync_for_peer(peer_id, already_served) {
+				// A filter counts as served only once its sync is scheduled, so it waits for the
+				// next pass.
+				if let Some(peer_data) = self.peers.get_mut(&peer_id) {
+					peer_data.topic_affinity = previous;
+					peer_data.pending_topic_affinity = Some(filter);
+				}
+			}
 		}
 	}
 
@@ -3460,6 +3471,9 @@ mod tests {
 		}
 
 		fn admission_watermark(&self) -> sp_statement_store::Result<u64> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("injected watermark failure".into()));
+			}
 			Ok(self.admissions.lock().unwrap().len() as u64)
 		}
 
@@ -6328,6 +6342,47 @@ mod tests {
 		assert!(peer.topic_affinity.as_ref().unwrap().contains(&[0xBB; 32]));
 		assert!(peer.pending_topic_affinity.is_none());
 		assert!(handler.pending_initial_syncs.get(&peer_id).unwrap().already_served.is_some());
+	}
+
+	#[tokio::test]
+	async fn a_changed_filter_stays_pending_while_the_watermark_is_unreadable() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		statement_store.insert(new_live_statement());
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.topic_affinity.as_ref().unwrap().contains(&[0xAA; 32]));
+		assert!(peer.pending_topic_affinity.is_some());
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.process_pending_affinities();
+		let mut first = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		first.insert(&[0xAA; 32]);
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().already_served,
+			Some(first),
+			"the retry skips only what the last served filter matched"
+		);
 	}
 
 	#[tokio::test]
