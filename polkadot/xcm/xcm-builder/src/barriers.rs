@@ -452,18 +452,16 @@ impl<Allowed: Contains<Location>, MaxWeight: Get<Weight>> ShouldExecute
 			"AllowUnpaidTransactFrom",
 		);
 		ensure!(Allowed::contains(origin), ProcessMessageError::Unsupported);
-		ensure!(max_weight.all_lte(MaxWeight::get()), ProcessMessageError::Unsupported);
 		match instructions {
 			[UnpaidExecution { weight_limit, .. }, Transact { origin_kind: OriginKind::Native, .. }]
 				if match &*weight_limit {
 					Unlimited => true,
 					Limited(limit) => limit.all_gte(max_weight),
-				} =>
-			{
-				Ok(())
-			},
-			_ => Err(ProcessMessageError::Unsupported),
+				} => {},
+			_ => return Err(ProcessMessageError::Unsupported),
 		}
+		ensure!(max_weight.all_lte(MaxWeight::get()), ProcessMessageError::Unsupported);
+		Ok(())
 	}
 }
 
