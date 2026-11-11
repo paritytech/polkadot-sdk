@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794359751982,
+  "lastUpdate": 1794392223863,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7b610aa594b9fb5304563b17c9a145ee8f9a5a0",
-          "message": "Test RCs: Enable max block len up to 10MiB + node support for larger code size (#11893)\n\nPart of fix for: https://github.com/paritytech/polkadot-sdk/issues/11880\n\nThis PR does the following changes:\n- decouples the node from the `MAX_CODE_SIZE` constant. We bump\n`ATTESTED_CANDIDATE_RESPONSE_SIZE` to 8MiB which gives enough room for\noverhead and further increases if needed.\n- enables 10MiB blocks on all test RC runtimes\n- test for 10MiB blocks\n\nProd runtimes: https://github.com/polkadot-fellows/runtimes/pull/1157 .\n\nTODO:\n- [x] finish test\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-27T19:58:04Z",
-          "tree_id": "08a4b58a3d1e5ac9c19d980376af07647fda578e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7b610aa594b9fb5304563b17c9a145ee8f9a5a0"
-        },
-        "date": 1777324882533,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02394506194666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14682911316666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0072778506866666695,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009583449573333312,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009951072453333312,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "366b877215debd328cef56068b4ef3817369702c",
+          "message": "[CI/CD] Add Dockerfile that will be used for the polkadot arm builds (#13799)",
+          "timestamp": "2026-11-11T08:36:49Z",
+          "tree_id": "fd67a8a930fd323963b95c690785ef250b40b4f1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/366b877215debd328cef56068b4ef3817369702c"
+        },
+        "date": 1794392189185,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007224841306666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02491481176666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14395316753333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009640884606666636,
             "unit": "seconds"
           }
         ]
