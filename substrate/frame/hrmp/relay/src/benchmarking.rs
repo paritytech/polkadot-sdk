@@ -22,18 +22,14 @@ use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use polkadot_runtime_parachains::hrmp::deposits::DepositChange;
 
-/// A request that changes both sides of a channel.
+/// A request that changes both sides of a channel and is counted for its sender: a poke by it.
 fn both_sides_request() -> DepositChangeRequest {
 	let change = DepositChange { current: 0, target: 1_000 };
 	DepositChangeRequest {
 		channel_id: HrmpChannelId { sender: 1.into(), recipient: 2.into() },
 		sender: Some(change),
 		recipient: Some(change),
-		action: DepositAction::InitAndAcceptOpenChannel {
-			max_capacity: u32::MAX,
-			max_message_size: u32::MAX,
-			max_total_size: u32::MAX,
-		},
+		action: DepositAction::PokeChannelDeposits { by: Some(1.into()) },
 	}
 }
 
@@ -61,11 +57,16 @@ mod benchmarks {
 		assert!(PendingRequests::<T>::get(id).is_none());
 	}
 
-	/// A request for both sides. See [`try_set_deposit_release`] for a release.
+	/// A request for both sides, by a parachain that already made one in its window. See
+	/// [`try_set_deposit_release`] for a release.
 	#[benchmark]
 	fn try_set_deposit_both_sides() {
 		T::BenchmarkHelper::ensure_send_to_para();
 		let request = both_sides_request();
+		RequestWindows::<T>::insert(
+			ParaId::from(1),
+			(frame_system::Pallet::<T>::block_number(), 1),
+		);
 		let response;
 
 		#[block]

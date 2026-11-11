@@ -1057,3 +1057,41 @@ fn accept_answered_after_the_sender_offboarded_and_onboarded() {
 		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
 	});
 }
+
+/// A poke tells the deposit provider which side of the channel asked for it, or that neither
+/// did.
+#[test]
+fn poke_tells_which_side_asked() {
+	new_remote_test_ext(|| {
+		request_and_accept(A, B);
+		next_session();
+
+		let asked_by = || match Remote::requests().last().map(|request| request.action) {
+			Some(DepositAction::PokeChannelDeposits { by }) => by,
+			other => panic!("the last request is not a poke: {other:?}"),
+		};
+
+		set_deposits(150, 120);
+		assert_ok!(Hrmp::poke_channel_deposits(origin(A), A, B));
+		assert_eq!(asked_by(), Some(A));
+		Remote::settle();
+
+		set_deposits(140, 130);
+		assert_ok!(Hrmp::poke_channel_deposits(origin(B), A, B));
+		assert_eq!(asked_by(), Some(B));
+		Remote::settle();
+
+		set_deposits(130, 140);
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), A, B));
+		assert_eq!(asked_by(), None);
+		Remote::settle();
+
+		set_deposits(120, 150);
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::root(), A, B));
+		assert_eq!(asked_by(), None);
+		Remote::settle();
+
+		let channel = HrmpChannels::<Test>::get(&channel(A, B)).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (120, 150));
+	});
+}

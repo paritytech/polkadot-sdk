@@ -1,9 +1,32 @@
-title: 'HRMP: widen the accepted origins and weigh the heaviest request a para makes'
+title: 'HRMP: widen the accepted origins and let paras make a few free requests'
 doc:
 - audience: Runtime Dev
   description: |-
-    In Polkadot HRMP: Widen the accepted origins for some calls, in preparation for AHMv2, and
-    expose a function to get the maximum weight for a request made by a parachain for itself.
+    In Polkadot HRMP, in preparation for AHMv2:
+
+    - Widen the accepted origins of `establish_system_channel` and `poke_channel_deposits`.
+    - Expose `max_para_request_weight`, the weight of the heaviest request a parachain makes for
+      itself.
+    - `DepositAction::PokeChannelDeposits` carries `by`: the side of the channel that asked for
+      the poke, if one did.
+
+    In `pallet-hrmp-relay`: bound how many requests a parachain makes as a side of a channel, as
+    they are sent to the parachain holding the deposits without payment:
+    `MaxRequestsPerWindow` per window of `RequestWindow` blocks. Both are new `Config` items. A
+    request over the bound is refused with `TooManyRequests`. Releases are not counted.
+
+    In `xcm-builder`: add the barrier `AllowUnpaidTransactFrom`, which lets an origin have one
+    call dispatched as itself without paying, under a weight bound, and the filter
+    `IsChildNonSystemParachain`.
+
+    Westend uses them to execute, for free, a call of a non-system parachain that weighs no more
+    than an HRMP request.
 crates:
 - name: polkadot-runtime-parachains
+  bump: major
+- name: pallet-hrmp-relay
+  bump: major
+- name: staging-xcm-builder
+  bump: minor
+- name: westend-runtime
   bump: minor

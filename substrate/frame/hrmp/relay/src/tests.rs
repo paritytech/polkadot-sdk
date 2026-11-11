@@ -16,13 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, Call, Error, Event, FailedReleases, PendingRequests, PendingSides, WeightInfo,
-	RECEIVE_CALL_INDEX,
+	mock::*, Call, Config, Error, Event, FailedReleases, PendingRequests, PendingSides,
+	RequestWindows, WeightInfo, RECEIVE_CALL_INDEX,
 };
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{GetCallIndex, Hooks},
+	traits::{Get, GetCallIndex, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use hrmp_primitives::{
@@ -130,6 +130,36 @@ fn poll() {
 	HrmpRelay::on_poll(1, &mut WeightMeter::new());
 }
 
+/// A request of `sender` to open a channel to `recipient`.
+fn init(sender: u32, recipient: u32) -> DepositChangeRequest {
+	request((sender, recipient), Some((0, 10)), None, INIT)
+}
+
+/// A request to poke both sides of `channel`, made by `by`.
+fn poke(channel: (u32, u32), by: Option<u32>) -> DepositChangeRequest {
+	let action = DepositAction::PokeChannelDeposits { by: by.map(Into::into) };
+	request(channel, Some((10, 20)), Some((10, 20)), action)
+}
+
+/// How many requests a para may make in its window.
+fn max_requests() -> u32 {
+	<Test as Config>::MaxRequestsPerWindow::get()
+}
+
+/// The window of `para`: the block it started at and the requests counted in it.
+fn window(para: u32) -> Option<(u64, u32)> {
+	RequestWindows::<Test>::get(ParaId::from(para))
+}
+
+/// Makes `para` use up the requests of its window, opening channels to the paras from 100 on.
+fn use_up_requests(para: u32) {
+	for i in 0..max_requests() {
+		assert_ok!(try_set(init(para, 100 + i)));
+	}
+	sent();
+	events();
+}
+
 /// The chain that holds the deposits encodes `receive` with [`RECEIVE_CALL_INDEX`].
 #[test]
 fn receive_call_index_ok() {
@@ -177,7 +207,7 @@ fn pending_side_refuses() {
 		)));
 		sent();
 
-		let poke = DepositAction::PokeChannelDeposits;
+		let poke = DepositAction::PokeChannelDeposits { by: None };
 		for (sender, recipient) in
 			[(Some((10, 20)), None), (None, Some((10, 20))), (Some((10, 20)), Some((10, 20)))]
 		{
@@ -211,7 +241,7 @@ fn pending_side_does_not_block_others() {
 #[test]
 fn request_without_sides() {
 	new_test_ext(|| {
-		let req = request((1, 2), None, None, DepositAction::PokeChannelDeposits);
+		let req = request((1, 2), None, None, DepositAction::PokeChannelDeposits { by: None });
 		assert_eq!(try_set(req.clone()), Ok(DepositChangeResponse::Pending));
 		assert_eq!(PendingSides::<Test>::iter().count(), 0);
 
@@ -517,5 +547,144 @@ fn force_answer_resumes() {
 		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
 		assert_eq!(events(), vec![Event::UnknownAnswer { id: 0 }]);
 		assert!(answers().is_empty());
+	});
+}
+
+/// A request to open a channel is counted for its sender. One more than it may make in its
+/// window is refused and leaves no trace.
+#[test]
+fn open_requests_are_counted_for_the_sender() {
+	new_test_ext(|| {
+		for i in 0..max_requests() {
+			assert_ok!(try_set(init(1, 2 + i)));
+		}
+		assert_eq!(window(1), Some((1, max_requests())));
+		// The recipient is not counted.
+		assert_eq!(window(2), None);
+		sent();
+
+		assert_noop!(try_set(init(1, 50)), Error::<Test>::TooManyRequests);
+		assert!(sent().is_empty());
+
+		// Another para is not held back, even to open a channel to the first.
+		assert_ok!(try_set(init(50, 1)));
+		assert_eq!(window(50), Some((1, 1)));
+	});
+}
+
+/// A request to accept a channel is counted for its recipient, in the same window as the
+/// channels it opens.
+#[test]
+fn accept_requests_are_counted_for_the_recipient() {
+	new_test_ext(|| {
+		let accept_action =
+			DepositAction::AcceptOpenChannel { max_capacity: 8, max_message_size: 8 };
+		let accept =
+			|sender, recipient| request((sender, recipient), None, Some((0, 10)), accept_action);
+		for i in 0..max_requests() {
+			assert_ok!(try_set(accept(2 + i, 1)));
+		}
+		assert_eq!(window(1), Some((1, max_requests())));
+		// The sender is not counted.
+		assert_eq!(window(2), None);
+
+		assert_noop!(try_set(accept(50, 1)), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(init(1, 50)), Error::<Test>::TooManyRequests);
+	});
+}
+
+/// A poke is counted for the side that makes it, never for the other side, and for neither
+/// when it comes from someone else.
+#[test]
+fn pokes_are_counted_for_the_side_that_asks() {
+	new_test_ext(|| {
+		assert_ok!(try_set(poke((1, 2), Some(2))));
+		assert_eq!((window(1), window(2)), (None, Some((1, 1))));
+		assert_ok!(try_set(poke((3, 4), None)));
+		assert_eq!((window(3), window(4)), (None, None));
+
+		// A para that made all its requests cannot poke its channels, but the other side of
+		// each can, and so can someone else.
+		use_up_requests(5);
+		assert_noop!(try_set(poke((5, 6), Some(5))), Error::<Test>::TooManyRequests);
+		assert_noop!(try_set(poke((7, 5), Some(5))), Error::<Test>::TooManyRequests);
+		assert_ok!(try_set(poke((5, 6), Some(6))));
+		assert_ok!(try_set(poke((7, 5), None)));
+		assert_eq!(window(5), Some((1, max_requests())));
+	});
+}
+
+/// A channel opened for both sides at once comes from neither of them, and a release is never
+/// refused: they are not counted, and not held back for paras that made all their requests.
+#[test]
+fn force_open_and_release_are_not_counted() {
+	new_test_ext(|| {
+		use_up_requests(1);
+		use_up_requests(2);
+
+		let force_open = DepositAction::InitAndAcceptOpenChannel {
+			max_capacity: 8,
+			max_message_size: 8,
+			max_total_size: 64,
+		};
+		assert_eq!(
+			try_set(request((1, 2), Some((0, 10)), Some((0, 10)), force_open)),
+			Ok(DepositChangeResponse::Pending)
+		);
+		assert_eq!(try_set(release_request((2, 1))), Ok(DepositChangeResponse::Applied));
+		assert_eq!(sent().len(), 2);
+		assert_eq!(window(1), Some((1, max_requests())));
+		assert_eq!(window(2), Some((1, max_requests())));
+	});
+}
+
+/// A request refused for another reason is not counted.
+#[test]
+fn refused_request_is_not_counted() {
+	new_test_ext(|| {
+		assert_ok!(try_set(init(1, 2)));
+
+		// Its side awaits its answer.
+		assert_noop!(try_set(init(1, 2)), Error::<Test>::DepositPending);
+		// The transport refuses it.
+		ACCEPT.set(Some(0));
+		assert_noop!(try_set(init(1, 3)), Error::<Test>::SendFailed);
+		ACCEPT.set(None);
+		// A release waits for the transport.
+		queue_release((8, 9));
+		assert_noop!(try_set(init(1, 3)), Error::<Test>::TransportBusy);
+
+		assert_eq!(window(1), Some((1, 1)));
+	});
+}
+
+/// A window lasts `RequestWindow` blocks from the first request counted in it. The next one
+/// starts at the next request, not right when the previous one ends.
+#[test]
+fn window_restarts_at_the_next_request() {
+	new_test_ext(|| {
+		let len: u64 = <Test as Config>::RequestWindow::get();
+		use_up_requests(1);
+		assert_eq!(window(1), Some((1, max_requests())));
+
+		// The window started at block 1: its last block is `len`.
+		System::set_block_number(len);
+		assert_noop!(try_set(init(1, 200)), Error::<Test>::TooManyRequests);
+		System::set_block_number(1 + len);
+		assert_ok!(try_set(init(1, 200)));
+		assert_eq!(window(1), Some((1 + len, 1)));
+
+		// Long after that window is over, the next request starts a whole new one.
+		System::set_block_number(10 * len);
+		assert_ok!(try_set(init(1, 300)));
+		assert_eq!(window(1), Some((10 * len, 1)));
+		for i in 1..max_requests() {
+			assert_ok!(try_set(init(1, 300 + i)));
+		}
+		System::set_block_number(11 * len - 1);
+		assert_noop!(try_set(init(1, 400)), Error::<Test>::TooManyRequests);
+		System::set_block_number(11 * len);
+		assert_ok!(try_set(init(1, 400)));
+		assert_eq!(window(1), Some((11 * len, 1)));
 	});
 }

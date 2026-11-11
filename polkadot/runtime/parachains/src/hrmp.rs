@@ -48,7 +48,7 @@ pub const HRMP_MAX_INBOUND_CHANNELS_BOUND: u32 = 128;
 pub const HRMP_MAX_OUTBOUND_CHANNELS_BOUND: u32 = 128;
 /// The `open_requests` witness of `hrmp_cancel_open_request` that
 /// [`Pallet::max_para_request_weight`] weighs.
-pub const MAX_OPEN_REQUESTS_WITNESS: u32 = 128;
+pub const MAX_OPEN_REQUESTS_WITNESS: u32 = 10_000;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -826,7 +826,8 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			if let Some(caller) = Self::ensure_signed_manager_or_para(origin)? {
+			let caller = Self::ensure_signed_manager_or_para(origin)?;
+			if let Some(caller) = caller {
 				ensure!(
 					caller == sender || caller == recipient,
 					Error::<T>::PokeHrmpChannelUnauthorized,
@@ -858,7 +859,7 @@ pub mod pallet {
 					current: channel.recipient_deposit,
 					target: recipient_deposit,
 				}),
-				action: DepositAction::PokeChannelDeposits,
+				action: DepositAction::PokeChannelDeposits { by: caller },
 			})
 		}
 

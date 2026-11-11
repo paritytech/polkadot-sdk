@@ -420,6 +420,53 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 	}
 }
 
+/// Allows a message only if it is from a child parachain that is not system-level.
+pub struct IsChildNonSystemParachain<ParaId>(PhantomData<ParaId>);
+impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildNonSystemParachain<ParaId> {
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.interior().as_slice(),
+			[Junction::Parachain(id)]
+				if !ParaId::from(*id).is_system() && l.parent_count() == 0,
+		)
+	}
+}
+
+/// Allows an origin in `Allowed` to have one call dispatched as itself without paying, as long as
+/// the whole message weighs at most `MaxWeight`. The message must be `UnpaidExecution`, with no
+/// weight limit or one of at least the weight of the message, followed by one `Transact` with
+/// `OriginKind::Native`.
+pub struct AllowUnpaidTransactFrom<Allowed, MaxWeight>(PhantomData<(Allowed, MaxWeight)>);
+impl<Allowed: Contains<Location>, MaxWeight: Get<Weight>> ShouldExecute
+	for AllowUnpaidTransactFrom<Allowed, MaxWeight>
+{
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		tracing::trace!(
+			target: "xcm::barriers",
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowUnpaidTransactFrom",
+		);
+		ensure!(Allowed::contains(origin), ProcessMessageError::Unsupported);
+		ensure!(max_weight.all_lte(MaxWeight::get()), ProcessMessageError::Unsupported);
+		match instructions {
+			[UnpaidExecution { weight_limit, .. }, Transact { origin_kind: OriginKind::Native, .. }]
+				if match &*weight_limit {
+					Unlimited => true,
+					Limited(limit) => limit.all_gte(max_weight),
+				} =>
+			{
+				Ok(())
+			},
+			_ => Err(ProcessMessageError::Unsupported),
+		}
+	}
+}
+
 /// Matches if the given location is a system-level sibling parachain.
 pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
 impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
