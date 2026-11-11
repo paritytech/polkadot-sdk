@@ -429,8 +429,15 @@ impl Keystore for LocalKeystore {
 			let invalid_phrase = |_| TraitError::from(Error::InvalidPhrase);
 			let ecdsa_pair = ecdsa::Pair::from_string(&phrase, password).map_err(invalid_phrase)?;
 			let bls381_pair = bls381::Pair::from_string(&phrase, password).map_err(invalid_phrase)?;
-			inner.insert_ephemeral_pair(&ecdsa_pair, &phrase, key_type);
-			inner.insert_ephemeral_pair(&bls381_pair, &phrase, key_type);
+
+			// Persist component keys to disk so they survive a keystore reopen.
+			if inner.path.is_some() {
+				inner.insert(key_type, &phrase, ecdsa_pair.public().as_ref())?;
+				inner.insert(key_type, &phrase, bls381_pair.public().as_ref())?;
+			} else {
+				inner.insert_ephemeral_pair(&ecdsa_pair, &phrase, key_type);
+				inner.insert_ephemeral_pair(&bls381_pair, &phrase, key_type);
+			}
 
 			Ok(pubkey)
 		}
@@ -1101,6 +1108,32 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_seed_works_on_disk() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		let temp_dir = TempDir::new().unwrap();
+		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
+		let ecdsa_bls381_key = store
+			.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice"))
+			.expect("key generation with seed works on disk");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+	        assert_eq!(ecdsa_bls381_keys[0], ecdsa_bls381_key);
+		let mut combined = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_keys[0].as_ref());
+		combined[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_keys[0].as_ref());
+		assert_eq!(ecdsa_bls381::Public::from_raw(combined), ecdsa_bls381_key);
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
 	fn file_backed_keystore_works_for_all_key_types() {
 		use sp_core::testing::{BLS381, ECDSA, ECDSA_BLS381, ED25519, SR25519};
 
@@ -1179,6 +1212,22 @@ mod tests {
 		let (ecdsa_half, bls381_half) = halves(seeded);
 		assert!(store.ecdsa_public_keys(ECDSA_BLS381).contains(&ecdsa_half));
 		assert!(store.bls381_public_keys(ECDSA_BLS381).contains(&bls381_half));
+
+		// Component keys must survive a reopen with the same password.
+		drop(store);
+		let password = FromStr::from_str("password").unwrap();
+		let store = LocalKeystore::open(temp_dir.path(), Some(password)).unwrap();
+		let (ecdsa_half, bls381_half) = halves(generated);
+		assert!(store.ecdsa_sign(ECDSA_BLS381, &ecdsa_half, b"message").unwrap().is_some());
+		assert!(store.bls381_public_keys(ECDSA_BLS381).contains(&bls381_half));
+
+		// The paired key itself must also survive the reopen, and
+		// the component keys must still be its halves.
+		assert!(store.ecdsa_bls381_public_keys(ECDSA_BLS381).contains(&generated));
+		let mut combined = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_half.as_ref());
+		combined[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_half.as_ref());
+		assert_eq!(ecdsa_bls381::Public::from_raw(combined), generated);
 	}
 
 	#[cfg(feature = "bls-experimental")]
