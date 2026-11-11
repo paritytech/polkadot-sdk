@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794354396687,
+  "lastUpdate": 1794359751982,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecdc3a28de64c3014e12354c12191dc4fc24d051",
-          "message": "Polkadot: Increase block size limit on the node side (#11900)\n\nThis pull request increases the block size limit allowed while building\na block. This block size limit is checked on the node side. The ultimate\nauthority about the actual block size limit is the runtime.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2026-04-27T17:33:01Z",
-          "tree_id": "3efed41be4a945617946fd785c6ae1e0504df49a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecdc3a28de64c3014e12354c12191dc4fc24d051"
-        },
-        "date": 1777315994168,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14584801972000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007306961199999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02414260531333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009881932413333313,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.0250417334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "727efe8bc1a66cad0dd2f7a8fd770ebe56985969",
+          "message": "Fix deprecated `UnboundedReceiver::try_next` (#13798)\n\nFix `cargo test --doc` on master.",
+          "timestamp": "2026-11-10T23:28:21Z",
+          "tree_id": "1d0c1ca330f2068fb548b2f5ac097e2104fe77e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/727efe8bc1a66cad0dd2f7a8fd770ebe56985969"
+        },
+        "date": 1794359724588,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025524805473333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14593735200000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00733363541333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009951072453333312,
             "unit": "seconds"
           }
         ]
