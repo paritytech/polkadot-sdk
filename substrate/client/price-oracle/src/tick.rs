@@ -399,12 +399,12 @@ where
 			},
 		};
 	// Record every pair, and quote those with a price.
-	metrics.reset_pair_vote_margins();
+	metrics.reset_pair_market_margins();
 	let quotes: Vec<Quote> = aggregates
 		.iter()
 		.filter_map(|aggregate| {
 			let PairAggregate { pair, inputs, quorum, price, .. } = *aggregate;
-			metrics.on_pair_vote_margin(pair, inputs, quorum);
+			metrics.on_pair_market_margin(pair, inputs, quorum);
 			log_state.pair(pair, inputs, quorum, price, &aggregate.note());
 			price.map(|price| Quote { pair, price })
 		})
