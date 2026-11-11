@@ -17,6 +17,8 @@
 
 //! Registration end to end, over real XCM.
 
+mod relayed;
+
 use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -130,12 +132,17 @@ fn submit_upgrade(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
 	.map_err(|e| e.error)
 }
 
+/// A validation code to upgrade to. Not the registration blob: the relay chain refuses an upgrade
+/// to the code it already runs.
+fn upgrade_code(len: usize) -> Vec<u8> {
+	(0..len).map(|i| (i % 241) as u8 ^ 0x5a).collect()
+}
+
 /// Ask the parachain to upgrade `para_id`'s code, letting the request travel to the relay chain.
 ///
 /// Returns the validation code the relay chain will now be waiting for.
 fn request_upgrade(who: AccountId32, para_id: u32, code_len: usize) -> Vec<u8> {
-	// Not the registration blob: the relay chain refuses an upgrade to the code it already runs.
-	let blob = (0..code_len).map(|i| (i % 241) as u8 ^ 0x5a).collect::<Vec<_>>();
+	let blob = upgrade_code(code_len);
 	let hash = hash_of(&blob);
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::Registrar::schedule_code_upgrade(
