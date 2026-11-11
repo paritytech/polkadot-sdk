@@ -68,9 +68,6 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 					let snake_cased_ident =
 						format_ident!("{}", variant_ident.to_string().to_snake_case());
 
-					// Field binding names, derived once and reused by both the trait method
-					// signature and the match arm. Named fields keep their name; the unnamed
-					// fields of a tuple variant become `_0`, `_1`, ... .
 					let field_names = fields
 						.iter()
 						.enumerate()
@@ -79,7 +76,6 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 						})
 						.collect::<Vec<_>>();
 
-					// Trait method: one `name: &Type` parameter per field.
 					let params = fields.iter().zip(&field_names).map(|(field, name)| {
 						let field_ty = match &field.ty {
 							// If the type is already a reference, do nothing
@@ -91,7 +87,6 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 					});
 					let method = quote::quote!(fn #snake_cased_ident( #(#params)* ) -> Weight;);
 
-					// Match arm: destructure the variant and forward its fields to the method.
 					let match_arm = match fields {
 						syn::Fields::Unit => quote::quote!(
 							#ident::#variant_ident =>
