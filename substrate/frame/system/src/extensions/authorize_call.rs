@@ -83,7 +83,8 @@ where
 			}
 		}
 
-		Ok((Default::default(), Weight::zero(), origin))
+		// The authorize callback did not run, so its benchmarked weight is unspent.
+		Ok((Default::default(), call.weight_of_authorize(), origin))
 	}
 
 	fn prepare(
@@ -305,6 +306,8 @@ mod tests {
 				.expect_err("Transaction is failing, because origin is wrong");
 
 			assert_eq!(dispatch_res.error, DispatchError::BadOrigin);
+			// The origin was already authorized, so the authorize weight is refunded.
+			assert_eq!(dispatch_res.post_info.actual_weight, Some(pallet1::CALL_WEIGHT));
 			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
 			assert_eq!(info.extension_weight, pallet1::AUTH_WEIGHT);
 		});
@@ -338,6 +341,34 @@ mod tests {
 				.expect("valid");
 
 			assert!(!new_origin.filter_call(&filtered_call));
+		});
+	}
+
+	#[test]
+	fn skipped_authorization_refunds_its_weight() {
+		new_test_ext().execute_with(|| {
+			let ext = frame_system::AuthorizeCall::<Runtime>::new();
+			let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
+			let origin: RuntimeOrigin = crate::Origin::<Runtime>::Signed(42).into();
+
+			// `weight()` books the authorize weight whatever the origin is.
+			assert_eq!(ext.weight(&call), pallet1::AUTH_WEIGHT);
+
+			let (_, unspent, _) = ext
+				.validate(
+					origin,
+					&call,
+					&crate::DispatchInfo::default(),
+					Default::default(),
+					(),
+					&TxBaseImplication(()),
+					External,
+				)
+				.expect("valid");
+
+			// The origin is already authorized, so the callback is skipped and none of the
+			// weight booked for it is spent.
+			assert_eq!(unspent, pallet1::AUTH_WEIGHT);
 		});
 	}
 }
