@@ -20,10 +20,10 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
+use cumulus_client_network::AssumeSybilResistance;
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_proof_size_recording::load_proof_size_recording;
-use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use cumulus_primitives_core::ParaId;
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
@@ -43,7 +43,7 @@ use sc_network::{
 	config::SyncMode, request_responses::IncomingRequest, service::traits::NetworkService,
 	NetworkBackend,
 };
-use sc_network_sync::SyncingService;
+use sc_network_sync::{strategy::chain_sync::GapSyncBodyPolicyProvider, SyncingService};
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{
 	Configuration, SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, WarpSyncConfig,
@@ -55,7 +55,7 @@ use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Decode};
 use sp_runtime::{
-	traits::{Block as BlockT, BlockIdTo, HashingFor, Header},
+	traits::{Block as BlockT, HashingFor, Header},
 	SaturatedConversion, Saturating,
 };
 use sp_state_machine::OverlayedChanges;
@@ -261,48 +261,29 @@ pub async fn build_relay_chain_interface(
 	}
 }
 
-/// The expected level of collator sybil-resistance on the network. This is used to
-/// configure the type of metadata passed alongside block announcements on the network.
-pub enum CollatorSybilResistance {
-	/// There is a collator-selection protocol which provides sybil-resistance,
-	/// such as Aura. Sybil-resistant collator-selection protocols are able to
-	/// operate more efficiently.
-	Resistant,
-	/// There is no collator-selection protocol providing sybil-resistance.
-	/// In situations such as "free-for-all" collators, the network is unresistant
-	/// and needs to attach more metadata to block announcements, relying on relay-chain
-	/// validators to avoid handling unbounded numbers of blocks.
-	Unresistant,
-}
-
 /// Parameters given to [`build_network`].
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ HeaderBackend<Block>
-		+ BlockIdTo<Block>
-		+ 'static,
+	Client,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 	RCInterface,
 	IQ,
-> where
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-{
+> {
 	pub parachain_config: &'a Configuration,
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
-	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>,
+	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block>>,
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
 	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	pub import_queue: IQ,
-	pub sybil_resistance_level: CollatorSybilResistance,
 	pub metrics: sc_network::NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration.
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -317,32 +298,26 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		spawn_essential_handle,
 		relay_chain_interface,
 		import_queue,
-		sybil_resistance_level,
 		metrics,
+		gap_sync_body_policy,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
 	Arc<dyn NetworkService>,
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
 	Arc<SyncingService<Block>>,
+	Option<sc_network_bitswap::BitswapHandle>,
 )>
 where
 	Block: BlockT,
-	Client: UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ sp_consensus::block_validation::Chain<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
+	Client: ProvideRuntimeApi<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
+		+ sp_consensus::block_validation::Chain<Block>
+		+ BlockBackend<Block>
 		+ ProofProvider<Block>
+		+ HeaderBackend<Block>
+		+ BlockchainEvents<Block>
 		+ 'static,
-	Client::Api: CollectCollationInfo<Block>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-	for<'b> &'b Client: BlockImport<Block>,
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -366,17 +341,7 @@ where
 		_ => None,
 	};
 
-	let block_announce_validator = match sybil_resistance_level {
-		CollatorSybilResistance::Resistant => {
-			let block_announce_validator = AssumeSybilResistance::allow_seconded_messages();
-			Box::new(block_announce_validator) as Box<_>
-		},
-		CollatorSybilResistance::Unresistant => {
-			let block_announce_validator =
-				RequireSecondedInBlockAnnounce::new(relay_chain_interface, para_id);
-			Box::new(block_announce_validator) as Box<_>
-		},
-	};
+	let block_announce_validator = Box::new(AssumeSybilResistance::allow_seconded_messages());
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -390,6 +355,7 @@ where
 		warp_sync_config,
 		block_relay: None,
 		metrics,
+		gap_sync_body_policy,
 	})
 }
 

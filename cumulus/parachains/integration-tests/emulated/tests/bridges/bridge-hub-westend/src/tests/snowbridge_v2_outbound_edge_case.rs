@@ -325,12 +325,25 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		));
 	});
 
-	AssetHubWestend::execute_with(|| {
+	let trapped_assets: Assets = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![RuntimeEvent::PolkadotXcm(pallet_xcm::Event::ProcessXcmError { .. }) => {},]
 		);
+		// Capture the exact trapped assets: the amounts depend on the configured weights and
+		// fees, and a claim only succeeds if it matches the trapped assets exactly.
+		AssetHubWestend::events()
+			.into_iter()
+			.find_map(|event| match event {
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) => {
+					Some(assets)
+				},
+				_ => None,
+			})
+			.expect("assets are trapped on AssetHub")
+			.try_into()
+			.expect("trapped assets convert to the latest XCM version")
 	});
 
 	// Claim the trapped asset and deposit on AH.
@@ -356,14 +369,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 				preserve_origin: true,
 				assets: BoundedVec::truncate_from(vec![]),
 				remote_xcm: Xcm(vec![
-					ClaimAsset {
-						assets: vec![
-							Asset { id: AssetId(ethereum()), fun: Fungible(600914043236) },
-							Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) },
-						]
-						.into(),
-						ticket: GeneralIndex(5).into(),
-					},
+					ClaimAsset { assets: trapped_assets.clone(), ticket: GeneralIndex(5).into() },
 					RefundSurplus,
 					DepositAsset {
 						assets: Wild(All),

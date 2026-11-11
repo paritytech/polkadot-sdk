@@ -141,6 +141,7 @@ fn record_proof_works() {
 		"Core_execute_block",
 		&block.encode(),
 		&runtime_code,
+		substrate_test_runtime_client::runtime::VERSION.state_version(),
 	)
 	.expect("Executes block while using the proof backend");
 }
@@ -277,6 +278,61 @@ fn ensure_transactional_works() {
 	assert_eq!(transaction_tester.started.load(Ordering::Relaxed), 4);
 	assert_eq!(transaction_tester.committed.load(Ordering::Relaxed), 3);
 	assert_eq!(transaction_tester.rolled_back.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn auto_transaction_is_restored_after_execute_in_transaction() {
+	const KEY: &[u8] = b"test";
+
+	let client = TestClientBuilder::new().build();
+	let best_hash = client.chain_info().best_hash;
+
+	for commit in [true, false] {
+		let runtime_api = client.runtime_api();
+		runtime_api.execute_in_transaction(|api| {
+			api.execute_in_transaction(|_| TransactionOutcome::Commit(()));
+
+			if commit {
+				TransactionOutcome::Commit(())
+			} else {
+				TransactionOutcome::Rollback(())
+			}
+		});
+
+		// The explicit scope is fully closed. A failing plain call must be rolled back again.
+		assert!(runtime_api
+			.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], true)
+			.is_err());
+
+		let changes = runtime_api
+			.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
+			.unwrap();
+		assert!(changes.main_storage_changes.is_empty());
+	}
+}
+
+#[test]
+fn failing_call_after_execute_in_transaction_keeps_committed_changes() {
+	const KEY: &[u8] = b"test";
+
+	let client = TestClientBuilder::new().build();
+	let best_hash = client.chain_info().best_hash;
+
+	let runtime_api = client.runtime_api();
+	runtime_api.execute_in_transaction(|api| {
+		api.write_key_value(best_hash, KEY.to_vec(), vec![1], false).unwrap();
+
+		TransactionOutcome::Commit(())
+	});
+
+	// The explicit scope is closed and its changes are committed. A failing plain call must
+	// only discard its own changes.
+	assert!(runtime_api.write_key_value(best_hash, KEY.to_vec(), vec![2], true).is_err());
+
+	let changes = runtime_api
+		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
+		.unwrap();
+	assert_eq!(changes.main_storage_changes, vec![(KEY.to_vec(), Some(vec![1]))]);
 }
 
 #[test]

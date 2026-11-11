@@ -17,13 +17,16 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessKind, Warmth},
+	access_list::{StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
-use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
+use frame_support::{
+	traits::Get,
+	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
+};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -36,11 +39,21 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
+/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
+
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight of exposing zeroed EVM memory and, when needed, allocating a replacement buffer.
+	/// Both sizes are in 32-byte words. Zero allocation words means the existing buffer is kept.
+	EvmMemoryGrow { words: u32, allocation_words: u32 },
+	/// Weight of allocating and copying EVM output data, in bytes.
+	EvmMemoryCopyOut(u32),
+	/// Per-byte weight of copying data into EVM memory; the op-code pays its fixed cost.
+	EvmCopyToContract(u32),
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -71,6 +84,8 @@ pub enum RuntimeCosts {
 	CallerIsOrigin,
 	/// Weight of calling `callerIsRoot` on the `System` pre-compile.
 	CallerIsRoot,
+	/// Weight of calling `originIsRoot` on the `System` pre-compile.
+	OriginIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
 	/// Weight of calling `seal_ref_time_left`.
@@ -170,6 +185,31 @@ pub enum RuntimeCosts {
 	Blake2F(u32),
 	/// Weight of calling `Modexp` precompile
 	Modexp(u64),
+	/// Weight of processing EIP-7702 authorization tuples.
+	///
+	/// `invalid_accounts` covers every tuple that produced no state change: those that
+	/// fail the chain-id check, fail signature recovery, or pass recovery but then fail
+	/// validation (bad nonce, non-EOA authority, etc.) or post-validation (set_delegation
+	/// error). All are billed at the signature-recovery cost — a conservative over-estimate
+	/// for the chain-id failures, which bail before recovery — and incur no
+	/// account creation/update work.
+	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -224,8 +264,17 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
+	/// What a hot write pays on top of the cold read that warmed the slot:
+	/// re-hashing the slot's trie path when the block's storage root is
+	/// computed.
+	fn hot_write_surcharge<T: Config>() -> Weight {
+		let db = T::DbWeight::get();
+		db.writes(1).saturating_sub(db.reads(1))
+	}
+
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
+		op: StorageOp,
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
@@ -242,7 +291,12 @@ impl RuntimeCosts {
 					cost
 				}
 			},
-			StorageAccessKind::Persistent(Warmth::Hot) => hot()
+			StorageAccessKind::Persistent(Warmth::Hot { charged }) => hot()
+				.saturating_add(if charged.covers(op) {
+					Weight::zero()
+				} else {
+					Self::hot_write_surcharge::<T>()
+				})
 				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
 				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
@@ -260,12 +314,29 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			EvmMemoryGrow { words, allocation_words } => {
+				let grow = cost_args!(evm_memory_grow, words);
+				let allocate = if allocation_words == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_reallocate(allocation_words)
+				};
+				grow.saturating_add(allocate)
+			},
+			EvmMemoryCopyOut(len) => {
+				if len == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_copy_out(len)
+				}
+			},
 			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
 			// twice.
 			ExtCodeCopy(len) => {
 				T::WeightInfo::extcodecopy(len).saturating_sub(T::WeightInfo::seal_code_size())
 			},
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
+			EvmCopyToContract(len) => cost_args!(seal_copy_to_contract, len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			ReturnDataSize => T::WeightInfo::seal_return_data_size(),
@@ -279,6 +350,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			OwnCodeHash => T::WeightInfo::own_code_hash(),
 			CallerIsOrigin => T::WeightInfo::caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::caller_is_root(),
+			OriginIsRoot => T::WeightInfo::origin_is_root(),
 			Address => T::WeightInfo::seal_address(),
 			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
 			WeightLeft => T::WeightInfo::weight_left(),
@@ -309,57 +381,70 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					0,
 				)),
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
+				StorageOp::Write,
 				kind,
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				StorageOp::Write,
 				kind,
 				|| cost_storage!(write_cold, clear_storage, len),
 				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				StorageOp::Read,
 				kind,
 				|| cost_storage!(read_cold, contains_storage, len),
 				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				StorageOp::Read,
 				kind,
 				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				StorageOp::Write,
 				kind,
 				|| cost_storage!(write_cold, take_storage, len),
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
+			CallBase => T::WeightInfo::seal_call(0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge { dust_transfer } => {
-				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+				// `Weight::max` is per dimension, so ref time and proof size can each be taken from
+				// either of the two benches.
+				T::WeightInfo::seal_call_transfer(dust_transfer.into())
+					.max(T::WeightInfo::seal_call_transfer_to_existing(dust_transfer.into()))
+					.saturating_sub(T::WeightInfo::seal_call(0))
 			},
-			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			CallInputCloned(len) => cost_args!(seal_call, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::seal_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					input_data_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::seal_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::seal_instantiate(0))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::seal_instantiate(input_data_len).saturating_add(transfer)
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::evm_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					init_code_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(BENCH_MIN_EVM_INIT_CODE_LEN))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::evm_instantiate(init_code_len).saturating_add(transfer)
 			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -379,6 +464,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
+			Delegations { new_accounts, existing_accounts, invalid_accounts } => {
+				T::WeightInfo::process_new_account_authorization(new_accounts)
+					.saturating_add(T::WeightInfo::process_existing_account_authorization(
+						existing_accounts,
+					))
+					.saturating_add(T::WeightInfo::process_invalid_authorization(invalid_accounts))
+			},
 		}
 	}
 }
@@ -389,11 +481,14 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+	fn storage_pricing_by_access_kind() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot);
+		let hot_kinds = [
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+		];
 
 		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -405,15 +500,25 @@ mod tests {
 			]
 		};
 
-		for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
-			let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
-			let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
-			assert!(
-				cold_weight.ref_time() > hot_weight.ref_time(),
-				"expected cold > hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}",
-			);
-			assert_eq!(hot_weight.proof_size(), 0, "hot proof_size {hot_cost:?}: {hot_weight:?}");
-			assert!(cold_weight.proof_size() > 0, "cold proof_size {cold_cost:?}: {cold_weight:?}",);
+		for hot in hot_kinds {
+			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
+				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
+				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
+				assert!(
+					cold_weight.ref_time() > hot_weight.ref_time(),
+					"expected cold > hot ref_time for {cold_cost:?}: \
+					 cold={cold_weight:?} hot={hot_weight:?}",
+				);
+				assert_eq!(
+					hot_weight.proof_size(),
+					0,
+					"hot proof_size {hot_cost:?}: {hot_weight:?}"
+				);
+				assert!(
+					cold_weight.proof_size() > 0,
+					"cold proof_size {cold_cost:?}: {cold_weight:?}",
+				);
+			}
 		}
 
 		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
@@ -431,6 +536,78 @@ mod tests {
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
 			);
 		}
+
+		for transient_cost in with_kind(StorageAccessKind::Transient) {
+			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+			assert_eq!(
+				weight.proof_size(),
+				0,
+				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+			);
+			assert!(
+				weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
+			);
+		}
+	}
+
+	#[test]
+	fn the_first_hot_write_pays_the_surcharge() {
+		const LEN: u32 = 64;
+		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
+
+		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>();
+		let db = <Test as frame_system::Config>::DbWeight::get();
+		assert!(
+			surcharge.ref_time() > 0 && surcharge.ref_time() < db.writes(1).ref_time(),
+			"the surcharge is part of a write: above zero, below all of it: {surcharge:?}",
+		);
+		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
+
+		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
+		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
+
+		let write_costs = |kind: StorageAccessKind| {
+			[
+				RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind },
+				RuntimeCosts::ClearStorage { len: LEN, kind },
+				RuntimeCosts::TakeStorage { len: LEN, kind },
+			]
+		};
+		for (write_to_read_paid_slot, write_to_write_paid_slot) in
+			write_costs(read_paid).into_iter().zip(write_costs(write_paid))
+		{
+			assert_eq!(
+				weight(&write_to_read_paid_slot).saturating_sub(weight(&write_to_write_paid_slot)),
+				surcharge,
+				"a write to a read-paid slot pays exactly the surcharge: \
+				 {write_to_read_paid_slot:?}",
+			);
+		}
+
+		let read_costs = |kind: StorageAccessKind| {
+			[
+				RuntimeCosts::GetStorage { len: LEN, kind },
+				RuntimeCosts::ContainsStorage { len: LEN, kind },
+			]
+		};
+		for (read_of_read_paid_slot, read_of_write_paid_slot) in
+			read_costs(read_paid).into_iter().zip(read_costs(write_paid))
+		{
+			assert_eq!(
+				weight(&read_of_read_paid_slot),
+				weight(&read_of_write_paid_slot),
+				"a read is covered at either paid level: {read_of_read_paid_slot:?}",
+			);
+		}
+	}
+
+	#[test]
+	fn a_transient_access_never_consults_the_access_list() {
+		assert_eq!(
+			StorageAccessKind::new(true, || unreachable!("transient storage has no warmth")),
+			StorageAccessKind::Transient,
+		);
 	}
 
 	#[test]
@@ -441,5 +618,41 @@ mod tests {
 			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+	}
+
+	#[test]
+	fn value_transfers_pay_a_surcharge() {
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let call = |dust_transfer| weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
+		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
+		assert!(call(true).ref_time() > call(false).ref_time(), "a call with dust must cost more");
+
+		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
+		};
+		let create: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Create { init_code_len: 0, balance_transfer, dust_transfer }
+		};
+
+		for (name, cost_of) in [("instantiate", instantiate), ("create", create)] {
+			let surcharge = |balance_transfer, dust_transfer| {
+				weight(cost_of(balance_transfer, dust_transfer))
+					.saturating_sub(weight(cost_of(false, false)))
+			};
+			assert!(
+				surcharge(true, false).ref_time() > 0,
+				"{name} with value must pay for its transfer",
+			);
+			assert!(
+				surcharge(true, true).ref_time() > surcharge(true, false).ref_time(),
+				"{name} with dust must cost more",
+			);
+			assert_eq!(
+				surcharge(false, true),
+				surcharge(true, true),
+				"{name} with only dust does the same work as with value and dust",
+			);
+		}
 	}
 }

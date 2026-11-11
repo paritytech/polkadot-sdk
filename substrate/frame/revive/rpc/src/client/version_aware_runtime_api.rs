@@ -86,6 +86,60 @@ impl<T> CallRecordedOutput<T> {
 	}
 }
 
+/// A transaction's trace in the `TraceV1` shape eth-rpc serves, or the runtime's report that it
+/// could not produce one. Only V2 runtimes report `NotTraced`.
+pub enum TraceEntry {
+	Traced(TraceV1),
+	NotTraced,
+}
+
+impl From<TraceEntryV1> for TraceEntry {
+	fn from(entry: TraceEntryV1) -> Self {
+		match entry {
+			TraceEntryV1::Traced(trace) => Self::Traced(trace_v2_as_v1(trace)),
+			TraceEntryV1::NotTraced => Self::NotTraced,
+		}
+	}
+}
+
+/// Renders a `TraceV2` in the V1 shape eth-rpc serves, dropping `CallLogV2::index`. Remove once
+/// eth-rpc serves V2.
+fn trace_v2_as_v1(trace: TraceV2) -> TraceV1 {
+	match trace {
+		TraceV2::Call(trace) => TraceV1::Call(call_trace_v2_as_v1(trace)),
+		TraceV2::Prestate(trace) => TraceV1::Prestate(trace),
+		TraceV2::Execution(trace) => TraceV1::Execution(trace),
+	}
+}
+
+fn call_trace_v2_as_v1(trace: CallTraceV2) -> CallTraceV1 {
+	CallTraceV1 {
+		from: trace.from,
+		gas: trace.gas,
+		gas_used: trace.gas_used,
+		to: trace.to,
+		input: trace.input,
+		output: trace.output,
+		error: trace.error,
+		revert_reason: trace.revert_reason,
+		calls: trace.calls.into_iter().map(call_trace_v2_as_v1).collect(),
+		logs: trace
+			.logs
+			.into_iter()
+			.map(|log| CallLogV1 {
+				address: log.address,
+				topics: log.topics,
+				data: log.data,
+				position: log.position,
+			})
+			.collect(),
+		value: trace.value,
+		call_type: trace.call_type,
+		// Tracer-internal, never serialized.
+		child_call_count: 0,
+	}
+}
+
 impl VersionAwareRuntimeApi {
 	/// Create a new instance.
 	pub fn new(
@@ -409,7 +463,7 @@ impl VersionAwareRuntimeApi {
 		transaction_index: u32,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceV1>>, ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceEntry>>, ClientError>>> {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -420,11 +474,11 @@ impl VersionAwareRuntimeApi {
 						tracer_type.into(),
 					);
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					Ok(output.map(|value| value.map(|trace| trace.0)))
+					Ok(output.map(|value| value.map(|trace| TraceEntry::Traced(trace.0))))
 				});
 				Some(future)
 			},
-			Available(Versioned(_)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input = TraceTxInputPayloadV1 {
 						block: block.into(),
@@ -439,7 +493,27 @@ impl VersionAwareRuntimeApi {
 						TraceTxOutputPayloadV1::try_from(value.0)
 							.expect("v1 input must produce v1 output; qed")
 							.trace
+							.map(TraceEntry::Traced)
 					}))
+				});
+				Some(future)
+			},
+			Available(Versioned(2..)) => {
+				let future = Box::pin(async move {
+					let input = TraceTxInputPayloadV2 {
+						block: block.into(),
+						tx_index: transaction_index,
+						config: tracer_type,
+					};
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entry = TraceTxOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
+						.entry
+						.map(TraceEntry::from);
+					Ok(CallRecordedOutput { value: entry, degraded: false })
 				});
 				Some(future)
 			},
@@ -456,7 +530,7 @@ impl VersionAwareRuntimeApi {
 		>,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceV1)>>, ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceEntry)>>, ClientError>>> {
 		match self.capabilities.trace_block {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -466,12 +540,15 @@ impl VersionAwareRuntimeApi {
 						.trace_block(block.into(), tracer_type.into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					Ok(output.map(|traces| {
-						traces.into_iter().map(|(idx, trace)| (idx, trace.0)).collect()
+						traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntry::Traced(trace.0)))
+							.collect()
 					}))
 				});
 				Some(future)
 			},
-			Available(Versioned(_)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input =
 						TraceBlockInputPayloadV1 { block: block.into(), config: tracer_type };
@@ -483,7 +560,28 @@ impl VersionAwareRuntimeApi {
 						TraceBlockOutputPayloadV1::try_from(value.0)
 							.expect("v1 input must produce v1 output; qed")
 							.traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntry::Traced(trace)))
+							.collect()
 					}))
+				});
+				Some(future)
+			},
+			Available(Versioned(2..)) => {
+				let future = Box::pin(async move {
+					let input =
+						TraceBlockInputPayloadV2 { block: block.into(), config: tracer_type };
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entries = TraceBlockOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
+						.entries
+						.into_iter()
+						.map(|(idx, entry)| (idx, entry.into()))
+						.collect();
+					Ok(CallRecordedOutput { value: entries, degraded: false })
 				});
 				Some(future)
 			},
@@ -594,6 +692,10 @@ impl VersionAwareRuntimeApi {
 	}
 
 	/// Get the current Ethereum block.
+	///
+	/// `transactions` is the list the header commits to. A block with mirrored logs ends with a
+	/// synthetic transaction, whose receipt entry only version 2 of [`Self::eth_receipt_data`]
+	/// reports.
 	pub fn eth_block(&self) -> Option<BoxFuture<'_, Result<BlockV1, ClientError>>> {
 		self.capabilities.eth_block.handle(
 			|| async move {
@@ -645,31 +747,56 @@ impl VersionAwareRuntimeApi {
 		)
 	}
 
-	/// Get the receipt data for the current block.
+	/// Get the receipt data for the current block: one entry per ethereum transaction, plus the
+	/// entry for the block's synthetic transaction when the runtime reports one.
+	///
+	/// Only version 2 reports the synthetic transaction. Against anything older the block's
+	/// mirrored logs stay invisible, which is how this client behaved before they existed.
 	pub fn eth_receipt_data(
 		&self,
-	) -> Option<BoxFuture<'_, Result<Vec<ReceiptGasInfoV1>, ClientError>>> {
+	) -> Option<
+		BoxFuture<'_, Result<(Vec<ReceiptGasInfoV1>, Option<SyntheticTransactionV1>), ClientError>>,
+	> {
 		self.capabilities.eth_receipt_data.handle(
 			|| async move {
 				let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data();
 				self.call(payload)
 					.await
-					.map(|receipt_data| receipt_data.into_iter().map(|item| item.0).collect())
-					.map_err(Into::into)
-			},
-			|_| async move {
-				let input = ReceiptDataInputPayloadV1;
-				let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
-					ReceiptDataVersionedInputPayload::from(input).into(),
-				);
-				self.call(payload)
-					.await
-					.map(|output| {
-						ReceiptDataOutputPayloadV1::try_from(output.0)
-							.expect("v1 input must produce v1 output; qed")
-							.receipt_data
+					.map(|receipt_data| {
+						(receipt_data.into_iter().map(|item| item.0).collect(), None)
 					})
 					.map_err(Into::into)
+			},
+			|version| async move {
+				if version < 2 {
+					let input = ReceiptDataInputPayloadV1;
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
+							ReceiptDataVersionedInputPayload::from(input).into(),
+						);
+					self.call(payload)
+						.await
+						.map(|output| {
+							let output = ReceiptDataOutputPayloadV1::try_from(output.0)
+								.expect("v1 input must produce v1 output; qed");
+							(output.receipt_data, None)
+						})
+						.map_err(Into::into)
+				} else {
+					let input = ReceiptDataInputPayloadV2;
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
+							ReceiptDataVersionedInputPayload::from(input).into(),
+						);
+					self.call(payload)
+						.await
+						.map(|output| {
+							let output = ReceiptDataOutputPayloadV2::try_from(output.0)
+								.expect("v2 input must produce v2 output; qed");
+							(output.receipt_data, output.synthetic)
+						})
+						.map_err(Into::into)
+				}
 			},
 		)
 	}
@@ -811,6 +938,15 @@ impl VersionAwareRuntimeApiProvider {
 		block_number: SubstrateBlockNumber,
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block_hash_and_number(block_hash, block_number).await?;
+		let capabilities = self.capabilities(&at_block).await?;
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+	}
+
+	/// Returns the version-aware runtime API of the given block handle.
+	pub async fn at_resolved_block(
+		&self,
+		at_block: OnlineClientAtBlock<SrcChainConfig>,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let capabilities = self.capabilities(&at_block).await?;
 		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
 	}

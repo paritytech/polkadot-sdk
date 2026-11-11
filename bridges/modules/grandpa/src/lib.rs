@@ -1392,29 +1392,40 @@ mod tests {
 
 	#[test]
 	fn importing_header_rejects_header_with_forced_changes() {
-		run_test(|| {
-			initialize_substrate_bridge();
+		for preceded_by_other_grandpa_log in [false, true] {
+			run_test(|| {
+				initialize_substrate_bridge();
 
-			// Need to update the header digest to indicate that it signals a forced authority set
-			// change.
-			let mut header = test_header(2);
-			header.digest = forced_change_log(0);
+				// Need to update the header digest to indicate that it signals a forced authority
+				// set change.
+				let mut header = test_header(2);
+				header.digest = forced_change_log(0);
+				if preceded_by_other_grandpa_log {
+					header.digest.logs.insert(
+						0,
+						DigestItem::Consensus(
+							GRANDPA_ENGINE_ID,
+							ConsensusLog::<TestNumber>::OnDisabled(0).encode(),
+						),
+					);
+				}
 
-			// Create a valid justification for the header
-			let justification = make_default_justification(&header);
+				// Create a valid justification for the header
+				let justification = make_default_justification(&header);
 
-			// Should not be allowed to import this header
-			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
-					Box::new(header),
-					justification,
-					TEST_GRANDPA_SET_ID,
-					false,
-				),
-				<Error<TestRuntime>>::UnsupportedScheduledChange
-			);
-		})
+				// Should not be allowed to import this header
+				assert_err!(
+					Pallet::<TestRuntime>::submit_finality_proof_ex(
+						RuntimeOrigin::signed(1),
+						Box::new(header),
+						justification,
+						TEST_GRANDPA_SET_ID,
+						false,
+					),
+					<Error<TestRuntime>>::UnsupportedScheduledChange
+				);
+			})
+		}
 	}
 
 	#[test]

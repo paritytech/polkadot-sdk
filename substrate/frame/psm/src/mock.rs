@@ -19,7 +19,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, Consideration, ConstU128, ConstU32,
-		ConstU64, EitherOf, Footprint, LinearStoragePrice,
+		ConstU64, EitherOf, LinearStoragePrice,
 	},
 	weights::constants::RocksDbWeight,
 	PalletId,
@@ -120,7 +120,9 @@ parameter_types! {
 	pub const MinSwapAmount: u128 = 100 * INTERNAL_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
 	pub const PsmCreationDeposit: u128 = 1_000_000;
-	pub const PsmDepositSlope: u128 = 0;
+	// Non-zero so tests observe the footprint through the held amount; an under-reported
+	// footprint in `create_psm` would go unnoticed with a slope of zero.
+	pub const PsmDepositSlope: u128 = 100;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(crate::HoldReason::CreationDeposit);
 	pub const NoPsmDepositor: Option<AccountId> = None;
 }
@@ -247,18 +249,15 @@ fn install_test_psm() {
 			external_count: 2,
 		},
 	);
-	let ticket = <Test as crate::Config>::Consideration::new(&ALICE, Footprint::from_parts(1, 0))
-		.expect("ALICE is funded; consideration succeeds");
+	let ticket = <Test as crate::Config>::Consideration::new(
+		&ALICE,
+		crate::Pallet::<Test>::psm_creation_footprint(),
+	)
+	.expect("ALICE is funded; consideration succeeds");
 	crate::PsmAdmin::<Test>::insert(
 		INTERNAL_ASSET_ID,
 		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, deposit: Some((ALICE, ticket)) },
 	);
-	// Acquire provider refs like `create_psm` does, so the test PSM mirrors a real one.
-	frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(
-		&INTERNAL_ASSET_ID,
-	));
-	frame_system::Pallet::<Test>::inc_providers(&INSURANCE_FUND);
-
 	for (asset, weight, decimals) in [
 		(USDC_ASSET_ID, Permill::from_percent(60), 6u8),
 		(USDT_ASSET_ID, Permill::from_percent(40), 6u8),
@@ -370,7 +369,7 @@ pub fn fund_internal(account: AccountId, amount: u128) {
 
 pub fn create_asset_with_metadata(asset_id: u32) {
 	use frame_support::assert_ok;
-	assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), asset_id, ALICE, 1));
+	assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, ALICE, true, 1));
 	assert_ok!(Assets::set_metadata(
 		RuntimeOrigin::signed(ALICE),
 		asset_id,

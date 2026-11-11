@@ -47,7 +47,7 @@ fn main() {
 	// A runtime that uses a relay parent offset of 2.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name(relay_parent_offset::WASM_FILE_NAME)
+		.set_file_name(relay_parent_offset_2::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
@@ -112,6 +112,8 @@ fn main() {
 		.set_file_name(slot_duration_18s::WASM_FILE_NAME)
 		.build();
 
+	// Built with `relay-parent-offset-2` so a `set_code` upgrade from the
+	// `relay-parent-offset` base chain spec (also offset=2) preserves the offset.
 	WasmBuilder::new()
 		.with_current_project()
 		.enable_feature("with-authority-discovery")

@@ -243,11 +243,12 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
-pub mod bitswap;
 mod ipfs_block_provider;
 mod litep2p;
 mod protocol;
 
+#[cfg(test)]
+mod address_tests;
 #[cfg(test)]
 mod mock;
 
@@ -264,6 +265,7 @@ pub mod service;
 pub mod transport;
 pub mod types;
 pub mod utils;
+mod webrtc;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};

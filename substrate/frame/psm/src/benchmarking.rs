@@ -26,7 +26,7 @@ use frame_support::traits::{
 		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
 		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
-	Consideration, EnsureOriginWithArg, Footprint, Get,
+	Consideration, EnsureOriginWithArg, Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
@@ -58,7 +58,7 @@ where
 		if let Some(depositor) = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
 			.expect("benchmark CreateOrigin succeeds")
 		{
-			T::Consideration::ensure_successful(&depositor, Footprint::from_parts(1, 0));
+			T::Consideration::ensure_successful(&depositor, Psm::<T>::psm_creation_footprint());
 		}
 		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
 		Psm::<T>::create_psm(
@@ -71,6 +71,8 @@ where
 			BalanceOf::<T>::from(BENCH_MIN_SWAP),
 		)
 		.expect("benchmark PSM creation succeeds");
+		// So the reserve can receive any external asset, sufficient or not.
+		frame_system::Pallet::<T>::inc_providers(&Psm::<T>::psm_account(&internal_id));
 	}
 	(internal_id, internal_decimals)
 }
@@ -275,6 +277,9 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(EXTERNAL_ASSET_OFFSET);
 
+		// Worst case: a non-sufficient asset without a reserve asset account, so `can_deposit`
+		// also reads the reserve's system account.
+		let _ = T::Fungibles::create(new_asset_id.clone(), caller.clone(), false, 1u32.into());
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 
 		#[extrinsic_call]
@@ -314,7 +319,7 @@ mod benchmarks {
 		let maybe_depositor = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
 			.map_err(|_| BenchmarkError::Stop("CreateOrigin failed"))?;
 		if let Some(who) = &maybe_depositor {
-			T::Consideration::ensure_successful(who, Footprint::from_parts(1, 0));
+			T::Consideration::ensure_successful(who, Psm::<T>::psm_creation_footprint());
 		}
 
 		let admin: T::PalletsOrigin =

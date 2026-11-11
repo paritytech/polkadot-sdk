@@ -23,6 +23,7 @@ use super::{
 	CodeProvider,
 };
 use crate::client::notification_pinning::NotificationPinningWorker;
+use codec::Encode;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
@@ -68,7 +69,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, Hash as HashT, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -85,10 +86,35 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
+
+/// Checks that `body` matches the extrinsics root of `header`.
+///
+/// The trie layout of the extrinsics root depends on the `system_version` of the runtime, which
+/// is not known when importing a block without state. Thus, both layouts are accepted.
+fn check_extrinsics_root<Block: BlockT>(
+	header: &Block::Header,
+	body: &[Block::Extrinsic],
+) -> sp_blockchain::Result<()> {
+	let extrinsics = body.iter().map(Encode::encode).collect::<Vec<_>>();
+	let expected = *header.extrinsics_root();
+	let v0_root = HashingFor::<Block>::ordered_trie_root(extrinsics.clone(), StateVersion::V0);
+
+	if v0_root == expected ||
+		HashingFor::<Block>::ordered_trie_root(extrinsics, StateVersion::V1) == expected
+	{
+		return Ok(());
+	}
+
+	Err(Error::ExtrinsicRootInvalid {
+		received: format!("{v0_root:?}"),
+		expected: format!("{expected:?}"),
+	})
+}
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -396,7 +422,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state, true)?;
+			op.set_block_data(header, Some(body), None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -477,7 +503,6 @@ where
 			justifications,
 			post_digests,
 			body,
-			indexed_body,
 			finalized,
 			auxiliary,
 			fork_choice,
@@ -523,7 +548,6 @@ where
 			import_headers,
 			justifications,
 			body,
-			indexed_body,
 			storage_changes,
 			finalized,
 			auxiliary,
@@ -560,7 +584,6 @@ where
 		import_headers: PrePostHeader<Block::Header>,
 		justifications: Option<Justifications>,
 		body: Option<Vec<Block::Extrinsic>>,
-		indexed_body: Option<Vec<Vec<u8>>>,
 		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
 		finalized: bool,
 		aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
@@ -728,7 +751,6 @@ where
 		operation.op.set_block_data(
 			import_headers.post().clone(),
 			body,
-			indexed_body,
 			justifications,
 			leaf_state,
 			register_as_leaf,
@@ -836,6 +858,12 @@ where
 			(_, StateAction::Execute) => (true, None),
 			(_, StateAction::ExecuteIfPossible) => (true, None),
 		};
+
+		// Executed blocks have their extrinsics root checked by the runtime.
+		let execute = enact_state && storage_changes.is_none();
+		if let (false, Some(body)) = (execute, &import_block.body) {
+			check_extrinsics_root::<Block>(&import_block.header, body)?;
+		}
 
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything
@@ -1243,8 +1271,9 @@ where
 		hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		self.executor.prove_execution(hash, method, call_data, timeout)
 	}
 
 	fn read_proof_collection(
@@ -1390,7 +1419,7 @@ where
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
-			Some(&root),
+			&root,
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();

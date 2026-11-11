@@ -28,7 +28,7 @@ pub type Service = sc_service::PartialComponents<
 	FullBackend,
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	(
 		sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
 		sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -66,16 +66,14 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
 		client.clone(),
@@ -171,7 +169,7 @@ pub fn new_full<
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -184,6 +182,7 @@ pub fn new_full<
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
+			gap_sync_body_policy: None,
 		})?;
 
 	if config.offchain_worker.enabled {

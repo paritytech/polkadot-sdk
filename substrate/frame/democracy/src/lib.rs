@@ -1617,7 +1617,10 @@ impl<T: Config> Pallet<T> {
 			)
 			.is_err()
 			{
-				frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
+				log::error!(
+					target: "runtime::democracy",
+					"LOGIC ERROR: bake_referendum/schedule_named failed"
+				);
 			}
 		} else {
 			Self::deposit_event(Event::<T>::NotPassed { ref_index: index });
@@ -1746,8 +1749,11 @@ fn decode_compact_u32_at(key: &[u8]) -> Option<u32> {
 	match codec::Compact::<u32>::decode(&mut input) {
 		Ok(c) => Some(c.0),
 		Err(_) => {
-			sp_runtime::print("Failed to decode compact u32 at:");
-			sp_runtime::print(key);
+			log::error!(
+				target: "runtime::democracy",
+				"Failed to decode compact u32 at: {:?}",
+				sp_core::hexdisplay::HexDisplay::from(&key)
+			);
 			None
 		},
 	}

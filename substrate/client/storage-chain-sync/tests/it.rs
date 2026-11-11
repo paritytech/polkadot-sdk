@@ -66,7 +66,7 @@ fn info(
 		content_hash,
 		size,
 		hashing,
-		cid_codec: sc_network::bitswap::RAW_CODEC,
+		cid_codec: sc_network_bitswap::RAW_CODEC,
 		extrinsic_index,
 	}
 }
@@ -152,7 +152,7 @@ async fn import_attached_changes_propagates_runtime_declared_codec_to_bitswap_ci
 		"bitswap request must carry the runtime-declared codec ({DAG_PB_CODEC:#x}); observed: {observed:?}",
 	);
 	assert!(
-		observed.iter().all(|cid| cid.codec() != sc_network::bitswap::RAW_CODEC),
+		observed.iter().all(|cid| cid.codec() != sc_network_bitswap::RAW_CODEC),
 		"no request should fall back to hard-coded RAW_CODEC; observed: {observed:?}",
 	);
 
@@ -523,24 +523,16 @@ async fn import_gap_sync_without_body_passes_through() {
 
 mod mock {
 	use async_trait::async_trait;
-	use cid::{Cid, Version as CidVersion};
 	use codec::{Decode, Encode};
-	use futures::channel::oneshot;
 	use sc_storage_chain_sync::{
-		BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport,
-		SyncingHandle,
+		BitswapHandleSlot, BitswapRequest, IndexedTransactionFetcher, StorageChainBlockImport,
 	};
 
 	use sc_consensus::{
 		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, StateAction,
 		StorageChanges as ConsensusStorageChanges,
 	};
-	use sc_network::{
-		bitswap::{schema::bitswap as bitswap_schema, RAW_CODEC},
-		request_responses::{IfDisconnected, RequestFailure},
-		types::ProtocolName,
-		NetworkRequest, PeerId,
-	};
+	use sc_network_bitswap::{BitswapError, Cid as BitswapCid, FetchItem, RAW_CODEC};
 	use sp_api::{ApiError, ConstructRuntimeApi};
 	use sp_consensus::{BlockOrigin, Error as ConsensusError};
 	use sp_core::H256;
@@ -552,9 +544,10 @@ mod mock {
 	use sp_state_machine::{InMemoryBackend, IndexOperation, OverlayedChanges, StorageChanges};
 	use sp_transaction_storage_proof::{ContentHash, IndexedTransactionInfo};
 	use std::{
-		collections::HashMap,
+		collections::{HashMap, HashSet},
 		sync::{Arc, Mutex, OnceLock},
 	};
+	use tokio::sync::mpsc;
 
 	pub(super) type TestBlock = generic::Block<generic::Header<u32, BlakeTwo256>, OpaqueExtrinsic>;
 	type TestHeader = generic::Header<u32, BlakeTwo256>;
@@ -812,13 +805,13 @@ mod mock {
 	}
 
 	#[derive(Default)]
-	pub(super) struct MockNetworkRequest {
+	pub(super) struct MockBitswap {
 		responses: Mutex<HashMap<ContentHash, Vec<u8>>>,
 		call_count: Mutex<usize>,
-		observed_cids: Mutex<Vec<Cid>>,
+		observed_cids: Mutex<Vec<BitswapCid>>,
 	}
 
-	impl MockNetworkRequest {
+	impl MockBitswap {
 		pub(super) fn insert(&self, hash: ContentHash, data: Vec<u8>) {
 			self.responses.lock().unwrap().insert(hash, data);
 		}
@@ -827,80 +820,35 @@ mod mock {
 			*self.call_count.lock().unwrap()
 		}
 
-		pub(super) fn observed_cids(&self) -> Vec<Cid> {
+		pub(super) fn observed_cids(&self) -> Vec<BitswapCid> {
 			self.observed_cids.lock().unwrap().clone()
 		}
 	}
 
-	#[async_trait]
-	impl NetworkRequest for MockNetworkRequest {
-		async fn request(
+	impl BitswapRequest for MockBitswap {
+		fn request_stream(
 			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-			request: Vec<u8>,
-			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
-			_connect: IfDisconnected,
-		) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
-			use prost::Message as _;
+			cids: HashSet<BitswapCid>,
+		) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
 			*self.call_count.lock().unwrap() += 1;
-			let message = bitswap_schema::Message::decode(&*request)
-				.expect("MockNetworkRequest received malformed bitswap request");
+			let (tx, rx) = mpsc::channel(cids.len().max(1));
 			let responses = self.responses.lock().unwrap();
-			let mut payload = Vec::new();
-			let mut block_presences = Vec::new();
-			for entry in message.wantlist.unwrap_or_default().entries {
-				let Ok(cid) = Cid::read_bytes(entry.block.as_slice()) else { continue };
-				self.observed_cids.lock().unwrap().push(cid);
+			let mut observed = self.observed_cids.lock().unwrap();
+			for cid in cids {
+				observed.push(cid);
 				let digest: Option<ContentHash> = cid.hash().digest().try_into().ok();
-				match digest.and_then(|d| responses.get(&d).cloned()) {
-					Some(data) => payload.push(bitswap_schema::message::Block {
-						prefix: prefix_mirroring_request(&cid),
-						data,
-					}),
-					None => block_presences.push(bitswap_schema::message::BlockPresence {
-						cid: entry.block,
-						r#type: bitswap_schema::message::BlockPresenceType::DontHave as i32,
-					}),
+				if let Some(bytes) = digest.and_then(|d| responses.get(&d).cloned()) {
+					tx.try_send(Ok((cid, bytes.into()))).expect("channel sized for cids.len()");
 				}
 			}
-			let response =
-				bitswap_schema::Message { payload, block_presences, ..Default::default() };
-			Ok((response.encode_to_vec(), ProtocolName::from("/ipfs/bitswap/1.2.0")))
-		}
-
-		fn start_request(
-			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-			_request: Vec<u8>,
-			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
-			_tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
-			_connect: IfDisconnected,
-		) {
-			unreachable!("the bitswap client uses async request(), never start_request()")
+			Ok(rx)
 		}
 	}
 
-	fn prefix_mirroring_request(cid: &Cid) -> Vec<u8> {
-		sc_network::bitswap::Prefix {
-			version: CidVersion::V1,
-			codec: cid.codec(),
-			mh_type: cid.hash().code(),
-			mh_len: 32,
-		}
-		.to_bytes()
-	}
-
-	struct MockBitswapPeerSource {
-		peers: Vec<PeerId>,
-	}
-
-	#[async_trait]
-	impl BitswapPeerSource for MockBitswapPeerSource {
-		async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled> {
-			Ok(self.peers.clone())
-		}
+	fn populated_bitswap_slot(mock: Arc<MockBitswap>) -> BitswapHandleSlot {
+		let slot: BitswapHandleSlot = Arc::new(OnceLock::new());
+		let _ = slot.set(mock);
+		slot
 	}
 
 	#[allow(dead_code)]
@@ -1167,23 +1115,16 @@ mod mock {
 		pub(super) wrapper: StorageChainBlockImport<TestBlock, TestInner, MockApiClient>,
 		pub(super) api: Arc<MockApiClient>,
 		pub(super) captured: Arc<Mutex<Vec<BlockImportParams<TestBlock>>>>,
-		pub(super) network: Arc<MockNetworkRequest>,
+		pub(super) network: Arc<MockBitswap>,
 	}
 
 	pub(super) fn make_harness() -> Harness {
 		let api = Arc::new(MockApiClient::default());
-		let network: Arc<MockNetworkRequest> = Arc::new(MockNetworkRequest::default());
+		let network: Arc<MockBitswap> = Arc::new(MockBitswap::default());
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
-		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
-		let _ = network_handle.set(network.clone() as Arc<dyn NetworkRequest + Send + Sync>);
-		let _ = syncing_handle
-			.set(Arc::new(MockBitswapPeerSource { peers: vec![PeerId::random()] })
-				as Arc<dyn BitswapPeerSource + Send + Sync>);
-
-		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(network_handle, syncing_handle);
+		let fetcher = IndexedTransactionFetcher::new(populated_bitswap_slot(network.clone()));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		Harness { wrapper, api, captured, network }
@@ -1199,19 +1140,12 @@ mod mock {
 	pub(super) fn make_block_execution_harness(data: Vec<u8>) -> BlockExecutionHarness {
 		let content_hash = sp_transaction_storage_proof::HashingAlgorithm::Blake2b256.hash(&data);
 		let api = Arc::new(BlockExecutionClient::new(content_hash, data.clone()));
-		let network: Arc<MockNetworkRequest> = Arc::new(MockNetworkRequest::default());
+		let network: Arc<MockBitswap> = Arc::new(MockBitswap::default());
 		network.insert(content_hash, data);
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
-		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
-		let _ = network_handle.set(network as Arc<dyn NetworkRequest + Send + Sync>);
-		let _ = syncing_handle
-			.set(Arc::new(MockBitswapPeerSource { peers: vec![PeerId::random()] })
-				as Arc<dyn BitswapPeerSource + Send + Sync>);
-
-		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(network_handle, syncing_handle);
+		let fetcher = IndexedTransactionFetcher::new(populated_bitswap_slot(network));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		BlockExecutionHarness { wrapper, api, captured, content_hash }

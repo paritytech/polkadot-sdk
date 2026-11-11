@@ -48,7 +48,7 @@ const STORE_START_BLOCK: u64 = 50;
 const GEN_TIMEOUT_SECS: u64 = 1800;
 
 /// Filename of the produced bundle inside the output dir.
-pub const BUNDLE_FILENAME: &str = "tip-sync-100-bundle.tar.gz";
+pub const BUNDLE_FILENAME: &str = "tip-sync-100-bundle-v2.tar.gz";
 
 fn build_gendb_network_config(pruning_blocks: u32) -> Result<NetworkConfig> {
 	let relay_args: Vec<_> = vec!["-lruntime=debug"].into_iter().map(Into::into).collect();
@@ -82,9 +82,9 @@ fn build_gendb_network_config(pruning_blocks: u32) -> Result<NetworkConfig> {
 						.with_command(PARACHAIN_BINARY)
 						.with_args(collator_args)
 				})
-				.with_collator(|node| {
+				.with_fullnode(|node| {
 					node.with_name("pruned-node")
-						.validator(false)
+						.invulnerable(false)
 						.with_command(PARACHAIN_BINARY)
 						.with_args(pruned_args)
 				})

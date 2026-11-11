@@ -20,19 +20,22 @@ use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::{
 	assert_ok, hypothetically,
-	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+	traits::{
+		fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+		Get, StorageInfoTrait,
+	},
 };
 use pallet_election_provider_multi_block::{
-	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
-	ElectionScore, Event as ElectionEvent, Phase,
+	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
+	verifier::Event as VerifierEvent, CurrentPhase, ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	DisableMintingGuard, ErasValidatorIncentiveBudget, ErasValidatorReward, Event as StakingEvent,
-	PotAccountProvider, RewardKind, RewardPot, SequentialTest,
+	PotAccountProvider, RewardKind, RewardPot, SequentialTest, WeightInfo,
 };
 use pallet_staking_async_rc_client::{
-	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
+	self as rc_client, AHStakingInterface, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
 };
 
 // Tests that are specific to Asset Hub.
@@ -409,6 +412,79 @@ fn roll_many_eras() {
 			// next election starts
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);
 		}
+	});
+}
+
+#[test]
+fn era_start_is_charged_only_on_the_final_page() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN the era-start hook is switched off
+		assert!(!EraStartHookEnabled::get());
+		let report = rc_client::SessionReport::new_terminal(0, vec![], Some((0, 1)));
+		let n = report.validator_points.len() as u32;
+		// WHEN the era 1 election completes and era 1 starts
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		for _ in 0..2 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+		// THEN no set was kept and the session report is charged only for taking a kept set, as
+		// one read and one write with the set's maximum size as proof size
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		let weigh = <Staking as AHStakingInterface>::weigh_on_relay_session_report;
+		let kept_set_size =
+			<staking_async::NextEraValidators<T> as StorageInfoTrait>::storage_info()
+				.iter()
+				.filter_map(|info| info.max_size)
+				.map(u64::from)
+				.sum::<u64>();
+		let db_weight: frame_support::weights::RuntimeDbWeight =
+			<T as frame::deps::frame_system::Config>::DbWeight::get();
+		let take = db_weight
+			.reads_writes(1, 1)
+			.saturating_add(Weight::from_parts(0, kept_set_size));
+		let base =
+			<<T as staking_async::Config>::WeightInfo as WeightInfo>::rc_on_session_report(n);
+		assert_eq!(weigh(&report), base.saturating_add(take));
+		// WHEN the hook is switched on
+		EraStartHookEnabled::set(true);
+		// THEN the final page also carries the hook's weight, and a non-final page carries no
+		// era-start cost
+		let non_final_page = rc_client::SessionReport { leftover: true, ..report.clone() };
+		assert_eq!(
+			weigh(&report),
+			base.saturating_add(take).saturating_add(EraStartHookWeight::get())
+		);
+		assert_eq!(weigh(&non_final_page), base);
+		EraStartHookEnabled::set(false);
+	});
+}
+
+#[test]
+fn copy_left_by_a_disabled_hook_is_removed_at_era_start() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN the hook is on while the era 1 election completes, so a copy is kept
+		EraStartHookEnabled::set(true);
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		for _ in 0..2 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		assert!(staking_async::NextEraValidators::<T>::exists());
+		// WHEN the hook is switched off and era 1 starts
+		EraStartHookEnabled::set(false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+		// THEN the copy is removed without calling the hook, and try_state holds
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		assert!(StartedEras::get().is_empty());
+		#[cfg(feature = "try-runtime")]
+		assert_ok!(<Staking as frame_support::traits::Hooks<_>>::try_state(System::block_number()));
 	});
 }
 
@@ -1419,6 +1495,101 @@ mod poll_operations {
 			);
 		});
 	}
+}
+
+#[test]
+fn signed_slash_routes_to_dap_not_burned() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+
+		// Register but never submit any pages: this claim is infeasible and will be rejected
+		// (and slashed) once the validation phase evaluates it.
+		let invalid_score =
+			ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+		assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), invalid_score));
+
+		// unlike `TotalIssuance`, staging_account isn't touched by DAP's ambient issuance drip.
+		let staging_before = Balances::free_balance(Dap::staging_account());
+
+		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+
+		assert!(
+			signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Slashed(..))),
+			"expected a Slashed event for the infeasible submission"
+		);
+
+		let staging_after = Balances::free_balance(Dap::staging_account());
+		assert!(
+			staging_after > staging_before,
+			"slashed deposit must be routed to the DAP staging account, not burned"
+		);
+	});
+}
+
+#[test]
+fn signed_reward_reactivates_dap_buffer_inactive_issuance() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Route DAP's ambient drip away from the buffer, so InactiveIssuance only moves due to
+		// our own reward payout.
+		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[(staker_reward_key(), 100)]));
+
+		// Seed the buffer with deactivated funds to pay the reward from.
+		Balances::mint_into(&Dap::buffer_account(), 1_000).unwrap();
+		<Balances as Unbalanced<AccountId>>::deactivate(1_000);
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+
+		let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
+		assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
+		for (index, page) in solution.solution_pages.into_iter().enumerate() {
+			assert_ok!(MultiBlockSigned::submit_page(
+				RuntimeOrigin::signed(1),
+				index as u32,
+				Some(Box::new(page))
+			));
+		}
+
+		let inactive_before = pallet_balances::InactiveIssuance::<T>::get();
+
+		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+
+		let rewarded = signed_events_since_last_call()
+			.into_iter()
+			.find_map(|e| match e {
+				SignedEvent::Rewarded(_, _, amount) => Some(amount),
+				_ => None,
+			})
+			.expect("expected a Rewarded event for the winning submission");
+
+		let inactive_after = pallet_balances::InactiveIssuance::<T>::get();
+		assert_eq!(
+			inactive_before - inactive_after,
+			rewarded,
+			"reactivate() must drop InactiveIssuance by exactly the reward paid"
+		);
+	});
 }
 
 mod session_keys {

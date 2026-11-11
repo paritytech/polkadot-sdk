@@ -117,11 +117,13 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// - `who`: account whose held balance is returned.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T>;
 
-	/// Refund every storage-deposit fund held on `from` to `dst`, ignoring the per-contributor
+	/// Refund the storage-deposit funds held on `from` to `dst`, ignoring the per-contributor
 	/// caps that govern partial refunds. Used at contract termination.
 	///
-	/// Returns the total amount released, so the storage meter can finalise its deposit
-	/// accounting.
+	/// Only as much as the freezes on `from` allow is released: a held amount that a freeze
+	/// needs to stay on the account is left on hold instead of failing the refund.
+	///
+	/// Returns the amount released, so the storage meter can finalise its deposit accounting.
 	///
 	/// # Parameters
 	/// - `from`: contract whose hold is being released.
@@ -252,7 +254,10 @@ impl<T: Config> Deposit<T> for () {
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		let reason = HoldReason::StorageDepositReserve;
-		let amount = T::Currency::balance_on_hold(&reason.into(), from);
+		// Holds count towards the freeze, so the part of the freeze that the free balance does
+		// not cover has to stay on hold.
+		let amount = T::Currency::balance_on_hold(&reason.into(), from)
+			.min(T::Currency::reducible_total_balance_on_hold(from, Fortitude::Polite));
 		if !amount.is_zero() {
 			<Self as Deposit<T>>::refund_on_hold(reason, from, dst, amount)?;
 		}
@@ -418,10 +423,12 @@ where
 		native_held.saturating_add(pgas_held)
 	}
 
-	/// Refunds the full native hold to `dst` ignoring the per-contributor cap, then settles the
-	/// PGAS hold via [`Self::settle_pgas_refund`] (refunding `RefundPercent` to `dst` and burning
-	/// the rest). The native cap only makes sense for partial refunds on a live contract; at
-	/// termination there is one recipient and the contract is gone.
+	/// Refunds the native hold to `dst` as far as the freezes on `from` allow, ignoring the
+	/// per-contributor cap, then settles the PGAS hold via [`Self::settle_pgas_refund`]
+	/// (refunding `RefundPercent` to `dst` and burning the rest). The native cap only makes
+	/// sense for partial refunds on a live contract; at termination there is one recipient and
+	/// the contract is gone. Returns the amount released from both holds, including the burned
+	/// part of the PGAS hold.
 	///
 	/// Note: callers must run inside a storage layer so partial state rolls back on error.
 	fn refund_all(
@@ -562,8 +569,8 @@ where
 	}
 
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
-	/// portion).
+	/// burn the rest. Returns the amount released from the hold: the part transferred to `to`
+	/// and the part burned.
 	///
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
@@ -629,6 +636,6 @@ where
 				Fortitude::Polite,
 			)?;
 		}
-		Ok(refunded)
+		Ok(refunded.saturating_add(burn))
 	}
 }

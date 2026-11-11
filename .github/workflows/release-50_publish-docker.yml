@@ -118,7 +118,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate inputs
         id: validate_inputs
@@ -141,7 +141,7 @@ jobs:
     steps:
       - name: Checkout sources
         if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.binary == 'eth-rpc' || inputs.image_type == 'rc' }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.binary == 'eth-rpc' || inputs.image_type == 'rc' }}
@@ -173,7 +173,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download artifacts
         if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.binary == 'eth-rpc' || inputs.image_type == 'rc' }}
@@ -307,14 +307,14 @@ jobs:
 
       - name: Login to Dockerhub to publish polkadot
         if: ${{ env.BINARY == 'polkadot' }}
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
 
       - name: Login to Dockerhub to publish polkadot-omni-node/polkadot-parachain/chain-spec-builder/eth-rpc
         if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' || env.BINARY == 'eth-rpc' }}
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
           password: ${{ secrets.CUMULUS_DOCKERHUB_TOKEN }}

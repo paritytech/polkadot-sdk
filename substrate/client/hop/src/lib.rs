@@ -26,6 +26,7 @@
 //! [`README`]: https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/hop/README.md
 
 pub mod cli;
+pub mod metrics;
 pub mod pool;
 pub mod promotion;
 pub mod rate_limit;
@@ -35,6 +36,7 @@ pub mod types;
 
 // Convenience re-exports for common use cases
 pub use cli::HopParams;
+pub use metrics::HopMetrics;
 pub use pool::HopDataPool;
 pub use promotion::{build_maintenance_task, HopMaintenanceTask};
 pub use rate_limit::{RateLimitConfig, RateLimiter};
