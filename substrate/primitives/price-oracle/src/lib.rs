@@ -24,10 +24,10 @@ pub mod inherents;
 pub mod market;
 pub mod runtime_api;
 
-use alloc::vec::Vec;
+use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_arithmetic::FixedU128;
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::RuntimeAppPublic;
 
 /// When a price report was made.
@@ -86,6 +86,19 @@ pub struct PairId(pub u16);
 /// A price with 18 decimal places, in quote asset units per one base asset unit.
 pub type Price = FixedU128;
 
+/// `price` in decimal with the trailing zeros dropped, e.g. `4.01`, for logs and messages.
+/// `Debug` of a fixed point number prints nothing in a runtime.
+pub fn decimal(price: Price) -> String {
+	// The inner value of one, and its number of decimal places.
+	let unit = Price::DIV;
+	let places = unit.ilog10() as usize;
+	let inner = price.into_inner();
+	let fraction = format!("{:0places$}", inner % unit);
+	format!("{}.{}", inner / unit, fraction.trim_end_matches('0'))
+		.trim_end_matches('.')
+		.into()
+}
+
 /// A price for a pair.
 #[derive(
 	Clone,
@@ -120,6 +133,13 @@ pub struct PairAggregate {
 	pub price: Option<Price>,
 	/// Why the pair has no price, or other detail for the logs, as text.
 	pub note: Vec<u8>,
+}
+
+impl PairAggregate {
+	/// The note as text.
+	pub fn note(&self) -> String {
+		String::from_utf8_lossy(&self.note).into_owned()
+	}
 }
 
 /// The rules a node follows for a tick: who may sign, how old a report may be, how often to
@@ -187,6 +207,29 @@ mod tests {
 	use sp_core::{crypto::Pair as _, sr25519, ByteArray};
 
 	type Signed = SignedPriceReport<AuthorityId, AuthoritySignature>;
+
+	#[test]
+	fn decimal_prints_the_price() {
+		assert_eq!(decimal(Price::from_rational(401, 100)), "4.01");
+		assert_eq!(decimal(Price::from_rational(1, 2)), "0.5");
+		assert_eq!(decimal(Price::from_rational(123_456_789, 1_000_000)), "123.456789");
+		assert_eq!(decimal(Price::from_u32(4)), "4");
+		assert_eq!(decimal(Price::from_u32(0)), "0");
+		assert_eq!(decimal(Price::from_u32(1_000_000)), "1000000");
+		// Every decimal place.
+		assert_eq!(decimal(Price::from_inner(1)), "0.000000000000000001");
+		assert_eq!(decimal(Price::from_inner(10)), "0.00000000000000001");
+		assert_eq!(decimal(Price::from_inner(123_456_789_012_345_678)), "0.123456789012345678");
+		assert_eq!(decimal(Price::from_inner(1_000_000_000_000_000_001)), "1.000000000000000001");
+		// Trailing zeros are dropped, leading ones are kept.
+		assert_eq!(decimal(Price::from_rational(105, 100)), "1.05");
+		assert_eq!(decimal(Price::from_rational(1_000_500, 1_000_000)), "1.0005");
+		// The largest value.
+		assert_eq!(
+			decimal(Price::from_inner(u128::MAX)),
+			"340282366920938463463.374607431768211455"
+		);
+	}
 
 	fn report() -> PriceReport {
 		PriceReport {

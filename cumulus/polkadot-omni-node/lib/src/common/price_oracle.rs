@@ -30,7 +30,10 @@ use sp_authority_discovery::{AuthorityDiscoveryApi, AuthorityId as AuthorityDisc
 use sp_consensus_aura::{AuraApi, Slot, AURA_ENGINE_ID};
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::PriceOracleApi;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Zero},
+	RuntimeAppPublic,
+};
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 /// Log target for the price oracle.
@@ -73,6 +76,8 @@ pub struct PriceOracleNetwork<Block: BlockT> {
 pub struct AuraRecipients<Block: BlockT, RuntimeApi, AuraId> {
 	client: Arc<ParachainClient<Block, RuntimeApi>>,
 	authority_discovery: sc_authority_discovery::Service,
+	/// Holds the authority discovery key of this node, which is skipped as a recipient.
+	keystore: KeystorePtr,
 	_aura: PhantomData<AuraId>,
 }
 
@@ -83,7 +88,8 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT,
 {
-	/// The authority discovery keys of the authors of the coming slots at `best`.
+	/// The authority discovery keys of the authors of the coming slots at `best`, without this
+	/// node's.
 	fn coming_authors(&self, best: Block::Hash) -> Vec<AuthorityDiscoveryId> {
 		let api = self.client.runtime_api();
 		let aura_ids = match AuraApi::<Block, AuraId::BoundedPublic>::authorities(&*api, best) {
@@ -116,17 +122,25 @@ where
 		if count == 0 {
 			return Vec::new();
 		}
-		// The slot of the best block, from the Aura pre-digest of its header.
-		let best_slot = match self.client.header(best) {
-			Ok(Some(header)) => header
-				.digest()
-				.logs()
-				.iter()
-				.find_map(|log| log.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID)),
-			_ => None,
+		let header = match self.client.header(best) {
+			Ok(Some(header)) => header,
+			_ => {
+				log::warn!(target: LOG_TARGET, "Cannot read the header of {best:?}");
+				return Vec::new();
+			},
 		};
+		// The slot of the best block, from the Aura pre-digest of its header.
+		let best_slot = header
+			.digest()
+			.logs()
+			.iter()
+			.find_map(|log| log.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID));
 		let Some(best_slot) = best_slot else {
-			log::warn!(target: LOG_TARGET, "No Aura slot in the header of {best:?}");
+			if header.number().is_zero() {
+				log::debug!(target: LOG_TARGET, "No block yet, no authors to send to");
+			} else {
+				log::warn!(target: LOG_TARGET, "No Aura slot in the header of {best:?}");
+			}
 			return Vec::new();
 		};
 		// TODO: two cases are not covered.
@@ -139,6 +153,9 @@ where
 		// Consecutive slots have consecutive authors, so at most `count` distinct ones.
 		(0..RECIPIENT_SLOTS.min(count))
 			.map(|ahead| discovery_ids[((*best_slot + ahead) % count) as usize].clone())
+			.filter(|author| {
+				!self.keystore.has_keys(&[(author.to_raw_vec(), AuthorityDiscoveryId::ID)])
+			})
 			.collect()
 	}
 }
@@ -222,6 +239,7 @@ impl<AuraId: AuraIdT + Send + Sync> PriceOracle<AuraId> {
 			let recipients = AuraRecipients::<Block, RuntimeApi, AuraId> {
 				client: client.clone(),
 				authority_discovery: network.authority_discovery,
+				keystore: keystore.clone(),
 				_aura: PhantomData,
 			};
 			let service =

@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! HTTPS client for the queries of the markets.
 
-use crate::LOG_TARGET;
 use bytes::Bytes;
 use futures::{channel::mpsc, future::try_join_all, stream::FuturesUnordered, StreamExt};
 use http_body_util::{BodyExt, Full};
@@ -113,8 +112,17 @@ pub struct MarketResponses {
 /// Reason a market has no responses in a tick.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MarketFailure {
-	/// The query with this tag failed.
-	Query(QueryTag, FetchError),
+	/// A query of the market failed.
+	Query {
+		/// The tag of the query.
+		tag: QueryTag,
+		/// The host and the path it went to.
+		url: String,
+		/// How long after it was sent.
+		after: Duration,
+		/// Why.
+		error: FetchError,
+	},
 	/// Not every query of the market answered before the tick deadline.
 	Deadline,
 }
@@ -122,7 +130,9 @@ pub enum MarketFailure {
 impl std::fmt::Display for MarketFailure {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Query(tag, e) => write!(f, "query {}: {e}", tag.0),
+			Self::Query { tag, url, after, error } => {
+				write!(f, "query {} to {url}: {error} after {after:?}", tag.0)
+			},
 			Self::Deadline => write!(f, "tick deadline reached"),
 		}
 	}
@@ -132,7 +142,7 @@ impl MarketFailure {
 	/// The result label of the market results metric.
 	pub(crate) fn label(&self) -> &'static str {
 		match self {
-			Self::Query(_, e) => e.label(),
+			Self::Query { error, .. } => error.label(),
 			Self::Deadline => "deadline",
 		}
 	}
@@ -240,10 +250,15 @@ impl Fetcher {
 		market: &Market,
 	) -> (MarketId, Result<MarketResponses, MarketFailure>) {
 		let queries = market.queries.iter().map(|query| async move {
-			self.fetch(&query.request)
-				.await
-				.map(|body| (query.tag, body))
-				.map_err(|e| MarketFailure::Query(query.tag, e))
+			let sent = Instant::now();
+			self.fetch(&query.request).await.map(|body| (query.tag, body)).map_err(|error| {
+				MarketFailure::Query {
+					tag: query.tag,
+					url: query.request.host_and_path(),
+					after: sent.elapsed(),
+					error,
+				}
+			})
 		});
 		// The first failed query fails the market and cancels its other queries.
 		let responses = try_join_all(queries)
@@ -271,7 +286,6 @@ impl Fetcher {
 		let timeout = Duration::from_millis(request.timeout_ms.min(MAX_TIMEOUT_MS).into());
 		let max_bytes = request.max_response_bytes.min(MAX_RESPONSE_BYTES) as usize;
 
-		let started = Instant::now();
 		let response = async {
 			let response = self
 				.client
@@ -283,20 +297,9 @@ impl Fetcher {
 			}
 			read_body(response, max_bytes).await
 		};
-		let result = tokio::time::timeout(timeout, response)
+		tokio::time::timeout(timeout, response)
 			.await
-			.unwrap_or(Err(FetchError::Timeout));
-		if let Err(e) = &result {
-			log::debug!(
-				target: LOG_TARGET,
-				"Request to {}{} failed after {:?}: {e}",
-				// Host and path only: the query may carry values not meant for the logs.
-				String::from_utf8_lossy(&request.host),
-				String::from_utf8_lossy(&request.path),
-				started.elapsed(),
-			);
-		}
-		result
+			.unwrap_or(Err(FetchError::Timeout))
 	}
 }
 
@@ -528,10 +531,13 @@ mod tests {
 			vec![(QueryTag(0), b"book".to_vec()), (QueryTag(1), b"trades".to_vec())]
 		);
 		assert_eq!(complete[1].market, MarketId(3));
-		assert_eq!(
-			failures,
-			vec![(MarketId(2), MarketFailure::Query(QueryTag(1), FetchError::Status(500)))]
-		);
+		assert_eq!(failures.len(), 1);
+		assert_eq!(failures[0].0, MarketId(2));
+		let MarketFailure::Query { tag, url, error, .. } = &failures[0].1 else {
+			panic!("not a query")
+		};
+		assert_eq!((*tag, error), (QueryTag(1), &FetchError::Status(500)));
+		assert!(url.starts_with("127.0.0.1:"), "{url}");
 	}
 
 	#[tokio::test]

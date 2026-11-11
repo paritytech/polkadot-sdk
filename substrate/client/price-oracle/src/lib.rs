@@ -48,7 +48,7 @@ use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::{PriceOracleApi, PricingState};
 use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
 use std::sync::Arc;
-use tick::{benefit::GOOD_REPORT, run_tick, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
+use tick::{benefit::GOOD_REPORT, run_tick, LogState, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
 use tokio::time::MissedTickBehavior;
 
 pub(crate) const LOG_TARGET: &str = "price-oracle";
@@ -147,23 +147,25 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
-	// The pricing state the last tick returned, for the next tick only.
+	// What the last tick left for the next one: the pricing state, which a tick that does not
+	// report drops, and what the markets and the pairs were last logged as. Both go with the
+	// tick and come back with its result.
 	let mut pricing_state = PricingState::default();
+	let mut log_state = LogState::default();
 	let mut api_missing_logged = false;
 	let mut no_signer_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
 		tokio::select! {
+			// The interval elapsed: start a tick, unless the previous one is still running or
+			// the node is syncing.
 			ticked_at = ticker.tick() => {
-				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
 					metrics.on_tick(TickOutcome::Overrun);
 					continue;
 				}
-				// The state is for the next tick only: a tick that does not report drops it.
-				let state = std::mem::take(&mut pricing_state);
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
 					metrics.on_tick(TickOutcome::Syncing);
@@ -209,26 +211,29 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					pool.clone(),
 					metrics.clone(),
 					setup.clone(),
-					state,
+					// Moved, not cloned: the tick owns the states until it returns them below.
+					std::mem::take(&mut pricing_state),
+					std::mem::take(&mut log_state),
 				)
 				.boxed()
 				.fuse();
 				// Check incoming reports against the rules of this tick.
 				tick_setup = Some(setup);
 			},
-			result = &mut tick, if !tick.is_terminated() => {
-				// The tick finished: send the signed report, if it produced one, to every
-				// recipient reachable now.
+			// The tick finished: send its report, if it produced one.
+			(result, pricing, log) = &mut tick, if !tick.is_terminated() => {
+				// Take the states back for the next tick.
+				pricing_state = pricing;
+				log_state = log;
+				// A tick that produced no report is done.
 				let encoded = match result {
-					Ok((encoded, state)) => {
-						pricing_state = state;
-						encoded
-					},
+					Ok(encoded) => encoded,
 					Err(outcome) => {
 						metrics.on_tick(outcome);
 						continue;
 					},
 				};
+				// Send the report to every recipient reachable now.
 				let mut sent = 0;
 				for peer in targets.reachable() {
 					match notification_service.send_async_notification(peer, encoded.clone()).await {
@@ -236,9 +241,14 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						Err(e) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
 					}
 				}
-				log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				if sent < targets.len() {
+					log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				} else {
+					log::trace!(target: LOG_TARGET, "Sent the report to all {sent} peers");
+				}
 				metrics.on_tick(if sent > 0 { TickOutcome::Reported } else { TickOutcome::NotSent });
 			},
+			// The network delivered a report from a peer, or a substream opened or closed.
 			event = notification_service.next_event() => {
 				use NotificationEvent::*;
 				match event {
