@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794500216345,
+  "lastUpdate": 1794517088432,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -259391,6 +259391,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2411895063,
             "range": "± 23514577",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "544e8299b4eec2363f9e0a52109730fbd1dead4f",
+          "message": "pallet-revive: keep native deposit records of a re-created contract (#13613)\n\nThe deletion queue cleared the `NativeDepositOf` rows of a queued\ncontract on every `on_idle` batch until its child trie was gone. The\nrows are keyed by the fallback account of the address, which every\ncontract created at that address shares. A contract re-created there\n(`CREATE2` with the same deployer, code and salt) while the old entry\nwas still queued lost its rows, so payers who later freed storage in it\ngot no native refund.\n\nThis happened when the terminated contract had no native rows (the\n`PendingDepositCleanup` check in `ContractInfo::new` passes at once), or\nwhen its child trie took more than one batch.\n\n## Change\n\n- `process_deletion_queue_batch` skips the `NativeDepositOf` phase while\na contract is live at the address. `ContractInfo::new` already rejects\ninstantiation while the prefix is non-empty, so rows under a live\ncontract belong to it. Rows under an address with no live contract,\nincluding one left as a plain account with dust after termination,\nbelong to a terminated contract and are cleared as before. The reasoning\nis documented once, on `DeletionQueueItem`.\n- The child trie of the queued entry is still removed, also while a new\ncontract lives at the address. This needs the new contract to have a\ndifferent trie id. It relies on #13620, which makes trie ids unique per\ngeneration and must land first and go into the same backports.\n- The deletion-queue benchmarks queue the contract the way termination\nwith dust leaves it: an `EOA` entry with `dust: 1` in `AccountInfoOf`.\nOtherwise the native phase would be skipped and the per-key slope would\nmeasure nothing. In ref time this branch is the worst case per entry: a\nlive contract's entry is 125 bytes larger, but the `clear_prefix` is\nskipped. `deletion_queue_per_entry` now includes one `AccountInfoOf`\nread, charged at its max encoded length (`pov_mode = Measured {\nRevive::AccountInfoOf: MaxEncodedLen }`), so the proof size covers\neither branch.\n- New fixture `ClearableContributorStorage.sol`: the\n`MultiContributorStorage` contract plus `clearStorage()` and\n`slotLength(address)`, so the tests can check the refund and the\nstorage. Existing fixtures are unchanged, so `pallet-revive-fixtures`\ngets a minor bump.\n- Tests in `src/tests/deposit_payment.rs`, Solidity fixture, Solc and\nResolc:\n- native rows drained but child trie still queued, then re-creation\n(also the first test of `PendingDepositCleanup`)\n- the same with bounded batches: re-creation after the first batch, the\nrest of the old trie drained one key per batch while the new contract is\nlive, its rows and storage checked after every batch\n- terminated contract with PGAS-only deposits, re-created before\n`on_idle`\n- two terminated contracts queued for one address, then a third created\n- terminated contract that keeps dust (`AccountInfoOf` is `EOA { dust\n}`): its rows are still cleared\n\nThe first three fail without the fix. The last one fails if the\nlive-contract check is replaced by a presence check on `AccountInfoOf`.\n\nOnly runtimes using `PGasDeposit` write `NativeDepositOf`; with `type\nDeposit = ()` the change has no effect beyond the weight.\n\n## Checks\n\n- `cargo test -p pallet-revive --lib tests::deposit_payment`: 28 passed,\n0 failed.\n- `cargo test -p pallet-revive` (on ea8cb3a468c): 962 passed, 0 failed,\n3 ignored.\n- `cargo test -p pallet-revive --features runtime-benchmarks --lib\ndeletion_queue`: 15 passed, 0 failed (the four deletion-queue benchmarks\nincluded).\n- `SKIP_WASM_BUILD=1 cargo clippy -p pallet-revive -p\npallet-revive-fixtures --all-targets --all-features`: exit 0, no\nwarnings on changed lines.\n- `git diff origin/master...HEAD -- substrate/frame/revive/fixtures`:\nonly adds `ClearableContributorStorage.sol`.\n- Weights: `dev` and `asset-hub-westend` re-benched in ea8cb3a468c.\n`deletion_queue_per_entry` proof size 3587 -> 3766 bytes, ref time\nunchanged. cb8604c704c changes tests and the new fixture only.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T19:40:14Z",
+          "tree_id": "92468e165585d756b3ad9ed35e5d66b246c91ad7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/544e8299b4eec2363f9e0a52109730fbd1dead4f"
+        },
+        "date": 1794517056638,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4324901,
+            "range": "± 49500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 312095,
+            "range": "± 3055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4122910,
+            "range": "± 24784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 390656,
+            "range": "± 3918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5176541,
+            "range": "± 61969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 937652,
+            "range": "± 4439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10852414,
+            "range": "± 68595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5153984,
+            "range": "± 105086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 48837254,
+            "range": "± 457137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40208742,
+            "range": "± 303236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 391294022,
+            "range": "± 2465516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 313667278,
+            "range": "± 1642727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2678418194,
+            "range": "± 13133179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2875561840,
+            "range": "± 210786163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3693890,
+            "range": "± 45838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1994913,
+            "range": "± 6576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3865364,
+            "range": "± 36771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2069355,
+            "range": "± 13339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4432684,
+            "range": "± 31503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2393207,
+            "range": "± 19000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8435064,
+            "range": "± 66099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5730671,
+            "range": "± 81695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39259155,
+            "range": "± 236003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 40590812,
+            "range": "± 609757",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 341733765,
+            "range": "± 3116139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 298902540,
+            "range": "± 2598423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2750557646,
+            "range": "± 31987164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2470506447,
+            "range": "± 23690874",
             "unit": "ns/iter"
           }
         ]
