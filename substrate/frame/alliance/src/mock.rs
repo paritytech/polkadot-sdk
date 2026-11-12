@@ -412,7 +412,8 @@ pub fn make_kick_member_proposal(who: AccountId) -> (RuntimeCall, u32, H256) {
 
 pub fn make_proposal(proposal: RuntimeCall) -> (RuntimeCall, u32, H256) {
 	let len: u32 = proposal.using_encoded(|p| p.len() as u32);
-	let hash = BlakeTwo256::hash_of(&proposal);
+	// All alliance motions in the tests are proposed with a threshold of 3.
+	let hash = AllianceMotion::proposal_hash(&proposal, 3);
 	(proposal, len, hash)
 }
 
