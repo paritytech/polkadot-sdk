@@ -70,9 +70,3 @@ name = "enforce_limits"
 path = "benches/enforce_limits.rs"
 harness = false
 required-features = []
-
-[[bench]]
-name = "expiry_backlog"
-path = "benches/expiry_backlog.rs"
-harness = false
-required-features = []

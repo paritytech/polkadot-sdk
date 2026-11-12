@@ -10,8 +10,8 @@ doc:
     `Store::enforce_limits` now returns `true` when expired statements are still due after its
     bounded pass, and the background task then runs the next pass immediately instead of waiting
     for the next 31 second tick. Each pass stays bounded, so the lock is still released between
-    passes. A new `expiry_backlog` benchmark compares the drain time of a large backlog under
-    the old and new scheduling.
+    passes. Each rerun also runs the per-account allowance phase, which costs more on a store
+    with many accounts.
 crates:
 - name: sc-statement-store
   bump: patch

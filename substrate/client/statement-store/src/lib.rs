@@ -6401,10 +6401,11 @@ mod tests {
 			.unwrap();
 
 		// The sweep cannot remove the statement; the corruption is logged as an error and
-		// everything is left exactly as it is, on every pass.
+		// everything is left exactly as it is, on every pass. Nothing was removed, so the sweep
+		// reports no backlog instead of asking to be rerun forever.
 		store.set_time(300);
-		store.enforce_limits();
-		store.enforce_limits();
+		assert!(!store.enforce_limits());
+		assert!(!store.enforce_limits());
 		assert!(store.has_statement(&undecodable_hash));
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &undecodable_key).unwrap().is_some());
 
@@ -6416,7 +6417,7 @@ mod tests {
 			.db
 			.commit([(col::INDEX_BY_EXPIRY, orphan_key.clone(), Some(Vec::new()))])
 			.unwrap();
-		store.enforce_limits();
+		assert!(!store.enforce_limits());
 		assert!(!store.has_statement(&orphan_hash));
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &orphan_key).unwrap().is_some());
 	}
