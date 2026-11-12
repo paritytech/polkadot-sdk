@@ -1,0 +1,17 @@
+title: 'statement-store: rerun expiry sweep while a backlog remains'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store's background task removed at most 10,000 expired statements every 31
+    seconds, which capped expiry throughput at roughly 320 statements per second. Under sustained
+    load the backlog of expired statements grew until the store filled up and rejected new
+    statements with `StoreFull`.
+
+    `Store::enforce_limits` now returns `true` when expired statements are still due after its
+    bounded pass, and the background task then runs the next pass immediately instead of waiting
+    for the next 31 second tick. Each pass stays bounded, so the lock is still released between
+    passes. A new `expiry_backlog` benchmark compares the drain time of a large backlog under
+    the old and new scheduling.
+crates:
+- name: sc-statement-store
+  bump: patch
