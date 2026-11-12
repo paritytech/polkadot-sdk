@@ -78,7 +78,7 @@ store the service logs an error and does not run; the node is unaffected.
 The URL is `https://{host}{path}?{name}={value}&...` with names and values URL encoded; the
 scheme is not configurable. Redirects are not followed and a non 2xx status is a failure. A
 response larger than the request's `max_response_bytes` is aborted while streaming. Caps that
-governance cannot exceed protect the process: host and path 2 KB, response 4 MB, timeout 12 s.
+governance cannot exceed protect the process: host and path 2 KB, response 1 MB, timeout 12 s.
 
 ## Delivery
 
