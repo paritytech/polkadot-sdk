@@ -13,8 +13,8 @@ doc:
     inflated record paid out of deposit other users had put down. Once the hold ran short, a
     refund failed with `StorageRefundNotEnoughFunds`. Under `PGasDeposit` a user who had
     contributed to the contract could draw the excess out of the hold, down to and including the
-    base deposit. Both are fixed. The recorded deposit now stays equal to the held amount for
-    storage written after the upgrade.
+    base deposit. Both are fixed. For storage written after the upgrade a contract never records
+    more deposit than it holds.
 
     Refunds change for everyone holding storage in a contract Root writes to. The pallet refunds
     a removal pro rata of the deposit the contract holds, over every unit it holds, and Root's
@@ -33,9 +33,15 @@ doc:
     burned.
 
     The pallet pays nobody for storage that Root removes. Clearing the fifty slots Root wrote
-    leaves the depositor's 132 in the pool, so the dilution those writes caused is undone.
-    Clearing a contract's last slots empties the pool instead. That deposit leaves the record,
-    is refunded to no one, and stays held on the contract until it is terminated.
+    leaves the depositor's whole 132 in the pool, so the dilution those writes caused is undone.
+    The pallet does that by restoring the pool to what the surviving units would cost at the
+    current `DepositPerByte` and `DepositPerChildTrieItem`. If either price has fallen since the
+    depositor paid, that is less than they paid, and the shortfall stays held on the contract
+    without being recorded. Clearing a contract's last slots empties the pool instead.
+
+    Deposit that leaves the record without being paid out stays held on the contract, and Root
+    removing storage a signed origin paid for strands it the same way. Whoever terminates the
+    contract receives the whole hold. When Root terminates it, the pallet account does.
 - audience: Runtime Dev
   description: |-
     There is no `Config` change and no storage migration. `ContractInfo` keeps its layout, and
@@ -50,8 +56,6 @@ doc:
     later signed write to such a contract is charged and recorded in full.
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: patch
 - name: pallet-revive-fixtures
   bump: minor
-- name: asset-hub-westend-runtime
-  bump: patch
