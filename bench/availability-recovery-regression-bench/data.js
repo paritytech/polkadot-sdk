@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794399292049,
+  "lastUpdate": 1794465944791,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "82e8ce499e8e0e55f052e72377f38416f5e2b6d6",
-          "message": "statement-latency-bench: harden failure handling and drop unused sync wait (#10915)\n\nReworks `statement-latency-bench`'s failure handling so a single hung\npeer no longer wedges the whole run, and removes the wall-clock sync\nwait that we no longer need.",
-          "timestamp": "2026-04-28T16:42:54Z",
-          "tree_id": "1f44b12e9c07352a3c43ed3447255addde6df497",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/82e8ce499e8e0e55f052e72377f38416f5e2b6d6"
-        },
-        "date": 1777400019559,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0231723198,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1293305417666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.649555923133333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29119b7b9fb474b9f5a6e841bcd89980454aaf6e",
+          "message": "network: Use manual Kademlia routing table update (#13445)\n\nSwitch to manual routing table update in litep2p network backend,\npopulating peer addresses from Identify events instead of blindly\ntrusting Kademlia responses.\n\nAdditionally, add support for `--no-private-ip` flag with litep2p\nnetwork backend.\n\nAlso bump litep2p to v0.17.0 with its [stability\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.17.0).\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8631.",
+          "timestamp": "2026-11-12T05:10:55Z",
+          "tree_id": "41b4d15015cb1acf357aa3bd1fa538bfbf9c5bd1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29119b7b9fb474b9f5a6e841bcd89980454aaf6e"
+        },
+        "date": 1794465908983,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.838007147999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13730612263333333,
             "unit": "seconds"
           }
         ]
