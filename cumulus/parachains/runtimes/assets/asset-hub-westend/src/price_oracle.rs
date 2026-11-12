@@ -61,6 +61,7 @@ impl Signers<AuraId> for Collators {
 ///
 /// `allowed_ancestry_len` comes from the relay chain configuration in the relay chain state proof;
 /// [`RELAY_PARENT_OFFSET`] is used until one is processed. `0` until the first relay slot is known.
+// TODO: move it to a shared crate, so other parachains can use it.
 pub struct LatestRelayTime;
 
 impl UnixTime for LatestRelayTime {

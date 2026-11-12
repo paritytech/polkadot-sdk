@@ -154,8 +154,6 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 	/// [`Self::window`]), come from an accepted signer, be newer than what `pool` holds of that
 	/// signer, and carry a valid signature, checked in that order. `Err` is the reputation
 	/// change the sender deserves, and the reason.
-	// TODO: consider bounding how far ahead an anchor may be. A signer anchoring far ahead pins
-	// its own pool slot and costs every author a filtered report per block.
 	pub fn check<Signature>(
 		&self,
 		sender: &PeerId,
