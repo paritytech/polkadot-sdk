@@ -159,6 +159,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		ChildBounties::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
 fn last_event() -> ChildBountiesEvent<Test> {
 	System::events()
 		.into_iter()
@@ -171,7 +178,7 @@ fn last_event() -> ChildBountiesEvent<Test> {
 #[test]
 #[allow(deprecated)]
 fn genesis_config_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(Treasury::proposal_count(), 0);
 	});
@@ -179,7 +186,7 @@ fn genesis_config_works() {
 
 #[test]
 fn minting_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
@@ -188,7 +195,7 @@ fn minting_works() {
 
 #[test]
 fn add_child_bounty() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// TestProcedure.
 		// 1, Create bounty & move to active state with enough bounty fund & parent curator.
 		// 2, Parent curator adds child-bounty child-bounty-1, test for error like RequireCurator
@@ -305,7 +312,7 @@ fn add_child_bounty() {
 
 #[test]
 fn child_bounty_assign_curator() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// TestProcedure
 		// 1, Create bounty & move to active state with enough bounty fund & parent curator.
 		// 2, Parent curator adds child-bounty child-bounty-1, moves to "Active" state.
@@ -424,7 +431,7 @@ fn child_bounty_assign_curator() {
 
 #[test]
 fn award_claim_child_bounty() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -598,7 +605,7 @@ fn claim_and_close_child_bounty_leave_locked_funds_behind() {
 
 #[test]
 fn close_child_bounty_added() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -664,7 +671,7 @@ fn close_child_bounty_added() {
 
 #[test]
 fn close_child_bounty_active() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -731,7 +738,7 @@ fn close_child_bounty_active() {
 
 #[test]
 fn close_child_bounty_pending() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -806,7 +813,7 @@ fn close_child_bounty_pending() {
 
 #[test]
 fn child_bounty_added_unassign_curator() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -851,7 +858,7 @@ fn child_bounty_added_unassign_curator() {
 
 #[test]
 fn child_bounty_curator_proposed_unassign_curator() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -938,7 +945,7 @@ fn child_bounty_active_unassign_curator() {
 	// Should slash. Step 4: Assign, accept another curator for child bounty. Unassign from
 	// child-bounty curator. Should NOT slash. Step 5: Assign, accept another curator for child
 	// bounty. Unassign from random account. Should slash.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1164,7 +1171,7 @@ fn child_bounty_active_unassign_curator() {
 fn parent_bounty_inactive_unassign_curator_child_bounty() {
 	// Unassign curator when parent bounty in not in active state.
 	// This can happen when the curator of parent bounty has been unassigned.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1323,7 +1330,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 #[test]
 fn close_parent_with_child_bounty() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1396,7 +1403,7 @@ fn close_parent_with_child_bounty() {
 fn children_curator_fee_calculation_test() {
 	// Tests the calculation of subtracting child-bounty curator fee
 	// from parent bounty fee when claiming bounties.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Make the parent bounty.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1505,7 +1512,7 @@ fn children_curator_fee_calculation_test() {
 fn accept_curator_handles_different_deposit_calculations() {
 	// This test will verify that a bounty with and without a fee results
 	// in a different curator deposit, and if the child curator matches the parent curator.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Setup a parent bounty.
 		let parent_curator = account_id(0);
 		let parent_index = 0;
@@ -1673,7 +1680,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 #[test]
 fn integrity_test() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		ChildBounties::integrity_test();
 	});
 }
@@ -1682,7 +1689,7 @@ fn integrity_test() {
 fn max_active_child_bounty_count_is_strictly_enforced() {
 	// Verify that exactly MaxActiveChildBountyCount child bounties can be created,
 	// and attempting to create one more fails with TooManyChildBounties error.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Setup: MaxActiveChildBountyCount is set to 2 in test configuration.
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
