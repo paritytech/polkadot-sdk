@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794479734218,
+  "lastUpdate": 1794495787054,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5baad90313e671998e402797370d3b76105b88b",
-          "message": "statement-store: add mass expiration zombienet integration test (#11663)\n\n## Summary\n\nImplement #11534 for Mass expiration.\n\nAdd `statement_store_mass_expiration` zombienet test that verifies the\nstore\ndoes not lose concurrently-arriving submits while `enforce_limits`\ncleans up a\nlarge batch of expired statements. \n\n## What the test covers\n**Fill** – 10 000 ephemeral statements (20 accounts × 500) with a short\nTTL\nare submitted and indexed locally.\n**Verify** – after a grace period, a fresh subscription returns exactly\nthe\n500 persistent statements, proving:\n- all concurrent submits returning `New` are present (no losses under\ncleanup),\n- all 10 000 expired entries were removed from index and DB,\n- no duplicates or stragglers leak through\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-28T10:38:57Z",
-          "tree_id": "69032a02b8ae59f900db077aafd3e6e470543ae2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5baad90313e671998e402797370d3b76105b88b"
-        },
-        "date": 1777380075433,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.32000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.775648725599973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025598640000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000028969320000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.823956676050001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025598640000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8142434574400013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.865045695559999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.67521705025996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8945241675299984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000028969320000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.485515992172844,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006016686130000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.495781641949989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6902065500400005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6c62ddce50f23017e8df717b94ee7d199bfd8fe2",
+          "message": "`pallet-collective`: include the voting threshold in the proposal hash (#13259)\n\n## Summary\n\n`pallet_collective` identified a proposal by the hash of the proposed\ncall. The `threshold`\npassed to `propose` was stored alongside the proposal but was not part\nof its identity, so a\ngiven call could only be under consideration with one threshold at a\ntime.\n\nThis PR makes the threshold part of the proposal identity. The hash is\nnow derived from the\nSCALE encoding of `(call, threshold)`, so the same call proposed with\ndifferent thresholds\nresults in distinct proposals that are voted on and closed\nindependently.\n\n## Changes\n\n- New public helper `Pallet::<T, I>::proposal_hash(&call, threshold) ->\nT::Hash`, the single\n  place where the derivation lives.\n- `do_propose_proposed` and `do_propose_execute` use the helper.\n`do_propose_execute` takes the\n`threshold` as its first argument. Both keep their `DuplicateProposal`\ncheck: a\n`ProposalProvider` such as pallet-alliance can store a motion with\n`threshold < 2`, so an\n  immediate execution can still share its hash with a pending motion.\n- Storage version bumped to 5, with `migrations::v5::MigrateToV5`\nre-keying every active\nproposal in `Proposals`, `ProposalOf`, `Voting` and `CostOf`. Entries\nmissing their call or\nvotes are logged and left in place rather than removed, so no deposit is\nstranded.\n- `try_state` now checks that every proposal hash equals\n`proposal_hash(call, threshold)`.\n- Migration wired into kitchensink (Council, Technical, Alliance) and\nCollectives Westend\n  (Alliance).\n- Docs on `propose` link to `proposal_hash` and explain why the\nthreshold is part of the\n  identity.\n- Tests: same call with two thresholds gives distinct proposals; same\ncall with the same\nthreshold is still `DuplicateProposal`, on both the voting and the\nimmediate path; the\nmigration re-keys active proposals, leaves entries missing their call or\nvotes in place,\npasses its `pre_upgrade`/`post_upgrade` checks and returns the expected\nweight. Tests and\nbenchmarks in `pallet-collective`, `pallet-alliance` and\n`pallet-utility` now derive the hash\n  with the new threshold-aware formula.\n\n## Compatibility\n\n**Storage.** Storage version 4 → 5. Runtimes must add\n`pallet_collective::migrations::v5::MigrateToV5<Runtime, Instance>` for\nevery instance of the\npallet. The migration is bounded by `MaxProposals` and runs in a single\nblock. Only active\nproposals are re-keyed: the deposit of a motion closed before the\nupgrade is still released with\n`release_proposal_cost(hash(call))`.\n\n**Public Rust API.** `do_propose_execute` gained a leading `threshold`\nparameter; no in-tree\ncaller outside the pallet uses it. The signature of\n`do_propose_proposed` (called by\n`pallet-alliance`, kitchensink and `collectives-westend`) is unchanged.\n\n**Off-chain tooling.** Proposal hashes change, both for pending motions\nand for the `Executed`\nevent emitted when `propose` is called with `threshold < 2`.\n`MemberExecuted`, emitted by\n`execute`, still carries `hash(call)`. Clients that computed the hash as\n`hash(call)` to call\n`vote`, `close`, `disapprove_proposal` or `kill` must now compute\n`hash((call, threshold))`,\nwith the threshold encoded as a plain `u32` (the extrinsic takes it\ncompact), or read the hash\nfrom the `Proposed` event, which carries both `proposal_hash` and\n`threshold`. Calls already\nqueued with an old hash will not find their motion after the upgrade.",
+          "timestamp": "2026-11-12T12:28:35Z",
+          "tree_id": "2a0e1ad430ddd15f077144b9f250c1c72769023d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6c62ddce50f23017e8df717b94ee7d199bfd8fe2"
+        },
+        "date": 1794495744506,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63566.509999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.510595177252769,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005361679940000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001976785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002116617,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002116617,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.956727420699988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7079348654100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.726358077779999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001976785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.692542126119999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3390848254899987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7957189853299906,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6897268606300013,
             "unit": "seconds"
           }
         ]
