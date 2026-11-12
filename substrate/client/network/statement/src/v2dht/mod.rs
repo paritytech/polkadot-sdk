@@ -353,8 +353,8 @@ impl V2DhtOrchestrator {
 
 	// === Periodic ticks & post-iteration hooks ===
 
-	/// Plan where each of `statements` goes: to its target peers, or to the dead ends when the
-	/// node has none and is no replica for it.
+	/// Plan where each of `statements` goes. A statement with topics is also a dead end when the
+	/// node has no routing target for it and is no replica for it, even if a filter matches it.
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the

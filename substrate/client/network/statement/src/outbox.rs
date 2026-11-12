@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Per-peer outboxes of statement hashes queued for propagation.
+//! Per-peer outboxes of statement hashes queued for propagation, and the held dead-end
+//! statements.
 
 use crate::config::MAX_PROPAGATION_OUTBOX_LEN;
 use sc_network_types::PeerId;
