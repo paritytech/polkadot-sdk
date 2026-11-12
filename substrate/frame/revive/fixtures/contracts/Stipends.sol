@@ -72,8 +72,8 @@ contract SenderBalanceReader {
 /**
  * @title TwoEventsReceiver
  * @dev Receiver contract 7: emits two LOG4 events with 64 data bytes each. The call stipend
- * reserves room for one such event, so the second one exceeds it by a full event in ref time
- * and in proof size.
+ * reserves room for one such event plus 2300 gas, so the second event exceeds it in both ref
+ * time and proof size.
  */
 contract TwoEventsReceiver {
     event Received(

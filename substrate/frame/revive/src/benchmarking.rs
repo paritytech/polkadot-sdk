@@ -74,7 +74,7 @@ use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{generic::DigestItem, traits::Zero};
+use sp_runtime::{SaturatedConversion, generic::DigestItem, traits::Zero};
 
 /// How many runs we do per API benchmark.
 ///
@@ -89,6 +89,11 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 /// word it stored just before. It's also misaligned with the source, so `memmove` has to shift
 /// everything it copies.
 const MCOPY_DESTINATION_DISTANCE: u32 = 4091;
+
+/// The size of the largest log a contract can emit: `NUM_EVENT_TOPICS` topics of 32 bytes each
+/// plus `EVENT_BYTES` of data.
+const MAX_LOG_BYTES: u32 =
+	limits::EVENT_BYTES + limits::NUM_EVENT_TOPICS * H256::len_bytes() as u32;
 
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
@@ -7139,9 +7144,13 @@ mod benchmarks {
 	/// Fills up to `limits::NUM_EVENT_TOPICS` full 32-byte topics and puts the remaining bytes in
 	/// the data field, so the event's size counted as 32 bytes per topic plus the data is `d`.
 	fn split_event_bytes(d: u32) -> (Vec<H256>, Vec<u8>) {
-		let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
-		let topics = (0..num_topics).map(|index| H256::from_low_u64_be(index.into())).collect();
-		let data = vec![0x42u8; (d - num_topics * 32) as usize];
+		let d: usize = d.saturated_into();
+		let max_topics: usize = limits::NUM_EVENT_TOPICS.saturated_into();
+		let num_topics = max_topics.min(d / H256::len_bytes());
+		let topics = (0..num_topics)
+			.map(|index| H256::from_low_u64_be(index.saturated_into()))
+			.collect();
+		let data = vec![0x42u8; d - num_topics * H256::len_bytes()];
 		(topics, data)
 	}
 
@@ -7488,11 +7497,12 @@ mod benchmarks {
 	/// bloom accrual that fold it into the synthetic transaction's receipt.
 	///
 	/// The `d` bytes are split topics first, then data, as in `on_finalize_per_event_data`, so a
-	/// log's size is 32 bytes per topic plus its data. Pairs with `outside_frame_log`, which keeps
-	/// logs empty and varies the count; together they give
-	/// `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals.
+	/// log's size is 32 bytes per topic plus its data, and `d` goes up to the largest log a
+	/// contract can emit. Pairs with `outside_frame_log`, which keeps logs empty and varies the
+	/// count; together they give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and
+	/// per-byte marginals.
 	#[benchmark(pov_mode = Measured)]
-	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+	fn outside_frame_log_data(d: Linear<0, MAX_LOG_BYTES>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
