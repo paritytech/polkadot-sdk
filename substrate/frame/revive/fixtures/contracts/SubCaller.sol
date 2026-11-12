@@ -13,15 +13,46 @@ contract Reverter {
     }
 }
 
+/// Calls the address its input encodes, without input.
+contract Forwarder {
+    fallback(bytes calldata input) external payable returns (bytes memory) {
+        address target = abi.decode(input, (address));
+        (bool success, ) = target.call("");
+        require(success);
+        return "";
+    }
+}
+
 /// Calls, delegate calls or creates contracts a given number of times.
 ///
-/// Every loop body is one call, delegate call or create in assembly. Calls pass no input and copy
-/// no output, so the loops of `SubCaller` and `SubCallerLarge` compile to nearly the same code.
+/// Every loop body is one call, delegate call or create in assembly. Calls pass no input unless
+/// the function takes one and copy no output, so the loops of `SubCaller` and `SubCallerLarge`
+/// compile to nearly the same code.
 contract SubCaller {
     function callN(address target, uint256 n) external {
         for (uint256 i = 0; i < n; i++) {
             assembly {
                 if iszero(call(gas(), target, 0, 0, 0, 0, 0)) {
+                    revert(0, 0)
+                }
+            }
+        }
+    }
+
+    function callWithInputN(address target, bytes memory input, uint256 n) external {
+        for (uint256 i = 0; i < n; i++) {
+            assembly {
+                if iszero(call(gas(), target, 0, add(input, 32), mload(input), 0, 0)) {
+                    revert(0, 0)
+                }
+            }
+        }
+    }
+
+    function transferN(address target, uint256 value, uint256 n) external {
+        for (uint256 i = 0; i < n; i++) {
+            assembly {
+                if iszero(call(gas(), target, value, 0, 0, 0, 0)) {
                     revert(0, 0)
                 }
             }

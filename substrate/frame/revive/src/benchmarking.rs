@@ -987,10 +987,10 @@ mod benchmarks {
 	/// The map has one entry for every byte of the code section. The measured block resets the
 	/// interpreter cache of a freshly prepared instance, which has no map yet, and runs it. The
 	/// first compilation allocates the map for the `c` bytes of the code section and charges it.
-	/// Every later reset, such as the one before each call or instantiation the contract makes,
-	/// forces the same allocation again. The entry block of two instructions is the same for
-	/// every `c` (see [`VmBinaryModule::with_code_bytes`]) and is in the intercept, so the slope
-	/// is the code map per byte of code.
+	/// Every later reset, such as the one when a PVM frame starts during a call or instantiation
+	/// the contract makes, forces the same allocation again. The entry block of two instructions is
+	/// the same for every `c` (see [`VmBinaryModule::with_code_bytes`]) and is in the intercept,
+	/// so the slope is the code map per byte of code.
 	///
 	/// The interpreter charges the slope per byte of code section whenever it allocates or
 	/// rewrites the map, see [`crate::metering::EngineMeter::interpreter_compilation_cost`].

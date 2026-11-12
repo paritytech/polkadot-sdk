@@ -155,8 +155,9 @@ pub mod code {
 
 	/// The limit for memory that can be purged on demand.
 	///
-	/// We purge this memory every time we call into another contract.
-	/// Hence we effectively only need to hold it once in RAM.
+	/// It is the interpreter cache and the map of compiled blocks of a PVM frame. When a PVM
+	/// frame starts, the innermost PVM frame that waits on a sub-call purges it. Hence we
+	/// effectively only need to hold it once in RAM.
 	pub const PURGABLE_MEMORY_LIMIT: u32 = INTERPRETER_CACHE_BYTES + 2 * 1024 * 1024;
 
 	/// The limit for memory that needs to be kept alive for a contracts whole life time.
