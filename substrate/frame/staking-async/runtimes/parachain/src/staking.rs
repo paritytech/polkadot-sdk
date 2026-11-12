@@ -472,7 +472,8 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = pallet_staking_async::AllZero;
+	type OnEraStart = ();
 }
 
 // Relay chain session keys matching Westend configuration.
@@ -553,6 +554,7 @@ impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSet
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
 		rc_client::build_transact_xcm(
 			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+			OriginKind::Native,
 		)
 	}
 }
@@ -570,7 +572,7 @@ impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 					.encode()
 			},
 		};
-		rc_client::build_transact_xcm(encoded_call)
+		rc_client::build_transact_xcm(encoded_call, OriginKind::Native)
 	}
 }
 
