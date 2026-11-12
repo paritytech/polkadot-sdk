@@ -385,8 +385,8 @@ module transfers_test {
     }
   }
 
-  /// §5.1: an invocation carrying only transfers still flushes due assigns
-  /// before recording them. A due rewrite fires and is re-armed, a due entry on
+  /// §5.1: the first invocation of a timeslot flushes due assigns before
+  /// recording transfers, even if it carries only transfers. A due rewrite fires and is re-armed, a due entry on
   /// a handed-away core is dropped and logged, and one not yet due is kept.
   run transferOnlyInvocationFlushesDueAssignsTest = {
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })

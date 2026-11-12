@@ -25,7 +25,7 @@ module state_balance {
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
-  /// transfers). Asset Hub reserves this in its baseline, so those items are
+  /// transfers, `last_accumulate`). Asset Hub reserves this in its baseline, so those items are
   /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
   pure val AssetHubGlobalItemsFootprint: int = {
     val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
@@ -39,11 +39,14 @@ module state_balance {
     // Endpoint pointer: JAM's per-entry overhead + 1 (key) + first_bucket 8 +
     // last_bucket 8 + count 4.
     val transferBuckets = StorageEntryOverhead + 1 + 8 + 8 + 4
-    // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
-    // core for pendingAssigns. The transfer buckets are counted per transfer below.
-    val fixedItems = 3 + CoreCount
+    // `last_accumulate`: JAM's per-entry overhead + 1 (key) + Timeslot 4.
+    val lastAccumulate = StorageEntryOverhead + 1 + 4
+    // Fixed storage items: the two BoundedVecs, the endpoint pointer,
+    // `last_accumulate`, and one per core for pendingAssigns. The transfer buckets
+    // are counted per transfer below.
+    val fixedItems = 4 + CoreCount
     val fixed =
-      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets +
+      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets + lastAccumulate +
         fixedItems * ItemDeposit
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint

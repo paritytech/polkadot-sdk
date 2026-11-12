@@ -776,22 +776,42 @@ module accumulate {
     }
   }
 
+  /// §5.1: only the first Accumulate invocation of a timeslot carries the
+  /// always-accumulate allowance. It is detected by `now` being past
+  /// `lastAccumulate`, and flushes up to `budget` due assigns and records `now`.
+  /// Later invocations in the same timeslot flush nothing here. The result is
+  /// what the invocation `checkpoint`s, so running out of gas later keeps it.
+  pure def alwaysAccumulateFlush(
+    s: ParachainServiceState,
+    now: Timeslot,
+    budget: int
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
+    val isAlwaysAccumulate =
+      match s.lastAccumulate { | None => true | Some(last) => now > last }
+    if (isAlwaysAccumulate) {
+      val flushed = flushDueAssigns(s, now, budget)
+      { ...flushed, state: { ...flushed.state, lastAccumulate: Some(now) } }
+    } else { state: s, assigns: List() }
+  }
+
   /// An accumulate invocation carrying incoming transfers and no work reports
-  /// (§5.1). Due assigns are still flushed before the transfers are recorded,
-  /// and any left over after them while `budget.end` lasts.
+  /// (§5.1). As the always-accumulate invocation it flushes due assigns before
+  /// the transfers are recorded, and any due ones left after them are flushed
+  /// while `budget.end` lasts.
   pure def accumulateTransfers(
     s: ParachainServiceState,
     now: Timeslot,
     ts: List[IncomingTransfer],
     budget: AssignBudget
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
-    val flushed = flushDueAssigns(s, now, budget.flush)
+    val flushed = alwaysAccumulateFlush(s, now, budget.flush)
     val late = flushDueAssigns(applyIncomingTransfers(flushed.state, ts), now, budget.end)
     { state: late.state, assigns: flushed.assigns.concat(late.assigns) }
   }
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
-  /// (flush due authorizer queues), then accumulate the block's work packages.
+  /// (flush due authorizer queues) if this is the timeslot's first invocation,
+  /// then accumulate the block's work packages.
   /// `budget.flush` due assigns fit into the always-accumulate allowance; any due
   /// ones left over are fired after the work packages while `budget.end` lasts,
   /// and otherwise carried over to the next block. `outOfGas` is where the
@@ -807,7 +827,7 @@ module accumulate {
     budget: AssignBudget,
     outOfGas: OutOfGas
   ): BlockOutcome = {
-    val flushed = flushDueAssigns(state, now, budget.flush)
+    val flushed = alwaysAccumulateFlush(state, now, budget.flush)
     val pkgs =
       accumulateAll(flushed, solicited, List(), codeLen, now, packages, foreign, outOfGas)
     val late = flushDueAssigns(pkgs.current.state, now, budget.end)

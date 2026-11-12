@@ -303,8 +303,8 @@ module main {
   // buckets it opens; a later step's arrivals can never reopen them (§5.1).
 
   /// A transfer-only accumulate invocation at the current timeslot carrying `ts`.
-  /// Due assigns are flushed first, as in every invocation (§5.1), within
-  /// `budget`.
+  /// If it is the timeslot's first invocation, due assigns are flushed first
+  /// (§5.1), within `budget`.
   action incomingTransferInvocation(
     ts: List[IncomingTransfer], budget: AssignBudget
   ): bool = {

@@ -121,6 +121,10 @@ module state {
     // timeslot at which it is due. Sole home of the due time, so the
     // always-accumulate path can gate without reading the payloads above.
     pendingAssignCores: CoreIndex -> Timeslot,
+    // Timeslot of the latest Accumulate invocation (§5.1), `None` before the
+    // first one, which in real state is the storage key being absent. An
+    // invocation at a later timeslot is the always-accumulate one.
+    lastAccumulate: Option[Timeslot],
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Validator-key buffer (design §5.3), appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
@@ -162,6 +166,7 @@ module state {
     parachainLog: Map(),
     pendingAssigns: Map(),
     pendingAssignCores: Map(),
+    lastAccumulate: None,
     preimageRegistry: Map(),
     stagedValidatorKeys: List(),
     keyValueStorage: Map(),

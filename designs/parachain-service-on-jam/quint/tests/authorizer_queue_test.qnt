@@ -499,4 +499,55 @@ module authorizer_queue_test {
       init
     }
   }
+
+  /// §5.1: only the first invocation of a timeslot is the always-accumulate one
+  /// and flushes due assigns up front. A later invocation in the same timeslot
+  /// does not flush up front a second time, even with allowance to spare, but
+  /// still flushes at its end while gas lasts. The next timeslot's first
+  /// invocation flushes again. Running out of gas keeps the recorded timeslot,
+  /// since it is part of the checkpoint.
+  run alwaysAccumulateOncePerTimeslotTest = {
+    val one = List({ authBytes: 1 })
+    // Two due cores: 3 (due at 5) goes before 4 (due at 6).
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(
+        3 -> { queue: one, assigner: None },
+        4 -> { queue: one, assigner: None }
+      ),
+      pendingAssignCores: Map(3 -> 5, 4 -> 6)
+    }
+    pure def call(c: CoreIndex): AssignCall =
+      { core: c, assigner: ParachainServiceId, queue: repeatList(one, AuthorizerQueueLength) }
+    // The timeslot's first invocation, whose allowance covers one due assign.
+    val first = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 }, Never
+    )
+    // A second invocation in the same timeslot, with allowance for every due one.
+    val sameSlot = accumulateTransfers(first.state, 10, List(), FullAssignBudget)
+    val sameSlotLate = accumulateTransfers(first.state, 10, List(), { flush: 0, end: 1 })
+    val nextSlot = accumulateTransfers(sameSlot.state, 11, List(), FullAssignBudget)
+    val outOfGas = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen,
+      List({ result: refineWithMsgs(armed, CoretimeParaId, List()), authTrace: 0 }),
+      Map(), FullAssignBudget, InPackage(0)
+    )
+    all {
+      assert(armed.lastAccumulate == None),
+      assert(first.assigns == List(call(3))),
+      assert(first.state.lastAccumulate == Some(10)),
+      assert(first.state.pendingAssignCores == Map(4 -> 6)),
+      // The same timeslot flushes up front only once.
+      assert(sameSlot.assigns == List()),
+      assert(sameSlot.state.pendingAssignCores == Map(4 -> 6)),
+      assert(sameSlot.state.lastAccumulate == Some(10)),
+      // Leftover gas at the end still applies it.
+      assert(sameSlotLate.assigns == List(call(4))),
+      assert(nextSlot.assigns == List(call(4))),
+      assert(nextSlot.state.lastAccumulate == Some(11)),
+      assert(outOfGas.assigns == List(call(3), call(4))),
+      assert(outOfGas.state.lastAccumulate == Some(10)),
+      init
+    }
+  }
 }

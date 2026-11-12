@@ -843,7 +843,8 @@ JAM may invoke Accumulate more than once per timeslot, and only the first invoca
 the always-accumulate allowance (§3). If the current timeslot is greater than
 `last_accumulate`, the invocation is the always-accumulate one. It runs the flush below and
 sets `last_accumulate` to the current timeslot before the `checkpoint`. Later invocations in
-the same timeslot skip the flush.
+the same timeslot skip the flush up front, but still apply due assigns with the gas left at
+their end, as described below.
 
 For each core in `pending_assign_cores` whose due timeslot has been reached, call JAM
 `assign(core, queue, assigner)` from its `pending_assigns` entry: the cached queue filled
