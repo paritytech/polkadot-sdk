@@ -104,11 +104,12 @@ fn set_allocations_rejects_unknown_key() {
 		let asset_allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"unknown", 10)])]);
 
 		assert_noop!(
-			Dap::set_allocations(
-				RuntimeOrigin::root(),
-				Some(budget_allocations),
-				Some(asset_allocations)
-			),
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(asset_allocations)),
+			Error::<Test>::UnknownBudgetKey
+		);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), Some(budget_allocations), None),
 			Error::<Test>::UnknownBudgetKey
 		);
 	});
