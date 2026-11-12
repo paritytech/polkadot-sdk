@@ -3926,13 +3926,35 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 	Ok(())
 }
 
-/// A finalized block whose processing fails is handed to the gap filler, so the sync head
-/// cannot advance over it.
+/// A finalized block whose processing fails is handed to the gap filler as a one-block request
+/// carrying its hash; the filler indexes it and the queue drains without manual bookkeeping.
 async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Result<()> {
 	let (sync_client, mut gap_fill_rx) =
 		create_sync_test_client_with_subscription_gap_queue(true).await?;
 	assert!(!sync_client.subscription_gap_queue().has_pending());
 
+	// Record every request on its way to the real filler.
+	let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
+	let (filler_tx, filler_rx) = mpsc::channel(32);
+	let bg_requests = requests.clone();
+	let _tee = AbortOnDrop(tokio::spawn(async move {
+		while let Some(request) = gap_fill_rx.recv().await {
+			bg_requests.lock().unwrap().push((
+				request.from_inclusive,
+				request.to_inclusive,
+				request.from_hash,
+			));
+			if filler_tx.send(request).await.is_err() {
+				break;
+			}
+		}
+	}));
+	let bg_client = sync_client.clone();
+	let _filler = AbortOnDrop(tokio::spawn(async move {
+		bg_client.run_subscription_gap_filler(filler_rx, GapFillRetry::default()).await
+	}));
+
+	// The callback never indexes anything, so only the filler can.
 	let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
 	let bg_client = sync_client.clone();
 	let bg_seen = seen.clone();
@@ -3949,23 +3971,23 @@ async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Re
 	}));
 	submit_evm_transfers(1).await?;
 
-	let request = tokio::time::timeout(tokio::time::Duration::from_secs(10), gap_fill_rx.recv())
-		.await?
-		.ok_or_else(|| anyhow!("gap fill queue closed"))?;
-	assert_eq!(
-		request.from_inclusive, request.to_inclusive,
-		"a failed finalized block is queued on its own"
-	);
-	let from_hash = request.from_hash.expect("a one-block request carries the block hash");
-	assert!(
-		seen.lock().unwrap().contains(&(request.from_inclusive, from_hash)),
-		"the queued block #{} is one the callback failed on",
-		request.from_inclusive
-	);
-	assert!(
-		sync_client.subscription_gap_queue().has_pending(),
-		"failed finalized block must keep the sync head from advancing"
-	);
+	wait_until("a finalized block to fail processing", || async {
+		!seen.lock().unwrap().is_empty()
+	})
+	.await?;
+	let (number, hash) = seen.lock().unwrap()[0];
+	wait_until("the failed block to be queued with its hash", || async {
+		requests.lock().unwrap().contains(&(number, number, Some(hash)))
+	})
+	.await?;
+	wait_until("the gap filler to index the failed block", || async {
+		sync_client.receipt_provider().get_ethereum_hash(&hash).await.is_some()
+	})
+	.await?;
+	wait_until("the queue to drain", || async {
+		!sync_client.subscription_gap_queue().has_pending()
+	})
+	.await?;
 
 	Ok(())
 }
