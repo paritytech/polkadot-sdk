@@ -101,7 +101,7 @@ pub fn sign(
 	metadata_hash: Option<[u8; 32]>,
 ) -> UncheckedExtrinsic {
 	match xt.format {
-		ExtrinsicFormat::Signed(signed, tx_ext) => {
+		ExtrinsicFormat::Signed(signed, tx_ext, _) => {
 			let payload = (
 				xt.function,
 				tx_ext.clone(),
