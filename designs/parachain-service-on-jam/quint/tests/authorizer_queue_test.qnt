@@ -438,10 +438,52 @@ module authorizer_queue_test {
       assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
       assert(owned.isAssignerOf(core)),
       assert(flushedOwned.assigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three, 5) })),
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three, 10) })),
       assert(flushedOwned.logs == List()),
       // Applied late at slot 10, it is still due again at 5 + 80.
       assert(flushedOwned.state.pendingAssignCores.get(core) == 85),
+      init
+    }
+  }
+
+  /// §7.1: an assign applied after its due slot, whether carried over or
+  /// replayed after its `jam_slot`, is laid out from the slot it is applied at,
+  /// so JAM reads the right hash for each of the 80 slots from then on. It is
+  /// still due again 80 slots after its due slot.
+  run lateAssignLaidOutFromApplyingSlotTest = {
+    val core = 3
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    // Carried over: due at 5, flushed at 10.
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(core -> { queue: three, assigner: None }),
+      pendingAssignCores: Map(core -> 5)
+    }
+    val flushed = applyAlwaysAccumulate(armed, 10)
+    // Replayed at 10 with a `jam_slot` of 5.
+    val baseAcc: AccumulateOutcome = {
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
+    }
+    val replayed = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 10, 10,
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 5 })
+    )
+    // JAM reads entry `t % 80` at slot `t`, which must be hash `t % 3`.
+    pure def readsRight(queue: List[AuthorizerHash]): bool =
+      range(10, 10 + AuthorizerQueueLength).foldl(true, (ok, t) =>
+        ok and queue.nth(t % AuthorizerQueueLength) == three.nth(t % 3))
+    all {
+      assert(flushed.assigns.length() == 1),
+      assert(readsRight(flushed.assigns[0].queue)),
+      assert(replayed.jamAssigns.length() == 1),
+      assert(readsRight(replayed.jamAssigns[0].queue)),
+      assert(flushed.state.pendingAssignCores.get(core) == 85),
+      assert(replayed.state.pendingAssignCores.get(core) == 85),
       init
     }
   }

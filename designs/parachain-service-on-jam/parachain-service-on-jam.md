@@ -1588,16 +1588,19 @@ authorizer set as a queue of length X ≤ 80, and slot `t` gets hash `t % X` of 
   keeps cycling correctly on its own and is written once. A handoff to another assigner
   likewise has to be self-sufficient, so `AssignCore` with a `Some` assigner demands an
   exact 80-hash queue (§4.3).
-- X < 80 with `80 % X != 0`: for an assign due at timeslot `d`, the service writes the
-  hashes for slots `d` to `d + 79` into entries `d % 80` onwards, wrapping from entry 79
-  to entry 0. It keeps the set in `pending_assigns` and does the same again at `d + 80`.
+- X < 80 with `80 % X != 0`: for an assign due at timeslot `d` and applied at timeslot `a`,
+  the service writes the hashes for slots `a` to `a + 79` into entries `a % 80` onwards,
+  wrapping from entry 79 to entry 0. `a` is later than `d` when the assign was carried over
+  (§5.1), or when the Coretime chain's `AssignCore` is only accumulated after its
+  `jam_slot`. The service keeps the set in `pending_assigns`
+  and does the same again at `d + 80`.
   A new `AssignCore` for the core replaces the kept set and so ends these rewrites. The
   Coretime chain must therefore schedule it no later than the kept set's next rewrite,
   which is at most 80 slots away. Otherwise the slots in between read the hashes written
   for the slots 80 earlier.
 
-For example, the set `[A, B, C]` due at slot 40 starts with hash `40 % 3 = 1`, which is
-`B`, at entry 40:
+For example, the set `[A, B, C]` due and applied at slot 40 starts with hash `40 % 3 = 1`,
+which is `B`, at entry 40:
 
 ```
 slot   40 41 42 ... 78 79 | 80 81 ... 119 | 120

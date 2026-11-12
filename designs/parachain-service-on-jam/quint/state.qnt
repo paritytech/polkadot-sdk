@@ -293,17 +293,19 @@ module state {
   pure def fillsDirectly(queueLen: int): bool =
     queueLen == AuthorizerQueueLength or (AuthorizerQueueLength % queueLen) == 0
 
-  /// The 80-entry JAM queue for an assign due at slot `due` (§7.1). JAM reads
-  /// entry `t % 80` at slot `t`, and slot `t` gets hash `t % q.length()` of `q`.
-  /// The result covers the slots `due` to `due + 79`. A set that tiles the 80
-  /// slots comes out as `q` repeated from entry 0 and is written once. Any other
-  /// set is written again at `due + 80`, `due + 160`, and so on.
-  pure def assignQueueFor(q: List[AuthorizerHash], due: Timeslot): List[AuthorizerHash] = {
-    // Hashes for the slots `due` to `due + 79`, in slot order.
-    val bySlot = range(due, due + AuthorizerQueueLength).foldl(List(), (acc, t) =>
+  /// The 80-entry JAM queue for an assign applied at slot `applied` (§7.1), which
+  /// is later than its due slot if it was carried over. JAM reads entry `t % 80`
+  /// at slot `t`, and slot `t` gets hash `t % q.length()` of `q`. The result
+  /// covers the slots `applied` to `applied + 79`. A set that tiles the 80 slots
+  /// comes out as `q` repeated from entry 0 and is written once. Any other set is
+  /// written again 80, 160, ... slots after its due slot.
+  pure def assignQueueFor(q: List[AuthorizerHash], applied: Timeslot): List[AuthorizerHash] = {
+    // Hashes for the slots `applied` to `applied + 79`, in slot order.
+    val bySlot = range(applied, applied + AuthorizerQueueLength).foldl(List(), (acc, t) =>
       acc.append(q.nth(t % q.length())))
-    // Slot `due` goes to entry `due % 80`, so the slots after entry 79 wrap to entry 0.
-    val wrap = AuthorizerQueueLength - due % AuthorizerQueueLength
+    // Slot `applied` goes to entry `applied % 80`, so the slots after entry 79 wrap
+    // to entry 0.
+    val wrap = AuthorizerQueueLength - applied % AuthorizerQueueLength
     bySlot.slice(wrap, AuthorizerQueueLength).concat(bySlot.slice(0, wrap))
   }
 

@@ -296,7 +296,7 @@ module accumulate {
               jamAssigns: acc.jamAssigns.append({
                 core: payload.core,
                 assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-                queue: assignQueueFor(payload.queue, payload.jamSlot)
+                queue: assignQueueFor(payload.queue, now)
               }),
               state: {
                 ...acc.state.recordAssigner(
@@ -675,7 +675,7 @@ module accumulate {
             assigns: acc.assigns.append({
               core: c,
               assigner: pending.assigner.optionGetOr(ParachainServiceId),
-              queue: assignQueueFor(pending.queue, dueAt)
+              queue: assignQueueFor(pending.queue, now)
             }),
             logs: acc.logs
           }
