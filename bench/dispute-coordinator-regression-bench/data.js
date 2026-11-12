@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794495896165,
+  "lastUpdate": 1794501485740,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "319976c3a73784ddd8d0d892b3b470168c620dfd",
-          "message": "statement-store: zombienet initial sync (#11861)\n\nImplement #11534 for initial sync \n\n# Description\n- Add `statement_store_initial_sync_multiple_peers` integration test\n- Spawns a 2-node network, populates 20 statements from 4 keypairs\nacross 2 topics, then adds 3 new collators\n- Verifies each new peer receives all 20 statements via\n`schedule_initial_sync_for_peer`\n- Asserts `initial_sync_statements_sent` metric reflects both senders\ndelivering to all 3 new peers (2×3×20 = 120)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-27T14:08:14Z",
-          "tree_id": "cbd2536665933f44f3ac752f96d67482b94216bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/319976c3a73784ddd8d0d892b3b470168c620dfd"
-        },
-        "date": 1777305901787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010122692130000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026889922599999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009500347059999983,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009549919109999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d7050787a8552725d826c38cf4beae9ef2467ab",
+          "message": "statement-store: keep blocking store calls off the async runtime (#13812)\n\n# Description\n\nStatement store calls that wait for the disk now run on blocking\nthreads, so they can no longer stall the node's async runtime. Fixes\nhttps://github.com/paritytech/polkadot-sdk/issues/13738.\n\nThe stall is specific to the Versi setup. Tokio starts one runtime\nworker per CPU, and a Versi collator has a limit of 4 CPUs and runs six\nstore tasks: 4 validation workers (the default is 1), the gossip handler\nand the maintenance task. A node on the validator reference hardware has\n8 workers and three store tasks by default, so it most likely would not\nstall. That setup was not tested.\n\nUnder statement overload on Versi, collators missed their authoring\nslots. A statement submit holds the store lock while it commits to the\ndatabase, and the store tasks waited for that lock on worker threads of\nthe runtime, for up to a minute at a time. While they held all 4\nworkers, networking, sync and block import stopped. The collator\nreceived blocks late and had no parent to build on at its slot.\n\nThe change moves the validation workers, the gossip handler and the\nmaintenance task to blocking threads, and marks both RPC submit methods\nas blocking. The gossip loop reads the admission watermark from an\natomic counter, so it does not wait for the store lock.\n\nA blocking RPC call takes a thread from the RPC server's own tokio\nruntime, whose blocking pool is capped at the RPC connection limit (100\nby default). It does not count against the 512 blocking threads of the\nnode's main runtime.\n\n## Testing\n\nThe same stress test ran on Versi twice on 2026-11-11, on master and on\nthis PR. Each run started from a fresh chain with 80 collators and\nloaded them with 5,500 new statements per second for 100 minutes. Every\nstatement is stored on 20 nodes, which makes 110,000 copies per second.\n\n| | master (`master-366b8772`) | this PR (`13812-fc27166c`) |\n|---|---|---|\n| Parachain blocks per 10 minutes (100 is healthy) | 77 to 79 | 99 to\n101 |\n| \"Could not find parent to build upon\" warnings per 5 minutes, one per\nskipped slot | about 100 | 0 |\n| Collators that lost over a third of their 5-second status lines from\nsc-informant | 20 of 80 | 0 of 80 |\n| Times the gossip handler held its thread for over 16 s | 158 | 0 |\n| Statement copies stored per second, lowest point | 72,000 | 97,000 |\n\nOn master the trouble began once each store held about 5 million\nstatements. On this PR the parachain kept its full block rate until the\nend of the run, at 7.6 million statements per store. The store calls\nwere as slow as on master: the validation workers held their threads for\nover 16 s 646 times and the maintenance task 549 times. No other task of\nthe node held a thread for over a second.\n\nStatement throughput still drops under this overload, because the store\nwaits for the disk.\n\n## Integration\n\nNo action is needed.",
+          "timestamp": "2026-11-12T15:02:45Z",
+          "tree_id": "4946f6375778be658ec1a914d5db5d585a0c5b0f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8d7050787a8552725d826c38cf4beae9ef2467ab"
+        },
+        "date": 1794501445913,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009184414259999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008896031910000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002543676369999999,
             "unit": "seconds"
           }
         ]
