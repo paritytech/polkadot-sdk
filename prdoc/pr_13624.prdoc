@@ -15,17 +15,28 @@ doc:
       charged when it is compiled, and again whenever it is compiled after the interpreter
       dropped its compiled code.
     - Per byte of the code section: `ceil(code_len * per_code_byte_millis / 1000)`, charged when
-      the interpreter allocates or rewrites its map of compiled blocks: on the first compilation
-      of a call, on the first compilation after every call, delegate call, pre-compile call and
-      instantiation the contract makes, and after many cache resets.
+      the interpreter allocates or rewrites its map of compiled blocks. The first allocation of a
+      call is paid by the caller with the code load, and the callee's instance starts with a gas
+      credit of the same size, which that allocation consumes. The contract pays the allocation
+      again on its first compilation after a sub-call during which a PVM frame started, and the
+      rewrites after many cache resets.
+    - When a PVM frame starts, the innermost PVM frame that waits on a sub-call drops its
+      compiled code and its map of compiled blocks. A PVM frame starts for a call, delegate call
+      or instantiation of a PVM contract, also when a pre-compile or an EVM contract makes it.
+      Pre-compile calls that start no PVM frame, transfers to accounts without code and calls to
+      EVM contracts that start no PVM frame keep the caller's compiled code.
     - The values come from the slopes of `interpreter_compile_per_instruction`,
       `interpreter_compile_per_block` and `interpreter_code_map_per_byte`, converted with the ref
       time per gas and rounded up. `per_block` is the `interpreter_compile_per_block` slope
       minus the `interpreter_compile_per_instruction` slope and one gas.
-    - Loading PVM code for a call is charged as the slope of `call_with_pvm_code_per_byte` minus
-      the ref time slope of `interpreter_code_map_per_byte`, since the interpreter charges the
-      map of compiled blocks as gas. The pallet's `integrity_test` asserts that the first slope
-      is larger than the second.
+    - The pallet's `integrity_test` asserts that `per_block`, `per_instruction_millis` and
+      `per_code_byte_millis` are larger than 0. So the `interpreter_compile_per_block` slope must
+      exceed the `interpreter_compile_per_instruction` slope plus one gas, and the
+      `interpreter_compile_per_instruction` and `interpreter_code_map_per_byte` slopes must not
+      be 0.
+    - Loading PVM code for a call is charged to the caller (the calling frame, or the transaction
+      for the first frame) at the slope of `call_with_pvm_code_per_byte` per byte of the code
+      blob. The benchmark includes the callee's first allocation of the map of compiled blocks.
     - Compiling a block and allocating or rewriting the map of compiled blocks can leave the
       interpreter's gas negative. `pallet-revive` then charges all the ref time it handed to the
       interpreter and fails the call frame with `OutOfGas`. The proof size is not affected.
@@ -47,7 +58,8 @@ doc:
 
     To migrate, regenerate the runtime's `pallet_revive` weights with the new benchmarks before
     upgrading. Renaming the functions is not enough: the ref time per gas and the compilation
-    cost come from their slopes.
+    cost come from their slopes. Run the runtime's integrity tests on the new weights; they fail
+    when a slope does not meet the conditions above.
 
     ```rust
     // Before
@@ -75,8 +87,8 @@ doc:
       `with_entry_block`, `with_branch_blocks`, `with_code_bytes`, `with_load_chain`,
       `with_indirect_jump_cycle`, `BRANCH_BLOCKS`, `MAX_CODE_BYTES`, `LOAD_CHAIN_SLOTS` and
       `LOAD_CHAIN_SLOT_BYTES`, and loses `instr`.
-    - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink` and `Reverter`
-      Solidity contracts.
+    - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink`, `Reverter` and
+      `Forwarder` Solidity contracts.
 
     Other runtime crates that use PolkaVM:
 
@@ -106,10 +118,12 @@ doc:
     before.
 
     Compiling contract code is charged as gas: on Asset Hub Westend 3 gas per basic block,
-    1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The per
-    byte part is charged again after every call a PVM contract makes. Loading the code of a PVM
-    contract is charged per byte of the code blob, 1545 ps of ref time on Asset Hub Westend; the
-    interpreter charges the compiled blocks and the map of compiled blocks as gas.
+    1.579 gas per instruction and 0.015 gas per byte of the contract's code section. The caller
+    of a PVM contract pays for loading its code, 2081 ps of ref time per byte of the code blob on
+    Asset Hub Westend, which includes the callee's first per byte charge. A PVM contract pays the
+    per byte charge again after a sub-call during which a PVM frame started: a call, delegate
+    call or instantiation of a PVM contract, directly or through a pre-compile or an EVM
+    contract.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
     limits to their sub-calls may need to raise those limits.

@@ -177,7 +177,9 @@ pub const LOAD_CHAIN_GAS: u32 = BASIC_BLOCK_SIZE + 1;
 /// A lap is the loop condition, the counter increment, and `INDIRECT_JUMP_GAS - 2` indirect
 /// jumps: one into a cycle of `INDIRECT_JUMP_GAS - 3` basic blocks and one out of each of them.
 /// Every instruction costs one gas. The cycle is sized so that the interpreter data a lap reads
-/// stays in the L2 but not in the L1 data cache of the reference hardware.
+/// stays in the L2 but not in the L1 data cache of the reference hardware. The cost per gas
+/// assumes interpreter data to be in the L2, so a working set larger than the L2, which the
+/// interpreter cache limit allows, is charged at the L2 rate.
 pub const INDIRECT_JUMP_GAS: u32 = 3_003;
 
 /// Resource that needs to be synced to the executor.
