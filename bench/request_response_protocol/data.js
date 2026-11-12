@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794492994746,
+  "lastUpdate": 1794500274654,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145151,6 +145151,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2730422800,
             "range": "± 18857773",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d7050787a8552725d826c38cf4beae9ef2467ab",
+          "message": "statement-store: keep blocking store calls off the async runtime (#13812)\n\n# Description\n\nStatement store calls that wait for the disk now run on blocking\nthreads, so they can no longer stall the node's async runtime. Fixes\nhttps://github.com/paritytech/polkadot-sdk/issues/13738.\n\nThe stall is specific to the Versi setup. Tokio starts one runtime\nworker per CPU, and a Versi collator has a limit of 4 CPUs and runs six\nstore tasks: 4 validation workers (the default is 1), the gossip handler\nand the maintenance task. A node on the validator reference hardware has\n8 workers and three store tasks by default, so it most likely would not\nstall. That setup was not tested.\n\nUnder statement overload on Versi, collators missed their authoring\nslots. A statement submit holds the store lock while it commits to the\ndatabase, and the store tasks waited for that lock on worker threads of\nthe runtime, for up to a minute at a time. While they held all 4\nworkers, networking, sync and block import stopped. The collator\nreceived blocks late and had no parent to build on at its slot.\n\nThe change moves the validation workers, the gossip handler and the\nmaintenance task to blocking threads, and marks both RPC submit methods\nas blocking. The gossip loop reads the admission watermark from an\natomic counter, so it does not wait for the store lock.\n\nA blocking RPC call takes a thread from the RPC server's own tokio\nruntime, whose blocking pool is capped at the RPC connection limit (100\nby default). It does not count against the 512 blocking threads of the\nnode's main runtime.\n\n## Testing\n\nThe same stress test ran on Versi twice on 2026-11-11, on master and on\nthis PR. Each run started from a fresh chain with 80 collators and\nloaded them with 5,500 new statements per second for 100 minutes. Every\nstatement is stored on 20 nodes, which makes 110,000 copies per second.\n\n| | master (`master-366b8772`) | this PR (`13812-fc27166c`) |\n|---|---|---|\n| Parachain blocks per 10 minutes (100 is healthy) | 77 to 79 | 99 to\n101 |\n| \"Could not find parent to build upon\" warnings per 5 minutes, one per\nskipped slot | about 100 | 0 |\n| Collators that lost over a third of their 5-second status lines from\nsc-informant | 20 of 80 | 0 of 80 |\n| Times the gossip handler held its thread for over 16 s | 158 | 0 |\n| Statement copies stored per second, lowest point | 72,000 | 97,000 |\n\nOn master the trouble began once each store held about 5 million\nstatements. On this PR the parachain kept its full block rate until the\nend of the run, at 7.6 million statements per store. The store calls\nwere as slow as on master: the validation workers held their threads for\nover 16 s 646 times and the maintenance task 549 times. No other task of\nthe node held a thread for over a second.\n\nStatement throughput still drops under this overload, because the store\nwaits for the disk.\n\n## Integration\n\nNo action is needed.",
+          "timestamp": "2026-11-12T15:02:45Z",
+          "tree_id": "4946f6375778be658ec1a914d5db5d585a0c5b0f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8d7050787a8552725d826c38cf4beae9ef2467ab"
+        },
+        "date": 1794500242759,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21711397,
+            "range": "± 344122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21779405,
+            "range": "± 212905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23144237,
+            "range": "± 148709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27330891,
+            "range": "± 161339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62853934,
+            "range": "± 757201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 387738861,
+            "range": "± 4594979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2912732917,
+            "range": "± 119662450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17771276,
+            "range": "± 194915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17904678,
+            "range": "± 283024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18888648,
+            "range": "± 177487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23490860,
+            "range": "± 151998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62633382,
+            "range": "± 846072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 377078105,
+            "range": "± 3996824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2841127207,
+            "range": "± 33540400",
             "unit": "ns/iter"
           }
         ]
