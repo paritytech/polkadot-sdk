@@ -432,15 +432,15 @@ pub struct ExecConfig<T: Config> {
 	/// contract.
 	///
 	/// In Substrate, where transactions can be batched, the account's nonce should be incremented
-	/// after each instantiation, ensuring that each instantiation uses a unique nonce.
+	/// after each instantiation, ensuring that each instantiation uses a unique nonce. The one
+	/// exception is the first instantiation by the transaction signer recorded in
+	/// `SubstrateTxSigner`: it uses the nonce `CheckNonce` already consumed and does
+	/// not increment it again.
 	///
 	/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only
 	/// be incremented once. In these cases, set this to `false` to suppress an extra nonce
-	/// increment.
-	///
-	/// Note:
-	/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
-	/// extension.
+	/// increment. The origin is then assumed to be the signer whose nonce `CheckNonce` already
+	/// incremented pre-dispatch.
 	///
 	/// This does not apply to contract initiated instantatiations. Those will always bump the
 	/// instantiating contract's nonce.
