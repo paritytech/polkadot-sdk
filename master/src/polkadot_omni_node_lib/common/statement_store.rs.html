@@ -234,7 +234,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#84 id=84 data-nosnippet>84</a>	<span class="kw">let </span>statement_protocol_executor = {
 <a href=#85 id=85 data-nosnippet>85</a>		<span class="kw">let </span>spawn_handle = task_manager.spawn_handle();
 <a href=#86 id=86 data-nosnippet>86</a>		Box::new(<span class="kw">move </span>|fut| {
-<a href=#87 id=87 data-nosnippet>87</a>			spawn_handle.spawn(<span class="string">"network-statement-validator"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
+<a href=#87 id=87 data-nosnippet>87</a>			spawn_handle.spawn_blocking(<span class="string">"network-statement-validator"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
 <a href=#88 id=88 data-nosnippet>88</a>		})
 <a href=#89 id=89 data-nosnippet>89</a>	};
 <a href=#90 id=90 data-nosnippet>90</a>	<span class="kw">let </span>statement_handler = statement_handler_proto.build(
@@ -252,7 +252,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#102 id=102 data-nosnippet>102</a>			statement_store.set_retention_resolver(resolver);
 <a href=#103 id=103 data-nosnippet>103</a>		}
 <a href=#104 id=104 data-nosnippet>104</a>	}
-<a href=#105 id=105 data-nosnippet>105</a>	task_manager.spawn_handle().spawn(
+<a href=#105 id=105 data-nosnippet>105</a>	task_manager.spawn_handle().spawn_blocking(
 <a href=#106 id=106 data-nosnippet>106</a>		<span class="string">"network-statement-handler"</span>,
 <a href=#107 id=107 data-nosnippet>107</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 <a href=#108 id=108 data-nosnippet>108</a>		statement_handler.run(),
