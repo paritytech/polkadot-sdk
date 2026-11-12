@@ -7134,6 +7134,17 @@ mod benchmarks {
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
+	/// Split `d` event bytes into topics and data, topics first.
+	///
+	/// Fills up to `limits::NUM_EVENT_TOPICS` full 32-byte topics and puts the remaining bytes in
+	/// the data field, so the event's size counted as 32 bytes per topic plus the data is `d`.
+	fn split_event_bytes(d: u32) -> (Vec<H256>, Vec<u8>) {
+		let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
+		let topics = (0..num_topics).map(|index| H256::from_low_u64_be(index.into())).collect();
+		let data = vec![0x42u8; (d - num_topics * 32) as usize];
+		(topics, data)
+	}
+
 	/// Benchmark the `on_finalize` hook scaling with number of transactions.
 	///
 	/// This benchmark measures the marginal computational cost of adding transactions
@@ -7393,28 +7404,7 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Create one event with d bytes of data distributed across topics and data field
-		let (event_data, topics) = if d < 32 {
-			// If total data is less than 32 bytes, put all in data field
-			(vec![0x42u8; d as usize], vec![])
-		} else {
-			// Fill topics first, then put remaining bytes in data field
-			let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
-			let topic_bytes_used = num_topics * 32;
-			let data_bytes_remaining = d - topic_bytes_used;
-
-			// Create topics filled with sequential data
-			let mut topics = Vec::new();
-			for topic_index in 0..num_topics {
-				let topic_data = [topic_index as u8; 32];
-				topics.push(H256::from(topic_data));
-			}
-
-			// Remaining bytes go to data field
-			let event_data = vec![0x42u8; data_bytes_remaining as usize];
-
-			(event_data, topics)
-		};
+		let (topics, event_data) = split_event_bytes(d);
 
 		// Store transaction
 		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
@@ -7466,8 +7456,8 @@ mod benchmarks {
 	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
 	/// `buffer_outside_frame_log`.
 	///
-	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
-	/// data word.
+	/// Each log is empty (no topics, no data), so the slope is the per-log cost alone, as in
+	/// `on_finalize_per_event`. The per-byte cost of topics and data is `outside_frame_log_data`'s.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7476,19 +7466,10 @@ mod benchmarks {
 		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
-		let topics =
-			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
-		let data = vec![0x44u8; 32];
-
 		// Appended straight into the buffer, past the cap: the drain is what is measured, and a
 		// runtime that keeps the buffer off still needs its weight.
 		for _ in 0..n {
-			Pallet::<T>::bench_buffer_outside_frame_log(
-				instance.address,
-				topics.clone(),
-				data.clone(),
-			);
+			Pallet::<T>::bench_buffer_outside_frame_log(instance.address, vec![], vec![]);
 		}
 
 		#[block]
@@ -7502,14 +7483,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
-	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
-	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log of `d` bytes: the
+	/// `OutsideFrameLogs::take` scales with the value it reads back, and so do the RLP encoding and
+	/// bloom accrual that fold it into the synthetic transaction's receipt.
 	///
-	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
-	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
-	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
-	/// benchmark's 32-byte word alone would under-charge it.
+	/// The `d` bytes are split topics first, then data, as in `on_finalize_per_event_data`, so a
+	/// log's size is 32 bytes per topic plus its data. Pairs with `outside_frame_log`, which keeps
+	/// logs empty and varies the count; together they give
+	/// `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7517,10 +7498,7 @@ mod benchmarks {
 
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		let topics =
-			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
-		let data = vec![0x44u8; d as usize];
-
+		let (topics, data) = split_event_bytes(d);
 		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
 
 		#[block]

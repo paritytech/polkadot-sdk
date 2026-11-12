@@ -1284,7 +1284,9 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 }
 
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
-// whatever the drain benchmark's per-byte marginal comes to for that shape.
+// whatever the drain benchmark's per-byte marginal comes to for that shape. The ref time is the
+// drain's share for the log's size counted as 32 bytes per topic plus the data, the same size
+// `RuntimeCosts::DepositEvent` charges an in-frame event for.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
@@ -1301,7 +1303,7 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		);
 		let after = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
 		let entry = OutsideFrameLog { event_index: 0, contract, topics, data };
-		(after.saturating_sub(before).proof_size(), entry.encoded_size() as u64)
+		(after.saturating_sub(before), entry.encoded_size() as u64)
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1315,13 +1317,24 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 			(vec![], vec![]),
 		];
 		for (i, (topics, data)) in shapes.into_iter().enumerate() {
+			let data_len = u32::try_from(data.len()).unwrap();
+			let topic_bytes = u32::try_from(topics.len() * H256::len_bytes()).unwrap();
+			let log_bytes = topic_bytes + data_len;
 			let (registered, entry_bytes) =
-				registered_by(H160::repeat_byte(4 + i as u8), topics, data.clone());
-			let marginal =
-				<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
+				registered_by(H160::repeat_byte(4 + i as u8), topics, data);
+			let marginal = <Test as Config>::WeightInfo::per_outside_frame_log(log_bytes);
 			assert!(entry_bytes > 0);
-			assert!(registered >= entry_bytes, "shape {i}");
-			assert_eq!(registered, marginal.max(entry_bytes), "shape {i}");
+			assert!(registered.proof_size() >= entry_bytes, "shape {i}");
+			assert_eq!(
+				registered.proof_size(),
+				marginal.proof_size().max(entry_bytes),
+				"shape {i}"
+			);
+			assert_eq!(registered.ref_time(), marginal.ref_time(), "shape {i}");
+			if topic_bytes > 0 {
+				let data_only = <Test as Config>::WeightInfo::per_outside_frame_log(data_len);
+				assert!(registered.ref_time() > data_only.ref_time(), "shape {i}");
+			}
 		}
 	});
 }

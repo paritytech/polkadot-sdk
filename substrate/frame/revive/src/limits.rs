@@ -91,8 +91,8 @@ pub const MAX_RECEIPT_LOGS_BYTES: u32 = 2 * 1024 * 1024;
 
 /// The extra ref time charged per byte of an event's topics (32 bytes each) and data.
 ///
-/// It bounds the event data a block can deposit; `integrity_test` checks that this fits the
-/// storage available to the runtime. The Ethereum block builder is sized from
+/// It bounds the event bytes (topics and data) a block can deposit; `integrity_test` checks that
+/// this fits the storage available to the runtime. The Ethereum block builder is sized from
 /// [`MAX_TRANSACTION_PAYLOAD_SIZE`] and [`MAX_RECEIPT_LOGS_BYTES`] instead.
 pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 

@@ -71,14 +71,22 @@ contract SenderBalanceReader {
 
 /**
  * @title TwoEventsReceiver
- * @dev Receiver contract 7: emits two events, which cost more than the call stipend
+ * @dev Receiver contract 7: emits two LOG4 events with 64 data bytes each. The call stipend
+ * reserves room for one such event, so the second one exceeds it by a full event in ref time
+ * and in proof size.
  */
 contract TwoEventsReceiver {
-    event Received(address from, uint256 amount);
+    event Received(
+        address indexed from,
+        uint256 indexed amount,
+        uint256 indexed index,
+        uint256 first,
+        uint256 second
+    );
 
     receive() external payable {
-        emit Received(msg.sender, msg.value);
-        emit Received(msg.sender, msg.value);
+        emit Received(msg.sender, msg.value, 0, msg.value, 1);
+        emit Received(msg.sender, msg.value, 1, msg.value, 2);
     }
 }
 

@@ -1029,8 +1029,9 @@ fn logs_work(fixture_type: FixtureType) {
 /// `seal_deposit_event(num_topic, len)` is charged as benchmarked, on the data length alone.
 ///
 /// Every LOG0 to LOG4 is traced on its own, so the step's weight is exactly the charge of that
-/// log plus, on the EVM, the `EvmDispatch` charge the LOG instruction pays before it runs. The
-/// PVM `HostFn` overhead is charged before the `deposit_event` step starts.
+/// log plus the step's dispatch weight: `EvmDispatch` for an EVM `LOG` opcode step, which pays it
+/// before the instruction runs, and zero for a PVM `deposit_event` syscall step, whose `HostFn`
+/// overhead is charged before the step starts.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
@@ -1066,12 +1067,6 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let dispatch = if matches!(fixture_type, FixtureType::Solc) {
-			<EvmDispatch as Token<Test>>::weight(&EvmDispatch)
-		} else {
-			crate::Weight::zero()
-		};
-
 		let calls = [
 			(Host::logOpsWithoutDataCall {}.abi_encode(), 0u32),
 			(Host::logOpsCall {}.abi_encode(), 32u32),
@@ -1084,13 +1079,19 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 			assert!(!result.did_revert(), "{fixture_type:?}: the call reverted");
 			let trace: ExecutionTraceV1 = tracer.collect_trace().into();
 
-			// (number of topics, data length, charged weight) of every log, in order.
+			// (number of topics, data length, charged weight, dispatch weight) of every log, in
+			// order.
 			let logs = trace
 				.struct_logs
 				.iter()
 				.filter_map(|step| match &step.kind {
 					ExecutionStepKindV1::EVMOpcode { op, .. } if (LOG0..=LOG4).contains(&op.0) => {
-						Some((u32::from(op.0 - LOG0), data_len, step.weight_cost))
+						Some((
+							u32::from(op.0 - LOG0),
+							data_len,
+							step.weight_cost,
+							<EvmDispatch as Token<Test>>::weight(&EvmDispatch),
+						))
 					},
 					ExecutionStepKindV1::PVMSyscall {
 						op: PolkavmSyscallV1::DepositEvent,
@@ -1100,17 +1101,18 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 						u32::try_from(args[1]).unwrap(),
 						u32::try_from(args[3]).unwrap(),
 						step.weight_cost,
+						crate::Weight::zero(),
 					)),
 					_ => None,
 				})
 				.collect::<Vec<_>>();
 			assert_eq!(
-				logs.iter().map(|(topics, len, _)| (*topics, *len)).collect::<Vec<_>>(),
+				logs.iter().map(|(topics, len, _, _)| (*topics, *len)).collect::<Vec<_>>(),
 				(0..=4).map(|topics| (topics, data_len)).collect::<Vec<_>>(),
 				"{fixture_type:?}: unexpected logs",
 			);
 
-			for (num_topic, len, charged) in &logs {
+			for (num_topic, len, charged, dispatch) in &logs {
 				let topic_bytes = H256::len_bytes() as u32 * num_topic;
 				let data_only =
 					W::seal_deposit_event(*num_topic, *len).saturating_add(per_byte(*len));
@@ -1123,8 +1125,8 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 				assert_eq!(topic_charge.ref_time() > 0, *num_topic > 0);
 			}
 
-			let (_, _, log0) = logs[0];
-			let (_, _, log4) = logs[4];
+			let (_, _, log0, _) = logs[0];
+			let (_, _, log4, _) = logs[4];
 			assert!(
 				log4.ref_time() > log0.ref_time(),
 				"{fixture_type:?}: LOG4 ({log4:?}) must cost more than LOG0 ({log0:?}) with \
