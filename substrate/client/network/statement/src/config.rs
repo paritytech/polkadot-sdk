@@ -62,10 +62,6 @@ pub const INITIAL_SYNC_RESERVED_BYTES: u64 = 4 * MAX_STATEMENT_NOTIFICATION_SIZE
 /// On overflow the oldest hashes are dropped first.
 pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
-/// Maximum number of statements held at a routing dead end.
-/// On overflow the oldest statements are dropped first.
-pub const MAX_DEAD_END_STATEMENTS: usize = 1024;
-
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;
 

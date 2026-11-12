@@ -389,6 +389,11 @@ impl V2DhtOrchestrator {
 			.collect()
 	}
 
+	/// The connected DHT peers, farthest from the local node first.
+	pub(crate) fn peers_farthest_first(&self) -> Vec<PeerId> {
+		self.peers_topology.connected_farthest_first()
+	}
+
 	/// Whether the local node is a DHT replica for one of `topics`.
 	pub(crate) fn is_replica_for(&self, topics: &[Topic]) -> bool {
 		topics.iter().any(|topic| self.peers_topology.is_replica_for(*topic))

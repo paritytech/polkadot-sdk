@@ -244,6 +244,13 @@ impl PeersTopology {
 		targets
 	}
 
+	/// The connected peers, farthest from the local node first.
+	pub fn connected_farthest_first(&self) -> Vec<PeerId> {
+		// The peer farthest from a key is the one closest to the key's complement.
+		let opposite = self.local_key.map(|byte| !byte);
+		self.connected.closest(opposite).map(|(peer, _)| peer).collect()
+	}
+
 	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
 	pub fn is_replica_for(&self, topic: Topic) -> bool {
 		let local = (self.local_key, self.local_peer);
