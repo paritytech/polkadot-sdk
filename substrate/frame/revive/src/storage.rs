@@ -189,6 +189,17 @@ impl<T: Config> AccountInfo<T> {
 		matches!(info.account_type, AccountType::Contract(_))
 	}
 
+	/// EIP-684: deploying to `address` collides if it has a nonce, code, or a delegation entry.
+	///
+	/// A cleared `DelegatedEOA` still counts: its child trie and deposit accounting outlive the
+	/// delegation and would be orphaned by a contract taking over the entry.
+	pub fn is_create_collision(address: &H160) -> bool {
+		<AccountInfoOf<T>>::get(address)
+			.is_some_and(|info| !matches!(info.account_type, AccountType::EOA)) ||
+			!frame_system::Pallet::<T>::account_nonce(&T::AddressMapper::to_account_id(address))
+				.is_zero()
+	}
+
 	/// Returns the balance of the account at the given address.
 	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
 		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
@@ -444,17 +455,28 @@ impl<T: Config> AccountInfo<T> {
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
-	/// This returns an `Err` if an contract with the supplied `account` already exists
-	/// in storage.
+	/// This returns an `Err` if deploying to `address` collides with an existing account, see
+	/// [`AccountInfo::is_create_collision`].
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <AccountInfo<T>>::is_contract(address) {
+		if <AccountInfo<T>>::is_create_collision(address) {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
+		Self::new_without_collision_check(address, nonce, code_hash)
+	}
 
+	/// Like [`Self::new`] but allows an address that already has a nonce or an entry.
+	///
+	/// Only for callers that deliberately install code on an existing account, such as genesis
+	/// config or `eth_call` state overrides.
+	pub fn new_without_collision_check(
+		address: &H160,
+		nonce: T::Nonce,
+		code_hash: sp_core::H256,
+	) -> Result<Self, DispatchError> {
 		// Reject reuse of an address whose previous occupant still has unflushed
 		// `NativeDepositOf` rows in the deletion queue. The on_idle drain will eventually
 		// clear them; until it does, instantiating here would let the new contract inherit

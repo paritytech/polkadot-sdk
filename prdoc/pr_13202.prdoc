@@ -1,0 +1,17 @@
+title: '[pallet-revive] Use an EIP-684 collision check for contract creation'
+doc:
+- audience: Runtime User
+  description: |-
+    CREATE and CREATE2 now fail with `DuplicateContract` when the target address has a nonzero
+    nonce, code, or an EIP-7702 delegation entry (active or cleared). A contract that creates
+    onto such an address gets `address(0)` back. As in Ethereum, the creator's nonce is consumed
+    even when the creation collides or the constructor reverts.
+- audience: Runtime Dev
+  description: |-
+    `ContractInfo::new` now performs the EIP-684 collision check. Out of tree callers of
+    `ContractInfo::new` that install code on an existing account must switch to the new
+    `ContractInfo::new_without_collision_check`. Genesis accounts with a nonce plus code and
+    `eth_call` code overrides need no change.
+crates:
+- name: pallet-revive
+  bump: minor
