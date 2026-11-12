@@ -1,0 +1,24 @@
+title: 'eth-rpc: remove blocks orphaned by a reorg while the server was stopped'
+doc:
+- audience: Node Dev
+  description: |-
+    An archive eth-rpc that was stopped while one of its indexed best blocks was replaced by a
+    reorg kept serving that block after the restart. `eth_getTransactionReceipt`,
+    `eth_getTransactionByHash` and `eth_getLogs` returned the orphaned transaction and its logs,
+    while `eth_getBlockByNumber` returned the canonical block at the same height.
+
+    Indexed blocks now record their block number. On startup the fork detection cache is filled
+    from the latest indexed blocks, so a new block at one of those heights replaces the old one as
+    it would without a restart. Indexing a finalized block, from the finalized block subscription
+    or the historic sync, also removes every other block indexed at that height.
+
+    The database gains a `block_number` column on `eth_to_substrate_blocks`, added by a migration
+    that runs on startup. Blocks indexed before the upgrade have no block number and are not
+    cleaned up by this change. A database that already holds orphaned blocks from an earlier
+    reorg keeps them; delete it and resync to remove them. After the migration has run, older
+    eth-rpc versions refuse to open the database.
+
+    `ReceiptProvider::remove_non_canonical_blocks` is new. No configuration change is needed.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
