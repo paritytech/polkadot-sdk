@@ -2830,6 +2830,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
 					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
+
+				fn wrap_call(call: RuntimeCall) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+						other_signatories: Vec::new(),
+						call: alloc::boxed::Box::new(call),
+					}))
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
