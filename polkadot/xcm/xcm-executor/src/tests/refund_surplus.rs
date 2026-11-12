@@ -139,14 +139,20 @@ fn refund_holding_cannot_take_fails_and_is_left_to_the_end() {
 }
 
 #[test]
-fn refund_surplus_without_surplus_succeeds_with_holding_at_capacity() {
+fn leftover_fees_holding_cannot_take_fail_and_are_left_to_the_end() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_holding_limit(0);
 
-	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+	let error = vm.bench_process(Xcm(vec![RefundSurplus])).unwrap_err();
 
-	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 6u128).into());
-	assert_eq!(get_first_fungible(vm.fees()), None);
+	assert_eq!(error.xcm_error, XcmError::HoldingWouldOverflow);
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 6u128).into());
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+
+	assert_eq!(outcome.weight_used(), Weight::from_parts(10, 10));
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 6u128).into()]);
 }
 
 #[test]

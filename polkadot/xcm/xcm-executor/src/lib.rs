@@ -560,13 +560,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			?refundable,
 			"Refunding surplus",
 		);
+		// Mid-message, holding at capacity might not take the refund or the leftover `fees`, and a
+		// refund would then have to be bought back or trapped, so both are left to the end of the
+		// message. There holding takes them regardless, as holding is trapped right after.
+		if point == RefundPoint::Instruction {
+			let refund_len = usize::from(refundable.any_gt(Weight::zero()));
+			self.ensure_can_subsume_assets(refund_len + self.fees.len())?;
+		}
 		if refundable.any_gt(Weight::zero()) {
-			// Mid-message, holding at capacity might not take a refund, which would then have to be
-			// bought back or trapped, so it is left to the end of the message. There holding takes
-			// it regardless, as holding is trapped right after.
-			if point == RefundPoint::Instruction {
-				self.ensure_can_subsume_assets(1)?;
-			}
 			if let Some(refund) = self.trader.refund_weight(refundable, &self.context) {
 				self.total_refunded.saturating_accrue(refundable);
 				self.total_surplus.saturating_reduce(current_surplus.saturating_sub(refundable));
