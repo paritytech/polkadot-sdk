@@ -40,7 +40,7 @@ events during Ethereum block construction:
 Total Weight = fixed_part +
                Σ(per_tx_part(payload_i)) +
                Σ(per_event_part(event_bytes_j)) +
-               Σ(per_outside_frame_log_part(log_bytes_k))
+               Σ(per_outside_frame_log_part(num_topics_k, data_len_k))
 ```
 
 **High-Level Weight API (`OnFinalizeBlockParts` trait):**
@@ -49,9 +49,9 @@ The pallet exposes these weight calculation methods for runtime use:
 - **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
 - **Per-event cost**: `on_finalize_block_per_event(event_bytes)` - Applied dynamically during each `deposit_event()`,
   with `event_bytes` counting 32 bytes per topic plus the data
-- **Per-outside-of-frame-log cost**: `per_outside_frame_log(log_bytes)` - Applied when a log emitted outside an
-  ethereum transaction is buffered for the block's synthetic transaction, with `log_bytes` counting 32 bytes per
-  topic plus the data
+- **Per-outside-of-frame-log cost**: `per_outside_frame_log(num_topics, data_len)` - Applied when a log emitted
+  outside an ethereum transaction is buffered for the block's synthetic transaction, with the log's topic count and
+  data length in bytes
 
 **Underlying Benchmark Functions (`WeightInfo` trait):**
 These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:
@@ -61,8 +61,8 @@ These low-level benchmarks measure raw computational costs and are used to deriv
 - **Per-event data**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` event bytes (topics and data)
 - **Per-outside-of-frame log**: `outside_frame_log(n)` - Measures the `on_finalize` drain cost scaling with
   `n` buffered logs
-- **Per-outside-of-frame log data**: `outside_frame_log_data(d)` - Measures the drain cost scaling with `d` bytes
-  of one buffered log (topics and data)
+- **Per-outside-of-frame log data**: `outside_frame_log_data(t, d)` - Measures the drain cost scaling with `t`
+  topics and `d` data bytes of one buffered log
 
 **Weight Derivation Methodology:**
 The high-level API methods use differential calculation to isolate marginal costs from benchmarks:
@@ -71,7 +71,8 @@ The high-level API methods use differential calculation to isolate marginal cost
 - Per-event base: `on_finalize_per_event(1) - on_finalize_per_event(0)`
 - Per-byte of event topics and data: `on_finalize_per_event_data(event_bytes) - on_finalize_per_event_data(0)`
 - Per-outside-of-frame log: `outside_frame_log(1) - outside_frame_log(0)`
-- Per-byte of outside-of-frame log topics and data: `outside_frame_log_data(log_bytes) - outside_frame_log_data(0)`
+- Per-topic of outside-of-frame logs: `outside_frame_log_data(num_topics, 0) - outside_frame_log_data(0, 0)`
+- Per-byte of outside-of-frame log data: `outside_frame_log_data(0, data_len) - outside_frame_log_data(0, 0)`
 
 This comprehensive weight model ensures that:
 - Transactions emitting many events are properly weighted based on event count and data size

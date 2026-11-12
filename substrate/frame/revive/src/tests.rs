@@ -1284,12 +1284,15 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 }
 
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
-// whatever the drain benchmark's per-byte marginal comes to for that shape. The ref time is the
-// drain's share for the log's size counted as 32 bytes per topic plus the data, the same size
-// `RuntimeCosts::DepositEvent` charges an in-frame event for.
+// whatever the drain benchmark's marginals come to for that shape. The ref time is the drain's
+// share for the log's topic count and data length, so each topic adds the per-topic marginal of
+// `outside_frame_log_data`, which covers the bloom's hash of the topic on top of its bytes.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
-	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
+	use crate::{
+		WeightInfo, evm::block_hash::OutsideFrameLog, limits::NUM_EVENT_TOPICS,
+		weightinfo_extension::OnFinalizeBlockParts,
+	};
 	use codec::Encode;
 	use frame_support::dispatch::DispatchClass;
 	use sp_core::H256;
@@ -1303,7 +1306,7 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		);
 		let after = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
 		let entry = OutsideFrameLog { event_index: 0, contract, topics, data };
-		(after.saturating_sub(before), entry.encoded_size() as u64)
+		(after.saturating_sub(before), u64::try_from(entry.encoded_size()).unwrap())
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1311,31 +1314,46 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		// it here.
 		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
 
+		let max_topics = usize::try_from(NUM_EVENT_TOPICS).unwrap();
 		let shapes = [
-			(vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize], vec![0u8; 64]),
+			(vec![H256::repeat_byte(2); max_topics], vec![0u8; 64]),
 			(vec![H256::repeat_byte(3)], vec![0u8; 32]),
 			(vec![], vec![]),
 		];
-		for (i, (topics, data)) in shapes.into_iter().enumerate() {
+		for (contract, (topics, data)) in (4u8..).zip(shapes) {
+			let num_topics = u32::try_from(topics.len()).unwrap();
 			let data_len = u32::try_from(data.len()).unwrap();
-			let topic_bytes = u32::try_from(topics.len() * H256::len_bytes()).unwrap();
-			let log_bytes = topic_bytes + data_len;
 			let (registered, entry_bytes) =
-				registered_by(H160::repeat_byte(4 + i as u8), topics, data);
-			let marginal = <Test as Config>::WeightInfo::per_outside_frame_log(log_bytes);
+				registered_by(H160::repeat_byte(contract), topics, data);
+			let marginal =
+				<Test as Config>::WeightInfo::per_outside_frame_log(num_topics, data_len);
 			assert!(entry_bytes > 0);
-			assert!(registered.proof_size() >= entry_bytes, "shape {i}");
+			assert!(registered.proof_size() >= entry_bytes, "contract {contract}");
 			assert_eq!(
 				registered.proof_size(),
 				marginal.proof_size().max(entry_bytes),
-				"shape {i}"
+				"contract {contract}"
 			);
-			assert_eq!(registered.ref_time(), marginal.ref_time(), "shape {i}");
-			if topic_bytes > 0 {
-				let data_only = <Test as Config>::WeightInfo::per_outside_frame_log(data_len);
-				assert!(registered.ref_time() > data_only.ref_time(), "shape {i}");
-			}
+			assert_eq!(registered.ref_time(), marginal.ref_time(), "contract {contract}");
 		}
+
+		let per_topic = <Test as Config>::WeightInfo::outside_frame_log_data(1, 0)
+			.saturating_sub(<Test as Config>::WeightInfo::outside_frame_log_data(0, 0))
+			.ref_time();
+		assert!(per_topic > 0);
+		let data = vec![0u8; 64];
+		let (with_topics, _) = registered_by(
+			H160::repeat_byte(8),
+			vec![H256::repeat_byte(8); max_topics],
+			data.clone(),
+		);
+		let (without_topics, _) = registered_by(H160::repeat_byte(9), vec![], data);
+		assert!(
+			with_topics.ref_time() >=
+				without_topics
+					.ref_time()
+					.saturating_add(u64::from(NUM_EVENT_TOPICS).saturating_mul(per_topic))
+		);
 	});
 }
 

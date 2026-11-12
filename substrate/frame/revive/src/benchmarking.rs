@@ -90,11 +90,6 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 /// everything it copies.
 const MCOPY_DESTINATION_DISTANCE: u32 = 4091;
 
-/// The size of the largest log a contract can emit: `NUM_EVENT_TOPICS` topics of 32 bytes each
-/// plus `EVENT_BYTES` of data.
-const MAX_LOG_BYTES: u32 =
-	limits::EVENT_BYTES + limits::NUM_EVENT_TOPICS * H256::len_bytes() as u32;
-
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
 		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
@@ -7139,21 +7134,6 @@ mod benchmarks {
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
-	/// Split `d` event bytes into topics and data, topics first.
-	///
-	/// Fills up to `limits::NUM_EVENT_TOPICS` full 32-byte topics and puts the remaining bytes in
-	/// the data field, so the event's size counted as 32 bytes per topic plus the data is `d`.
-	fn split_event_bytes(d: u32) -> (Vec<H256>, Vec<u8>) {
-		let d: usize = d.saturated_into();
-		let max_topics: usize = limits::NUM_EVENT_TOPICS.saturated_into();
-		let num_topics = max_topics.min(d / H256::len_bytes());
-		let topics = (0..num_topics)
-			.map(|index| H256::from_low_u64_be(index.saturated_into()))
-			.collect();
-		let data = vec![0x42u8; d - num_topics * H256::len_bytes()];
-		(topics, data)
-	}
-
 	/// Benchmark the `on_finalize` hook scaling with number of transactions.
 	///
 	/// This benchmark measures the marginal computational cost of adding transactions
@@ -7388,7 +7368,8 @@ mod benchmarks {
 
 	/// ## Test Setup:
 	/// - Creates 1 transaction with 1 ContractEmitted event
-	/// - Event contains `d` total bytes of data across data field and topics
+	/// - Event contains `d` total bytes of data across data field and topics, topics first: up to
+	///   `limits::NUM_EVENT_TOPICS` full 32-byte topics, the remaining bytes in the data field
 	///
 	/// ## Usage:
 	/// Measures the per-byte event data processing overhead during finalization
@@ -7413,7 +7394,13 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		let (topics, event_data) = split_event_bytes(d);
+		let d: usize = d.saturated_into();
+		let max_topics: usize = limits::NUM_EVENT_TOPICS.saturated_into();
+		let num_topics = max_topics.min(d / H256::len_bytes());
+		let topics: Vec<H256> = (0..num_topics)
+			.map(|index| H256::from_low_u64_be(index.saturated_into()))
+			.collect();
+		let event_data = vec![0x42u8; d - num_topics * H256::len_bytes()];
 
 		// Store transaction
 		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
@@ -7466,7 +7453,7 @@ mod benchmarks {
 	/// `buffer_outside_frame_log`.
 	///
 	/// Each log is empty (no topics, no data), so the slope is the per-log cost alone, as in
-	/// `on_finalize_per_event`. The per-byte cost of topics and data is `outside_frame_log_data`'s.
+	/// `on_finalize_per_event`. The per-topic and per-byte costs are `outside_frame_log_data`'s.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7492,23 +7479,27 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log of `d` bytes: the
-	/// `OutsideFrameLogs::take` scales with the value it reads back, and so do the RLP encoding and
-	/// bloom accrual that fold it into the synthetic transaction's receipt.
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with `t` topics and
+	/// `d` bytes of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so
+	/// does the RLP encoding that folds it into the synthetic transaction's receipt. The bloom
+	/// accrual hashes each topic once, a cost per topic on top of its bytes, so topics get their
+	/// own component.
 	///
-	/// The `d` bytes are split topics first, then data, as in `on_finalize_per_event_data`, so a
-	/// log's size is 32 bytes per topic plus its data, and `d` goes up to the largest log a
-	/// contract can emit. Pairs with `outside_frame_log`, which keeps logs empty and varies the
-	/// count; together they give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and
-	/// per-byte marginals.
+	/// Both components go up to what a contract can emit. Pairs with `outside_frame_log`, which
+	/// keeps logs empty and varies the count; together they give
+	/// `OnFinalizeBlockParts::per_outside_frame_log` its per-log, per-topic and per-byte marginals.
 	#[benchmark(pov_mode = Measured)]
-	fn outside_frame_log_data(d: Linear<0, MAX_LOG_BYTES>) -> Result<(), BenchmarkError> {
+	fn outside_frame_log_data(
+		t: Linear<0, { limits::NUM_EVENT_TOPICS }>,
+		d: Linear<0, { limits::EVENT_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		let (topics, data) = split_event_bytes(d);
+		let topics = (0..t).map(|index| H256::from_low_u64_be(index.into())).collect();
+		let data = vec![0x42u8; d.saturated_into()];
 		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
 
 		#[block]

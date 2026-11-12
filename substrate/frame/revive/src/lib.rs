@@ -1180,12 +1180,6 @@ pub mod pallet {
 			let entry_bytes = Weight::from_parts(0, entry.encoded_size() as u64);
 			OutsideFrameLogs::<T>::append(entry);
 
-			let log_bytes: u32 = topics
-				.len()
-				.saturating_mul(H256::len_bytes())
-				.saturating_add(data.len())
-				.saturated_into();
-
 			// This log's share of the `on_finalize` drain, charged to the block that emitted it,
 			// since `on_initialize` reserves only the fixed part of `on_finalize`. The append
 			// itself is measured by the emitting pallet's own benchmark.
@@ -1197,7 +1191,11 @@ pub mod pallet {
 			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
 			// bytes per entry without a per-producer weight.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::per_outside_frame_log(log_bytes).max(entry_bytes),
+				T::WeightInfo::per_outside_frame_log(
+					topics.len().saturated_into(),
+					data.len().saturated_into(),
+				)
+				.max(entry_bytes),
 				DispatchClass::Normal,
 			);
 
