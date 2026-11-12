@@ -885,6 +885,8 @@ struct SubmitIndex {
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
+	// Lock-free copy of `next_seq`, written only by `set_next_seq`.
+	admission_watermark: Arc<AtomicU64>,
 	// Sequence numbers of recently inserted statements, kept only while at least one subscription
 	// snapshot scan is in progress and only back to the oldest such scan's watermark.
 	recent_seqs: HashMap<Hash, u64>,
@@ -946,7 +948,7 @@ pub struct Store {
 	known_accounts_count: AtomicUsize,
 	/// Mirror of `SubmitIndex::next_seq`, so the gossip loop reads the watermark without waiting
 	/// for a writer stalled on the disk.
-	admission_watermark: AtomicU64,
+	admission_watermark: Arc<AtomicU64>,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
@@ -1041,7 +1043,7 @@ impl IndexSet {
 }
 
 impl SubmitIndex {
-	fn new(config: Config) -> SubmitIndex {
+	fn new(config: Config, admission_watermark: Arc<AtomicU64>) -> SubmitIndex {
 		SubmitIndex {
 			// The real bound is [`Self::cached_statement_count`], enforced by
 			// [`Self::cache_record`]; this length limiter must never trigger on its own, and
@@ -1052,6 +1054,7 @@ impl SubmitIndex {
 			config,
 			totals: StoreTotals::default(),
 			next_seq: 0,
+			admission_watermark,
 			cached_statement_count: 0,
 			allowance_cursor: None,
 			allowance_cycle_seen: 0,
@@ -1059,6 +1062,11 @@ impl SubmitIndex {
 			recent_seqs: HashMap::new(),
 			active_scan_floors: BTreeMap::new(),
 		}
+	}
+
+	fn set_next_seq(&mut self, next_seq: u64) {
+		self.next_seq = next_seq;
+		self.admission_watermark.store(next_seq, AtomicOrdering::Release);
 	}
 
 	/// The [`KEY_COUNTERS`] row reflecting the given post-commit totals. Folded into every
@@ -1359,7 +1367,7 @@ impl SubmitIndex {
 		let statement_len = statement.data_len();
 		self.totals = plan.totals;
 		self.evicted_count += plan.banned.len();
-		self.next_seq = plan.seq.saturating_add(1);
+		self.set_next_seq(plan.seq.saturating_add(1));
 		self.note_seq(hash, plan.seq);
 		for (key, _) in &plan.evicted {
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(&key.hash));
@@ -1529,15 +1537,16 @@ impl Store {
 				storage_reader.read_allowance(account_id, allowance_block)
 			});
 
+		let admission_watermark = Arc::new(AtomicU64::new(0));
 		let store = Store {
 			db,
-			submit_index: RwLock::new(SubmitIndex::new(config)),
+			submit_index: RwLock::new(SubmitIndex::new(config, admission_watermark.clone())),
 			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			retention_fn: std::sync::OnceLock::new(),
 			keystore,
 			known_accounts_count: AtomicUsize::new(0),
-			admission_watermark: AtomicU64::new(0),
+			admission_watermark,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -1649,7 +1658,7 @@ impl Store {
 				let (totals, next_seq) = <(StoreTotals, u64)>::decode(&mut counters.as_slice())
 					.map_err(|_| Error::Db("Error reading the store counters".into()))?;
 				submit_index.totals = totals;
-				submit_index.next_seq = next_seq;
+				submit_index.set_next_seq(next_seq);
 			}
 			// While `next_seq` already holds the correct admission sequence number, it costs close
 			// to nothing to check if the `next_seq` is consistent on the startup, and it can
@@ -1670,10 +1679,9 @@ impl Store {
 						submit_index.next_seq,
 						seq,
 					);
-					submit_index.next_seq = seq.saturating_add(1);
+					submit_index.set_next_seq(seq.saturating_add(1));
 				}
 			}
-			self.admission_watermark.store(submit_index.next_seq, AtomicOrdering::Release);
 
 			let mut evicted_count = 0usize;
 			self.db
@@ -3422,7 +3430,6 @@ impl StatementStore for Store {
 			}
 			let seq = plan.seq;
 			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, track, &plan);
-			self.admission_watermark.store(submit_index.next_seq, AtomicOrdering::Release);
 			if stale_banned_at.is_some() {
 				submit_index.evicted_count = submit_index.evicted_count.saturating_sub(1);
 			}
