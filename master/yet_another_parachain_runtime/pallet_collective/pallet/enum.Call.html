@@ -225,6 +225,12 @@ with other logic managing the member set.</p>
 <p>Requires the sender to be member.</p>
 <p><code>threshold</code> determines whether <code>proposal</code> is executed directly (<code>threshold &lt; 2</code>)
 or put up for voting.</p>
+<p>The proposal is identified by <a href="../struct.Pallet.html#method.proposal_hash" title="associated function yet_another_parachain_runtime::pallet_collective::Pallet::proposal_hash"><code>Pallet::proposal_hash</code></a>, which covers both the call
+and the <code>threshold</code>. The threshold is fixed at submission time and is therefore part
+of the proposal’s identity: the same call may be under consideration with different
+thresholds without colliding. With <code>threshold &lt; 2</code> the call still fails with
+<code>DuplicateProposal</code> while a motion with the same call and threshold is active; such a
+motion can be opened through <a href="../struct.Pallet.html#method.do_propose_proposed" title="associated function yet_another_parachain_runtime::pallet_collective::Pallet::do_propose_proposed"><code>Pallet::do_propose_proposed</code></a>, e.g. by pallet-alliance.</p>
 <h5 id="complexity-2"><a class="doc-anchor" href="#complexity-2">§</a>Complexity</h5>
 <ul>
 <li><code>O(B + M + P1)</code> or <code>O(B + M + P2)</code> where:

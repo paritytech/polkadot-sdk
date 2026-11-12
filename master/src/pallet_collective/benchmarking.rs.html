@@ -240,7 +240,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#90 id=90 data-nosnippet>90</a>					Box::new(proposal.clone()),
 <a href=#91 id=91 data-nosnippet>91</a>					MAX_BYTES,
 <a href=#92 id=92 data-nosnippet>92</a>				)<span class="question-mark">?</span>;
-<a href=#93 id=93 data-nosnippet>93</a>				<span class="kw">let </span>hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#93 id=93 data-nosnippet>93</a>				<span class="kw">let </span>hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#94 id=94 data-nosnippet>94</a>				<span class="comment">// Vote on the proposal to increase state relevant for `set_members`.
 <a href=#95 id=95 data-nosnippet>95</a>				// Not voting for last old member because they proposed and not voting for the first
 <a href=#96 id=96 data-nosnippet>96</a>				// member to keep the proposal from passing.
@@ -350,7 +350,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#200 id=200 data-nosnippet>200</a>			bytes_in_storage,
 <a href=#201 id=201 data-nosnippet>201</a>		);
 <a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>		<span class="kw">let </span>proposal_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#203 id=203 data-nosnippet>203</a>		<span class="kw">let </span>proposal_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#204 id=204 data-nosnippet>204</a>		<span class="comment">// Note that execution fails due to mis-matched origin
 <a href=#205 id=205 data-nosnippet>205</a>		</span>assert_last_event::&lt;T, I&gt;(Event::Executed { proposal_hash, result: <span class="prelude-val">Ok</span>(()) }.into());
 <a href=#206 id=206 data-nosnippet>206</a>		<span class="prelude-val">Ok</span>(())
@@ -411,7 +411,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#261 id=261 data-nosnippet>261</a>
 <a href=#262 id=262 data-nosnippet>262</a>		<span class="comment">// New proposal is recorded
 <a href=#263 id=263 data-nosnippet>263</a>		</span><span class="macro">assert_eq!</span>(Proposals::&lt;T, I&gt;::get().len(), p <span class="kw">as </span>usize);
-<a href=#264 id=264 data-nosnippet>264</a>		<span class="kw">let </span>proposal_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#264 id=264 data-nosnippet>264</a>		<span class="kw">let </span>proposal_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#265 id=265 data-nosnippet>265</a>		assert_last_event::&lt;T, I&gt;(
 <a href=#266 id=266 data-nosnippet>266</a>			Event::Proposed { account: caller, proposal_index: p - <span class="number">1</span>, proposal_hash, threshold }
 <a href=#267 id=267 data-nosnippet>267</a>				.into(),
@@ -459,7 +459,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#309 id=309 data-nosnippet>309</a>				Box::new(proposal.clone()),
 <a href=#310 id=310 data-nosnippet>310</a>				bytes_in_storage,
 <a href=#311 id=311 data-nosnippet>311</a>			)<span class="question-mark">?</span>;
-<a href=#312 id=312 data-nosnippet>312</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#312 id=312 data-nosnippet>312</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#313 id=313 data-nosnippet>313</a>		}
 <a href=#314 id=314 data-nosnippet>314</a>
 <a href=#315 id=315 data-nosnippet>315</a>		<span class="kw">let </span>index = p - <span class="number">1</span>;
@@ -545,7 +545,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#395 id=395 data-nosnippet>395</a>				Box::new(proposal.clone()),
 <a href=#396 id=396 data-nosnippet>396</a>				bytes_in_storage,
 <a href=#397 id=397 data-nosnippet>397</a>			)<span class="question-mark">?</span>;
-<a href=#398 id=398 data-nosnippet>398</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#398 id=398 data-nosnippet>398</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#399 id=399 data-nosnippet>399</a>		}
 <a href=#400 id=400 data-nosnippet>400</a>
 <a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">let </span>index = p - <span class="number">1</span>;
@@ -633,7 +633,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#483 id=483 data-nosnippet>483</a>				Box::new(proposal.clone()),
 <a href=#484 id=484 data-nosnippet>484</a>				bytes_in_storage,
 <a href=#485 id=485 data-nosnippet>485</a>			)<span class="question-mark">?</span>;
-<a href=#486 id=486 data-nosnippet>486</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#486 id=486 data-nosnippet>486</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#487 id=487 data-nosnippet>487</a>		}
 <a href=#488 id=488 data-nosnippet>488</a>
 <a href=#489 id=489 data-nosnippet>489</a>		<span class="comment">// Caller switches vote to nay on their own proposal, allowing them to be the deciding
@@ -728,7 +728,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#578 id=578 data-nosnippet>578</a>				Box::new(proposal.clone()),
 <a href=#579 id=579 data-nosnippet>579</a>				bytes_in_storage,
 <a href=#580 id=580 data-nosnippet>580</a>			)<span class="question-mark">?</span>;
-<a href=#581 id=581 data-nosnippet>581</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#581 id=581 data-nosnippet>581</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#582 id=582 data-nosnippet>582</a>		}
 <a href=#583 id=583 data-nosnippet>583</a>
 <a href=#584 id=584 data-nosnippet>584</a>		<span class="kw">let </span>index = p - <span class="number">1</span>;
@@ -816,7 +816,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#666 id=666 data-nosnippet>666</a>				Box::new(proposal.clone()),
 <a href=#667 id=667 data-nosnippet>667</a>				bytes_in_storage,
 <a href=#668 id=668 data-nosnippet>668</a>			)<span class="question-mark">?</span>;
-<a href=#669 id=669 data-nosnippet>669</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#669 id=669 data-nosnippet>669</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#670 id=670 data-nosnippet>670</a>		}
 <a href=#671 id=671 data-nosnippet>671</a>
 <a href=#672 id=672 data-nosnippet>672</a>		<span class="comment">// The prime member votes aye, so abstentions default to aye.
@@ -892,7 +892,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#742 id=742 data-nosnippet>742</a>				Box::new(proposal.clone()),
 <a href=#743 id=743 data-nosnippet>743</a>				bytes_in_storage,
 <a href=#744 id=744 data-nosnippet>744</a>			)<span class="question-mark">?</span>;
-<a href=#745 id=745 data-nosnippet>745</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#745 id=745 data-nosnippet>745</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#746 id=746 data-nosnippet>746</a>		}
 <a href=#747 id=747 data-nosnippet>747</a>
 <a href=#748 id=748 data-nosnippet>748</a>		System::&lt;T&gt;::set_block_number(BlockNumberFor::&lt;T&gt;::max_value());
@@ -951,7 +951,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#801 id=801 data-nosnippet>801</a>				Box::new(proposal.clone()),
 <a href=#802 id=802 data-nosnippet>802</a>				bytes_in_storage,
 <a href=#803 id=803 data-nosnippet>803</a>			)<span class="question-mark">?</span>;
-<a href=#804 id=804 data-nosnippet>804</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#804 id=804 data-nosnippet>804</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#805 id=805 data-nosnippet>805</a>		}
 <a href=#806 id=806 data-nosnippet>806</a>
 <a href=#807 id=807 data-nosnippet>807</a>		System::&lt;T&gt;::set_block_number(BlockNumberFor::&lt;T&gt;::max_value());
@@ -1015,7 +1015,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#865 id=865 data-nosnippet>865</a>				Box::new(proposal.clone()),
 <a href=#866 id=866 data-nosnippet>866</a>				bytes_in_storage,
 <a href=#867 id=867 data-nosnippet>867</a>			)<span class="question-mark">?</span>;
-<a href=#868 id=868 data-nosnippet>868</a>			last_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
+<a href=#868 id=868 data-nosnippet>868</a>			last_hash = Collective::&lt;T, I&gt;::proposal_hash(<span class="kw-2">&amp;</span>proposal, threshold);
 <a href=#869 id=869 data-nosnippet>869</a>		}
 <a href=#870 id=870 data-nosnippet>870</a>
 <a href=#871 id=871 data-nosnippet>871</a>		System::&lt;T&gt;::set_block_number(BlockNumberFor::&lt;T&gt;::max_value());
