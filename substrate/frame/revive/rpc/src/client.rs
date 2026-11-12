@@ -832,14 +832,21 @@ impl Client {
 						.await;
 					self.advance_sync_head(block_number, hash).await;
 
+					// The block is indexed by now. A failed read here only costs the subscribers
+					// this block's logs; returning the error would hand an indexed block to the
+					// gap filler.
 					if self.log_subscription_tx.receiver_count() > 0 {
 						let logs = match receipt_infos {
 							Some(infos) => infos.into_iter().flat_map(|r| r.logs).collect(),
-							None => {
-								self.receipt_provider
-									.logs_by_block_number(block_number, eth_hash)
-									.await?
-							},
+							None => self
+								.receipt_provider
+								.logs_by_block_number(block_number, eth_hash)
+								.await
+								.unwrap_or_else(|err| {
+									log::error!(target: LOG_TARGET,
+										"Failed to read the logs of finalized block #{block_number} for log subscribers: {err:?}");
+									Vec::new()
+								}),
 						};
 						for log in logs {
 							let _ = self.log_subscription_tx.send(log);
