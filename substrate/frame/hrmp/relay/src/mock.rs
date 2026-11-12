@@ -81,7 +81,7 @@ impl OnDepositSet for RecordingOnDepositSet {
 			DepositAction::InitOpenChannel { .. } => Weight::from_parts(1, 10),
 			DepositAction::InitAndAcceptOpenChannel { .. } => Weight::from_parts(2, 40),
 			DepositAction::AcceptOpenChannel { .. } => Weight::from_parts(3, 20),
-			DepositAction::PokeChannelDeposits { .. } => Weight::from_parts(4, 30),
+			DepositAction::PokeChannelDeposits => Weight::from_parts(4, 30),
 			DepositAction::Release => Weight::from_parts(100, 100),
 		}
 	}
@@ -96,8 +96,6 @@ impl pallet_hrmp_relay::Config for Test {
 	type HolderParaId = HolderParaId;
 	type SendToPara = RecordingTransport;
 	type MaxFailedReleases = ConstU32<4>;
-	type MaxRequestsPerWindow = ConstU32<4>;
-	type RequestWindow = frame_support::traits::ConstU64<600>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

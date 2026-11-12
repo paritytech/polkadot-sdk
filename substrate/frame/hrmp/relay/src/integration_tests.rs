@@ -20,9 +20,7 @@
 //! Messages between the two deposit pallets are queued and delivered on demand, as XCM would
 //! deliver them: in a later block than the one that sent them.
 
-use crate::{
-	self as pallet_hrmp_relay, FailedReleases, PendingRequests, RequestWindows, SendToPara,
-};
+use crate::{self as pallet_hrmp_relay, FailedReleases, PendingRequests, SendToPara};
 use core::cell::{Cell, RefCell};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
@@ -158,6 +156,8 @@ impl hrmp::Config for Test {
 	type DepositProvider = HrmpRelay;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = ();
+	type MaxRequestsPerWindow = ConstU32<4>;
+	type RequestWindow = frame_support::traits::ConstU64<600>;
 	type WeightInfo = hrmp::TestWeightInfo;
 }
 
@@ -195,8 +195,6 @@ impl pallet_hrmp_relay::Config for Test {
 	type HolderParaId = HolderParaId;
 	type SendToPara = Queue;
 	type MaxFailedReleases = ConstU32<4>;
-	type MaxRequestsPerWindow = ConstU32<4>;
-	type RequestWindow = frame_support::traits::ConstU64<600>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -669,25 +667,20 @@ fn release_retried_after_transport_failure() {
 }
 
 /// A para that cannot pay has each request refused by the para holding the deposits, which
-/// frees its side for another try. Its requests are counted all the same, and refused here once
-/// it made too many in its window.
+/// frees its side for another try. Its requests are counted all the same, and refused on the
+/// relay chain once it made too many in its window.
 #[test]
 fn requests_of_a_para_are_bounded() {
 	new_test_ext(|| {
-		let max = <Test as crate::Config>::MaxRequestsPerWindow::get();
+		let max: u32 = <Test as hrmp::Config>::MaxRequestsPerWindow::get();
 		for _ in 0..max {
 			assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8));
 			deliver();
 		}
 		assert_noop!(
 			Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8),
-			crate::Error::<Test>::TooManyRequests
+			hrmp::Error::<Test>::TooManyRequests
 		);
-		assert_eq!(queued_to_para(), 0);
-
-		// A channel with a system para needs no deposit: nothing is asked of the para holding
-		// the deposits, so nothing is counted nor refused.
-		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), SYSTEM_1, 2, 8));
 		assert_eq!(queued_to_para(), 0);
 
 		// Another para is not held back.
@@ -696,40 +689,37 @@ fn requests_of_a_para_are_bounded() {
 		assert_eq!(on_hold(A), SENDER_DEPOSIT);
 
 		// Once its window is over, the para may make requests again.
-		let window: u64 = <Test as crate::Config>::RequestWindow::get();
+		let window: u64 = <Test as hrmp::Config>::RequestWindow::get();
 		System::set_block_number(1 + window);
 		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8));
 		deliver();
 	});
 }
 
-/// A poke is counted for the side of the channel that makes it, and for neither side when
-/// someone else makes it.
+/// A channel with a system para needs no deposit, so nothing is asked of the para holding the
+/// deposits. Each request for one notifies the system para though, and is counted all the same.
 #[test]
-fn poke_is_counted_for_the_side_that_pokes() {
+fn requests_to_a_system_para_are_bounded() {
 	new_test_ext(|| {
-		let counted = |para: ParaId| RequestWindows::<Test>::get(para).map_or(0, |(_, used)| used);
-		let set_prices = |sender, recipient| {
-			configuration::ActiveConfig::<Test>::mutate(|c| {
-				c.hrmp_sender_deposit = sender;
-				c.hrmp_recipient_deposit = recipient;
-			});
-		};
+		let max: u32 = <Test as hrmp::Config>::MaxRequestsPerWindow::get();
+		let notified = || Dmp::dmq_contents_do_not_call_in_consensus(SYSTEM_1).len() as u32;
+		let before = notified();
 
-		// The sender asked for the channel and the recipient accepted it.
-		open_channel(A, B);
-		assert_eq!((counted(A), counted(B)), (1, 1));
+		// A request and its cancellation are counted each.
+		for _ in 0..max / 2 {
+			assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), SYSTEM_1, 2, 8));
+			assert_ok!(Hrmp::hrmp_cancel_open_request(
+				para_origin(POOR),
+				channel(POOR, SYSTEM_1),
+				1
+			));
+		}
+		assert_eq!(notified() - before, max / 2);
+		assert_eq!(queued_to_para(), 0);
 
-		set_prices(150, 50);
-		assert_ok!(Hrmp::poke_channel_deposits(para_origin(B), A, B));
-		deliver();
-		assert_eq!((counted(A), counted(B)), (1, 2));
-		assert_eq!((on_hold(A), on_hold(B)), (150, 50));
-
-		set_prices(120, 80);
-		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), A, B));
-		deliver();
-		assert_eq!((counted(A), counted(B)), (1, 2));
-		assert_eq!((on_hold(A), on_hold(B)), (120, 80));
+		assert_noop!(
+			Hrmp::hrmp_init_open_channel(para_origin(POOR), SYSTEM_1, 2, 8),
+			hrmp::Error::<Test>::TooManyRequests
+		);
 	});
 }

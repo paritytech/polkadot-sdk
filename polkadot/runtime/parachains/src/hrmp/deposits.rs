@@ -138,9 +138,8 @@ pub enum DepositAction {
 	/// canceled and made anew before the recipient's deposit is taken, so the limits it was
 	/// accepted with travel here: only a request with the same ones is confirmed.
 	AcceptOpenChannel { max_capacity: u32, max_message_size: u32 },
-	/// Record the deposits of [`Pallet::poke_channel_deposits`]. `by` is the side of the channel
-	/// that asked for it, or `None` if neither did.
-	PokeChannelDeposits { by: Option<ParaId> },
+	/// Record the deposits of [`Pallet::poke_channel_deposits`].
+	PokeChannelDeposits,
 	/// Deposits given back after their request or channel is already removed. Nothing to resume.
 	Release,
 }
@@ -216,7 +215,7 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 			DepositAction::AcceptOpenChannel { .. } => {
 				<T as Config>::WeightInfo::hrmp_accept_open_channel()
 			},
-			DepositAction::PokeChannelDeposits { .. } => {
+			DepositAction::PokeChannelDeposits => {
 				<T as Config>::WeightInfo::poke_channel_deposits()
 			},
 			DepositAction::Release => Weight::zero(),
@@ -389,7 +388,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// On failure, this pallet storage has no or 0-deposits, given it can only happen after
 			// deposit price changed. The caller gives back the taken deposits.
-			DepositAction::PokeChannelDeposits { .. } => {
+			DepositAction::PokeChannelDeposits => {
 				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient)
 			},
 			// Never pending, nothing to resume.

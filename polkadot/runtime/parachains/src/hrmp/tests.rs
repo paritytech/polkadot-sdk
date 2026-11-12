@@ -22,8 +22,8 @@ use super::*;
 use crate::{
 	mock::{
 		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
-		Dmp, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
-		System, Test, TestUsesOnlyStoredVersionWrapper,
+		Dmp, Hrmp, MaxRequestsPerWindow, MockGenesisConfig, Paras, ParasShared, RequestWindow,
+		RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestUsesOnlyStoredVersionWrapper,
 	},
 	shared,
 };
@@ -1373,5 +1373,307 @@ fn hrmp_notifications_works() {
 			}]))
 			.encode(),
 		);
+	});
+}
+
+/// The origin of the parachain `para`.
+fn para_origin(para: u32) -> RuntimeOrigin {
+	crate::Origin::from(para).into()
+}
+
+/// The channel from `sender` to `recipient`.
+fn channel(sender: u32, recipient: u32) -> HrmpChannelId {
+	HrmpChannelId { sender: sender.into(), recipient: recipient.into() }
+}
+
+/// The window of `para`: the block it started at and the requests counted in it.
+fn window(para: u32) -> Option<(BlockNumber, u32)> {
+	RequestWindows::<Test>::get(ParaId::from(para))
+}
+
+/// How many requests are counted in the window of `para`.
+fn counted(para: u32) -> u32 {
+	window(para).map_or(0, |(_, used)| used)
+}
+
+/// A genesis with room for many channels per para, and channels free of deposits.
+fn free_channels_genesis() -> MockGenesisConfig {
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_max_paras_outbound_channels = 10;
+	genesis.hrmp_max_paras_inbound_channels = 10;
+	genesis.hrmp_sender_deposit = 0;
+	genesis.hrmp_recipient_deposit = 0;
+	genesis.build()
+}
+
+/// Every call a non-system para makes with its own origin is counted for it, and for it only.
+#[test]
+fn every_request_of_a_para_is_counted() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		for para in [2001, 2002, 1000] {
+			register_parachain(para.into());
+		}
+		run_to_block(5, Some(vec![4, 5]));
+
+		// Opening, cancelling and accepting a channel.
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2001), 2002.into(), 2, 8));
+		assert_eq!((counted(2001), counted(2002)), (1, 0));
+		assert_ok!(Hrmp::hrmp_cancel_open_request(para_origin(2002), channel(2001, 2002), 1));
+		assert_eq!((counted(2001), counted(2002)), (1, 1));
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2001), 2002.into(), 2, 8));
+		assert_ok!(Hrmp::hrmp_accept_open_channel(para_origin(2002), 2001.into()));
+		assert_eq!((counted(2001), counted(2002)), (2, 2));
+
+		// Poking and closing it once it is open.
+		run_to_block(8, Some(vec![8]));
+		assert_ok!(Hrmp::poke_channel_deposits(para_origin(2001), 2001.into(), 2002.into()));
+		assert_eq!((counted(2001), counted(2002)), (3, 2));
+		assert_ok!(Hrmp::hrmp_close_channel(para_origin(2002), channel(2001, 2002)));
+		assert_eq!((counted(2001), counted(2002)), (3, 3));
+
+		// Both channels with a system para are one request.
+		assert_ok!(Hrmp::establish_channel_with_system(para_origin(2001), 1000.into()));
+		assert_eq!((counted(2001), counted(1000)), (4, 0));
+
+		// All in the window that started at the first request.
+		assert_eq!(window(2001), Some((5, 4)));
+	});
+}
+
+/// A para that made all the requests of its window is refused any other, with no trace left.
+/// Nobody else is held back.
+#[test]
+fn too_many_requests_are_refused() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		MaxRequestsPerWindow::set(4);
+		for para in [2001, 2002, 2003, 1000] {
+			register_parachain(para.into());
+		}
+		run_to_block(5, Some(vec![4, 5]));
+		insert_channel_without_deposits(&channel(2001, 2002));
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2003), 2001.into(), 2, 8));
+
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2001), 2003.into(), 2, 8));
+		for _ in 0..3 {
+			assert_ok!(Hrmp::poke_channel_deposits(para_origin(2001), 2001.into(), 2002.into()));
+		}
+		assert_eq!(counted(2001), 4);
+
+		assert_noop!(
+			Hrmp::hrmp_init_open_channel(para_origin(2001), 1000.into(), 2, 8),
+			Error::<Test>::TooManyRequests
+		);
+		assert_noop!(
+			Hrmp::hrmp_accept_open_channel(para_origin(2001), 2003.into()),
+			Error::<Test>::TooManyRequests
+		);
+		assert_noop!(
+			Hrmp::hrmp_cancel_open_request(para_origin(2001), channel(2001, 2003), 2),
+			Error::<Test>::TooManyRequests
+		);
+		assert_noop!(
+			Hrmp::hrmp_close_channel(para_origin(2001), channel(2001, 2002)),
+			Error::<Test>::TooManyRequests
+		);
+		assert_noop!(
+			Hrmp::poke_channel_deposits(para_origin(2001), 2001.into(), 2002.into()),
+			Error::<Test>::TooManyRequests
+		);
+		assert_noop!(
+			Hrmp::establish_channel_with_system(para_origin(2001), 1000.into()),
+			Error::<Test>::TooManyRequests
+		);
+
+		// The other side of each of its channels and requests is not held back.
+		assert_ok!(Hrmp::poke_channel_deposits(para_origin(2002), 2001.into(), 2002.into()));
+		assert_ok!(Hrmp::hrmp_close_channel(para_origin(2002), channel(2001, 2002)));
+		assert_ok!(Hrmp::hrmp_accept_open_channel(para_origin(2003), 2001.into()));
+		assert_ok!(Hrmp::hrmp_cancel_open_request(para_origin(2003), channel(2003, 2001), 2));
+		assert_eq!(counted(2001), 4);
+	});
+}
+
+/// A system para is not counted: it may make any number of requests.
+#[test]
+fn system_paras_are_not_counted() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		MaxRequestsPerWindow::set(1);
+		for para in [1000, 1999, 2000, 2001] {
+			register_parachain(para.into());
+		}
+		run_to_block(5, Some(vec![4, 5]));
+
+		for system in [1000, 1999] {
+			for _ in 0..3 {
+				assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(system), 2001.into(), 2, 8));
+				assert_ok!(Hrmp::hrmp_cancel_open_request(
+					para_origin(system),
+					channel(system, 2001),
+					1
+				));
+			}
+		}
+		assert_eq!(RequestWindows::<Test>::iter().count(), 0);
+
+		// The first para that is not a system one.
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2000), 2001.into(), 2, 8));
+		assert_eq!(counted(2000), 1);
+		assert_noop!(
+			Hrmp::hrmp_cancel_open_request(para_origin(2000), channel(2000, 2001), 1),
+			Error::<Test>::TooManyRequests
+		);
+	});
+}
+
+/// What a signed origin or the `ChannelManager` does to the channels of a para is not counted
+/// for it.
+#[test]
+fn other_origins_are_not_counted() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		MaxRequestsPerWindow::set(1);
+		for para in [2001, 2002] {
+			register_parachain(para.into());
+		}
+		run_to_block(5, Some(vec![4, 5]));
+		insert_channel_without_deposits(&channel(2001, 2002));
+
+		for _ in 0..2 {
+			let (sender, recipient) = (2001.into(), 2002.into());
+			assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), sender, recipient));
+			assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::root(), sender, recipient));
+		}
+		assert_ok!(Hrmp::force_open_hrmp_channel(
+			RuntimeOrigin::root(),
+			2002.into(),
+			2001.into(),
+			2,
+			8
+		));
+		assert_eq!(RequestWindows::<Test>::iter().count(), 0);
+	});
+}
+
+/// A request that fails is not counted.
+#[test]
+fn failed_request_is_not_counted() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		register_parachain(2001.into());
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_noop!(
+			Hrmp::hrmp_init_open_channel(para_origin(2001), 2001.into(), 2, 8),
+			Error::<Test>::OpenHrmpChannelToSelf
+		);
+		assert_noop!(
+			Hrmp::hrmp_accept_open_channel(para_origin(2001), 2002.into()),
+			Error::<Test>::AcceptHrmpChannelDoesntExist
+		);
+		assert_eq!(window(2001), None);
+	});
+}
+
+/// A window lasts `RequestWindow` blocks from the first request counted in it. The next one
+/// starts at the next request, not right when the previous one ends.
+#[test]
+fn window_restarts_at_the_next_request() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		MaxRequestsPerWindow::set(4);
+		let len = RequestWindow::get();
+		insert_channel_without_deposits(&channel(2001, 2002));
+		let request = || Hrmp::poke_channel_deposits(para_origin(2001), 2001.into(), 2002.into());
+
+		System::set_block_number(1);
+		for _ in 0..4 {
+			assert_ok!(request());
+		}
+		assert_eq!(window(2001), Some((1, 4)));
+
+		// The window started at block 1: its last block is `len`.
+		System::set_block_number(len);
+		assert_noop!(request(), Error::<Test>::TooManyRequests);
+		System::set_block_number(1 + len);
+		assert_ok!(request());
+		assert_eq!(window(2001), Some((1 + len, 1)));
+
+		// Long after that window is over, the next request starts a whole new one.
+		System::set_block_number(10 * len);
+		for _ in 0..4 {
+			assert_ok!(request());
+		}
+		assert_eq!(window(2001), Some((10 * len, 4)));
+		System::set_block_number(11 * len - 1);
+		assert_noop!(request(), Error::<Test>::TooManyRequests);
+		System::set_block_number(11 * len);
+		assert_ok!(request());
+		assert_eq!(window(2001), Some((11 * len, 1)));
+	});
+}
+
+/// `on_idle` looks at one window per block and removes it if it is over. Past the last one, it
+/// starts over from the first.
+#[test]
+fn on_idle_removes_the_windows_that_are_over() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let len = RequestWindow::get();
+		let idle = || Hrmp::on_idle(1, Weight::MAX);
+		let windows = || RequestWindows::<Test>::iter().count();
+		let start = |para: u32, at| RequestWindows::<Test>::insert(ParaId::from(para), (at, 1));
+
+		// Nothing to look at.
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+
+		for para in 2001..2004 {
+			start(para, 1);
+		}
+		// The window of 2004 starts later than the others.
+		start(2004, 2);
+
+		// No window is over yet: a whole round removes nothing, then starts over.
+		System::set_block_number(len);
+		for _ in 0..4 {
+			idle();
+			assert!(PruneCursor::<Test>::get().is_some());
+		}
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+		assert_eq!(windows(), 4);
+
+		// All are over but the one of 2004: one is removed per block.
+		System::set_block_number(1 + len);
+		for looked_at in 1..=4 {
+			idle();
+			let over = (2001..2004).filter(|para| window(*para).is_none()).count();
+			assert!(over == looked_at || over == looked_at - 1);
+		}
+		assert_eq!(windows(), 1);
+		assert_eq!(window(2004), Some((2, 1)));
+
+		// The round ends, and the next one removes the last window once it is over.
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+		System::set_block_number(2 + len);
+		idle();
+		assert_eq!(windows(), 0);
+		assert_eq!(PruneCursor::<Test>::get(), Some(ParaId::from(2004)));
+		idle();
+		assert_eq!(PruneCursor::<Test>::get(), None);
+	});
+}
+
+/// `on_idle` does nothing without the weight to look at a window.
+#[test]
+fn on_idle_respects_remaining_weight() {
+	new_test_ext(Default::default()).execute_with(|| {
+		RequestWindows::<Test>::insert(ParaId::from(2001), (0, 1));
+		System::set_block_number(RequestWindow::get());
+
+		let weight = <Test as Config>::WeightInfo::prune_request_window();
+		let short = weight.saturating_sub(Weight::from_parts(1, 0));
+		assert_eq!(Hrmp::on_idle(1, short), Weight::zero());
+		assert_eq!(window(2001), Some((0, 1)));
+
+		assert_eq!(Hrmp::on_idle(1, weight), weight);
+		assert_eq!(window(2001), None);
 	});
 }

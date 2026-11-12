@@ -14,6 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! HRMP: the channels between parachains.
+//!
+//! # Free requests
+//!
+//! A parachain manages its channels by sending calls of this pallet through UMP. A runtime may
+//! want to execute them without requiring payments.
+//!
+//! To do so it may allow one transact per XCM, and limit the total XCM weight with
+//! [`Pallet::max_para_request_weight`]. The number of UMP messages of a parachain is already
+//! limited, so this cannot spam the relay chain blocks.
+//!
+//! But a successful request sends XCM too: a DMP notification to the other parachain, and
+//! a request to the parachain holding the deposits, which answers through UMP. To avoid spamming
+//! these queues, a non-system parachain is limited to [`Config::MaxRequestsPerWindow`] successful
+//! requests per [`Config::RequestWindow`].
+
 use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
@@ -35,7 +51,9 @@ use polkadot_primitives::{
 	SessionIndex,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto};
+use sp_runtime::traits::{
+	AccountIdConversion, BlakeTwo256, Hash as HashT, Saturating, UniqueSaturatedInto,
+};
 
 pub use pallet::*;
 
@@ -79,6 +97,8 @@ pub trait WeightInfo {
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
 	fn establish_channel_with_system() -> Weight;
+	fn count_request() -> Weight;
+	fn prune_request_window() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -119,6 +139,12 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn establish_channel_with_system() -> Weight {
+		Weight::MAX
+	}
+	fn count_request() -> Weight {
+		Weight::MAX
+	}
+	fn prune_request_window() -> Weight {
 		Weight::MAX
 	}
 }
@@ -304,6 +330,25 @@ pub mod pallet {
 		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
 
+		/// How many requests a non-system parachain may make in one [`Config::RequestWindow`].
+		///
+		/// A request is a call that the parachain makes for itself with its own origin, and
+		/// that succeeds. Requests often involves sending XCM, which is a limited resource, so
+		/// it is limited for non-system parachains.
+		///
+		/// We implement a throttling mechanism instead of payment to support relay chains that
+		/// don't have payments.
+		#[pallet::constant]
+		type MaxRequestsPerWindow: Get<u32>;
+
+		/// The length, in blocks, of the window over which a non-system parachain's requests are
+		/// counted.
+		///
+		/// A parachain's first window starts at its first request. Once a window is over, the
+		/// next one starts at the parachain's next request.
+		#[pallet::constant]
+		type RequestWindow: Get<BlockNumberFor<Self>>;
+
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -400,6 +445,8 @@ pub mod pallet {
 		ChannelDepositsChanged,
 		/// The origin may not poke the deposits of this channel.
 		PokeHrmpChannelUnauthorized,
+		/// The parachain made all the requests it may make in its current window.
+		TooManyRequests,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -504,6 +551,31 @@ pub mod pallet {
 	pub type HrmpChannelDigests<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<(BlockNumberFor<T>, Vec<ParaId>)>, ValueQuery>;
 
+	/// For each non-system parachain, the block at which its current request window started and
+	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
+	///
+	/// A window that is over is removed in `on_idle`, see [`PruneCursor`].
+	#[pallet::storage]
+	pub type RequestWindows<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
+
+	/// The parachain whose entry of [`RequestWindows`] `on_idle` looked at last: it looks at the
+	/// one after it next, in the order the map iterates. `None` to look at the first one.
+	#[pallet::storage]
+	pub type PruneCursor<T: Config> = StorageValue<_, ParaId, OptionQuery>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_: BlockNumberFor<T>, remaining: Weight) -> Weight {
+			let weight = <T as Config>::WeightInfo::prune_request_window();
+			if !remaining.all_gte(weight) {
+				return Weight::zero();
+			}
+			Self::prune_request_window();
+			weight
+		}
+	}
+
 	/// Preopen the given HRMP channels.
 	///
 	/// The values in the tuple corresponds to
@@ -551,6 +623,9 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_init_open_channel()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+				// The benchmark uses a system parachain to avoid double counting the set deposit
+				// operation, which bypasses `count_request` as well.
+				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_init_open_channel(
 			origin: OriginFor<T>,
@@ -559,6 +634,7 @@ pub mod pallet {
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			Self::count_request(origin)?;
 			// `OpenChannelRequested` is emitted once the deposit is set and the request recorded.
 			Self::init_open_channel(
 				origin,
@@ -578,9 +654,13 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_accept_open_channel()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+				// The benchmark uses a system parachain to avoid double counting the set deposit
+				// operation, which bypasses `count_request` as well.
+				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			Self::count_request(origin)?;
 			// `OpenChannelAccepted` is emitted once the deposit is set and the request confirmed.
 			Self::accept_open_channel(origin, sender)
 		}
@@ -596,6 +676,7 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			Self::count_request(origin)?;
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
@@ -692,6 +773,9 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_cancel_open_request(*open_requests)
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+				// The benchmark uses a system parachain to avoid double counting the set deposit
+				// operation, which bypasses `count_request` as well.
+				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_cancel_open_request(
 			origin: OriginFor<T>,
@@ -699,6 +783,7 @@ pub mod pallet {
 			open_requests: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			Self::count_request(origin)?;
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -820,6 +905,9 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::poke_channel_deposits()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+				// The benchmark uses a signed origin to avoid double counting the set deposit
+				// operation, which bypasses `count_request` as well.
+				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn poke_channel_deposits(
 			origin: OriginFor<T>,
@@ -832,6 +920,7 @@ pub mod pallet {
 					caller == sender || caller == recipient,
 					Error::<T>::PokeHrmpChannelUnauthorized,
 				);
+				Self::count_request(caller)?;
 			}
 
 			let channel_id = HrmpChannelId { sender, recipient };
@@ -859,7 +948,7 @@ pub mod pallet {
 					current: channel.recipient_deposit,
 					target: recipient_deposit,
 				}),
-				action: DepositAction::PokeChannelDeposits { by: caller },
+				action: DepositAction::PokeChannelDeposits,
 			})
 		}
 
@@ -877,6 +966,7 @@ pub mod pallet {
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			Self::count_request(sender)?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 
@@ -943,6 +1033,47 @@ impl<T: Config> Pallet<T> {
 		}
 		let para = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 		Ok(Some(para))
+	}
+
+	/// Counts one more request in the window of `para`, unless it is a system parachain. A new
+	/// window starts now if `para` has none or its last one is over.
+	///
+	/// Fails with [`Error::TooManyRequests`], writing nothing, if `para` already made
+	/// [`Config::MaxRequestsPerWindow`] requests in its window.
+	fn count_request(para: ParaId) -> Result<(), Error<T>> {
+		if para.is_system() {
+			return Ok(());
+		}
+		let (start, used) = match RequestWindows::<T>::get(para) {
+			Some((start, used)) if !Self::is_window_over(start) => (start, used),
+			_ => (frame_system::Pallet::<T>::block_number(), 0),
+		};
+		ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
+		RequestWindows::<T>::insert(para, (start, used.saturating_add(1)));
+		Ok(())
+	}
+
+	/// Whether a window that started at `start` is over.
+	fn is_window_over(start: BlockNumberFor<T>) -> bool {
+		let now = frame_system::Pallet::<T>::block_number();
+		now.saturating_sub(start) >= T::RequestWindow::get()
+	}
+
+	/// Looks at one entry of [`RequestWindows`], the one after [`PruneCursor`], and removes it if
+	/// its window is over. Starts over from the first entry once past the last.
+	fn prune_request_window() {
+		let mut windows = match PruneCursor::<T>::get() {
+			Some(para) => RequestWindows::<T>::iter_from_key(para),
+			None => RequestWindows::<T>::iter(),
+		};
+		let Some((para, (start, _))) = windows.next() else {
+			PruneCursor::<T>::kill();
+			return;
+		};
+		if Self::is_window_over(start) {
+			RequestWindows::<T>::remove(para);
+		}
+		PruneCursor::<T>::put(para);
 	}
 
 	/// The weight of the heaviest call a parachain makes for itself, with its own origin: opening,

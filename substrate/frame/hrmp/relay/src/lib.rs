@@ -24,11 +24,6 @@
 //! hrmp-primitives and get results back through [`Call::receive`].
 //!
 //! [`Call::force_answer`] is called by governance to fix potential inconsistent state.
-//!
-//! The requests are sent without payment, to avoid payment on the relay chain, but it must be
-//! limited to avoid filling up the DMP/UMP capacities. So a parachain may only make
-//! [`Config::MaxRequestsPerWindow`] of them per [`Config::RequestWindow`], unless it is a system
-//! parachain. A window that is over is removed in `on_idle`, which looks at one per block.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -38,12 +33,10 @@ use frame_support::{
 	pallet_prelude::*,
 	weights::{Weight, WeightMeter},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use hrmp_primitives::{
 	ChannelId, DepositError as WireDepositError, DepositSide, MessageToPara, MessageToParaV1,
 	MessageToRelay, MessageToRelayV1,
 };
-use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{HrmpChannelId, Id as ParaId};
 use polkadot_runtime_parachains::{
 	ensure_parachain,
@@ -53,7 +46,6 @@ use polkadot_runtime_parachains::{
 	},
 	Origin as ParachainOrigin,
 };
-use sp_runtime::traits::Saturating;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -146,21 +138,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxFailedReleases: Get<u32>;
 
-		/// How many requests a non-system parachain may make in one [`Config::RequestWindow`].
-		///
-		/// Releases are not counted: they are never refused. Neither are the requests of a
-		/// system parachain.
-		#[pallet::constant]
-		type MaxRequestsPerWindow: Get<u32>;
-
-		/// The length, in blocks, of the window over which a non-system parachain's requests are
-		/// counted.
-		///
-		/// A parachain's first window starts at its first request. Once a window is over, the
-		/// next one starts at the parachain's next request.
-		#[pallet::constant]
-		type RequestWindow: Get<BlockNumberFor<Self>>;
-
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -185,19 +162,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingSides<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
-
-	/// For each non-system parachain, the block at which its current request window started and
-	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
-	///
-	/// A window that is over is removed in `on_idle`, see [`PruneCursor`].
-	#[pallet::storage]
-	pub type RequestWindows<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
-
-	/// The parachain whose entry of [`RequestWindows`] `on_idle` looked at last: it looks at the
-	/// one after it next, in the order the map iterates. `None` to look at the first one.
-	#[pallet::storage]
-	pub type PruneCursor<T: Config> = StorageValue<_, ParaId, OptionQuery>;
 
 	/// Releases that could not be sent yet, oldest first.
 	///
@@ -238,23 +202,12 @@ pub mod pallet {
 		TransportBusy,
 		/// The request could not be handed to the transport.
 		SendFailed,
-		/// The parachain made all the requests it may make in its current window.
-		TooManyRequests,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
 			Self::retry_failed_releases(meter);
-		}
-
-		fn on_idle(_: BlockNumberFor<T>, remaining: Weight) -> Weight {
-			let weight = T::WeightInfo::prune_request_window();
-			if !remaining.all_gte(weight) {
-				return Weight::zero();
-			}
-			Self::prune_request_window();
-			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -309,58 +262,6 @@ impl<T: Config> Pallet<T> {
 		ChannelId { sender: channel_id.sender.into(), recipient: channel_id.recipient.into() }
 	}
 
-	/// The window of `para` once one more request is counted in it. A new window starts now if
-	/// `para` has none or its last one is over.
-	///
-	/// Writes nothing. Fails with [`Error::TooManyRequests`] if `para` already made
-	/// [`Config::MaxRequestsPerWindow`] requests in its window.
-	fn count_request(para: ParaId) -> Result<(BlockNumberFor<T>, u32), Error<T>> {
-		let (start, used) = match RequestWindows::<T>::get(para) {
-			Some((start, used)) if !Self::is_window_over(start) => (start, used),
-			_ => (frame_system::Pallet::<T>::block_number(), 0),
-		};
-		ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
-		Ok((start, used.saturating_add(1)))
-	}
-
-	/// Whether a window that started at `start` is over.
-	fn is_window_over(start: BlockNumberFor<T>) -> bool {
-		let now = frame_system::Pallet::<T>::block_number();
-		now.saturating_sub(start) >= T::RequestWindow::get()
-	}
-
-	/// Looks at one entry of [`RequestWindows`], the one after [`PruneCursor`], and removes it if
-	/// its window is over. Starts over from the first entry once past the last.
-	pub(crate) fn prune_request_window() {
-		let mut windows = match PruneCursor::<T>::get() {
-			Some(para) => RequestWindows::<T>::iter_from_key(para),
-			None => RequestWindows::<T>::iter(),
-		};
-		let Some((para, (start, _))) = windows.next() else {
-			PruneCursor::<T>::kill();
-			return;
-		};
-		if Self::is_window_over(start) {
-			RequestWindows::<T>::remove(para);
-		}
-		PruneCursor::<T>::put(para);
-	}
-
-	/// The parachain `request` is counted for, see [`Config::MaxRequestsPerWindow`]: the side of
-	/// the channel that makes it, if it comes from one of them and is not a system parachain.
-	fn counted_for(request: &DepositChangeRequest) -> Option<ParaId> {
-		let side = match request.action {
-			DepositAction::InitOpenChannel { .. } => Some(request.channel_id.sender),
-			DepositAction::AcceptOpenChannel { .. } => Some(request.channel_id.recipient),
-			DepositAction::PokeChannelDeposits { by } => by,
-			// Opened by governance, not by a side.
-			DepositAction::InitAndAcceptOpenChannel { .. } => None,
-			// Never refused, so never counted.
-			DepositAction::Release => None,
-		};
-		side.filter(|para| !para.is_system())
-	}
-
 	/// The sides `request` changes.
 	fn sides(request: &DepositChangeRequest) -> impl Iterator<Item = DepositSide> {
 		[
@@ -385,7 +286,7 @@ impl<T: Config> Pallet<T> {
 				max_total_size: 1,
 			},
 			DepositAction::AcceptOpenChannel { max_capacity: 1, max_message_size: 1 },
-			DepositAction::PokeChannelDeposits { by: None },
+			DepositAction::PokeChannelDeposits,
 		]
 		.iter()
 		.map(T::OnDepositSet::weight_of_on_deposit_set)
@@ -509,11 +410,6 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 		);
 		// A request must not overtake a release made before it.
 		ensure!(Self::failed_releases_is_empty(), Error::<T>::TransportBusy);
-		// Recorded once the request is sent.
-		let window = match Self::counted_for(&request) {
-			Some(para) => Some((para, Self::count_request(para)?)),
-			None => None,
-		};
 
 		let id = NextRequestId::<T>::get();
 		let message = MessageToPara::V1(MessageToParaV1::SetDeposits {
@@ -525,9 +421,6 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 		T::SendToPara::send(message).map_err(|()| Error::<T>::SendFailed)?;
 
 		NextRequestId::<T>::put(id.wrapping_add(1));
-		if let Some((para, window)) = window {
-			RequestWindows::<T>::insert(para, window);
-		}
 		for side in Self::sides(&request) {
 			PendingSides::<T>::insert((channel, side), id);
 		}

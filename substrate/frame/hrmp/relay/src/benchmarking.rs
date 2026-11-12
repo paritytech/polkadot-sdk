@@ -22,18 +22,18 @@ use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use polkadot_runtime_parachains::hrmp::deposits::DepositChange;
 
-/// The sender of [`both_sides_request`]. Not a system parachain, so that its requests are
-/// counted.
-const SENDER: u32 = 2_000;
-
-/// A request that changes both sides of a channel and is counted for its sender: a poke by it.
+/// A request that changes both sides of a channel.
 fn both_sides_request() -> DepositChangeRequest {
 	let change = DepositChange { current: 0, target: 1_000 };
 	DepositChangeRequest {
-		channel_id: HrmpChannelId { sender: SENDER.into(), recipient: 2_001.into() },
+		channel_id: HrmpChannelId { sender: 1.into(), recipient: 2.into() },
 		sender: Some(change),
 		recipient: Some(change),
-		action: DepositAction::PokeChannelDeposits { by: Some(SENDER.into()) },
+		action: DepositAction::InitAndAcceptOpenChannel {
+			max_capacity: u32::MAX,
+			max_message_size: u32::MAX,
+			max_total_size: u32::MAX,
+		},
 	}
 }
 
@@ -61,19 +61,11 @@ mod benchmarks {
 		assert!(PendingRequests::<T>::get(id).is_none());
 	}
 
-	/// A request for both sides, by a parachain whose window is already started and has room for
-	/// one more. See [`try_set_deposit_release`] for a release.
+	/// A request for both sides. See [`try_set_deposit_release`] for a release.
 	#[benchmark]
 	fn try_set_deposit_both_sides() {
 		T::BenchmarkHelper::ensure_send_to_para();
 		let request = both_sides_request();
-		RequestWindows::<T>::insert(
-			ParaId::from(SENDER),
-			(
-				frame_system::Pallet::<T>::block_number(),
-				T::MaxRequestsPerWindow::get().saturating_sub(1),
-			),
-		);
 		let response;
 
 		#[block]
@@ -131,25 +123,6 @@ mod benchmarks {
 		}
 
 		assert!(FailedReleases::<T>::get().is_empty());
-	}
-
-	/// A window that is over, found after the cursor and removed.
-	#[benchmark]
-	fn prune_request_window() {
-		for para in [SENDER, SENDER + 1] {
-			RequestWindows::<T>::insert(ParaId::from(para), (BlockNumberFor::<T>::default(), 1));
-		}
-		frame_system::Pallet::<T>::set_block_number(T::RequestWindow::get());
-		// Removes one of the two, and leaves the cursor on it.
-		Pallet::<T>::prune_request_window();
-		assert_eq!(RequestWindows::<T>::iter().count(), 1);
-
-		#[block]
-		{
-			Pallet::<T>::prune_request_window();
-		}
-
-		assert_eq!(RequestWindows::<T>::iter().count(), 0);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);

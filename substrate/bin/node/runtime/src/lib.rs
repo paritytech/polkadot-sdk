@@ -2859,8 +2859,6 @@ impl pallet_hrmp_relay::Config for Runtime {
 	type HolderParaId = HrmpHolderParaId;
 	type SendToPara = DiscardHrmpMessages;
 	type MaxFailedReleases = ConstU32<16>;
-	type MaxRequestsPerWindow = ConstU32<10>;
-	type RequestWindow = ConstU32<DAYS>;
 	type WeightInfo = pallet_hrmp_relay::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
