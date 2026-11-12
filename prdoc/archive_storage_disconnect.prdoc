@@ -1,0 +1,10 @@
+title: 'sc-rpc-spec-v2: terminate archive storage tasks after disconnect'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Ensure archive storage subscriptions release their bounded-channel receiver when the client
+    disconnects, so the storage producer can stop instead of retaining a subscription task and a
+    blocking-pool thread indefinitely.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
