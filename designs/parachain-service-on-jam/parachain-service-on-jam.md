@@ -738,6 +738,12 @@ performance impact is small, and future PVM improvements should shrink it furthe
 Every host function is imported at a **fixed index**. Those forwarding a JAM host call keep
 its Gray Paper index. Those native to the Parachain Service are numbered from 200 up.
 
+**Gas.** The validation code runs with a fixed budget: the work item's refine gas limit minus
+`REFINE_GAS_RESERVE`. The reserve covers Refine's own work, i.e. spawning the validation code
+and assembling the `ParachainWorkDigest`. Each host function charges the validation code a
+fixed gas cost, which covers Refine's handling of it. `REFINE_GAS_RESERVE` must be
+benchmarked. If Refine still runs out of gas, it fails.
+
 #### JAM host functions
 
 These keep the signatures and operands of the JAM host calls, which are specified in the
@@ -745,7 +751,7 @@ Gray Paper and not restated here.
 
 | Index | Host function | What the validation code gets |
 |---|---|---|
-| 0 | `gas` | The gas left in the inner VM, rather than Refine's own remaining gas. |
+| 0 | `gas` | The gas left of the validation code's fixed budget (see **Gas** above). |
 | 1 | `grow_heap` | Handled by the service: grows the inner VM's heap to the requested number of pages and maps the new pages into the inner VM. Returns the heap's page count afterwards. |
 | 2 | `fetch` | Forwarded to JAM `fetch`: the work package and its context, i.e. the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
 | 7 | `historical_lookup` | Forwarded to JAM `historical_lookup`: a service's preimage store at the lookup-anchor. The own-service id refers to the Parachain Service, whose store holds the parachains' preimages. |
