@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794399448343,
+  "lastUpdate": 1794466101481,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3b6767b09b4d825ea3a1a9ce3b1a1f02b445afe",
-          "message": "statement-store: increase timeout major sync test (#11851)\n\n## Summary\n\nImplement #11842 \n\nAdjusts the `statement_store_recovery_after_major_sync` zombienet\nintegration test to be more resilient in slow CI environments:\n- Doubles the timeout for Charlie to reach block 10 from 180s to 360s,\nreducing\n  flakiness on resource-constrained runners.\n\n## Testing \nManually triggered the **[Zombienet\nCumulus](https://github.com/paritytech/polkadot-sdk/actions?query=actor%3ADenzelPenzel+workflow%3A%22Zombienet+Cumulus%22+branch%3Adenzelpenzel%2Fstatement-store-major-sync-test)**\nworkflow ~30 times on this branch – all\npassed with no issues",
-          "timestamp": "2026-04-26T07:11:34Z",
-          "tree_id": "c9a87c374c5234fff0689d68babad9fbf9f5141d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a3b6767b09b4d825ea3a1a9ce3b1a1f02b445afe"
-        },
-        "date": 1777195398658,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.07800000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07680121191199994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03819450552799999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03877134622999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29119b7b9fb474b9f5a6e841bcd89980454aaf6e",
+          "message": "network: Use manual Kademlia routing table update (#13445)\n\nSwitch to manual routing table update in litep2p network backend,\npopulating peer addresses from Identify events instead of blindly\ntrusting Kademlia responses.\n\nAdditionally, add support for `--no-private-ip` flag with litep2p\nnetwork backend.\n\nAlso bump litep2p to v0.17.0 with its [stability\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.17.0).\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8631.",
+          "timestamp": "2026-11-12T05:10:55Z",
+          "tree_id": "41b4d15015cb1acf357aa3bd1fa538bfbf9c5bd1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29119b7b9fb474b9f5a6e841bcd89980454aaf6e"
+        },
+        "date": 1794466065747,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.15200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09036546551599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866146908200002,
             "unit": "seconds"
           }
         ]
