@@ -20,6 +20,7 @@ use crate::{
 	H160, HoldReason, NativeDepositOf, Pallet, StorageDeposit, TransactionLimits, TransactionMeter,
 	WeightToken,
 	evm::fees::InfoT,
+	runtime_api::{CallInputPayload, dry_run_call},
 	storage::AccountInfo,
 	test_utils::{
 		ALICE, ALICE_ADDR, BOB, BOB_ADDR, CHARLIE, WEIGHT_LIMIT,
@@ -37,7 +38,6 @@ use frame_support::{
 	storage::{TransactionOutcome, with_storage_layer, with_transaction},
 	traits::fungible::{Balanced, Mutate},
 };
-use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CallThenWrite, CatchConstructorTest, DepositPrecompile, FixtureType, ReentryStorage,
 	StorageSlots, StorageSlotsFactory, compile_module_with_type,
@@ -1145,21 +1145,19 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 			funded.max_storage_deposit,
 		);
 
-		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
-		// `ExecConfig`. Collecting the deposit fails because CHARLIE cannot fund it, but
-		// the reported `max_storage_deposit` must still match the funded run so the
-		// caller can size the allowance needed to cover the deposit.
+		// Same call from CHARLIE, who has no balance. Collecting the deposit fails because
+		// CHARLIE cannot fund it, but the reported `max_storage_deposit` must still match the
+		// funded run so the caller can size the allowance needed to cover the deposit.
 		let unfunded = run_in_rollback(&|| {
-			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE);
-			builder::bare_call(caller_addr)
-				.origin(RawOrigin::Signed(CHARLIE).into())
-				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
-				.transaction_limits(TransactionLimits::WeightAndDeposit {
-					weight_limit: <Test as frame_system::Config>::BlockWeights::get().max_block,
-					deposit_limit: u128::MAX,
-				})
-				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
-				.build()
+			dry_run_call::<Test>(CallInputPayload {
+				origin: CHARLIE,
+				dest: caller_addr,
+				value: 0,
+				gas_limit: None,
+				storage_deposit_limit: None,
+				input_data: DepositPrecompile::setAndClearCall {}.abi_encode(),
+			})
+			.contract_result
 		});
 
 		assert_eq!(

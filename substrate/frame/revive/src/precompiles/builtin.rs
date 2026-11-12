@@ -33,6 +33,7 @@ mod benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Config,
+	exec::BuiltinPrecompileExt,
 	precompiles::{ExtWithInfo, Instance, Precompiles},
 };
 
@@ -78,7 +79,9 @@ impl<T: Config> Precompiles<T> for (Production<T>, Benchmarking<T>) {
 		<Production<T>>::code(address).or_else(|| Benchmarking::<T>::code(address))
 	}
 
-	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
+	fn get<E: ExtWithInfo<T = T> + BuiltinPrecompileExt>(
+		address: &[u8; 20],
+	) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
 		<Production<T>>::get(address).or_else(|| Benchmarking::<T>::get(address))
 	}

@@ -17,11 +17,12 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, CallProtections, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue,
+	ImmutableData,
+	access_list::{Access, Summarized},
 	exec::{
-		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
-		PrecompileWithInfoExt,
+		AccountIdOf, BuiltinPrecompileExt, CallResources, ExecError, Ext, Key, Origin,
+		PrecompileExt, PrecompileWithInfoExt,
 	},
 	metering::{FrameMeter, TransactionLimits, TransactionMeter},
 	precompiles::Diff,
@@ -62,8 +63,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_reentrancy: ReentrancyProtection,
-		_read_only: bool,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
 	}
@@ -211,6 +211,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_not_stipend_limited")
+	}
+
 	fn is_delegate_call(&self) -> bool {
 		panic!("MockExt::is_delegate_call")
 	}
@@ -260,18 +264,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn touch_storage_access(
-		&mut self,
-		_key: &Key,
-		_op: crate::access_list::StorageOp,
-	) -> crate::access_list::Warmth {
-		panic!("MockExt::touch_storage_access")
-	}
-
-	fn peek_storage_access(&self, _key: &Key) -> crate::access_list::Warmth {
-		panic!("MockExt::peek_storage_access")
-	}
-
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}
@@ -296,6 +288,7 @@ impl<T: Config> Ext for MockExt<T> {
 		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
 	}
@@ -318,5 +311,19 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn set_immutable_data(&mut self, _data: ImmutableData) -> Result<(), DispatchError> {
 		panic!("MockExt::set_immutable_data")
+	}
+
+	fn has_system_account(&self, _address: &H160) -> bool {
+		panic!("MockExt::has_system_account")
+	}
+}
+
+impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
+	fn warm<A: Access>(&mut self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warm")
+	}
+
+	fn warmth_of<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warmth_of")
 	}
 }

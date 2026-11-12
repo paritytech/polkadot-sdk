@@ -627,7 +627,13 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_binary, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_binary, callee_code_hash) = compile_module("return_with_data").unwrap();
-	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
+	let code_load_weight = crate::vm::code_load_weight(
+		callee_binary.len() as u32,
+		crate::vm::BytecodeType::Pvm,
+		crate::access_list::Summarized::new_all_cold(crate::access_list::CodeLoadItems::new(
+			callee_code_hash,
+		)),
+	);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -3236,7 +3242,10 @@ fn weight_consumed_is_linear_for_nested_calls() {
 			[0u32, 1u32, 2u32, limits::CALL_STACK_DEPTH]
 				.iter()
 				.map(|i| {
-					let result = builder::bare_call(addr).data(i.encode()).build();
+					let result = builder::bare_call(addr)
+						.data(i.encode())
+						.exec_config(crate::Pallet::<Test>::substrate_call_exec_config())
+						.build();
 					assert_eq!(
 						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
 						0
@@ -5796,5 +5805,34 @@ fn call_with_gas_limit() {
 				.data((callee_addr, 100_000_000_000u64).encode())
 				.build()
 		);
+	});
+}
+
+#[test]
+fn call_evm_reads_the_value_before_checking_the_flags() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_evm_raw").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary)).build_and_unwrap_contract();
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary)).build_and_unwrap_contract();
+
+		let call = |flags: u32, gas: u64, value_out_of_bounds: bool| {
+			builder::bare_call(caller_addr)
+				.data((callee_addr, flags, gas, value_out_of_bounds as u32).encode())
+				.build()
+				.result
+		};
+		let unknown_flags = !pallet_revive_uapi::CallFlags::all().bits();
+		let gas = 100_000_000_000;
+
+		assert_ok!(call(0, gas, false));
+		assert_err!(call(unknown_flags, gas, false), Error::<Test>::InvalidCallFlags);
+		assert_err!(call(unknown_flags, u64::MAX, false), Error::<Test>::InvalidCallFlags);
+		assert_err!(call(0, gas, true), Error::<Test>::OutOfBounds);
+		assert_err!(call(unknown_flags, gas, true), Error::<Test>::OutOfBounds);
 	});
 }

@@ -20,13 +20,16 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
+	access_list::{
+		Access, AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
+		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems, Warmth,
+	},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
+	exec::{BuiltinPrecompileExt, Ext, Key, Origin as ExecOrigin, PrecompileExt, Stack},
 	limits::{self, CALLDATA_BYTES, EVM_MEMORY_BYTES, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
@@ -121,16 +124,55 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
-/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+/// Whitelists every entry of the access.
+fn whitelist_access<T: Config>(access: impl Access) {
+	access.expand(|entry, _op| {
+		if let Some(key) = entry.storage_key::<T>() {
+			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		}
+		Warmth::new_cold_non_revertible()
+	});
+}
+
+/// Returns whether the benchmark whitelist holds `key`.
 ///
 /// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
 /// by `cargo test` does not track the whitelist.
+fn is_whitelisted(key: &[u8]) -> bool {
+	frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
+}
+
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
 fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
 	let key = frame_system::Account::<T>::hashed_key_for(account);
-	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
-		.iter()
-		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	let whitelisted = is_whitelisted(&key);
 	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
+/// Asserts that no entry of the access is whitelisted, except those listed in `except`.
+fn assert_access_items_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
+	access.expand(|entry, _op| {
+		let whitelisted = entry.storage_key::<T>().is_some_and(|key| is_whitelisted(&key));
+		assert!(
+			!whitelisted || except.contains(&entry),
+			"{entry:?} is whitelisted, so the benchmark does not measure its read",
+		);
+		Warmth::new_cold_non_revertible()
+	});
+}
+
+/// Asserts that the bench measures every entry marked hot before the transaction's first call
+/// runs.
+fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, dust: bool) {
+	let caller = T::AddressMapper::to_address(&contract.caller);
+	assert_access_items_not_whitelisted::<T>(CallItems::new(contract.address, false), &[]);
+	// Every signed transaction already reads and writes the signer's account, for nonce and fee.
+	assert_access_items_not_whitelisted::<T>(
+		TransferItems { from: caller, to: contract.address, dust },
+		&[AccessEntry::Account { address: caller }],
+	);
 }
 
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
@@ -142,6 +184,16 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
 		.map_err(|_| "set_delegation failed")?;
 	Ok(account_id)
+}
+
+/// Delegates an account, so the chained-delegation check refuses it, and builds an unlimited meter.
+fn chained_delegation_setup<T: Config>() -> Result<(H160, TransactionMeter<T>), BenchmarkError> {
+	let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+	let address = H160([0x42; 20]);
+	delegated_eoa::<T>(address, contract.address)?;
+	let meter = TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+	Ok((address, meter))
 }
 
 /// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
@@ -766,6 +818,111 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Shared setup of the hot call benches: deploys `$module` as the callee,
+	/// makes it hot (access list warmed, keys whitelisted), and binds
+	/// `$do_call` to a call that forwards value when `$t` is 1 and dust when `$d` is 1 (or, with
+	/// the `delegate` prefix, to a delegate call, which cannot transfer).
+	macro_rules! hot_call_setup {
+		($do_call:ident, $module:expr) => {
+			hot_call_setup!($do_call, _transferred, $module, 0, 0);
+		};
+		($do_call:ident, $assert_transferred:ident, $module:expr, $t:expr, $d:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len,
+				$assert_transferred, $module, false, $t, $d);
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0),     // flags + callee_ptr
+					u64::MAX,                                         // ref_time_limit
+					u64::MAX,                                         // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_ptr
+					pack_hi_lo(0, 0),                                 // input len + input ptr
+					pack_hi_lo(0, SENTINEL),                          // output ptrs (skipped)
+				)
+			};
+		};
+		(delegate $do_call:ident, $module:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len,
+				_transferred, $module, true, 0, 0);
+			let mut $do_call = || {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address_ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					callee_len,              // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + input ptr
+					pack_hi_lo(0, SENTINEL), // output ptrs (skipped)
+				)
+			};
+		};
+		(@setup $runtime:ident, $memory:ident, $callee_len:ident, $deposit_len:ident,
+			$assert_transferred:ident, $module:expr, $delegate:expr, $t:expr, $d:expr) => {
+			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
+			let code_hash = callee_contract.info()?.code_hash;
+			// Delegated callee, the same worst case the cold benches measure. See `call_setup!`.
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, callee_contract.address)?;
+			// A fresh EOA would make the origin pay its ED, leaving nothing to burn into dust.
+			T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+
+			let callee_bytes = callee.encode();
+			let $callee_len = callee_bytes.len() as u32;
+
+			// Same transfer as `seal_call_transfer_to_existing`, so both take the same branches.
+			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
+			let dust = 100u32 * $d;
+			if dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, dust);
+			}
+			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
+			let evm_value = Pallet::<T>::convert_native_to_evm(value);
+			let value_bytes = evm_value.encode();
+
+			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let $deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_storage_deposit_limit(deposit);
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
+
+			let transfer = (!value.is_zero()).then(|| TransferItems {
+				from: setup.contract().address,
+				to: callee_addr,
+				dust: dust != 0,
+			});
+
+			let call_items = CallItems::new(callee_addr, $delegate);
+			whitelist_access::<T>(call_items);
+			let code_items = CodeLoadItems::new(code_hash);
+			whitelist_access::<T>(code_items);
+			if let Some(transfer) = transfer {
+				whitelist_access::<T>(transfer);
+			}
+
+			let (mut ext, _) = setup.ext();
+			ext.warm(call_items);
+			ext.warm(code_items);
+			if let Some(transfer) = transfer {
+				ext.warm(transfer);
+			}
+			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let before = Pallet::<T>::evm_balance(&callee_addr);
+			let $assert_transferred = || {
+				assert!(!evm_value.is_zero(), "the bench has no transfer to measure");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					before + evm_value,
+				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
+			};
+		};
+	}
+
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
@@ -794,6 +951,21 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	// c: code size in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_pvm_code_per_byte_hot(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::sized(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -830,6 +1002,23 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	// c: code size in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte_hot(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -994,6 +1183,8 @@ mod benchmarks {
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
 			.code_hash;
+		// The code load prices these reads.
+		whitelist_access::<T>(CodeLoadItems::new(hash));
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		#[extrinsic_call]
@@ -1018,6 +1209,68 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// w: with or without the refcount bump of an instantiate from an existing hash
+	#[benchmark(pov_mode = Measured)]
+	fn code_load(w: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let mut meter =
+			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+				.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+		let blob;
+		#[block]
+		{
+			blob = ContractBlob::<T>::from_storage(code_hash, &mut meter);
+			if w == 1 {
+				CodeInfo::<T>::increment_refcount(code_hash)?;
+			}
+		}
+		assert!(blob.is_ok(), "{:?}", blob.err());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn chained_delegation_check() -> Result<(), BenchmarkError> {
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
+		let mut access_list = AccessList::new();
+
+		let result;
+		#[block]
+		{
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
+		}
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().cold, 1, "the check touched the target's entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn chained_delegation_check_hot() -> Result<(), BenchmarkError> {
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
+		let entry = AccessEntry::AccountInfo { address };
+		let key = entry.storage_key::<T>().ok_or(BenchmarkError::Stop("no storage key"))?;
+		frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		let mut access_list = AccessList::new();
+		access_list.touch(entry, StorageOp::Read);
+
+		let result;
+		#[block]
+		{
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
+		}
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().hot, 1, "the check found the target's entry warm");
+		Ok(())
+	}
+
 	// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
 	// won't call `seal_call_data_copy` in its constructor to copy the data to contract memory.
@@ -1031,10 +1284,14 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
+		assert_first_call_items_not_whitelisted(&instance, false);
+
 		#[extrinsic_call]
 		_(origin, instance.address, value, Weight::MAX, storage_deposit, data);
 		let deposit = T::Currency::balance_on_hold(
@@ -1066,6 +1323,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -1083,6 +1342,7 @@ mod benchmarks {
 
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
+		assert_first_call_items_not_whitelisted(&instance, dust != 0);
 
 		#[extrinsic_call]
 		_(
@@ -1528,7 +1788,7 @@ mod benchmarks {
 		));
 		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
 		// still be able to read its own balance. In a contract called without value by another
-		// contract, the read is unpaid until #12673 removes this whitelist.
+		// contract, the read is unpaid until a follow-up extends cold/hot pricing to `BALANCE`.
 		let account_id = &contract.account_id;
 		whitelist_account!(account_id);
 
@@ -2318,7 +2578,8 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		runtime.ext().touch_storage_access(&key, StorageOp::Write);
+		let access = runtime.ext().slot_access(&key, StorageOp::Write);
+		runtime.ext().warm(access);
 
 		let result;
 		#[block]
@@ -2371,7 +2632,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Write);
+		ext.warm(ext.slot_access(&key, StorageOp::Write));
 
 		let result;
 		#[block]
@@ -2434,7 +2695,8 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		runtime.ext().touch_storage_access(&key, StorageOp::Read);
+		let access = runtime.ext().slot_access(&key, StorageOp::Read);
+		runtime.ext().warm(access);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -2488,7 +2750,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Read);
+		ext.warm(ext.slot_access(&key, StorageOp::Read));
 
 		let result;
 		#[block]
@@ -2538,7 +2800,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Write);
+		ext.warm(ext.slot_access(&key, StorageOp::Write));
 
 		let result;
 		#[block]
@@ -2555,106 +2817,173 @@ mod benchmarks {
 		Ok(())
 	}
 
-	fn worst_case_slot() -> crate::access_list::Slot {
-		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-			.expect("key fits STORAGE_KEY_BYTES bound; qed");
-		crate::access_list::Slot::from(&key)
-	}
-
-	fn near_full_access_list() -> crate::access_list::AccessList {
-		let mut al = AccessList::new();
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(
-				AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(i as u64) },
-				StorageOp::Read,
-			);
-		}
-		al
-	}
-
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Read);
-		}
-		assert!(outcome.is_cold());
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
-		let entry = AccessEntry {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
-		};
-
-		let touched = entry.clone();
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(touched, StorageOp::Write);
-		}
-		assert_eq!(
-			outcome,
-			Warmth::Hot { charged: StorageOp::Read },
-			"the fill seeded this entry read-paid"
-		);
-		assert_eq!(
-			al.peek(&entry),
-			Warmth::Hot { charged: StorageOp::Write },
-			"the write upgraded the entry"
-		);
-		Ok(())
-	}
-
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let entry = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert!(outcome.is_cold());
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry = AccessEntry::with_index(0, KeyFamily::PalletStorageSlot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		al.touch(entry.clone(), StorageOp::Read);
+		let mut al = AccessList::with_entries(1, KeyFamily::ContractStorageSlot);
+		let entry = al.first();
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert!(!outcome.is_cold());
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
-	// can't charge gas itself. Isolated by reverting a frame with exactly one
-	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(1, KeyFamily::PalletStorageSlot);
+		let entry = al.first();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Write);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_address_upgrade() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Write);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) },
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot),
 			StorageOp::Read,
 		);
+		assert!(!outcome.is_hot());
+		#[block]
+		{
+			al.rollback_frame();
+		}
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_rollback_address_amortization() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		al.enter_frame();
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot),
+			StorageOp::Read,
+		);
+		assert!(!outcome.is_hot());
 		#[block]
 		{
 			al.rollback_frame();
@@ -2981,6 +3310,8 @@ mod benchmarks {
 			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 			let callee_addr = H160([0x42; 20]);
 			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			// The code read is priced by `code_load`.
+			whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
 			if $callee_exists {
 				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 			}
@@ -3125,6 +3456,40 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy());
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer_hot(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, assert_transferred, VmBinaryModule::dummy(), 1, d);
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
+		Ok(())
+	}
+
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
@@ -3195,6 +3560,9 @@ mod benchmarks {
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
+		// The code read is priced by `code_load`.
+		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
+
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
 
@@ -3231,6 +3599,22 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
 	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
 	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
 	// arrived.
@@ -3242,6 +3626,8 @@ mod benchmarks {
 			let code = VmBinaryModule::dummy();
 			let hash =
 				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+			// The code load prices these reads.
+			whitelist_access::<T>(CodeLoadItems::new(hash));
 			let hash_bytes = hash.encode();
 
 			let value: BalanceOf<T> = $value.into();
@@ -3275,12 +3661,19 @@ mod benchmarks {
 			let salt_ptr = value_ptr + value_len;
 
 			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+			// The `instantiate` syscall marks these entries hot, so this bench must measure them.
+			assert_access_items_not_whitelisted::<T>(
+				InstantiateItems { address: new_contract_addr, deployer },
+				&[],
+			);
 			if $dust != 0 {
 				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
 			}
 			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
 
 			let mut $do_instantiate = || {
+				// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+				let _ = T::AddressMapper::to_account_id(&new_contract_addr);
 				runtime.bench_instantiate(
 					memory.as_mut_slice(),
 					u64::MAX,                           // ref_time_limit
@@ -3308,7 +3701,6 @@ mod benchmarks {
 					"{deployer:?} should pay only the value"
 				);
 			};
-			assert_account_not_whitelisted::<T>(account_id);
 		};
 	}
 
@@ -3372,7 +3764,6 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
-			let deployer_account = setup.contract().account_id.clone();
 			let deployer = setup.contract().address;
 			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
 
@@ -3405,12 +3796,25 @@ mod benchmarks {
 			let _ = interpreter.stack.push(U256::from(init_code.len()));
 			let _ = interpreter.stack.push(U256::zero());
 			let _ = interpreter.stack.push(evm_value);
+			// The `CREATE2` opcode marks these entries hot, so this bench must measure them.
+			assert_access_items_not_whitelisted::<T>(
+				InstantiateItems { address: new_contract_addr, deployer },
+				&[],
+			);
 
-			let mut $do_instantiate =
-				|| instructions::contract::create::<true, _>(&mut interpreter);
+			let mut $do_instantiate = || {
+				// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+				let _ = T::AddressMapper::to_account_id(&new_contract_addr);
+				instructions::contract::create::<true, _>(&mut interpreter)
+			};
 			let $assert_instantiated = || {
 				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
 					.expect("the create should deploy a contract");
+				// The stored code starts warm, so only this bench pays for its entries.
+				assert_access_items_not_whitelisted::<T>(
+					CodeLoadItems::new(new_contract.code_hash),
+					&[],
+				);
 				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
 				assert_eq!(
 					Pallet::<T>::evm_balance(&new_contract_addr),
@@ -3432,7 +3836,6 @@ mod benchmarks {
 					"{deployer:?} should pay only the value and the code deposit"
 				);
 			};
-			assert_account_not_whitelisted::<T>(&deployer_account);
 		};
 	}
 

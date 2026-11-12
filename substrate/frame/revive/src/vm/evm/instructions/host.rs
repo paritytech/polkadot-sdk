@@ -130,8 +130,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind =
-		StorageAccessKind::Persistent(interpreter.ext.touch_storage_access(&key, StorageOp::Read));
+	let access_kind = StorageAccessKind::Persistent(
+		interpreter.ext.warm(interpreter.ext.slot_access(&key, StorageOp::Read)),
+	);
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
@@ -169,12 +170,14 @@ fn store_helper<'ext, E: Ext>(
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-
+	if !transient && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
 	let access_kind = StorageAccessKind::new(transient, || {
-		interpreter.ext.touch_storage_access(&key, StorageOp::Write)
+		interpreter.ext.warm(interpreter.ext.slot_access(&key, StorageOp::Write))
 	});
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,
@@ -300,6 +303,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
 	}
 	let [beneficiary] = interpreter.stack.popn()?;
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;

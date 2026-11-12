@@ -21,6 +21,7 @@ mod eip7702;
 mod eth_estimate_gas;
 mod pallet_dummy;
 mod precompiles;
+pub use precompiles::{INoInfo, IWithInfo, NoInfo, WithInfo};
 mod pvm;
 mod sol;
 mod stipends;
@@ -31,6 +32,7 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	access_list::AccessListMetrics,
 	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
@@ -59,6 +61,19 @@ use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 };
+
+parameter_types! {
+	/// Access-list metrics of the last call.
+	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
+}
+
+/// The access-list metrics `operation` recorded.
+pub fn access_list_metrics_of(operation: impl FnOnce()) -> AccessListMetrics {
+	LastAccessListMetrics::take();
+	operation();
+	LastAccessListMetrics::take()
+		.expect("the operation under test ran a first frame and recorded metrics")
+}
 
 pub type Address = MultiAddress<AccountId32, u32>;
 pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;
@@ -432,6 +447,7 @@ parameter_types! {
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 	pub static ChainId: u64 = 448;
+	pub static GasScale: u32 = crate::config_preludes::GasScale::get();
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -500,6 +516,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
+	type GasScale = GasScale;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
@@ -1347,4 +1364,23 @@ fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	assert_eq!(trace.logs[0].topics, topics);
 	assert_eq!(trace.logs[0].data, data.into());
 	assert_eq!(trace.logs[0].index, 7);
+}
+
+#[test]
+fn max_memory_for_contract_storage_writes_counts_every_write_that_fits() {
+	use crate::{limits, vm::cold_non_revertible_storage_write_weight};
+
+	let cold_write_weight = cold_non_revertible_storage_write_weight::<Test>();
+	let bytes_per_write = Pallet::<Test>::max_memory_for_contract_storage_writes(cold_write_weight);
+	assert!(
+		bytes_per_write > u64::from(limits::STORAGE_BYTES),
+		"the memory for one cold write should exceed its value, since the key counts too"
+	);
+	assert_eq!(
+		Pallet::<Test>::max_memory_for_contract_storage_writes(
+			cold_write_weight.saturating_mul(10),
+		),
+		10 * bytes_per_write,
+		"ten times that weight should pay for ten times the bytes"
+	);
 }
