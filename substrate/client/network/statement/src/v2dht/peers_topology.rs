@@ -289,7 +289,8 @@ impl PeersTopology {
 	///
 	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
 	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
-	/// connected peers past the nearest ones stay until as many of the chosen peers are connected.
+	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
+	/// peers themselves connect.
 	pub fn peers_for_routing(&self, is_unreachable: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();

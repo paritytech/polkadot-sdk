@@ -63,11 +63,12 @@ pub(crate) mod score {
 const MAX_DISCONNECT_PERCENT: usize = 20;
 
 /// How long a reserved peer may stay without a substream before it counts as unreachable. The
-/// peerset redials a reserved peer about every 6 seconds, so two attempts fit.
-const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
+/// peerset redials a reserved peer about 6 seconds after a failed attempt, so a peer that refuses
+/// the dial gets two attempts and one whose dial times out gets one.
+pub(super) const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
 
 /// How long an unreachable peer is passed over before it is tried again.
-const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
+pub(super) const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
 
 /// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
 ///
@@ -118,6 +119,11 @@ impl PeerSteering {
 
 	/// Record that the statement notification substream to `peer` opened.
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
+		if self.connected.is_empty() {
+			// The dials that failed with no substream open may be this node's own outage.
+			self.unreachable.clear();
+			self.awaiting_substream.clear();
+		}
 		if !self.connected.contains_key(&peer) {
 			self.connected
 				.insert(peer, ConnectedPeer { seq: self.next_connection_seq, score: 0 });
@@ -460,6 +466,29 @@ mod tests {
 
 		steering.on_substream_opened(peer(1));
 		assert!(!steering.is_unreachable(&peer(1)));
+	}
+
+	#[test]
+	fn first_substream_after_none_clears_every_unreachable_mark() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1), peer(2)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		steering.update_unreachable_peers(marked_at);
+		assert!(steering.is_unreachable(&peer(1)));
+		assert!(steering.is_unreachable(&peer(2)));
+
+		steering.on_substream_opened(peer(3));
+		assert!(!steering.is_unreachable(&peer(1)));
+		assert!(!steering.is_unreachable(&peer(2)));
+
+		// With a substream open the marks return and a further substream leaves them.
+		steering.update_unreachable_peers(marked_at);
+		steering.update_unreachable_peers(marked_at + UNREACHABLE_AFTER);
+		steering.on_substream_opened(peer(4));
+		assert!(steering.is_unreachable(&peer(1)));
+		assert!(steering.is_unreachable(&peer(2)));
 	}
 
 	#[test]

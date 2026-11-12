@@ -374,7 +374,11 @@ impl V2DhtOrchestrator {
 	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
 	/// and the reserved peers without the DHT path, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
-		self.peer_steering.update_unreachable_peers(Instant::now());
+		self.on_pending_affinities_at(Instant::now());
+	}
+
+	fn on_pending_affinities_at(&mut self, now: Instant) {
+		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
 		let mut desired = self.peers_topology.peers_for_topics(&topics);
 		desired.extend(
@@ -447,6 +451,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
+	use peer_steering::{UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
 	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
@@ -885,25 +890,41 @@ mod tests {
 			orchestrator.on_peers_discovered([peer(seed)]);
 			orchestrator.on_peer_identified(peer(seed), true);
 		}
-		orchestrator.on_pending_affinities();
+		// An open substream keeps the marks, which the first substream after none would clear.
+		orchestrator.on_substream_opened(peer(2));
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
 		let unreachable = orchestrator.peer_steering.peers_to_connect();
+		assert!(!unreachable.is_empty());
 		orchestrator.peer_steering.reserve(unreachable.iter().copied());
 
-		let start = Instant::now();
-		orchestrator.peer_steering.update_unreachable_peers(start);
-		orchestrator
-			.peer_steering
-			.update_unreachable_peers(start + Duration::from_secs(15));
-		orchestrator.on_pending_affinities();
+		orchestrator.on_pending_affinities_at(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		orchestrator.on_pending_affinities_at(marked_at);
 
-		let connect = orchestrator.peer_steering.peers_to_connect();
-		assert!(!connect.is_empty());
-		assert!(connect.iter().all(|peer| !unreachable.contains(peer)));
+		let replacements = orchestrator.peer_steering.peers_to_connect();
+		assert!(!replacements.is_empty());
+		assert!(replacements.iter().all(|peer| !unreachable.contains(peer)));
 		let mut release = orchestrator.peer_steering.peers_to_release();
-		let mut unreachable = unreachable;
+		let mut sorted_unreachable = unreachable.clone();
 		release.sort();
-		unreachable.sort();
-		assert_eq!(release, unreachable);
+		sorted_unreachable.sort();
+		assert_eq!(release, sorted_unreachable);
+
+		orchestrator.peer_steering.reserve(replacements.iter().copied());
+		for replacement in replacements {
+			orchestrator.on_substream_opened(replacement);
+		}
+
+		// The retry dials the unreachable peers again, and the replacements serve meanwhile.
+		let retried_at = marked_at + UNREACHABLE_RETRY_AFTER;
+		orchestrator.on_pending_affinities_at(retried_at);
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		connect.sort();
+		assert_eq!(connect, sorted_unreachable);
+
+		orchestrator.on_pending_affinities_at(retried_at + UNREACHABLE_AFTER);
+		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
 	}
 
 	#[test]

@@ -4,7 +4,9 @@ doc:
   description: |-
     On the v2 DHT path peer steering now replaces a routing peer that cannot be reached. A peer
     that stays reserved for 15 seconds without an open substream counts as unreachable for 5
-    minutes, and the routing selection takes the next peer of its bucket in that time. Before,
+    minutes, and the routing selection takes the next peer of its bucket in that time. The first
+    substream to open after the node had none clears every mark, because those dials may have
+    failed on the node's own outage. Before,
     such a peer stayed chosen for ever, and a node whose only peer closer to a topic was
     unreachable lost every statement that entered through it on that topic.
 crates:
