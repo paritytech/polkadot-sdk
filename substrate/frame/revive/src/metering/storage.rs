@@ -320,12 +320,16 @@ struct Charge<T: Config> {
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),
-	/// The meter was checked against its limit using [`RawMeter::enforce_limit`] at the end of
-	/// its execution. In this process the [`Diff`] was converted into a [`Deposit`].
+	/// The [`Diff`] was converted into a [`Deposit`] by
+	/// [`RawMeter::finalize_own_contributions`] at the end of the meter's execution.
 	Checked(DepositOf<T>),
 }
 
 impl<T: Config> Contribution<T> {
+	/// See [`Diff::update_contract`], or [`Diff::update_contract_waived`] when `waived`.
+	///
+	/// A `Checked` contribution was already priced with the flag when it was converted, so there
+	/// is nothing left for `waived` to change.
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>, waived: bool) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) if waived => diff.update_contract_waived::<T>(info),
