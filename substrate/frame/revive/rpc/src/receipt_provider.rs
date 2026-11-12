@@ -538,10 +538,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.extract_from_block(block).await
 	}
 
-	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
-	/// Used for historic sync where fork detection is unnecessary. A block that is already
-	/// indexed is skipped before its receipts are extracted, so a re-walk of an indexed range
-	/// costs one lookup per block.
+	/// Like [`Self::insert_block_receipts`] but writes the block's rows only. It neither consults
+	/// nor updates the fork cache, so a sibling indexed earlier at the same height is not
+	/// evicted, and neither the fee history nor the log subscribers see the block. Used for
+	/// historic sync and by the gap filler. A block that is already indexed is skipped before
+	/// its receipts are extracted.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,

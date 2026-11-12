@@ -697,10 +697,13 @@ impl Client {
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
-				// The block is not known to be indexed; the gap filler re-indexes it and keeps
-				// the sync head from advancing past it until then. Pruning mode has no sync
-				// head, and rows the gap filler writes bypass its eviction, so there the block
-				// stays unindexed.
+				// The callback fails only before the block is indexed. The block is queued
+				// rather than retried here, so a failing block does not stall both streams
+				// behind `subscription_lock` for a whole retry schedule; the gap filler
+				// re-indexes it and keeps the sync head from advancing past it until then.
+				// Pruning mode has no sync head, and rows the gap filler writes bypass its
+				// eviction, as those of reconnect gaps already do, so there the block stays
+				// unindexed.
 				if subscription_type == SubscriptionType::FinalizedBlocks && self.is_archive {
 					self.subscription_gap_queue.queue_block(block_number, block_hash);
 				}
