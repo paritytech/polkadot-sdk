@@ -1673,10 +1673,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_469_000 picoseconds.
-		Weight::from_parts(5_581_882, 0)
+		// Minimum execution time: 1_476_000 picoseconds.
+		Weight::from_parts(1_612_537, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(3_793, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(3_779, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
 	fn seal_hash_keccak_256(n: u32, ) -> Weight {
@@ -4261,10 +4261,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_469_000 picoseconds.
-		Weight::from_parts(5_581_882, 0)
+		// Minimum execution time: 1_476_000 picoseconds.
+		Weight::from_parts(1_612_537, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(3_793, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(3_779, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
 	fn seal_hash_keccak_256(n: u32, ) -> Weight {
