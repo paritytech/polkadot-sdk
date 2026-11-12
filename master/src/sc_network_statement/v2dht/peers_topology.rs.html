@@ -214,7 +214,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#64 id=64 data-nosnippet>64</a><span class="doccomment">/// Event-fed local view of statement-store peers that ages out peers unseen for
 <a href=#65 id=65 data-nosnippet>65</a>/// `PEER_STALENESS_TTL`.
 <a href=#66 id=66 data-nosnippet>66</a>///
-<a href=#67 id=67 data-nosnippet>67</a>/// The topology is built from peers learned through routing-table updates, identify metadata and
+<a href=#67 id=67 data-nosnippet>67</a>/// The topology is built from peers learned through DHT discovery, identify metadata and
 <a href=#68 id=68 data-nosnippet>68</a>/// statement notification connections. It computes XOR distances locally over that learned peer
 <a href=#69 id=69 data-nosnippet>69</a>/// set; it does not issue topic-specific Kademlia lookups.
 <a href=#70 id=70 data-nosnippet>70</a>///
@@ -248,10 +248,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#98 id=98 data-nosnippet>98</a>		}
 <a href=#99 id=99 data-nosnippet>99</a>	}
 <a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>	<span class="doccomment">/// Record that a litep2p routing-table update saw `peers`.
+<a href=#101 id=101 data-nosnippet>101</a>	<span class="doccomment">/// Record `peers` discovered via the DHT.
 <a href=#102 id=102 data-nosnippet>102</a>	///
-<a href=#103 id=103 data-nosnippet>103</a>	/// `RoutingTableUpdate` is used as the discovery source because litep2p's internal
-<a href=#104 id=104 data-nosnippet>104</a>	/// Kademlia table is bucket-limited and may discard many discovered peers.
+<a href=#103 id=103 data-nosnippet>103</a>	/// Used instead of the Kademlia routing table, which is bucket-limited and holds only a
+<a href=#104 id=104 data-nosnippet>104</a>	/// fraction of discovered peers.
 <a href=#105 id=105 data-nosnippet>105</a>	</span><span class="kw">pub fn </span>on_peers_discovered(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peers: <span class="kw">impl </span>IntoIterator&lt;Item = PeerId&gt;) {
 <a href=#106 id=106 data-nosnippet>106</a>		<span class="kw">for </span>peer <span class="kw">in </span>peers {
 <a href=#107 id=107 data-nosnippet>107</a>			<span class="self">self</span>.get_or_insert_peer(peer);

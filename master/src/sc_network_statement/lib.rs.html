@@ -885,7 +885,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#735 id=735 data-nosnippet>735</a>				.filter(|event| {
 <a href=#736 id=736 data-nosnippet>736</a>					std::future::ready(<span class="macro">matches!</span>(
 <a href=#737 id=737 data-nosnippet>737</a>						event,
-<a href=#738 id=738 data-nosnippet>738</a>						Event::PeerRoutingTableUpdate(<span class="kw">_</span>) | Event::PeerIdentified { .. }
+<a href=#738 id=738 data-nosnippet>738</a>						Event::PeersDiscovered(<span class="kw">_</span>) | Event::PeerIdentified { .. }
 <a href=#739 id=739 data-nosnippet>739</a>					))
 <a href=#740 id=740 data-nosnippet>740</a>				})
 <a href=#741 id=741 data-nosnippet>741</a>				.boxed()
@@ -1623,11 +1623,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1473 id=1473 data-nosnippet>1473</a>	/// v2 DHT path.
 <a href=#1474 id=1474 data-nosnippet>1474</a>	</span><span class="kw">fn </span>handle_network_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event) {
 <a href=#1475 id=1475 data-nosnippet>1475</a>		<span class="kw">match </span>event {
-<a href=#1476 id=1476 data-nosnippet>1476</a>			Event::PeerRoutingTableUpdate(peers) =&gt; <span class="self">self</span>.v2dht.on_peers_discovered(peers),
+<a href=#1476 id=1476 data-nosnippet>1476</a>			Event::PeersDiscovered(peers) =&gt; <span class="self">self</span>.v2dht.on_peers_discovered(peers),
 <a href=#1477 id=1477 data-nosnippet>1477</a>			Event::PeerIdentified { peer, supported_protocols } =&gt; <span class="self">self
 <a href=#1478 id=1478 data-nosnippet>1478</a>				</span>.v2dht
 <a href=#1479 id=1479 data-nosnippet>1479</a>				.on_peer_identified(peer, supported_protocols.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.protocol_name)),
-<a href=#1480 id=1480 data-nosnippet>1480</a>			<span class="comment">// The stream is filtered to `PeerRoutingTableUpdate` and `PeerIdentified`, so no other
+<a href=#1480 id=1480 data-nosnippet>1480</a>			<span class="comment">// The stream is filtered to `PeersDiscovered` and `PeerIdentified`, so no other
 <a href=#1481 id=1481 data-nosnippet>1481</a>			// variant reaches here.
 <a href=#1482 id=1482 data-nosnippet>1482</a>			</span><span class="kw">_ </span>=&gt; {},
 <a href=#1483 id=1483 data-nosnippet>1483</a>		}

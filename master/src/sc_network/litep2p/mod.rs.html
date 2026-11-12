@@ -985,7 +985,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#835 id=835 data-nosnippet>835</a>							}
 <a href=#836 id=836 data-nosnippet>836</a>						}
 <a href=#837 id=837 data-nosnippet>837</a>					}
-<a href=#838 id=838 data-nosnippet>838</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::RoutingTableUpdate { peers }) =&gt; {
+<a href=#838 id=838 data-nosnippet>838</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::PeersDiscovered { peers }) =&gt; {
 <a href=#839 id=839 data-nosnippet>839</a>						<span class="kw">let </span>peers = peers.into_iter().map(Into::into).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 <a href=#840 id=840 data-nosnippet>840</a>
 <a href=#841 id=841 data-nosnippet>841</a>						<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
@@ -993,7 +993,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#843 id=843 data-nosnippet>843</a>						}
 <a href=#844 id=844 data-nosnippet>844</a>
 <a href=#845 id=845 data-nosnippet>845</a>						<span class="kw">if </span>!peers.is_empty() {
-<a href=#846 id=846 data-nosnippet>846</a>							<span class="self">self</span>.event_streams.send(Event::PeerRoutingTableUpdate(peers));
+<a href=#846 id=846 data-nosnippet>846</a>							<span class="self">self</span>.event_streams.send(Event::PeersDiscovered(peers));
 <a href=#847 id=847 data-nosnippet>847</a>						}
 <a href=#848 id=848 data-nosnippet>848</a>					}
 <a href=#849 id=849 data-nosnippet>849</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) =&gt; {

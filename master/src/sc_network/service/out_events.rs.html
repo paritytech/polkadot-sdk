@@ -458,77 +458,75 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#308 id=308 data-nosnippet>308</a>			Event::Dht(<span class="kw">_</span>) =&gt; {
 <a href=#309 id=309 data-nosnippet>309</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"dht"</span>, <span class="string">"sent"</span>, name]).inc();
 <a href=#310 id=310 data-nosnippet>310</a>			},
-<a href=#311 id=311 data-nosnippet>311</a>			Event::PeerRoutingTableUpdate(<span class="kw">_</span>) =&gt; {
-<a href=#312 id=312 data-nosnippet>312</a>				<span class="self">self</span>.events_total
-<a href=#313 id=313 data-nosnippet>313</a>					.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-routing-table-update"</span>, <span class="string">"sent"</span>, name])
-<a href=#314 id=314 data-nosnippet>314</a>					.inc();
-<a href=#315 id=315 data-nosnippet>315</a>			},
-<a href=#316 id=316 data-nosnippet>316</a>			Event::PeerIdentified { .. } =&gt; {
-<a href=#317 id=317 data-nosnippet>317</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-identified"</span>, <span class="string">"sent"</span>, name]).inc();
-<a href=#318 id=318 data-nosnippet>318</a>			},
-<a href=#319 id=319 data-nosnippet>319</a>			Event::NotificationStreamOpened { protocol, .. } =&gt; {
-<a href=#320 id=320 data-nosnippet>320</a>				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
-<a href=#321 id=321 data-nosnippet>321</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
-<a href=#322 id=322 data-nosnippet>322</a>				});
-<a href=#323 id=323 data-nosnippet>323</a>			},
-<a href=#324 id=324 data-nosnippet>324</a>			Event::NotificationStreamClosed { protocol, .. } =&gt; {
-<a href=#325 id=325 data-nosnippet>325</a>				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
-<a href=#326 id=326 data-nosnippet>326</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
-<a href=#327 id=327 data-nosnippet>327</a>				});
-<a href=#328 id=328 data-nosnippet>328</a>			},
-<a href=#329 id=329 data-nosnippet>329</a>			Event::NotificationsReceived { messages, .. } =&gt; {
-<a href=#330 id=330 data-nosnippet>330</a>				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-<a href=#331 id=331 data-nosnippet>331</a>					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
-<a href=#332 id=332 data-nosnippet>332</a>						<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
-<a href=#333 id=333 data-nosnippet>333</a>					});
-<a href=#334 id=334 data-nosnippet>334</a>					<span class="self">self</span>.notifications_sizes
-<a href=#335 id=335 data-nosnippet>335</a>						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"sent"</span>, name])
-<a href=#336 id=336 data-nosnippet>336</a>						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
-<a href=#337 id=337 data-nosnippet>337</a>				}
-<a href=#338 id=338 data-nosnippet>338</a>			},
-<a href=#339 id=339 data-nosnippet>339</a>		}
-<a href=#340 id=340 data-nosnippet>340</a>	}
-<a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a>	<span class="kw">fn </span>event_out(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, name: <span class="kw-2">&amp;</span>str) {
-<a href=#343 id=343 data-nosnippet>343</a>		<span class="kw">match </span>event {
-<a href=#344 id=344 data-nosnippet>344</a>			Event::Dht(<span class="kw">_</span>) =&gt; {
-<a href=#345 id=345 data-nosnippet>345</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"dht"</span>, <span class="string">"received"</span>, name]).inc();
-<a href=#346 id=346 data-nosnippet>346</a>			},
-<a href=#347 id=347 data-nosnippet>347</a>			Event::PeerRoutingTableUpdate(<span class="kw">_</span>) =&gt; {
-<a href=#348 id=348 data-nosnippet>348</a>				<span class="self">self</span>.events_total
-<a href=#349 id=349 data-nosnippet>349</a>					.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-routing-table-update"</span>, <span class="string">"received"</span>, name])
-<a href=#350 id=350 data-nosnippet>350</a>					.inc();
-<a href=#351 id=351 data-nosnippet>351</a>			},
-<a href=#352 id=352 data-nosnippet>352</a>			Event::PeerIdentified { .. } =&gt; {
-<a href=#353 id=353 data-nosnippet>353</a>				<span class="self">self</span>.events_total
-<a href=#354 id=354 data-nosnippet>354</a>					.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-identified"</span>, <span class="string">"received"</span>, name])
-<a href=#355 id=355 data-nosnippet>355</a>					.inc();
-<a href=#356 id=356 data-nosnippet>356</a>			},
-<a href=#357 id=357 data-nosnippet>357</a>			Event::NotificationStreamOpened { protocol, .. } =&gt; {
-<a href=#358 id=358 data-nosnippet>358</a>				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
-<a href=#359 id=359 data-nosnippet>359</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
-<a href=#360 id=360 data-nosnippet>360</a>				});
-<a href=#361 id=361 data-nosnippet>361</a>			},
-<a href=#362 id=362 data-nosnippet>362</a>			Event::NotificationStreamClosed { protocol, .. } =&gt; {
-<a href=#363 id=363 data-nosnippet>363</a>				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
-<a href=#364 id=364 data-nosnippet>364</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
-<a href=#365 id=365 data-nosnippet>365</a>				});
-<a href=#366 id=366 data-nosnippet>366</a>			},
-<a href=#367 id=367 data-nosnippet>367</a>			Event::NotificationsReceived { messages, .. } =&gt; {
-<a href=#368 id=368 data-nosnippet>368</a>				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-<a href=#369 id=369 data-nosnippet>369</a>					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
-<a href=#370 id=370 data-nosnippet>370</a>						<span class="self">self</span>.events_total
-<a href=#371 id=371 data-nosnippet>371</a>							.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name])
-<a href=#372 id=372 data-nosnippet>372</a>							.inc();
-<a href=#373 id=373 data-nosnippet>373</a>					});
-<a href=#374 id=374 data-nosnippet>374</a>					<span class="self">self</span>.notifications_sizes
-<a href=#375 id=375 data-nosnippet>375</a>						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"received"</span>, name])
-<a href=#376 id=376 data-nosnippet>376</a>						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
-<a href=#377 id=377 data-nosnippet>377</a>				}
-<a href=#378 id=378 data-nosnippet>378</a>			},
-<a href=#379 id=379 data-nosnippet>379</a>		}
-<a href=#380 id=380 data-nosnippet>380</a>	}
-<a href=#381 id=381 data-nosnippet>381</a>}
+<a href=#311 id=311 data-nosnippet>311</a>			Event::PeersDiscovered(<span class="kw">_</span>) =&gt; {
+<a href=#312 id=312 data-nosnippet>312</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peers-discovered"</span>, <span class="string">"sent"</span>, name]).inc();
+<a href=#313 id=313 data-nosnippet>313</a>			},
+<a href=#314 id=314 data-nosnippet>314</a>			Event::PeerIdentified { .. } =&gt; {
+<a href=#315 id=315 data-nosnippet>315</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-identified"</span>, <span class="string">"sent"</span>, name]).inc();
+<a href=#316 id=316 data-nosnippet>316</a>			},
+<a href=#317 id=317 data-nosnippet>317</a>			Event::NotificationStreamOpened { protocol, .. } =&gt; {
+<a href=#318 id=318 data-nosnippet>318</a>				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
+<a href=#319 id=319 data-nosnippet>319</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
+<a href=#320 id=320 data-nosnippet>320</a>				});
+<a href=#321 id=321 data-nosnippet>321</a>			},
+<a href=#322 id=322 data-nosnippet>322</a>			Event::NotificationStreamClosed { protocol, .. } =&gt; {
+<a href=#323 id=323 data-nosnippet>323</a>				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
+<a href=#324 id=324 data-nosnippet>324</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
+<a href=#325 id=325 data-nosnippet>325</a>				});
+<a href=#326 id=326 data-nosnippet>326</a>			},
+<a href=#327 id=327 data-nosnippet>327</a>			Event::NotificationsReceived { messages, .. } =&gt; {
+<a href=#328 id=328 data-nosnippet>328</a>				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
+<a href=#329 id=329 data-nosnippet>329</a>					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
+<a href=#330 id=330 data-nosnippet>330</a>						<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
+<a href=#331 id=331 data-nosnippet>331</a>					});
+<a href=#332 id=332 data-nosnippet>332</a>					<span class="self">self</span>.notifications_sizes
+<a href=#333 id=333 data-nosnippet>333</a>						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"sent"</span>, name])
+<a href=#334 id=334 data-nosnippet>334</a>						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
+<a href=#335 id=335 data-nosnippet>335</a>				}
+<a href=#336 id=336 data-nosnippet>336</a>			},
+<a href=#337 id=337 data-nosnippet>337</a>		}
+<a href=#338 id=338 data-nosnippet>338</a>	}
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="kw">fn </span>event_out(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, name: <span class="kw-2">&amp;</span>str) {
+<a href=#341 id=341 data-nosnippet>341</a>		<span class="kw">match </span>event {
+<a href=#342 id=342 data-nosnippet>342</a>			Event::Dht(<span class="kw">_</span>) =&gt; {
+<a href=#343 id=343 data-nosnippet>343</a>				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"dht"</span>, <span class="string">"received"</span>, name]).inc();
+<a href=#344 id=344 data-nosnippet>344</a>			},
+<a href=#345 id=345 data-nosnippet>345</a>			Event::PeersDiscovered(<span class="kw">_</span>) =&gt; {
+<a href=#346 id=346 data-nosnippet>346</a>				<span class="self">self</span>.events_total
+<a href=#347 id=347 data-nosnippet>347</a>					.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peers-discovered"</span>, <span class="string">"received"</span>, name])
+<a href=#348 id=348 data-nosnippet>348</a>					.inc();
+<a href=#349 id=349 data-nosnippet>349</a>			},
+<a href=#350 id=350 data-nosnippet>350</a>			Event::PeerIdentified { .. } =&gt; {
+<a href=#351 id=351 data-nosnippet>351</a>				<span class="self">self</span>.events_total
+<a href=#352 id=352 data-nosnippet>352</a>					.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"peer-identified"</span>, <span class="string">"received"</span>, name])
+<a href=#353 id=353 data-nosnippet>353</a>					.inc();
+<a href=#354 id=354 data-nosnippet>354</a>			},
+<a href=#355 id=355 data-nosnippet>355</a>			Event::NotificationStreamOpened { protocol, .. } =&gt; {
+<a href=#356 id=356 data-nosnippet>356</a>				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
+<a href=#357 id=357 data-nosnippet>357</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
+<a href=#358 id=358 data-nosnippet>358</a>				});
+<a href=#359 id=359 data-nosnippet>359</a>			},
+<a href=#360 id=360 data-nosnippet>360</a>			Event::NotificationStreamClosed { protocol, .. } =&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
+<a href=#362 id=362 data-nosnippet>362</a>					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
+<a href=#363 id=363 data-nosnippet>363</a>				});
+<a href=#364 id=364 data-nosnippet>364</a>			},
+<a href=#365 id=365 data-nosnippet>365</a>			Event::NotificationsReceived { messages, .. } =&gt; {
+<a href=#366 id=366 data-nosnippet>366</a>				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
+<a href=#367 id=367 data-nosnippet>367</a>					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
+<a href=#368 id=368 data-nosnippet>368</a>						<span class="self">self</span>.events_total
+<a href=#369 id=369 data-nosnippet>369</a>							.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name])
+<a href=#370 id=370 data-nosnippet>370</a>							.inc();
+<a href=#371 id=371 data-nosnippet>371</a>					});
+<a href=#372 id=372 data-nosnippet>372</a>					<span class="self">self</span>.notifications_sizes
+<a href=#373 id=373 data-nosnippet>373</a>						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"received"</span>, name])
+<a href=#374 id=374 data-nosnippet>374</a>						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
+<a href=#375 id=375 data-nosnippet>375</a>				}
+<a href=#376 id=376 data-nosnippet>376</a>			},
+<a href=#377 id=377 data-nosnippet>377</a>		}
+<a href=#378 id=378 data-nosnippet>378</a>	}
+<a href=#379 id=379 data-nosnippet>379</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
