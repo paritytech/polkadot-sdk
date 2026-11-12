@@ -14,14 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The para's JAM authorizer on the node side.
-//!
-//! [`authorizer`] derives the para's AURA authorizer and signs work packages and blocks with it,
-//! [`verifier`] checks a block's JAM block authorization seal on import.
+//! The para's JAM authorizer on the node side: [`authorizer`] derives the para's AURA authorizer
+//! and signs work packages with it.
 
 pub mod authorizer;
 #[cfg(any(test, feature = "test-utils"))]
 pub mod testing;
-pub mod verifier;
 
 const LOG_TARGET: &str = "jam-collator";

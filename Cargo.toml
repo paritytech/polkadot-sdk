@@ -80,7 +80,6 @@ members = [
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/jam/aura-authorizer-utils",
-	"cumulus/jam/block-authorization",
 	"cumulus/jam/client-authorizer",
 	"cumulus/jam/interface",
 	"cumulus/jam/pallet-jam-broker",
@@ -806,7 +805,6 @@ cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-fe
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
 cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
-cumulus-jam-block-authorization = { path = "cumulus/jam/block-authorization", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
 cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }

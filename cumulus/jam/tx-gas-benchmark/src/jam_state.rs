@@ -3,27 +3,18 @@
 
 //! The JAM state a parachain block reads, in memory.
 //!
-//! A block reads three JAM state entries at its anchor: the auth pools and the authorizer code for
-//! its seal check, and its own `ParaInfo` for the included head. They live in a Gray Paper binary
-//! trie whose root is the refine context's `state_root`, and the block carries a [`StateProof`]
-//! for them, exactly like a block the collator builds against a real JAM node.
+//! A block reads its own `ParaInfo` from JAM state at its anchor, for the included head. It lives
+//! in a Gray Paper binary trie whose root is the refine context's `state_root`, and the block
+//! carries a [`StateProof`] for it, exactly like a block the collator builds against a real JAM
+//! node.
 
-use jam_types::Encode as _;
 use parachain_service_core::{
-	authorizer::AuthorizerHash,
-	blake2_256,
-	block_authorization::AUTH_POOLS_STATE_KEY,
-	para_info_key, service_preimage_state_key, service_value_state_key,
+	blake2_256, para_info_key, service_value_state_key,
 	types::{HeadData, ParaId, ValidationCodeRef},
 	ParaInfo, ProofNode, StateKey, StateProof, PARACHAIN_SERVICE_ID,
 };
 
 type Hash = [u8; 32];
-
-/// The cores of a tiny JAM network and the entries of a full auth pool, as the auth pools look on
-/// the network the measured numbers come from.
-const CORES: usize = 2;
-const AUTH_POOL_SIZE: usize = 8;
 
 /// A JAM state root and the proof of every entry under it.
 pub struct JamState {
@@ -32,24 +23,16 @@ pub struct JamState {
 }
 
 /// What the JAM state at a block's anchor holds for that block.
-pub struct Entries<'a> {
+pub struct Entries {
 	pub para_id: u32,
 	/// Hash of the included para head, the parent of the block.
 	pub included_head: Hash,
 	/// The para's validation code: its hash and length.
 	pub validation_code: (Hash, u32),
-	/// The authorizer that has to be in an auth pool.
-	pub authorizer_hash: AuthorizerHash,
-	/// The authorizer code, held as a preimage by the parachain service.
-	pub authorizer_code: &'a [u8],
 }
 
 impl JamState {
 	pub fn new(entries: Entries) -> Self {
-		let pools = vec![vec![entries.authorizer_hash; AUTH_POOL_SIZE]; CORES]
-			.iter()
-			.flat_map(|pool| pool.encode())
-			.collect::<Vec<_>>();
 		let para_info = ParaInfo {
 			head_data: HeadData::try_from(entries.included_head.to_vec())
 				.expect("a 32 byte head is below the head size limit; qed"),
@@ -62,22 +45,14 @@ impl JamState {
 			used_state_balance: 0,
 			is_deregistering: false,
 		};
-		let code_hash = blake2_256(entries.authorizer_code);
 
-		Trie::new(vec![
-			(AUTH_POOLS_STATE_KEY, pools),
-			(
-				service_preimage_state_key(PARACHAIN_SERVICE_ID, &code_hash),
-				entries.authorizer_code.to_vec(),
+		Trie::new(vec![(
+			service_value_state_key(
+				PARACHAIN_SERVICE_ID,
+				&para_info_key(ParaId::from(entries.para_id)),
 			),
-			(
-				service_value_state_key(
-					PARACHAIN_SERVICE_ID,
-					&para_info_key(ParaId::from(entries.para_id)),
-				),
-				codec::Encode::encode(&para_info),
-			),
-		])
+			codec::Encode::encode(&para_info),
+		)])
 		.into_state()
 	}
 }

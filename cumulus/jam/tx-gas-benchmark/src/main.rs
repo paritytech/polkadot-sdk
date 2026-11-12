@@ -23,9 +23,6 @@ struct Cli {
 	/// The parachain runtime: `parachain-template-runtime` built for PolkaVM with `--cfg jam`.
 	#[arg(long)]
 	runtime: PathBuf,
-	/// The block authorizer: the parachain service's `parachain-authorizer-sr25519.jam`.
-	#[arg(long)]
-	authorizer: PathBuf,
 	/// Transactions in the measured block.
 	#[arg(long, default_value_t = 50)]
 	transactions: u32,
@@ -62,10 +59,9 @@ fn run(cli: Cli) -> Result<(), String> {
 		std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))
 	};
 	let runtime = read(&cli.runtime)?;
-	let authorizer = read(&cli.authorizer)?;
 	let pvf = refine::Pvf::parse(&runtime)?;
 
-	let mut chain = block::Chain::new(&runtime, &authorizer)?;
+	let mut chain = block::Chain::new(&runtime)?;
 	// The measured blocks build on block 1, so neither of them pays for being the first block.
 	let first = chain.build(0)?;
 	chain.import(first)?;

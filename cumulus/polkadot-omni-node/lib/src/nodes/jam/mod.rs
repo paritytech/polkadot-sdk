@@ -54,7 +54,7 @@ pub(crate) mod package;
 pub(crate) mod pov_store;
 pub(crate) mod resubmission;
 
-pub(crate) use cumulus_client_jam_authorizer::{authorizer, verifier};
+pub(crate) use cumulus_client_jam_authorizer::authorizer;
 
 use crate::common::{
 	types::{ParachainBackend, ParachainClient},

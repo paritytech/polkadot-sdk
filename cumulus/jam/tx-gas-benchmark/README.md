@@ -15,15 +15,14 @@ transaction costs.
   in-memory client. Each block gets what the omni-node's JAM builder gives it: the refine context,
   the JAM state reader and additional-data finalizer over a JAM state proof, the Aura slot,
   `JamParent` and `BlockBundleInfo` digests, the timestamp and mocked parachain inherents, and the
-  JAM block authorization seal produced with the real authorizer blob.
-- **JAM state** (`src/jam_state.rs`): the auth pools, the authorizer code and the para's `ParaInfo`
-  in a Gray Paper state trie. Its root is the refine context's state root and every block carries
+  Aura seal.
+- **JAM state** (`src/jam_state.rs`): the para's `ParaInfo` in a Gray Paper state trie. Its root is the refine context's state root and every block carries
   the proof, as against a real JAM node.
 - **Refine** (`src/refine.rs`): the runtime blob runs as the Parachain Service's inner PVM, with
   the service's memory layout and child host calls, on polkavm 0.36 with the refine node's cost
   model (`Full(L2Hit)`, synchronous gas metering). A refine only counts if the runtime declares the
   built block as its head, so every reported number is from a block the runtime validated,
-  including its signatures and its JAM block authorization.
+  including its signatures and its Aura seal.
 
 The reported gas is the inner PVM's, the `invoke` part of a refine. The Parachain Service's own
 work around it (loading and parsing the code, host call dispatch) is not included.
@@ -44,22 +43,12 @@ The polkadot-sdk, parachain-service and polkajam2 checkouts have to sit next to 
 
    The blob is `target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm`.
 
-2. Build the block authorizer in the parachain-service checkout:
-
-   ```sh
-   just build-authorizer-pvm
-   ```
-
-   The blob is
-   `target/pvm/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-authorizer-sr25519.jam`.
-
-3. Run the benchmark:
+2. Run the benchmark:
 
    ```sh
    SKIP_WASM_BUILD=1 cargo run --release -p cumulus-jam-tx-gas-benchmark -- \
    	--runtime target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm \
-   	--authorizer ../parachain-service/target/pvm/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-authorizer-sr25519.jam \
-   	--transactions 50
+      	--transactions 50
    ```
 
    `SKIP_WASM_BUILD` keeps the build from compiling the runtime to WASM: the benchmark only uses

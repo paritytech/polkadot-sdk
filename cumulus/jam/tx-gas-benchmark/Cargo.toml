@@ -25,7 +25,6 @@ schnorrkel = { workspace = true, default-features = true }
 # model differs between the two, so the refine run uses the node's version.
 polkavm = { version = "0.36.0" }
 
-parachain-authorizer = { workspace = true, default-features = true, features = ["std"] }
 parachain-service-core = { workspace = true, default-features = true, features = ["std"] }
 
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }

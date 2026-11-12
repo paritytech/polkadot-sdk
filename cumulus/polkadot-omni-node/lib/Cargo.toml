@@ -42,10 +42,7 @@ jam-std-common = { workspace = true }
 jam-types = { workspace = true, default-features = true, features = ["std"] }
 parachain-authorizer = { workspace = true, default-features = true, features = ["std"] }
 parachain-authorizer-sr25519 = { workspace = true, default-features = true }
-parachain-service-core = { workspace = true, default-features = true, features = [
-	"authorize-block",
-	"std",
-] }
+parachain-service-core = { workspace = true, default-features = true, features = ["std"] }
 
 # Local
 frame-metadata = { workspace = true, default-features = true }

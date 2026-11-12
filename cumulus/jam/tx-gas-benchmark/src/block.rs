@@ -6,8 +6,8 @@
 //! The runtime blob runs through the node's executor on an in-memory client. Each block gets what
 //! the omni-node's JAM builder gives it (`nodes/jam/builder_task.rs`): the refine context, the JAM
 //! state reader and additional-data finalizer over a JAM state proof, the Aura slot, `JamParent`
-//! and `BlockBundleInfo` digests, the timestamp and mocked parachain inherents, and the JAM block
-//! authorization seal. The PoV is the V4 `ParachainBlockData` the collator ships as work-item
+//! and `BlockBundleInfo` digests, the timestamp and mocked parachain inherents, and the Aura seal.
+//! The PoV is the V4 `ParachainBlockData` the collator ships as work-item
 //! extrinsic 0 (`nodes/jam/package.rs`).
 //!
 //! Everything is deterministic: JAM slots, timestamps and anchors are derived from the block
@@ -21,16 +21,7 @@ use cumulus_primitives_core::{
 	relay_chain::HeadData, BlockBundleInfo, CumulusDigestItem, ParachainBlockData, SchedulingProof,
 };
 use jam_types::RefineContext;
-use parachain_authorizer::{
-	aura::{build_collator_proof, AuthConfig, AuthToken, CollatorKey},
-	block::signable_block_hash,
-};
-use parachain_service_core::{
-	authorizer::{authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash},
-	blake2_256,
-	block_authorization::{BlockAuthorization, BLOCK_AUTHORIZATION_ENGINE_ID},
-	PARACHAIN_SERVICE_ID,
-};
+use parachain_service_core::blake2_256;
 use parachain_template_runtime::{
 	apis::RuntimeApi, opaque::Block, RuntimeCall, TxExtension, UncheckedExtrinsic, UNIT,
 };
@@ -56,7 +47,7 @@ use sp_runtime::{
 	Digest, DigestItem, MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_trie::proof_size_extension::ProofSizeExt;
-use std::{num::NonZero, sync::Arc};
+use std::sync::Arc;
 
 /// The host functions the omni-node executes parachain runtimes with
 /// (`polkadot-omni-node-lib`'s `ParachainHostFunctions`).
@@ -104,7 +95,9 @@ pub struct Chain {
 	client: Arc<ParaClient>,
 	para_id: u32,
 	runtime_code: (H256, u32),
-	authorizer: AuthorizerSetup,
+	/// Size of the Aura authority set and the collator's index in it.
+	aura_authorities: u32,
+	aura_index: u32,
 	collator: Signer,
 	sender: Signer,
 	nonce: u32,
@@ -115,21 +108,9 @@ pub struct Chain {
 	transaction_version: u32,
 }
 
-/// The JAM authorizer the collator authorizes its blocks under.
-struct AuthorizerSetup {
-	code: Vec<u8>,
-	code_hash: [u8; 32],
-	config: Vec<u8>,
-	hash: AuthorizerHash,
-	auth_config: AuthConfig,
-	own_index: u32,
-	own_proof: Vec<H256>,
-}
-
 impl Chain {
-	/// Start a chain from the runtime's development preset, its blocks authored by Alice under
-	/// the authorizer `authorizer_code`.
-	pub fn new(runtime: &[u8], authorizer_code: &[u8]) -> Result<Self, String> {
+	/// Start a chain from the runtime's development preset, its blocks authored by Alice.
+	pub fn new(runtime: &[u8]) -> Result<Self, String> {
 		let mut storage =
 			sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<ExtraHostFunctions>::new(runtime)
 				.get_storage_for_named_preset(Some(&PRESET.to_string()))?;
@@ -166,43 +147,18 @@ impl Chain {
 			.authorities(genesis_hash)
 			.map_err(|error| format!("aura authorities: {error}"))?;
 		let collator = Signer::new(Sr25519Keyring::Alice, 1);
-		let collators: Vec<CollatorKey> =
-			authorities.iter().map(|key| key.clone().into_inner().0).collect();
-		let own_index = collators
+		let aura_index = authorities
 			.iter()
-			.position(|key| *key == collator.public)
+			.position(|key| key.clone().into_inner().0 == collator.public)
 			.ok_or("Alice is not an Aura authority of the development preset")?
 			as u32;
-		let (collator_set_root, own_proof) = build_collator_proof(&collators, own_index)
-			.map_err(|error| format!("collator set: {error:?}"))?;
-		let auth_config = AuthConfig {
-			para_ids: vec![para_id.into()],
-			parachain_service: PARACHAIN_SERVICE_ID,
-			collator_set_root,
-			collator_set_size: NonZero::new(collators.len() as u32)
-				.ok_or("the development preset has no Aura authorities")?,
-			slot_duration: NonZero::<u32>::MIN,
-		};
-		let code_hash = blake2_256(authorizer_code);
-		let config = auth_config.encode();
-		let hash = authorizer_hash(&Authorizer {
-			code_hash: code_hash.into(),
-			config: AuthConfigBlob(config.clone()),
-		});
 
 		Ok(Chain {
 			client,
 			para_id,
 			runtime_code: (H256(blake2_256(runtime)), runtime.len() as u32),
-			authorizer: AuthorizerSetup {
-				code: authorizer_code.to_vec(),
-				code_hash,
-				config,
-				hash,
-				auth_config,
-				own_index,
-				own_proof,
-			},
+			aura_authorities: authorities.len() as u32,
+			aura_index,
 			collator,
 			sender: Signer::new(Sr25519Keyring::Alice, 2),
 			nonce: 0,
@@ -226,7 +182,7 @@ impl Chain {
 		let number = info.best_number + 1;
 
 		let jam_slot = self.jam_slot(number);
-		let timestamp = (jam_types::JAM_COMMON_ERA + u64::from(jam_slot) * 6) * 1000;
+		let timestamp = timestamp(jam_slot);
 		let para_slot = Slot::from(timestamp / PARA_SLOT_MILLIS);
 		let relay_slot = timestamp / JAM_SLOT_MILLIS;
 
@@ -236,8 +192,6 @@ impl Chain {
 			para_id: self.para_id,
 			included_head: parent_hash.0,
 			validation_code: (self.runtime_code.0 .0, self.runtime_code.1),
-			authorizer_hash: self.authorizer.hash,
-			authorizer_code: &self.authorizer.code,
 		});
 		let anchor = blake2_256(&(b"anchor", jam_slot).encode());
 		let lookup_anchor = blake2_256(&(b"lookup_anchor", jam_slot).encode());
@@ -336,23 +290,11 @@ impl Chain {
 			.into_compact_proof::<BlakeTwo256>(*parent_header.state_root())
 			.map_err(|error| format!("compact proof: {error}"))?;
 
-		// Seal like the collator: the authorizer's `BlockAuthorization` of the seal-less header.
+		// Seal like the collator: Alice's Aura signature over the seal-less header hash.
 		let (pre_header, body) = built.block.deconstruct();
-		let pre_hash = pre_header.hash();
-		let token = AuthToken {
-			proof: self.authorizer.own_proof.clone(),
-			key: self.collator.public,
-			signature: self.collator.sign(signable_block_hash(&pre_hash.0).as_bytes()),
-		};
 		let seal = DigestItem::Seal(
-			BLOCK_AUTHORIZATION_ENGINE_ID,
-			BlockAuthorization {
-				auth_code_host: PARACHAIN_SERVICE_ID,
-				code_hash: self.authorizer.code_hash,
-				config: self.authorizer.config.clone(),
-				token: token.encode(),
-			}
-			.encode(),
+			AURA_ENGINE_ID,
+			self.collator.sign(pre_header.hash().as_bytes()).to_vec(),
 		);
 		let mut header = pre_header.clone();
 		header.digest_mut().push(seal.clone());
@@ -386,14 +328,14 @@ impl Chain {
 	}
 
 	/// The JAM slot block `number` is authored in: the first slot from `FIRST_JAM_SLOT + number`
-	/// on whose round-robin turn is the collator's.
+	/// on whose Aura slot is the collator's.
 	fn jam_slot(&self, number: u32) -> u32 {
 		(FIRST_JAM_SLOT + number..)
 			.find(|slot| {
-				self.authorizer.auth_config.expected_collator_index(*slot) ==
-					self.authorizer.own_index
+				(timestamp(*slot) / PARA_SLOT_MILLIS) % u64::from(self.aura_authorities) ==
+					u64::from(self.aura_index)
 			})
-			.expect("the round-robin names every collator once per turn; qed")
+			.expect("Aura names every authority once per turn; qed")
 	}
 
 	/// A signed `transfer_keep_alive` of one unit from Alice to Bob, immortal.
@@ -441,6 +383,11 @@ impl Chain {
 		OpaqueExtrinsic::decode(&mut &extrinsic.encode()[..])
 			.expect("an encoded extrinsic decodes as an opaque one; qed")
 	}
+}
+
+/// Unix time in milliseconds at the start of `jam_slot`.
+fn timestamp(jam_slot: u32) -> u64 {
+	(jam_types::JAM_COMMON_ERA + u64::from(jam_slot) * 6) * 1000
 }
 
 /// Re-seal the relay-parent descendants of the mocked parachain inherent with reproducible
