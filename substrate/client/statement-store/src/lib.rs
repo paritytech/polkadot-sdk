@@ -885,7 +885,8 @@ struct SubmitIndex {
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
-	// Lock-free copy of `next_seq`, written only by `set_next_seq`.
+	// Same counter as `Store::admission_watermark`: `set_next_seq` writes it here, the store reads
+	// it without the lock.
 	admission_watermark: Arc<AtomicU64>,
 	// Sequence numbers of recently inserted statements, kept only while at least one subscription
 	// snapshot scan is in progress and only back to the oldest such scan's watermark.
@@ -946,8 +947,8 @@ pub struct Store {
 	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
 	/// exact value by up to one sweep cycle.
 	known_accounts_count: AtomicUsize,
-	/// Mirror of `SubmitIndex::next_seq`, so the gossip loop reads the watermark without waiting
-	/// for a writer stalled on the disk.
+	/// Shared with `SubmitIndex`, which keeps it equal to its `next_seq`, so the gossip loop reads
+	/// the watermark without waiting for a writer stalled on the disk.
 	admission_watermark: Arc<AtomicU64>,
 	// Used for testing
 	time_override: Option<u64>,
