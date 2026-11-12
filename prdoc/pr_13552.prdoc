@@ -6,9 +6,13 @@ doc:
     now charged the weigher's weight of a `RefundSurplus`, kept out of the refund and counted in
     the weight used, but only when the trader refunds something. The charge is taken per weight
     dimension: a dimension whose surplus does not cover it is not refunded, and a surplus that
-    covers it in no dimension is left as it was. As for the explicit instruction, the weight is the
-    benchmarked one, which does not include the swap a swapping trader such as
-    `SwapFirstAssetTrader` makes to refund.
+    covers it in no dimension is left as it was.
+
+    The `refund_surplus` benchmark now pays with the asset of the new
+    `pallet_xcm_benchmarks::generic::Config::worst_case_for_refund`, which defaults to the asset of
+    `worst_case_for_trader`. A runtime whose trader swaps, such as one with
+    `SwapFirstAssetTrader`, should return an asset the trader swaps, so the weight of
+    `RefundSurplus` includes the swap back on refund. Asset Hub Westend does.
 
     A refund is no longer bought back from the trader when holding is at capacity. `RefundSurplus`
     now fails with `HoldingWouldOverflow` before asking the trader when holding is at capacity for
@@ -24,4 +28,8 @@ doc:
     is that much smaller, and no refund is made when the surplus does not cover it.
 crates:
 - name: staging-xcm-executor
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: minor
+- name: asset-hub-westend-runtime
   bump: patch

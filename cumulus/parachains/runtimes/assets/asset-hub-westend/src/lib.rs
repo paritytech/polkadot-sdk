@@ -2962,6 +2962,53 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 			}
 
+			/// Creates a foreign asset with a pool against WND and returns its location.
+			fn set_up_foreign_asset_pool() -> Location {
+				let native_asset_location = WestendLocation::get();
+				let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+				let origin = RuntimeOrigin::signed(account.clone());
+				let asset_location = Location::new(1, [Parachain(2001)]);
+
+				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					&account,
+					ExistentialDeposit::get() + (1_000 * UNITS)
+				));
+
+				assert_ok!(ForeignAssets::force_create(
+					RuntimeOrigin::root(),
+					asset_location.clone().into(),
+					account.clone().into(),
+					true,
+					1,
+				));
+
+				assert_ok!(ForeignAssets::mint(
+					origin.clone(),
+					asset_location.clone().into(),
+					account.clone().into(),
+					3_000 * UNITS,
+				));
+
+				assert_ok!(AssetConversion::create_pool(
+					origin.clone(),
+					native_asset_location.clone().into(),
+					asset_location.clone().into(),
+				));
+
+				assert_ok!(AssetConversion::add_liquidity(
+					origin,
+					native_asset_location.into(),
+					asset_location.clone().into(),
+					1_000 * UNITS,
+					2_000 * UNITS,
+					1,
+					1,
+					account.into(),
+				));
+
+				asset_location
+			}
+
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
 				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
@@ -2971,51 +3018,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					let native_asset_location = WestendLocation::get();
-					let native_asset_id = AssetId(native_asset_location.clone());
-					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					let origin = RuntimeOrigin::signed(account.clone());
-					let asset_location = Location::new(1, [Parachain(2001)]);
-					let asset_id = AssetId(asset_location.clone());
-
-					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
-						&account,
-						ExistentialDeposit::get() + (1_000 * UNITS)
-					));
-
-					assert_ok!(ForeignAssets::force_create(
-						RuntimeOrigin::root(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						true,
-						1,
-					));
-
-					assert_ok!(ForeignAssets::mint(
-						origin.clone(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						3_000 * UNITS,
-					));
-
-					assert_ok!(AssetConversion::create_pool(
-						origin.clone(),
-						native_asset_location.clone().into(),
-						asset_location.clone().into(),
-					));
-
-					assert_ok!(AssetConversion::add_liquidity(
-						origin,
-						native_asset_location.into(),
-						asset_location.into(),
-						1_000 * UNITS,
-						2_000 * UNITS,
-						1,
-						1,
-						account.into(),
-					));
-
-					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
+					let asset_id = AssetId(set_up_foreign_asset_pool());
+					let give_assets: XcmAssets = (AssetId(WestendLocation::get()), 500 * UNITS).into();
 					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
 
 					Ok((give_assets, receive_assets))
@@ -3049,6 +3053,11 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),
 					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
+				}
+
+				fn worst_case_for_refund() -> Result<Asset, BenchmarkError> {
+					// Paying in a pool asset makes the trader swap to buy and swap back to refund.
+					Ok((AssetId(set_up_foreign_asset_pool()), 1_000 * UNITS).into())
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
