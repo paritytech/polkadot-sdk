@@ -47,10 +47,10 @@ use super::{
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
-/// A submitted segment, kept as headers only and re-hydrated when rebuilt under a sibling.
+/// A submitted segment's parts, kept for rebuilding under a sibling.
 struct SegmentSubmission<Block: BlockT> {
 	core_index: CoreIndex,
-	headers: Vec<Block::Header>,
+	parts: Vec<CollationParts<Block>>,
 	proof: SchedulingProof,
 	resubmitted: usize,
 	fresh: usize,
@@ -64,7 +64,7 @@ impl<Block: BlockT> SegmentSubmission<Block> {
 			.into_iter()
 			.map(|header_chain| Self {
 				core_index: self.core_index,
-				headers: self.headers.clone(),
+				parts: self.parts.clone(),
 				proof: SchedulingProof { header_chain, ..self.proof.clone() },
 				resubmitted: self.resubmitted,
 				fresh: self.fresh,
@@ -250,8 +250,12 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 				core_index,
 				resubmittable_headers,
 				bundle,
-				siblings: sibling_params,
+				sibling_params,
 			}) => {
+				// Parts are kept for sibling copies only if a sibling candidate is already known.
+				let sibling_params = siblings
+					.has_candidates(&scheduling_proof, &sibling_params)
+					.then_some(sibling_params);
 				let submitted = submitter
 					.submit_segment(
 						scheduling_proof,
@@ -262,6 +266,8 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 					)
 					.await;
 				defer_siblings(&mut deferred, core_index, submitted);
+				// Retry a failed subscription off the hot path, as candidates need imports.
+				siblings.ensure_subscribed().await;
 			},
 			Work::Deferred(Deferred::Resolve(segment, params)) => {
 				let chains = siblings.resolve(&segment.proof, &params).await;
@@ -325,14 +331,14 @@ where
 			.await;
 	}
 
-	/// Submit a V3 segment; `Some` only if it sent something `siblings` may carry too.
+	/// Submit a V3 segment; `Some` only if it sent something to also submit under siblings.
 	async fn submit_segment(
 		&mut self,
 		scheduling_proof: SchedulingProof,
 		core_index: CoreIndex,
 		resubmittable_headers: Vec<Block::Header>,
 		bundle: Option<CollationParts<Block>>,
-		siblings: Option<SiblingParams>,
+		sibling_params: Option<SiblingParams>,
 	) -> Option<(SegmentSubmission<Block>, SiblingParams)> {
 		// Hydrate the resubmitted headers here (proof/body reads), off the block-production hot
 		// path, then prepend them (oldest first) to the freshly-built bundle.
@@ -342,41 +348,24 @@ where
 		let fresh = usize::from(bundle.is_some());
 		all_parts.extend(bundle);
 
-		// Sibling rebuilds keep only the headers; the parts move into the main submission.
-		let headers: Option<Vec<_>> = siblings.as_ref().map(|_| {
-			all_parts
-				.iter()
-				.flat_map(|parts| parts.blocks.iter().map(|b| b.header().clone()))
-				.collect()
-		});
+		// The main submission consumes the parts; sibling copies reuse a clone.
+		let sibling_work = sibling_params.map(|params| (all_parts.clone(), params));
 
 		let sent = self
 			.send_segment(all_parts, scheduling_proof.clone(), core_index, None, resubmitted, fresh)
 			.await;
-		let (headers, siblings) = headers.zip(siblings).filter(|_| sent)?;
+		let (parts, sibling_params) = sibling_work.filter(|_| sent)?;
 
 		let segment =
-			SegmentSubmission { core_index, headers, proof: scheduling_proof, resubmitted, fresh };
-		Some((segment, siblings))
+			SegmentSubmission { core_index, parts, proof: scheduling_proof, resubmitted, fresh };
+		Some((segment, sibling_params))
 	}
 
-	/// Rebuild a submitted segment from its headers under a sibling's header chain. Skipped if any
-	/// part fails to hydrate, rather than advertising less than the main submission did.
+	/// Rebuild a submitted segment under a sibling's header chain.
 	async fn submit_to_sibling(&mut self, segment: SegmentSubmission<Block>, valid_until: Instant) {
-		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh } = segment;
+		let SegmentSubmission { core_index, parts, proof, resubmitted, fresh } = segment;
 		if Instant::now() >= valid_until {
 			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling submission too late.");
-			return;
-		}
-		let parts = self.hydrate(headers);
-		if parts.len() != resubmitted + fresh {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?core_index,
-				hydrated = parts.len(),
-				expected = resubmitted + fresh,
-				"Skipping sibling submission with missing parts.",
-			);
 			return;
 		}
 		self.send_segment(parts, proof, core_index, Some(valid_until), resubmitted, fresh)
@@ -609,6 +598,19 @@ mod tests {
 		}
 	}
 
+	/// Parts carrying one empty block at `number`.
+	fn parts(number: u32) -> CollationParts<Block> {
+		CollationParts {
+			relay_parent: Default::default(),
+			parent_header: header(number - 1),
+			blocks: vec![Block::new(header(number), vec![])],
+			proof: sp_api::StorageProof::empty(),
+			validation_code_hash: polkadot_primitives::Hash::default().into(),
+			validation_data: Default::default(),
+			relay_parent_session: 0,
+		}
+	}
+
 	fn segment(
 		core_index: CoreIndex,
 		resubmitted: usize,
@@ -616,7 +618,7 @@ mod tests {
 	) -> SegmentSubmission<Block> {
 		SegmentSubmission {
 			core_index,
-			headers: vec![header(100), header(101)],
+			parts: vec![parts(100), parts(101)],
 			proof: scheduling_proof(7),
 			resubmitted,
 			fresh,
@@ -632,13 +634,24 @@ mod tests {
 		)
 	}
 
+	/// Params that are already past their deadline.
+	fn sibling_params() -> SiblingParams {
+		SiblingParams {
+			relay_production_slot: Default::default(),
+			core_indices: vec![],
+			claim_queue_offset: 0,
+			max_relay_parent_session_age: 0,
+			valid_until: Instant::now(),
+		}
+	}
+
 	fn segment_message(core_index: CoreIndex) -> CollatorMessage<Block> {
 		CollatorMessage::Segment {
 			scheduling_proof: scheduling_proof(0),
 			core_index,
 			resubmittable_headers: vec![],
 			bundle: None,
-			siblings: None,
+			sibling_params: sibling_params(),
 		}
 	}
 
@@ -693,7 +706,10 @@ mod tests {
 		for (sibling, chain) in siblings.iter().zip(&chains) {
 			let proof = SchedulingProof { header_chain: chain.clone(), ..scheduling_proof(7) };
 			assert_eq!(sibling.proof, proof);
-			assert_eq!(sibling.headers, segment.headers);
+			let blocks = |s: &SegmentSubmission<Block>| {
+				s.parts.iter().map(|p| p.blocks.clone()).collect::<Vec<_>>()
+			};
+			assert_eq!(blocks(sibling), blocks(&segment));
 			assert_eq!(
 				(sibling.core_index, sibling.resubmitted, sibling.fresh),
 				(CoreIndex(0), 1, 1)
@@ -704,14 +720,7 @@ mod tests {
 	/// A core's next segment, sent or not, drops its earlier sibling work; other cores keep theirs.
 	#[test]
 	fn next_segment_supersedes_sibling_work() {
-		let params = SiblingParams {
-			relay_production_slot: Default::default(),
-			core_indices: vec![],
-			claim_queue_offset: 0,
-			max_relay_parent_session_age: 0,
-			valid_until: Instant::now(),
-		};
-		let submitted = |core| Some((segment(core, 0, 1), params.clone()));
+		let submitted = |core| Some((segment(core, 0, 1), sibling_params()));
 		let mut deferred = VecDeque::new();
 		defer_siblings(&mut deferred, CoreIndex(0), submitted(CoreIndex(0)));
 		deferred.push_back(Deferred::Sibling(segment(CoreIndex(0), 0, 1), Instant::now()));

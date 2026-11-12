@@ -40,8 +40,8 @@ pub(super) enum CollatorMessage<Block: BlockT> {
 		resubmittable_headers: Vec<Block::Header>,
 		/// The freshly-built bundle for this core, if any. Submitted after the resubmitted parts.
 		bundle: Option<CollationParts<Block>>,
-		/// Set when the segment may also be submitted under sibling scheduling parents.
-		siblings: Option<SiblingParams>,
+		/// For also submitting the segment under sibling scheduling parents.
+		sibling_params: SiblingParams,
 	},
 }
 
@@ -70,19 +70,12 @@ pub(super) struct CollatorMessageBuilder<Block: BlockT> {
 	core_index: CoreIndex,
 	bundle: Option<CollationParts<Block>>,
 	resubmittable_headers: Vec<Block::Header>,
-	scheduling_proof: Option<SchedulingProof>,
-	siblings: Option<SiblingParams>,
+	scheduling: Option<(SchedulingProof, SiblingParams)>,
 }
 
 impl<Block: BlockT> CollatorMessageBuilder<Block> {
 	pub(super) fn new(core_index: CoreIndex) -> Self {
-		Self {
-			core_index,
-			bundle: None,
-			resubmittable_headers: Vec::new(),
-			scheduling_proof: None,
-			siblings: None,
-		}
+		Self { core_index, bundle: None, resubmittable_headers: Vec::new(), scheduling: None }
 	}
 
 	/// Attach the freshly-built bundle.
@@ -101,22 +94,20 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 		self
 	}
 
-	/// Attach a V3 scheduling proof.
-	pub(super) fn with_scheduling_proof(mut self, scheduling_proof: SchedulingProof) -> Self {
-		self.scheduling_proof = Some(scheduling_proof);
-		self
-	}
-
-	/// Allow submitting under sibling scheduling parents. Only meaningful with a scheduling proof.
-	pub(super) fn with_siblings(mut self, siblings: Option<SiblingParams>) -> Self {
-		self.siblings = siblings;
+	/// Attach a V3 scheduling proof, with the inputs for finding sibling scheduling parents.
+	pub(super) fn with_scheduling_proof(
+		mut self,
+		scheduling_proof: SchedulingProof,
+		sibling_params: SiblingParams,
+	) -> Self {
+		self.scheduling = Some((scheduling_proof, sibling_params));
 		self
 	}
 
 	/// Build the message. `None` when there is nothing to submit for the core.
 	pub(super) fn build(self) -> Option<CollatorMessage<Block>> {
-		match self.scheduling_proof {
-			Some(scheduling_proof) => {
+		match self.scheduling {
+			Some((scheduling_proof, sibling_params)) => {
 				if self.resubmittable_headers.is_empty() && self.bundle.is_none() {
 					return None;
 				}
@@ -126,7 +117,7 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 					core_index: self.core_index,
 					resubmittable_headers: self.resubmittable_headers,
 					bundle: self.bundle,
-					siblings: self.siblings,
+					sibling_params,
 				})
 			},
 			None => self

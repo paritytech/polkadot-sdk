@@ -167,7 +167,7 @@ impl RecentImports {
 			.filter(|entry| Some(entry.claim.relay_slot) == leaf_slot || is_extended(entry))
 			.filter(|entry| !outweighed(entry))
 			.collect();
-		siblings.sort_by_key(|entry| (!is_extended(entry), !entry.claim.is_primary, entry.hash));
+		siblings.sort_by_key(|entry| (!is_extended(entry), !entry.claim.is_primary));
 		siblings.into_iter().map(|entry| entry.header.clone()).collect()
 	}
 }
@@ -277,6 +277,14 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		}
 	}
 
+	/// Whether a recorded import is a sibling candidate of `proof`'s SP. Memory only, no relay
+	/// lookups; [`Self::resolve`] still checks each candidate.
+	pub(crate) fn has_candidates(&self, proof: &SchedulingProof, params: &SiblingParams) -> bool {
+		proof.header_chain.first().is_some_and(|chosen| {
+			!self.recent.siblings_of(chosen, params.relay_production_slot).is_empty()
+		})
+	}
+
 	/// Header chains of up to [`MAX_SIBLING_SCHEDULING_PARENTS`] siblings that can carry the
 	/// segment proved by `proof`, best first. Each chain is newest first, as
 	/// [`SchedulingProof::header_chain`]. Empty at `relay_parent_offset == 0`, where there is no
@@ -312,14 +320,13 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			return chains.clone();
 		}
 
-		self.ensure_subscribed().await;
-		self.drain();
 		let candidates = self.recent.siblings_of(chosen, params.relay_production_slot);
-		let max = MAX_SIBLING_SCHEDULING_PARENTS;
 		let mut chains = Vec::new();
 		let mut complete = true;
-		for sibling in candidates.iter().take(max + MAX_REJECTED_SIBLINGS) {
-			if chains.len() >= max {
+		for sibling in
+			candidates.iter().take(MAX_SIBLING_SCHEDULING_PARENTS + MAX_REJECTED_SIBLINGS)
+		{
+			if chains.len() >= MAX_SIBLING_SCHEDULING_PARENTS {
 				break;
 			}
 			match self.resolve_sibling(proof, params, sibling.clone()).await {
@@ -473,7 +480,7 @@ mod tests {
 
 	/// Candidates as `is_scheduling_parent_valid` admits them: a head from `production_slot - 1`,
 	/// or the parent of a head at `production_slot`. A secondary next to a primary is dropped
-	/// unless extended; extended, then primary, then hash order.
+	/// unless extended; extended, then primary, then import order.
 	#[test]
 	fn siblings_mirror_scheduling_parent_validity() {
 		let production_slot = Slot::from(10);
@@ -486,8 +493,7 @@ mod tests {
 		let mut imports = imports(&[&primary, &secondary, &other_primary, &other_secondary]);
 
 		// Both secondaries lose to the primaries on their parent, whichever is picked.
-		let mut primaries = vec![primary.clone(), other_primary.clone()];
-		primaries.sort_by_key(|h| h.hash());
+		let primaries = vec![primary.clone(), other_primary.clone()];
 		assert_eq!(imports.siblings_of(&primary, production_slot), vec![other_primary.clone()]);
 		assert_eq!(imports.siblings_of(&secondary, production_slot), primaries);
 
@@ -583,14 +589,19 @@ mod tests {
 			for header in imports {
 				tx.unbounded_send((*header).clone()).expect("receiver is alive; qed");
 			}
-			let params = SiblingParams {
+			resolver.drain();
+			resolver.resolve(proof, &self.params()).await
+		}
+
+		/// Slot 102 planned on core 0, with a deadline far ahead.
+		fn params(&self) -> SiblingParams {
+			SiblingParams {
 				relay_production_slot: Slot::from(102),
 				core_indices: vec![CoreIndex(0)],
 				claim_queue_offset: CLAIM_DEPTH as u32,
 				max_relay_parent_session_age: self.max_session_age,
 				valid_until: Instant::now() + Duration::from_secs(60),
-			};
-			resolver.resolve(proof, &params).await
+			}
 		}
 	}
 
@@ -617,15 +628,35 @@ mod tests {
 		for header in &accepted {
 			fx.add(header, Some(CoreIndex(0)));
 		}
-		let mut expected = accepted.clone();
-		expected.sort_by_key(|h| h.hash());
-		let expected: Vec<_> = expected
-			.into_iter()
+		let expected: Vec<_> = accepted
+			.iter()
 			.take(MAX_SIBLING_SCHEDULING_PARENTS)
-			.map(|h| vec![h])
+			.map(|h| vec![h.clone()])
 			.collect();
 		let imports: Vec<_> = accepted.iter().collect();
 		assert_eq!(fx.resolve(&proof, &imports).await, expected);
+	}
+
+	/// Candidates come from recorded imports only, and never at `relay_parent_offset == 0`.
+	#[test]
+	fn has_candidates_needs_an_imported_sibling() {
+		let fx = Fixture::new();
+		let chosen = relay_header_with_slot(11, fx.isp.hash(), 101);
+		let sibling = twin(&chosen, 7);
+		let (tx, rx) = futures::channel::mpsc::unbounded();
+		let mut resolver = SiblingResolver::with_imports(
+			TestRelayClient::new(Default::default()),
+			1.into(),
+			Box::pin(rx),
+		);
+		let params = fx.params();
+		let proof = fx.proof(vec![chosen]);
+
+		assert!(!resolver.has_candidates(&proof, &params));
+		tx.unbounded_send(sibling).expect("receiver is alive; qed");
+		resolver.drain();
+		assert!(resolver.has_candidates(&proof, &params));
+		assert!(!resolver.has_candidates(&fx.proof(vec![]), &params));
 	}
 
 	/// At offset 2 the chain is newest first and ends above the internal scheduling parent; a
@@ -644,8 +675,7 @@ mod tests {
 		fx.add(&cousin, Some(CoreIndex(0)));
 		let proof = fx.proof(vec![chosen, mid.clone()]);
 
-		let mut expected = vec![vec![twin_sibling.clone(), mid], vec![cousin.clone(), other_mid]];
-		expected.sort_by_key(|chain| chain[0].hash());
+		let expected = vec![vec![twin_sibling.clone(), mid], vec![cousin.clone(), other_mid]];
 		assert_eq!(fx.resolve(&proof, &[&twin_sibling, &cousin]).await, expected);
 	}
 

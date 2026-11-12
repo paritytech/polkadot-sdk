@@ -910,7 +910,7 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
 			// The collation task looks up and checks sibling scheduling parents per segment.
-			let siblings = (cx.v3_enabled && cx.relay_parent_offset > 0).then(|| SiblingParams {
+			let sibling_params = SiblingParams {
 				relay_production_slot: slot_time.relay_slot(),
 				core_indices: cores.core_indices().to_vec(),
 				claim_queue_offset: cores.claim_queue_offset.0 as u32,
@@ -919,7 +919,7 @@ where
 					slot_time.relay_slot(),
 					env.relay_chain_slot_duration,
 				),
-			});
+			};
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -1002,8 +1002,7 @@ where
 					resubmittable_headers.remove(&bucket_idx).unwrap_or_default();
 				let is_resubmitting = !resubmittable_headers_for_core.is_empty();
 				let mut builder = CollatorMessageBuilder::new(this_core_index)
-					.with_resubmittable_headers(resubmittable_headers_for_core)
-					.with_siblings(siblings.clone());
+					.with_resubmittable_headers(resubmittable_headers_for_core);
 				if let Some(parts) = maybe_parts {
 					builder = builder.with_bundle(parts);
 				}
@@ -1011,6 +1010,7 @@ where
 				let submission = assemble_core_submission::<Block, P>(
 					builder,
 					v3_descendants,
+					&sibling_params,
 					is_resubmitting,
 					cx.relay_parent(),
 					&core_info,
@@ -1099,6 +1099,7 @@ struct BuildCollationParams<
 fn assemble_core_submission<Block, P>(
 	builder: CollatorMessageBuilder<Block>,
 	v3_descendants: Option<Vec<RelayHeader>>,
+	sibling_params: &SiblingParams,
 	is_resubmitting: bool,
 	relay_parent_header: &RelayHeader,
 	core_info: &CoreInfo,
@@ -1151,7 +1152,7 @@ where
 		"Submitting V3 segment with scheduling proof",
 	);
 
-	builder.with_scheduling_proof(scheduling_proof).build()
+	builder.with_scheduling_proof(scheduling_proof, sibling_params.clone()).build()
 }
 
 /// Build one core's collation (possibly multiple blocks) and return its [`CollationParts`].
