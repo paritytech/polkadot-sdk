@@ -65,16 +65,27 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
 	fn deletion_queue_per_entry() -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `605`
 		//  Estimated: `4070`
 		// Minimum execution time: 23_115_000 picoseconds.
 		Weight::from_parts(24_934_000, 0)
 			.saturating_add(Weight::from_parts(0, 4070))
 			.saturating_add(T::DbWeight::get().reads(3))
+=======
+		//  Measured:  `265`
+		//  Estimated: `3766`
+		// Minimum execution time: 26_984_000 picoseconds.
+		Weight::from_parts(28_710_000, 0)
+			.saturating_add(Weight::from_parts(0, 3766))
+			.saturating_add(T::DbWeight::get().reads(4))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -82,6 +93,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `738 + k * (69 ±0)`
 		//  Estimated: `728 + k * (70 ±0)`
 		// Minimum execution time: 23_682_000 picoseconds.
@@ -90,6 +102,16 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 1_306
 			.saturating_add(Weight::from_parts(1_294_157, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
+=======
+		//  Measured:  `398 + k * (69 ±0)`
+		//  Estimated: `388 + k * (70 ±0)`
+		// Minimum execution time: 27_706_000 picoseconds.
+		Weight::from_parts(24_153_356, 0)
+			.saturating_add(Weight::from_parts(0, 388))
+			// Standard Error: 773
+			.saturating_add(Weight::from_parts(1_305_761, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -100,6 +122,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `630 + k * (52 ±0)`
 		//  Estimated: `645 + k * (53 ±0)`
 		// Minimum execution time: 23_453_000 picoseconds.
@@ -108,6 +131,16 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 927
 			.saturating_add(Weight::from_parts(1_283_144, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
+=======
+		//  Measured:  `290 + k * (52 ±0)`
+		//  Estimated: `305 + k * (53 ±0)`
+		// Minimum execution time: 27_928_000 picoseconds.
+		Weight::from_parts(14_307_979, 0)
+			.saturating_add(Weight::from_parts(0, 305))
+			// Standard Error: 1_288
+			.saturating_add(Weight::from_parts(1_302_308, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))

@@ -1,0 +1,34 @@
+title: '[pallet-revive] Deletion queue keeps the native deposit records of a re-created contract'
+
+doc:
+- audience: Runtime User
+  description: |-
+    A contract can be created and terminated in one transaction and then created again at the
+    same address in a later transaction, with `CREATE2` and the same deployer, code and salt.
+    The new contract now keeps its per-payer native deposit records while the deletion queue
+    is still removing the storage of the terminated contract, so freeing storage in the new
+    contract refunds the native deposit to its payer. Before, the deletion queue cleared those
+    records.
+
+- audience: Runtime Dev
+  description: |-
+    No migration is needed.
+
+    `ContractInfo::process_deletion_queue_batch` now clears the `NativeDepositOf` rows of a
+    queued contract only while no contract is live at its address. The child trie of the
+    terminated contract is removed as before.
+
+    The per-entry deletion-queue weight (`WeightInfo::deletion_queue_per_entry`) now includes
+    one `AccountInfoOf` read. Runtimes should regenerate their `pallet_revive` weights.
+
+    `pallet-revive-fixtures` gains the `ClearableContributorStorage` and
+    `ClearableContributorFactory` test contracts and their generated bindings. Existing
+    fixtures are unchanged.
+
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
