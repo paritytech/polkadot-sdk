@@ -1,0 +1,19 @@
+title: Add the pallet-jamkb prototype and its pallet-revive precompile
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `pallet-jamkb`, a prototype FRAME pallet managing the Asset Hub representation of
+      JAMKB, the state-footprint token of JAM. It covers the permanent release, holder
+      redemption and voluntary return flows, the governance corrections and the asynchronous
+      operation machinery they rely on. Leases and lease recovery are not implemented.
+
+      The transport to JAM is behind the traits in `pallet_jamkb::transport`; the pallet
+      ships with placeholder weights and no benchmarks. Nothing is wired into a runtime yet.
+
+      Adds `pallet-jamkb-precompiles`, which exposes the holder calls of the pallet to
+      contracts through `pallet-revive` at the fixed address `0x…0903_0000` (`IJamkb.sol`).
+crates:
+  - name: pallet-jamkb
+    bump: minor
+  - name: pallet-jamkb-precompiles
+    bump: minor
