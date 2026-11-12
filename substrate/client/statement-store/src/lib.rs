@@ -883,7 +883,8 @@ struct SubmitIndex {
 	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
 	evicted_count: usize,
-	// Monotonic sequence number assigned to each statement as it is inserted.
+	// Monotonic sequence number assigned to each statement as it is inserted. Written only by
+	// `set_next_seq`, which keeps `admission_watermark` equal to it.
 	next_seq: u64,
 	// Same counter as `Store::admission_watermark`: `set_next_seq` writes it here, the store reads
 	// it without the lock.
