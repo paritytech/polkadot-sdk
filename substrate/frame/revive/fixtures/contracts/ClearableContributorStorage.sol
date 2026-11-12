@@ -12,9 +12,7 @@ import "@revive/ISystem.sol";
 /// which refunds the caller's share of the deposit. `slotLength` returns the length of the slot
 /// of `who`.
 ///
-/// `terminate` invokes the `ISystem.terminate` precompile (not the EVM `SELFDESTRUCT` opcode,
-/// which EIP-6780 restricts to same-tx-created contracts), so the contract can be terminated
-/// in a later transaction than the one that created it.
+/// `terminate` invokes the `ISystem.terminate` precompile (not the EVM `SELFDESTRUCT` opcode).
 contract ClearableContributorStorage {
 	mapping(address => bytes) private slots;
 

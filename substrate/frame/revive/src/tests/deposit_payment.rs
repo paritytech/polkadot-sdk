@@ -20,6 +20,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueue, Error,
 	FreezeReason, H160, HoldReason, NativeDepositOf,
+	address::AddressMapper,
 	deposit_payment::{Deposit, Funds},
 	storage::AccountType,
 	test_utils::{
@@ -33,7 +34,10 @@ use crate::{
 	},
 	weights::WeightInfo,
 };
-use alloy_core::{primitives::U256, sol_types::SolCall};
+use alloy_core::{
+	primitives::{Address, U256},
+	sol_types::SolCall,
+};
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{
@@ -50,8 +54,8 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use pallet_revive_fixtures::{
-	ClearableContributorStorage, FixtureType, MultiContributorStorage, compile_module,
-	compile_module_with_type,
+	ClearableContributorFactory, ClearableContributorStorage, FixtureType, MultiContributorStorage,
+	compile_module, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use sp_runtime::{AccountId32, DispatchResult};
@@ -844,6 +848,7 @@ fn terminate_clearable(addr: H160, beneficiary: H160) {
 /// the rows of the new contract while it finishes removing the old child trie.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
@@ -875,6 +880,7 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 /// the new contract alone until the queue is empty.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_of_recreated_contract_across_batches(
 	fixture_type: FixtureType,
 ) {
@@ -932,6 +938,7 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract_across_batches(
 /// the address.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
@@ -960,6 +967,7 @@ fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_typ
 /// rows, so a contract can be re-created at its address before the deletion queue runs.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_after_pgas_only_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	ExtBuilder::default()
@@ -1008,6 +1016,7 @@ fn deletion_queue_keeps_native_deposits_after_pgas_only_contract(fixture_type: F
 /// the terminated contract.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_clears_native_deposits_of_terminated_contract_with_dust(
 	fixture_type: FixtureType,
 ) {
@@ -1036,5 +1045,89 @@ fn deletion_queue_clears_native_deposits_of_terminated_contract_with_dust(
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 0);
 		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
 		assert_eq!(AccountInfoOf::<Test>::get(addr), leftover);
+	});
+}
+
+/// Calls the `ClearableContributorFactory` at `factory` as ALICE and returns the address of the
+/// contract that `call` created.
+fn create_with_factory<C: SolCall<Return = Address>>(factory: H160, call: C) -> H160 {
+	let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), factory)
+		.data(call.abi_encode())
+		.build_and_unwrap_result();
+	assert!(!result.did_revert(), "call reverted: {:?}", result.data);
+	H160::from_slice(C::abi_decode_returns(&result.data).unwrap().as_slice())
+}
+
+/// A contract re-created with `CREATE2` at the address of a contract that was created and
+/// terminated in one call keeps its [`NativeDepositOf`] rows while the deletion queue removes the
+/// old child trie.
+///
+/// The terminated contract leaves no [`NativeDepositOf`] rows, so the contract can be re-created
+/// before the deletion queue runs. The queue entry of the terminated contract must then only
+/// remove its child trie.
+///
+/// PVM contracts are created from uploaded code, and terminating the only instance removes the
+/// code, so the Resolc case uploads it before each creation.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deletion_queue_keeps_native_deposits_of_contract_recreated_after_same_call_termination(
+	fixture_type: FixtureType,
+) {
+	const SALT: [u8; 32] = [7; 32];
+	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
+	let (factory_code, _) =
+		compile_module_with_type("ClearableContributorFactory", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&BOB, 100_000_000_000);
+		let upload_child_code = || {
+			if fixture_type == FixtureType::Resolc {
+				assert_ok!(Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					crate::test_utils::deposit_limit::<Test>(),
+				));
+			}
+		};
+		let Contract { addr: factory, .. } =
+			builder::bare_instantiate(Code::Upload(factory_code)).build_and_unwrap_contract();
+
+		upload_child_code();
+		let addr = create_with_factory(
+			factory,
+			ClearableContributorFactory::createGrowAndTerminateCall {
+				salt: SALT.into(),
+				beneficiary: DJANGO_ADDR.0.into(),
+			},
+		);
+		assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 1);
+		let (_, entry) = DeletionQueue::<Test>::iter().next().expect("old contract is queued");
+		assert_eq!(entry.account_id, account_id);
+		assert!(child_trie_key_count(&entry.trie_id) > 0, "old child trie has keys");
+		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
+
+		upload_child_code();
+		let recreated = create_with_factory(
+			factory,
+			ClearableContributorFactory::createCall { salt: SALT.into() },
+		);
+		assert_eq!(recreated, addr);
+		let bob_before_growth = Balances::balance(&BOB);
+		call_contract(BOB, addr, ClearableContributorStorage::growStorageCall {}.abi_encode());
+		let alice_row = NativeDepositOf::<Test>::get(&account_id, &ALICE);
+		let bob_row = NativeDepositOf::<Test>::get(&account_id, &BOB);
+		assert!(alice_row > 0, "the origin paid the base deposit in native currency");
+		assert!(bob_row > 0);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "old child trie still queued");
+
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "old child trie removed");
+		assert_eq!(child_trie_key_count(&entry.trie_id), 0);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), alice_row);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_row);
+		assert_clear_storage_refunds_native(addr, &account_id, BOB, bob_before_growth);
 	});
 }
