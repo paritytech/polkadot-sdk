@@ -452,3 +452,29 @@ impl<AccountId> ReceiveMigratedParas<AccountId> for () {
 
 	fn receive_next_free_para_id(_: ParaId) {}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn relayed_requests_keep_their_wire_encoding() {
+		let code_hash = H256::repeat_byte(0xaa);
+		let upgrade = [&[3u8][..], code_hash.as_bytes(), &9u32.to_le_bytes()].concat();
+
+		assert_eq!(ParaRequest::V1(ParaRequestV1::AddLock).encode(), vec![0, 0]);
+		assert_eq!(ParaRequestV1::RemoveLock.encode(), vec![1]);
+		assert_eq!(ParaRequestV1::Deregister.encode(), vec![2]);
+		assert_eq!(ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len: 9 }.encode(), upgrade);
+		// Compact length 2 is `0x08`.
+		assert_eq!(ParaRequestV1::SetCurrentHead { head: vec![7, 7] }.encode(), vec![4, 8, 7, 7]);
+		assert_eq!(
+			MessageToPara::V1(MessageToParaV1::Relayed {
+				para_id: 2000,
+				request: ParaRequestV1::AddLock
+			})
+			.encode(),
+			[&[0u8, 7][..], &2000u32.to_le_bytes(), &[0]].concat()
+		);
+	}
+}
