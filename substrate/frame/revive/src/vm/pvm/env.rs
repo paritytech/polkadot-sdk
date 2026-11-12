@@ -42,9 +42,11 @@ impl<T: Config> ContractBlob<T> {
 	/// With the interpreter backend the instance starts with the frame's gas plus a credit for
 	/// the first allocation of the interpreter's map of compiled blocks:
 	/// `ceil(code_section_bytes * per_code_byte_millis / 1000)`, the gas the interpreter charges
-	/// for it. The caller pays for that allocation as part of the code load. The frame's meter
-	/// keeps accounting against the gas it handed over, so the credit is not counted as the
-	/// callee's consumption. Other backends do not charge for the map and get no credit.
+	/// for it. The caller pays for that allocation with the code load of stored code, or with the
+	/// code length slope of `instantiate_with_code` or `eth_instantiate_with_code` for code the
+	/// transaction uploads. The frame's meter keeps accounting against the gas it handed over, so
+	/// the credit is not counted as the callee's consumption. Other backends do not charge for the
+	/// map and get no credit.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,

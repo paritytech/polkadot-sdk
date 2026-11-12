@@ -1274,6 +1274,13 @@ pub mod pallet {
 				compilation_cost.per_code_byte_millis > 0,
 				"The interpreter code map weight per byte must not be 0"
 			);
+			let ref_time_slope =
+				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
+			assert!(
+				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >=
+					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
+				"The PVM code load weight per byte must be at least the code map weight per byte"
+			);
 
 			T::FeeInfo::integrity_test();
 

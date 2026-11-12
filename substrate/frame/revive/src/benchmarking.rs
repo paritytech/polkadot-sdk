@@ -981,8 +981,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Measures allocating the interpreter's map of compiled blocks, per byte of the code
-	/// section.
+	/// Measures allocating the interpreter's map of compiled blocks per byte of code section.
 	///
 	/// The map has one entry for every byte of the code section. The measured block resets the
 	/// interpreter cache of a freshly prepared instance, which has no map yet, and runs it. The

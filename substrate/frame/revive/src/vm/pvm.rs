@@ -209,33 +209,17 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 	}
 }
 
-/// The interpreter cache of a PVM instance.
-///
-/// Not generic over the runtime, so that [`caller_cache`] can hold it as a trait object.
-trait ResetCache {
-	/// Drops the compiled code and the map of compiled blocks.
-	///
-	/// The interpreter compiles the code again, and charges for it, when the instance runs
-	/// next. Fails only when the module has gas metering but no compilation cost, which
-	/// `ContractBlob::prepare_call` always sets.
-	fn reset(&mut self) -> Result<(), polkavm::Error>;
-}
-
-impl ResetCache for polkavm::RawInstance {
-	fn reset(&mut self) -> Result<(), polkavm::Error> {
-		self.reset_interpreter_cache()
-	}
-}
-
-environmental!(caller_cache: dyn ResetCache + 'static);
+environmental!(caller_cache: polkavm::RawInstance);
 
 /// Resets the interpreter cache of the innermost PVM frame that waits on a sub-call.
 ///
 /// The call stack calls it when a PVM frame starts. The frames that wait on a sub-call are
 /// the ones inside [`Memory::with_caller_cache`]; EVM frames register no cache. Does nothing
-/// when no PVM frame waits on a sub-call.
+/// when no PVM frame waits on a sub-call. The interpreter compiles the code of the reset frame
+/// again, and charges for it, when the frame resumes. Fails only when the module has gas
+/// metering but no compilation cost, which `ContractBlob::prepare_call` always sets.
 pub fn reset_caller_cache() -> Result<(), polkavm::Error> {
-	caller_cache::with(|cache| cache.reset()).unwrap_or(Ok(()))
+	caller_cache::with(|instance| instance.reset_interpreter_cache()).unwrap_or(Ok(()))
 }
 
 impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
@@ -945,7 +929,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 	/// Fails with `ExecutionFailed` only when the module has gas metering but no compilation
 	/// cost, which `ContractBlob::prepare_call` always sets.
 	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
-		self.instance.reset().map_err(|err| {
+		self.instance.reset_interpreter_cache().map_err(|err| {
 			log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
 			Error::<E::T>::ExecutionFailed.into()
 		})

@@ -158,13 +158,18 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 enum SubCall {
 	/// Calls the identity pre-compile, a builtin pre-compile.
 	BuiltinPrecompile,
-	/// Calls `NoInfo`, an external pre-compile of the test runtime, with an input that does not
-	/// decode, ignoring its revert.
+	/// Calls `NoInfo`, an external pre-compile of the test runtime, ignoring its revert.
+	///
+	/// The input does not decode, so `NoInfo` reverts.
 	ExternalPrecompile,
 	/// Calls `NoInfo`, which calls a contract that accepts the call and has the caller's type.
 	PrecompileCallingContract,
 	/// Calls a contract that accepts the call.
 	Call,
+	/// As `Call`, while an outer `SubCaller` of the same type waits on this one.
+	///
+	/// The outer `SubCaller` calls this one once, with the input of `Call`.
+	NestedCall,
 	/// Calls a contract that reverts.
 	RevertingCall,
 	/// Delegate calls a contract that accepts the call.
@@ -188,6 +193,7 @@ impl SubCall {
 			},
 			Self::PrecompileCallingContract |
 			Self::Call |
+			Self::NestedCall |
 			Self::RevertingCall |
 			Self::DelegateCall |
 			Self::Create |
@@ -196,15 +202,16 @@ impl SubCall {
 	}
 }
 
-/// A PVM caller pays for the map of compiled blocks after every sub-call that starts a PVM
-/// frame, whether it succeeds or not, in proportion to the size of its code.
+/// A PVM caller pays for its code map again after each sub-call that starts a PVM frame.
 ///
-/// The suspended PVM caller's interpreter cache is reset when a PVM frame starts: a call,
-/// delegate call or creation of a PVM contract, also when a pre-compile or an EVM contract in
-/// between makes it. Pre-compiles that call no contract, transfers to accounts without code and
-/// EVM contracts that start no PVM frame leave the cache alone. The interpreter charges the
-/// rebuild as gas through the `per_code_byte_millis` compilation cost. An EVM caller keeps no
-/// code map and pays nothing for it.
+/// The charge is in proportion to the size of the caller's code and applies whether the
+/// sub-call succeeds or not. The suspended PVM caller's interpreter cache is reset when a PVM
+/// frame starts: a call, delegate call or creation of a PVM contract, also when a pre-compile or
+/// an EVM contract in between makes it. Of several waiting PVM frames, the innermost one is
+/// reset, which [`SubCall::NestedCall`] checks. Pre-compiles that call no contract, transfers to
+/// accounts without code and EVM contracts that start no PVM frame leave the cache alone. The
+/// interpreter charges the rebuild as gas through the `per_code_byte_millis` compilation cost.
+/// An EVM caller keeps no code map.
 ///
 /// `SubCallerLarge` runs the same functions as `SubCaller` but has more code. Both make one
 /// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are
@@ -216,6 +223,7 @@ impl SubCall {
 #[test_case(FixtureType::Solc, SubCall::ExternalPrecompile)]
 #[test_case(FixtureType::Solc, SubCall::PrecompileCallingContract)]
 #[test_case(FixtureType::Solc, SubCall::Call)]
+#[test_case(FixtureType::Solc, SubCall::NestedCall)]
 #[test_case(FixtureType::Solc, SubCall::RevertingCall)]
 #[test_case(FixtureType::Solc, SubCall::DelegateCall)]
 #[test_case(FixtureType::Solc, SubCall::Create)]
@@ -226,6 +234,7 @@ impl SubCall {
 #[test_case(FixtureType::Resolc, SubCall::ExternalPrecompile)]
 #[test_case(FixtureType::Resolc, SubCall::PrecompileCallingContract)]
 #[test_case(FixtureType::Resolc, SubCall::Call)]
+#[test_case(FixtureType::Resolc, SubCall::NestedCall)]
 #[test_case(FixtureType::Resolc, SubCall::RevertingCall)]
 #[test_case(FixtureType::Resolc, SubCall::DelegateCall)]
 #[test_case(FixtureType::Resolc, SubCall::Create)]
@@ -259,6 +268,10 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 			_ => (other_sink, sink),
 		};
 		let forwarder = deploy(forwarder_code);
+		let outer = builder::bare_instantiate(Code::Upload(small_code.clone()))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract()
+			.addr;
 		let receiver = H160::repeat_byte(0x42);
 		let _ = <Test as Config>::Currency::set_balance(
 			&<Test as Config>::AddressMapper::to_account_id(&receiver),
@@ -281,7 +294,9 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 					SubCaller::callWithInputNCall { target: no_info, input: input.into(), n }
 						.abi_encode()
 				},
-				SubCall::Call => SubCaller::callNCall { target: sink.0.into(), n }.abi_encode(),
+				SubCall::Call | SubCall::NestedCall => {
+					SubCaller::callNCall { target: sink.0.into(), n }.abi_encode()
+				},
 				SubCall::RevertingCall => {
 					SubCaller::callIgnoringNCall { target: reverter.0.into(), n }.abi_encode()
 				},
@@ -314,7 +329,18 @@ fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 			let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000);
 			let weight = |n: u64| {
-				let result = builder::bare_call(addr).data(call_data(n)).build();
+				let (target, data) = match sub_call {
+					SubCall::NestedCall => {
+						let input = call_data(n).into();
+						let once = U256::from(1);
+						let data =
+							SubCaller::callWithInputNCall { target: addr.0.into(), input, n: once }
+								.abi_encode();
+						(outer, data)
+					},
+					_ => (addr, call_data(n)),
+				};
+				let result = builder::bare_call(target).data(data).build();
 				assert!(!result.result.unwrap().did_revert());
 				result.weight_consumed.ref_time()
 			};

@@ -36,7 +36,9 @@ doc:
       be 0.
     - Loading PVM code for a call is charged to the caller (the calling frame, or the transaction
       for the first frame) at the slope of `call_with_pvm_code_per_byte` per byte of the code
-      blob. The benchmark includes the callee's first allocation of the map of compiled blocks.
+      blob. The benchmark includes the callee's first allocation of the map of compiled blocks,
+      so the pallet's `integrity_test` asserts that its ref time slope is at least the
+      `interpreter_code_map_per_byte` slope.
     - Compiling a block and allocating or rewriting the map of compiled blocks can leave the
       interpreter's gas negative. `pallet-revive` then charges all the ref time it handed to the
       interpreter and fails the call frame with `OutOfGas`. The proof size is not affected.

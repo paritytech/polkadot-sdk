@@ -568,10 +568,10 @@ mod compilation_cost_benchmark {
 		});
 	}
 
-	/// Deploys contracts of [`VmBinaryModule::with_code_bytes`] with code sections of about 1 KiB
-	/// and [`VmBinaryModule::MAX_CODE_BYTES`].
+	/// Deploys contracts with code sections of about 1 KiB and of the maximum size.
 	///
-	/// Returns the address and the blob length of each.
+	/// Both are contracts of [`VmBinaryModule::with_code_bytes`], the larger one of
+	/// [`VmBinaryModule::MAX_CODE_BYTES`]. Returns the address and the blob length of each.
 	fn deploy_code_sizes() -> ((H160, u32), (H160, u32)) {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
 		let deploy = |code_bytes| {
@@ -584,13 +584,13 @@ mod compilation_cost_benchmark {
 		(deploy(1024), deploy(VmBinaryModule::MAX_CODE_BYTES))
 	}
 
-	/// A call's ref time grows with the size of its code at the `call_with_pvm_code_per_byte`
-	/// slope per blob byte.
+	/// A call's ref time grows with its code at the `call_with_pvm_code_per_byte` slope.
 	///
-	/// The contracts of [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so
-	/// they differ only in the code load. The caller pays the whole slope, and the callee
-	/// consumes the same gas for both: the interpreter's first allocation of the map of compiled
-	/// blocks is paid from the credit the callee's instance starts with.
+	/// The slope applies per byte of the code blob. The contracts of
+	/// [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so they differ only in
+	/// the code load. The caller pays the whole slope, and the callee consumes the same gas for
+	/// both: the interpreter's first allocation of the map of compiled blocks is paid from the
+	/// credit the callee's instance starts with.
 	#[test]
 	fn code_load_is_charged_per_code_byte() {
 		ExtBuilder::default().build().execute_with(|| {
@@ -609,13 +609,13 @@ mod compilation_cost_benchmark {
 		});
 	}
 
-	/// A callee started with no gas fails, and its caller pays for loading its code.
+	/// A callee started with no gas runs out of gas, and its caller pays for loading its code.
 	///
 	/// `Caller` calls a contract of [`VmBinaryModule::with_code_bytes`] with a gas limit of 0.
 	/// The callee's instance starts with only the credit for the map of compiled blocks, which
-	/// the map allocation takes, so the callee cannot pay for its entry block and the call fails.
-	/// The caller runs the same code for both callees, so its weight differs by the code load of
-	/// the callees alone.
+	/// the map allocation takes, so the callee cannot pay for its entry block and fails with
+	/// `OutOfGas`. The caller runs the same code for both callees, so its weight differs by the
+	/// code load of the callees alone.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
 	fn code_map_credit_is_not_spendable(caller_type: FixtureType) {
@@ -625,20 +625,26 @@ mod compilation_cost_benchmark {
 			let caller =
 				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 			let weight = |callee: H160| {
-				let result = builder::bare_call(caller.addr)
-					.data(
-						Caller::normalCall {
-							_callee: callee.0.into(),
-							_value: 0,
-							_data: Default::default(),
-							_gas: 0,
-						}
-						.abi_encode(),
-					)
-					.build();
+				let mut tracer = CallTracer::new(Default::default());
+				let result = trace(&mut tracer, || {
+					builder::bare_call(caller.addr)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Default::default(),
+								_gas: 0,
+							}
+							.abi_encode(),
+						)
+						.build()
+				});
 				let output = result.result.unwrap();
 				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
 				assert!(!call.success, "a callee without gas must fail");
+				let callee_trace = &tracer.collect_trace().unwrap().calls[0];
+				assert_eq!(callee_trace.to, callee);
+				assert_eq!(callee_trace.error.as_deref(), Some("OutOfGas"));
 				result.weight_consumed.ref_time()
 			};
 			let measured = weight(large) - weight(small);
