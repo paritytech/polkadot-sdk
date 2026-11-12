@@ -539,7 +539,7 @@ fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
 				builder::bare_instantiate(Code::Upload(caller_code.clone()))
 					.build_and_unwrap_contract();
 			let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
-			builder::bare_call(caller)
+			let result = builder::bare_call(caller)
 				.data(
 					Caller::normalCall {
 						_callee: eoa.0.into(),
@@ -549,8 +549,16 @@ fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
 					}
 					.abi_encode(),
 				)
-				.build()
-				.weight_consumed
+				.build();
+			let nested_call =
+				Caller::normalCall::abi_decode_returns(&result.result.as_ref().unwrap().data)
+					.unwrap();
+			assert!(
+				nested_call.success,
+				"dust={dust}: the nested call returned {:?}",
+				nested_call.output
+			);
+			result.weight_consumed
 		})
 	};
 
@@ -559,8 +567,7 @@ fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
 
 	assert!(
 		with_dust.ref_time() > without_dust.ref_time(),
-		"a transfer carrying dust writes both account infos: \
-		 without_dust={without_dust:?} with_dust={with_dust:?}",
+		"without_dust={without_dust:?} with_dust={with_dust:?}",
 	);
 }
 

@@ -3530,7 +3530,7 @@ fn cold_hot_first_frame_prewarms_the_called_contract_and_its_transfer() {
 				receiver_account: Warmth::Hot { .. },
 				sender_account: Warmth::Hot { .. },
 				receiver_account_info: Warmth::Hot { .. },
-				sender_account_info: Warmth::Hot { .. },
+				sender_account_info: Warmth::Hot { charged: StorageOp::Read },
 				dust: false,
 			}
 		);

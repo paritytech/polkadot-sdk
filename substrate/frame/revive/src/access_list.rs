@@ -446,31 +446,26 @@ impl AccessEntry {
 	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
 		use frame_support::storage::StoragePrefixedMap;
 
-		let address =
-			|tail: &[u8]| (tail.len() == H160::len_bytes()).then(|| H160::from_slice(tail));
-		let hash = |tail: &[u8]| (tail.len() == H256::len_bytes()).then(|| H256::from_slice(tail));
-
 		if let Some(tail) = key.strip_prefix(&frame_system::Account::<T>::final_prefix()) {
 			use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
 			let mut encoded = Blake2_128Concat::reverse(tail);
 			let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
-			return <T::AddressMapper as crate::AddressMapper<T>>::is_mapped(&account_id).then(
-				|| Self::Account {
-					address: <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id),
-				},
-			);
+			let address = <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id);
+			return (<T::AddressMapper as crate::AddressMapper<T>>::to_account_id(&address) ==
+				account_id)
+				.then_some(Self::Account { address });
 		}
 		if let Some(tail) = key.strip_prefix(&crate::OriginalAccount::<T>::final_prefix()) {
-			return Some(Self::OriginalAccount { address: address(tail)? });
+			return Some(Self::OriginalAccount { address: H160(tail.try_into().ok()?) });
 		}
 		if let Some(tail) = key.strip_prefix(&crate::AccountInfoOf::<T>::final_prefix()) {
-			return Some(Self::AccountInfo { address: address(tail)? });
+			return Some(Self::AccountInfo { address: H160(tail.try_into().ok()?) });
 		}
 		if let Some(tail) = key.strip_prefix(&crate::CodeInfoOf::<T>::final_prefix()) {
-			return Some(Self::CodeInfo { hash: hash(tail)? });
+			return Some(Self::CodeInfo { hash: H256(tail.try_into().ok()?) });
 		}
 		if let Some(tail) = key.strip_prefix(&crate::PristineCode::<T>::final_prefix()) {
-			return Some(Self::PristineCode { hash: hash(tail)? });
+			return Some(Self::PristineCode { hash: H256(tail.try_into().ok()?) });
 		}
 		None
 	}
