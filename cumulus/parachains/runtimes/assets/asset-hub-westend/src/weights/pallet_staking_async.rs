@@ -911,6 +911,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::BondedEras` (`max_values`: Some(1), `max_size`: Some(25), added: 520, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::AreNominatorsSlashable` (r:1 w:0)
 	/// Proof: `Staking::AreNominatorsSlashable` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::NextEraValidators` (r:1 w:0)
+	/// Proof: `Staking::NextEraValidators` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ForceEra` (r:1 w:0)
 	/// Proof: `Staking::ForceEra` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
@@ -932,12 +934,12 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `8505 + v * (61 ±0)`
 		//  Estimated: `39483 + v * (2543 ±0)`
-		// Minimum execution time: 260_455_000 picoseconds.
-		Weight::from_parts(224_826_578, 0)
+		// Minimum execution time: 251_743_000 picoseconds.
+		Weight::from_parts(205_956_474, 0)
 			.saturating_add(Weight::from_parts(0, 39483))
-			// Standard Error: 8_098
-			.saturating_add(Weight::from_parts(6_231_081, 0).saturating_mul(v.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
+			// Standard Error: 9_189
+			.saturating_add(Weight::from_parts(6_444_021, 0).saturating_mul(v.into()))
+			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(17))
 			.saturating_add(Weight::from_parts(0, 2543).saturating_mul(v.into()))
