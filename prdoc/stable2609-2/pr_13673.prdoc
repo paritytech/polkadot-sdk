@@ -1,0 +1,16 @@
+title: '`pallet-bounties`: Pay out only spendable funds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bounty and child-bounty payouts now only use funds the account can transfer, and a failed
+    transfer makes the claim fail instead of being ignored.
+
+    `pallet_bounties::Config` now requires the treasury `Currency` to also implement
+    `fungible::Inspect` with the same balance type. `pallet-balances` already does, so runtimes
+    using it need no changes.
+crates:
+- name: pallet-bounties
+  bump: major
+  validate: false 
+- name: pallet-child-bounties
+  bump: minor
