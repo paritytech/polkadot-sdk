@@ -11,8 +11,10 @@ doc:
 
     Callers that only release, slash or move what they have reserved themselves see no change.
 
+    A new Root-only `force_unreserve_named` call is the named counterpart of `force_unreserve`.
+
 crates:
 - name: pallet-balances
-  bump: minor
+  bump: major
 - name: pallet-preimage
   bump: none

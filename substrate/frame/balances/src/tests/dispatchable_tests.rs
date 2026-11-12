@@ -384,7 +384,7 @@ fn burn_works() {
 }
 
 #[test]
-fn force_unreserve_only_acts_on_unnamed_reserve() {
+fn force_unreserve_and_force_unreserve_named_work() {
 	use frame_support::traits::{Currency, NamedReservableCurrency, ReservableCurrency};
 	ExtBuilder::default().build_and_execute_with(|| {
 		// given an account with a hold, two named reserves and an unnamed reserve.
@@ -404,8 +404,12 @@ fn force_unreserve_only_acts_on_unnamed_reserve() {
 		};
 		assert_eq!(reserves(), (65, 10, 20, 30));
 
-		// when called by a non-root origin, it fails.
+		// when called by a non-root origin, both fail.
 		assert_noop!(Balances::force_unreserve(Some(ALICE).into(), ALICE, 100), BadOrigin);
+		assert_noop!(
+			Balances::force_unreserve_named(Some(ALICE).into(), TestId::Foo, ALICE, 100),
+			BadOrigin
+		);
 
 		// when root asks `force_unreserve` for more than the unnamed reserve, only that is
 		// released.
@@ -416,7 +420,16 @@ fn force_unreserve_only_acts_on_unnamed_reserve() {
 		}));
 		assert_eq!(reserves(), (60, 10, 20, 30));
 
+		// when root asks `force_unreserve_named` for more than the named reserve `Foo`, only that
+		// is released.
+		assert_ok!(Balances::force_unreserve_named(RuntimeOrigin::root(), TestId::Foo, ALICE, 100));
+		System::assert_last_event(RuntimeEvent::Balances(Event::Unreserved {
+			who: ALICE,
+			amount: 20,
+		}));
+		assert_eq!(reserves(), (40, 10, 0, 30));
+
 		// then the free balance has grown by what was released.
-		assert_eq!(Balances::free_balance(ALICE), 40);
+		assert_eq!(Balances::free_balance(ALICE), 60);
 	});
 }
