@@ -124,9 +124,11 @@ impl<T: Config> EngineMeter<T> {
 	///   instruction, minus the compilation of that instruction (`per_instruction_millis`) and
 	///   minus one gas for its execution.
 	/// - `per_code_byte_millis`: `interpreter_code_map_per_byte`. The interpreter charges it for
-	///   the whole code section when it allocates or rewrites its map of compiled blocks: on the
-	///   first compilation of a call, on the first compilation after every call, delegate call,
-	///   pre-compile call and instantiation the contract makes, and after many cache resets.
+	///   the whole code section when it allocates or rewrites its map of compiled blocks. The first
+	///   allocation of a call is paid by the caller with the code load, and the callee's instance
+	///   starts with a gas credit for it. The contract pays the allocations on the first
+	///   compilation after every call, delegate call, pre-compile call and instantiation it makes,
+	///   and the rewrites after many cache resets.
 	pub fn interpreter_compilation_cost() -> polkavm::InterpreterCompilationCost {
 		let ref_time_slope = |weight: fn(u32) -> Weight| slope(weight, 1).ref_time();
 		let ref_time_per_fuel = Self::ref_time_per_fuel();

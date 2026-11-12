@@ -462,8 +462,11 @@ mod compilation_cost_benchmark {
 		call_builder::VmBinaryModule,
 		metering::{EngineMeter, slope},
 	};
+	use alloy_core::sol_types::SolCall;
 	use limits::code::BASIC_BLOCK_SIZE;
+	use pallet_revive_fixtures::{Caller, FixtureType, compile_module_with_type};
 	use pretty_assertions::assert_eq;
+	use test_case::test_case;
 
 	/// Deploys contracts whose entry blocks have 2 and `BASIC_BLOCK_SIZE` instructions.
 	fn deploy_entry_blocks() -> (H160, H160) {
@@ -565,65 +568,85 @@ mod compilation_cost_benchmark {
 		});
 	}
 
-	/// A call's ref time grows with the size of its code at the `call_with_pvm_code_per_byte`
-	/// slope, less the `interpreter_code_map_per_byte` slope of the blob bytes outside the code
-	/// section.
+	/// Deploys contracts of [`VmBinaryModule::with_code_bytes`] with code sections of about 1 KiB
+	/// and [`VmBinaryModule::MAX_CODE_BYTES`].
 	///
-	/// The pallet charges that slope minus the `interpreter_code_map_per_byte` slope `M` for
-	/// every byte of the blob. The interpreter charges `M` back as gas for every byte of the code
-	/// section, `ceil(code_section * millis / 1000)` with `millis = ceil(1000 * M / r)` and `r`
-	/// the ref time per gas. The blob also holds the instruction bitmask, so it grows by more
-	/// bytes than the code section, and each blob byte outside the code section adds the
-	/// `call_with_pvm_code_per_byte` slope minus `M`. `millis` adds less than `r / 1000` per byte
-	/// of the code section, and rounding each call's charge up to whole gas moves the difference
-	/// by less than one gas either way.
+	/// Returns the address and the blob length of each.
+	fn deploy_code_sizes() -> ((H160, u32), (H160, u32)) {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let deploy = |code_bytes| {
+			let code = VmBinaryModule::with_code_bytes(code_bytes).code;
+			let blob_len = u32::try_from(code.len()).unwrap();
+			let addr =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+			(addr, blob_len)
+		};
+		(deploy(1024), deploy(VmBinaryModule::MAX_CODE_BYTES))
+	}
+
+	/// A call's ref time grows with the size of its code at the `call_with_pvm_code_per_byte`
+	/// slope per blob byte.
 	///
 	/// The contracts of [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so
-	/// they differ only in the code load.
+	/// they differ only in the code load. The caller pays the whole slope, and the callee
+	/// consumes the same gas for both: the interpreter's first allocation of the map of compiled
+	/// blocks is paid from the credit the callee's instance starts with.
 	#[test]
 	fn code_load_is_charged_per_code_byte() {
 		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
-			let call = |code_bytes| {
-				let code = VmBinaryModule::with_code_bytes(code_bytes).code;
-				let blob = polkavm::ProgramBlob::parse(code[..].into()).unwrap();
-				let blob_len = u32::try_from(code.len()).unwrap();
-				let section_len = u32::try_from(blob.code().len()).unwrap();
-				let addr =
-					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+			let ((small, small_blob), (large, large_blob)) = deploy_code_sizes();
+			let weight = |addr| {
 				let result = builder::bare_call(addr).build();
 				assert_ok!(result.result);
-				(result.weight_consumed.ref_time(), blob_len, section_len)
+				result.weight_consumed.ref_time()
 			};
-			let (small, small_blob, small_section) = call(1024);
-			let (large, large_blob, large_section) = call(VmBinaryModule::MAX_CODE_BYTES);
-			let measured = large - small;
+			let measured = weight(large) - weight(small);
 
-			let r = EngineMeter::<Test>::ref_time_per_fuel();
-			let millis = EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
-			assert!(millis > 0);
 			let code_load = <Test as Config>::WeightInfo::call_with_pvm_code_per_byte;
-			let code_map = <Test as Config>::WeightInfo::interpreter_code_map_per_byte;
-			let blob_bytes = large_blob - small_blob;
-			let section_bytes = large_section - small_section;
+			let expected =
+				slope(code_load, large_blob).ref_time() - slope(code_load, small_blob).ref_time();
+			assert_eq!(measured, expected);
+		});
+	}
 
-			let benchmark = slope(code_load, blob_bytes).ref_time();
-			let outside_section = slope(code_map, blob_bytes - section_bytes).ref_time();
-			let expected = benchmark - outside_section;
-			let rounding = (u64::from(section_bytes) * r).div_ceil(1000) + r;
-			assert!(measured + r > expected, "{measured} <= {expected} - {r}");
-			assert!(measured < expected + rounding, "{measured} >= {expected} + {rounding}");
-
-			let pallet = |blob_len| {
-				slope(code_load, blob_len).ref_time() - slope(code_map, blob_len).ref_time()
+	/// A callee started with no gas fails, and its caller pays for loading its code.
+	///
+	/// `Caller` calls a contract of [`VmBinaryModule::with_code_bytes`] with a gas limit of 0.
+	/// The callee's instance starts with only the credit for the map of compiled blocks, which
+	/// the map allocation takes, so the callee cannot pay for its entry block and the call fails.
+	/// The caller runs the same code for both callees, so its weight differs by the code load of
+	/// the callees alone.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn code_map_credit_is_not_spendable(caller_type: FixtureType) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let ((small, small_blob), (large, large_blob)) = deploy_code_sizes();
+			let caller =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+			let weight = |callee: H160| {
+				let result = builder::bare_call(caller.addr)
+					.data(
+						Caller::normalCall {
+							_callee: callee.0.into(),
+							_value: 0,
+							_data: Default::default(),
+							_gas: 0,
+						}
+						.abi_encode(),
+					)
+					.build();
+				let output = result.result.unwrap();
+				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
+				assert!(!call.success, "a callee without gas must fail");
+				result.weight_consumed.ref_time()
 			};
-			let interpreter =
-				|section_len: u32| (u64::from(section_len) * u64::from(millis)).div_ceil(1000) * r;
-			assert_eq!(
-				measured,
-				pallet(large_blob) - pallet(small_blob) + interpreter(large_section) -
-					interpreter(small_section)
-			);
+			let measured = weight(large) - weight(small);
+
+			let code_load = <Test as Config>::WeightInfo::call_with_pvm_code_per_byte;
+			let expected =
+				slope(code_load, large_blob).ref_time() - slope(code_load, small_blob).ref_time();
+			assert_eq!(measured, expected);
 		});
 	}
 

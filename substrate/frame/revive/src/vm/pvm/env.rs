@@ -38,6 +38,13 @@ use sp_runtime::{DispatchError, SaturatedConversion};
 
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
+	///
+	/// With the interpreter backend the instance starts with the frame's gas plus a credit for
+	/// the first allocation of the interpreter's map of compiled blocks:
+	/// `ceil(code_section_bytes * per_code_byte_millis / 1000)`, the gas the interpreter charges
+	/// for it. The caller pays for that allocation as part of the code load. The frame's meter
+	/// keeps accounting against the gas it handed over, so the credit is not counted as the
+	/// callee's consumption. Other backends do not charge for the map and get no credit.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
@@ -62,17 +69,29 @@ impl<T: Config> ContractBlob<T> {
 				interpreter is available on all platforms; qed",
 		);
 
+		let compilation_cost = EngineMeter::<T>::interpreter_compilation_cost();
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_interpreter_compilation_cost(Some(
-			EngineMeter::<T>::interpreter_compilation_cost(),
-		));
-		let module =
-			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
-				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-				Error::<T>::CodeRejected
-			})?;
+		module_config.set_interpreter_compilation_cost(Some(compilation_cost));
+		let blob = polkavm::ProgramBlob::parse(self.code.into()).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
+		let charges_code_map = engine.backend() == polkavm::BackendKind::Interpreter;
+		let code_map_credit: polkavm::Gas = if charges_code_map {
+			let code_section_bytes: u64 = blob.code().len().saturated_into();
+			code_section_bytes
+				.saturating_mul(compilation_cost.per_code_byte_millis.into())
+				.div_ceil(1000)
+				.saturated_into()
+		} else {
+			0
+		};
+		let module = polkavm::Module::from_blob(&engine, &module_config, blob).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
 
 		let entry_program_counter = module
 			.exports()
@@ -87,7 +106,7 @@ impl<T: Config> ContractBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		instance.set_gas(gas_limit_polkavm);
+		instance.set_gas(gas_limit_polkavm.saturating_add(code_map_credit));
 		instance
 			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
 				max_block_size: limits::code::BASIC_BLOCK_SIZE,

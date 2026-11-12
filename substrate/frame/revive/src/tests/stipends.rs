@@ -147,6 +147,49 @@ fn call_stipends_cover_own_balance_reads_and_evm_events(
 	});
 }
 
+/// `send` and `transfer` reach a PVM receiver of every code size the pallet accepts.
+///
+/// The receiver runs on the stipend alone. Its `call` export returns at once, so only the size
+/// of its code section varies, up to [`crate::call_builder::VmBinaryModule::MAX_CODE_BYTES`].
+#[cfg(feature = "runtime-benchmarks")]
+#[test_case(FixtureType::Solc, 1024)]
+#[test_case(FixtureType::Solc, 32 * 1024)]
+#[test_case(FixtureType::Solc, 64 * 1024)]
+#[test_case(FixtureType::Solc, 96 * 1024)]
+#[test_case(FixtureType::Solc, 128 * 1024)]
+#[test_case(FixtureType::Solc, 256 * 1024)]
+#[test_case(FixtureType::Solc, crate::call_builder::VmBinaryModule::MAX_CODE_BYTES)]
+#[test_case(FixtureType::Resolc, 1024)]
+#[test_case(FixtureType::Resolc, 32 * 1024)]
+#[test_case(FixtureType::Resolc, 64 * 1024)]
+#[test_case(FixtureType::Resolc, 96 * 1024)]
+#[test_case(FixtureType::Resolc, 128 * 1024)]
+#[test_case(FixtureType::Resolc, 256 * 1024)]
+#[test_case(FixtureType::Resolc, crate::call_builder::VmBinaryModule::MAX_CODE_BYTES)]
+fn call_stipends_cover_pvm_receivers_of_any_code_size(fixture_type: FixtureType, code_bytes: u32) {
+	let receiver_code = crate::call_builder::VmBinaryModule::with_code_bytes(code_bytes).code;
+	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(test_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(
+				SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }.abi_encode(),
+			)
+			.evm_value(2_000_002_u128.into())
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "{:?}", crate::evm::decode_revert_reason(&result.data));
+	});
+}
+
 #[test]
 fn evm_call_stipends_work_for_calls() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();

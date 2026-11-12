@@ -1260,14 +1260,6 @@ pub mod pallet {
 				"The ref time per PolkaVM gas derived from the weights must not be 0"
 			);
 
-			let ref_time_slope =
-				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
-			assert!(
-				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >
-					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
-				"The PVM code load weight per byte must exceed the code map weight per byte"
-			);
-
 			let compilation_cost =
 				crate::metering::EngineMeter::<T>::interpreter_compilation_cost();
 			assert!(

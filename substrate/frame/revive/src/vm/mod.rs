@@ -121,11 +121,11 @@ impl ExportedFunction {
 
 /// Cost of code loading from storage.
 ///
-/// For PVM code the ref time slope of `interpreter_code_map_per_byte` per blob byte is left out:
-/// the callee allocates its map of compiled blocks, which the interpreter charges as gas per byte
-/// of the code section. The slope of `call_with_pvm_code_per_byte` also holds part of the entry
-/// block compilation of its contract, which the interpreter charges too, so the remaining charge
-/// is not below the measured load.
+/// It is charged to the caller: the calling frame, or the transaction for the first frame. For
+/// PVM code it is the slope of `call_with_pvm_code_per_byte` per blob byte, which includes the
+/// callee's first allocation of the interpreter's map of compiled blocks. The interpreter charges
+/// that allocation as gas, and the callee's instance starts with a gas credit of the same size
+/// (see `ContractBlob::prepare_call`).
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeLoadToken {
@@ -142,11 +142,7 @@ impl CodeLoadToken {
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match self.code_type {
-			BytecodeType::Pvm => {
-				let code_map = slope(T::WeightInfo::interpreter_code_map_per_byte, self.code_len);
-				slope(T::WeightInfo::call_with_pvm_code_per_byte, self.code_len)
-					.saturating_sub_ref_time(code_map.ref_time())
-			},
+			BytecodeType::Pvm => slope(T::WeightInfo::call_with_pvm_code_per_byte, self.code_len),
 			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte, self.code_len),
 		}
 	}

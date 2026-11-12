@@ -840,12 +840,12 @@ mod benchmarks {
 
 	/// Measures loading PVM code of `c` bytes from storage into the execution engine.
 	///
-	/// The slope per byte of the code blob is charged for loading PVM code, minus the ref time
-	/// slope of `interpreter_code_map_per_byte`. The callee allocates its map of compiled blocks,
-	/// which the interpreter charges as gas. The entry block of `VmBinaryModule::sized(c)` grows
-	/// with `c` for small `c`, so part of its compilation is in the slope, and the interpreter
-	/// charges it as well. The called code returns right away; its execution is charged by the
-	/// gas meter.
+	/// The slope per byte of the code blob is charged to the caller for loading PVM code. It
+	/// includes the callee's first allocation of its map of compiled blocks, which the
+	/// interpreter charges as gas against a credit of the same size (see
+	/// `ContractBlob::prepare_call`). The entry block of `VmBinaryModule::sized(c)` grows with `c`
+	/// for small `c`, so part of its compilation is in the slope, and the interpreter charges it
+	/// as well. The called code returns right away; its execution is charged by the gas meter.
 	///
 	/// The proof size is the main result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
