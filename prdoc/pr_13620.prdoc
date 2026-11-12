@@ -19,8 +19,9 @@ doc:
     No migration or configuration change is needed. The storage layout is unchanged.
 
     Creating a contract now also reads `DeletionQueueCounter`. This affects the weights of
-    `instantiate`, `instantiate_with_code`, `eth_instantiate_with_code`, `seal_instantiate` and
-    `evm_instantiate`. Runtimes should regenerate their `pallet_revive` weights.
+    `instantiate`, `instantiate_with_code`, `eth_instantiate_with_code`, `seal_instantiate`,
+    `seal_instantiate_transfer`, `evm_instantiate` and `evm_instantiate_transfer`. Runtimes should
+    regenerate their `pallet_revive` weights.
 
     The `RedeployFactory` fixture is new and adds the `RedeployFactory`, `RedeployChild` and
     `RedeployDeployer` modules to `pallet-revive-fixtures`.

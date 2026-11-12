@@ -1743,6 +1743,7 @@ fn with_pgas_funded_alice(test: impl FnOnce()) {
 	[FixtureType::Solc, FixtureType::Resolc],
 	[ChildCreation::Create2, ChildCreation::Create1]
 )]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn redeployed_child_does_not_share_storage_with_queued_child(
 	fixture_type: FixtureType,
 	creation: ChildCreation,
@@ -1768,6 +1769,7 @@ fn redeployed_child_does_not_share_storage_with_queued_child(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[ChildCreation::Create2, ChildCreation::Create1]
 )]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn draining_queued_child_keeps_storage_of_redeployed_child(
 	fixture_type: FixtureType,
 	creation: ChildCreation,
@@ -1796,6 +1798,7 @@ fn draining_queued_child_keeps_storage_of_redeployed_child(
 /// same as the original contract, and its storage counters record it.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType) {
 	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
@@ -1829,6 +1832,7 @@ fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType
 /// changes neither its deposit nor its storage counters.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: FixtureType) {
 	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
@@ -1864,6 +1868,7 @@ fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: Fixtur
 /// its own trie and starts with empty storage.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn child_redeployed_in_same_batch_does_not_share_storage(fixture_type: FixtureType) {
 	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
