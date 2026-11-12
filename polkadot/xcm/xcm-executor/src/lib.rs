@@ -551,7 +551,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			RefundPoint::Instruction => Weight::zero(),
 			RefundPoint::End { charge } => charge,
 		};
-		let refundable = current_surplus.saturating_sub(charge);
+		let charged = charge.min(current_surplus);
+		let refundable = current_surplus.saturating_sub(charged);
 		tracing::trace!(
 			target: "xcm::refund_surplus",
 			total_surplus = ?self.total_surplus,
@@ -572,7 +573,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		if refundable.any_gt(Weight::zero()) {
 			if let Some(refund) = self.trader.refund_weight(refundable, &self.context) {
 				self.total_refunded.saturating_accrue(refundable);
-				self.total_surplus.saturating_reduce(current_surplus.saturating_sub(refundable));
+				self.total_surplus.saturating_reduce(charged);
 				self.holding.subsume_assets(refund);
 			}
 		}
