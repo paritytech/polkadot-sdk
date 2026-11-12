@@ -702,7 +702,6 @@ mod native {
 		type CodeHashLockupDepositPercent = crate::tests::CodeHashLockupDepositPercent;
 		type UploadOrigin = frame_system::EnsureSigned<AccountId32>;
 		type InstantiateOrigin = frame_system::EnsureSigned<AccountId32>;
-		type Deposit = ();
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
