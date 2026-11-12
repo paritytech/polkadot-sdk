@@ -19,7 +19,6 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-02-21, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `3a2e9ae8a8f5`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -145,6 +144,16 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	/// Storage: `XcmPallet::Queries` (r:1 w:1)
 	/// Proof: `XcmPallet::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn check_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `305`
+		//  Estimated: `5318`
+		// Minimum execution time: 28_594_000 picoseconds.
+		Weight::from_parts(29_512_000, 0)
+			.saturating_add(Weight::from_parts(0, 5318))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn check_status_rotation() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `305`
 		//  Estimated: `5318`
