@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794479790630,
+  "lastUpdate": 1794495841349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "319976c3a73784ddd8d0d892b3b470168c620dfd",
-          "message": "statement-store: zombienet initial sync (#11861)\n\nImplement #11534 for initial sync \n\n# Description\n- Add `statement_store_initial_sync_multiple_peers` integration test\n- Spawns a 2-node network, populates 20 statements from 4 keypairs\nacross 2 topics, then adds 3 new collators\n- Verifies each new peer receives all 20 statements via\n`schedule_initial_sync_for_peer`\n- Asserts `initial_sync_statements_sent` metric reflects both senders\ndelivering to all 3 new peers (2×3×20 = 120)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-27T14:08:14Z",
-          "tree_id": "cbd2536665933f44f3ac752f96d67482b94216bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/319976c3a73784ddd8d0d892b3b470168c620dfd"
-        },
-        "date": 1777305847767,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06000000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07863569146999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03825373079199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08107567581999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6c62ddce50f23017e8df717b94ee7d199bfd8fe2",
+          "message": "`pallet-collective`: include the voting threshold in the proposal hash (#13259)\n\n## Summary\n\n`pallet_collective` identified a proposal by the hash of the proposed\ncall. The `threshold`\npassed to `propose` was stored alongside the proposal but was not part\nof its identity, so a\ngiven call could only be under consideration with one threshold at a\ntime.\n\nThis PR makes the threshold part of the proposal identity. The hash is\nnow derived from the\nSCALE encoding of `(call, threshold)`, so the same call proposed with\ndifferent thresholds\nresults in distinct proposals that are voted on and closed\nindependently.\n\n## Changes\n\n- New public helper `Pallet::<T, I>::proposal_hash(&call, threshold) ->\nT::Hash`, the single\n  place where the derivation lives.\n- `do_propose_proposed` and `do_propose_execute` use the helper.\n`do_propose_execute` takes the\n`threshold` as its first argument. Both keep their `DuplicateProposal`\ncheck: a\n`ProposalProvider` such as pallet-alliance can store a motion with\n`threshold < 2`, so an\n  immediate execution can still share its hash with a pending motion.\n- Storage version bumped to 5, with `migrations::v5::MigrateToV5`\nre-keying every active\nproposal in `Proposals`, `ProposalOf`, `Voting` and `CostOf`. Entries\nmissing their call or\nvotes are logged and left in place rather than removed, so no deposit is\nstranded.\n- `try_state` now checks that every proposal hash equals\n`proposal_hash(call, threshold)`.\n- Migration wired into kitchensink (Council, Technical, Alliance) and\nCollectives Westend\n  (Alliance).\n- Docs on `propose` link to `proposal_hash` and explain why the\nthreshold is part of the\n  identity.\n- Tests: same call with two thresholds gives distinct proposals; same\ncall with the same\nthreshold is still `DuplicateProposal`, on both the voting and the\nimmediate path; the\nmigration re-keys active proposals, leaves entries missing their call or\nvotes in place,\npasses its `pre_upgrade`/`post_upgrade` checks and returns the expected\nweight. Tests and\nbenchmarks in `pallet-collective`, `pallet-alliance` and\n`pallet-utility` now derive the hash\n  with the new threshold-aware formula.\n\n## Compatibility\n\n**Storage.** Storage version 4 → 5. Runtimes must add\n`pallet_collective::migrations::v5::MigrateToV5<Runtime, Instance>` for\nevery instance of the\npallet. The migration is bounded by `MaxProposals` and runs in a single\nblock. Only active\nproposals are re-keyed: the deposit of a motion closed before the\nupgrade is still released with\n`release_proposal_cost(hash(call))`.\n\n**Public Rust API.** `do_propose_execute` gained a leading `threshold`\nparameter; no in-tree\ncaller outside the pallet uses it. The signature of\n`do_propose_proposed` (called by\n`pallet-alliance`, kitchensink and `collectives-westend`) is unchanged.\n\n**Off-chain tooling.** Proposal hashes change, both for pending motions\nand for the `Executed`\nevent emitted when `propose` is called with `threshold < 2`.\n`MemberExecuted`, emitted by\n`execute`, still carries `hash(call)`. Clients that computed the hash as\n`hash(call)` to call\n`vote`, `close`, `disapprove_proposal` or `kill` must now compute\n`hash((call, threshold))`,\nwith the threshold encoded as a plain `u32` (the extrinsic takes it\ncompact), or read the hash\nfrom the `Proposed` event, which carries both `proposal_hash` and\n`threshold`. Calls already\nqueued with an old hash will not find their motion after the upgrade.",
+          "timestamp": "2026-11-12T12:28:35Z",
+          "tree_id": "2a0e1ad430ddd15f077144b9f250c1c72769023d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6c62ddce50f23017e8df717b94ee7d199bfd8fe2"
+        },
+        "date": 1794495798879,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.146,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038599401529999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08620688963599996,
             "unit": "seconds"
           }
         ]
