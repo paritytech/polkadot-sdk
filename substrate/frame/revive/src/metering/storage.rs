@@ -68,6 +68,9 @@ pub trait Ext<T: Config> {
 	/// refund this is the amount released from the contract's hold, which can be smaller than
 	/// `amount`: it is bounded by the deposit the contract holds above its base deposit, and the
 	/// deposit backend may release less than requested.
+	///
+	/// The implementer also pays what the hold exceeds the contract's recorded deposit by to an
+	/// `origin` that is entitled to it. That payment is not part of the returned deposit.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
@@ -617,11 +620,13 @@ impl<T: Config> Ext<T> for ReservingExt {
 				// when its authorization is processed, before execution starts. The info
 				// therefore exists here. Should it be missing anyway, refund nothing: without it
 				// the base deposit is unknown.
-				let held = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, contract);
-				let refundable =
-					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
-						.map(|info| held.saturating_sub(info.storage_base_deposit()))
-						.defensive_unwrap_or_default();
+				let reason = HoldReason::StorageDepositReserve;
+				let held = T::Deposit::total_on_hold(reason, contract);
+				let info = AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract));
+				let refundable = info
+					.as_ref()
+					.map(|info| held.saturating_sub(info.storage_base_deposit()))
+					.defensive_unwrap_or_default();
 				if value > refundable {
 					log::debug!(
 						target: LOG_TARGET,
@@ -630,7 +635,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 					);
 				}
 				<Pallet<T>>::refund_deposit(
-					HoldReason::StorageDepositReserve,
+					reason,
 					contract,
 					exec_config.funds(origin),
 					value.min(refundable),
@@ -638,10 +643,20 @@ impl<T: Config> Ext<T> for ReservingExt {
 				// The deposit backend may release less than requested, for example when the
 				// origin is not entitled to the part held in a particular currency. Report the
 				// amount that was released from the hold.
-				let released = held.saturating_sub(T::Deposit::total_on_hold(
-					HoldReason::StorageDepositReserve,
-					contract,
-				));
+				let held_after = T::Deposit::total_on_hold(reason, contract);
+				let released = held.saturating_sub(held_after);
+
+				// The part the backend did not release stays on hold while the contract info was
+				// lowered by the whole refund, so the hold exceeds the recorded deposit. Pay that
+				// excess to an origin entitled to it, so that it does not stay on hold until the
+				// contract is terminated. It is paid after the released amount is taken, since it
+				// settles a deposit from an earlier call and is not part of this refund.
+				let excess = info
+					.map(|info| held_after.saturating_sub(info.total_deposit()))
+					.unwrap_or_default();
+				if !excess.is_zero() {
+					T::Deposit::refund_excess(reason, contract, origin, excess)?;
+				}
 				Ok(Deposit::Refund(released))
 			},
 		}
