@@ -899,8 +899,7 @@ mod node_implementation {
 				self.preorder().zip(other.preorder()).all(|(a, b)| {
 					a.hash == b.hash &&
 						a.number == b.number &&
-						a.data == b.data &&
-						a.children.len() == b.children.len()
+						a.data == b.data && a.children.len() == b.children.len()
 				})
 		}
 	}
@@ -919,7 +918,8 @@ mod node_implementation {
 	/// Encodes like the `Vec` of nodes it wraps, i.e. every node is followed by its children.
 	impl<H: Encode, N: Encode, V: Encode> Encode for Nodes<H, N, V> {
 		fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-			// Any length a `Vec` can encode gives the same bytes as its `Compact<u32>` prefix.
+			// A `Vec` prefixes its length as a `Compact<u32>`. A `Compact<u64>` of the same value
+			// has the same bytes, and the cast to `u64` cannot truncate.
 			Compact(self.len() as u64).encode_to(dest);
 
 			for node in self.preorder() {
@@ -942,6 +942,7 @@ mod node_implementation {
 
 			while missing > 0 {
 				let entry = (H::decode(input)?, N::decode(input)?, V::decode(input)?, len(input)?);
+				// A count that saturates is never met, the input ends first.
 				missing = (missing - 1).saturating_add(entry.3);
 				listing.push(entry);
 			}
@@ -1818,6 +1819,7 @@ mod test {
 	fn from_preorder_rejects_missing_children() {
 		// Two children are declared, one follows.
 		assert!(Nodes::from_preorder(vec![(1u8, 1u32, (), 2), (2, 2, (), 0)]).is_err());
+		// One child is declared, none follows.
 		assert!(Nodes::from_preorder(vec![(1u8, 1u32, (), 1)]).is_err());
 	}
 
@@ -1833,7 +1835,7 @@ mod test {
 		let chain = nodes([(1, 1, 0, 1), (2, 2, 0, 1), (3, 3, 0, 0)]);
 		// A difference in the deepest node.
 		assert_ne!(chain, nodes([(1, 1, 0, 1), (2, 2, 0, 1), (3, 3, 9, 0)]));
-		// Same nodes in the same pre-order, laid out as `1 - 2 - 3` and as `2 - 1 - 3`.
+		// Same nodes in the same pre-order, but `2` and `3` are both children of `1`.
 		assert_ne!(chain, nodes([(1, 1, 0, 2), (2, 2, 0, 0), (3, 3, 0, 0)]));
 	}
 
