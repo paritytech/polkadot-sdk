@@ -456,7 +456,9 @@ impl Client {
 	/// Sync one gap-fill range, retrying failures with exponential backoff.
 	///
 	/// The request is marked done once a backward sync of the range returns without error,
-	/// which includes stopping early at a block without an EVM hash. A range that still fails
+	/// which includes stopping early at a block without an EVM hash. Every attempt walks the
+	/// range from the top again; blocks indexed by an earlier attempt are skipped before
+	/// extraction but still fetched. A range that still fails
 	/// after `retry.max_attempts` stays pending, which keeps [`Client::advance_sync_head`]
 	/// from moving the `Head` label over the missing blocks. In archive mode the next
 	/// restart's backward sync fills them, provided the cause has cleared; otherwise that sync
@@ -494,7 +496,7 @@ impl Client {
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
 					"🔄 Subscription gap fill #{from_inclusive}..#{to_inclusive} failed after {max_attempts} attempts: {err:?}. \
-					 Blocks in this range stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
+					 The blocks it did not reach stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
 			},
 		}
 	}
