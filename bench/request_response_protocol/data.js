@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794500274654,
+  "lastUpdate": 1794517142636,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145259,6 +145259,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2841127207,
             "range": "± 33540400",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "544e8299b4eec2363f9e0a52109730fbd1dead4f",
+          "message": "pallet-revive: keep native deposit records of a re-created contract (#13613)\n\nThe deletion queue cleared the `NativeDepositOf` rows of a queued\ncontract on every `on_idle` batch until its child trie was gone. The\nrows are keyed by the fallback account of the address, which every\ncontract created at that address shares. A contract re-created there\n(`CREATE2` with the same deployer, code and salt) while the old entry\nwas still queued lost its rows, so payers who later freed storage in it\ngot no native refund.\n\nThis happened when the terminated contract had no native rows (the\n`PendingDepositCleanup` check in `ContractInfo::new` passes at once), or\nwhen its child trie took more than one batch.\n\n## Change\n\n- `process_deletion_queue_batch` skips the `NativeDepositOf` phase while\na contract is live at the address. `ContractInfo::new` already rejects\ninstantiation while the prefix is non-empty, so rows under a live\ncontract belong to it. Rows under an address with no live contract,\nincluding one left as a plain account with dust after termination,\nbelong to a terminated contract and are cleared as before. The reasoning\nis documented once, on `DeletionQueueItem`.\n- The child trie of the queued entry is still removed, also while a new\ncontract lives at the address. This needs the new contract to have a\ndifferent trie id. It relies on #13620, which makes trie ids unique per\ngeneration and must land first and go into the same backports.\n- The deletion-queue benchmarks queue the contract the way termination\nwith dust leaves it: an `EOA` entry with `dust: 1` in `AccountInfoOf`.\nOtherwise the native phase would be skipped and the per-key slope would\nmeasure nothing. In ref time this branch is the worst case per entry: a\nlive contract's entry is 125 bytes larger, but the `clear_prefix` is\nskipped. `deletion_queue_per_entry` now includes one `AccountInfoOf`\nread, charged at its max encoded length (`pov_mode = Measured {\nRevive::AccountInfoOf: MaxEncodedLen }`), so the proof size covers\neither branch.\n- New fixture `ClearableContributorStorage.sol`: the\n`MultiContributorStorage` contract plus `clearStorage()` and\n`slotLength(address)`, so the tests can check the refund and the\nstorage. Existing fixtures are unchanged, so `pallet-revive-fixtures`\ngets a minor bump.\n- Tests in `src/tests/deposit_payment.rs`, Solidity fixture, Solc and\nResolc:\n- native rows drained but child trie still queued, then re-creation\n(also the first test of `PendingDepositCleanup`)\n- the same with bounded batches: re-creation after the first batch, the\nrest of the old trie drained one key per batch while the new contract is\nlive, its rows and storage checked after every batch\n- terminated contract with PGAS-only deposits, re-created before\n`on_idle`\n- two terminated contracts queued for one address, then a third created\n- terminated contract that keeps dust (`AccountInfoOf` is `EOA { dust\n}`): its rows are still cleared\n\nThe first three fail without the fix. The last one fails if the\nlive-contract check is replaced by a presence check on `AccountInfoOf`.\n\nOnly runtimes using `PGasDeposit` write `NativeDepositOf`; with `type\nDeposit = ()` the change has no effect beyond the weight.\n\n## Checks\n\n- `cargo test -p pallet-revive --lib tests::deposit_payment`: 28 passed,\n0 failed.\n- `cargo test -p pallet-revive` (on ea8cb3a468c): 962 passed, 0 failed,\n3 ignored.\n- `cargo test -p pallet-revive --features runtime-benchmarks --lib\ndeletion_queue`: 15 passed, 0 failed (the four deletion-queue benchmarks\nincluded).\n- `SKIP_WASM_BUILD=1 cargo clippy -p pallet-revive -p\npallet-revive-fixtures --all-targets --all-features`: exit 0, no\nwarnings on changed lines.\n- `git diff origin/master...HEAD -- substrate/frame/revive/fixtures`:\nonly adds `ClearableContributorStorage.sol`.\n- Weights: `dev` and `asset-hub-westend` re-benched in ea8cb3a468c.\n`deletion_queue_per_entry` proof size 3587 -> 3766 bytes, ref time\nunchanged. cb8604c704c changes tests and the new fixture only.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T19:40:14Z",
+          "tree_id": "92468e165585d756b3ad9ed35e5d66b246c91ad7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/544e8299b4eec2363f9e0a52109730fbd1dead4f"
+        },
+        "date": 1794517111273,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20581765,
+            "range": "± 123941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20919354,
+            "range": "± 124397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22541722,
+            "range": "± 153963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26672843,
+            "range": "± 219575",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59209981,
+            "range": "± 963978",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353057004,
+            "range": "± 4563996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2833043553,
+            "range": "± 127237863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17429349,
+            "range": "± 110618",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17667150,
+            "range": "± 132341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18324483,
+            "range": "± 165125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23008734,
+            "range": "± 276623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62162836,
+            "range": "± 730363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365580658,
+            "range": "± 4270867",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2777207726,
+            "range": "± 20156376",
             "unit": "ns/iter"
           }
         ]
