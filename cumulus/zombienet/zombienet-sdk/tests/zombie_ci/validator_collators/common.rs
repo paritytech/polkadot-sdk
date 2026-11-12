@@ -120,7 +120,9 @@ pub(super) async fn build_network_config(
 		);
 	}
 	let extra_collators = if options.validator_collators { &VALIDATORS[..] } else { &[] };
+	// The tests need every validator with keys to collate, so the cap is removed at genesis.
 	let report_settings = [
+		Some(validator_collators_entry("MaxCollators", CollatorDraw::All)),
 		options
 			.report_period
 			.map(|period| validator_collators_entry("ReportPeriod", period)),
@@ -169,11 +171,7 @@ pub(super) async fn build_network_config(
 			} else {
 				p.with_genesis_overrides(json!({ "staking": { "devStakers": null } }))
 			};
-			let p = if asset_hub_raw.is_empty() {
-				p
-			} else {
-				p.with_raw_spec_override(raw_genesis(asset_hub_raw))
-			};
+			let p = p.with_raw_spec_override(raw_genesis(asset_hub_raw));
 			extra_collators.iter().fold(
 				p.with_collator(|n| n.with_name(ASSET_HUB_INVULNERABLE)),
 				|p, validator| {
@@ -190,11 +188,7 @@ pub(super) async fn build_network_config(
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("people-westend-local")
 				.with_default_args(collator_args("runtime::validator-collators=debug"));
-			let p = if people_raw.is_empty() {
-				p
-			} else {
-				p.with_raw_spec_override(raw_genesis(people_raw))
-			};
+			let p = p.with_raw_spec_override(raw_genesis(people_raw));
 			extra_collators.iter().fold(
 				p.with_collator(|n| n.with_name(PEOPLE_INVULNERABLE)),
 				|p, validator| {
@@ -245,6 +239,13 @@ fn election_phase_entries() -> Vec<(Vec<u8>, Vec<u8>)> {
 		entry("UnsignedPhase", UNSIGNED_PHASE),
 		entry("SignedValidationPhase", 0),
 	]
+}
+
+/// The `All` variant of `pallet_validator_collators::CollatorDraw`, with the same encoding.
+#[derive(Encode)]
+enum CollatorDraw {
+	#[codec(index = 0)]
+	All,
 }
 
 /// The storage value `item` of `ValidatorCollators`.

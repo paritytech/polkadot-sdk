@@ -33,7 +33,9 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_fixtures::{
+	ConstructorRevertAfterAction, Fibonacci, FixtureType, NestedCounter, compile_module_with_type,
+};
 use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
@@ -77,6 +79,61 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	.collect();
 	init_code.extend(runtime_code);
 	init_code
+}
+
+/// The weight consumed by calling the Solc build of `fixture` with `data` on a fresh chain.
+///
+/// Two calls that run the same op-codes consume the same weight, apart from the charges that their
+/// operands change.
+fn weight_of_solc_call(fixture: &str, data: Vec<u8>) -> Weight {
+	let (code, _) = compile_module_with_type(fixture, FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).data(data).build();
+		assert!(!output.result.unwrap().did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
+/// The weight consumed by calling hand-built EVM runtime code on a fresh chain.
+fn weight_of_evm_call(runtime_code: Vec<u8>) -> Weight {
+	let code = make_initcode_from_runtime_code(&runtime_code);
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).build();
+		assert!(!output.result.expect("the call failed").did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
+/// The weight of one repetition of a benchmark that is linear in its component.
+fn slope(weight_fn: fn(u32) -> Weight) -> Weight {
+	weight_fn(1).saturating_sub(weight_fn(0))
+}
+
+#[test]
+fn evm_dispatch_is_charged_once_per_instruction() {
+	use crate::{
+		precompiles::Token,
+		vm::{
+			RuntimeCosts,
+			evm::{EvmDispatch, EvmOpcodeCosts},
+		},
+	};
+
+	// Padding after STOP keeps the code lengths equal without executing extra op-codes.
+	let baseline = weight_of_evm_call(vec![STOP, STOP, STOP]);
+	let with_pair = weight_of_evm_call(vec![ADDRESS, POP, STOP]);
+	let expected = <EvmDispatch as Token<Test>>::weight(&EvmDispatch)
+		.saturating_mul(2)
+		.saturating_add(<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::Address))
+		.saturating_add(<EvmOpcodeCosts as Token<Test>>::weight(&EvmOpcodeCosts::Pop));
+
+	assert_eq!(with_pair, baseline.saturating_add(expected));
 }
 
 /// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
@@ -1131,6 +1188,58 @@ fn prestate_diff_mode_tracing_works() {
 			);
 		});
 	}
+}
+
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Create, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Create, true)]
+fn prestate_diff_includes_reverted_contract_by_action(
+	fixture_type: FixtureType,
+	action: ConstructorRevertAfterAction::Action,
+	appears_in_post: bool,
+) {
+	use crate::{InstantiateReturnValue, evm::PrestateTrace};
+	use alloy_core::sol_types::SolConstructor;
+
+	let (code, _) = compile_module_with_type("ConstructorRevertAfterAction", fixture_type).unwrap();
+	let (dummy_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+		if fixture_type == FixtureType::Resolc {
+			assert_ok!(Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				dummy_code,
+				<BalanceOf<Test>>::MAX,
+			));
+		}
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let InstantiateReturnValue { result, addr } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code))
+				.constructor_data(
+					ConstructorRevertAfterAction::constructorCall { action }.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+		assert!(result.did_revert(), "{result:?}");
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { post, .. } => {
+				assert_eq!(post.contains_key(&addr), appears_in_post, "addr={addr:?} post={post:?}")
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
 }
 
 #[test]
