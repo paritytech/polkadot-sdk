@@ -421,6 +421,14 @@ impl VmBinaryModule {
 		];
 		Self::new(code)
 	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
+		Self::new(code)
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -743,13 +751,5 @@ impl VmBinaryModule {
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
 		Self::new(bench_fixtures::noop().to_vec())
-	}
-
-	/// An evm contract that executes `size` JUMPDEST instructions.
-	pub fn evm_noop(size: u32) -> Self {
-		use revm::bytecode::opcode::JUMPDEST;
-
-		let code = vec![JUMPDEST; size as usize];
-		Self::new(code)
 	}
 }
