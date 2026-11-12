@@ -41,12 +41,19 @@ use sp_runtime::{
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+parameter_types! {
+	/// Blocks a bounty whose funding failed stays retryable.
+	pub const FundingRetryPeriod: u64 = 10;
+}
+
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 	/// Source account and amount of every payment, so a rejected payment can be reverted.
 	pub static SOURCES: RefCell<BTreeMap<u64, (u128, u32, u64)>> = RefCell::new(BTreeMap::new());
+	/// When set, every payment from the funding source fails, like an empty treasury.
+	pub static FUNDING_SOURCE_EMPTY: RefCell<bool> = RefCell::new(false);
 }
 
 /// The funding source (treasury) is modelled as a faucet: it is never debited.
@@ -55,7 +62,8 @@ thread_local! {
 /// holds too little, mirroring `LocalPay` on Asset Hub. A mock that silently mints instead hides
 /// exactly the class of bug where the pallet requests more than a bounty account holds (for example
 /// refunding the full parent value after a child-bounty payout). The treasury is exempt because
-/// its funding is out of scope for this pallet and seeding it in every test adds nothing.
+/// its funding is out of scope for this pallet and seeding it in every test adds nothing; use
+/// [`set_funding_source_empty`] to model a treasury that cannot pay.
 fn is_funding_source(who: &u128, asset_kind: u32) -> bool {
 	Bounties::funding_source_account(asset_kind).ok() == Some(*who) ||
 		Bounties1::funding_source_account(asset_kind).ok() == Some(*who)
@@ -77,7 +85,11 @@ impl PayWithSource for TestBountiesPay {
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
 		// Like `LocalPay`: debit the source and fail when it holds too little.
-		if !is_funding_source(from, asset_kind) {
+		if is_funding_source(from, asset_kind) {
+			if FUNDING_SOURCE_EMPTY.with(|empty| *empty.borrow()) {
+				return Err(());
+			}
+		} else {
 			PAID.with(|paid| -> Result<(), ()> {
 				let mut paid = paid.borrow_mut();
 				let source = paid.entry((*from, asset_kind)).or_default();
@@ -207,6 +219,8 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type BlockNumberProvider = System;
+	type FundingRetryPeriod = FundingRetryPeriod;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, Identity, ()>;
 	type BountySource =
@@ -243,6 +257,8 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type BlockNumberProvider = System;
+	type FundingRetryPeriod = FundingRetryPeriod;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Identity, Instance1>;
 	type BountySource =
@@ -316,6 +332,11 @@ pub fn unpay(who: u128, asset_id: u32, amount: u64) {
 /// credit an account out-of-band, e.g. an external top-up of a bounty account
 pub fn top_up(who: u128, asset_id: u32, amount: u64) {
 	PAID.with(|p| *p.borrow_mut().entry((who, asset_id)).or_default() += amount)
+}
+
+/// make every payment from the funding source fail (`true`) or succeed again (`false`)
+pub fn set_funding_source_empty(empty: bool) {
+	FUNDING_SOURCE_EMPTY.with(|e| e.replace(empty));
 }
 
 /// set status for a given payment id

@@ -1,0 +1,24 @@
+title: 'pallet-multi-asset-bounties: keep an approved bounty when its funding payment fails'
+doc:
+  - audience: Runtime User
+    description: |
+      `fund_bounty` no longer reverts when the funding payment cannot be initiated, for example
+      when the treasury does not hold enough of the asset at enactment. The bounty is stored in
+      `FundingAttempted` with a `Failed` payment and `BountyFundingFailed` is emitted, so anyone
+      can call `retry_payment` once the treasury can pay. Like a treasury spend, the approval
+      expires: once `FundingRetryPeriod` has passed since the funding first failed,
+      `retry_payment` fails with `FundingExpired` and anyone can remove the bounty with
+      `check_status` (`BountyFundingExpired`). Before that, `RejectOrigin` can close it with
+      `close_bounty`; it is removed without a refund.
+  - audience: Runtime Dev
+    description: |
+      Two new `Config` items: `BlockNumberProvider` and `FundingRetryPeriod`. On a parachain, use
+      the same values as the treasury, e.g. `RelaychainDataProvider<Runtime>` and the treasury
+      spend `PayoutPeriod`. New storage `FundingExpiresAt`, a new error `FundingExpired`, and new
+      events `BountyFundingFailed` and `BountyFundingExpired`, all appended so existing indices
+      are unchanged. No storage migration is needed.
+crates:
+  - name: pallet-multi-asset-bounties
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major

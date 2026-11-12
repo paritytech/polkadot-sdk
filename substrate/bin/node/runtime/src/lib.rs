@@ -1445,6 +1445,8 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type BountyValueMinimum = BountyValueMinimum;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type BlockNumberProvider = System;
+	type FundingRetryPeriod = SpendPayoutPeriod;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
 	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
 		TreasuryPalletId,
