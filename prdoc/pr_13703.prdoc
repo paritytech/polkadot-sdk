@@ -5,57 +5,59 @@ doc:
     Storage written by a call stack whose origin is `Root` no longer adds to the deposit a
     contract records.
 
-    Before this change the pallet priced such a write at `DepositPerByte` and
-    `DepositPerChildTrieItem` and added it to `ContractInfo`. Settlement then collected nothing,
-    because Root has no account to charge, so the contract recorded more deposit than it held.
+    The pallet used to price such a write at `DepositPerByte` and `DepositPerChildTrieItem` and
+    add it to `ContractInfo`, while settlement collected nothing, because Root has no account to
+    charge. The contract recorded more deposit than it held, and a refund computed from that
+    record paid out deposit other users had put down. A Root write now bumps the stored byte and
+    item counts and leaves the recorded deposit alone.
 
-    On a runtime that leaves `Config::Deposit` at the default `()`, a refund computed from the
-    inflated record paid out of deposit other users had put down. Once the hold ran short, a
-    refund failed with `StorageRefundNotEnoughFunds`. Under `PGasDeposit` a user who had
-    contributed to the contract could draw the excess out of the hold, down to and including the
-    base deposit. Both are fixed. For storage written after the upgrade a contract never records
-    more deposit than it holds.
+    Storage a Root call writes still counts against the deposit limit at the list price. A Root
+    call that writes more than its `storage_deposit_limit` allows fails with
+    `StorageDepositLimitExhausted`. The call reports `Charge(0)` as its storage deposit, because
+    nothing is collected, and reports the notional list price as its maximum. The base deposit of a
+    contract a Root stack creates, and the code it uploads, cost nothing against that limit.
 
     Refunds change for everyone holding storage in a contract Root writes to. The pallet refunds
     a removal pro rata of the deposit the contract holds, over every unit it holds, and Root's
-    units now count toward that total without having added to the pool. A depositor who paid for
-    `a` units of a contract that also holds `r` Root-written units gets back `a / (a + r)` of
-    what they paid. The remainder stays held on the contract until it is terminated. Before this
+    units count toward that total without having added to the pool. A depositor who paid for `a`
+    units of a contract that also holds `r` Root-written units gets back `a / (a + r)` of what
+    they paid when removing them. The rest stays held on the contract. Before this
     change the same depositor got back everything they had paid, because a Root write added to
     the pool at list price as well as to the count.
 
-    Whoever removes Root-written units is paid a pro rata share of a pool they did not fund.
+    The pallet credits whoever removes Root-written units with a pro rata share of a pool they
+    did not fund.
     Where one depositor paid 132 for two slots and Root then wrote fifty, an account that clears
-    all fifty is credited 126 of that 132. Under `()` it keeps the 126. Under `PGasDeposit` the
-    native part of a refund is capped at that account's own `NativeDepositOf` contribution, which
-    is nothing here, so a deposit paid in native stays held on the contract. A deposit paid in
-    PGAS has no such cap, so the account receives `RefundPercent` of the 126 and the rest is
-    burned.
+    all fifty is credited 126 of that 132. With `Config::Deposit` left at the default `()` that
+    account receives it. Under `PGasDeposit` the native part of a refund is capped at the
+    account's own `NativeDepositOf` contribution, which is nothing here, so nothing is released
+    and the call reports `Charge(0)` instead of a refund.
 
-    The pallet pays nobody for storage that Root removes. Clearing the fifty slots Root wrote
-    leaves the depositor's whole 132 in the pool, so the dilution those writes caused is undone.
-    The pallet does that by restoring the pool to what the surviving units would cost at the
-    current `DepositPerByte` and `DepositPerChildTrieItem`. If either price has fallen since the
-    depositor paid, that is less than they paid, and the shortfall stays held on the contract
-    without being recorded. Clearing a contract's last slots empties the pool instead.
+    A removal under Root takes at most its pro rata share out of the pool, and never takes the
+    pool below the list price of the units that remain. While `DepositPerByte` and
+    `DepositPerChildTrieItem` are unchanged, that floor is what the remaining depositors paid, so
+    Root writing and then clearing its own units leaves them with everything they paid. After a
+    decrease in either price the floor is below what they paid, and a Root round trip can leave
+    the pool smaller than it was before. The difference stays held on the contract without being
+    recorded.
 
     Deposit that leaves the record without being paid out stays held on the contract, and Root
-    removing storage a signed origin paid for strands it the same way. Whoever terminates the
-    contract receives the whole hold. When Root terminates it, the pallet account does.
+    clearing storage a signed origin paid for strands it the same way. The record drops and the
+    hold does not. Nothing releases it afterwards. A contract is deleted only by the call stack
+    that created it, so one that has outlived that stack cannot be terminated, and its hold
+    stays on it.
 - audience: Runtime Dev
   description: |-
-    There is no `Config` change and no storage migration. `ContractInfo` keeps its layout, and
+    There is no `Config` change and no storage migration. `ContractInfo` keeps its layout and
     recorded deposits stay valid.
 
-    This release does not repair contracts that are already in the inflated state. A chain that
-    has executed Root-originated storage writes keeps those contracts recording more deposit than
-    they hold, and their refunds keep failing or over-drawing as before. The pallet accounts
-    correctly only for storage written after the upgrade.
-
-    Contracts instantiated by a Root call stack record a base deposit of zero and hold nothing. A
-    later signed write to such a contract is charged and recorded in full.
+    This release does not repair contracts that already record more deposit than they hold. A
+    chain that has executed Root-originated storage writes keeps those records. The pallet
+    bounds a refund from such a contract by the deposit it holds above its base deposit. A
+    depositor removing storage is credited less than the record implies, rather than drawing on
+    deposit somebody else put down.
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: pallet-revive-fixtures
   bump: minor
