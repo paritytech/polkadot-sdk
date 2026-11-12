@@ -1268,6 +1268,21 @@ pub mod pallet {
 				"The PVM code load weight per byte must exceed the code map weight per byte"
 			);
 
+			let compilation_cost =
+				crate::metering::EngineMeter::<T>::interpreter_compilation_cost();
+			assert!(
+				compilation_cost.per_block > 0,
+				"The interpreter compile weight per block must exceed per instruction plus one gas"
+			);
+			assert!(
+				compilation_cost.per_instruction_millis > 0,
+				"The interpreter compile weight per instruction must not be 0"
+			);
+			assert!(
+				compilation_cost.per_code_byte_millis > 0,
+				"The interpreter code map weight per byte must not be 0"
+			);
+
 			T::FeeInfo::integrity_test();
 
 			EvmDispatch::integrity_test::<T>();
