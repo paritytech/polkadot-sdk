@@ -27,6 +27,7 @@ use sc_price_oracle::ReportRecipients;
 use sc_service::TaskManager;
 use sp_api::ProvideRuntimeApi;
 use sp_authority_discovery::{AuthorityDiscoveryApi, AuthorityId as AuthorityDiscoveryId};
+use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot, AURA_ENGINE_ID};
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::PriceOracleApi;
@@ -192,6 +193,20 @@ where
 				}
 			}
 			addresses
+		}
+	}
+
+	fn is_authority(&self, peer: PeerId) -> impl Future<Output = bool> + Send {
+		// The authority discovery keys of the current set, at the best block.
+		let best = self.client.info().best_hash;
+		let authorities = AuthorityDiscoveryApi::authorities(&*self.client.runtime_api(), best)
+			.unwrap_or_default();
+		let mut service = self.authority_discovery.clone();
+		async move {
+			match service.get_authority_ids_by_peer_id(peer).await {
+				Some(ids) => ids.iter().any(|id| authorities.contains(id)),
+				None => false,
+			}
 		}
 	}
 }

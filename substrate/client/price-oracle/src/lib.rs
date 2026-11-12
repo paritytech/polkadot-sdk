@@ -281,12 +281,17 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						log::debug!(target: LOG_TARGET, "Substream with {peer} closed");
 						targets.closed(&peer);
 					},
-					Some(ValidateInboundSubstream { result_tx, .. }) => {
-						// TODO: any peer can take the inbound slots signers need. Accept only peers
-						// whose authority discovery keys are in the collator set: look them up with
-						// `get_authority_ids_by_peer_id` and answer `result_tx` after the lookup. A
-						// collator not discovered yet would be refused until the next lookup.
-						let _ = result_tx.send(ValidationResult::Accept);
+					Some(ValidateInboundSubstream { peer, result_tx, .. }) => {
+						// Only authorities get a substream, so that other peers cannot take the
+						// inbound slots the signers need. An authority this node has not
+						// discovered yet is refused, and accepted when it tries again.
+						let result = if recipients.is_authority(peer).await {
+							ValidationResult::Accept
+						} else {
+							log::debug!(target: LOG_TARGET, "Refused a substream from {peer}: not an authority");
+							ValidationResult::Reject
+						};
+						let _ = result_tx.send(result);
 					},
 					None => {
 						log::warn!(target: LOG_TARGET, "Notification stream ended, stopping");

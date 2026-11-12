@@ -93,7 +93,8 @@ recipient, the last few peers that stopped being recipients stay reserved: a sub
 by both sides, and a node that drops a peer from its reservation closes the substream it opened,
 while the peer is still sending its reports over it. An author therefore receives the reports of
 all signers directly, and a signer talks to a handful of peers. The protocol dials only the
-reserved peers, and accepts an inbound substream from any peer.
+reserved peers, and accepts an inbound substream only from a peer the `ReportRecipients` knows
+as an authority, so that other peers cannot take the inbound slots.
 
 `polkadot-omni-node` sends to the authors of the Aura slot of the best block and the next
 three, with the authorities from the best block, and keeps the last four past ones reserved

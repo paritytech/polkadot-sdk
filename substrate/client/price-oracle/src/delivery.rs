@@ -36,8 +36,8 @@ const PROTOCOL_SUFFIX: &str = "/price-oracle/1";
 /// Largest message accepted, in bytes.
 const MAX_MESSAGE_SIZE: u64 = 64 * 1024;
 /// Inbound slots of the protocol. Every signer opens a substream to each author it sends to, so
-/// an author needs a slot per signer. Sized for a few hundred signers, with room for peers that
-/// are no longer, or not yet, signers.
+/// an author needs a slot per signer. Only authorities are accepted. Sized for a few hundred of
+/// them, with room for peers that are no longer, or not yet, signers.
 const IN_PEERS: u32 = 512;
 
 /// Name of the protocol: `/{genesis_hash}[/{fork_id}]/price-oracle/1`.
@@ -53,7 +53,7 @@ pub fn protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str
 ///
 /// Returns the protocol configuration to add to the network configuration, the notification
 /// service and the protocol name to hand to the service. The node dials only the peers the
-/// service reserves, and accepts inbound substreams from anyone.
+/// service reserves, and accepts inbound substreams from the authorities.
 pub fn peers_set_config<Block: BlockT, Net: NetworkBackend<Block, Block::Hash>>(
 	genesis_hash: Block::Hash,
 	fork_id: Option<&str>,
@@ -78,11 +78,15 @@ pub fn peers_set_config<Block: BlockT, Net: NetworkBackend<Block, Block::Hash>>(
 	(config, notification_service, name)
 }
 
-/// Where the reports of a tick are sent.
+/// Where the reports of a tick are sent, and whose reports are received.
 pub trait ReportRecipients<Block: BlockT>: Send + Sync {
 	/// The peer addresses of the authorities expected to author soon, as of `best`, this node's
 	/// own among them if it is one. Addresses without a `/p2p/` peer id are ignored.
 	fn recipients(&self, best: Block::Hash) -> impl Future<Output = Vec<Multiaddr>> + Send;
+
+	/// Whether `peer` is one of the authorities. Only their substreams are accepted, so that
+	/// other peers cannot take the inbound slots the signers need.
+	fn is_authority(&self, peer: PeerId) -> impl Future<Output = bool> + Send;
 }
 
 /// The peers the reports go to.
