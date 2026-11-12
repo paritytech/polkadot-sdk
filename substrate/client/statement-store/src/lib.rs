@@ -80,7 +80,7 @@ pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::{
-		atomic::{AtomicUsize, Ordering as AtomicOrdering},
+		atomic::{AtomicU64, AtomicUsize, Ordering as AtomicOrdering},
 		Arc, Weak,
 	},
 	time::{Duration, Instant},
@@ -884,8 +884,12 @@ struct SubmitIndex {
 	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
 	evicted_count: usize,
-	// Monotonic sequence number assigned to each statement as it is inserted.
+	// Monotonic sequence number assigned to each statement as it is inserted. Written only by
+	// `set_next_seq`, which keeps `admission_watermark` equal to it.
 	next_seq: u64,
+	// Same counter as `Store::admission_watermark`: `set_next_seq` writes it here, the store reads
+	// it without the lock.
+	admission_watermark: Arc<AtomicU64>,
 	// Sequence numbers of recently inserted statements, kept only while at least one subscription
 	// snapshot scan is in progress and only back to the oldest such scan's watermark.
 	recent_seqs: HashMap<Hash, u64>,
@@ -945,6 +949,9 @@ pub struct Store {
 	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
 	/// exact value by up to one sweep cycle.
 	known_accounts_count: AtomicUsize,
+	/// Shared with `SubmitIndex`, which keeps it equal to its `next_seq`, so the gossip loop reads
+	/// the watermark without waiting for a writer stalled on the disk.
+	admission_watermark: Arc<AtomicU64>,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
@@ -1039,7 +1046,7 @@ impl IndexSet {
 }
 
 impl SubmitIndex {
-	fn new(config: Config) -> SubmitIndex {
+	fn new(config: Config, admission_watermark: Arc<AtomicU64>) -> SubmitIndex {
 		SubmitIndex {
 			// The real bound is [`Self::cached_statement_count`], enforced by
 			// [`Self::cache_record`]; this length limiter must never trigger on its own, and
@@ -1050,6 +1057,7 @@ impl SubmitIndex {
 			config,
 			totals: StoreTotals::default(),
 			next_seq: 0,
+			admission_watermark,
 			cached_statement_count: 0,
 			allowance_cursor: None,
 			allowance_cycle_seen: 0,
@@ -1057,6 +1065,11 @@ impl SubmitIndex {
 			recent_seqs: HashMap::new(),
 			active_scan_floors: BTreeMap::new(),
 		}
+	}
+
+	fn set_next_seq(&mut self, next_seq: u64) {
+		self.next_seq = next_seq;
+		self.admission_watermark.store(next_seq, AtomicOrdering::Release);
 	}
 
 	/// The [`KEY_COUNTERS`] row reflecting the given post-commit totals. Folded into every
@@ -1357,7 +1370,7 @@ impl SubmitIndex {
 		let statement_len = statement.data_len();
 		self.totals = plan.totals;
 		self.evicted_count += plan.banned.len();
-		self.next_seq = plan.seq.saturating_add(1);
+		self.set_next_seq(plan.seq.saturating_add(1));
 		self.note_seq(hash, plan.seq);
 		for (key, _) in &plan.evicted {
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(&key.hash));
@@ -1475,7 +1488,7 @@ impl Store {
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
-		task_spawner.spawn(
+		task_spawner.spawn_blocking(
 			"statement-store-maintenance",
 			Some("statement-store"),
 			Box::pin(async move {
@@ -1531,14 +1544,16 @@ impl Store {
 				storage_reader.read_allowance(account_id, allowance_block)
 			});
 
+		let admission_watermark = Arc::new(AtomicU64::new(0));
 		let store = Store {
 			db,
-			submit_index: RwLock::new(SubmitIndex::new(config)),
+			submit_index: RwLock::new(SubmitIndex::new(config, admission_watermark.clone())),
 			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			retention_fn: std::sync::OnceLock::new(),
 			keystore,
 			known_accounts_count: AtomicUsize::new(0),
+			admission_watermark,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -1650,7 +1665,7 @@ impl Store {
 				let (totals, next_seq) = <(StoreTotals, u64)>::decode(&mut counters.as_slice())
 					.map_err(|_| Error::Db("Error reading the store counters".into()))?;
 				submit_index.totals = totals;
-				submit_index.next_seq = next_seq;
+				submit_index.set_next_seq(next_seq);
 			}
 			// While `next_seq` already holds the correct admission sequence number, it costs close
 			// to nothing to check if the `next_seq` is consistent on the startup, and it can
@@ -1671,7 +1686,7 @@ impl Store {
 						submit_index.next_seq,
 						seq,
 					);
-					submit_index.next_seq = seq.saturating_add(1);
+					submit_index.set_next_seq(seq.saturating_add(1));
 				}
 			}
 
@@ -2801,8 +2816,8 @@ impl StatementStore for Store {
 	fn admission_watermark(&self) -> Result<u64> {
 		// Every admission commits its journal row under the submit-index write lock before
 		// releasing it, so a lock holder observes every sequence number below `next_seq`
-		// already persisted.
-		Ok(self.submit_index.read().next_seq)
+		// already persisted. The mirror advances after that commit, so the same holds for it.
+		Ok(self.admission_watermark.load(AtomicOrdering::Acquire))
 	}
 
 	fn admitted_statements(
