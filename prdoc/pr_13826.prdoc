@@ -1,0 +1,12 @@
+title: 'statement-store: replace an unreachable routing peer with the next peer of its bucket'
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT path peer steering now replaces a routing peer that cannot be reached. A peer
+    that stays reserved for 15 seconds without an open substream counts as unreachable for 5
+    minutes, and the routing selection takes the next peer of its bucket in that time. Before,
+    such a peer stayed chosen for ever, and a node whose only peer closer to a topic was
+    unreachable lost every statement that entered through it on that topic.
+crates:
+- name: sc-network-statement
+  bump: patch
