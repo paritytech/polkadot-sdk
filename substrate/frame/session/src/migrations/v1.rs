@@ -36,7 +36,9 @@ type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuer
 pub trait MigrateDisabledValidators {
 	/// Peek the list of disabled validators and their offence severity.
 	#[cfg(feature = "try-runtime")]
-	fn peek_disabled() -> Vec<(u32, OffenceSeverity)>;
+	fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+		Vec::new()
+	}
 
 	/// Return the list of disabled validators and their offence severity, removing them from the
 	/// underlying storage.
@@ -101,3 +103,23 @@ pub type MigrateV0ToV1<T, S> = VersionedMigration<
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	struct TakeOnly;
+
+	impl MigrateDisabledValidators for TakeOnly {
+		fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+			Vec::new()
+		}
+	}
+
+	#[test]
+	fn implementor_without_peek_disabled_satisfies_the_trait() {
+		assert!(TakeOnly::take_disabled().is_empty());
+		#[cfg(feature = "try-runtime")]
+		assert!(TakeOnly::peek_disabled().is_empty());
+	}
+}
