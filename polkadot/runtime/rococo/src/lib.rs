@@ -1455,6 +1455,7 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
 		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+		xcm_migration::Migration,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1466,6 +1467,38 @@ impl pallet_migrations::Config for Runtime {
 	type MaxServiceWeight = MbmServiceWeight;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl
+	polkadot_runtime_common::xcm_migration::benchmarking::Config<
+		frame_support::instances::Instance1,
+	> for Runtime
+{
+	type Stage = xcm_migration::AssetRate;
+}
+
+/// Benchmarks of [`xcm_migration::AssetRate`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type AssetRateStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
+	Runtime,
+	frame_support::instances::Instance1,
+>;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl
+	polkadot_runtime_common::xcm_migration::benchmarking::Config<
+		frame_support::instances::Instance2,
+	> for Runtime
+{
+	type Stage = xcm_migration::TreasurySpends;
+}
+
+/// Benchmarks of [`xcm_migration::TreasurySpends`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type TreasurySpendsStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
+	Runtime,
+	frame_support::instances::Instance2,
+>;
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1776,6 +1809,34 @@ pub mod migrations {
     );
 }
 
+/// Multi-block migration upgrading the XCM data stored by pallets to the latest XCM version.
+pub mod xcm_migration {
+	use super::{weights, Runtime};
+	use polkadot_runtime_common::xcm_migration::{
+		AssetRateStage, MigrateXcmToLatest, TreasurySpendsStage, VersionedLocatableAssetToLatest,
+		VersionedLocationToLatest,
+	};
+
+	/// Upgrades the asset kinds of `AssetRate`.
+	pub type AssetRate = AssetRateStage<
+		Runtime,
+		VersionedLocatableAssetToLatest,
+		weights::polkadot_runtime_common_xcm_migration_asset_rate_stage::WeightInfo<Runtime>,
+	>;
+
+	/// Upgrades the spends of `Treasury`.
+	pub type TreasurySpends = TreasurySpendsStage<
+		Runtime,
+		(),
+		VersionedLocatableAssetToLatest,
+		VersionedLocationToLatest,
+		weights::polkadot_runtime_common_xcm_migration_treasury_spends_stage::WeightInfo<Runtime>,
+	>;
+
+	/// The migration, running every stage above.
+	pub type Migration = MigrateXcmToLatest<Runtime, (AssetRate, TreasurySpends)>;
+}
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -1825,6 +1886,8 @@ mod benches {
 		[polkadot_runtime_common::claims, Claims]
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		[polkadot_runtime_common::slots, Slots]
+		[polkadot_runtime_common::xcm_migration, AssetRateStage]
+		[polkadot_runtime_common::xcm_migration, TreasurySpendsStage]
 		[polkadot_runtime_common::paras_registrar, Registrar]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::coretime, Coretime]

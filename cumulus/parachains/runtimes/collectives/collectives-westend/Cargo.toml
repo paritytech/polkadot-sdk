@@ -90,6 +90,7 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
+pallet-migrations = { workspace = true }
 
 pallet-collator-selection = { workspace = true }
 pallet-collective-content = { workspace = true }
@@ -127,6 +128,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -176,6 +178,7 @@ try-runtime = [
 	"pallet-core-fellowship/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
@@ -228,6 +231,7 @@ std = [
 	"pallet-core-fellowship/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",

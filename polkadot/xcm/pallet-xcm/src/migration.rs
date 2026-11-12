@@ -479,6 +479,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use data::NeedsMigration;
+		use xcm::IdentifyVersion;
 		const LOG_TARGET: &str = "runtime::xcm::pallet_xcm::migrate_to_latest";
 
 		let latest = CurrentXcmVersion::get();
@@ -530,11 +531,32 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 				})
 				.count();
 
+		let number_of_authorized_aliases_to_migrate = crate::AuthorizedAliases::<T>::iter()
+			.filter(|(key, data)| {
+				let needs_migration = key.identify_version() != latest ||
+					data.aliasers
+						.iter()
+						.any(|alias| alias.location.identify_version() != latest);
+				if needs_migration {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?key,
+						"AuthorizedAliases item was not migrated!"
+					);
+				}
+				needs_migration
+			})
+			.count();
+
 		ensure!(number_of_queries_to_migrate == 0, "must migrate all `Queries`.");
 		ensure!(number_of_locked_fungibles_to_migrate == 0, "must migrate all `LockedFungibles`.");
 		ensure!(
 			number_of_remote_locked_fungibles_to_migrate == 0,
 			"must migrate all `RemoteLockedFungibles`."
+		);
+		ensure!(
+			number_of_authorized_aliases_to_migrate == 0,
+			"must migrate all `AuthorizedAliases`."
 		);
 
 		Ok(())
