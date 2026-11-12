@@ -969,6 +969,8 @@ fn migrate_legacy_proposals_try_runtime_checks_fail_on_deferred_payout() {
 		add_proposal(150, 3);
 
 		StorageVersion::new(0).put::<Treasury>();
-		assert!(MigrateV0ToV1::<Test, ()>::try_on_runtime_upgrade(true).is_err());
+		let err = MigrateV0ToV1::<Test, ()>::try_on_runtime_upgrade(true)
+			.expect_err("a deferred payout must fail try-runtime");
+		assert!(format!("{err:?}").contains("payouts were deferred"), "{err:?}");
 	});
 }

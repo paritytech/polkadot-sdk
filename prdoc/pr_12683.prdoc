@@ -27,7 +27,7 @@ doc:
     `RuntimeEvent: From<pallet_bounties::Event>`.
 crates:
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: collectives-westend-runtime
   bump: patch
 - name: rococo-runtime

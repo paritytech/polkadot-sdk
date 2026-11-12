@@ -153,7 +153,7 @@ mod v1 {
 	/// settlement. Each processed proposal also reads the proposer account, and each payout reads
 	/// the beneficiary account. Up to three writes per proposal actually processed, plus the
 	/// treasury `settle` write when something was paid. One extra write when pruning `Approvals`
-	/// for deferred payouts, plus one read per approval it keeps; two writes when deleting all
+	/// for deferred payouts, plus one read per approval it checks; two writes when deleting all
 	/// legacy storage.
 	///
 	/// # Defensive

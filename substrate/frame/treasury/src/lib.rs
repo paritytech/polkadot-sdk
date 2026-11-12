@@ -66,9 +66,8 @@
 //! A legacy queue of approvals (see [`migration::v0::Approvals`]) may still exist from before
 //! the removal of the deprecated `spend_local` call. Runtimes must apply
 //! [`migration::MigrateV0ToV1`], which pays out whatever is still owed and then removes the legacy
-//! storage. The migration runs once, from storage version 0 to 1. Pass the same `MaxApprovals`
-//! getter the runtime used to configure on this pallet; that bound now lives on the bounties
-//! pallet.
+//! storage. The migration runs once, from storage version 0 to 1, and takes only the runtime and
+//! the treasury instance.
 //!
 //! **Warning:** if the pot cannot cover an approved legacy proposal at upgrade time, the migration
 //! defers it and keeps the legacy storage, then sets the storage version to 1. A later upgrade
