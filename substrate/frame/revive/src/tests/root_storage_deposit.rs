@@ -17,8 +17,13 @@
 
 //! Storage deposits under `Origin::Root` (paritytech/contract-issues#284).
 //!
-//! The scenarios run against both backends: [`crate::deposit_payment::PGasDeposit`] through the
-//! regular test runtime and `()` through the minimal [`native::TestNative`] runtime below.
+//! A scenario whose outcome does not depend on `Config::Deposit` is defined at file scope, and
+//! each module below wraps it for one implementation. [`crate::deposit_payment::PGasDeposit`]
+//! runs through the regular test runtime and `()` through the minimal [`native::TestNative`]
+//! runtime. Where the two implementations differ, both modules spell the scenario out under the
+//! same name, so a reader comparing them sees the difference in the assertions.
+//! `root_write_then_unrelated_signer_clears` is the one such case. The same removal pays the
+//! remover under `()` and pays them nothing under `PGasDeposit`.
 //!
 //! With `DepositPerByte = 1` and `DepositPerItem = 2`, one `RootStorage` slot costs
 //! 64 bytes + 1 item = 66, so `write(_, 2)` costs 132 and `write(_, 50)` costs 3300.
@@ -31,6 +36,7 @@ use crate::{
 		ALICE, BOB, CHARLIE, WEIGHT_LIMIT,
 		builder::{BareCallBuilder, BareInstantiateBuilder, Contract},
 	},
+	tests::DepositPerByte,
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::{Inspect, Mutate};
@@ -395,11 +401,125 @@ fn termination_releases_the_hold_not_the_record<T: Runtime>(fixture_type: Fixtur
 	);
 }
 
+/// A Root round trip is neutral only while a pool is at or below the list price of the units it
+/// covers. After the price per byte drops, ALICE's byte pool sits above that bound, so Root
+/// writing and clearing its own slots halves it and strands what ALICE paid. The item price does
+/// not move, so the item pool is unchanged by the same round trip.
+fn root_round_trip_after_price_decrease_strands_deposit<T: Runtime>(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
+	T::Currency::set_balance(&ALICE, 100_000_000_000);
+	DepositPerByte::set(2);
+
+	let Contract { addr, .. } = instantiate::<T>(&ALICE, code);
+	let base = snap::<T>(&addr).base_deposit;
+	let alice_write = call::<T>(Some(&ALICE), addr, write(0, 50));
+	assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(6500));
+	assert_eq!((alice_write.snap.byte_deposit, alice_write.snap.item_deposit), (6400, 100));
+
+	DepositPerByte::set(1);
+	let root_write = call::<T>(None, addr, write(100, 50));
+	assert_eq!((root_write.snap.byte_deposit, root_write.snap.item_deposit), (6400, 100));
+
+	let root_clear = call::<T>(None, addr, clear(100, 50));
+	assert_eq!(root_clear.result, Ok(false));
+	// Bytes: pro rata leaves 6400 - floor(6400 * 3200/6400) = 3200, and the list price of the
+	// 3200 remaining bytes is only 3200, so neither branch keeps the pool at 6400.
+	// Items: the item price never moved, so the clamp at 2 * 50 keeps the pool at 100.
+	assert_eq!((root_clear.snap.byte_deposit, root_clear.snap.item_deposit), (3200, 100));
+	assert_eq!(root_clear.snap.held, base + 6500);
+
+	let alice_clear = call::<T>(Some(&ALICE), addr, clear(0, 50));
+	assert_eq!(alice_clear.storage_deposit, StorageDeposit::Refund(3300));
+	assert_eq!(alice_clear.signer_delta, 3300);
+	assert_eq!(alice_clear.snap.recorded, base);
+	assert_eq!(alice_clear.snap.held, base + 3200);
+}
+
+/// After the price per byte drops, a Root removal shrinks the paid pool only by its pro rata
+/// share. Clamping to the new list price would strand deposit ALICE paid.
+///
+/// Returns the contract and the deposit still held on it, so the `pgas` wrapper can check
+/// ALICE's entitlement against that amount.
+fn root_clear_after_price_decrease_stays_pro_rata<T: Runtime>(
+	fixture_type: FixtureType,
+) -> (Contract<T>, u128) {
+	let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
+	T::Currency::set_balance(&ALICE, 100_000_000_000);
+	DepositPerByte::set(2);
+
+	let contract = instantiate::<T>(&ALICE, code);
+	let addr = contract.addr;
+	let base = snap::<T>(&addr).base_deposit;
+	let alice_write = call::<T>(Some(&ALICE), addr, write(0, 50));
+	assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(6500));
+	assert_eq!((alice_write.snap.byte_deposit, alice_write.snap.item_deposit), (6400, 100));
+
+	DepositPerByte::set(1);
+	let root_clear = call::<T>(None, addr, clear(0, 1));
+	assert_eq!(root_clear.result, Ok(false));
+	// Pro rata: 6400 - floor(6400 * 64/3200) = 6272 and 100 - floor(100 * 1/50) = 98.
+	// The byte list price of the remainder would be only 3136.
+	assert_eq!((root_clear.snap.byte_deposit, root_clear.snap.item_deposit), (6272, 98));
+	assert_eq!(root_clear.snap.held, base + 6500);
+
+	let alice_clear = call::<T>(Some(&ALICE), addr, clear(1, 49));
+	assert_eq!(alice_clear.storage_deposit, StorageDeposit::Refund(6370));
+	assert_eq!(alice_clear.signer_delta, 6370);
+	assert_eq!(alice_clear.snap.recorded, base);
+	assert_eq!(alice_clear.snap.held, base + 130);
+
+	(contract, alice_clear.snap.held)
+}
+
+/// Root terminates a contract whose record is below its hold. Root has no account, so
+/// `termination_origin` pays the released deposit to the pallet account. That payment includes
+/// the deposit ALICE paid and never got back.
+fn root_termination_pays_the_pallet_account<T: Runtime>(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
+	T::Currency::set_balance(&ALICE, 100_000_000_000);
+
+	let Contract { addr, .. } = instantiate::<T>(&ALICE, code);
+	let base = snap::<T>(&addr).base_deposit;
+
+	let alice_write = call::<T>(Some(&ALICE), addr, write(0, 50));
+	assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(FIFTY_SLOTS));
+
+	// Root clears what ALICE paid for. The record drops to the base and the hold does not move.
+	let root_clear = call::<T>(None, addr, clear(0, 50));
+	assert_eq!(root_clear.storage_deposit, StorageDeposit::Charge(0));
+	assert_eq!(root_clear.snap.recorded, base);
+	assert_eq!(root_clear.snap.held, base + FIFTY_SLOTS);
+
+	// CHARLIE takes the free balance, so the pallet account's delta is the released deposit
+	// alone. The contract is gone afterwards, so this cannot go through `call`.
+	let charlie = <T as Config>::AddressMapper::to_address(&CHARLIE);
+	let account = <T as Config>::AddressMapper::to_account_id(&addr);
+	let pallet_account = crate::Pallet::<T>::account_id();
+	let before = T::Currency::balance(&pallet_account);
+	let res = BareCallBuilder::<T>::bare_call(root::<T>(), addr)
+		.data(destroy(charlie))
+		.transaction_limits(TransactionLimits::WeightAndDeposit {
+			weight_limit: WEIGHT_LIMIT,
+			deposit_limit: crate::test_utils::deposit_limit::<T>(),
+		})
+		.build();
+	assert!(!res.result.expect("terminate succeeds").did_revert());
+	assert_eq!(res.storage_deposit, StorageDeposit::Charge(0));
+
+	let released = T::Currency::balance(&pallet_account) as i128 - before as i128;
+	assert_eq!(released, (base + FIFTY_SLOTS) as i128);
+	assert!(AccountInfo::<T>::load_contract(&addr).is_none(), "contract is gone");
+	assert_eq!(
+		<T::Deposit as Deposit<T>>::total_on_hold(HoldReason::StorageDepositReserve, &account),
+		0,
+	);
+}
+
 mod pgas {
 	use super::*;
 	use crate::{
 		NativeDepositOf,
-		tests::{DepositPerByte, ExtBuilder, Test},
+		tests::{ExtBuilder, Test},
 	};
 	use test_case::test_case;
 
@@ -495,6 +615,14 @@ mod pgas {
 
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
+	fn root_termination_pays_the_pallet_account(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			super::root_termination_pays_the_pallet_account::<Test>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
 	fn root_created_child_records_zero_base(fixture_type: FixtureType) {
 		ExtBuilder::default().build().execute_with(|| {
 			super::root_created_child_records_zero_base::<Test>(fixture_type);
@@ -538,74 +666,22 @@ mod pgas {
 		});
 	}
 
-	/// A Root round trip is neutral only while a pool is at or below the list price of the units
-	/// it covers. After the price per byte drops, ALICE's byte pool sits above that bound, so
-	/// Root writing and clearing its own slots halves it and strands what ALICE paid. The item
-	/// price does not move, so the item pool is unchanged by the same round trip.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
 	fn root_round_trip_after_price_decrease_strands_deposit(fixture_type: FixtureType) {
 		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			DepositPerByte::set(2);
-
-			let Contract { addr, .. } = instantiate::<Test>(&ALICE, code);
-			let base = snap::<Test>(&addr).base_deposit;
-			let alice_write = call::<Test>(Some(&ALICE), addr, write(0, 50));
-			assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(6500));
-			assert_eq!((alice_write.snap.byte_deposit, alice_write.snap.item_deposit), (6400, 100));
-
-			DepositPerByte::set(1);
-			let root_write = call::<Test>(None, addr, write(100, 50));
-			assert_eq!((root_write.snap.byte_deposit, root_write.snap.item_deposit), (6400, 100));
-
-			let root_clear = call::<Test>(None, addr, clear(100, 50));
-			assert_eq!(root_clear.result, Ok(false));
-			// Bytes: pro rata leaves 6400 - floor(6400 * 3200/6400) = 3200, and the list price of
-			// the 3200 remaining bytes is only 3200, so neither branch keeps the pool at 6400.
-			// Items: the item price never moved, so the clamp at 2 * 50 keeps the pool at 100.
-			assert_eq!((root_clear.snap.byte_deposit, root_clear.snap.item_deposit), (3200, 100));
-			assert_eq!(root_clear.snap.held, base + 6500);
-
-			let alice_clear = call::<Test>(Some(&ALICE), addr, clear(0, 50));
-			assert_eq!(alice_clear.storage_deposit, StorageDeposit::Refund(3300));
-			assert_eq!(alice_clear.signer_delta, 3300);
-			assert_eq!(alice_clear.snap.recorded, base);
-			assert_eq!(alice_clear.snap.held, base + 3200);
+			super::root_round_trip_after_price_decrease_strands_deposit::<Test>(fixture_type);
 		});
 	}
 
-	/// After the price per byte drops, a Root removal shrinks the paid pool only by its pro rata
-	/// share. Clamping to the new list price would strand deposit ALICE paid.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
 	fn root_clear_after_price_decrease_stays_pro_rata(fixture_type: FixtureType) {
 		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			DepositPerByte::set(2);
-
-			let Contract { addr, account_id } = instantiate::<Test>(&ALICE, code);
-			let base = snap::<Test>(&addr).base_deposit;
-			let alice_write = call::<Test>(Some(&ALICE), addr, write(0, 50));
-			assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(6500));
-			assert_eq!((alice_write.snap.byte_deposit, alice_write.snap.item_deposit), (6400, 100));
-
-			DepositPerByte::set(1);
-			let root_clear = call::<Test>(None, addr, clear(0, 1));
-			assert_eq!(root_clear.result, Ok(false));
-			// Pro rata: 6400 - floor(6400 * 64/3200) = 6272 and 100 - floor(100 * 1/50) = 98.
-			// The byte list price of the remainder would be only 3136.
-			assert_eq!((root_clear.snap.byte_deposit, root_clear.snap.item_deposit), (6272, 98));
-			assert_eq!(root_clear.snap.held, base + 6500);
-
-			let alice_clear = call::<Test>(Some(&ALICE), addr, clear(1, 49));
-			assert_eq!(alice_clear.storage_deposit, StorageDeposit::Refund(6370));
-			assert_eq!(alice_clear.signer_delta, 6370);
-			assert_eq!(alice_clear.snap.recorded, base);
-			assert_eq!(alice_clear.snap.held, base + 130);
-			assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), base + 130);
+			let (contract, held) =
+				super::root_clear_after_price_decrease_stays_pro_rata::<Test>(fixture_type);
+			// ALICE funded the whole hold in native, so her entitlement equals it.
+			assert_eq!(native_entitlement(&contract.account_id, &ALICE), held);
 		});
 	}
 }
@@ -678,7 +754,7 @@ mod native {
 	/// her two. Every refund is covered by the hold, which ends at the base deposit.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
-	fn root_write_then_signed_clear(fixture_type: FixtureType) {
+	fn root_write_then_unrelated_signer_clears(fixture_type: FixtureType) {
 		new_test_ext().execute_with(|| {
 			let (Contract { addr, .. }, base) = alice_two_root_fifty::<TestNative>(fixture_type);
 
@@ -704,6 +780,62 @@ mod native {
 	fn signed_write_then_root_clear(fixture_type: FixtureType) {
 		new_test_ext().execute_with(|| {
 			super::signed_write_then_root_clear::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_round_trip_is_neutral(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_round_trip_is_neutral::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_limit_is_enforced(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_limit_is_enforced::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_created_child_records_zero_base(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_created_child_records_zero_base::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn termination_releases_the_hold_not_the_record(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::termination_releases_the_hold_not_the_record::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_termination_pays_the_pallet_account(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_termination_pays_the_pallet_account::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_clear_after_price_decrease_stays_pro_rata(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_clear_after_price_decrease_stays_pro_rata::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn root_round_trip_after_price_decrease_strands_deposit(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_round_trip_after_price_decrease_strands_deposit::<TestNative>(fixture_type);
 		});
 	}
 }
