@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794501316859,
+  "lastUpdate": 1794518186414,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29b07cd379f927f0194f721148c403f63d0674d3",
-          "message": "Refactor asset-conversion tx payment fee correction (#11823)\n\nFixes a bug where the `AssetTxFeePaid` event reported an incorrect\n`actual_fee` when paying in the native asset via the asset-conversion\nextension (`asset_id == A::get()`). The returned fee amount was\ndouble-subtracting the refund, under-reporting the fee in the event.\n\nRefactors `SwapAssetAdapter::correct_and_deposit_fee` in\n`pallet-asset-conversion-tx-payment` to handle all edge cases gracefully\nduring post-dispatch fee correction. Adds test coverage for fee\ncorrection paths including account killed, account blocked, pool\ndrained, and native account with no free balance scenarios.",
-          "timestamp": "2026-04-29T00:30:45Z",
-          "tree_id": "ecb619753a8991b7d22a84bffa4e1f9eebde53aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/29b07cd379f927f0194f721148c403f63d0674d3"
-        },
-        "date": 1777427611218,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023807267299999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14326637822666677,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009564519299999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007183119573333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02406236250666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "544e8299b4eec2363f9e0a52109730fbd1dead4f",
+          "message": "pallet-revive: keep native deposit records of a re-created contract (#13613)\n\nThe deletion queue cleared the `NativeDepositOf` rows of a queued\ncontract on every `on_idle` batch until its child trie was gone. The\nrows are keyed by the fallback account of the address, which every\ncontract created at that address shares. A contract re-created there\n(`CREATE2` with the same deployer, code and salt) while the old entry\nwas still queued lost its rows, so payers who later freed storage in it\ngot no native refund.\n\nThis happened when the terminated contract had no native rows (the\n`PendingDepositCleanup` check in `ContractInfo::new` passes at once), or\nwhen its child trie took more than one batch.\n\n## Change\n\n- `process_deletion_queue_batch` skips the `NativeDepositOf` phase while\na contract is live at the address. `ContractInfo::new` already rejects\ninstantiation while the prefix is non-empty, so rows under a live\ncontract belong to it. Rows under an address with no live contract,\nincluding one left as a plain account with dust after termination,\nbelong to a terminated contract and are cleared as before. The reasoning\nis documented once, on `DeletionQueueItem`.\n- The child trie of the queued entry is still removed, also while a new\ncontract lives at the address. This needs the new contract to have a\ndifferent trie id. It relies on #13620, which makes trie ids unique per\ngeneration and must land first and go into the same backports.\n- The deletion-queue benchmarks queue the contract the way termination\nwith dust leaves it: an `EOA` entry with `dust: 1` in `AccountInfoOf`.\nOtherwise the native phase would be skipped and the per-key slope would\nmeasure nothing. In ref time this branch is the worst case per entry: a\nlive contract's entry is 125 bytes larger, but the `clear_prefix` is\nskipped. `deletion_queue_per_entry` now includes one `AccountInfoOf`\nread, charged at its max encoded length (`pov_mode = Measured {\nRevive::AccountInfoOf: MaxEncodedLen }`), so the proof size covers\neither branch.\n- New fixture `ClearableContributorStorage.sol`: the\n`MultiContributorStorage` contract plus `clearStorage()` and\n`slotLength(address)`, so the tests can check the refund and the\nstorage. Existing fixtures are unchanged, so `pallet-revive-fixtures`\ngets a minor bump.\n- Tests in `src/tests/deposit_payment.rs`, Solidity fixture, Solc and\nResolc:\n- native rows drained but child trie still queued, then re-creation\n(also the first test of `PendingDepositCleanup`)\n- the same with bounded batches: re-creation after the first batch, the\nrest of the old trie drained one key per batch while the new contract is\nlive, its rows and storage checked after every batch\n- terminated contract with PGAS-only deposits, re-created before\n`on_idle`\n- two terminated contracts queued for one address, then a third created\n- terminated contract that keeps dust (`AccountInfoOf` is `EOA { dust\n}`): its rows are still cleared\n\nThe first three fail without the fix. The last one fails if the\nlive-contract check is replaced by a presence check on `AccountInfoOf`.\n\nOnly runtimes using `PGasDeposit` write `NativeDepositOf`; with `type\nDeposit = ()` the change has no effect beyond the weight.\n\n## Checks\n\n- `cargo test -p pallet-revive --lib tests::deposit_payment`: 28 passed,\n0 failed.\n- `cargo test -p pallet-revive` (on ea8cb3a468c): 962 passed, 0 failed,\n3 ignored.\n- `cargo test -p pallet-revive --features runtime-benchmarks --lib\ndeletion_queue`: 15 passed, 0 failed (the four deletion-queue benchmarks\nincluded).\n- `SKIP_WASM_BUILD=1 cargo clippy -p pallet-revive -p\npallet-revive-fixtures --all-targets --all-features`: exit 0, no\nwarnings on changed lines.\n- `git diff origin/master...HEAD -- substrate/frame/revive/fixtures`:\nonly adds `ClearableContributorStorage.sol`.\n- Weights: `dev` and `asset-hub-westend` re-benched in ea8cb3a468c.\n`deletion_queue_per_entry` proof size 3587 -> 3766 bytes, ref time\nunchanged. cb8604c704c changes tests and the new fixture only.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T19:40:14Z",
+          "tree_id": "92468e165585d756b3ad9ed35e5d66b246c91ad7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/544e8299b4eec2363f9e0a52109730fbd1dead4f"
+        },
+        "date": 1794518150868,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14575573736666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007986898873333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024579526213333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987123903333332,
             "unit": "seconds"
           }
         ]
