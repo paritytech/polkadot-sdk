@@ -7453,7 +7453,8 @@ mod benchmarks {
 	/// `buffer_outside_frame_log`.
 	///
 	/// Each log is empty (no topics, no data), so the slope is the per-log cost alone, as in
-	/// `on_finalize_per_event`. The per-topic and per-byte costs are `outside_frame_log_data`'s.
+	/// `on_finalize_per_event`. The per-topic cost is `outside_frame_log_topics`'s and the per-byte
+	/// cost `outside_frame_log_data`'s.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7480,18 +7481,17 @@ mod benchmarks {
 	}
 
 	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with `t` topics and
-	/// `d` bytes of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so
-	/// does the RLP encoding that folds it into the synthetic transaction's receipt. The bloom
-	/// accrual hashes each topic once, a cost per topic on top of its bytes, so topics get their
-	/// own component.
+	/// no data: the `OutsideFrameLogs::take` reads the topics back, the RLP encoding folds them
+	/// into the synthetic transaction's receipt, and the bloom accrual hashes each of them once.
 	///
-	/// Both components go up to what a contract can emit. Pairs with `outside_frame_log`, which
-	/// keeps logs empty and varies the count; together they give
-	/// `OnFinalizeBlockParts::per_outside_frame_log` its per-log, per-topic and per-byte marginals.
+	/// Topics and data are measured in separate benchmarks because a benchmark with both components
+	/// varies one while holding the other at its maximum: the per-topic cost would be measured on
+	/// top of the full data and fitted away. Pairs with `outside_frame_log` and
+	/// `outside_frame_log_data`; together they give `OnFinalizeBlockParts::per_outside_frame_log`
+	/// its per-log, per-topic and per-byte marginals.
 	#[benchmark(pov_mode = Measured)]
-	fn outside_frame_log_data(
+	fn outside_frame_log_topics(
 		t: Linear<0, { limits::NUM_EVENT_TOPICS }>,
-		d: Linear<0, { limits::EVENT_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
@@ -7499,8 +7499,32 @@ mod benchmarks {
 		let _ = Pallet::<T>::on_initialize(current_block);
 
 		let topics = (0..t).map(|index| H256::from_low_u64_be(index.into())).collect();
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, vec![]);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with no topics and
+	/// `d` bytes of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so
+	/// does the RLP encoding that folds it into the synthetic transaction's receipt.
+	///
+	/// `d` goes up to what a contract can emit. The per-topic cost is `outside_frame_log_topics`'s.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
 		let data = vec![0x42u8; d.saturated_into()];
-		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, vec![], data);
 
 		#[block]
 		{

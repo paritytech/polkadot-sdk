@@ -61,8 +61,10 @@ These low-level benchmarks measure raw computational costs and are used to deriv
 - **Per-event data**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` event bytes (topics and data)
 - **Per-outside-of-frame log**: `outside_frame_log(n)` - Measures the `on_finalize` drain cost scaling with
   `n` buffered logs
-- **Per-outside-of-frame log data**: `outside_frame_log_data(t, d)` - Measures the drain cost scaling with `t`
-  topics and `d` data bytes of one buffered log
+- **Per-outside-of-frame log topic**: `outside_frame_log_topics(t)` - Measures the drain cost scaling with `t`
+  topics of one buffered log without data
+- **Per-outside-of-frame log data**: `outside_frame_log_data(d)` - Measures the drain cost scaling with `d` data
+  bytes of one buffered log without topics
 
 **Weight Derivation Methodology:**
 The high-level API methods use differential calculation to isolate marginal costs from benchmarks:
@@ -71,8 +73,8 @@ The high-level API methods use differential calculation to isolate marginal cost
 - Per-event base: `on_finalize_per_event(1) - on_finalize_per_event(0)`
 - Per-byte of event topics and data: `on_finalize_per_event_data(event_bytes) - on_finalize_per_event_data(0)`
 - Per-outside-of-frame log: `outside_frame_log(1) - outside_frame_log(0)`
-- Per-topic of outside-of-frame logs: `outside_frame_log_data(num_topics, 0) - outside_frame_log_data(0, 0)`
-- Per-byte of outside-of-frame log data: `outside_frame_log_data(0, data_len) - outside_frame_log_data(0, 0)`
+- Per-topic of outside-of-frame logs: `outside_frame_log_topics(num_topics) - outside_frame_log_topics(0)`
+- Per-byte of outside-of-frame log data: `outside_frame_log_data(data_len) - outside_frame_log_data(0)`
 
 This comprehensive weight model ensures that:
 - Transactions emitting many events are properly weighted based on event count and data size

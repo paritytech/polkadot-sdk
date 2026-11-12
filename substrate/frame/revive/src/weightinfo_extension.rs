@@ -72,7 +72,8 @@ pub trait OnFinalizeBlockParts {
 	/// `per_log_base + (num_topics * per_topic_cost) + (data_len * per_byte_cost)`.
 	///
 	/// Topics are priced apart from data because the bloom accrual hashes each topic once, a cost
-	/// per topic that a per-byte rate does not capture.
+	/// per topic that a per-byte rate does not capture. The three marginals come from
+	/// `outside_frame_log`, `outside_frame_log_topics` and `outside_frame_log_data`.
 	///
 	/// # Parameters
 	/// - `num_topics`: Number of topics of the log; the take reads them back, and the receipt
@@ -155,9 +156,10 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		// buffered.
 		let per_log_cost = W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0));
 
-		let empty_log = W::outside_frame_log_data(0, 0);
-		let topics_cost = W::outside_frame_log_data(num_topics, 0).saturating_sub(empty_log);
-		let data_cost = W::outside_frame_log_data(0, data_len).saturating_sub(empty_log);
+		let topics_cost =
+			W::outside_frame_log_topics(num_topics).saturating_sub(W::outside_frame_log_topics(0));
+		let data_cost =
+			W::outside_frame_log_data(data_len).saturating_sub(W::outside_frame_log_data(0));
 
 		per_log_cost.saturating_add(topics_cost).saturating_add(data_cost)
 	}

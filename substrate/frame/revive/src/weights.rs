@@ -273,7 +273,8 @@ pub trait WeightInfo {
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
 	fn outside_frame_log(n: u32, ) -> Weight;
-	fn outside_frame_log_data(t: u32, d: u32, ) -> Weight;
+	fn outside_frame_log_topics(t: u32, ) -> Weight;
+	fn outside_frame_log_data(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -2750,14 +2751,37 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `t` is `[0, 4]`.
-	/// The range of component `d` is `[0, 65536]`.
-	fn outside_frame_log_data(t: u32, d: u32, ) -> Weight {
+	fn outside_frame_log_topics(t: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `227`
 		//  Estimated: `3692`
 		// Minimum execution time: 39_467_000 picoseconds.
 		Weight::from_parts(32_325_872, 3692)
 			.saturating_add(Weight::from_parts(1_100_000, 0).saturating_mul(t.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::BlockHash` (r:1 w:1)
+	/// Proof: `Revive::BlockHash` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::SyntheticReceiptInfo` (r:0 w:1)
+	/// Proof: `Revive::SyntheticReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 65536]`.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `227`
+		//  Estimated: `3692`
+		// Minimum execution time: 39_467_000 picoseconds.
+		Weight::from_parts(32_325_872, 3692)
 			// Standard Error: 8
 			.saturating_add(Weight::from_parts(7_998, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
@@ -5238,14 +5262,37 @@ impl WeightInfo for () {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `t` is `[0, 4]`.
-	/// The range of component `d` is `[0, 65536]`.
-	fn outside_frame_log_data(t: u32, d: u32, ) -> Weight {
+	fn outside_frame_log_topics(t: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `227`
 		//  Estimated: `3692`
 		// Minimum execution time: 39_467_000 picoseconds.
 		Weight::from_parts(32_325_872, 3692)
 			.saturating_add(Weight::from_parts(1_100_000, 0).saturating_mul(t.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::BlockHash` (r:1 w:1)
+	/// Proof: `Revive::BlockHash` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::SyntheticReceiptInfo` (r:0 w:1)
+	/// Proof: `Revive::SyntheticReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 65536]`.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `227`
+		//  Estimated: `3692`
+		// Minimum execution time: 39_467_000 picoseconds.
+		Weight::from_parts(32_325_872, 3692)
 			// Standard Error: 8
 			.saturating_add(Weight::from_parts(7_998, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))

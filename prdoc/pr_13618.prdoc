@@ -22,9 +22,9 @@ doc:
 - audience: Runtime Dev
   description: |-
     No storage migration or configuration change is needed. The `outside_frame_log` and
-    `outside_frame_log_data` benchmarks changed, and `WeightInfo::outside_frame_log_data` takes a
-    topic count `t` before the data length `d`. Runtimes with their own `pallet_revive` weights
-    re-run `outside_frame_log` and `outside_frame_log_data`.
+    `outside_frame_log_data` benchmarks changed, and `WeightInfo` gains `outside_frame_log_topics`.
+    Runtimes with their own `pallet_revive` weights re-run `outside_frame_log`,
+    `outside_frame_log_topics` and `outside_frame_log_data`.
 
     `RuntimeCosts::DepositEvent { num_topic, len }` charges `seal_deposit_event(num_topic, len)`
     plus `on_finalize_block_per_event` and `EXTRA_EVENT_CHARGE_PER_BYTE` for
@@ -34,8 +34,8 @@ doc:
 
     `OnFinalizeBlockParts::per_outside_frame_log` takes the log's topic count and data length. A
     log buffered outside an ethereum transaction is charged a per-log part from
-    `outside_frame_log`, plus a per-topic and a per-byte part from `outside_frame_log_data`. The
-    per-topic part covers the bloom accrual, which hashes each topic.
+    `outside_frame_log`, a per-topic part from `outside_frame_log_topics` and a per-byte part from
+    `outside_frame_log_data`. The per-topic part covers the bloom accrual, which hashes each topic.
 
     `PrecompileExt::deposit_event` takes the topics as `ContractLogTopics`, which holds at most
     `NUM_EVENT_TOPICS` topics, instead of `Vec<H256>`. Precompiles that emit logs convert their

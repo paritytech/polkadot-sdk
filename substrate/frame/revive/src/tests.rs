@@ -1286,7 +1286,7 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
 // whatever the drain benchmark's marginals come to for that shape. The ref time is the drain's
 // share for the log's topic count and data length, so each topic adds the per-topic marginal of
-// `outside_frame_log_data`, which covers the bloom's hash of the topic on top of its bytes.
+// `outside_frame_log_topics`, which covers the bloom's hash of the topic on top of its bytes.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 	use crate::{
@@ -1337,8 +1337,8 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 			assert_eq!(registered.ref_time(), marginal.ref_time(), "contract {contract}");
 		}
 
-		let per_topic = <Test as Config>::WeightInfo::outside_frame_log_data(1, 0)
-			.saturating_sub(<Test as Config>::WeightInfo::outside_frame_log_data(0, 0))
+		let per_topic = <Test as Config>::WeightInfo::outside_frame_log_topics(1)
+			.saturating_sub(<Test as Config>::WeightInfo::outside_frame_log_topics(0))
 			.ref_time();
 		assert!(per_topic > 0);
 		let data = vec![0u8; 64];
