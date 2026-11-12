@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794495676925,
+  "lastUpdate": 1794501260813,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11fc5f040aedeec686e92c301eee75714f9f09a6",
-          "message": "pallet_revive:  Fix dispatch_as_fallback_account (#11839)\n\nWithout this fix we stripped any call filters existing on the origin.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T06:30:47Z",
-          "tree_id": "6934922e1dd0b72620fe1d5f0a068419ac491bd7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/11fc5f040aedeec686e92c301eee75714f9f09a6"
-        },
-        "date": 1777449165501,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.950719656400004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12949375673333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.848150690199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d7050787a8552725d826c38cf4beae9ef2467ab",
+          "message": "statement-store: keep blocking store calls off the async runtime (#13812)\n\n# Description\n\nStatement store calls that wait for the disk now run on blocking\nthreads, so they can no longer stall the node's async runtime. Fixes\nhttps://github.com/paritytech/polkadot-sdk/issues/13738.\n\nThe stall is specific to the Versi setup. Tokio starts one runtime\nworker per CPU, and a Versi collator has a limit of 4 CPUs and runs six\nstore tasks: 4 validation workers (the default is 1), the gossip handler\nand the maintenance task. A node on the validator reference hardware has\n8 workers and three store tasks by default, so it most likely would not\nstall. That setup was not tested.\n\nUnder statement overload on Versi, collators missed their authoring\nslots. A statement submit holds the store lock while it commits to the\ndatabase, and the store tasks waited for that lock on worker threads of\nthe runtime, for up to a minute at a time. While they held all 4\nworkers, networking, sync and block import stopped. The collator\nreceived blocks late and had no parent to build on at its slot.\n\nThe change moves the validation workers, the gossip handler and the\nmaintenance task to blocking threads, and marks both RPC submit methods\nas blocking. The gossip loop reads the admission watermark from an\natomic counter, so it does not wait for the store lock.\n\nA blocking RPC call takes a thread from the RPC server's own tokio\nruntime, whose blocking pool is capped at the RPC connection limit (100\nby default). It does not count against the 512 blocking threads of the\nnode's main runtime.\n\n## Testing\n\nThe same stress test ran on Versi twice on 2026-11-11, on master and on\nthis PR. Each run started from a fresh chain with 80 collators and\nloaded them with 5,500 new statements per second for 100 minutes. Every\nstatement is stored on 20 nodes, which makes 110,000 copies per second.\n\n| | master (`master-366b8772`) | this PR (`13812-fc27166c`) |\n|---|---|---|\n| Parachain blocks per 10 minutes (100 is healthy) | 77 to 79 | 99 to\n101 |\n| \"Could not find parent to build upon\" warnings per 5 minutes, one per\nskipped slot | about 100 | 0 |\n| Collators that lost over a third of their 5-second status lines from\nsc-informant | 20 of 80 | 0 of 80 |\n| Times the gossip handler held its thread for over 16 s | 158 | 0 |\n| Statement copies stored per second, lowest point | 72,000 | 97,000 |\n\nOn master the trouble began once each store held about 5 million\nstatements. On this PR the parachain kept its full block rate until the\nend of the run, at 7.6 million statements per store. The store calls\nwere as slow as on master: the validation workers held their threads for\nover 16 s 646 times and the maintenance task 549 times. No other task of\nthe node held a thread for over a second.\n\nStatement throughput still drops under this overload, because the store\nwaits for the disk.\n\n## Integration\n\nNo action is needed.",
+          "timestamp": "2026-11-12T15:02:45Z",
+          "tree_id": "4946f6375778be658ec1a914d5db5d585a0c5b0f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8d7050787a8552725d826c38cf4beae9ef2467ab"
+        },
+        "date": 1794501221058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.228213356266664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13009379999999998,
             "unit": "seconds"
           }
         ]
