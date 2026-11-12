@@ -723,8 +723,9 @@ impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
 		proof: &EncodedProof,
 	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
-		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(header, Default::default()))
+		let (header, parent) = <(B::Header, B::Header)>::decode(&mut encoded.as_slice()).unwrap();
+		let justifications = Justifications::from((*b"TEST", Vec::new()));
+		Ok(VerificationResult::Complete(header, vec![(parent, justifications)]))
 	}
 
 	fn next_proof_context(&self) -> B::Hash {
@@ -743,7 +744,10 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>> {
 		let info = self.0.info();
 		let best_header = self.0.header(info.best_hash).unwrap().unwrap();
-		Ok(EncodedProof(best_header.encode()))
+		// The proof also carries the parent of the target, as a proof whose target follows an
+		// authority set change does.
+		let parent_header = self.0.header(*best_header.parent_hash()).unwrap().unwrap();
+		Ok(EncodedProof((best_header, parent_header).encode()))
 	}
 
 	fn create_verifier(&self) -> Box<dyn WarpVerifier<B>> {
