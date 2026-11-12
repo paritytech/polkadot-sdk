@@ -17,6 +17,7 @@
 
 use crate::BlockBuilder;
 
+use sp_api::{ApiExt, CallContext};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Block as BlockT;
 
@@ -62,8 +63,10 @@ pub async fn check_inherents_with_data<Block: BlockT, Client: sp_api::ProvideRun
 where
 	Client::Api: BlockBuilder<Block>,
 {
-	let res = client
-		.runtime_api()
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(CallContext::Onchain { import: true });
+
+	let res = runtime_api
 		.check_inherents(at_hash, block.into(), inherent_data)
 		.map_err(CheckInherentsError::Client)?;
 
