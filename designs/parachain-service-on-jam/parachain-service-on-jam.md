@@ -198,6 +198,10 @@ struct ParachainServiceState {
 
     /// Per-parachain key/value store. See §6.1 for the per-entry footprint.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
+
+    /// Timeslot of the latest Accumulate invocation, used to detect the
+    /// always-accumulate invocation. See §5.1.
+    last_accumulate: Timeslot,
 }
 
 enum LogEntry {
@@ -496,6 +500,7 @@ encoded map key for a map entry, and the tag alone for a singleton. The exceptio
 | `0x06` | `incoming_transfers` |
 | `0x07` | `incoming_transfer_buckets` |
 | `0x08` | `key_value_storage` |
+| `0x09` | `last_accumulate` |
 
 ### 3.2 Work Items
 
@@ -833,6 +838,12 @@ Each phase is paid from its own gas, so none of them can eat into another's:
   *Per-work-package work* below).
 
 #### Apply due assigns (before work packages)
+
+JAM may invoke Accumulate more than once per timeslot, and only the first invocation carries
+the always-accumulate allowance (§3). If the current timeslot is greater than
+`last_accumulate`, the invocation is the always-accumulate one. It runs the flush below and
+sets `last_accumulate` to the current timeslot before the `checkpoint`. Later invocations in
+the same timeslot skip the flush.
 
 For each core in `pending_assign_cores` whose due timeslot has been reached, call JAM
 `assign(core, queue, assigner)` from its `pending_assigns` entry: the cached queue filled
@@ -1385,10 +1396,12 @@ pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
   34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
 incoming_transfer_buckets: IncomingTransferBuckets  · 1 item
   34 + 1 (key) + 8 + 8 + 4 (count)                         octets         55
-                                                  octets subtotal   1 233 867
-                                                    344 items × 10      3 440
+last_accumulate: Timeslot  · 1 item
+  34 + 1 (key) + 4 (Timeslot)                              octets         39
+                                                  octets subtotal   1 233 906
+                                                    345 items × 10      3 450
                                                                     ---------
-                                                                    1 237 307
+                                                                    1 237 356
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1408,13 +1421,13 @@ incoming_transfers: Map<BucketId, IncomingTransfers>  (worst case N items)
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 237 307 + 196 × N
+asset_hub_global_items = 1 237 356 + 196 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation. Each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 237 307 + 196 000 = 1 433 307`, or
+(§5.1). At `N = 1000` the reservation is `1 237 356 + 196 000 = 1 433 356`, or
 **≈ 1.37 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
