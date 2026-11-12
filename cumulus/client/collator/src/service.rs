@@ -116,7 +116,11 @@ fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
 /// runtime emits the canonical order once. Signals that some runtime's `validate_block` would
 /// reject or rewrite, so the collator cannot match it, are an error: one that does not decode
 /// exactly, or two different signals of one variant.
-fn signal_tail(
+/// The collator cannot tell which `validate_block` will run. From stable2606 on, repeats cannot
+/// occur in a valid PoV: only a block marked last in core emits signals, and `validate_block`
+/// rejects a PoV with such a block anywhere but at the end. The order is the remaining
+/// assumption: `parachain-system` emits `SelectCore` before `ApprovedPeer`, and a later
+/// `validate_block` re-encodes the tail in that order while it passes through unchanged here.
 	signed_scheduling_info: Option<&SignedSchedulingInfo>,
 	signals: Vec<Vec<u8>>,
 ) -> Result<Vec<Vec<u8>>, SchedulingSignalError> {
