@@ -1148,7 +1148,7 @@ pub mod pallet {
 		///
 		/// The authority can grant up to `allocation` usernames. To top up the allocation or
 		/// change the account used to grant usernames, this call can be used with the updated
-		/// parameters to overwrite the existing configuration. 
+		/// parameters to overwrite the existing configuration.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::add_username_authority())]
 		pub fn add_username_authority(
@@ -1216,20 +1216,21 @@ pub mod pallet {
 			// allocation by one.
 			let sender = ensure_signed(origin)?;
 			let suffix = Self::validate_username(&username)?;
-			let provider = AuthorityOf::<T>::try_mutate(
+			// The depositor is only `Some` when a deposit was reserved.
+			let (provider, depositor) = AuthorityOf::<T>::try_mutate(
 				&suffix,
-				|maybe_authority| -> Result<ProviderOf<T>, DispatchError> {
+				|maybe_authority| -> Result<(ProviderOf<T>, Option<T::AccountId>), DispatchError> {
 					let properties =
 						maybe_authority.as_mut().ok_or(Error::<T>::NotUsernameAuthority)?;
 					ensure!(properties.account_id == sender, Error::<T>::NotUsernameAuthority);
 					if use_allocation {
 						ensure!(properties.allocation > 0, Error::<T>::NoAllocation);
 						properties.allocation.saturating_dec();
-						Ok(Provider::new_with_allocation())
+						Ok((Provider::new_with_allocation(), None))
 					} else {
 						let deposit = T::UsernameDeposit::get();
 						T::Currency::reserve(&sender, deposit)?;
-						Ok(Provider::new_with_deposit(deposit))
+						Ok((Provider::new_with_deposit(deposit), Some(sender.clone())))
 					}
 				},
 			)?;
@@ -1247,8 +1248,8 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 
-			if matches!(provider, Provider::AuthorityDeposit(_)) {
-				UsernameDepositor::<T>::insert(&bounded_username, &sender);
+			if let Some(depositor) = depositor {
+				UsernameDepositor::<T>::insert(&bounded_username, depositor);
 			}
 
 			// Insert or queue.

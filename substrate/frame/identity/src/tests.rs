@@ -2181,13 +2181,17 @@ fn username_deposit_is_returned_to_the_authority_that_paid_it() {
 			username_a.clone()
 		));
 		System::set_block_number(System::block_number() + grace_period);
-		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(1)), username_a));
+		assert_ok!(Identity::remove_username(
+			RuntimeOrigin::signed(account(1)),
+			username_a.clone()
+		));
 
 		// A paid for the removed username, so A gets the deposit back. B's deposit still backs
 		// `username_b`, which is live.
 		assert!(UsernameInfoOf::<Test>::contains_key(&username_b));
 		assert_eq!(Balances::reserved_balance(&authority_a), 0);
 		assert_eq!(Balances::reserved_balance(&authority_b), username_deposit);
+		assert!(UsernameDepositor::<Test>::get(&username_a).is_none());
 	});
 }
 
@@ -2230,6 +2234,142 @@ fn username_deposit_without_recorded_depositor_uses_current_authority() {
 		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(1)), username));
 		assert_eq!(Balances::reserved_balance(&authority), 0);
 		assert_eq!(Balances::free_balance(&authority), 1000);
+	});
+}
+
+/// Makes `authority` the username authority for `suffix`, replacing any previous one.
+fn set_suffix_authority(authority: &AccountIdOf<Test>, suffix: &[u8]) {
+	assert_ok!(Identity::add_username_authority(
+		RuntimeOrigin::root(),
+		authority.clone(),
+		suffix.to_vec(),
+		0
+	));
+}
+
+/// `authority` grants `username` to a new account and pays the deposit. The grant is final when
+/// `presigned`, otherwise it waits in `PendingUsernames` for acceptance.
+fn grant_username_with_deposit(
+	authority: &AccountIdOf<Test>,
+	username: &Username<Test>,
+	presigned: bool,
+) {
+	let public = sr25519_generate(0.into(), None);
+	let who: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+	let signature = presigned
+		.then(|| MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap()));
+	assert_ok!(Identity::set_username_for(
+		RuntimeOrigin::signed(authority.clone()),
+		who,
+		username.clone().into(),
+		signature,
+		false
+	));
+}
+
+#[test]
+fn remove_expired_approval_refunds_the_authority_that_paid_it() {
+	new_test_ext().execute_with(|| {
+		let suffix = b"test";
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		let expiration: BlockNumberFor<Test> = <Test as Config>::PendingUsernameExpiration::get();
+		let (authority_a, authority_b) = (account(100), account(101));
+		Balances::make_free_balance_be(&authority_a, 1000);
+		Balances::make_free_balance_be(&authority_b, 1000);
+
+		// A grants a username that is never accepted.
+		set_suffix_authority(&authority_a, suffix);
+		let pending = test_username_of(b"42".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority_a, &pending, false);
+
+		// The suffix moves to B, which grants a username of its own.
+		set_suffix_authority(&authority_b, suffix);
+		let username_b = test_username_of(b"43".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority_b, &username_b, true);
+
+		System::set_block_number(System::block_number() + expiration + 1);
+		assert_ok!(Identity::remove_expired_approval(
+			RuntimeOrigin::signed(account(1)),
+			pending.clone()
+		));
+
+		// A is refunded, and B's reserve, which backs `username_b`, is untouched.
+		assert_eq!(Balances::reserved_balance(&authority_a), 0);
+		assert_eq!(Balances::free_balance(&authority_a), 1000);
+		assert_eq!(Balances::reserved_balance(&authority_b), username_deposit);
+		assert!(UsernameDepositor::<Test>::get(&pending).is_none());
+	});
+}
+
+#[test]
+fn kill_username_slashes_the_authority_that_paid_it() {
+	new_test_ext().execute_with(|| {
+		let suffix = b"test";
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		let (authority_a, authority_b) = (account(100), account(101));
+		Balances::make_free_balance_be(&authority_a, 1000);
+		Balances::make_free_balance_be(&authority_b, 1000);
+
+		set_suffix_authority(&authority_a, suffix);
+		let username_a = test_username_of(b"42".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority_a, &username_a, true);
+
+		set_suffix_authority(&authority_b, suffix);
+		let username_b = test_username_of(b"43".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority_b, &username_b, true);
+
+		assert_ok!(Identity::kill_username(RuntimeOrigin::root(), username_a.clone()));
+
+		// A is slashed, and B keeps both its balance and the reserve that backs `username_b`.
+		assert_eq!(Balances::reserved_balance(&authority_a), 0);
+		assert_eq!(Balances::total_balance(&authority_a), 1000 - username_deposit);
+		assert_eq!(Balances::reserved_balance(&authority_b), username_deposit);
+		assert_eq!(Balances::total_balance(&authority_b), 1000);
+		assert!(UsernameDepositor::<Test>::get(&username_a).is_none());
+	});
+}
+
+#[test]
+fn deposits_of_a_removed_authority_can_still_be_released() {
+	new_test_ext().execute_with(|| {
+		let suffix = b"test";
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		let expiration: BlockNumberFor<Test> = <Test as Config>::PendingUsernameExpiration::get();
+		let authority = account(100);
+		Balances::make_free_balance_be(&authority, 1000);
+
+		set_suffix_authority(&authority, suffix);
+		let live = test_username_of(b"42".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority, &live, true);
+		let pending = test_username_of(b"43".to_vec(), suffix.to_vec());
+		grant_username_with_deposit(&authority, &pending, false);
+		assert_eq!(Balances::reserved_balance(&authority), 2 * username_deposit);
+
+		assert_ok!(Identity::remove_username_authority(
+			RuntimeOrigin::root(),
+			suffix.to_vec(),
+			authority.clone()
+		));
+
+		// The expired approval can still be cleaned up, and its deposit is refunded.
+		System::set_block_number(System::block_number() + expiration + 1);
+		assert_ok!(Identity::remove_expired_approval(
+			RuntimeOrigin::signed(account(1)),
+			pending.clone()
+		));
+		assert_eq!(Balances::reserved_balance(&authority), username_deposit);
+		assert!(UsernameDepositor::<Test>::get(&pending).is_none());
+
+		// With no authority left, the live username can't be unbound; `kill_username` releases
+		// its deposit by slashing the authority that paid it.
+		assert_noop!(
+			Identity::unbind_username(RuntimeOrigin::signed(authority.clone()), live.clone()),
+			Error::<Test>::NotUsernameAuthority
+		);
+		assert_ok!(Identity::kill_username(RuntimeOrigin::root(), live.clone()));
+		assert_eq!(Balances::reserved_balance(&authority), 0);
+		assert_eq!(Balances::total_balance(&authority), 1000 - username_deposit);
+		assert!(UsernameDepositor::<Test>::get(&live).is_none());
 	});
 }
 
