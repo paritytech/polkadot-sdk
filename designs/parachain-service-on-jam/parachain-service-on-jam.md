@@ -750,6 +750,29 @@ Gray Paper and not restated here.
 | 2 | `fetch` | Forwarded to JAM `fetch`: the work package and its context, i.e. the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
 | 7 | `historical_lookup` | Forwarded to JAM `historical_lookup`: a service's preimage store at the lookup-anchor. The own-service id refers to the Parachain Service, whose store holds the parachains' preimages. |
 | 8 | `export` | Forwarded to JAM `export`: writes a segment to the JAM Data Lake, e.g. an outbound XCMP payload, and returns its index. If JAM refuses the segment, the whole Refine fails (§4.2). |
+| 9 | `compile` | Forwarded to JAM `compile`: registers a PVM program as a module and returns its handle. The program comes from the validation code's memory or, by hash, from a service's preimage store at the lookup-anchor. The own-service id refers to the Parachain Service. |
+| 10 | `machine` | Forwarded to JAM `machine`: instantiates an inner VM from a module handle at the given entry point, with empty RAM, and returns its instance handle. |
+| 11 | `peek` | Forwarded to JAM `peek`: copies memory of one of the validation code's inner VMs into the validation code's memory. |
+| 12 | `poke` | Forwarded to JAM `poke`: copies the validation code's memory into one of its inner VMs. |
+| 13 | `pages` | Forwarded to JAM `pages`: frees, allocates (zeroed, read-only or writable) or changes the access mode of a page range of one of the validation code's inner VMs. |
+| 14 | `invoke` | Forwarded to JAM `invoke`: runs one of the validation code's inner VMs with the given gas and registers until it halts, panics, faults, runs out of gas or makes a host call. The validation code handles the inner VM's host calls itself. The gas is paid from the validation code's own gas (see below). |
+| 15 | `expunge` | Forwarded to JAM `expunge`: removes one of the validation code's inner VMs, returning its program counter, or one of its modules. |
+
+#### Inner VMs
+
+The validation code already runs in an inner VM of the Parachain Service's Refine, and JAM
+keeps a single module map and a single instance map per Refine invocation. `compile`,
+`machine`, `peek`, `poke`, `pages`, `invoke` and `expunge` are therefore not passed through
+unchanged:
+
+- **Handle translation.** The service translates the module and instance handles used by the
+  validation code to JAM's. The service's own module and the VM running the validation code
+  have no handle on the validation code's side. Naming them returns `WHO`, so validation code
+  can never touch the VM it runs in. The validation code gets at most 62 instances and 127
+  handles.
+- **Gas.** For `invoke`, the gas handed to the inner VM is taken from the validation code's
+  own gas and its unused gas is refunded there, as the Gray Paper does for a top-level Refine.
+  The validation code cannot give an inner VM more gas than it has left.
 
 #### Parachain Service host functions
 
