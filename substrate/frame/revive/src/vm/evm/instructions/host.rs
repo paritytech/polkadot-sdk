@@ -38,9 +38,15 @@ use core::ops::ControlFlow;
 ///
 /// Gets the balance of the given account.
 pub fn balance<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
 	let ([], top) = interpreter.stack.popn_top()?;
-	*top = interpreter.ext.balance_of(&top.into_address());
+	let address = top.into_address();
+	*top = if address == interpreter.ext.address() {
+		interpreter.ext.charge_or_halt(RuntimeCosts::Balance)?;
+		interpreter.ext.balance()
+	} else {
+		interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
+		interpreter.ext.balance_of(&address)
+	};
 	ControlFlow::Continue(())
 }
 
@@ -93,7 +99,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 	// `copy_code_slice` already handles.
 	let code_offset = as_usize_saturated(code_offset);
 
-	interpreter.memory.resize(memory_offset, len)?;
+	interpreter.memory.resize(memory_offset, len, interpreter.ext)?;
 
 	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
@@ -276,7 +282,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		Vec::new()
 	} else {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.memory.resize(offset, len, interpreter.ext)?;
 		interpreter.memory.slice(offset..offset + len).to_vec()
 	};
 	if interpreter.stack.len() < N {
@@ -288,7 +294,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	let topics = ContractLogTopics::try_from(topics)
 		.expect("N <= NUM_EVENT_TOPICS, asserted at compile time; qed");
 
-	interpreter.ext.deposit_event(topics, data.to_vec());
+	if let Err(err) = interpreter.ext.deposit_event(topics, data) {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	ControlFlow::Continue(())
 }
 

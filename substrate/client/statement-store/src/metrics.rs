@@ -21,8 +21,8 @@
 use std::sync::Arc;
 
 use prometheus_endpoint::{
-	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts,
-	Opts, PrometheusError, Registry, U64,
+	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, GaugeVec, Histogram,
+	HistogramOpts, Opts, PrometheusError, Registry, U64,
 };
 
 #[derive(Clone, Default)]
@@ -64,6 +64,7 @@ pub struct Metrics {
 	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
 	pub bytes_total: Gauge<U64>,
+	pub bytes_by_retention: GaugeVec<U64>,
 	pub accounts_total: Gauge<U64>,
 	pub expired_total: Gauge<U64>,
 	pub held_statements: Gauge<U64>,
@@ -133,6 +134,16 @@ impl Metrics {
 				Gauge::new(
 					"substrate_sub_statement_store_bytes_total",
 					"Current total size of all statement data in bytes",
+				)?,
+				registry,
+			)?,
+			bytes_by_retention: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_bytes_by_retention",
+						"Current size of statement data in bytes, by the retention track keeping it",
+					),
+					&["track"],
 				)?,
 				registry,
 			)?,
