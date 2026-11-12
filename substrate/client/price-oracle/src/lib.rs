@@ -294,8 +294,12 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						let _ = result_tx.send(result);
 					},
 					None => {
-						log::warn!(target: LOG_TARGET, "Notification stream ended, stopping");
-						// TODO: can we handle this without stopping the service?
+						// The network dropped the protocol, which it does only when it shuts down.
+						// A protocol cannot be registered again, so there is nothing to recover.
+						log::error!(
+							target: LOG_TARGET,
+							"Terminating the price oracle: the network's notification service has terminated",
+						);
 						return;
 					},
 				}
