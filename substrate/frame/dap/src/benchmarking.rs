@@ -125,11 +125,6 @@ mod benchmarks {
 
 		let recipients = T::BudgetRecipients::recipients();
 
-		// Mint ED.
-		for (_, recipient) in &recipients {
-			assert_ok!(T::BenchmarkHelper::mint_ed(recipient));
-		}
-
 		for i in asset_allocations.keys() {
 			let cadence = T::IssuanceCadence::get();
 			let cadence_as_balance: AssetsBalanceOf<T> =

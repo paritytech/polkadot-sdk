@@ -133,12 +133,6 @@ pub struct BenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for BenchmarkHelper {
-	fn mint_ed(account: &AccountId) -> frame_support::dispatch::DispatchResult {
-		use frame_support::traits::fungible::Mutate;
-
-		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
-	}
-
 	fn create_asset(
 		asset_id_seed: u32,
 	) -> Result<NativeOrWithId<u32>, frame_support::pallet_prelude::DispatchError> {

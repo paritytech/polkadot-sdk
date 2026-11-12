@@ -410,12 +410,6 @@ pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
-	fn mint_ed(account: &AccountId) -> sp_runtime::DispatchResult {
-		use frame_support::traits::{fungible::Mutate, Currency};
-
-		Balances::mint_into(account, Balances::minimum_balance()).map(|_| ())
-	}
-
 	fn create_asset(asset_id_seed: u32) -> Result<u32, sp_runtime::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 

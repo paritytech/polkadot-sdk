@@ -114,9 +114,6 @@ pub struct SingleAssetAllocation<Balance> {
 }
 
 pub trait BenchmarkHelper<AccountId, AssetKind> {
-	/// Mint existential deposit to a given account.
-	fn mint_ed(account: &AccountId) -> DispatchResult;
-
 	/// Create an asset, deriving its `asset_id` from `u32`.
 	///
 	/// The created asset must be sufficient.

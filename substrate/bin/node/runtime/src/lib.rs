@@ -781,12 +781,6 @@ pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
-	fn mint_ed(account: &AccountId) -> polkadot_sdk_frame::prelude::DispatchResult {
-		use frame_support::traits::fungible::Mutate;
-
-		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
-	}
-
 	fn create_asset(asset_id_seed: u32) -> Result<u32, polkadot_sdk_frame::prelude::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
