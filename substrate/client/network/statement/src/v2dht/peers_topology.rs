@@ -286,15 +286,28 @@ impl PeersTopology {
 	/// peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
 	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 	/// statement for any topic a connected next hop closer to the topic.
-	pub fn peers_for_routing(&self) -> Vec<PeerId> {
+	///
+	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
+	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects.
+	pub fn peers_for_routing(&self, is_unreachable: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
 		let mut last_bucket = None;
+		let mut bucket_has_connected = false;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
+			if is_unreachable(&peer) {
+				continue;
+			}
 			let bucket = bucket_of(self.local_key, key);
-			if routing.len() < nearest || last_bucket != Some(bucket) {
+			let first_of_bucket = last_bucket != Some(bucket);
+			if first_of_bucket {
+				bucket_has_connected = false;
+			}
+			let connected = self.discovered.get(&peer).is_some_and(|info| info.connected);
+			if routing.len() < nearest || first_of_bucket || (connected && !bucket_has_connected) {
 				routing.push(peer);
+				bucket_has_connected |= connected;
 			}
 			last_bucket = Some(bucket);
 		}
@@ -785,7 +798,7 @@ mod tests {
 		// the result.
 		assert_eq!(bucket_of(&candidates[9]), bucket_of(&candidates[10]));
 
-		let mut routing = topology.peers_for_routing();
+		let mut routing = topology.peers_for_routing(|_| false);
 		routing.sort();
 		expected.sort();
 		assert_eq!(routing, expected);
@@ -797,7 +810,69 @@ mod tests {
 		for seed in 2..=6 {
 			dht_peer(&mut topology, peer(seed));
 		}
-		assert_eq!(topology.peers_for_routing().len(), 5);
+		assert_eq!(topology.peers_for_routing(|_| false).len(), 5);
+	}
+
+	/// A topology with 12 peers in the farthest bucket and 12 nearer ones, and a topic that only
+	/// a peer of the farthest bucket is closer to than the local node.
+	fn topology_with_far_bucket() -> (PeersTopology, Topic) {
+		let local = peer(1);
+		let local_key = peer_key(&local);
+		let mut topology = PeersTopology::new(local, topology_config(8, 3));
+		let in_far_bucket = |peer: &PeerId| bucket_of(local_key, peer_key(peer)) == 0;
+		let peers: Vec<PeerId> = (2..=255).map(peer).collect();
+		let far = peers.iter().copied().filter(|peer| in_far_bucket(peer)).take(12);
+		let near = peers.iter().copied().filter(|peer| !in_far_bucket(peer)).take(12);
+		for peer in far.chain(near) {
+			dht_peer(&mut topology, peer);
+		}
+		let mut topic_key = local_key;
+		topic_key[0] ^= 0x80;
+		(topology, Topic(topic_key))
+	}
+
+	fn far_bucket_routing_peers(
+		topology: &PeersTopology,
+		is_unreachable: impl Fn(&PeerId) -> bool,
+	) -> Vec<PeerId> {
+		topology
+			.peers_for_routing(is_unreachable)
+			.into_iter()
+			.filter(|peer| bucket_of(topology.local_key, peer_key(peer)) == 0)
+			.collect()
+	}
+
+	#[test]
+	fn peers_for_routing_replaces_an_unreachable_peer_with_the_next_of_its_bucket() {
+		let (mut topology, topic) = topology_with_far_bucket();
+		let unreachable = far_bucket_routing_peers(&topology, |_| false);
+		assert_eq!(unreachable.len(), 1);
+		for peer in topology.peers_for_routing(|_| false) {
+			if peer != unreachable[0] {
+				topology.on_substream_opened(peer);
+			}
+		}
+		assert!(topology.routing_targets(topic).is_empty());
+
+		let replacement = far_bucket_routing_peers(&topology, |peer| *peer == unreachable[0]);
+		assert_eq!(replacement.len(), 1);
+		assert_ne!(replacement, unreachable);
+		topology.on_substream_opened(replacement[0]);
+		assert_eq!(topology.routing_targets(topic), replacement);
+	}
+
+	#[test]
+	fn peers_for_routing_keeps_a_connected_peer_until_a_nearer_one_of_its_bucket_connects() {
+		let (mut topology, _) = topology_with_far_bucket();
+		let nearest = far_bucket_routing_peers(&topology, |_| false)[0];
+		let replacement = far_bucket_routing_peers(&topology, |peer| *peer == nearest)[0];
+		topology.on_substream_opened(replacement);
+
+		// The nearest peer is tried again while the replacement still serves the bucket.
+		assert_eq!(far_bucket_routing_peers(&topology, |_| false), vec![nearest, replacement]);
+
+		topology.on_substream_opened(nearest);
+		assert_eq!(far_bucket_routing_peers(&topology, |_| false), vec![nearest]);
 	}
 
 	#[test]
