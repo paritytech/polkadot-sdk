@@ -1,0 +1,10 @@
+title: 'pallet-preimage: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `try_state` hook to `pallet-preimage` (issue #239) that asserts the status maps and the stored preimages stay consistent: every status recording a noted preimage has its bytes present in `PreimageFor` at the same length, every stored preimage has a matching status, and no hash appears in both the deprecated `StatusFor` and `RequestStatusFor`. The checks run under the `try-runtime` feature, and also after every unit test. The change is additive with no migration or weight changes.
+
+crates:
+- name: pallet-preimage
+  bump: minor
