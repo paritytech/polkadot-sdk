@@ -36,9 +36,10 @@ pub enum SyncLabel {
 	/// Lowest synced block. Only decreases.
 	#[display(fmt = "sync-tail")]
 	Tail,
-	/// Highest synced block. Absent means no sync has started.
-	/// During backfill: upper boundary being filled.
-	/// After backfill: advanced by the finalized-block subscription.
+	/// Every block from `Tail` up to this one is indexed. Absent means no sync has started.
+	/// During backfill: upper boundary being filled. After backfill: advanced by
+	/// the finalized-block subscription only while no subscription gap fill is pending, so it
+	/// can stay behind indexed blocks until a restart.
 	#[display(fmt = "sync-head")]
 	Head,
 }
