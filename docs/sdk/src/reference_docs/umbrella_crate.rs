@@ -19,6 +19,7 @@
 //!
 //! The umbrella exposes a few more general features:
 //! - `tuples-96`: Needs to be enabled for runtimes that have more than 64 pallets.
+//! - `tuples-128`: Needs to be enabled for runtimes that have more than 96 pallets.
 //! - `serde`: Specifically enable `serde` en/decoding support.
 //! - `experimental`: Experimental enable experimental features - should not yet used in production.
 //! - `with-tracing`: Enable tracing support.
