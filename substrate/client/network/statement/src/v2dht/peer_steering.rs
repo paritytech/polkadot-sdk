@@ -435,6 +435,21 @@ mod tests {
 	}
 
 	#[test]
+	fn unreachable_mark_outlives_the_release_of_the_peer() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		steering.update_unreachable_peers(marked_at);
+
+		steering.reserved.remove(&peer(1));
+		let before_retry = marked_at + UNREACHABLE_RETRY_AFTER - Duration::from_secs(1);
+		steering.update_unreachable_peers(before_retry);
+		assert!(steering.is_unreachable(&peer(1)));
+	}
+
+	#[test]
 	fn opened_substream_clears_the_unreachable_mark() {
 		let mut steering = PeerSteering::new("/statement/test".into());
 		steering.reserve([peer(1)]);

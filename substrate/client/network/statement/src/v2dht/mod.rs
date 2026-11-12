@@ -879,6 +879,34 @@ mod tests {
 	}
 
 	#[test]
+	fn affinity_tick_replaces_routing_peers_that_never_connect() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 3));
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		orchestrator.on_pending_affinities();
+		let unreachable = orchestrator.peer_steering.peers_to_connect();
+		orchestrator.peer_steering.reserve(unreachable.iter().copied());
+
+		let start = Instant::now();
+		orchestrator.peer_steering.update_unreachable_peers(start);
+		orchestrator
+			.peer_steering
+			.update_unreachable_peers(start + Duration::from_secs(15));
+		orchestrator.on_pending_affinities();
+
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(!connect.is_empty());
+		assert!(connect.iter().all(|peer| !unreachable.contains(peer)));
+		let mut release = orchestrator.peer_steering.peers_to_release();
+		let mut unreachable = unreachable;
+		release.sort();
+		unreachable.sort();
+		assert_eq!(release, unreachable);
+	}
+
+	#[test]
 	fn valid_statements_reward_the_sender() {
 		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
 		let peer = peer(2);
