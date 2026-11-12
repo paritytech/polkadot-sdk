@@ -27,7 +27,7 @@ crates:
 - name: westend-runtime
   bump: minor
 - name: rococo-runtime
-  bump: patch
+  bump: minor
 - name: pallet-staking-async-rc-runtime
   bump: patch
 - name: polkadot-test-runtime
