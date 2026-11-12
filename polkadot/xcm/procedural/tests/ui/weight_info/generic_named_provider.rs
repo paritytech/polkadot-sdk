@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test error when the enum already has a generic parameter named `W`, which the
+//! Test error when the enum already has a generic parameter named `__XcmWeightInfoProvider`, which the
 //! `XcmWeightInfoTrait` derive reserves for the weight provider of the generated `GetWeight` impl.
 
 use xcm::latest::prelude::*;
 
 #[derive(xcm_procedural::XcmWeightInfoTrait)]
-enum GenericWInstruction<W> {
+enum GenericWInstruction<__XcmWeightInfoProvider> {
 	ClearOrigin,
-	SetAppendix(Xcm<W>),
+	SetAppendix(Xcm<__XcmWeightInfoProvider>),
 }
 
 fn main() {}

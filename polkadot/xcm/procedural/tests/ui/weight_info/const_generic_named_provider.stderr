@@ -1,0 +1,5 @@
+error: the generic parameter name `__XcmWeightInfoProvider` is reserved by `XcmWeightInfoTrait` for the weight provider; rename this parameter
+  --> tests/ui/weight_info/const_generic_named_provider.rs:21:24
+   |
+21 | enum ConstWInstruction<const __XcmWeightInfoProvider: usize> {
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -18,7 +18,20 @@ use inflector::Inflector;
 use quote::format_ident;
 
 /// Name of the generic parameter that the generated `GetWeight` impl uses for the weight provider.
-const WEIGHT_INFO_PROVIDER: &str = "W";
+/// Deliberately unlikely to clash with a user's generic; the derive refuses one with this name.
+const WEIGHT_INFO_PROVIDER: &str = "__XcmWeightInfoProvider";
+
+/// Path of the `xcm` crate as seen from the crate using the derive (`crate` inside `staging-xcm`).
+fn xcm_crate() -> Result<proc_macro2::TokenStream, syn::Error> {
+	match proc_macro_crate::crate_name("staging-xcm") {
+		Ok(proc_macro_crate::FoundCrate::Itself) => Ok(quote::quote!(crate)),
+		Ok(proc_macro_crate::FoundCrate::Name(name)) => {
+			let name = format_ident!("{}", name);
+			Ok(quote::quote!(::#name))
+		},
+		Err(e) => Err(syn::Error::new(proc_macro2::Span::call_site(), e.to_string())),
+	}
+}
 
 pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let input: syn::DeriveInput = match syn::parse(item) {
@@ -27,6 +40,10 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	};
 
 	let syn::DeriveInput { generics, data, ident, .. } = input;
+	let xcm = match xcm_crate() {
+		Ok(xcm) => xcm,
+		Err(e) => return e.into_compile_error().into(),
+	};
 
 	let reserved_generic = generics.params.iter().find(|param| match param {
 		syn::GenericParam::Type(ty) => ty.ident == WEIGHT_INFO_PROVIDER,
@@ -46,6 +63,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	}
 
 	let weight_info_provider_ident = format_ident!("{}", WEIGHT_INFO_PROVIDER);
+	let trait_where_clause = generics.where_clause.clone();
 	let enum_ty_generics = {
 		let (_, ty_generics, _) = generics.split_for_impl();
 		quote::quote!(#ty_generics)
@@ -85,7 +103,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 						};
 						quote::quote!(#name: #field_ty,)
 					});
-					let method = quote::quote!(fn #snake_cased_ident( #(#params)* ) -> Weight;);
+					let method = quote::quote!(fn #snake_cased_ident( #(#params)* ) -> #xcm::latest::Weight;);
 
 					let match_arm = match fields {
 						syn::Fields::Unit => quote::quote!(
@@ -114,12 +132,16 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 			};
 
 			let res = quote::quote! {
-				pub trait XcmWeightInfo #generics {
+				pub trait XcmWeightInfo #generics #trait_where_clause {
 					#(#methods)*
 				}
 
-				impl #impl_generics GetWeight<#weight_info_provider_ident> for #ident #enum_ty_generics #where_clause {
-					fn weight(&self) -> Weight {
+				#[automatically_derived]
+				#[allow(deprecated)]
+				impl #impl_generics #xcm::latest::GetWeight<#weight_info_provider_ident>
+					for #ident #enum_ty_generics #where_clause
+				{
+					fn weight(&self) -> #xcm::latest::Weight {
 						#body
 					}
 				}

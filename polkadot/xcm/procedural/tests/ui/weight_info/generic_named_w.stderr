@@ -1,5 +1,0 @@
-error: the generic parameter name `W` is reserved by `XcmWeightInfoTrait` for the weight provider; rename this parameter
-  --> tests/ui/weight_info/generic_named_w.rs:23:26
-   |
-23 | enum GenericWInstruction<W> {
-   |                          ^

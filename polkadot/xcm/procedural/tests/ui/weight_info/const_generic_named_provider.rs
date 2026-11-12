@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test error when the enum has a const generic parameter named `W`, which collides with the
+//! Test error when the enum has a const generic parameter named `__XcmWeightInfoProvider`, which collides with the
 //! type parameter of the generated `GetWeight` impl just like a type parameter does.
 
 #[derive(xcm_procedural::XcmWeightInfoTrait)]
-enum ConstWInstruction<const W: usize> {
+enum ConstWInstruction<const __XcmWeightInfoProvider: usize> {
 	ClearOrigin,
 }
 

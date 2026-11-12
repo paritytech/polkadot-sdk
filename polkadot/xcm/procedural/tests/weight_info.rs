@@ -161,7 +161,7 @@ mod bounded_generics {
 	}
 
 	pub struct Info;
-	impl<Call: Clone> XcmWeightInfo<Call> for Info {
+	impl<Call: Clone + core::fmt::Debug> XcmWeightInfo<Call> for Info {
 		fn clear_origin() -> Weight {
 			Weight::from_parts(1, 0)
 		}
@@ -222,7 +222,7 @@ mod mixed_generics {
 
 /// Deriving on an enum without variants used to produce just the trait; it must still compile.
 mod empty_enum {
-	use xcm::latest::{prelude::*, GetWeight};
+	use xcm::latest::GetWeight;
 
 	#[derive(xcm_procedural::XcmWeightInfoTrait)]
 	pub enum Instr {}
@@ -234,5 +234,35 @@ mod empty_enum {
 	fn empty_enum_compiles() {
 		fn assert_get_weight<T: GetWeight<Info>>() {}
 		assert_get_weight::<Instr>();
+	}
+}
+
+/// The generated items name `GetWeight` and `Weight` by full path, so they need not be in scope,
+/// and the lints for deprecated variants do not fire inside the generated impl.
+mod nothing_in_scope {
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum Instr {
+		ClearOrigin,
+		#[deprecated]
+		Old,
+	}
+
+	pub struct Info;
+	impl XcmWeightInfo for Info {
+		fn clear_origin() -> xcm::latest::Weight {
+			xcm::latest::Weight::from_parts(1, 0)
+		}
+
+		fn old() -> xcm::latest::Weight {
+			xcm::latest::Weight::from_parts(2, 0)
+		}
+	}
+
+	#[test]
+	fn generated_code_is_self_contained() {
+		assert_eq!(xcm::latest::GetWeight::<Info>::weight(&Instr::ClearOrigin).ref_time(), 1);
+		#[allow(deprecated)]
+		let old = Instr::Old;
+		assert_eq!(xcm::latest::GetWeight::<Info>::weight(&old).ref_time(), 2);
 	}
 }
