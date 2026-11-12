@@ -433,8 +433,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				futures.push(Box::pin(client.sync_backward()));
 			}
 
-			// Backfill gaps caused by subscription reconnects and, in archive mode, finalized
-			// blocks whose processing failed.
+			// Backfill the blocks the finalized subscription did not index, see
+			// `SubscriptionGapQueue`.
 			futures.push(Box::pin(async {
 				client.run_subscription_gap_filler(gap_fill_rx, GapFillRetry::default()).await;
 				Ok::<_, ClientError>(())

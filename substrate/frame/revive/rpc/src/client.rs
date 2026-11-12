@@ -324,8 +324,7 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
-	/// Queue for backfilling blocks missed during subscription reconnects and, in archive
-	/// mode, finalized blocks whose processing failed.
+	/// Queue for backfilling blocks the subscriptions did not index.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
@@ -341,8 +340,10 @@ pub(crate) struct GapFillRequest {
 	pub from_hash: Option<H256>,
 }
 
-/// Queues gap-fill requests for blocks missed during subscription reconnects and, in archive
-/// mode, for finalized blocks whose processing failed.
+/// Queues gap-fill requests for blocks the finalized subscription did not index: ranges
+/// skipped by the stream, after a reconnect or between the block the backward sync starts
+/// from and the first streamed block (archive mode), and finalized blocks whose processing
+/// failed (archive mode).
 #[derive(Clone)]
 pub(crate) struct SubscriptionGapQueue {
 	/// Sender half of the gap-fill queue.
@@ -610,8 +611,8 @@ impl Client {
 			.unwrap_or(0)
 	}
 
-	/// Subscribe to new blocks, and execute the async closure for each block. In archive mode a
-	/// finalized block whose closure returns an error is queued for the gap filler.
+	/// Subscribe to new blocks, and execute the async closure for each block. The finalized
+	/// stream queues the gaps listed on [`SubscriptionGapQueue`].
 	pub(crate) async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
@@ -629,7 +630,17 @@ impl Client {
 			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
 		})?;
 
-		let mut last_finalized_seen: Option<SubstrateBlockNumber> = None;
+		// The backward sync starts no lower than the finalized block the provider holds here,
+		// while the stream starts at the finalized block of its own start, which can be further
+		// ahead. Seeding with the provider's block lets the first streamed block queue the range
+		// in between; a first block at or below the seed queues nothing, and blocks the backward
+		// sync indexes as well are skipped one by one. Pruning mode has no sync head to hold.
+		let mut last_finalized_seen = match subscription_type {
+			SubscriptionType::FinalizedBlocks if self.is_archive => {
+				Some(self.block_provider.latest_finalized_block().await.block_number())
+			},
+			_ => None,
+		};
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -653,9 +664,7 @@ impl Client {
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the
 			// whole server. Gap detection compares each finalized block with
-			// `last_finalized_seen`, so a later block backfills an unresolved one. The first
-			// unresolved block has nothing to compare against: queue it here and seed
-			// `last_finalized_seen`, so the next block detects the range above it.
+			// `last_finalized_seen`, so a later block backfills an unresolved one.
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {
@@ -665,13 +674,6 @@ impl Client {
 						block.number(),
 						block.hash(),
 					);
-					if subscription_type == SubscriptionType::FinalizedBlocks &&
-						last_finalized_seen.is_none() &&
-						self.is_archive
-					{
-						self.subscription_gap_queue.queue_block(block.number(), block.hash());
-						last_finalized_seen = Some(block.number());
-					}
 					continue;
 				},
 			};
