@@ -27,7 +27,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
 	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
-	limits::{self, EVM_STACK_LIMIT},
+	limits::{self, CALLDATA_BYTES, EVM_MEMORY_BYTES, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
@@ -38,8 +38,8 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		evm,
-		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
+		BENCH_MIN_EVM_INIT_CODE_LEN, evm,
+		evm::{EvmOpcodeCosts, ExtBytecode, Halt, Interpreter, instructions},
 		pvm,
 	},
 	*,
@@ -64,9 +64,9 @@ use pallet_revive_uapi::{
 };
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_pcg::Pcg64;
-use revm::bytecode::{
-	Bytecode,
-	opcode::{ADDMOD, DIV, MOD, MULMOD, POP, SDIV, SMOD},
+use revm::{
+	bytecode::{Bytecode, opcode::*},
+	primitives::{eip170::MAX_CODE_SIZE, eip3860::MAX_INITCODE_SIZE},
 };
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
@@ -82,6 +82,13 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// the results appeared to be stable. Reducing the number would speed up the benchmarks
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
+
+/// How far after its source the `evm_mcopy_per_byte` benchmark puts its destination.
+///
+/// It's just under a page, so every word the copy loads has the same lowest 12 address bits as the
+/// word it stored just before. It's also misaligned with the source, so `memmove` has to shift
+/// everything it copies.
+const MCOPY_DESTINATION_DISTANCE: u32 = 4091;
 
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
@@ -114,6 +121,18 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
 ///
 /// Returns the account id the `seal_call` family expects in guest memory: `address` is never
@@ -142,6 +161,13 @@ fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<()
 	Ok(())
 }
 
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
+}
+
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -152,9 +178,116 @@ fn evict_caches() {
 
 /// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
 fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
-	values
-		.into_iter()
-		.for_each(|value| interpreter.stack.push(value).continue_value().unwrap());
+	for value in values {
+		interpreter.stack.push(value).continue_value().unwrap();
+	}
+}
+
+/// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
+/// pushed onto the stack.
+fn signed_comparison_operands(r: u32) -> Vec<U256> {
+	// Every limb is one, so adding one to a limb makes the operands first differ at that limb.
+	const POSITIVE: U256 = U256([1, 1, 1, 1]);
+	const NEGATIVE: U256 = U256([1, 1, 1, (1 << 63) + 1]);
+
+	fn same_sign_operands(rng: &mut Pcg64, base: U256) -> [U256; 2] {
+		match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(limb) => [base, base + (U256::one() << (64 * limb))],
+			None => [base, base],
+		}
+	}
+
+	let mut rng = Pcg64::seed_from_u64(1337);
+	(0..r)
+		.flat_map(|_| {
+			let mut operands = if rng.gen_bool(0.5) {
+				same_sign_operands(&mut rng, NEGATIVE)
+			} else if rng.gen_bool(0.5) {
+				[U256::zero(), POSITIVE]
+			} else {
+				same_sign_operands(&mut rng, POSITIVE)
+			};
+			operands.shuffle(&mut rng);
+			operands
+		})
+		.collect()
+}
+
+enum Outcome {
+	DifferInLimb3,
+	DifferInLimb2,
+	DifferInLimb1,
+	DifferInLimb0,
+	Equal,
+}
+
+impl Outcome {
+	const ALL: [Self; 5] = [
+		Self::DifferInLimb3,
+		Self::DifferInLimb2,
+		Self::DifferInLimb1,
+		Self::DifferInLimb0,
+		Self::Equal,
+	];
+}
+
+/// The code of the `evm_dispatch_mix` benchmark: a pseudo-random, stack-neutral mix of cheap
+/// op-codes, built in blocks that each contain the op-codes of [`EvmOpcodeCosts::DISPATCH_MIX`]
+/// the number of times it lists.
+struct EvmMixedOpcodes;
+
+impl EvmMixedOpcodes {
+	/// The number of op-codes in a block.
+	const CODE_BLOCK_SIZE: usize = {
+		let mut size = 0;
+		let mut index = 0;
+		while index < EvmOpcodeCosts::DISPATCH_MIX.len() {
+			size += EvmOpcodeCosts::DISPATCH_MIX[index].repetitions as usize;
+			index += 1;
+		}
+		size
+	};
+
+	/// The height of the stack at the start and the end of every block.
+	const STACK_INITIAL_HEIGHT: usize = 16;
+
+	/// The highest the stack gets, within its initial capacity so pushing never reallocates it.
+	const STACK_MAX_HEIGHT: usize = 32;
+
+	/// Returns `r` blocks of op-codes, each in its own pseudo-random order.
+	fn generate_code(rng: &mut impl Rng, r: u32) -> Vec<u8> {
+		let mut code = Vec::with_capacity(r as usize * Self::CODE_BLOCK_SIZE);
+		for _ in 0..r {
+			Self::generate_block(rng, &mut code);
+		}
+		code
+	}
+
+	/// Appends one block to `code` in a pseudo-random order that keeps the stack between empty and
+	/// `STACK_MAX_HEIGHT`.
+	fn generate_block(rng: &mut impl Rng, code: &mut Vec<u8>) {
+		use alloc::collections::VecDeque;
+
+		let mut remaining = EvmOpcodeCosts::DISPATCH_MIX
+			.into_iter()
+			.flat_map(|mix_opcode| {
+				let info = OpCode::info_by_op(mix_opcode.opcode)
+					.expect("every op-code of the dispatch mix is defined; qed");
+				let (pops, pushes) = (usize::from(info.inputs()), usize::from(info.outputs()));
+				vec![(mix_opcode.opcode, pops, pushes); mix_opcode.repetitions as usize]
+			})
+			.collect::<VecDeque<_>>();
+		remaining.make_contiguous().shuffle(rng);
+		let mut height = Self::STACK_INITIAL_HEIGHT;
+		while let Some(instruction @ (op_code, pops, pushes)) = remaining.pop_front() {
+			if pops <= height && height - pops + pushes <= Self::STACK_MAX_HEIGHT {
+				code.push(op_code);
+				height = height - pops + pushes;
+			} else {
+				remaining.push_back(instruction);
+			}
+		}
+	}
 }
 
 /// Pairs a pseudo-randomly chosen denominator with the shared `2^255` numerator.
@@ -176,7 +309,7 @@ fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256;
 ///
 /// Knuth's Algorithm D can correct the highest quotient limb zero or one time and each lower limb
 /// up to twice. The pattern `1, 0, 2` is impossible for this numerator. The counts were checked
-/// against `uint` 0.10.0's division. None of these operands needs the rarer correction that adds
+/// against `uint` 0.10's division. None of these operands needs the rarer correction that adds
 /// the divisor back after subtracting.
 ///
 /// Picking a denominator pseudo-randomly varies the correction branches across divisions. Each
@@ -310,6 +443,48 @@ mod one_limb_division_operands {
 	];
 }
 
+/// Operands covering the seven patterns we found when dividing `2^255` by three-limb divisors.
+///
+/// Knuth's Algorithm D estimates two quotient limbs for these divisors. We found the higher limb
+/// corrected zero or one time and the lower limb up to twice. Unlike with two-limb divisors, an
+/// estimate can still be one too large after its corrections, and the division then adds the
+/// divisor back after subtracting. We only found that on the higher limb without corrections. The
+/// counts were checked with a source-level trace of `uint` 0.10 and Rust 1.93
+/// `compiler_builtins`.
+///
+/// Each pattern has two distinct divisors. Each denominator also makes the `u128` divisions behind
+/// the estimates take as many steps as any we found with its pattern. We only found the lower limb
+/// corrected twice without the higher one with a highest denominator limb above one, which shortens
+/// the division behind the first estimate.
+mod three_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 1, 0.
+	pub const DENOMINATORS: [U256; 14] = [
+		// Corrections: 0, 0.
+		U256([0x5953_c831_477d_af4d, 0xb3aa_ba8e_016a_4a5b, 0x1, 0]),
+		U256([0xc435_0788_b8fa_4738, 0xfce4_f4ce_07f9_5693, 0x1, 0]),
+		// Corrections: 0, 1.
+		U256([0x5bea_4bdb_1b8f_828a, 0x5bee_2b88_29a3_5779, 0x1, 0]),
+		U256([0x113a_2875_4d21_7cac, 0x5915_1f88_0b93_b2e5, 0x1, 0]),
+		// Corrections: 0, 2.
+		U256([0x58d3_080e_a261_0b2c, 0x06c1_6099_c37a_fb70, 0x25d, 0]),
+		U256([0x5648_021c_ce54_ef66, 0xf709_e780_1fa7_e46e, 0x0103_59f5, 0]),
+		// Corrections: 1, 0.
+		U256([0x64c3_be1d_246d_7821, 0x00f5_75ee_0862_2f50, 0x1, 0]),
+		U256([0x5239_dfd9_4c93_12cc, 0x4de1_94ac_3a49_1826, 0x1, 0]),
+		// Corrections: 1, 1.
+		U256([0xc9e1_b256_93a4_a2cc, 0xedb3_e9e8_d16e_a87f, 0x1, 0]),
+		U256([0x5ebe_d4f9_e6f8_b9e8, 0xe261_7082_463f_8395, 0x1, 0]),
+		// Corrections: 1, 2.
+		U256([0xd0ad_3019_7337_1a13, 0x0a1b_d7f0_0fa5_0c21, 0x1, 0]),
+		U256([0xd4c3_a565_664e_aa66, 0x0ca2_823c_292b_9317, 0x1, 0]),
+		// Corrections: 0, 0, with the divisor added back to the higher limb.
+		U256([0x0e78_2bf3_fa0e_13ab, 0x386d_d8b2_091a_6756, 0x1, 0]),
+		U256([0x0c44_ac2c_7ddc_8ca9, 0x0280_e278_312b_2362, 0x1, 0]),
+	];
+}
+
 /// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
 mod mixed_division_operands {
 	use super::{
@@ -336,6 +511,21 @@ mod mixed_division_operands {
 	}
 }
 
+/// # Subtraction Safety
+///
+/// Some EVM op-codes are charged as the weight of their benchmark minus the weight of another one:
+/// `JUMP` and `JUMPI` subtract `evm_jumpdest_opcode`, and the op-codes benchmarked in pairs with a
+/// `POP` subtract `evm_pop_opcode`. A benchmark is subtraction safe when subtracting it can never
+/// undercharge the op-code that remains.
+///
+/// A benchmark is subtraction safe when it underestimates its op-code: the op-code has no operands
+/// or branches that could make it more expensive, and the benchmark runs it in the cheapest
+/// setting, straight line code whose dispatch is always predicted. Subtracting an underestimate can
+/// only overcharge the op-code that remains.
+///
+/// A benchmark is not subtraction safe when it measures the worst case we have found for its
+/// op-code. The op-code can cost less inside another benchmark than in its own worst case, so
+/// subtracting that worst case can undercharge the op-code that remains.
 #[benchmarks(
 	where
 		T: Config,
@@ -632,7 +822,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_init_code_for_runtime_size(c),
@@ -1355,6 +1547,11 @@ mod benchmarks {
 			Pallet::<T>::min_balance() * 2u32.into(),
 			42u32,
 		));
+		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
+		// still be able to read its own balance. In a contract called without value by another
+		// contract, the read is unpaid until #12673 removes this whitelist.
+		let account_id = &contract.account_id;
+		whitelist_account!(account_id);
 
 		let result;
 		#[block]
@@ -1737,6 +1934,7 @@ mod benchmarks {
 		if !delete_code {
 			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
 		}
+		assert_account_not_whitelisted::<T>(&instance.account_id);
 
 		let result;
 		#[block]
@@ -1749,8 +1947,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
-	/// the teardown at the end of the call stack.
+	/// The teardown of a terminated contract at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1778,22 +1975,18 @@ mod benchmarks {
 		let exec_config = ExecConfig::new_substrate_tx();
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
-		let beneficiary_clone = beneficiary.clone();
-		let only_if_same_tx = false;
+		assert_account_not_whitelisted::<T>(contract_account);
 
-		let result;
 		#[block]
 		{
-			result = crate::exec::bench_do_terminate::<T>(
+			crate::exec::bench_do_terminate::<T>(
 				&mut transaction_meter,
 				&exec_config,
 				contract_account,
 				&origin,
-				beneficiary_clone,
-				only_if_same_tx,
+				&beneficiary,
 			);
 		}
-		result.unwrap();
 
 		// Check that the contract is removed
 		assert!(PristineCode::<T>::get(code_hash).is_none());
@@ -2795,76 +2988,161 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
-	// i: size of the input data
+	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
+	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
+	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
+	// arrived.
+	macro_rules! call_setup {
+		(
+			$do_call:ident, $assert_transferred:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
+			callee_exists: $callee_exists:expr
+		) => {
+			// An EIP-7702 delegated callee is the worst case for the account resolution.
+			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			if $callee_exists {
+				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			}
+			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, $dust);
+			}
+			let callee_balance_before = Pallet::<T>::evm_balance(&callee_addr);
+
+			let callee_bytes = callee.encode();
+			let callee_len = callee_bytes.len() as u32;
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+
+			let deposit = default_deposit_limit::<T>();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let caller_account = setup.contract().account_id.clone();
+			let caller_addr = setup.contract().address;
+			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
+			let callee_ed_paid = if $callee_exists {
+				U256::zero()
+			} else {
+				Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance())
+			};
+
+			let (mut ext, _) = setup.ext();
+			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
+			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			};
+
+			let $assert_transferred = || {
+				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					callee_balance_before + evm_value,
+					"{callee_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
+				assert_eq!(
+					Pallet::<T>::evm_balance(&caller_addr),
+					caller_balance_before - evm_value - callee_ed_paid,
+					"{caller_addr:?} should pay only the value and the callee's ED"
+				);
+			};
+			assert_account_not_whitelisted::<T>(&caller_account);
+		};
+	}
+
+	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		// An EIP-7702 delegated callee is the worst case for the account resolution in
-		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code. (A callee whose delegation snapshot is empty
-		// costs a second read of the target but skips code load and execution entirely, so it
-		// is cheaper overall.)
-		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let callee_addr = H160([0x42; 20]);
-		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-		// Keep the origin's budget the same as with a contract callee. A contract already exists
-		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
-		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
-		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
-		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i,
+			callee_exists: true
+		);
 
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		// We benchmark the overhead of cloning the input. Not passing it to the contract.
-		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
-		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
-
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
-
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before + evm_value,
-			"{callee_addr:?} balance should have grown by {evm_value:?}"
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: false
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer_to_existing(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: true
+		);
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
 		Ok(())
 	}
 
@@ -2921,10 +3199,12 @@ mod benchmarks {
 		// so we make sure to create it
 		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
 
+		// Inside an ethereum transaction, the worst case: the pre-compile's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_benchmark();
+			result = block_storage::bench_with_ethereum_context(|| do_benchmark());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2933,7 +3213,6 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		// Delegated code source: worst case for the callee resolution in `new_frame`.
-		// See `seal_call`.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
@@ -2951,143 +3230,280 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_delegate_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(0, 0),        // flags + address ptr
-				u64::MAX,                // ref_time_limit
-				u64::MAX,                // proof_size_limit
-				address_len,             // deposit_ptr
-				pack_hi_lo(0, 0),        // input len + data ptr
-				pack_hi_lo(0, SENTINEL), // output len + ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
+	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! seal_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+		) => {
+			let code = VmBinaryModule::dummy();
+			let hash =
+				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+			let hash_bytes = hash.encode();
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+			let value_len = value_bytes.len() as u32;
+
+			let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+
+			let account_id = &setup.contract().account_id.clone();
+			let (mut ext, _) = setup.ext();
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+
+			let input = vec![42u8; $input_len as usize];
+			let input_len = hash_bytes.len() as u32 + input.len() as u32;
+			let salt = [42u8; 32];
+			let deployer = T::AddressMapper::to_address(&account_id);
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+			let new_contract_addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
+			let deposit_ptr = input_len;
+			let value_ptr = deposit_ptr + deposit_len;
+			let salt_ptr = value_ptr + value_len;
+
+			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			let mut $do_instantiate = || {
+				runtime.bench_instantiate(
+					memory.as_mut_slice(),
+					u64::MAX,                           // ref_time_limit
+					u64::MAX,                           // proof_size_limit
+					pack_hi_lo(deposit_ptr, value_ptr), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),           // input_data_len + input_data
+					pack_hi_lo(0, SENTINEL),            // output_len_ptr + output_ptr
+					pack_hi_lo(SENTINEL, salt_ptr),     // address_ptr + salt_ptr
+				)
+			};
+			let $assert_instantiated = || {
+				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value,
+					"{deployer:?} should pay only the value"
+				);
+			};
+			assert_account_not_whitelisted::<T>(account_id);
+		};
+	}
+
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::CALLDATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let code = VmBinaryModule::dummy();
-		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
-		let hash_bytes = hash.encode();
+	fn seal_instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i
+		);
 
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-		let value_len = value_bytes.len() as u32;
-
-		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
-
-		let account_id = &setup.contract().account_id.clone();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let input = vec![42u8; i as _];
-		let input_len = hash_bytes.len() as u32 + input.len() as u32;
-		let salt = [42u8; 32];
-		let deployer = T::AddressMapper::to_address(&account_id);
-		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
-
-		let mut offset = {
-			let mut current = 0u32;
-			move |after: u32| {
-				current += after;
-				current
-			}
-		};
-
-		assert!(AccountInfoOf::<T>::get(&addr).is_none());
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_instantiate(
-				memory.as_mut_slice(),
-				u64::MAX,                                           // ref_time_limit
-				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
-				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
-				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-
-		assert_eq!(
-			Pallet::<T>::evm_balance(&addr),
-			evm_value,
-			"{addr:?} balance should hold {evm_value:?}"
-		);
+		assert_instantiated();
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
 	// d: with or without dust value to transfer
-	// i: size of the init code (max 49152 bytes per EIP-3860)
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(caller_funding::<T>());
+	fn seal_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
-
-		let value = {
-			let value: BalanceOf<T> = (1_000_000u32 * t).into();
-			let dust = 100u32 * d;
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
-		};
-
-		let init_code = vec![BENCH_INIT_CODE; i as usize];
-		let _ = interpreter.memory.resize(0, init_code.len());
-		let salt = U256::from(42u64);
-		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
-
-		// Setup stack for create instruction [value, offset, size, salt]
-		let _ = interpreter.stack.push(salt);
-		let _ = interpreter.stack.push(U256::from(init_code.len()));
-		let _ = interpreter.stack.push(U256::zero());
-		let _ = interpreter.stack.push(value);
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<true, _>(&mut interpreter);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_instantiated();
+		Ok(())
+	}
+
+	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! evm_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, init_code_len: $init_code_len:expr
+		) => {
+			use crate::vm::evm::instructions::BENCH_INIT_CODE;
+			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let deployer_account = setup.contract().account_id.clone();
+			let deployer = setup.contract().address;
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+
+			let (mut ext, _) = setup.ext();
+			let mut interpreter =
+				Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+
+			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
+			interpreter
+				.memory
+				.resize(0, init_code.len(), interpreter.ext)
+				.continue_value()
+				.expect("the init code fits the memory limit and the setup weight budget; qed");
+			let salt = U256::from(42u64);
+			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+			let new_contract_addr =
+				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			// Setup stack for create instruction [value, offset, size, salt]
+			let _ = interpreter.stack.push(salt);
+			let _ = interpreter.stack.push(U256::from(init_code.len()));
+			let _ = interpreter.stack.push(U256::zero());
+			let _ = interpreter.stack.push(evm_value);
+
+			let mut $do_instantiate =
+				|| instructions::contract::create::<true, _>(&mut interpreter);
+			let $assert_instantiated = || {
+				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
+					.expect("the create should deploy a contract");
+				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				let code_deposit = Pallet::<T>::convert_native_to_evm(
+					CodeInfoOf::<T>::get(new_contract.code_hash)
+						.expect("the create should store its runtime code")
+						.deposit(),
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value - code_deposit,
+					"{deployer:?} should pay only the value and the code deposit"
+				);
+			};
+			assert_account_not_whitelisted::<T>(&deployer_account);
+		};
+	}
+
+	// i: size of the init code
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		i: Linear<{ BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			init_code_len: i
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert!(result.is_continue());
-		let addr = interpreter.stack.top().unwrap().into_address();
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		assert_instantiated();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert!(result.is_continue());
+		assert_instantiated();
 		Ok(())
 	}
 
@@ -3429,9 +3845,15 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
-	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
+	/// Benchmarks `r` EVM `JUMPDEST` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn evm_jumpdest_opcode(
+		r: Linear<0, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);
 		let inputs = vec![];
 
@@ -3439,6 +3861,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(module);
 		let (mut ext, _) = setup.ext();
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3449,7 +3872,196 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmarks `r` EVM `JUMP` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A cold destination read on each jump, since each destination is on a different 4 KiB page
+	///   from the entry point and every other destination.
+	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jump_opcode(r: Linear<1, { MAX_INITCODE_SIZE as u32 / 4096 - 1 }>) {
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MAX_INITCODE_SIZE / PAGE_SIZE - 1;
+
+		let code = Bytecode::new_raw([JUMP, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2).into());
+		let last_jumpdest_offset = MAX_INITCODE_SIZE - 1;
+
+		// Analysis can reallocate the code, so use its final address. Skip pages that entry
+		// fallthrough can touch and reserve the last page for the terminal destination.
+		let address = code.bytecode_ptr() as usize;
+		let first_page_start = (address + 2 * PAGE_COUNT).next_multiple_of(PAGE_SIZE) - address;
+		let mut targets = (0..PAGE_COUNT - 1)
+			.map(|page_index| page_index * PAGE_SIZE + first_page_start)
+			// Odd offsets are JUMPDESTs; placing them mid-page keeps the next JUMP on that page.
+			.map(|page_start| (page_start + PAGE_SIZE / 2) | 1)
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		targets.truncate(r as usize - 1);
+		targets.push(last_jumpdest_offset);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(code);
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, targets.into_iter().rev().map(U256::from));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
+	}
+
+	/// Benchmarks `r` EVM `JUMPI` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each jump is taken, since condition is pseudo-random.
+	/// * A cold destination read on each taken jump, since each destination is on a different 4 KiB
+	///   page from the entry point and every other destination.
+	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
+	/// * No early exit from the zero check of a true condition, since its only nonzero word is the
+	///   last one checked.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode(r: Linear<1, { MAX_INITCODE_SIZE as u32 / 4096 - 1 }>) {
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MAX_INITCODE_SIZE / PAGE_SIZE - 1;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw([JUMPI, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2).into());
+		let last_jumpdest_offset = MAX_INITCODE_SIZE - 1;
+
+		// Analysis can reallocate the code, so use its final address. Skip pages that entry
+		// fallthrough can touch and reserve the last page for the terminal destination.
+		let address = code.bytecode_ptr() as usize;
+		let first_page_start = (address + 2 * PAGE_COUNT).next_multiple_of(PAGE_SIZE) - address;
+		let mut targets = (0..PAGE_COUNT - 1)
+			.map(|page_index| page_index * PAGE_SIZE + first_page_start)
+			// Odd offsets are JUMPDESTs; placing them mid-page keeps fallthrough on that page.
+			.map(|page_start| (page_start + PAGE_SIZE / 2) | 1)
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut rng);
+		targets.truncate(r as usize - 1);
+		targets.push(last_jumpdest_offset);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(code);
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		let operands = targets.into_iter().rev().flat_map(|target| {
+			// The last jump is always taken so that the code ends on the last `JUMPDEST`.
+			let condition = if target == last_jumpdest_offset || rng.gen_bool(0.5) {
+				// Constructing a truthy value which requires us to check all of the limbs of the
+				// 256-bit word.
+				U256([0, 0, 0, rng.gen_range(1u64..=u64::MAX)])
+			} else {
+				U256::zero()
+			};
+			[condition, U256::from(target)]
+		});
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
+	}
+
+	/// Benchmarks `r` EVM `PC` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![PC; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
+	}
+
+	/// Benchmarks `r` EVM `PUSH0` to `PUSH32` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the push op-codes are
+	///   pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = (0..r)
+			.flat_map(|_| {
+				let width = rng.gen_range(0..=32u8);
+				core::iter::once(PUSH0 + width)
+					.chain(core::iter::repeat_n(u8::MAX, usize::from(width)))
+			})
+			.collect::<Vec<u8>>();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
 	/// Benchmarks `r` EVM `POP` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![POP; r as usize].into());
@@ -3470,6 +4082,1647 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `DUP1` to `DUP16` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the duplication
+	///   op-codes are pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup_opcode(r: Linear<0, { EVM_STACK_LIMIT - 16 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = (0..r).map(|_| rng.gen_range(DUP1..=DUP16)).collect::<Vec<u8>>();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 16]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 16 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `SWAP1` to `SWAP16` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the swap op-codes are
+	///   pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = (0..r).map(|_| rng.gen_range(SWAP1..=SWAP16)).collect::<Vec<u8>>();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 17]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmarks `r` EVM `CHAINID` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_chainid_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let chain_id = U256::from(T::ChainId::get());
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&chain_id));
+	}
+
+	/// Benchmarks `r` EVM `DIFFICULTY` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_difficulty_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let difficulty = U256::from(evm::DIFFICULTY);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&difficulty));
+	}
+
+	/// Benchmarks `r` EVM `CODESIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let code_size = U256::from(r);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&code_size));
+	}
+
+	/// Benchmarks `r` EVM `CALLDATASIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
+		let input = vec![0u8; CALLDATA_BYTES as usize];
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), input, &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let calldata_size = U256::from(CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&calldata_size));
+	}
+
+	/// Benchmarks `r` EVM `RETURNDATASIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		*ext.last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let return_data_size = U256::from(CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&return_data_size));
+	}
+
+	/// Benchmarks `r` EVM `CALLDATALOAD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each load, since each word is on a cache line that hasn't been
+	///   read since the eviction.
+	/// * A second cache line read on each load, since each word crosses into the next line.
+	/// * A TLB miss on each load, since each word is on a page that hasn't been read since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	/// * The runtime's `memcpy` rebuilding everything it copies with shifts, since each word starts
+	///   at a misaligned address.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 4096 - 1 }>) {
+		const CALLDATA_SIZE: usize = CALLDATA_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const WORD_SIZE: usize = 32;
+		const PAGE_COUNT: usize = CALLDATA_SIZE / PAGE_SIZE - 1;
+		// Mid-page and not 4-byte aligned, so the runtime's `memcpy` copies it with shifts.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 49;
+		const END_OF_WALK: U256 = U256::MAX;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let load_count = r as usize;
+		let mut calldata = vec![0u8; CALLDATA_SIZE];
+
+		// The allocator only aligns to 8 bytes, so the calldata can start anywhere within a page.
+		// Words are placed relative to real page boundaries, not to the start of the calldata.
+		let address = calldata.as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let walk = &offsets[..load_count];
+
+		// Each word in the walk stores the offset of the next one, and the last one stores
+		// END_OF_WALK.
+		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
+		for (&offset, value) in walk.iter().zip(next_values) {
+			calldata[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
+		}
+
+		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
+		// the final assertion to hold.
+		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
+
+		let code = Bytecode::new_raw(vec![CALLDATALOAD; load_count].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
+		setup_stack(&mut interpreter, [initial_stack_value]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
+	}
+
+	/// Benchmarks `r` EVM `CALLDATACOPY` op-codes that copy one byte into expanded memory.
+	///
+	/// This is the fixed cost of a `CALLDATACOPY`, which it pays at any length.
+	/// The non-zero copy includes the offset conversions and memory bounds check.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldatacopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let code = Bytecode::new_raw(vec![CALLDATACOPY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let calldata = vec![42; CALLDATA_BYTES as usize];
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		// Each copy writes one byte from call data to the last byte of expanded memory.
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::zero(), U256::from(31)]),
+		);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
+	}
+
+	/// Benchmarks `r` EVM `CODECOPY` op-codes that copy one byte into expanded memory.
+	///
+	/// This is the fixed cost of a `CODECOPY`, which it pays at any length.
+	/// The non-zero copy includes the offset conversions and memory bounds check.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_codecopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut code = vec![CODECOPY; r as usize];
+		code.extend_from_slice(&[STOP, 42]);
+		let code = Bytecode::new_raw(code.into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		// The source byte follows STOP, so it is copied without being executed.
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::from(r + 1), U256::from(31)]),
+		);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
+	}
+
+	/// Benchmarks `r` EVM `RETURNDATACOPY` op-codes that copy one byte into expanded memory.
+	///
+	/// This is the fixed cost of a `RETURNDATACOPY`, which it pays at any length.
+	/// The non-zero copy includes the return data bounds check and offset conversions.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_returndatacopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let code = Bytecode::new_raw(vec![RETURNDATACOPY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		*ext.last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::zero(), U256::from(31)]),
+		);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
+	}
+
+	/// Benchmarks `Memory::grow`, which only zeroes newly exposed bytes.
+	///
+	/// Setup grows past half the memory limit, obtaining the final capacity through the normal
+	/// resize path. `n` counts added 32-byte words; the measured growth cannot reallocate.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_grow(n: Linear<1, { EVM_MEMORY_BYTES / 64 - 1 }>) {
+		const INITIAL_WORDS: u32 = EVM_MEMORY_BYTES / 64 + 1;
+		let initial_len = INITIAL_WORDS as usize * 32;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory.resize(0, initial_len, interpreter.ext).continue_value().unwrap();
+		memory.slice_mut(0, initial_len).fill(0xa5);
+		let target_words = INITIAL_WORDS + n;
+		let target_len = target_words as usize * 32;
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&mut *memory).bench_grow(target_words);
+		}
+
+		assert!(result.is_continue());
+		assert_eq!(memory.size(), target_len);
+		assert!(memory.slice(0..initial_len).iter().all(|&byte| byte == 0xa5));
+		assert!(memory.slice(initial_len..target_len).iter().all(|&byte| byte == 0));
+	}
+
+	/// Benchmarks `Memory::reallocate`: allocation, copying live bytes, and freeing the old buffer.
+	///
+	/// `n` counts requested capacity in 32-byte words. Production capacity at least doubles, so
+	/// setup fills half the replacement capacity to cover the largest production copy. The
+	/// measured operation preserves the logical size and does not zero newly exposed memory.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_reallocate(n: Linear<256, { EVM_MEMORY_BYTES / 32 }>) {
+		let initial_len = (n / 2) as usize * 32;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory.resize(0, initial_len, interpreter.ext).continue_value().unwrap();
+		memory.slice_mut(0, initial_len).fill(0xa5);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&mut *memory).bench_reallocate(n);
+		}
+
+		assert!(result.is_continue());
+		assert_eq!(memory.size(), initial_len);
+		assert!(memory.slice(0..initial_len).iter().all(|&byte| byte == 0xa5));
+	}
+
+	/// Benchmarks allocating and copying `n` bytes out of EVM memory for RETURN and REVERT.
+	///
+	/// Setup fills the entire memory limit with seeded pseudo-random bytes. Growth and data
+	/// initialization are outside the measured block; the output buffer is retained afterwards.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_copy_out(n: Linear<0, { EVM_MEMORY_BYTES }>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory
+			.resize(0, EVM_MEMORY_BYTES as usize, interpreter.ext)
+			.continue_value()
+			.expect("the memory limit fits the setup weight budget; qed");
+		Pcg64::seed_from_u64(1337).fill(memory.slice_mut(0, EVM_MEMORY_BYTES as usize));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&*memory).bench_copy_out(0, n as usize);
+		}
+
+		assert_eq!(result.len(), n as usize);
+		assert_eq!(result.as_slice(), memory.slice_len(0, n as usize));
+	}
+
+	/// Benchmarks `r` EVM `MLOAD` op-codes.
+	///
+	/// This uses a linked-list scheme similar to the one in [`evm_calldataload_opcode`].
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each load, since each word is on a cache line that hasn't been
+	///   read since the eviction.
+	/// * A second cache line read on each load, since each word crosses into the next line.
+	/// * A TLB miss on each load, since each word is on a page that hasn't been read since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const WORD_SIZE: usize = 32;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// Mid-page and 36 bytes into a cache line, so the word runs into the next line.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 36;
+		const END_OF_WALK: U256 = U256::MAX;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let load_count = r as usize;
+		let code = Bytecode::new_raw(vec![MLOAD; load_count].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
+		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = memory.as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let walk = &offsets[..load_count];
+
+		// Each word in the walk stores the offset of the next one, and the last one stores
+		// END_OF_WALK.
+		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
+		for (&offset, value) in walk.iter().zip(next_values) {
+			memory[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
+		}
+
+		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
+		// the final assertion to hold.
+		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
+		setup_stack(&mut interpreter, [initial_stack_value]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+	}
+
+	/// Benchmarks `r` EVM `MSIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, EVM_MEMORY_BYTES as usize, interpreter.ext)
+			.continue_value()
+			.unwrap();
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let memory_size = U256::from(EVM_MEMORY_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&memory_size));
+	}
+
+	/// Benchmarks `r` EVM `MSTORE` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each store, since each word is on a cache line that hasn't been
+	///   accessed since the eviction.
+	/// * A second cache line written on each store, since each word crosses into the next line.
+	/// * A TLB miss on each store, since each word is on a page that hasn't been accessed since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const WORD_SIZE: usize = 32;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// Mid-page and 36 bytes into a cache line, so the word runs into the next line.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 36;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let stores = &offsets[..r as usize];
+		setup_stack(
+			&mut interpreter,
+			stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]),
+		);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		for &offset in stores {
+			assert_eq!(interpreter.memory.slice_len(offset, WORD_SIZE), &[0xff; WORD_SIZE]);
+			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
+			assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
+		}
+	}
+
+	/// Benchmarks `r` EVM `MSTORE8` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each store, since each byte is on a cache line that hasn't been
+	///   accessed since the eviction.
+	/// * A TLB miss on each store, since each byte is on a page that hasn't been accessed since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore8_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// A single byte can't straddle a cache line, so where it sits in the page doesn't matter.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Bytes
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let stores = &offsets[..r as usize];
+		setup_stack(
+			&mut interpreter,
+			stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]),
+		);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		for &offset in stores {
+			assert_eq!(interpreter.memory.slice_len(offset, 1), &[0xff]);
+			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
+			assert_eq!(interpreter.memory.slice_len(offset + 1, 1), &[0]);
+		}
+	}
+
+	/// Benchmarks `r` EVM `MCOPY` op-codes that copy up to 64 bytes each.
+	///
+	/// This is the fixed cost of an `MCOPY`, which covers copying its first 64 bytes. Longer copies
+	/// pay for every extra byte on top of it.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on the source and on the destination of each copy, since each of
+	///   them is on a cache line that hasn't been accessed since the eviction.
+	/// * A second cache line accessed by the source and by the destination of each copy, since each
+	///   of them crosses into the next line.
+	/// * A TLB miss on the source and on the destination of each copy, since each of them is on a
+	///   page that hasn't been accessed since the eviction.
+	/// * A second TLB miss on the source and on the destination of each copy, since each of them
+	///   crosses into the next page.
+	/// * A read of each destination line before the copy writes to it, since the line isn't in the
+	///   cache.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	/// * The path of the runtime's `memmove` that rebuilds everything it copies with shifts, since
+	///   the source and the destination are misaligned with each other.
+	/// * A branch misprediction on how `memmove` copies the bytes before and after its words, since
+	///   the alignments of the source and the destination and the length are pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 16384 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const MAX_COPY_BYTES: usize = 64;
+		const PAIR_SIZE: usize = 2 * PAGE_SIZE;
+		const PAIR_COUNT: usize = MEMORY_SIZE / PAIR_SIZE - 1;
+		// Sources and destinations start up to three bytes after this, so each of them crosses the
+		// boundary between the two pages of its pair.
+		const REGION_IN_PAIR: usize = PAGE_SIZE - MAX_COPY_BYTES / 2;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Copies
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut pair_starts = (0..PAIR_COUNT)
+			.map(|pair_index| pair_index * PAIR_SIZE)
+			.map(|pair_offset| pair_offset + first_page_start)
+			.collect::<Vec<_>>();
+		pair_starts.shuffle(&mut rng);
+		// Each copy's source and destination are in different pairs, with different alignments.
+		let copies = pair_starts
+			.chunks_exact(2)
+			.take(r as usize)
+			.map(|pairs| {
+				let source_alignment = rng.gen_range(0..4);
+				let destination_alignment = (source_alignment + rng.gen_range(1..4)) % 4;
+				let len = rng.gen_range(MAX_COPY_BYTES - 3..=MAX_COPY_BYTES);
+				let source = pairs[0] + REGION_IN_PAIR + source_alignment;
+				let destination = pairs[1] + REGION_IN_PAIR + destination_alignment;
+				[len, source, destination]
+			})
+			.collect::<Vec<_>>();
+		setup_stack(&mut interpreter, copies.iter().flat_map(|copy| copy.map(U256::from)));
+		let mut expected = initial.clone();
+		for &[len, source, destination] in &copies {
+			expected[destination..destination + len]
+				.copy_from_slice(&initial[source..source + len]);
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, MEMORY_SIZE), expected);
+	}
+
+	/// Benchmarks one EVM `MCOPY` op-code that copies `64 + n` bytes.
+	///
+	/// The first 64 bytes are covered by [`evm_mcopy_opcode`], so the slope of this benchmark is
+	/// the cost of every extra byte. `n` starts where the copy overlaps its destination, since
+	/// `memmove` copies shorter ones forward.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The slowest path of the runtime's `memmove`, which copies backward and rebuilds everything
+	///   it copies with shifts, since the destination starts after the source, overlaps it and is
+	///   misaligned with it.
+	/// * A false conflict between every load and the word stored just before it, since the
+	///   destination is just under a page after the source, so their addresses share the lowest 12
+	///   bits.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_per_byte(
+		n: Linear<
+			{ MCOPY_DESTINATION_DISTANCE - 63 },
+			{ EVM_MEMORY_BYTES - MCOPY_DESTINATION_DISTANCE - 64 },
+		>,
+	) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const BASE_COPY_BYTES: usize = 64;
+		const DESTINATION: usize = MCOPY_DESTINATION_DISTANCE as usize;
+
+		let len = n as usize + BASE_COPY_BYTES;
+		let code = Bytecode::new_raw(vec![MCOPY].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+		setup_stack(&mut interpreter, [U256::from(len), U256::zero(), U256::from(DESTINATION)]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, DESTINATION), &initial[..DESTINATION]);
+		assert_eq!(interpreter.memory.slice_len(DESTINATION, len), &initial[..len]);
+		assert_eq!(
+			interpreter.memory.slice(DESTINATION + len..MEMORY_SIZE),
+			&initial[DESTINATION + len..]
+		);
+	}
+
+	/// Benchmarks `r` EVM `LT` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_lt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256::zero();
+		let mut previous_result = start;
+		let operands = (0..r)
+			.map(|_| {
+				let operand = match Outcome::ALL.choose(&mut rng).unwrap() {
+					Outcome::DifferInLimb3 => previous_result + (U256::from(2) << 192),
+					Outcome::DifferInLimb2 => previous_result + (U256::from(2) << 128),
+					Outcome::DifferInLimb1 => previous_result + (U256::from(2) << 64),
+					Outcome::DifferInLimb0 => previous_result + U256::from(2),
+					Outcome::Equal => previous_result,
+				};
+				previous_result =
+					if previous_result < operand { U256::one() } else { U256::zero() };
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![LT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&previous_result));
+	}
+
+	/// Benchmarks `r` EVM `GT` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r)
+			.map(|_| match Outcome::ALL.choose(&mut rng).unwrap() {
+				Outcome::DifferInLimb3 => U256::from(2) << 192,
+				Outcome::DifferInLimb2 => U256::from(2) << 128,
+				Outcome::DifferInLimb1 => U256::from(2) << 64,
+				Outcome::DifferInLimb0 => U256::from(2),
+				Outcome::Equal => U256::zero(),
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![GT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([U256::zero()]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+	}
+
+	/// Benchmarks `r` EVM `EQ` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the byte where each comparison stops, since it's pseudo-random.
+	/// * No early exit before the last bytes of each comparison, since the operands only ever
+	///   differ in those bytes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256::zero();
+		let mut previous_result = start;
+		let operands = (0..r)
+			.map(|_| {
+				let differing_byte =
+					[Some(29), Some(30), Some(31), None].choose(&mut rng).copied().unwrap();
+				let operand = match differing_byte {
+					Some(byte) => previous_result ^ (U256::one() << (8 * byte)),
+					None => previous_result,
+				};
+				previous_result =
+					if previous_result == operand { U256::one() } else { U256::zero() };
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&previous_result));
+	}
+
+	/// Benchmarks `r` EVM `ISZERO` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the word where each zero check stops, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		// Each operand is zero or nonzero in only one of words 0, 1 and 2. In the compiled runtime,
+		// the zero check branches on words 0, 1 and 2 to stop at the first nonzero one, but tests
+		// word 3 without a branch. An operand that is nonzero only in word 3 therefore takes the
+		// same path as zero, and adding it would only make that path more likely, and so easier to
+		// predict.
+		let operands = (0..r).map(|_| {
+			match [Some(0), Some(1), Some(2), None].choose(&mut rng).copied().unwrap() {
+				Some(word) => U256::one() << (64 * word),
+				None => U256::zero(),
+			}
+		});
+
+		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `AND` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![AND; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+	}
+
+	/// Benchmarks `r` EVM `OR` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![OR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+	}
+
+	/// Benchmarks `r` EVM `XOR` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::MAX } else { U256::zero() };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+	}
+
+	/// Benchmarks `r` EVM `NOT` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, [U256::zero()]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::zero() } else { U256::MAX };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+	}
+
+	/// Benchmarks `r` EVM `BYTE` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each index is in range, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let index = if rng.gen_bool(0.5) { U256::from(31) } else { U256::from(32) };
+			[U256::MAX, index]
+		});
+
+		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `CLZ` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the limb where each count stops, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_clz_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).map(|_| {
+			match [Some(3), Some(2), Some(1), Some(0), None].choose(&mut rng).copied().unwrap() {
+				Some(limb) => U256::one() << (64 * limb),
+				None => U256::zero(),
+			}
+		});
+
+		let code = Bytecode::new_raw([CLZ, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SLT` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the signs of the operands, since they're pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	/// * A branch misprediction on which operand is smaller, since their order is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([SLT, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, signed_comparison_operands(r));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SGT` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the signs of the operands, since they're pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	/// * A branch misprediction on which operand is greater, since their order is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([SGT, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, signed_comparison_operands(r));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SHL` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many whole words each shift moves, since it's pseudo-random.
+	/// * A branch misprediction on whether each shift carries bits across words, since it's
+	///   pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let whole_words = rng.gen_range(0..=3u32);
+			let extra_bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
+		});
+
+		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SHR` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many whole words each shift moves, since it's pseudo-random.
+	/// * A branch misprediction on whether each shift carries bits across words, since it's
+	///   pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let whole_words = rng.gen_range(0..=3u32);
+			let extra_bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
+		});
+
+		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SAR` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many whole words each shift moves, since it's pseudo-random.
+	/// * A branch misprediction on whether each shift carries bits across words, since it's
+	///   pseudo-random.
+	/// * A second shift on every `SAR`, which fills the vacated bits with ones, since every value
+	///   is negative.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let whole_words = rng.gen_range(0..=3u32);
+			let extra_bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
+		});
+
+		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A division for each addend, since both are above the modulus.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the modulus is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the modulus is subtracted from the sum, since that
+	///   depends on the modulus picked.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = mixed_division_operands::unsigned_operands(&mut rng);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with the selected fixed Knuth divisor.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::{ADDMOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [ADDMOD_FIXED_DIVISOR, NUMERATOR, NUMERATOR]);
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `DIV` op-codes.
 	///
 	/// # Added Overheads
@@ -3477,6 +5730,10 @@ mod benchmarks {
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
 	///   the divisor is picked at random from [`knuth_division_operands`].
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::DENOMINATORS;
@@ -3503,6 +5760,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random one-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
@@ -3528,7 +5789,41 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3553,6 +5848,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `DIV` op-codes with the selected fixed Knuth divisor.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::{DIV_FIXED_DIVISOR, NUMERATOR};
@@ -3576,6 +5875,152 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `ADD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each limb carries, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_add_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256([u64::MAX / 2; 4]);
+		let mut running_sum = start;
+		let operands = (0..r)
+			.map(|_| {
+				// Nothing carries into the lowest limb.
+				let mut carry_in = false;
+				let limbs = running_sum.0.map(|limb| {
+					let should_carry = rng.gen_bool(0.5);
+					// The limb overflows exactly when a value larger than this is added to it.
+					let largest_without_carry = u64::MAX - limb - u64::from(carry_in);
+					let value = if should_carry {
+						rng.gen_range(largest_without_carry + 1..=u64::MAX)
+					} else {
+						rng.gen_range(1..=largest_without_carry)
+					};
+					carry_in = should_carry;
+					value
+				});
+				let operand = U256(limbs);
+				running_sum = running_sum.overflowing_add(operand).0;
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![ADD; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&running_sum));
+	}
+
+	/// Benchmarks `r` EVM `SUB` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each limb borrows, since it's pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sub_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256([u64::MAX / 2; 4]);
+		let mut running_difference = start;
+		let operands = (0..r)
+			.map(|_| {
+				// Nothing borrows from below the lowest limb.
+				let mut borrow_in = false;
+				let limbs = running_difference.0.map(|limb| {
+					let should_borrow = rng.gen_bool(0.5);
+					// The limb borrows exactly when a value larger than this is subtracted.
+					let largest_without_borrow = limb - u64::from(borrow_in);
+					let value = if should_borrow {
+						rng.gen_range(largest_without_borrow + 1..=u64::MAX)
+					} else {
+						rng.gen_range(1..=largest_without_borrow)
+					};
+					borrow_in = should_borrow;
+					value
+				});
+				let operand = U256(limbs);
+				running_difference = running_difference.overflowing_sub(operand).0;
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![SUB; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&running_difference));
+	}
+
+	/// Benchmarks `r` EVM `MUL` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		const START: U256 = U256([0x5555_5555_5555_5555; 4]);
+
+		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize]);
+		setup_stack(&mut interpreter, [START]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { START } else { START.overflowing_neg().0 };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+	}
+
 	/// Benchmarks `r` EVM `SDIV` op-codes.
 	///
 	/// # Added Overheads
@@ -3588,6 +6033,10 @@ mod benchmarks {
 	///   the divisor is picked at random from [`knuth_division_operands`].
 	/// * A branch misprediction on whether the divisor and the quotient are negated, since the
 	///   divisor's sign is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::DENOMINATORS;
@@ -3614,6 +6063,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random one-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
@@ -3639,7 +6092,41 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3664,6 +6151,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `SDIV` op-codes with the selected fixed Knuth divisor.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::{SDIV_FIXED_DIVISOR, fixed_signed_operands};
@@ -3696,6 +6187,10 @@ mod benchmarks {
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
 	///   the divisor is picked at random from [`knuth_division_operands`].
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::DENOMINATORS;
@@ -3722,6 +6217,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random one-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
@@ -3747,7 +6246,41 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3772,6 +6305,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `MOD` op-codes with the selected fixed Knuth divisor.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::{MOD_FIXED_DIVISOR, NUMERATOR};
@@ -3804,6 +6341,10 @@ mod benchmarks {
 	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
 	///   the divisor is picked at random from [`knuth_division_operands`].
 	/// * A branch misprediction on whether the divisor is negated, since its sign is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::DENOMINATORS;
@@ -3830,6 +6371,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random one-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
@@ -3855,7 +6400,41 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3880,6 +6459,10 @@ mod benchmarks {
 	}
 
 	/// Benchmarks `r` EVM `SMOD` op-codes with the selected fixed Knuth divisor.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use knuth_division_operands::{SMOD_FIXED_DIVISOR, fixed_signed_operands};
@@ -3888,124 +6471,6 @@ mod benchmarks {
 		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SMOD_FIXED_DIVISOR));
 
 		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		setup_stack(&mut interpreter, operands);
-
-		evict_caches();
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-	}
-
-	/// Benchmarks `r` EVM `ADDMOD` op-codes.
-	///
-	/// # Added Overheads
-	///
-	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A division for each addend, since both are above the modulus.
-	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
-	///   the modulus is picked at random from [`knuth_division_operands`].
-	/// * A branch misprediction on whether the modulus is subtracted from the sum, since that
-	///   depends on the modulus picked.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		use knuth_division_operands::DENOMINATORS;
-
-		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| {
-			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
-			[modulus, numerator, numerator]
-		});
-
-		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		setup_stack(&mut interpreter, operands);
-
-		evict_caches();
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-	}
-
-	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		use one_limb_division_operands::DENOMINATORS;
-
-		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| {
-			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
-			[modulus, numerator, numerator]
-		});
-
-		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		setup_stack(&mut interpreter, operands);
-
-		evict_caches();
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-	}
-
-	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| {
-			let [modulus, numerator] = mixed_division_operands::unsigned_operands(&mut rng);
-			[modulus, numerator, numerator]
-		});
-
-		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		setup_stack(&mut interpreter, operands);
-
-		evict_caches();
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-	}
-
-	/// Benchmarks `r` EVM `ADDMOD` op-codes with the selected fixed Knuth divisor.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		use knuth_division_operands::{ADDMOD_FIXED_DIVISOR, NUMERATOR};
-
-		let operands = (0..r).flat_map(|_| [ADDMOD_FIXED_DIVISOR, NUMERATOR, NUMERATOR]);
-		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4037,6 +6502,10 @@ mod benchmarks {
 	///   happens is pseudo-random.
 	/// * A branch misprediction on the carry steps of the multiplication, since which limbs of one
 	///   operand are zero is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		let top_bit = U256::one() << 255;
@@ -4084,6 +6553,188 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are zero or one.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each exponent is zero, since it's pseudo-random.
+	/// * A multiplication for every exponent of one, since the exponents are a pseudo-random mix of
+	///   zero and one.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_zero_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let exponents = (0..r).map(|_| U256::from(u8::from(rng.gen_bool(0.5))));
+
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, exponents.chain([U256::MAX]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+	}
+
+	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are one or three.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether the loop over the bits of each exponent runs, since the
+	///   exponent is pseudo-random.
+	/// * A squaring and a multiplication for every exponent of three, since the exponents are a
+	///   pseudo-random mix of one and three.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let exponents = (0..r).map(|_| U256::from(if rng.gen_bool(0.5) { 3 } else { 1 }));
+
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, exponents.chain([U256::MAX]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+	}
+
+	/// Benchmarks one EVM `EXP` op-code whose exponent has `b + 1` bits, all of them set.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A multiplication for every bit of the exponent, since all of them are set.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_per_bit(b: Linear<0, 255>) {
+		let exponent = U256::MAX >> (255 - b as usize);
+
+		let code = Bytecode::new_raw(vec![EXP].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, [exponent, U256::MAX]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+	}
+
+	/// Benchmarks `r` EVM `SIGNEXTEND` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on which limb holds the sign bit, since the index is pseudo-random.
+	/// * A branch misprediction on how far the subtraction that builds the mask borrows, since the
+	///   index is pseudo-random.
+	/// * A branch misprediction on whether the value is extended with ones or zeros, since the
+	///   value is pseudo-random.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_signextend_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let index = [27, 19, 11, 3].choose(&mut rng).copied().unwrap();
+			[U256(rng.r#gen()), U256::from(index)]
+		});
+
+		let code = Bytecode::new_raw([SIGNEXTEND, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` blocks of a pseudo-random, stack-neutral mix of cheap EVM op-codes.
+	///
+	/// Every block runs the same op-codes the same number of times, so what the mix costs beyond
+	/// the charges of its op-codes is the cost of dispatching to a handler the CPU can't predict.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the op-codes are in a
+	///   pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dispatch_mix(
+		r: Linear<0, { (MAX_INITCODE_SIZE / EvmMixedOpcodes::CODE_BLOCK_SIZE) as u32 }>,
+	) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let code = EvmMixedOpcodes::generate_code(&mut rng, r);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; EvmMixedOpcodes::STACK_INITIAL_HEIGHT]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), EvmMixedOpcodes::STACK_INITIAL_HEIGHT);
 	}
 
 	// Benchmark the execution of instructions.
@@ -4178,6 +6829,13 @@ mod benchmarks {
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		// Memory growth is charged separately from the copy.
+		interpreter
+			.memory
+			.resize(0, n as usize, interpreter.ext)
+			.continue_value()
+			.unwrap();
 
 		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
 		let _ = interpreter.stack.push(U256::from(n));
@@ -4687,12 +7345,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so each lands on the transaction's own receipt
 			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
 			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
 			}
 
 			let (encoded_logs, bloom) =
@@ -4710,7 +7368,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -4779,12 +7438,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so the log lands on the transaction's own
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
 			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
 			// separately.
-			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
 
 			let (encoded_logs, bloom) =
 				block_storage::get_receipt_details::<T>().unwrap_or_default();
@@ -4801,7 +7460,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{

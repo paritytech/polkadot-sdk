@@ -79,11 +79,8 @@
 //! There is nothing in the Substrate's node side code-base that mandates the use of FRAME. While
 //! FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
 //! the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
-//! a valid Runtime form the point of view of a Substrate client (see
-//! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
-//!
-//! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
+//! a valid Runtime from the point of view of a Substrate client (see
+//! [`crate::reference_docs::wasm_meta_protocol`]).
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
