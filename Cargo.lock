@@ -2008,6 +2008,8 @@ dependencies = [
  "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",
@@ -15545,6 +15547,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validator-collators"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-session",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 49.0.0",
+ "sp-runtime 49.0.0",
+ "sp-staking",
+ "sp-tracing 16.0.0",
+]
+
+[[package]]
+name = "pallet-validator-set-announcer"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "pallet-validator-collators",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 49.0.0",
+ "sp-runtime 49.0.0",
+ "sp-staking",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "0.13.0"
 dependencies = [
@@ -16115,9 +16152,16 @@ dependencies = [
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-session",
+ "pallet-staking-async",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "sp-externalities 0.25.0",
+ "sp-keyring",
+ "sp-keystore 0.34.0",
  "sp-runtime 49.0.0",
  "staging-xcm",
  "staging-xcm-executor",
@@ -16163,6 +16207,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
+ "pallet-validator-collators",
  "pallet-verify-signature",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
@@ -17999,6 +18044,8 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",

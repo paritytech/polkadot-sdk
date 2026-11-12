@@ -140,6 +140,8 @@ cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 pallet-dap = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-validator-collators = { workspace = true }
+pallet-validator-set-announcer = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
@@ -233,6 +235,8 @@ runtime-benchmarks = [
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-validator-collators/runtime-benchmarks",
+	"pallet-validator-set-announcer/runtime-benchmarks",
 	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-vesting-precompiles/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
@@ -319,6 +323,8 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-validator-collators/try-runtime",
+	"pallet-validator-set-announcer/try-runtime",
 	"pallet-verify-signature/try-runtime",
 	"pallet-vesting-precompiles/try-runtime",
 	"pallet-vesting/try-runtime",
@@ -416,6 +422,8 @@ std = [
 	"pallet-treasury/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
+	"pallet-validator-collators/std",
+	"pallet-validator-set-announcer/std",
 	"pallet-verify-signature/std",
 	"pallet-vesting-precompiles/std",
 	"pallet-vesting/std",
