@@ -2385,7 +2385,7 @@ impl Store {
 				},
 			}
 		}
-		// If due statements remain, the background task runs the next pass at once. 
+		// If due statements remain, the background task runs the next pass at once.
 		let more_due = expired > 0 && self.has_due_expiry(current_time).unwrap_or(false);
 
 		// Phase 2: enforce allowances account by account, resuming from the cursor. The phase
