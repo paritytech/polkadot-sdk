@@ -47,12 +47,17 @@ const MAX_PARTIAL_STATE_WRITE_RETRIES: u32 = 4;
 /// The wait between two write attempts of the same chunk.
 const PARTIAL_STATE_WRITE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
+/// A resumed target this many blocks or more below the best block of the peers is too old to
+/// download. Peers keep the state of the last 256 finalized blocks by default
+/// (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`) and refuse an older one.
+pub(crate) const STALE_TARGET_DISTANCE: u32 = 256;
+
 /// The state sync an earlier run left behind, logged as resumed. `Ok(None)` when nothing is
-/// recorded. The attempt is resumed whatever its age: its target is a finalized block, every chunk
-/// is verified against the target's state root, and block sync executes the blocks after it. Peers
-/// serve the state of a finalized block for a bounded time only (256 blocks by default,
-/// `sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`); a target every peer has pruned is downloaded from
-/// nobody until a peer that kept it answers.
+/// recorded. The age of the target is not checked here. Resuming an old one is safe: it is a
+/// finalized block, every chunk is verified against its state root, and block sync executes the
+/// blocks after it. But peers stop serving it, see [`STALE_TARGET_DISTANCE`]. Warp sync then
+/// starts over once the peers tell its age. Fast sync keeps asking until a peer that kept the
+/// state answers.
 pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 	client: &Client,
 ) -> sp_blockchain::Result<Option<ResumablePartialState<B>>> {
