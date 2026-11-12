@@ -114,6 +114,56 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+<<<<<<< HEAD
+=======
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
+/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
+///
+/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
+/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
+fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
+	let account_id = T::AddressMapper::to_fallback_account_id(&address);
+	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
+		.map_err(|_| "set_delegation failed")?;
+	Ok(account_id)
+}
+
+/// Queues `contract` for deletion as a terminated contract that left dust on its account.
+///
+/// With no contract live at the address, the deletion queue reads the `AccountInfoOf` entry and
+/// runs a `clear_prefix` on `NativeDepositOf`, even when there are no rows. In ref time this
+/// branch is the worst case per entry. With a live contract the entry is 125 bytes larger (the
+/// encoded `ContractInfo` with a 32-byte trie id and `u128` balances, against `EOA` and its
+/// dust), but the `clear_prefix` is skipped. `deletion_queue_per_entry` charges the
+/// `AccountInfoOf` read at its max encoded length, so its proof size covers either branch. The
+/// branch is also taken when the address has no entry at all; `dust: 1` keeps a stored entry so
+/// that the measured read decodes a value.
+fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
+	let info = contract.info()?;
+	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
+	ContractInfo::<T>::queue_for_deletion(info.trie_id, contract.account_id.clone());
+	Ok(())
+}
+
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
+}
+
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -327,15 +377,199 @@ mod benchmarks {
 		}
 	}
 
+<<<<<<< HEAD
 	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
 	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]
+=======
+	// Benchmark for processing N EIP-7702 authorizations with empty accounts
+	// This measures the overhead of processing the authorization list
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_new_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		// Worst case: every authorization targets a *distinct* contract with *distinct* code
+		// so neither `AccountInfoOf<target>` nor `CodeInfoOf<code_hash>` reads can be cached
+		// across the loop. `dummy_unique(i)` produces a unique blob per index; the contract is
+		// deployed at a unique salt-index so addresses also differ.
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, n as u32, "All authorizations should be new");
+		Ok(())
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with existing accounts.
+	//
+	// Worst case: each authority is *already* delegated to a unique target whose code is
+	// referenced only by that delegation, with the deposit paid by an account other than the
+	// bench's `caller`. Re-delegating to a fresh target then exercises the most expensive paths
+	// per auth:
+	//   - payer-change: full refund to `setup_payer` + full charge from `caller`
+	//   - old-code refcount → 0: `decrement_refcount` removes `CodeInfoOf` + `PristineCode`
+	//   - new-code refcount 0 → 1: `increment_refcount`
+	//
+	// To produce `refcount(old_code) == 1` going into the bench, we directly decrement the
+	// deployment's contribution after setup. This is equivalent to having terminated the old
+	// target (which would also drop the deployment's ref) — `#[block]` only reads the
+	// delegation snapshot's `code_hash`, never `AccountInfoOf[old_target]`, so it doesn't
+	// matter that the latter is still present.
+	//
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		// Distinct payer (≠ `caller`) so the bench takes the payer-change branch in
+		// `process_authorizations` (full refund + full charge per auth) rather than the
+		// same-payer net-diff fast path.
+		let setup_payer: T::AccountId = account("setup_payer", 0, 0);
+		T::Currency::set_balance(&setup_payer, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			// Old delegation target with unique code (so each gets its own `CodeInfoOf` entry).
+			let old_target =
+				Contract::<T>::with_index(2 * i + 1, VmBinaryModule::dummy_unique(2 * i), vec![])?;
+			let old_code_hash = <AccountInfoOf<T>>::get(&old_target.address)
+				.and_then(|info| match info.account_type {
+					AccountType::Contract(c) => Some(c.code_hash),
+					_ => None,
+				})
+				.ok_or("old_target should be a Contract")?;
+
+			// Pre-existing delegation paid by `setup_payer`. Bumps the authority's nonce to 1
+			// and brings `refcount(old_code)` to 2 (deployment + delegation snapshot).
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let setup_auth =
+				eip7702::sign_authorization(&key, chain_id, old_target.address, U256::zero());
+			let _ = eip7702::process_authorizations::<T>(&[setup_auth], &setup_payer, &exec_config);
+
+			// Drop the deployment's ref so the delegation snapshot is the sole holder. This
+			// mirrors the post-termination storage state without spending setup time on real
+			// contract calls (the bench measures `#[block]`, not setup).
+			let _ =
+				CodeInfo::<T>::decrement_refcount(old_code_hash).map_err(|_| "decrement failed")?;
+
+			// New target (also unique code) that the authority re-delegates to.
+			let new_target = Contract::<T>::with_index(
+				2 * i + 2,
+				VmBinaryModule::dummy_unique(2 * i + 1),
+				vec![],
+			)?;
+
+			// Authority's nonce is 1 after setup, so the re-delegation auth signs with nonce=1.
+			let signed_auth =
+				eip7702::sign_authorization(&key, chain_id, new_target.address, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, n as u32);
+		Ok(())
+	}
+
+	// Measures the per-tuple cost of an authorization that runs through chain_id check
+	// and ecdsa_recover but then fails validation (here: nonce mismatch) — captures the
+	// sig-recovery cost without any account creation/update work.
+	#[benchmark(pov_mode = Measured)]
+	fn process_invalid_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let chain_id = U256::from(T::ChainId::get());
+		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
+		let target = target_contract.address;
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			// Force nonce mismatch: signer's nonce is 0, but we sign nonce=1.
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, 0u32);
+		Ok(())
+	}
+
+	/// Measures the per-entry cost of `process_deletion_queue_batch`.
+	///
+	/// This is one `DeletionQueue` read, the `AccountInfoOf` read that checks for a live contract
+	/// at the address, plus the `DeletionQueue` + `DeletionQueueCounter` writes done by
+	/// `entry.remove()`.
+	///
+	/// The `AccountInfoOf` read is charged at its max encoded length, so the proof covers a
+	/// live contract's entry as well as the plain account entry this benchmark reads.
+	#[benchmark(pov_mode = Measured {
+		Revive::AccountInfoOf: MaxEncodedLen,
+	})]
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -350,10 +584,7 @@ mod benchmarks {
 	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -365,9 +596,10 @@ mod benchmarks {
 	}
 
 	/// Measures the cost of clearing one [`NativeDepositOf`] row during
-	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
-	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
-	/// an empty trie. The deletion queue then drains all rows in one go.
+	/// [`ContractInfo::process_deletion_queue_batch`].
+	///
+	/// Pre-populates the contract with `k` per-payer rows and queues it for deletion as a
+	/// terminated contract with an empty trie. The deletion queue then drains all rows in one go.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -378,10 +610,7 @@ mod benchmarks {
 			let payer: T::AccountId = account("payer", i, 0);
 			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
 		}
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -389,6 +618,10 @@ mod benchmarks {
 		}
 
 		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		assert!(
+			NativeDepositOf::<T>::iter_prefix(&instance.account_id).next().is_none(),
+			"native deposit rows should be cleared",
+		);
 		Ok(())
 	}
 

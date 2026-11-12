@@ -232,13 +232,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	fn deletion_queue_per_entry() -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `390`
 		//  Estimated: `3855`
 		// Minimum execution time: 17_798_000 picoseconds.
 		Weight::from_parts(19_193_000, 3855)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `122`
+		//  Estimated: `3766`
+		// Minimum execution time: 17_176_000 picoseconds.
+		Weight::from_parts(18_441_000, 3766)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -246,6 +256,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `524 + k * (69 ±0)`
 		//  Estimated: `514 + k * (70 ±0)`
 		// Minimum execution time: 18_394_000 picoseconds.
@@ -253,6 +264,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 918
 			.saturating_add(Weight::from_parts(1_212_441, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `256 + k * (69 ±0)`
+		//  Estimated: `246 + k * (70 ±0)`
+		// Minimum execution time: 17_497_000 picoseconds.
+		Weight::from_parts(4_003_592, 246)
+			// Standard Error: 938
+			.saturating_add(Weight::from_parts(1_212_974, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -263,6 +283,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `469 + k * (52 ±0)`
 		//  Estimated: `479 + k * (53 ±0)`
 		// Minimum execution time: 18_474_000 picoseconds.
@@ -270,6 +291,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 838
 			.saturating_add(Weight::from_parts(1_191_126, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `195 + k * (52 ±0)`
+		//  Estimated: `206 + k * (53 ±0)`
+		// Minimum execution time: 17_861_000 picoseconds.
+		Weight::from_parts(18_295_000, 206)
+			// Standard Error: 770
+			.saturating_add(Weight::from_parts(1_156_108, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -2006,13 +2036,23 @@ impl WeightInfo for () {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	fn deletion_queue_per_entry() -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `390`
 		//  Estimated: `3855`
 		// Minimum execution time: 17_798_000 picoseconds.
 		Weight::from_parts(19_193_000, 3855)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `122`
+		//  Estimated: `3766`
+		// Minimum execution time: 17_176_000 picoseconds.
+		Weight::from_parts(18_441_000, 3766)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -2020,6 +2060,7 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `524 + k * (69 ±0)`
 		//  Estimated: `514 + k * (70 ±0)`
 		// Minimum execution time: 18_394_000 picoseconds.
@@ -2027,6 +2068,15 @@ impl WeightInfo for () {
 			// Standard Error: 918
 			.saturating_add(Weight::from_parts(1_212_441, 0).saturating_mul(k.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `256 + k * (69 ±0)`
+		//  Estimated: `246 + k * (70 ±0)`
+		// Minimum execution time: 17_497_000 picoseconds.
+		Weight::from_parts(4_003_592, 246)
+			// Standard Error: 938
+			.saturating_add(Weight::from_parts(1_212_974, 0).saturating_mul(k.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -2037,6 +2087,7 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `469 + k * (52 ±0)`
 		//  Estimated: `479 + k * (53 ±0)`
 		// Minimum execution time: 18_474_000 picoseconds.
@@ -2044,6 +2095,15 @@ impl WeightInfo for () {
 			// Standard Error: 838
 			.saturating_add(Weight::from_parts(1_191_126, 0).saturating_mul(k.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+=======
+		//  Measured:  `195 + k * (52 ±0)`
+		//  Estimated: `206 + k * (53 ±0)`
+		// Minimum execution time: 17_861_000 picoseconds.
+		Weight::from_parts(18_295_000, 206)
+			// Standard Error: 770
+			.saturating_add(Weight::from_parts(1_156_108, 0).saturating_mul(k.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
