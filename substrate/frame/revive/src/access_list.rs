@@ -416,9 +416,11 @@ impl AccessEntry {
 			},
 		}
 	}
+}
 
+#[cfg(feature = "runtime-benchmarks")]
+impl AccessEntry {
 	/// Returns the storage key behind the entry.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
 		match self {
 			Self::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(
@@ -436,9 +438,11 @@ impl AccessEntry {
 			Self::Storage(_) => None,
 		}
 	}
+}
 
+#[cfg(test)]
+impl AccessEntry {
 	/// Returns the entry for a main-trie key the access list tracks, `None` otherwise.
-	#[cfg(test)]
 	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
 		use frame_support::storage::StoragePrefixedMap;
 
