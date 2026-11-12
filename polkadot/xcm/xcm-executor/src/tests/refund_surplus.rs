@@ -139,6 +139,20 @@ fn refund_holding_cannot_take_fails_and_is_left_to_the_end() {
 }
 
 #[test]
+fn unpaid_refund_surplus_succeeds_with_holding_at_capacity() {
+	let xcm =
+		Xcm::<TestCall>(vec![UnpaidExecution { weight_limit: Unlimited, check_origin: None }]);
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
+	assert!(vm.bench_process(xcm).is_ok());
+	vm.set_total_surplus(Weight::from_parts(2, 2));
+	vm.set_holding_limit(0);
+
+	// Nothing was paid, so there is no refund for holding to take.
+	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+	assert_eq!(vm.total_refunded(), &Weight::zero());
+}
+
+#[test]
 fn leftover_fees_holding_cannot_take_fail_and_are_left_to_the_end() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_holding_limit(0);

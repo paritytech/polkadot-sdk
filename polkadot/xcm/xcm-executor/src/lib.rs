@@ -564,7 +564,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// refund would then have to be bought back or trapped, so both are left to the end of the
 		// message. There holding takes them regardless, as holding is trapped right after.
 		if point == RefundPoint::Instruction {
-			let refund_len = usize::from(refundable.any_gt(Weight::zero()));
+			// A trader that was never paid has nothing to refund.
+			let trader_paid = self.already_paid_fees || self.asset_used_in_buy_execution.is_some();
+			let refund_len = usize::from(trader_paid && refundable.any_gt(Weight::zero()));
 			self.ensure_can_subsume_assets(refund_len + self.fees.len())?;
 		}
 		if refundable.any_gt(Weight::zero()) {
