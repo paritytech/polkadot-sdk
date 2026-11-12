@@ -31,14 +31,25 @@ fn native_transact(call: Vec<u8>) -> Xcm<()> {
 	])
 }
 
-/// Have [`ManagedPara`] send `request` over UMP, as a para with no channel to the registrar would.
-fn relay_from_para(request: ParaRequestV1) {
-	let call = RelayRuntimePallets::<sp_runtime::AccountId32>::Registrar(
-		RegistrarRelayCalls::Relay(ParaRequest::V1(request)),
-	)
-	.encode();
+/// Have [`ManagedPara`] send `requests` over UMP, as a para with no channel to the registrar would.
+fn send_from_para(requests: impl IntoIterator<Item = ParaRequestV1>) {
 	ManagedPara::execute_with(|| {
-		assert_ok!(send_xcm::<para::XcmRouter>(Location::parent(), native_transact(call)));
+		for request in requests {
+			let call = RelayRuntimePallets::<sp_runtime::AccountId32>::Registrar(
+				RegistrarRelayCalls::Relay(ParaRequest::V1(request)),
+			)
+			.encode();
+			assert_ok!(send_xcm::<para::XcmRouter>(Location::parent(), native_transact(call)));
+		}
+	});
+}
+
+/// [`send_from_para`] one request and let the relay chain forward it.
+fn relay_from_para(request: ParaRequestV1) {
+	send_from_para([request]);
+	Relay::execute_with(|| {
+		assert!(relay_event(|e| matches!(e, pallet_registrar_relay::Event::RelayQueued { .. })));
+		relay::poll();
 	});
 }
 
@@ -191,6 +202,46 @@ fn a_failing_relayed_request_is_reported_on_the_registrar_parachain() {
 				result: Err(pallet_registrar_para::Error::<para::Runtime>::NotLocked.into()),
 			}));
 	});
+}
+
+#[test]
+fn a_relayed_request_waits_for_on_poll() {
+	MockNet::reset();
+
+	let para_id = managed_para();
+	send_from_para([ParaRequestV1::AddLock]);
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_lock(para_id), None);
+		assert!(!para_event(|e| matches!(e, pallet_registrar_para::Event::RelayedRequest { .. })));
+	});
+
+	Relay::execute_with(relay::poll);
+	RegistrarPara::execute_with(|| assert_eq!(para_lock(para_id), Some(true)));
+}
+
+#[test]
+fn a_para_over_its_share_is_refused_and_the_rest_still_go_out() {
+	use frame_support::traits::Get;
+	MockNet::reset();
+
+	let para_id = managed_para();
+	let share: u32 = <relay::Runtime as pallet_registrar_relay::Config>::MaxQueuedPerPara::get();
+	assert_eq!(share, 2);
+
+	// One more than its share, all before the relay chain forwards any.
+	send_from_para([ParaRequestV1::AddLock, ParaRequestV1::RemoveLock, ParaRequestV1::AddLock]);
+
+	// The simulator clears events between UMP messages, so the queue itself is the witness.
+	Relay::execute_with(|| {
+		let (oldest, next) = pallet_registrar_relay::RelayQueueBounds::<relay::Runtime>::get();
+		assert_eq!(next.wrapping_sub(oldest), share);
+		assert_eq!(pallet_registrar_relay::QueuedPerPara::<relay::Runtime>::get(para_id), share);
+		relay::poll();
+	});
+
+	// On and off again, in order. Had the refused `AddLock` arrived, the para would be locked.
+	RegistrarPara::execute_with(|| assert_eq!(para_lock(para_id), Some(false)));
 }
 
 #[test]

@@ -200,6 +200,9 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
 	type CodeUpgradeValidPeriod = frame_support::traits::ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
+	type MaxQueuedRequests = frame_support::traits::ConstU32<16>;
+	type MaxQueuedPerPara = frame_support::traits::ConstU32<2>;
+	type MaxForwardedPerBlock = frame_support::traits::ConstU32<4>;
 	type WeightInfo = ();
 }
 
@@ -373,6 +376,12 @@ pub fn run_to_block(n: BlockNumber) {
 			}
 		}),
 	);
+}
+
+/// Run `on_poll`, which forwards the relayed requests the registrar has queued.
+pub fn poll() {
+	use frame_support::traits::OnPoll;
+	AllPalletsWithSystem::on_poll(System::block_number(), &mut WeightMeter::new());
 }
 
 /// Advance whole sessions.

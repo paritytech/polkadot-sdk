@@ -1347,7 +1347,11 @@ mod head_noted {
 
 mod relay {
 	use super::*;
+	use crate::{weights::WeightInfo, QueuedPerPara, RelayQueue, RelayQueueBounds};
+	use frame_support::{dispatch::GetDispatchInfo, traits::OnPoll, weights::WeightMeter};
 	use registrar_primitives::{ParaRequest, ParaRequestV1};
+
+	const PARA_C: ParaId = 2002;
 
 	fn para(para_id: ParaId) -> RuntimeOrigin {
 		polkadot_runtime_parachains::Origin::Parachain(para_id.into()).into()
@@ -1357,29 +1361,65 @@ mod relay {
 		MessageToPara::V1(MessageToParaV1::Relayed { para_id, request })
 	}
 
+	fn relay(para_id: ParaId, request: ParaRequestV1) -> sp_runtime::DispatchResult {
+		Registrar::relay(para(para_id), ParaRequest::V1(request))
+	}
+
+	fn poll_with(meter: &mut WeightMeter) {
+		Registrar::on_poll(System::block_number(), meter);
+		Registrar::do_try_state().unwrap();
+	}
+
+	fn poll() {
+		poll_with(&mut WeightMeter::new());
+	}
+
+	fn queue_len() -> u32 {
+		let (oldest, next) = RelayQueueBounds::<Test>::get();
+		next.wrapping_sub(oldest)
+	}
+
 	#[test]
-	fn forwards_the_request_under_the_callers_para_id() {
+	fn queues_the_request_and_forwards_it_on_poll() {
 		new_test_ext().execute_with(|| {
 			let request =
 				ParaRequestV1::ScheduleCodeUpgrade { code_hash: hash_of(&code(20)), code_len: 20 };
 
-			assert_ok!(Registrar::relay(para(PARA_A), ParaRequest::V1(request.clone())));
+			assert_ok!(relay(PARA_A, request.clone()));
+
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::RelayQueued { para_id: PARA_A }]);
+			assert_eq!(QueuedPerPara::<Test>::get(PARA_A), 1);
+
+			poll();
 
 			assert_eq!(take_sent(), vec![relayed(PARA_A, request)]);
 			assert_eq!(registrar_events(), vec![Event::Relayed { para_id: PARA_A }]);
+			assert_eq!(queue_len(), 0);
+			assert!(!QueuedPerPara::<Test>::contains_key(PARA_A));
 		});
 	}
 
 	#[test]
 	fn nothing_is_checked_or_applied_here() {
 		new_test_ext().execute_with(|| {
-			// Unknown to the registry, with a head it would refuse: forwarded all the same.
-			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize + 1) };
+			// Unknown to the registry: forwarded all the same.
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
 
-			assert_ok!(Registrar::relay(para(PARA_B), ParaRequest::V1(request.clone())));
+			assert_ok!(relay(PARA_B, request.clone()));
+			poll();
 
 			assert!(Heads::get().is_empty());
 			assert_eq!(take_sent(), vec![relayed(PARA_B, request)]);
+		});
+	}
+
+	#[test]
+	fn a_head_over_the_bound_is_refused() {
+		new_test_ext().execute_with(|| {
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize + 1) };
+
+			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
 		});
 	}
 
@@ -1397,20 +1437,176 @@ mod relay {
 				Registrar::relay(RuntimeOrigin::root(), request),
 				DispatchError::BadOrigin
 			);
-			assert!(take_sent().is_empty());
+			assert_eq!(queue_len(), 0);
 		});
 	}
 
 	#[test]
-	fn a_bounced_request_fails_so_the_para_can_retry() {
+	fn one_para_cannot_take_more_than_its_share() {
 		new_test_ext().execute_with(|| {
-			SendFails::set(true);
+			for _ in 0..MAX_QUEUED_PER_PARA {
+				assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			}
 
-			assert_noop!(
-				Registrar::relay(para(PARA_A), ParaRequest::V1(ParaRequestV1::AddLock)),
-				Error::<Test>::SendFailed
-			);
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::TooManyQueued);
+			// Others still get in.
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+
+			// Its share frees up as its requests go out.
+			poll();
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			Registrar::do_try_state().unwrap();
+		});
+	}
+
+	#[test]
+	fn the_queue_is_bounded_in_total() {
+		new_test_ext().execute_with(|| {
+			for para_id in [PARA_A, PARA_B] {
+				for _ in 0..MAX_QUEUED_PER_PARA {
+					assert_ok!(relay(para_id, ParaRequestV1::AddLock));
+				}
+			}
+			assert_eq!(queue_len(), MAX_QUEUED);
+
+			assert_noop!(relay(PARA_C, ParaRequestV1::AddLock), Error::<Test>::QueueFull);
+
+			poll();
+			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
+		});
+	}
+
+	#[test]
+	fn forwards_oldest_first_up_to_the_per_block_limit() {
+		new_test_ext().execute_with(|| {
+			let queued = [
+				(PARA_A, ParaRequestV1::AddLock),
+				(PARA_B, ParaRequestV1::RemoveLock),
+				(PARA_A, ParaRequestV1::Deregister),
+				(PARA_C, ParaRequestV1::AddLock),
+			];
+			for (para_id, request) in queued.clone() {
+				assert_ok!(relay(para_id, request));
+			}
+			let expected: Vec<_> = queued.into_iter().map(|(p, r)| relayed(p, r)).collect();
+
+			poll();
+			assert_eq!(take_sent(), expected[..MAX_FORWARDED_PER_BLOCK as usize]);
+
+			poll();
+			assert_eq!(take_sent(), expected[MAX_FORWARDED_PER_BLOCK as usize..]);
+			assert_eq!(queue_len(), 0);
+		});
+	}
+
+	#[test]
+	fn a_bounced_request_stays_first_in_line() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
+			registrar_events();
+
+			SendFails::set(true);
+			poll();
 			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+			assert_eq!(queue_len(), 2);
+
+			SendFails::set(false);
+			poll();
+			assert_eq!(
+				take_sent(),
+				vec![
+					relayed(PARA_A, ParaRequestV1::AddLock),
+					relayed(PARA_B, ParaRequestV1::RemoveLock)
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn forwarding_stops_when_the_meter_runs_out() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			let poll_weight = <() as WeightInfo>::poll_relay_queue();
+			let worst = <() as WeightInfo>::forward_relayed(MAX_HEAD_SIZE) - poll_weight;
+
+			poll_with(&mut WeightMeter::with_limit(poll_weight + worst - 1.into()));
+			assert!(take_sent().is_empty());
+
+			poll_with(&mut WeightMeter::with_limit(poll_weight + worst));
+			assert_eq!(take_sent(), vec![relayed(PARA_A, ParaRequestV1::AddLock)]);
+		});
+	}
+
+	#[test]
+	fn queue_positions_wrap_around() {
+		new_test_ext().execute_with(|| {
+			RelayQueueBounds::<Test>::put((u32::MAX, u32::MAX));
+
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
+			assert_eq!(RelayQueueBounds::<Test>::get(), (u32::MAX, 1));
+			assert!(RelayQueue::<Test>::contains_key(0));
+
+			poll();
+			assert_eq!(take_sent().len(), 2);
+			assert_eq!(RelayQueueBounds::<Test>::get(), (1, 1));
+		});
+	}
+
+	#[test]
+	fn on_poll_charges_for_the_head_it_forwards() {
+		new_test_ext().execute_with(|| {
+			let mut meter = WeightMeter::new();
+			poll_with(&mut meter);
+			assert_eq!(meter.consumed(), <() as WeightInfo>::poll_relay_queue());
+
+			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
+			let charged = <() as WeightInfo>::forward_relayed(10);
+
+			// A refused send was still read and attempted.
+			SendFails::set(true);
+			let mut meter = WeightMeter::new();
+			poll_with(&mut meter);
+			assert_eq!(meter.consumed(), charged);
+
+			SendFails::set(false);
+			let mut meter = WeightMeter::new();
+			poll_with(&mut meter);
+			assert_eq!(take_sent().len(), 1);
+			assert_eq!(meter.consumed(), charged);
+		});
+	}
+
+	#[test]
+	fn the_call_is_weighed_by_its_head() {
+		let weight = |request| {
+			crate::Call::<Test>::relay { request: ParaRequest::V1(request) }
+				.get_dispatch_info()
+				.call_weight
+		};
+
+		assert_eq!(weight(ParaRequestV1::AddLock), <() as WeightInfo>::relay(0));
+		assert_eq!(
+			weight(ParaRequestV1::SetCurrentHead { head: head(64) }),
+			<() as WeightInfo>::relay(64)
+		);
+	}
+
+	#[test]
+	fn try_state_catches_a_queue_out_of_step() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+			assert_ok!(Registrar::do_try_state());
+
+			QueuedPerPara::<Test>::insert(PARA_A, 2);
+			assert!(Registrar::do_try_state().is_err());
+			QueuedPerPara::<Test>::insert(PARA_A, 1);
+
+			RelayQueue::<Test>::remove(1);
+			assert!(Registrar::do_try_state().is_err());
 		});
 	}
 }
