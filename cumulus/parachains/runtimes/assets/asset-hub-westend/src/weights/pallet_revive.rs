@@ -65,6 +65,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `MaxEncodedLen`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
 	fn deletion_queue_per_entry() -> Weight {
@@ -74,7 +76,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 23_115_000 picoseconds.
 		Weight::from_parts(24_934_000, 0)
 			.saturating_add(Weight::from_parts(0, 4070))
-			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -89,7 +91,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 728))
 			// Standard Error: 1_306
 			.saturating_add(Weight::from_parts(1_294_157, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -107,7 +109,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 645))
 			// Standard Error: 927
 			.saturating_add(Weight::from_parts(1_283_144, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
