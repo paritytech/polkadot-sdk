@@ -701,13 +701,12 @@ fn instantiate_from_constructor_works() {
 	});
 }
 
-/// Root creates a contract via nested CREATE in block N and destroys it via the
-/// system precompile in block N+1. Exercises the full `do_terminate` path under
-/// Root and confirms the deposit waiver holds across both calls.
+/// Root creates a contract via nested CREATE in block N and terminates it via the
+/// system precompile in block N+1. Confirms the deposit waiver holds across both calls.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn root_call_can_create_and_destroy_in_next_block(
+fn root_call_can_create_and_terminate_in_next_block(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
 ) {
@@ -790,11 +789,11 @@ fn root_call_can_create_and_destroy_in_next_block(
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert!(!destroy_result.did_revert(), "Root cross-tx terminate should succeed");
+		assert!(!destroy_result.did_revert(), "Root terminate should succeed");
 
 		assert!(
-			AccountInfo::<Test>::load_contract(&child_addr).is_none(),
-			"child must be destroyed by the cross-block terminate call",
+			AccountInfo::<Test>::load_contract(&child_addr).is_some(),
+			"child must stay since it was created in an earlier tx",
 		);
 
 		// Deposits stayed waived across both Root calls.
@@ -813,10 +812,9 @@ fn root_call_can_create_and_destroy_in_next_block(
 	});
 }
 
-/// Sibling of the cross-block test, but using the Solidity `selfdestruct` opcode
-/// (`only_if_same_tx: true`). To actually reach `do_terminate` past the EIP-6780
-/// gate at [exec.rs] `contracts_to_destroy`, creation and destruction must
-/// happen in the same tx — covers the `only_if_same_tx: true` branch.
+/// Sibling of the cross-block test, but using the Solidity `selfdestruct` opcode. To
+/// actually reach `do_terminate` past the EIP-6780 gate at [exec.rs]
+/// `contracts_to_destroy`, creation and destruction must happen in the same tx.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]

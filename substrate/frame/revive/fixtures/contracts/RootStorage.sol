@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.20;
 
-import "@revive/ISystem.sol";
-
 /// Test fixture for storage written under `Origin::Root` and removed by a signed origin
 /// (and vice versa). Each `write` grows `n` fresh mapping slots starting at `from`, each
 /// `clear` deletes them again.
@@ -18,18 +16,6 @@ contract RootStorage {
 	function clear(uint64 from, uint64 n) external {
 		for (uint64 i = 0; i < n; i++) {
 			delete slots[from + i];
-		}
-	}
-
-	/// Terminates through the system precompile, so the destruction happens at the end of the
-	/// call stack.
-	function destroy(address beneficiary) external {
-		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, beneficiary);
-		(bool success, bytes memory returnData) = SYSTEM_ADDR.call(data);
-		if (!success) {
-			assembly {
-				revert(add(returnData, 0x20), mload(returnData))
-			}
 		}
 	}
 

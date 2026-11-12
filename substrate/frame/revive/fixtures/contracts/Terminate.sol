@@ -23,19 +23,6 @@ contract Terminate {
 		_terminate(method, beneficiary);
 	}
 
-	/// Pay out the whole balance to `to`, then terminate through the pre-compile.
-	function payoutAndTerminate(address payable to, address beneficiary) external {
-		(bool ok, ) = to.call{value: address(this).balance}("");
-		require(ok, "payout failed");
-		_terminate(METHOD_PRECOMPILE, beneficiary);
-	}
-
-	/// Terminate through the pre-compile twice in the same call.
-	function terminateTwice(address beneficiary) external {
-		_terminate(METHOD_PRECOMPILE, beneficiary);
-		_terminate(METHOD_PRECOMPILE, beneficiary);
-	}
-
 	/// Terminate through the pre-compile, then run `SELFDESTRUCT` in this frame or in a delegate
 	/// call to this contract.
 	function terminateThenSelfdestruct(address beneficiary, bool viaDelegateCall) external {

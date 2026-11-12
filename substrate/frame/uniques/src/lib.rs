@@ -432,6 +432,8 @@ pub mod pallet {
 		AttributeNotFound,
 		/// Wrong attribute key/value bytes supplied.
 		WrongAttribute,
+		/// The collection deposit could not be fully moved due to a lock or freeze on the owner.
+		IncompleteDepositTransfer,
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -856,6 +858,10 @@ pub mod pallet {
 		///
 		/// Origin must be Signed and the sender should be the Owner of the `collection`.
 		///
+		/// The collection's total deposit is moved from the current to the new owner. Fails with
+		/// [`Error::IncompleteDepositTransfer`] if a lock or freeze on the current owner blocks
+		/// the full transfer; clear it and retry.
+		///
 		/// - `collection`: The collection whose owner should be changed.
 		/// - `owner`: The new Owner of this collection. They must have called
 		///   `set_accept_ownership` with `collection` in order for this operation to succeed.
@@ -883,13 +889,16 @@ pub mod pallet {
 					return Ok(());
 				}
 
-				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(
+				// Move the deposit to the new owner. `repatriate_reserved` is best-effort: reject
+				// any partial move so the recorded deposit stays in sync with what is actually
+				// reserved on the owner.
+				let remaining = T::Currency::repatriate_reserved(
 					&details.owner,
 					&new_owner,
 					details.total_deposit,
 					Reserved,
 				)?;
+				ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
 				CollectionAccount::<T, I>::remove(&details.owner, &collection);
 				CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
