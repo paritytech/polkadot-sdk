@@ -1,0 +1,14 @@
+title: Use `OnChainContext` for `check_inherents`
+doc:
+- audience: Node Dev
+  description: |-
+    `sp_block_builder::check_inherents` and `sp_block_builder::check_inherents_with_data` now call
+    the `check_inherents` runtime API with `CallContext::Onchain { import: true }`. The extrinsics of
+    the block to check could already have been built by a new runtime, so they need to be checked
+    with the on-chain runtime as well. Before checking the inherents, `initialize_block` is now
+    called on the same runtime api instance, so that pending runtime migrations are applied before
+    the new runtime checks the inherents. This affects all import queues using these functions
+    (Aura, BABE, PoW and the Cumulus import queues).
+crates:
+- name: sp-block-builder
+  bump: patch

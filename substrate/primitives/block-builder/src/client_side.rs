@@ -17,7 +17,7 @@
 
 use crate::BlockBuilder;
 
-use sp_api::{ApiExt, CallContext};
+use sp_api::{ApiExt, CallContext, Core};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Block as BlockT;
 
@@ -65,6 +65,22 @@ where
 {
 	let mut runtime_api = client.runtime_api();
 	runtime_api.set_call_context(CallContext::Onchain { import: true });
+
+	// Initialize the block first to run any pending runtime migrations, as the block may have been
+	// built by a new runtime.
+	if runtime_api
+		.has_api_with::<dyn Core<Block>, _>(at_hash, |v| v >= 5)
+		.map_err(CheckInherentsError::Client)?
+	{
+		runtime_api
+			.initialize_block(at_hash, block.header())
+			.map_err(CheckInherentsError::Client)?;
+	} else {
+		#[allow(deprecated)]
+		runtime_api
+			.initialize_block_before_version_5(at_hash, block.header())
+			.map_err(CheckInherentsError::Client)?;
+	}
 
 	let res = runtime_api
 		.check_inherents(at_hash, block.into(), inherent_data)
