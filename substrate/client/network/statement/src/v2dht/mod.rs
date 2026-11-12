@@ -152,6 +152,15 @@ impl RetentionHandle {
 	}
 }
 
+/// Where a batch of statements goes.
+pub(crate) struct PropagationPlan {
+	/// For each connected peer, the indices of the statements it should receive.
+	pub(crate) targets: Vec<(PeerId, Vec<usize>)>,
+	/// Indices of the statements at a dead end: the node is no replica for their topics and has
+	/// no routing target for them.
+	pub(crate) dead_ends: Vec<usize>,
+}
+
 /// Coordinates the v2 DHT-affinity statement gossip path.
 pub(crate) struct V2DhtOrchestrator {
 	/// Local view of statement-store peers known and connected through network topology events.
@@ -352,14 +361,15 @@ impl V2DhtOrchestrator {
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
-	) -> Vec<(PeerId, Vec<usize>)> {
+	) -> PropagationPlan {
 		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
+		let mut dead_ends = Vec::new();
 
 		for (index, (_seq, _hash, statement)) in statements.iter().enumerate() {
-			let mut targets: HashSet<PeerId> = HashSet::new();
-
-			for topic in statement.topics() {
-				targets.extend(self.peers_topology.routing_targets(*topic));
+			let topics = statement.topics();
+			let mut targets = self.routing_targets(topics);
+			if targets.is_empty() && !topics.is_empty() && !self.is_replica_for(topics) {
+				dead_ends.push(index);
 			}
 			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
 
@@ -368,7 +378,20 @@ impl V2DhtOrchestrator {
 			}
 		}
 
-		statements_by_peer.into_iter().collect()
+		PropagationPlan { targets: statements_by_peer.into_iter().collect(), dead_ends }
+	}
+
+	/// The DHT routing targets of a statement on `topics`.
+	pub(crate) fn routing_targets(&self, topics: &[Topic]) -> HashSet<PeerId> {
+		topics
+			.iter()
+			.flat_map(|topic| self.peers_topology.routing_targets(*topic))
+			.collect()
+	}
+
+	/// Whether the local node is a DHT replica for one of `topics`.
+	pub(crate) fn is_replica_for(&self, topics: &[Topic]) -> bool {
+		topics.iter().any(|topic| self.peers_topology.is_replica_for(*topic))
 	}
 
 	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
@@ -505,7 +528,7 @@ mod tests {
 		let expected = routing_targets(&orchestrator, &topics);
 		assert!(!expected.is_empty(), "fixture must yield routing targets");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]);
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]).targets;
 
 		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
 		planned.sort();
@@ -530,7 +553,9 @@ mod tests {
 			.first()
 			.expect("fixture must yield a routing target");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
+		let plan = orchestrator
+			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])])
+			.targets;
 
 		let batch = plan
 			.iter()
@@ -744,9 +769,28 @@ mod tests {
 		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
 		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
 
-		let plan = orchestrator.propagation_plan(&statements);
+		let plan = orchestrator.propagation_plan(&statements).targets;
 
 		assert_eq!(plan, vec![(light_peer, vec![0])]);
+	}
+
+	#[test]
+	fn plan_reports_a_dead_end_without_a_routing_target_off_the_replica_set() {
+		let topic_at = |peer: PeerId| Topic(sp_crypto_hashing::blake2_256(&peer.to_bytes()));
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let remote = peer(2);
+		orchestrator.on_peer_identified(remote, true);
+		// The remote peer is the replica of the first topic, the local node of the second.
+		let statements = [
+			statement(1, &[topic_at(remote)]),
+			statement(2, &[topic_at(peer(1))]),
+			statement(3, &[]),
+		];
+
+		assert_eq!(orchestrator.propagation_plan(&statements).dead_ends, vec![0]);
+
+		orchestrator.on_substream_opened(remote);
+		assert!(orchestrator.propagation_plan(&statements).dead_ends.is_empty());
 	}
 
 	#[test]
@@ -761,7 +805,7 @@ mod tests {
 
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
-		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+		assert_eq!(orchestrator.propagation_plan(&statements).targets, vec![(peer, vec![0])]);
 	}
 
 	#[test]

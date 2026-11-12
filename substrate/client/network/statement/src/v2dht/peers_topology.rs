@@ -244,6 +244,13 @@ impl PeersTopology {
 		targets
 	}
 
+	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
+	pub fn is_replica_for(&self, topic: Topic) -> bool {
+		let local = (self.local_key, self.local_peer);
+		let k = self.config.replication_factor.get();
+		is_peer_topic_affine(&self.discovered_index, local, local, k, topic)
+	}
+
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal

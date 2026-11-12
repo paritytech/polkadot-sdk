@@ -135,7 +135,7 @@ use governor::{
 	state::{InMemoryState, NotKeyed},
 	Quota, RateLimiter,
 };
-use outbox::PropagationOutboxes;
+use outbox::{DeadEnd, PropagationOutboxes};
 use prometheus_endpoint::{
 	exponential_buckets, register, Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramOpts,
 	HistogramVec, Opts, PrometheusError, Registry, U64,
@@ -342,6 +342,8 @@ mod send_failure {
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
 	/// The peer disconnected with statements still queued.
 	pub const DISCONNECTED: &str = "disconnected";
+	/// The statements held at a routing dead end overflowed and the oldest were dropped.
+	pub const DEAD_END_FULL: &str = "dead_end_full";
 }
 
 /// Values for the `route` metric label. They say how we send statements to a peer.
@@ -2285,6 +2287,34 @@ where
 		}
 	}
 
+	/// Hold the statements that have no routing target, so the retention sweep keeps them for
+	/// the initial sync of the next routing target that connects.
+	fn hold_dead_ends(&mut self, statements: &[(u64, Hash, Statement)], dead_ends: Vec<usize>) {
+		for index in dead_ends {
+			let (seq, hash, statement) = &statements[index];
+			log::debug!(target: LOG_TARGET, "No routing target for {hash:?}, holding it");
+			let dead_end = DeadEnd { seq: *seq, hash: *hash, topics: statement.topics().to_vec() };
+			let overflow = self.propagation_outboxes.hold_dead_end(dead_end);
+			if overflow > 0 {
+				self.record_abandoned_send(send_failure::DEAD_END_FULL, overflow);
+			}
+		}
+	}
+
+	/// Release the dead-end statements that the node now keeps as a replica, or that a routing
+	/// target has received through a finished initial sync.
+	fn release_synced_dead_ends(&mut self) {
+		let (v2dht, peers, pending_syncs) = (&self.v2dht, &self.peers, &self.pending_initial_syncs);
+		self.propagation_outboxes.retain_dead_ends(|dead_end| {
+			let synced = |peer: &PeerId| {
+				!pending_syncs.contains_key(peer) &&
+					peers.get(peer).is_some_and(|peer| peer.sync_watermark > dead_end.seq)
+			};
+			!v2dht.is_replica_for(&dead_end.topics) &&
+				!v2dht.routing_targets(&dead_end.topics).iter().any(synced)
+		});
+	}
+
 	/// Append `hashes` to the peer's outbox and send the next chunk if its slot is free.
 	fn push_outbox_hashes(&mut self, who: &PeerId, hashes: Vec<Hash>) {
 		if hashes.is_empty() {
@@ -2576,11 +2606,16 @@ where
 		// parked peers are also refilled on the tick.
 		self.fill_parked_propagations();
 
+		if v2dht_enabled() {
+			self.release_synced_dead_ends();
+		}
+
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				let targets = self.v2dht.propagation_plan(&statements);
-				self.queue_statements_for_targets(&statements, targets);
+				let plan = self.v2dht.propagation_plan(&statements);
+				self.queue_statements_for_targets(&statements, plan.targets);
+				self.hold_dead_ends(&statements, plan.dead_ends);
 			} else {
 				self.do_propagate_statements(&statements);
 			}
@@ -4457,6 +4492,81 @@ mod tests {
 
 		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
 		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+	}
+
+	#[tokio::test]
+	async fn dead_end_statement_stays_held_until_a_routing_target_syncs_it() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let target = peer_ids[0];
+		// With one replica per topic, the target is the replica of the topic at its own key.
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			PeerId::random(),
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		handler.v2dht.on_peer_identified(target, true);
+
+		let mut statement = new_live_statement();
+		statement.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&target.to_bytes())));
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(5, hash, statement)];
+		let held = || statement_store.held.lock().unwrap().get(&hash).copied();
+
+		let plan = handler.v2dht.propagation_plan(&statements);
+		assert_eq!(plan.dead_ends, vec![0]);
+		handler.hold_dead_ends(&statements, plan.dead_ends);
+		handler.release_synced_dead_ends();
+		assert_eq!(held(), Some(1), "no routing target is connected");
+
+		handler.v2dht.on_substream_opened(target);
+		handler.release_synced_dead_ends();
+		assert_eq!(held(), Some(1), "the target has no initial sync yet");
+
+		handler.peers.get_mut(&target).unwrap().sync_watermark = 6;
+		handler.pending_initial_syncs.insert(
+			target,
+			PendingInitialSync {
+				cursor: 0,
+				watermark: 6,
+				started_at: Instant::now(),
+				sync_id: 0,
+				already_served: None,
+			},
+		);
+		handler.release_synced_dead_ends();
+		assert_eq!(held(), Some(1), "the initial sync is still running");
+
+		handler.pending_initial_syncs.remove(&target);
+		handler.release_synced_dead_ends();
+		assert_eq!(held(), None);
+	}
+
+	#[tokio::test]
+	async fn dead_end_overflow_drops_the_oldest_statement() {
+		let (mut handler, statement_store, _network, _notification_service, _, _) =
+			build_handler(0);
+		let hashes: Vec<Hash> = (0..=MAX_DEAD_END_STATEMENTS as u64)
+			.map(|seq| sp_crypto_hashing::blake2_256(&seq.to_le_bytes()))
+			.collect();
+
+		let overflow: usize = hashes
+			.iter()
+			.enumerate()
+			.map(|(seq, hash)| {
+				let dead_end = DeadEnd { seq: seq as u64, hash: *hash, topics: Vec::new() };
+				handler.propagation_outboxes.hold_dead_end(dead_end)
+			})
+			.sum();
+
+		assert_eq!(overflow, 1);
+		assert!(handler.propagation_outboxes.dead_ends().eq(hashes[1..].iter().copied()));
+		assert!(!statement_store.held.lock().unwrap().contains_key(&hashes[0]));
 	}
 
 	#[tokio::test]

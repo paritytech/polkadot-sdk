@@ -18,9 +18,9 @@
 
 //! Per-peer outboxes of statement hashes queued for propagation.
 
-use crate::config::MAX_PROPAGATION_OUTBOX_LEN;
+use crate::config::{MAX_DEAD_END_STATEMENTS, MAX_PROPAGATION_OUTBOX_LEN};
 use sc_network_types::PeerId;
-use sp_statement_store::{Hash, Statement, StatementStore};
+use sp_statement_store::{Hash, Statement, StatementStore, Topic};
 use std::{
 	collections::{HashMap, VecDeque},
 	sync::Arc,
@@ -33,11 +33,21 @@ use std::{
 pub(crate) struct PropagationOutboxes {
 	store: Option<Arc<dyn StatementStore>>,
 	outboxes: HashMap<PeerId, VecDeque<Hash>>,
+	/// Statements held in the store until a routing target has synced them, oldest first.
+	dead_ends: VecDeque<DeadEnd>,
+}
+
+/// A statement that had no routing target when it was propagated.
+pub(crate) struct DeadEnd {
+	/// Admission sequence of the statement.
+	pub(crate) seq: u64,
+	pub(crate) hash: Hash,
+	pub(crate) topics: Vec<Topic>,
 }
 
 impl PropagationOutboxes {
 	pub(crate) fn new(store: Option<Arc<dyn StatementStore>>) -> Self {
-		Self { store, outboxes: HashMap::new() }
+		Self { store, outboxes: HashMap::new(), dead_ends: VecDeque::new() }
 	}
 
 	pub(crate) fn get(&self, who: &PeerId) -> Option<&VecDeque<Hash>> {
@@ -83,6 +93,38 @@ impl PropagationOutboxes {
 		removed.len()
 	}
 
+	/// Hold `dead_end` in the store and return how many held statements overflow dropped.
+	pub(crate) fn hold_dead_end(&mut self, dead_end: DeadEnd) -> usize {
+		if let Some(store) = &self.store {
+			store.hold_statements(&[dead_end.hash]);
+		}
+		let mut dropped = Vec::new();
+		if self.dead_ends.len() == MAX_DEAD_END_STATEMENTS {
+			dropped.extend(self.dead_ends.pop_front().map(|dead_end| dead_end.hash));
+		}
+		self.dead_ends.push_back(dead_end);
+		self.release(&dropped);
+		dropped.len()
+	}
+
+	/// Release the dead-end statements that `is_stuck` rejects.
+	pub(crate) fn retain_dead_ends(&mut self, mut is_stuck: impl FnMut(&DeadEnd) -> bool) {
+		let mut released = Vec::new();
+		self.dead_ends.retain(|dead_end| {
+			let stuck = is_stuck(dead_end);
+			if !stuck {
+				released.push(dead_end.hash);
+			}
+			stuck
+		});
+		self.release(&released);
+	}
+
+	#[cfg(test)]
+	pub(crate) fn dead_ends(&self) -> impl Iterator<Item = Hash> + '_ {
+		self.dead_ends.iter().map(|dead_end| dead_end.hash)
+	}
+
 	/// Release the holds [`StatementStore::take_recent_statements`] placed, once `statements`
 	/// are queued.
 	pub(crate) fn release_taken(&self, statements: &[(u64, Hash, Statement)]) {
@@ -102,5 +144,7 @@ impl Drop for PropagationOutboxes {
 	fn drop(&mut self) {
 		let queued: Vec<_> = self.outboxes.drain().flat_map(|(_, outbox)| outbox).collect();
 		self.release(&queued);
+		let dead_ends: Vec<_> = self.dead_ends.drain(..).map(|dead_end| dead_end.hash).collect();
+		self.release(&dead_ends);
 	}
 }
