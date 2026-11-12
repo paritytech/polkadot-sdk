@@ -153,7 +153,7 @@ pub mod pallet {
 		/// The deposits of request `id` could not be set. Nothing changed.
 		DepositRefused { id: u64, channel: ChannelId },
 		/// A migrated deposit of `amount` was taken over: the side now holds `held`, which is
-		/// `amount` unless the migration's hold on the paying para could not cover it.
+		/// `amount` unless the hold to move from, the migration's or this pallet's, was short.
 		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
 	}
 
@@ -247,7 +247,10 @@ pub mod pallet {
 			if Deposits::<T>::get((channel, side)).map_or(0, |d| d.amount) == amount {
 				return Ok(());
 			}
-			Self::set_side(channel, side, amount).map_err(Self::dispatch_error)
+			Self::set_side(channel, side, amount).map_err(|e| match e {
+				DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
+				DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
+			})
 		}
 	}
 }
@@ -307,13 +310,6 @@ impl<T: Config> Pallet<T> {
 	/// The account that pays for `side` of `channel` when it holds nothing yet.
 	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
 		T::SovereignAccountOf::convert(side.para(channel))
-	}
-
-	fn dispatch_error(e: DepositError) -> DispatchError {
-		match e {
-			DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
-			DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
-		}
 	}
 
 	fn send(message: MessageToRelayV1) -> DispatchResult {

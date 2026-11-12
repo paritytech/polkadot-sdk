@@ -223,7 +223,7 @@ pub trait ReceiveMigratedDeposits<HoldReason> {
 	/// Set the deposit of `key` to `amount`, by moving the balance from/into the `source` hold
 	/// reason.
 	///
-	/// The function is indempotent, the current deposit is reset, so a deposit can be delivered
+	/// The function is idempotent, the current deposit is reset, so a deposit can be delivered
 	/// twice.
 	fn receive_deposit(
 		key: DepositKey,
