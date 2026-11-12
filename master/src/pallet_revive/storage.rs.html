@@ -605,466 +605,475 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#455 id=455 data-nosnippet>455</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::DuplicateContract.into());
 <a href=#456 id=456 data-nosnippet>456</a>		}
 <a href=#457 id=457 data-nosnippet>457</a>
-<a href=#458 id=458 data-nosnippet>458</a>		<span class="comment">// Reject reuse of an address whose previous occupant still has unflushed
-<a href=#459 id=459 data-nosnippet>459</a>		// `NativeDepositOf` rows in the deletion queue. The on_idle drain will eventually
-<a href=#460 id=460 data-nosnippet>460</a>		// clear them; until it does, instantiating here would let the new contract inherit
-<a href=#461 id=461 data-nosnippet>461</a>		// stale per-payer entitlements.
-<a href=#462 id=462 data-nosnippet>462</a>		</span><span class="kw">let </span>account_id = T::AddressMapper::to_fallback_account_id(address);
-<a href=#463 id=463 data-nosnippet>463</a>		<span class="kw">if </span>NativeDepositOf::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>account_id).next().is_some() {
-<a href=#464 id=464 data-nosnippet>464</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::PendingDepositCleanup.into());
-<a href=#465 id=465 data-nosnippet>465</a>		}
-<a href=#466 id=466 data-nosnippet>466</a>
-<a href=#467 id=467 data-nosnippet>467</a>		<span class="kw">let </span>trie_id = {
-<a href=#468 id=468 data-nosnippet>468</a>			<span class="kw">let </span>buf = (<span class="string">"bcontract_trie_v1"</span>, address, nonce).using_encoded(T::Hashing::hash);
-<a href=#469 id=469 data-nosnippet>469</a>			buf.as_ref()
-<a href=#470 id=470 data-nosnippet>470</a>				.to_vec()
-<a href=#471 id=471 data-nosnippet>471</a>				.try_into()
-<a href=#472 id=472 data-nosnippet>472</a>				.expect(<span class="string">"Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed"</span>)
-<a href=#473 id=473 data-nosnippet>473</a>		};
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>		<span class="kw">let </span>contract = <span class="self">Self </span>{
-<a href=#476 id=476 data-nosnippet>476</a>			trie_id,
-<a href=#477 id=477 data-nosnippet>477</a>			code_hash,
-<a href=#478 id=478 data-nosnippet>478</a>			storage_bytes: <span class="number">0</span>,
-<a href=#479 id=479 data-nosnippet>479</a>			storage_items: <span class="number">0</span>,
-<a href=#480 id=480 data-nosnippet>480</a>			storage_byte_deposit: Zero::zero(),
-<a href=#481 id=481 data-nosnippet>481</a>			storage_item_deposit: Zero::zero(),
-<a href=#482 id=482 data-nosnippet>482</a>			storage_base_deposit: Zero::zero(),
-<a href=#483 id=483 data-nosnippet>483</a>			immutable_data_len: <span class="number">0</span>,
-<a href=#484 id=484 data-nosnippet>484</a>		};
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a>		<span class="prelude-val">Ok</span>(contract)
-<a href=#487 id=487 data-nosnippet>487</a>	}
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>	<span class="doccomment">/// Constructs a new contract info for a delegated account (EIP-7702).
-<a href=#490 id=490 data-nosnippet>490</a>	///
-<a href=#491 id=491 data-nosnippet>491</a>	/// Delegated accounts have their own child trie for storage but use the code hash
-<a href=#492 id=492 data-nosnippet>492</a>	/// of the target contract they delegate to. The trie_id is derived solely from the
-<a href=#493 id=493 data-nosnippet>493</a>	/// address so that storage persists across re-delegations to different targets.
-<a href=#494 id=494 data-nosnippet>494</a>	</span><span class="kw">pub fn </span>new_for_delegation(address: <span class="kw-2">&amp;</span>H160, target_code_hash: sp_core::H256) -&gt; <span class="self">Self </span>{
-<a href=#495 id=495 data-nosnippet>495</a>		<span class="kw">let </span>trie_id = {
-<a href=#496 id=496 data-nosnippet>496</a>			<span class="kw">let </span>buf = (<span class="string">"delegated_trie_v1"</span>, address).using_encoded(T::Hashing::hash);
-<a href=#497 id=497 data-nosnippet>497</a>			buf.as_ref()
-<a href=#498 id=498 data-nosnippet>498</a>				.to_vec()
-<a href=#499 id=499 data-nosnippet>499</a>				.try_into()
-<a href=#500 id=500 data-nosnippet>500</a>				.expect(<span class="string">"Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed"</span>)
-<a href=#501 id=501 data-nosnippet>501</a>		};
-<a href=#502 id=502 data-nosnippet>502</a>
-<a href=#503 id=503 data-nosnippet>503</a>		<span class="self">Self </span>{
-<a href=#504 id=504 data-nosnippet>504</a>			trie_id,
-<a href=#505 id=505 data-nosnippet>505</a>			code_hash: target_code_hash,
-<a href=#506 id=506 data-nosnippet>506</a>			storage_bytes: <span class="number">0</span>,
-<a href=#507 id=507 data-nosnippet>507</a>			storage_items: <span class="number">0</span>,
-<a href=#508 id=508 data-nosnippet>508</a>			storage_byte_deposit: Zero::zero(),
-<a href=#509 id=509 data-nosnippet>509</a>			storage_item_deposit: Zero::zero(),
-<a href=#510 id=510 data-nosnippet>510</a>			storage_base_deposit: Zero::zero(),
-<a href=#511 id=511 data-nosnippet>511</a>			immutable_data_len: <span class="number">0</span>,
-<a href=#512 id=512 data-nosnippet>512</a>		}
-<a href=#513 id=513 data-nosnippet>513</a>	}
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a>	<span class="doccomment">/// Associated child trie unique id is built from the hash part of the trie id.
-<a href=#516 id=516 data-nosnippet>516</a>	</span><span class="kw">pub fn </span>child_trie_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ChildInfo {
-<a href=#517 id=517 data-nosnippet>517</a>		ChildInfo::new_default(<span class="self">self</span>.trie_id.as_ref())
-<a href=#518 id=518 data-nosnippet>518</a>	}
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>	<span class="doccomment">/// The deposit paying for the accumulated storage generated within the contract's child trie.
-<a href=#521 id=521 data-nosnippet>521</a>	</span><span class="kw">pub fn </span>extra_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-<a href=#522 id=522 data-nosnippet>522</a>		<span class="self">self</span>.storage_byte_deposit.saturating_add(<span class="self">self</span>.storage_item_deposit)
-<a href=#523 id=523 data-nosnippet>523</a>	}
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>	<span class="doccomment">/// Same as [`Self::extra_deposit`] but including the base deposit.
-<a href=#526 id=526 data-nosnippet>526</a>	</span><span class="kw">pub fn </span>total_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-<a href=#527 id=527 data-nosnippet>527</a>		<span class="self">self</span>.extra_deposit().saturating_add(<span class="self">self</span>.storage_base_deposit)
-<a href=#528 id=528 data-nosnippet>528</a>	}
-<a href=#529 id=529 data-nosnippet>529</a>
-<a href=#530 id=530 data-nosnippet>530</a>	<span class="doccomment">/// Returns the storage base deposit of the contract.
-<a href=#531 id=531 data-nosnippet>531</a>	</span><span class="kw">pub fn </span>storage_base_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-<a href=#532 id=532 data-nosnippet>532</a>		<span class="self">self</span>.storage_base_deposit
-<a href=#533 id=533 data-nosnippet>533</a>	}
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>	<span class="doccomment">/// Reads a storage kv pair of a contract.
-<a href=#536 id=536 data-nosnippet>536</a>	///
-<a href=#537 id=537 data-nosnippet>537</a>	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
-<a href=#538 id=538 data-nosnippet>538</a>	/// contract doesn't store under the given `key` `None` is returned.
-<a href=#539 id=539 data-nosnippet>539</a>	</span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#540 id=540 data-nosnippet>540</a>		<span class="kw">let </span>value = child::get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice());
-<a href=#541 id=541 data-nosnippet>541</a>		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">"contract storage: read value {:?} for key {:x?}"</span>, value, key);
-<a href=#542 id=542 data-nosnippet>542</a>		if_tracing(|t| {
-<a href=#543 id=543 data-nosnippet>543</a>			t.storage_read(key, value.as_deref());
-<a href=#544 id=544 data-nosnippet>544</a>		});
-<a href=#545 id=545 data-nosnippet>545</a>		<span class="kw">return </span>value;
-<a href=#546 id=546 data-nosnippet>546</a>	}
-<a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a>	<span class="doccomment">/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
-<a href=#549 id=549 data-nosnippet>549</a>	///
-<a href=#550 id=550 data-nosnippet>550</a>	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-<a href=#551 id=551 data-nosnippet>551</a>	/// was deleted.
-<a href=#552 id=552 data-nosnippet>552</a>	</span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-<a href=#553 id=553 data-nosnippet>553</a>		child::len(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice())
-<a href=#554 id=554 data-nosnippet>554</a>	}
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>	<span class="doccomment">/// Update a storage entry into a contract's kv storage.
-<a href=#557 id=557 data-nosnippet>557</a>	///
-<a href=#558 id=558 data-nosnippet>558</a>	/// If the `new_value` is `None` then the kv pair is removed. If `take` is true
-<a href=#559 id=559 data-nosnippet>559</a>	/// a [`WriteOutcome::Taken`] is returned instead of a [`WriteOutcome::Overwritten`].
-<a href=#560 id=560 data-nosnippet>560</a>	///
-<a href=#561 id=561 data-nosnippet>561</a>	/// This function also records how much storage was created or removed if a `storage_meter`
-<a href=#562 id=562 data-nosnippet>562</a>	/// is supplied. It should only be absent for testing or benchmarking code.
-<a href=#563 id=563 data-nosnippet>563</a>	</span><span class="kw">pub fn </span>write(
-<a href=#564 id=564 data-nosnippet>564</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#565 id=565 data-nosnippet>565</a>		key: <span class="kw-2">&amp;</span>Key,
-<a href=#566 id=566 data-nosnippet>566</a>		new_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-<a href=#567 id=567 data-nosnippet>567</a>		frame_meter: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>FrameMeter&lt;T&gt;&gt;,
-<a href=#568 id=568 data-nosnippet>568</a>		take: bool,
-<a href=#569 id=569 data-nosnippet>569</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
-<a href=#570 id=570 data-nosnippet>570</a>		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">"contract storage: writing value {:?} for key {:x?}"</span>, new_value, key);
-<a href=#571 id=571 data-nosnippet>571</a>		<span class="kw">let </span>hashed_key = key.hash();
-<a href=#572 id=572 data-nosnippet>572</a>		if_tracing(|t| {
-<a href=#573 id=573 data-nosnippet>573</a>			<span class="kw">let </span>old = child::get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), hashed_key.as_slice());
-<a href=#574 id=574 data-nosnippet>574</a>			t.storage_write(key, old, new_value.as_deref());
-<a href=#575 id=575 data-nosnippet>575</a>		});
-<a href=#576 id=576 data-nosnippet>576</a>
-<a href=#577 id=577 data-nosnippet>577</a>		<span class="self">self</span>.write_raw(<span class="kw-2">&amp;</span>hashed_key, new_value.as_deref(), frame_meter, take)
-<a href=#578 id=578 data-nosnippet>578</a>	}
-<a href=#579 id=579 data-nosnippet>579</a>
-<a href=#580 id=580 data-nosnippet>580</a>	<span class="doccomment">/// Update a storage entry into a contract's kv storage.
-<a href=#581 id=581 data-nosnippet>581</a>	/// Function used in benchmarks, which can simulate prefix collision in keys.
-<a href=#582 id=582 data-nosnippet>582</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#583 id=583 data-nosnippet>583</a>	</span><span class="kw">pub fn </span>bench_write_raw(
-<a href=#584 id=584 data-nosnippet>584</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#585 id=585 data-nosnippet>585</a>		key: <span class="kw-2">&amp;</span>[u8],
-<a href=#586 id=586 data-nosnippet>586</a>		new_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-<a href=#587 id=587 data-nosnippet>587</a>		take: bool,
-<a href=#588 id=588 data-nosnippet>588</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
-<a href=#589 id=589 data-nosnippet>589</a>		<span class="self">self</span>.write_raw(key, new_value.as_deref(), <span class="prelude-val">None</span>, take)
-<a href=#590 id=590 data-nosnippet>590</a>	}
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a>	<span class="kw">fn </span>write_raw(
-<a href=#593 id=593 data-nosnippet>593</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#594 id=594 data-nosnippet>594</a>		key: <span class="kw-2">&amp;</span>[u8],
-<a href=#595 id=595 data-nosnippet>595</a>		new_value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
-<a href=#596 id=596 data-nosnippet>596</a>		frame_meter: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>FrameMeter&lt;T&gt;&gt;,
-<a href=#597 id=597 data-nosnippet>597</a>		take: bool,
-<a href=#598 id=598 data-nosnippet>598</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
-<a href=#599 id=599 data-nosnippet>599</a>		<span class="kw">let </span>child_trie_info = <span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info();
-<a href=#600 id=600 data-nosnippet>600</a>		<span class="kw">let </span>(old_len, old_value) = <span class="kw">if </span>take {
-<a href=#601 id=601 data-nosnippet>601</a>			<span class="kw">let </span>val = child::get_raw(child_trie_info, key);
-<a href=#602 id=602 data-nosnippet>602</a>			(val.as_ref().map(|v| v.len() <span class="kw">as </span>u32), val)
-<a href=#603 id=603 data-nosnippet>603</a>		} <span class="kw">else </span>{
-<a href=#604 id=604 data-nosnippet>604</a>			(child::len(child_trie_info, key), <span class="prelude-val">None</span>)
-<a href=#605 id=605 data-nosnippet>605</a>		};
-<a href=#606 id=606 data-nosnippet>606</a>
-<a href=#607 id=607 data-nosnippet>607</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(frame_meter) = frame_meter {
-<a href=#608 id=608 data-nosnippet>608</a>			<span class="kw">let </span><span class="kw-2">mut </span>diff = Diff::default();
-<a href=#609 id=609 data-nosnippet>609</a>			<span class="kw">let </span>key_len = key.len() <span class="kw">as </span>u32;
-<a href=#610 id=610 data-nosnippet>610</a>			<span class="kw">match </span>(old_len, new_value.as_ref().map(|v| v.len() <span class="kw">as </span>u32)) {
-<a href=#611 id=611 data-nosnippet>611</a>				(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">Some</span>(new_len)) =&gt; {
-<a href=#612 id=612 data-nosnippet>612</a>					<span class="kw">if </span>new_len &gt; old_len {
-<a href=#613 id=613 data-nosnippet>613</a>						diff.bytes_added = new_len - old_len;
-<a href=#614 id=614 data-nosnippet>614</a>					} <span class="kw">else </span>{
-<a href=#615 id=615 data-nosnippet>615</a>						diff.bytes_removed = old_len - new_len;
-<a href=#616 id=616 data-nosnippet>616</a>					}
-<a href=#617 id=617 data-nosnippet>617</a>				},
-<a href=#618 id=618 data-nosnippet>618</a>				(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(new_len)) =&gt; {
-<a href=#619 id=619 data-nosnippet>619</a>					diff.bytes_added = new_len.saturating_add(key_len);
-<a href=#620 id=620 data-nosnippet>620</a>					diff.items_added = <span class="number">1</span>;
-<a href=#621 id=621 data-nosnippet>621</a>				},
-<a href=#622 id=622 data-nosnippet>622</a>				(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">None</span>) =&gt; {
-<a href=#623 id=623 data-nosnippet>623</a>					diff.bytes_removed = old_len.saturating_add(key_len);
-<a href=#624 id=624 data-nosnippet>624</a>					diff.items_removed = <span class="number">1</span>;
-<a href=#625 id=625 data-nosnippet>625</a>				},
-<a href=#626 id=626 data-nosnippet>626</a>				(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; (),
-<a href=#627 id=627 data-nosnippet>627</a>			}
-<a href=#628 id=628 data-nosnippet>628</a>			frame_meter.record_contract_storage_changes(<span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
-<a href=#629 id=629 data-nosnippet>629</a>		}
-<a href=#630 id=630 data-nosnippet>630</a>
-<a href=#631 id=631 data-nosnippet>631</a>		<span class="kw">match </span><span class="kw-2">&amp;</span>new_value {
-<a href=#632 id=632 data-nosnippet>632</a>			<span class="prelude-val">Some</span>(new_value) =&gt; child::put_raw(child_trie_info, key, new_value),
-<a href=#633 id=633 data-nosnippet>633</a>			<span class="prelude-val">None </span>=&gt; child::kill(child_trie_info, key),
-<a href=#634 id=634 data-nosnippet>634</a>		}
-<a href=#635 id=635 data-nosnippet>635</a>
-<a href=#636 id=636 data-nosnippet>636</a>		<span class="prelude-val">Ok</span>(<span class="kw">match </span>(old_len, old_value) {
-<a href=#637 id=637 data-nosnippet>637</a>			(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; WriteOutcome::New,
-<a href=#638 id=638 data-nosnippet>638</a>			(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">None</span>) =&gt; WriteOutcome::Overwritten(old_len),
-<a href=#639 id=639 data-nosnippet>639</a>			(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(old_value)) =&gt; WriteOutcome::Taken(old_value),
-<a href=#640 id=640 data-nosnippet>640</a>		})
-<a href=#641 id=641 data-nosnippet>641</a>	}
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a>	<span class="doccomment">/// Sets and returns the contract base deposit.
-<a href=#644 id=644 data-nosnippet>644</a>	///
-<a href=#645 id=645 data-nosnippet>645</a>	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
-<a href=#646 id=646 data-nosnippet>646</a>	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
-<a href=#647 id=647 data-nosnippet>647</a>	/// storage which is also changed when the code hash of a contract is changed.
-<a href=#648 id=648 data-nosnippet>648</a>	</span><span class="kw">pub fn </span>update_base_deposit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_deposit: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
-<a href=#649 id=649 data-nosnippet>649</a>		<span class="kw">let </span>contract_deposit = {
-<a href=#650 id=650 data-nosnippet>650</a>			<span class="kw">let </span>bytes_added: u32 =
-<a href=#651 id=651 data-nosnippet>651</a>				(<span class="self">self</span>.encoded_size() <span class="kw">as </span>u32).saturating_add(<span class="self">self</span>.immutable_data_len);
-<a href=#652 id=652 data-nosnippet>652</a>			<span class="kw">let </span>items_added: u32 = <span class="kw">if </span><span class="self">self</span>.immutable_data_len == <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">2 </span>};
-<a href=#653 id=653 data-nosnippet>653</a>
-<a href=#654 id=654 data-nosnippet>654</a>			T::DepositPerByte::get()
-<a href=#655 id=655 data-nosnippet>655</a>				.saturating_mul(bytes_added.into())
-<a href=#656 id=656 data-nosnippet>656</a>				.saturating_add(T::DepositPerItem::get().saturating_mul(items_added.into()))
-<a href=#657 id=657 data-nosnippet>657</a>		};
-<a href=#658 id=658 data-nosnippet>658</a>
-<a href=#659 id=659 data-nosnippet>659</a>		<span class="comment">// Instantiating the contract prevents its code to be deleted, therefore the base deposit
-<a href=#660 id=660 data-nosnippet>660</a>		// includes a fraction (`T::CodeHashLockupDepositPercent`) of the original storage deposit
-<a href=#661 id=661 data-nosnippet>661</a>		// to prevent abuse.
-<a href=#662 id=662 data-nosnippet>662</a>		</span><span class="kw">let </span>code_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_deposit);
-<a href=#663 id=663 data-nosnippet>663</a>
-<a href=#664 id=664 data-nosnippet>664</a>		<span class="kw">let </span>deposit = contract_deposit.saturating_add(code_deposit);
-<a href=#665 id=665 data-nosnippet>665</a>		<span class="self">self</span>.storage_base_deposit = deposit;
-<a href=#666 id=666 data-nosnippet>666</a>		deposit
-<a href=#667 id=667 data-nosnippet>667</a>	}
-<a href=#668 id=668 data-nosnippet>668</a>
-<a href=#669 id=669 data-nosnippet>669</a>	<span class="doccomment">/// Push a contract's trie and account to the deletion queue for lazy removal.
-<a href=#670 id=670 data-nosnippet>670</a>	///
-<a href=#671 id=671 data-nosnippet>671</a>	/// You must make sure that the contract is also removed when queuing for deletion.
-<a href=#672 id=672 data-nosnippet>672</a>	/// Both the contract's child trie and any [`NativeDepositOf`] entries it held are drained
-<a href=#673 id=673 data-nosnippet>673</a>	/// lazily in `on_idle`.
-<a href=#674 id=674 data-nosnippet>674</a>	</span><span class="kw">pub fn </span>queue_for_deletion(trie_id: TrieId, contract: AccountIdOf&lt;T&gt;) {
-<a href=#675 id=675 data-nosnippet>675</a>		DeletionQueueManager::&lt;T&gt;::load().insert(DeletionQueueItem::new(trie_id, contract));
-<a href=#676 id=676 data-nosnippet>676</a>	}
-<a href=#677 id=677 data-nosnippet>677</a>
-<a href=#678 id=678 data-nosnippet>678</a>	<span class="doccomment">/// Returns the total weight available for deletion-queue processing after subtracting
-<a href=#679 id=679 data-nosnippet>679</a>	/// the fixed [`WeightInfo::deletion_queue_batch`] base.
-<a href=#680 id=680 data-nosnippet>680</a>	</span><span class="kw">pub fn </span>deletion_budget(meter: <span class="kw-2">&amp;</span>WeightMeter) -&gt; Weight {
-<a href=#681 id=681 data-nosnippet>681</a>		meter.limit().saturating_sub(T::WeightInfo::deletion_queue_batch())
-<a href=#682 id=682 data-nosnippet>682</a>	}
-<a href=#683 id=683 data-nosnippet>683</a>
-<a href=#684 id=684 data-nosnippet>684</a>	<span class="doccomment">/// Delete as many items from the deletion queue as possible within the supplied weight
-<a href=#685 id=685 data-nosnippet>685</a>	/// limit.
-<a href=#686 id=686 data-nosnippet>686</a>	</span><span class="kw">pub fn </span>process_deletion_queue_batch(meter: <span class="kw-2">&amp;mut </span>WeightMeter) {
-<a href=#687 id=687 data-nosnippet>687</a>		<span class="kw">if </span>meter.try_consume(T::WeightInfo::deletion_queue_batch()).is_err() {
-<a href=#688 id=688 data-nosnippet>688</a>			<span class="kw">return</span>;
-<a href=#689 id=689 data-nosnippet>689</a>		};
-<a href=#690 id=690 data-nosnippet>690</a>
-<a href=#691 id=691 data-nosnippet>691</a>		<span class="kw">let </span><span class="kw-2">mut </span>queue = &lt;DeletionQueueManager&lt;T&gt;&gt;::load();
-<a href=#692 id=692 data-nosnippet>692</a>		<span class="kw">if </span>queue.is_empty() {
-<a href=#693 id=693 data-nosnippet>693</a>			<span class="kw">return</span>;
-<a href=#694 id=694 data-nosnippet>694</a>		}
-<a href=#695 id=695 data-nosnippet>695</a>
-<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw">let </span>weight_per_entry = T::WeightInfo::deletion_queue_per_entry()
-<a href=#697 id=697 data-nosnippet>697</a>			.saturating_sub(T::WeightInfo::deletion_queue_batch());
-<a href=#698 id=698 data-nosnippet>698</a>		<span class="kw">let </span>weight_per_native_key = T::WeightInfo::deletion_queue_per_native_deposit_key(<span class="number">1</span>)
-<a href=#699 id=699 data-nosnippet>699</a>			.saturating_sub(T::WeightInfo::deletion_queue_per_native_deposit_key(<span class="number">0</span>));
-<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">let </span>weight_per_trie_key = T::WeightInfo::deletion_queue_per_trie_key(<span class="number">1</span>)
-<a href=#701 id=701 data-nosnippet>701</a>			.saturating_sub(T::WeightInfo::deletion_queue_per_trie_key(<span class="number">0</span>));
-<a href=#702 id=702 data-nosnippet>702</a>
-<a href=#703 id=703 data-nosnippet>703</a>		<span class="kw">let </span>budget = <span class="self">Self</span>::deletion_budget(<span class="kw-2">&amp;</span>meter);
-<a href=#704 id=704 data-nosnippet>704</a>		<span class="kw">let </span><span class="kw-2">mut </span>remaining = budget;
-<a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>		<span class="kw">let </span>key_budget_for = |remaining: Weight, w: Weight| -&gt; u32 {
-<a href=#707 id=707 data-nosnippet>707</a>			<span class="comment">// `w == 0` would be a benchmark misconfiguration; refuse to touch keys in that case
-<a href=#708 id=708 data-nosnippet>708</a>			// rather than loop forever.
-<a href=#709 id=709 data-nosnippet>709</a>			</span>remaining.checked_div_per_component(<span class="kw-2">&amp;</span>w).unwrap_or(<span class="number">0</span>).min(u32::MAX <span class="kw">as </span>u64) <span class="kw">as </span>u32
-<a href=#710 id=710 data-nosnippet>710</a>		};
-<a href=#711 id=711 data-nosnippet>711</a>
-<a href=#712 id=712 data-nosnippet>712</a>		<span class="kw">loop </span>{
-<a href=#713 id=713 data-nosnippet>713</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(entry) = queue.next() <span class="kw">else </span>{ <span class="kw">break </span>};
-<a href=#714 id=714 data-nosnippet>714</a>
-<a href=#715 id=715 data-nosnippet>715</a>			<span class="comment">// Charge the per-entry overhead.
-<a href=#716 id=716 data-nosnippet>716</a>			</span><span class="kw">let </span><span class="prelude-val">Some</span>(after_entry) = remaining.checked_sub(<span class="kw-2">&amp;</span>weight_per_entry) <span class="kw">else </span>{ <span class="kw">break </span>};
-<a href=#717 id=717 data-nosnippet>717</a>			remaining = after_entry;
-<a href=#718 id=718 data-nosnippet>718</a>
-<a href=#719 id=719 data-nosnippet>719</a>			<span class="comment">// Phase 1: drain `NativeDepositOf` rows for this contract.
-<a href=#720 id=720 data-nosnippet>720</a>			</span><span class="kw">let </span>key_budget = key_budget_for(remaining, weight_per_native_key);
-<a href=#721 id=721 data-nosnippet>721</a>			<span class="kw">if </span>key_budget == <span class="number">0 </span>{
-<a href=#722 id=722 data-nosnippet>722</a>				<span class="kw">break</span>;
-<a href=#723 id=723 data-nosnippet>723</a>			}
-<a href=#724 id=724 data-nosnippet>724</a>			<span class="kw">let </span>result =
-<a href=#725 id=725 data-nosnippet>725</a>				NativeDepositOf::&lt;T&gt;::clear_prefix(<span class="kw-2">&amp;</span>entry.value.account_id, key_budget, <span class="prelude-val">None</span>);
-<a href=#726 id=726 data-nosnippet>726</a>			remaining = remaining
-<a href=#727 id=727 data-nosnippet>727</a>				.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
-<a href=#728 id=728 data-nosnippet>728</a>			<span class="kw">if </span>result.maybe_cursor.is_some() {
-<a href=#729 id=729 data-nosnippet>729</a>				<span class="kw">break</span>;
-<a href=#730 id=730 data-nosnippet>730</a>			}
-<a href=#731 id=731 data-nosnippet>731</a>
-<a href=#732 id=732 data-nosnippet>732</a>			<span class="comment">// Phase 2: kill the child trie.
-<a href=#733 id=733 data-nosnippet>733</a>			</span><span class="kw">let </span>key_budget = key_budget_for(remaining, weight_per_trie_key);
-<a href=#734 id=734 data-nosnippet>734</a>			<span class="kw">if </span>key_budget == <span class="number">0 </span>{
-<a href=#735 id=735 data-nosnippet>735</a>				<span class="kw">break</span>;
-<a href=#736 id=736 data-nosnippet>736</a>			}
-<a href=#737 id=737 data-nosnippet>737</a>			<span class="attr">#[allow(deprecated)]
-<a href=#738 id=738 data-nosnippet>738</a>			</span><span class="kw">let </span>outcome = child::kill_storage(
-<a href=#739 id=739 data-nosnippet>739</a>				<span class="kw-2">&amp;</span>ChildInfo::new_default(<span class="kw-2">&amp;</span>entry.value.trie_id),
-<a href=#740 id=740 data-nosnippet>740</a>				<span class="prelude-val">Some</span>(key_budget),
-<a href=#741 id=741 data-nosnippet>741</a>			);
-<a href=#742 id=742 data-nosnippet>742</a>			<span class="kw">match </span>outcome {
-<a href=#743 id=743 data-nosnippet>743</a>				KillStorageResult::SomeRemaining(keys_removed) =&gt; {
-<a href=#744 id=744 data-nosnippet>744</a>					remaining = remaining
-<a href=#745 id=745 data-nosnippet>745</a>						.saturating_sub(weight_per_trie_key.saturating_mul(keys_removed.into()));
-<a href=#746 id=746 data-nosnippet>746</a>					<span class="kw">break</span>;
-<a href=#747 id=747 data-nosnippet>747</a>				},
-<a href=#748 id=748 data-nosnippet>748</a>				KillStorageResult::AllRemoved(keys_removed) =&gt; {
-<a href=#749 id=749 data-nosnippet>749</a>					remaining = remaining.saturating_sub(
-<a href=#750 id=750 data-nosnippet>750</a>						weight_per_trie_key.saturating_mul(u64::from(keys_removed)),
-<a href=#751 id=751 data-nosnippet>751</a>					);
-<a href=#752 id=752 data-nosnippet>752</a>					entry.remove();
-<a href=#753 id=753 data-nosnippet>753</a>				},
-<a href=#754 id=754 data-nosnippet>754</a>			};
-<a href=#755 id=755 data-nosnippet>755</a>		}
-<a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>		meter.consume(budget.saturating_sub(remaining));
-<a href=#758 id=758 data-nosnippet>758</a>	}
-<a href=#759 id=759 data-nosnippet>759</a>
-<a href=#760 id=760 data-nosnippet>760</a>	<span class="doccomment">/// Returns the code hash of the contract specified by `account` ID.
-<a href=#761 id=761 data-nosnippet>761</a>	</span><span class="kw">pub fn </span>load_code_hash(account: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;sp_core::H256&gt; {
-<a href=#762 id=762 data-nosnippet>762</a>		&lt;AccountInfo&lt;T&gt;&gt;::load_contract(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(account)).map(|i| i.code_hash)
-<a href=#763 id=763 data-nosnippet>763</a>	}
-<a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>	<span class="doccomment">/// Returns the amount of immutable bytes of this contract.
-<a href=#766 id=766 data-nosnippet>766</a>	</span><span class="kw">pub fn </span>immutable_data_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-<a href=#767 id=767 data-nosnippet>767</a>		<span class="self">self</span>.immutable_data_len
-<a href=#768 id=768 data-nosnippet>768</a>	}
-<a href=#769 id=769 data-nosnippet>769</a>
-<a href=#770 id=770 data-nosnippet>770</a>	<span class="doccomment">/// Set the number of immutable bytes of this contract.
-<a href=#771 id=771 data-nosnippet>771</a>	</span><span class="kw">pub fn </span>set_immutable_data_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, immutable_data_len: u32) {
-<a href=#772 id=772 data-nosnippet>772</a>		<span class="self">self</span>.immutable_data_len = immutable_data_len;
-<a href=#773 id=773 data-nosnippet>773</a>	}
-<a href=#774 id=774 data-nosnippet>774</a>}
-<a href=#775 id=775 data-nosnippet>775</a>
-<a href=#776 id=776 data-nosnippet>776</a><span class="doccomment">/// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-<a href=#777 id=777 data-nosnippet>777</a></span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-<a href=#778 id=778 data-nosnippet>778</a></span><span class="kw">pub enum </span>WriteOutcome {
-<a href=#779 id=779 data-nosnippet>779</a>	<span class="doccomment">/// No value existed at the specified key.
-<a href=#780 id=780 data-nosnippet>780</a>	</span>New,
-<a href=#781 id=781 data-nosnippet>781</a>	<span class="doccomment">/// A value of the returned length was overwritten.
-<a href=#782 id=782 data-nosnippet>782</a>	</span>Overwritten(u32),
-<a href=#783 id=783 data-nosnippet>783</a>	<span class="doccomment">/// The returned value was taken out of storage before being overwritten.
-<a href=#784 id=784 data-nosnippet>784</a>	///
-<a href=#785 id=785 data-nosnippet>785</a>	/// This is only returned when specifically requested because it causes additional work
-<a href=#786 id=786 data-nosnippet>786</a>	/// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
-<a href=#787 id=787 data-nosnippet>787</a>	/// is returned instead.
-<a href=#788 id=788 data-nosnippet>788</a>	</span>Taken(Vec&lt;u8&gt;),
-<a href=#789 id=789 data-nosnippet>789</a>}
-<a href=#790 id=790 data-nosnippet>790</a>
-<a href=#791 id=791 data-nosnippet>791</a><span class="kw">impl </span>WriteOutcome {
-<a href=#792 id=792 data-nosnippet>792</a>	<span class="doccomment">/// Extracts the size of the overwritten value or `0` if there
-<a href=#793 id=793 data-nosnippet>793</a>	/// was no value in storage.
-<a href=#794 id=794 data-nosnippet>794</a>	</span><span class="kw">pub fn </span>old_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-<a href=#795 id=795 data-nosnippet>795</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#796 id=796 data-nosnippet>796</a>			<span class="self">Self</span>::New =&gt; <span class="number">0</span>,
-<a href=#797 id=797 data-nosnippet>797</a>			<span class="self">Self</span>::Overwritten(len) =&gt; <span class="kw-2">*</span>len,
-<a href=#798 id=798 data-nosnippet>798</a>			<span class="self">Self</span>::Taken(value) =&gt; value.len() <span class="kw">as </span>u32,
-<a href=#799 id=799 data-nosnippet>799</a>		}
-<a href=#800 id=800 data-nosnippet>800</a>	}
-<a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>	<span class="doccomment">/// Extracts the size of the overwritten value or `SENTINEL` if there
-<a href=#803 id=803 data-nosnippet>803</a>	/// was no value in storage.
-<a href=#804 id=804 data-nosnippet>804</a>	///
-<a href=#805 id=805 data-nosnippet>805</a>	/// # Note
+<a href=#458 id=458 data-nosnippet>458</a>		<span class="comment">// Reject reuse of an address whose previous occupant still has `NativeDepositOf` rows
+<a href=#459 id=459 data-nosnippet>459</a>		// that the deletion queue has not cleared yet. `DeletionQueueItem` explains why.
+<a href=#460 id=460 data-nosnippet>460</a>		</span><span class="kw">let </span>account_id = T::AddressMapper::to_fallback_account_id(address);
+<a href=#461 id=461 data-nosnippet>461</a>		<span class="kw">if </span>NativeDepositOf::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>account_id).next().is_some() {
+<a href=#462 id=462 data-nosnippet>462</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::PendingDepositCleanup.into());
+<a href=#463 id=463 data-nosnippet>463</a>		}
+<a href=#464 id=464 data-nosnippet>464</a>
+<a href=#465 id=465 data-nosnippet>465</a>		<span class="kw">let </span>trie_id = {
+<a href=#466 id=466 data-nosnippet>466</a>			<span class="kw">let </span>buf = (<span class="string">"bcontract_trie_v1"</span>, address, nonce).using_encoded(T::Hashing::hash);
+<a href=#467 id=467 data-nosnippet>467</a>			buf.as_ref()
+<a href=#468 id=468 data-nosnippet>468</a>				.to_vec()
+<a href=#469 id=469 data-nosnippet>469</a>				.try_into()
+<a href=#470 id=470 data-nosnippet>470</a>				.expect(<span class="string">"Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed"</span>)
+<a href=#471 id=471 data-nosnippet>471</a>		};
+<a href=#472 id=472 data-nosnippet>472</a>
+<a href=#473 id=473 data-nosnippet>473</a>		<span class="kw">let </span>contract = <span class="self">Self </span>{
+<a href=#474 id=474 data-nosnippet>474</a>			trie_id,
+<a href=#475 id=475 data-nosnippet>475</a>			code_hash,
+<a href=#476 id=476 data-nosnippet>476</a>			storage_bytes: <span class="number">0</span>,
+<a href=#477 id=477 data-nosnippet>477</a>			storage_items: <span class="number">0</span>,
+<a href=#478 id=478 data-nosnippet>478</a>			storage_byte_deposit: Zero::zero(),
+<a href=#479 id=479 data-nosnippet>479</a>			storage_item_deposit: Zero::zero(),
+<a href=#480 id=480 data-nosnippet>480</a>			storage_base_deposit: Zero::zero(),
+<a href=#481 id=481 data-nosnippet>481</a>			immutable_data_len: <span class="number">0</span>,
+<a href=#482 id=482 data-nosnippet>482</a>		};
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>		<span class="prelude-val">Ok</span>(contract)
+<a href=#485 id=485 data-nosnippet>485</a>	}
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a>	<span class="doccomment">/// Constructs a new contract info for a delegated account (EIP-7702).
+<a href=#488 id=488 data-nosnippet>488</a>	///
+<a href=#489 id=489 data-nosnippet>489</a>	/// Delegated accounts have their own child trie for storage but use the code hash
+<a href=#490 id=490 data-nosnippet>490</a>	/// of the target contract they delegate to. The trie_id is derived solely from the
+<a href=#491 id=491 data-nosnippet>491</a>	/// address so that storage persists across re-delegations to different targets.
+<a href=#492 id=492 data-nosnippet>492</a>	</span><span class="kw">pub fn </span>new_for_delegation(address: <span class="kw-2">&amp;</span>H160, target_code_hash: sp_core::H256) -&gt; <span class="self">Self </span>{
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">let </span>trie_id = {
+<a href=#494 id=494 data-nosnippet>494</a>			<span class="kw">let </span>buf = (<span class="string">"delegated_trie_v1"</span>, address).using_encoded(T::Hashing::hash);
+<a href=#495 id=495 data-nosnippet>495</a>			buf.as_ref()
+<a href=#496 id=496 data-nosnippet>496</a>				.to_vec()
+<a href=#497 id=497 data-nosnippet>497</a>				.try_into()
+<a href=#498 id=498 data-nosnippet>498</a>				.expect(<span class="string">"Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed"</span>)
+<a href=#499 id=499 data-nosnippet>499</a>		};
+<a href=#500 id=500 data-nosnippet>500</a>
+<a href=#501 id=501 data-nosnippet>501</a>		<span class="self">Self </span>{
+<a href=#502 id=502 data-nosnippet>502</a>			trie_id,
+<a href=#503 id=503 data-nosnippet>503</a>			code_hash: target_code_hash,
+<a href=#504 id=504 data-nosnippet>504</a>			storage_bytes: <span class="number">0</span>,
+<a href=#505 id=505 data-nosnippet>505</a>			storage_items: <span class="number">0</span>,
+<a href=#506 id=506 data-nosnippet>506</a>			storage_byte_deposit: Zero::zero(),
+<a href=#507 id=507 data-nosnippet>507</a>			storage_item_deposit: Zero::zero(),
+<a href=#508 id=508 data-nosnippet>508</a>			storage_base_deposit: Zero::zero(),
+<a href=#509 id=509 data-nosnippet>509</a>			immutable_data_len: <span class="number">0</span>,
+<a href=#510 id=510 data-nosnippet>510</a>		}
+<a href=#511 id=511 data-nosnippet>511</a>	}
+<a href=#512 id=512 data-nosnippet>512</a>
+<a href=#513 id=513 data-nosnippet>513</a>	<span class="doccomment">/// Associated child trie unique id is built from the hash part of the trie id.
+<a href=#514 id=514 data-nosnippet>514</a>	</span><span class="kw">pub fn </span>child_trie_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ChildInfo {
+<a href=#515 id=515 data-nosnippet>515</a>		ChildInfo::new_default(<span class="self">self</span>.trie_id.as_ref())
+<a href=#516 id=516 data-nosnippet>516</a>	}
+<a href=#517 id=517 data-nosnippet>517</a>
+<a href=#518 id=518 data-nosnippet>518</a>	<span class="doccomment">/// The deposit paying for the accumulated storage generated within the contract's child trie.
+<a href=#519 id=519 data-nosnippet>519</a>	</span><span class="kw">pub fn </span>extra_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
+<a href=#520 id=520 data-nosnippet>520</a>		<span class="self">self</span>.storage_byte_deposit.saturating_add(<span class="self">self</span>.storage_item_deposit)
+<a href=#521 id=521 data-nosnippet>521</a>	}
+<a href=#522 id=522 data-nosnippet>522</a>
+<a href=#523 id=523 data-nosnippet>523</a>	<span class="doccomment">/// Same as [`Self::extra_deposit`] but including the base deposit.
+<a href=#524 id=524 data-nosnippet>524</a>	</span><span class="kw">pub fn </span>total_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
+<a href=#525 id=525 data-nosnippet>525</a>		<span class="self">self</span>.extra_deposit().saturating_add(<span class="self">self</span>.storage_base_deposit)
+<a href=#526 id=526 data-nosnippet>526</a>	}
+<a href=#527 id=527 data-nosnippet>527</a>
+<a href=#528 id=528 data-nosnippet>528</a>	<span class="doccomment">/// Returns the storage base deposit of the contract.
+<a href=#529 id=529 data-nosnippet>529</a>	</span><span class="kw">pub fn </span>storage_base_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
+<a href=#530 id=530 data-nosnippet>530</a>		<span class="self">self</span>.storage_base_deposit
+<a href=#531 id=531 data-nosnippet>531</a>	}
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>	<span class="doccomment">/// Reads a storage kv pair of a contract.
+<a href=#534 id=534 data-nosnippet>534</a>	///
+<a href=#535 id=535 data-nosnippet>535</a>	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
+<a href=#536 id=536 data-nosnippet>536</a>	/// contract doesn't store under the given `key` `None` is returned.
+<a href=#537 id=537 data-nosnippet>537</a>	</span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#538 id=538 data-nosnippet>538</a>		<span class="kw">let </span>value = child::get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice());
+<a href=#539 id=539 data-nosnippet>539</a>		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">"contract storage: read value {:?} for key {:x?}"</span>, value, key);
+<a href=#540 id=540 data-nosnippet>540</a>		if_tracing(|t| {
+<a href=#541 id=541 data-nosnippet>541</a>			t.storage_read(key, value.as_deref());
+<a href=#542 id=542 data-nosnippet>542</a>		});
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="kw">return </span>value;
+<a href=#544 id=544 data-nosnippet>544</a>	}
+<a href=#545 id=545 data-nosnippet>545</a>
+<a href=#546 id=546 data-nosnippet>546</a>	<span class="doccomment">/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+<a href=#547 id=547 data-nosnippet>547</a>	///
+<a href=#548 id=548 data-nosnippet>548</a>	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+<a href=#549 id=549 data-nosnippet>549</a>	/// was deleted.
+<a href=#550 id=550 data-nosnippet>550</a>	</span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+<a href=#551 id=551 data-nosnippet>551</a>		child::len(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice())
+<a href=#552 id=552 data-nosnippet>552</a>	}
+<a href=#553 id=553 data-nosnippet>553</a>
+<a href=#554 id=554 data-nosnippet>554</a>	<span class="doccomment">/// Update a storage entry into a contract's kv storage.
+<a href=#555 id=555 data-nosnippet>555</a>	///
+<a href=#556 id=556 data-nosnippet>556</a>	/// If the `new_value` is `None` then the kv pair is removed. If `take` is true
+<a href=#557 id=557 data-nosnippet>557</a>	/// a [`WriteOutcome::Taken`] is returned instead of a [`WriteOutcome::Overwritten`].
+<a href=#558 id=558 data-nosnippet>558</a>	///
+<a href=#559 id=559 data-nosnippet>559</a>	/// This function also records how much storage was created or removed if a `storage_meter`
+<a href=#560 id=560 data-nosnippet>560</a>	/// is supplied. It should only be absent for testing or benchmarking code.
+<a href=#561 id=561 data-nosnippet>561</a>	</span><span class="kw">pub fn </span>write(
+<a href=#562 id=562 data-nosnippet>562</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#563 id=563 data-nosnippet>563</a>		key: <span class="kw-2">&amp;</span>Key,
+<a href=#564 id=564 data-nosnippet>564</a>		new_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+<a href=#565 id=565 data-nosnippet>565</a>		frame_meter: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>FrameMeter&lt;T&gt;&gt;,
+<a href=#566 id=566 data-nosnippet>566</a>		take: bool,
+<a href=#567 id=567 data-nosnippet>567</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
+<a href=#568 id=568 data-nosnippet>568</a>		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">"contract storage: writing value {:?} for key {:x?}"</span>, new_value, key);
+<a href=#569 id=569 data-nosnippet>569</a>		<span class="kw">let </span>hashed_key = key.hash();
+<a href=#570 id=570 data-nosnippet>570</a>		if_tracing(|t| {
+<a href=#571 id=571 data-nosnippet>571</a>			<span class="kw">let </span>old = child::get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), hashed_key.as_slice());
+<a href=#572 id=572 data-nosnippet>572</a>			t.storage_write(key, old, new_value.as_deref());
+<a href=#573 id=573 data-nosnippet>573</a>		});
+<a href=#574 id=574 data-nosnippet>574</a>
+<a href=#575 id=575 data-nosnippet>575</a>		<span class="self">self</span>.write_raw(<span class="kw-2">&amp;</span>hashed_key, new_value.as_deref(), frame_meter, take)
+<a href=#576 id=576 data-nosnippet>576</a>	}
+<a href=#577 id=577 data-nosnippet>577</a>
+<a href=#578 id=578 data-nosnippet>578</a>	<span class="doccomment">/// Update a storage entry into a contract's kv storage.
+<a href=#579 id=579 data-nosnippet>579</a>	/// Function used in benchmarks, which can simulate prefix collision in keys.
+<a href=#580 id=580 data-nosnippet>580</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#581 id=581 data-nosnippet>581</a>	</span><span class="kw">pub fn </span>bench_write_raw(
+<a href=#582 id=582 data-nosnippet>582</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#583 id=583 data-nosnippet>583</a>		key: <span class="kw-2">&amp;</span>[u8],
+<a href=#584 id=584 data-nosnippet>584</a>		new_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+<a href=#585 id=585 data-nosnippet>585</a>		take: bool,
+<a href=#586 id=586 data-nosnippet>586</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
+<a href=#587 id=587 data-nosnippet>587</a>		<span class="self">self</span>.write_raw(key, new_value.as_deref(), <span class="prelude-val">None</span>, take)
+<a href=#588 id=588 data-nosnippet>588</a>	}
+<a href=#589 id=589 data-nosnippet>589</a>
+<a href=#590 id=590 data-nosnippet>590</a>	<span class="kw">fn </span>write_raw(
+<a href=#591 id=591 data-nosnippet>591</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#592 id=592 data-nosnippet>592</a>		key: <span class="kw-2">&amp;</span>[u8],
+<a href=#593 id=593 data-nosnippet>593</a>		new_value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
+<a href=#594 id=594 data-nosnippet>594</a>		frame_meter: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>FrameMeter&lt;T&gt;&gt;,
+<a href=#595 id=595 data-nosnippet>595</a>		take: bool,
+<a href=#596 id=596 data-nosnippet>596</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
+<a href=#597 id=597 data-nosnippet>597</a>		<span class="kw">let </span>child_trie_info = <span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info();
+<a href=#598 id=598 data-nosnippet>598</a>		<span class="kw">let </span>(old_len, old_value) = <span class="kw">if </span>take {
+<a href=#599 id=599 data-nosnippet>599</a>			<span class="kw">let </span>val = child::get_raw(child_trie_info, key);
+<a href=#600 id=600 data-nosnippet>600</a>			(val.as_ref().map(|v| v.len() <span class="kw">as </span>u32), val)
+<a href=#601 id=601 data-nosnippet>601</a>		} <span class="kw">else </span>{
+<a href=#602 id=602 data-nosnippet>602</a>			(child::len(child_trie_info, key), <span class="prelude-val">None</span>)
+<a href=#603 id=603 data-nosnippet>603</a>		};
+<a href=#604 id=604 data-nosnippet>604</a>
+<a href=#605 id=605 data-nosnippet>605</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(frame_meter) = frame_meter {
+<a href=#606 id=606 data-nosnippet>606</a>			<span class="kw">let </span><span class="kw-2">mut </span>diff = Diff::default();
+<a href=#607 id=607 data-nosnippet>607</a>			<span class="kw">let </span>key_len = key.len() <span class="kw">as </span>u32;
+<a href=#608 id=608 data-nosnippet>608</a>			<span class="kw">match </span>(old_len, new_value.as_ref().map(|v| v.len() <span class="kw">as </span>u32)) {
+<a href=#609 id=609 data-nosnippet>609</a>				(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">Some</span>(new_len)) =&gt; {
+<a href=#610 id=610 data-nosnippet>610</a>					<span class="kw">if </span>new_len &gt; old_len {
+<a href=#611 id=611 data-nosnippet>611</a>						diff.bytes_added = new_len - old_len;
+<a href=#612 id=612 data-nosnippet>612</a>					} <span class="kw">else </span>{
+<a href=#613 id=613 data-nosnippet>613</a>						diff.bytes_removed = old_len - new_len;
+<a href=#614 id=614 data-nosnippet>614</a>					}
+<a href=#615 id=615 data-nosnippet>615</a>				},
+<a href=#616 id=616 data-nosnippet>616</a>				(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(new_len)) =&gt; {
+<a href=#617 id=617 data-nosnippet>617</a>					diff.bytes_added = new_len.saturating_add(key_len);
+<a href=#618 id=618 data-nosnippet>618</a>					diff.items_added = <span class="number">1</span>;
+<a href=#619 id=619 data-nosnippet>619</a>				},
+<a href=#620 id=620 data-nosnippet>620</a>				(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">None</span>) =&gt; {
+<a href=#621 id=621 data-nosnippet>621</a>					diff.bytes_removed = old_len.saturating_add(key_len);
+<a href=#622 id=622 data-nosnippet>622</a>					diff.items_removed = <span class="number">1</span>;
+<a href=#623 id=623 data-nosnippet>623</a>				},
+<a href=#624 id=624 data-nosnippet>624</a>				(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; (),
+<a href=#625 id=625 data-nosnippet>625</a>			}
+<a href=#626 id=626 data-nosnippet>626</a>			frame_meter.record_contract_storage_changes(<span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
+<a href=#627 id=627 data-nosnippet>627</a>		}
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>		<span class="kw">match </span><span class="kw-2">&amp;</span>new_value {
+<a href=#630 id=630 data-nosnippet>630</a>			<span class="prelude-val">Some</span>(new_value) =&gt; child::put_raw(child_trie_info, key, new_value),
+<a href=#631 id=631 data-nosnippet>631</a>			<span class="prelude-val">None </span>=&gt; child::kill(child_trie_info, key),
+<a href=#632 id=632 data-nosnippet>632</a>		}
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a>		<span class="prelude-val">Ok</span>(<span class="kw">match </span>(old_len, old_value) {
+<a href=#635 id=635 data-nosnippet>635</a>			(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; WriteOutcome::New,
+<a href=#636 id=636 data-nosnippet>636</a>			(<span class="prelude-val">Some</span>(old_len), <span class="prelude-val">None</span>) =&gt; WriteOutcome::Overwritten(old_len),
+<a href=#637 id=637 data-nosnippet>637</a>			(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(old_value)) =&gt; WriteOutcome::Taken(old_value),
+<a href=#638 id=638 data-nosnippet>638</a>		})
+<a href=#639 id=639 data-nosnippet>639</a>	}
+<a href=#640 id=640 data-nosnippet>640</a>
+<a href=#641 id=641 data-nosnippet>641</a>	<span class="doccomment">/// Sets and returns the contract base deposit.
+<a href=#642 id=642 data-nosnippet>642</a>	///
+<a href=#643 id=643 data-nosnippet>643</a>	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
+<a href=#644 id=644 data-nosnippet>644</a>	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
+<a href=#645 id=645 data-nosnippet>645</a>	/// storage which is also changed when the code hash of a contract is changed.
+<a href=#646 id=646 data-nosnippet>646</a>	</span><span class="kw">pub fn </span>update_base_deposit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_deposit: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
+<a href=#647 id=647 data-nosnippet>647</a>		<span class="kw">let </span>contract_deposit = {
+<a href=#648 id=648 data-nosnippet>648</a>			<span class="kw">let </span>bytes_added: u32 =
+<a href=#649 id=649 data-nosnippet>649</a>				(<span class="self">self</span>.encoded_size() <span class="kw">as </span>u32).saturating_add(<span class="self">self</span>.immutable_data_len);
+<a href=#650 id=650 data-nosnippet>650</a>			<span class="kw">let </span>items_added: u32 = <span class="kw">if </span><span class="self">self</span>.immutable_data_len == <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">2 </span>};
+<a href=#651 id=651 data-nosnippet>651</a>
+<a href=#652 id=652 data-nosnippet>652</a>			T::DepositPerByte::get()
+<a href=#653 id=653 data-nosnippet>653</a>				.saturating_mul(bytes_added.into())
+<a href=#654 id=654 data-nosnippet>654</a>				.saturating_add(T::DepositPerItem::get().saturating_mul(items_added.into()))
+<a href=#655 id=655 data-nosnippet>655</a>		};
+<a href=#656 id=656 data-nosnippet>656</a>
+<a href=#657 id=657 data-nosnippet>657</a>		<span class="comment">// Instantiating the contract prevents its code to be deleted, therefore the base deposit
+<a href=#658 id=658 data-nosnippet>658</a>		// includes a fraction (`T::CodeHashLockupDepositPercent`) of the original storage deposit
+<a href=#659 id=659 data-nosnippet>659</a>		// to prevent abuse.
+<a href=#660 id=660 data-nosnippet>660</a>		</span><span class="kw">let </span>code_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_deposit);
+<a href=#661 id=661 data-nosnippet>661</a>
+<a href=#662 id=662 data-nosnippet>662</a>		<span class="kw">let </span>deposit = contract_deposit.saturating_add(code_deposit);
+<a href=#663 id=663 data-nosnippet>663</a>		<span class="self">self</span>.storage_base_deposit = deposit;
+<a href=#664 id=664 data-nosnippet>664</a>		deposit
+<a href=#665 id=665 data-nosnippet>665</a>	}
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a>	<span class="doccomment">/// Push a contract's trie and account to the deletion queue for lazy removal.
+<a href=#668 id=668 data-nosnippet>668</a>	///
+<a href=#669 id=669 data-nosnippet>669</a>	/// You must make sure that the contract is also removed when queuing for deletion.
+<a href=#670 id=670 data-nosnippet>670</a>	/// Both the contract's child trie and any [`NativeDepositOf`] entries it held are drained
+<a href=#671 id=671 data-nosnippet>671</a>	/// lazily in `on_idle`.
+<a href=#672 id=672 data-nosnippet>672</a>	</span><span class="kw">pub fn </span>queue_for_deletion(trie_id: TrieId, contract: AccountIdOf&lt;T&gt;) {
+<a href=#673 id=673 data-nosnippet>673</a>		DeletionQueueManager::&lt;T&gt;::load().insert(DeletionQueueItem::new(trie_id, contract));
+<a href=#674 id=674 data-nosnippet>674</a>	}
+<a href=#675 id=675 data-nosnippet>675</a>
+<a href=#676 id=676 data-nosnippet>676</a>	<span class="doccomment">/// Returns the total weight available for deletion-queue processing after subtracting
+<a href=#677 id=677 data-nosnippet>677</a>	/// the fixed [`WeightInfo::deletion_queue_batch`] base.
+<a href=#678 id=678 data-nosnippet>678</a>	</span><span class="kw">pub fn </span>deletion_budget(meter: <span class="kw-2">&amp;</span>WeightMeter) -&gt; Weight {
+<a href=#679 id=679 data-nosnippet>679</a>		meter.limit().saturating_sub(T::WeightInfo::deletion_queue_batch())
+<a href=#680 id=680 data-nosnippet>680</a>	}
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a>	<span class="doccomment">/// Delete as many items from the deletion queue as possible within the supplied weight
+<a href=#683 id=683 data-nosnippet>683</a>	/// limit.
+<a href=#684 id=684 data-nosnippet>684</a>	</span><span class="kw">pub fn </span>process_deletion_queue_batch(meter: <span class="kw-2">&amp;mut </span>WeightMeter) {
+<a href=#685 id=685 data-nosnippet>685</a>		<span class="kw">if </span>meter.try_consume(T::WeightInfo::deletion_queue_batch()).is_err() {
+<a href=#686 id=686 data-nosnippet>686</a>			<span class="kw">return</span>;
+<a href=#687 id=687 data-nosnippet>687</a>		};
+<a href=#688 id=688 data-nosnippet>688</a>
+<a href=#689 id=689 data-nosnippet>689</a>		<span class="kw">let </span><span class="kw-2">mut </span>queue = &lt;DeletionQueueManager&lt;T&gt;&gt;::load();
+<a href=#690 id=690 data-nosnippet>690</a>		<span class="kw">if </span>queue.is_empty() {
+<a href=#691 id=691 data-nosnippet>691</a>			<span class="kw">return</span>;
+<a href=#692 id=692 data-nosnippet>692</a>		}
+<a href=#693 id=693 data-nosnippet>693</a>
+<a href=#694 id=694 data-nosnippet>694</a>		<span class="kw">let </span>weight_per_entry = T::WeightInfo::deletion_queue_per_entry()
+<a href=#695 id=695 data-nosnippet>695</a>			.saturating_sub(T::WeightInfo::deletion_queue_batch());
+<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw">let </span>weight_per_native_key = T::WeightInfo::deletion_queue_per_native_deposit_key(<span class="number">1</span>)
+<a href=#697 id=697 data-nosnippet>697</a>			.saturating_sub(T::WeightInfo::deletion_queue_per_native_deposit_key(<span class="number">0</span>));
+<a href=#698 id=698 data-nosnippet>698</a>		<span class="kw">let </span>weight_per_trie_key = T::WeightInfo::deletion_queue_per_trie_key(<span class="number">1</span>)
+<a href=#699 id=699 data-nosnippet>699</a>			.saturating_sub(T::WeightInfo::deletion_queue_per_trie_key(<span class="number">0</span>));
+<a href=#700 id=700 data-nosnippet>700</a>
+<a href=#701 id=701 data-nosnippet>701</a>		<span class="kw">let </span>budget = <span class="self">Self</span>::deletion_budget(<span class="kw-2">&amp;</span>meter);
+<a href=#702 id=702 data-nosnippet>702</a>		<span class="kw">let </span><span class="kw-2">mut </span>remaining = budget;
+<a href=#703 id=703 data-nosnippet>703</a>
+<a href=#704 id=704 data-nosnippet>704</a>		<span class="kw">let </span>key_budget_for = |remaining: Weight, w: Weight| -&gt; u32 {
+<a href=#705 id=705 data-nosnippet>705</a>			<span class="comment">// `w == 0` would be a benchmark misconfiguration; refuse to touch keys in that case
+<a href=#706 id=706 data-nosnippet>706</a>			// rather than loop forever.
+<a href=#707 id=707 data-nosnippet>707</a>			</span>remaining.checked_div_per_component(<span class="kw-2">&amp;</span>w).unwrap_or(<span class="number">0</span>).min(u32::MAX <span class="kw">as </span>u64) <span class="kw">as </span>u32
+<a href=#708 id=708 data-nosnippet>708</a>		};
+<a href=#709 id=709 data-nosnippet>709</a>
+<a href=#710 id=710 data-nosnippet>710</a>		<span class="kw">loop </span>{
+<a href=#711 id=711 data-nosnippet>711</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(entry) = queue.next() <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a>			<span class="comment">// Charge the per-entry overhead.
+<a href=#714 id=714 data-nosnippet>714</a>			</span><span class="kw">let </span><span class="prelude-val">Some</span>(after_entry) = remaining.checked_sub(<span class="kw-2">&amp;</span>weight_per_entry) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href=#715 id=715 data-nosnippet>715</a>			remaining = after_entry;
+<a href=#716 id=716 data-nosnippet>716</a>
+<a href=#717 id=717 data-nosnippet>717</a>			<span class="comment">// Phase 1: drain `NativeDepositOf` rows for this contract. Skipped while a contract is
+<a href=#718 id=718 data-nosnippet>718</a>			// live at the address, because the rows then belong to it. See `DeletionQueueItem`.
+<a href=#719 id=719 data-nosnippet>719</a>			</span><span class="kw">let </span>address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>entry.value.account_id);
+<a href=#720 id=720 data-nosnippet>720</a>			<span class="kw">if </span>!AccountInfo::&lt;T&gt;::is_contract(<span class="kw-2">&amp;</span>address) {
+<a href=#721 id=721 data-nosnippet>721</a>				<span class="kw">let </span>key_budget = key_budget_for(remaining, weight_per_native_key);
+<a href=#722 id=722 data-nosnippet>722</a>				<span class="kw">if </span>key_budget == <span class="number">0 </span>{
+<a href=#723 id=723 data-nosnippet>723</a>					<span class="kw">break</span>;
+<a href=#724 id=724 data-nosnippet>724</a>				}
+<a href=#725 id=725 data-nosnippet>725</a>				<span class="kw">let </span>result =
+<a href=#726 id=726 data-nosnippet>726</a>					NativeDepositOf::&lt;T&gt;::clear_prefix(<span class="kw-2">&amp;</span>entry.value.account_id, key_budget, <span class="prelude-val">None</span>);
+<a href=#727 id=727 data-nosnippet>727</a>				remaining = remaining
+<a href=#728 id=728 data-nosnippet>728</a>					.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
+<a href=#729 id=729 data-nosnippet>729</a>				<span class="kw">if </span>result.maybe_cursor.is_some() {
+<a href=#730 id=730 data-nosnippet>730</a>					<span class="kw">break</span>;
+<a href=#731 id=731 data-nosnippet>731</a>				}
+<a href=#732 id=732 data-nosnippet>732</a>			}
+<a href=#733 id=733 data-nosnippet>733</a>
+<a href=#734 id=734 data-nosnippet>734</a>			<span class="comment">// Phase 2: kill the child trie.
+<a href=#735 id=735 data-nosnippet>735</a>			</span><span class="kw">let </span>key_budget = key_budget_for(remaining, weight_per_trie_key);
+<a href=#736 id=736 data-nosnippet>736</a>			<span class="kw">if </span>key_budget == <span class="number">0 </span>{
+<a href=#737 id=737 data-nosnippet>737</a>				<span class="kw">break</span>;
+<a href=#738 id=738 data-nosnippet>738</a>			}
+<a href=#739 id=739 data-nosnippet>739</a>			<span class="attr">#[allow(deprecated)]
+<a href=#740 id=740 data-nosnippet>740</a>			</span><span class="kw">let </span>outcome = child::kill_storage(
+<a href=#741 id=741 data-nosnippet>741</a>				<span class="kw-2">&amp;</span>ChildInfo::new_default(<span class="kw-2">&amp;</span>entry.value.trie_id),
+<a href=#742 id=742 data-nosnippet>742</a>				<span class="prelude-val">Some</span>(key_budget),
+<a href=#743 id=743 data-nosnippet>743</a>			);
+<a href=#744 id=744 data-nosnippet>744</a>			<span class="kw">match </span>outcome {
+<a href=#745 id=745 data-nosnippet>745</a>				KillStorageResult::SomeRemaining(keys_removed) =&gt; {
+<a href=#746 id=746 data-nosnippet>746</a>					remaining = remaining
+<a href=#747 id=747 data-nosnippet>747</a>						.saturating_sub(weight_per_trie_key.saturating_mul(keys_removed.into()));
+<a href=#748 id=748 data-nosnippet>748</a>					<span class="kw">break</span>;
+<a href=#749 id=749 data-nosnippet>749</a>				},
+<a href=#750 id=750 data-nosnippet>750</a>				KillStorageResult::AllRemoved(keys_removed) =&gt; {
+<a href=#751 id=751 data-nosnippet>751</a>					remaining = remaining.saturating_sub(
+<a href=#752 id=752 data-nosnippet>752</a>						weight_per_trie_key.saturating_mul(u64::from(keys_removed)),
+<a href=#753 id=753 data-nosnippet>753</a>					);
+<a href=#754 id=754 data-nosnippet>754</a>					entry.remove();
+<a href=#755 id=755 data-nosnippet>755</a>				},
+<a href=#756 id=756 data-nosnippet>756</a>			};
+<a href=#757 id=757 data-nosnippet>757</a>		}
+<a href=#758 id=758 data-nosnippet>758</a>
+<a href=#759 id=759 data-nosnippet>759</a>		meter.consume(budget.saturating_sub(remaining));
+<a href=#760 id=760 data-nosnippet>760</a>	}
+<a href=#761 id=761 data-nosnippet>761</a>
+<a href=#762 id=762 data-nosnippet>762</a>	<span class="doccomment">/// Returns the code hash of the contract specified by `account` ID.
+<a href=#763 id=763 data-nosnippet>763</a>	</span><span class="kw">pub fn </span>load_code_hash(account: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;sp_core::H256&gt; {
+<a href=#764 id=764 data-nosnippet>764</a>		&lt;AccountInfo&lt;T&gt;&gt;::load_contract(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+<a href=#765 id=765 data-nosnippet>765</a>	}
+<a href=#766 id=766 data-nosnippet>766</a>
+<a href=#767 id=767 data-nosnippet>767</a>	<span class="doccomment">/// Returns the amount of immutable bytes of this contract.
+<a href=#768 id=768 data-nosnippet>768</a>	</span><span class="kw">pub fn </span>immutable_data_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+<a href=#769 id=769 data-nosnippet>769</a>		<span class="self">self</span>.immutable_data_len
+<a href=#770 id=770 data-nosnippet>770</a>	}
+<a href=#771 id=771 data-nosnippet>771</a>
+<a href=#772 id=772 data-nosnippet>772</a>	<span class="doccomment">/// Set the number of immutable bytes of this contract.
+<a href=#773 id=773 data-nosnippet>773</a>	</span><span class="kw">pub fn </span>set_immutable_data_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, immutable_data_len: u32) {
+<a href=#774 id=774 data-nosnippet>774</a>		<span class="self">self</span>.immutable_data_len = immutable_data_len;
+<a href=#775 id=775 data-nosnippet>775</a>	}
+<a href=#776 id=776 data-nosnippet>776</a>}
+<a href=#777 id=777 data-nosnippet>777</a>
+<a href=#778 id=778 data-nosnippet>778</a><span class="doccomment">/// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
+<a href=#779 id=779 data-nosnippet>779</a></span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+<a href=#780 id=780 data-nosnippet>780</a></span><span class="kw">pub enum </span>WriteOutcome {
+<a href=#781 id=781 data-nosnippet>781</a>	<span class="doccomment">/// No value existed at the specified key.
+<a href=#782 id=782 data-nosnippet>782</a>	</span>New,
+<a href=#783 id=783 data-nosnippet>783</a>	<span class="doccomment">/// A value of the returned length was overwritten.
+<a href=#784 id=784 data-nosnippet>784</a>	</span>Overwritten(u32),
+<a href=#785 id=785 data-nosnippet>785</a>	<span class="doccomment">/// The returned value was taken out of storage before being overwritten.
+<a href=#786 id=786 data-nosnippet>786</a>	///
+<a href=#787 id=787 data-nosnippet>787</a>	/// This is only returned when specifically requested because it causes additional work
+<a href=#788 id=788 data-nosnippet>788</a>	/// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
+<a href=#789 id=789 data-nosnippet>789</a>	/// is returned instead.
+<a href=#790 id=790 data-nosnippet>790</a>	</span>Taken(Vec&lt;u8&gt;),
+<a href=#791 id=791 data-nosnippet>791</a>}
+<a href=#792 id=792 data-nosnippet>792</a>
+<a href=#793 id=793 data-nosnippet>793</a><span class="kw">impl </span>WriteOutcome {
+<a href=#794 id=794 data-nosnippet>794</a>	<span class="doccomment">/// Extracts the size of the overwritten value or `0` if there
+<a href=#795 id=795 data-nosnippet>795</a>	/// was no value in storage.
+<a href=#796 id=796 data-nosnippet>796</a>	</span><span class="kw">pub fn </span>old_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+<a href=#797 id=797 data-nosnippet>797</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#798 id=798 data-nosnippet>798</a>			<span class="self">Self</span>::New =&gt; <span class="number">0</span>,
+<a href=#799 id=799 data-nosnippet>799</a>			<span class="self">Self</span>::Overwritten(len) =&gt; <span class="kw-2">*</span>len,
+<a href=#800 id=800 data-nosnippet>800</a>			<span class="self">Self</span>::Taken(value) =&gt; value.len() <span class="kw">as </span>u32,
+<a href=#801 id=801 data-nosnippet>801</a>		}
+<a href=#802 id=802 data-nosnippet>802</a>	}
+<a href=#803 id=803 data-nosnippet>803</a>
+<a href=#804 id=804 data-nosnippet>804</a>	<span class="doccomment">/// Extracts the size of the overwritten value or `SENTINEL` if there
+<a href=#805 id=805 data-nosnippet>805</a>	/// was no value in storage.
 <a href=#806 id=806 data-nosnippet>806</a>	///
-<a href=#807 id=807 data-nosnippet>807</a>	/// We cannot use `0` as sentinel value because there could be a zero sized
-<a href=#808 id=808 data-nosnippet>808</a>	/// storage entry which is different from a non existing one.
-<a href=#809 id=809 data-nosnippet>809</a>	</span><span class="kw">pub fn </span>old_len_with_sentinel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-<a href=#810 id=810 data-nosnippet>810</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#811 id=811 data-nosnippet>811</a>			<span class="self">Self</span>::New =&gt; SENTINEL,
-<a href=#812 id=812 data-nosnippet>812</a>			<span class="self">Self</span>::Overwritten(len) =&gt; <span class="kw-2">*</span>len,
-<a href=#813 id=813 data-nosnippet>813</a>			<span class="self">Self</span>::Taken(value) =&gt; value.len() <span class="kw">as </span>u32,
-<a href=#814 id=814 data-nosnippet>814</a>		}
-<a href=#815 id=815 data-nosnippet>815</a>	}
-<a href=#816 id=816 data-nosnippet>816</a>}
-<a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a><span class="doccomment">/// Manage the removal of contracts storage that are marked for deletion.
-<a href=#819 id=819 data-nosnippet>819</a>///
-<a href=#820 id=820 data-nosnippet>820</a>/// When a contract is deleted by calling `seal_terminate` it becomes inaccessible
-<a href=#821 id=821 data-nosnippet>821</a>/// immediately, but the deletion of the storage items it has accumulated is performed
-<a href=#822 id=822 data-nosnippet>822</a>/// later by pulling the contract from the queue in the `on_idle` hook.
-<a href=#823 id=823 data-nosnippet>823</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, DefaultNoBound, Clone)]
-<a href=#824 id=824 data-nosnippet>824</a>#[scale_info(skip_type_params(T))]
-<a href=#825 id=825 data-nosnippet>825</a></span><span class="kw">pub struct </span>DeletionQueueManager&lt;T: Config&gt; {
-<a href=#826 id=826 data-nosnippet>826</a>	<span class="doccomment">/// Counter used as a key for inserting a new deleted contract in the queue.
-<a href=#827 id=827 data-nosnippet>827</a>	/// The counter is incremented after each insertion.
-<a href=#828 id=828 data-nosnippet>828</a>	</span>insert_counter: u32,
-<a href=#829 id=829 data-nosnippet>829</a>	<span class="doccomment">/// The index used to read the next element to be deleted in the queue.
-<a href=#830 id=830 data-nosnippet>830</a>	/// The counter is incremented after each deletion.
-<a href=#831 id=831 data-nosnippet>831</a>	</span>delete_counter: u32,
-<a href=#832 id=832 data-nosnippet>832</a>
-<a href=#833 id=833 data-nosnippet>833</a>	_phantom: PhantomData&lt;T&gt;,
-<a href=#834 id=834 data-nosnippet>834</a>}
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a><span class="doccomment">/// A contract queued for lazy cleanup.
-<a href=#837 id=837 data-nosnippet>837</a>///
-<a href=#838 id=838 data-nosnippet>838</a>/// Holds the data needed to drain both the contract's [`NativeDepositOf`] rows and its child
-<a href=#839 id=839 data-nosnippet>839</a>/// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
-<a href=#840 id=840 data-nosnippet>840</a>/// stays in the queue until both phases have finished for it.
-<a href=#841 id=841 data-nosnippet>841</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
-<a href=#842 id=842 data-nosnippet>842</a>#[scale_info(skip_type_params(T))]
-<a href=#843 id=843 data-nosnippet>843</a></span><span class="kw">pub struct </span>DeletionQueueItem&lt;T: Config&gt; {
-<a href=#844 id=844 data-nosnippet>844</a>	<span class="doccomment">/// The contract's child trie.
-<a href=#845 id=845 data-nosnippet>845</a>	</span><span class="kw">pub </span>trie_id: TrieId,
-<a href=#846 id=846 data-nosnippet>846</a>	<span class="doccomment">/// The contract account whose [`NativeDepositOf`] entries must be cleared.
-<a href=#847 id=847 data-nosnippet>847</a>	</span><span class="kw">pub </span>account_id: AccountIdOf&lt;T&gt;,
-<a href=#848 id=848 data-nosnippet>848</a>}
-<a href=#849 id=849 data-nosnippet>849</a>
-<a href=#850 id=850 data-nosnippet>850</a><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueItem&lt;T&gt; {
-<a href=#851 id=851 data-nosnippet>851</a>	<span class="kw">pub fn </span>new(trie_id: TrieId, account_id: AccountIdOf&lt;T&gt;) -&gt; <span class="self">Self </span>{
-<a href=#852 id=852 data-nosnippet>852</a>		<span class="self">Self </span>{ trie_id, account_id }
-<a href=#853 id=853 data-nosnippet>853</a>	}
-<a href=#854 id=854 data-nosnippet>854</a>}
-<a href=#855 id=855 data-nosnippet>855</a>
-<a href=#856 id=856 data-nosnippet>856</a><span class="doccomment">/// View on a contract that is marked for deletion.
-<a href=#857 id=857 data-nosnippet>857</a></span><span class="kw">struct </span>DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T: Config&gt; {
-<a href=#858 id=858 data-nosnippet>858</a>	<span class="doccomment">/// The queued deletion record.
-<a href=#859 id=859 data-nosnippet>859</a>	</span>value: DeletionQueueItem&lt;T&gt;,
-<a href=#860 id=860 data-nosnippet>860</a>
-<a href=#861 id=861 data-nosnippet>861</a>	<span class="doccomment">/// A mutable reference on the queue so that the contract can be removed, and none can be added
-<a href=#862 id=862 data-nosnippet>862</a>	/// or read in the meantime.
-<a href=#863 id=863 data-nosnippet>863</a>	</span>queue: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DeletionQueueManager&lt;T&gt;,
-<a href=#864 id=864 data-nosnippet>864</a>}
-<a href=#865 id=865 data-nosnippet>865</a>
-<a href=#866 id=866 data-nosnippet>866</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Config&gt; DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T&gt; {
-<a href=#867 id=867 data-nosnippet>867</a>	<span class="doccomment">/// Remove the contract from the deletion queue.
-<a href=#868 id=868 data-nosnippet>868</a>	</span><span class="kw">fn </span>remove(<span class="self">self</span>) {
-<a href=#869 id=869 data-nosnippet>869</a>		&lt;DeletionQueue&lt;T&gt;&gt;::remove(<span class="self">self</span>.queue.delete_counter);
-<a href=#870 id=870 data-nosnippet>870</a>		<span class="self">self</span>.queue.delete_counter = <span class="self">self</span>.queue.delete_counter.wrapping_add(<span class="number">1</span>);
-<a href=#871 id=871 data-nosnippet>871</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::set(<span class="self">self</span>.queue.clone());
-<a href=#872 id=872 data-nosnippet>872</a>	}
+<a href=#807 id=807 data-nosnippet>807</a>	/// # Note
+<a href=#808 id=808 data-nosnippet>808</a>	///
+<a href=#809 id=809 data-nosnippet>809</a>	/// We cannot use `0` as sentinel value because there could be a zero sized
+<a href=#810 id=810 data-nosnippet>810</a>	/// storage entry which is different from a non existing one.
+<a href=#811 id=811 data-nosnippet>811</a>	</span><span class="kw">pub fn </span>old_len_with_sentinel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+<a href=#812 id=812 data-nosnippet>812</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#813 id=813 data-nosnippet>813</a>			<span class="self">Self</span>::New =&gt; SENTINEL,
+<a href=#814 id=814 data-nosnippet>814</a>			<span class="self">Self</span>::Overwritten(len) =&gt; <span class="kw-2">*</span>len,
+<a href=#815 id=815 data-nosnippet>815</a>			<span class="self">Self</span>::Taken(value) =&gt; value.len() <span class="kw">as </span>u32,
+<a href=#816 id=816 data-nosnippet>816</a>		}
+<a href=#817 id=817 data-nosnippet>817</a>	}
+<a href=#818 id=818 data-nosnippet>818</a>}
+<a href=#819 id=819 data-nosnippet>819</a>
+<a href=#820 id=820 data-nosnippet>820</a><span class="doccomment">/// Manage the removal of contracts storage that are marked for deletion.
+<a href=#821 id=821 data-nosnippet>821</a>///
+<a href=#822 id=822 data-nosnippet>822</a>/// When a contract is deleted by calling `seal_terminate` it becomes inaccessible
+<a href=#823 id=823 data-nosnippet>823</a>/// immediately, but the deletion of the storage items it has accumulated is performed
+<a href=#824 id=824 data-nosnippet>824</a>/// later by pulling the contract from the queue in the `on_idle` hook.
+<a href=#825 id=825 data-nosnippet>825</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, DefaultNoBound, Clone)]
+<a href=#826 id=826 data-nosnippet>826</a>#[scale_info(skip_type_params(T))]
+<a href=#827 id=827 data-nosnippet>827</a></span><span class="kw">pub struct </span>DeletionQueueManager&lt;T: Config&gt; {
+<a href=#828 id=828 data-nosnippet>828</a>	<span class="doccomment">/// Counter used as a key for inserting a new deleted contract in the queue.
+<a href=#829 id=829 data-nosnippet>829</a>	/// The counter is incremented after each insertion.
+<a href=#830 id=830 data-nosnippet>830</a>	</span>insert_counter: u32,
+<a href=#831 id=831 data-nosnippet>831</a>	<span class="doccomment">/// The index used to read the next element to be deleted in the queue.
+<a href=#832 id=832 data-nosnippet>832</a>	/// The counter is incremented after each deletion.
+<a href=#833 id=833 data-nosnippet>833</a>	</span>delete_counter: u32,
+<a href=#834 id=834 data-nosnippet>834</a>
+<a href=#835 id=835 data-nosnippet>835</a>	_phantom: PhantomData&lt;T&gt;,
+<a href=#836 id=836 data-nosnippet>836</a>}
+<a href=#837 id=837 data-nosnippet>837</a>
+<a href=#838 id=838 data-nosnippet>838</a><span class="doccomment">/// A contract queued for lazy cleanup.
+<a href=#839 id=839 data-nosnippet>839</a>///
+<a href=#840 id=840 data-nosnippet>840</a>/// Holds the data needed to drain both the contract's [`NativeDepositOf`] rows and its child
+<a href=#841 id=841 data-nosnippet>841</a>/// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
+<a href=#842 id=842 data-nosnippet>842</a>/// stays in the queue until both phases have finished for it.
+<a href=#843 id=843 data-nosnippet>843</a>///
+<a href=#844 id=844 data-nosnippet>844</a>/// The native rows are keyed by `account_id`, the fallback account of the address, which every
+<a href=#845 id=845 data-nosnippet>845</a>/// contract created at that address shares. [`ContractInfo::new`] refuses to create a contract
+<a href=#846 id=846 data-nosnippet>846</a>/// at an address that still has rows, so a new contract cannot inherit the per-payer
+<a href=#847 id=847 data-nosnippet>847</a>/// entitlements of a terminated one. Once a contract is live at the address again, every row
+<a href=#848 id=848 data-nosnippet>848</a>/// under `account_id` belongs to it. Therefore the first phase only runs while no contract is
+<a href=#849 id=849 data-nosnippet>849</a>/// live at the address; otherwise only the child trie is removed.
+<a href=#850 id=850 data-nosnippet>850</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
+<a href=#851 id=851 data-nosnippet>851</a>#[scale_info(skip_type_params(T))]
+<a href=#852 id=852 data-nosnippet>852</a></span><span class="kw">pub struct </span>DeletionQueueItem&lt;T: Config&gt; {
+<a href=#853 id=853 data-nosnippet>853</a>	<span class="doccomment">/// The contract's child trie.
+<a href=#854 id=854 data-nosnippet>854</a>	</span><span class="kw">pub </span>trie_id: TrieId,
+<a href=#855 id=855 data-nosnippet>855</a>	<span class="doccomment">/// The contract account whose [`NativeDepositOf`] entries must be cleared.
+<a href=#856 id=856 data-nosnippet>856</a>	</span><span class="kw">pub </span>account_id: AccountIdOf&lt;T&gt;,
+<a href=#857 id=857 data-nosnippet>857</a>}
+<a href=#858 id=858 data-nosnippet>858</a>
+<a href=#859 id=859 data-nosnippet>859</a><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueItem&lt;T&gt; {
+<a href=#860 id=860 data-nosnippet>860</a>	<span class="kw">pub fn </span>new(trie_id: TrieId, account_id: AccountIdOf&lt;T&gt;) -&gt; <span class="self">Self </span>{
+<a href=#861 id=861 data-nosnippet>861</a>		<span class="self">Self </span>{ trie_id, account_id }
+<a href=#862 id=862 data-nosnippet>862</a>	}
+<a href=#863 id=863 data-nosnippet>863</a>}
+<a href=#864 id=864 data-nosnippet>864</a>
+<a href=#865 id=865 data-nosnippet>865</a><span class="doccomment">/// View on a contract that is marked for deletion.
+<a href=#866 id=866 data-nosnippet>866</a></span><span class="kw">struct </span>DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T: Config&gt; {
+<a href=#867 id=867 data-nosnippet>867</a>	<span class="doccomment">/// The queued deletion record.
+<a href=#868 id=868 data-nosnippet>868</a>	</span>value: DeletionQueueItem&lt;T&gt;,
+<a href=#869 id=869 data-nosnippet>869</a>
+<a href=#870 id=870 data-nosnippet>870</a>	<span class="doccomment">/// A mutable reference on the queue so that the contract can be removed, and none can be added
+<a href=#871 id=871 data-nosnippet>871</a>	/// or read in the meantime.
+<a href=#872 id=872 data-nosnippet>872</a>	</span>queue: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DeletionQueueManager&lt;T&gt;,
 <a href=#873 id=873 data-nosnippet>873</a>}
 <a href=#874 id=874 data-nosnippet>874</a>
-<a href=#875 id=875 data-nosnippet>875</a><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueManager&lt;T&gt; {
-<a href=#876 id=876 data-nosnippet>876</a>	<span class="doccomment">/// Load the `DeletionQueueCounter`, so we can perform read or write operations on the
-<a href=#877 id=877 data-nosnippet>877</a>	/// DeletionQueue storage.
-<a href=#878 id=878 data-nosnippet>878</a>	</span><span class="kw">fn </span>load() -&gt; <span class="self">Self </span>{
-<a href=#879 id=879 data-nosnippet>879</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::get()
-<a href=#880 id=880 data-nosnippet>880</a>	}
-<a href=#881 id=881 data-nosnippet>881</a>
-<a href=#882 id=882 data-nosnippet>882</a>	<span class="doccomment">/// Returns `true` if the queue contains no elements.
-<a href=#883 id=883 data-nosnippet>883</a>	</span><span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#884 id=884 data-nosnippet>884</a>		<span class="self">self</span>.insert_counter.wrapping_sub(<span class="self">self</span>.delete_counter) == <span class="number">0
-<a href=#885 id=885 data-nosnippet>885</a>	</span>}
-<a href=#886 id=886 data-nosnippet>886</a>
-<a href=#887 id=887 data-nosnippet>887</a>	<span class="doccomment">/// Insert a contract in the deletion queue.
-<a href=#888 id=888 data-nosnippet>888</a>	</span><span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: DeletionQueueItem&lt;T&gt;) {
-<a href=#889 id=889 data-nosnippet>889</a>		&lt;DeletionQueue&lt;T&gt;&gt;::insert(<span class="self">self</span>.insert_counter, value);
-<a href=#890 id=890 data-nosnippet>890</a>		<span class="self">self</span>.insert_counter = <span class="self">self</span>.insert_counter.wrapping_add(<span class="number">1</span>);
-<a href=#891 id=891 data-nosnippet>891</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::set(<span class="self">self</span>.clone());
-<a href=#892 id=892 data-nosnippet>892</a>	}
-<a href=#893 id=893 data-nosnippet>893</a>
-<a href=#894 id=894 data-nosnippet>894</a>	<span class="doccomment">/// Fetch the next contract to be deleted.
-<a href=#895 id=895 data-nosnippet>895</a>	///
-<a href=#896 id=896 data-nosnippet>896</a>	/// Note:
-<a href=#897 id=897 data-nosnippet>897</a>	/// we use the delete counter to get the next value to read from the queue and thus don't pay
-<a href=#898 id=898 data-nosnippet>898</a>	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-<a href=#899 id=899 data-nosnippet>899</a>	</span><span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeletionQueueEntry&lt;<span class="lifetime">'_</span>, T&gt;&gt; {
-<a href=#900 id=900 data-nosnippet>900</a>		<span class="kw">if </span><span class="self">self</span>.is_empty() {
-<a href=#901 id=901 data-nosnippet>901</a>			<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#902 id=902 data-nosnippet>902</a>		}
-<a href=#903 id=903 data-nosnippet>903</a>
-<a href=#904 id=904 data-nosnippet>904</a>		<span class="kw">let </span>entry = &lt;DeletionQueue&lt;T&gt;&gt;::get(<span class="self">self</span>.delete_counter);
-<a href=#905 id=905 data-nosnippet>905</a>		entry.map(|value| DeletionQueueEntry { value, queue: <span class="self">self </span>})
-<a href=#906 id=906 data-nosnippet>906</a>	}
-<a href=#907 id=907 data-nosnippet>907</a>}
-<a href=#908 id=908 data-nosnippet>908</a>
-<a href=#909 id=909 data-nosnippet>909</a><span class="attr">#[cfg(test)]
-<a href=#910 id=910 data-nosnippet>910</a></span><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueManager&lt;T&gt; {
-<a href=#911 id=911 data-nosnippet>911</a>	<span class="kw">pub fn </span>from_test_values(insert_counter: u32, delete_counter: u32) -&gt; <span class="self">Self </span>{
-<a href=#912 id=912 data-nosnippet>912</a>		<span class="self">Self </span>{ insert_counter, delete_counter, _phantom: Default::default() }
-<a href=#913 id=913 data-nosnippet>913</a>	}
-<a href=#914 id=914 data-nosnippet>914</a>	<span class="kw">pub fn </span>as_test_tuple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32) {
-<a href=#915 id=915 data-nosnippet>915</a>		(<span class="self">self</span>.insert_counter, <span class="self">self</span>.delete_counter)
-<a href=#916 id=916 data-nosnippet>916</a>	}
-<a href=#917 id=917 data-nosnippet>917</a>}
+<a href=#875 id=875 data-nosnippet>875</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Config&gt; DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T&gt; {
+<a href=#876 id=876 data-nosnippet>876</a>	<span class="doccomment">/// Remove the contract from the deletion queue.
+<a href=#877 id=877 data-nosnippet>877</a>	</span><span class="kw">fn </span>remove(<span class="self">self</span>) {
+<a href=#878 id=878 data-nosnippet>878</a>		&lt;DeletionQueue&lt;T&gt;&gt;::remove(<span class="self">self</span>.queue.delete_counter);
+<a href=#879 id=879 data-nosnippet>879</a>		<span class="self">self</span>.queue.delete_counter = <span class="self">self</span>.queue.delete_counter.wrapping_add(<span class="number">1</span>);
+<a href=#880 id=880 data-nosnippet>880</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::set(<span class="self">self</span>.queue.clone());
+<a href=#881 id=881 data-nosnippet>881</a>	}
+<a href=#882 id=882 data-nosnippet>882</a>}
+<a href=#883 id=883 data-nosnippet>883</a>
+<a href=#884 id=884 data-nosnippet>884</a><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueManager&lt;T&gt; {
+<a href=#885 id=885 data-nosnippet>885</a>	<span class="doccomment">/// Load the `DeletionQueueCounter`, so we can perform read or write operations on the
+<a href=#886 id=886 data-nosnippet>886</a>	/// DeletionQueue storage.
+<a href=#887 id=887 data-nosnippet>887</a>	</span><span class="kw">fn </span>load() -&gt; <span class="self">Self </span>{
+<a href=#888 id=888 data-nosnippet>888</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::get()
+<a href=#889 id=889 data-nosnippet>889</a>	}
+<a href=#890 id=890 data-nosnippet>890</a>
+<a href=#891 id=891 data-nosnippet>891</a>	<span class="doccomment">/// Returns `true` if the queue contains no elements.
+<a href=#892 id=892 data-nosnippet>892</a>	</span><span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#893 id=893 data-nosnippet>893</a>		<span class="self">self</span>.insert_counter.wrapping_sub(<span class="self">self</span>.delete_counter) == <span class="number">0
+<a href=#894 id=894 data-nosnippet>894</a>	</span>}
+<a href=#895 id=895 data-nosnippet>895</a>
+<a href=#896 id=896 data-nosnippet>896</a>	<span class="doccomment">/// Insert a contract in the deletion queue.
+<a href=#897 id=897 data-nosnippet>897</a>	</span><span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: DeletionQueueItem&lt;T&gt;) {
+<a href=#898 id=898 data-nosnippet>898</a>		&lt;DeletionQueue&lt;T&gt;&gt;::insert(<span class="self">self</span>.insert_counter, value);
+<a href=#899 id=899 data-nosnippet>899</a>		<span class="self">self</span>.insert_counter = <span class="self">self</span>.insert_counter.wrapping_add(<span class="number">1</span>);
+<a href=#900 id=900 data-nosnippet>900</a>		&lt;DeletionQueueCounter&lt;T&gt;&gt;::set(<span class="self">self</span>.clone());
+<a href=#901 id=901 data-nosnippet>901</a>	}
+<a href=#902 id=902 data-nosnippet>902</a>
+<a href=#903 id=903 data-nosnippet>903</a>	<span class="doccomment">/// Fetch the next contract to be deleted.
+<a href=#904 id=904 data-nosnippet>904</a>	///
+<a href=#905 id=905 data-nosnippet>905</a>	/// Note:
+<a href=#906 id=906 data-nosnippet>906</a>	/// we use the delete counter to get the next value to read from the queue and thus don't pay
+<a href=#907 id=907 data-nosnippet>907</a>	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
+<a href=#908 id=908 data-nosnippet>908</a>	</span><span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeletionQueueEntry&lt;<span class="lifetime">'_</span>, T&gt;&gt; {
+<a href=#909 id=909 data-nosnippet>909</a>		<span class="kw">if </span><span class="self">self</span>.is_empty() {
+<a href=#910 id=910 data-nosnippet>910</a>			<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#911 id=911 data-nosnippet>911</a>		}
+<a href=#912 id=912 data-nosnippet>912</a>
+<a href=#913 id=913 data-nosnippet>913</a>		<span class="kw">let </span>entry = &lt;DeletionQueue&lt;T&gt;&gt;::get(<span class="self">self</span>.delete_counter);
+<a href=#914 id=914 data-nosnippet>914</a>		entry.map(|value| DeletionQueueEntry { value, queue: <span class="self">self </span>})
+<a href=#915 id=915 data-nosnippet>915</a>	}
+<a href=#916 id=916 data-nosnippet>916</a>}
+<a href=#917 id=917 data-nosnippet>917</a>
+<a href=#918 id=918 data-nosnippet>918</a><span class="attr">#[cfg(test)]
+<a href=#919 id=919 data-nosnippet>919</a></span><span class="kw">impl</span>&lt;T: Config&gt; DeletionQueueManager&lt;T&gt; {
+<a href=#920 id=920 data-nosnippet>920</a>	<span class="kw">pub fn </span>from_test_values(insert_counter: u32, delete_counter: u32) -&gt; <span class="self">Self </span>{
+<a href=#921 id=921 data-nosnippet>921</a>		<span class="self">Self </span>{ insert_counter, delete_counter, _phantom: Default::default() }
+<a href=#922 id=922 data-nosnippet>922</a>	}
+<a href=#923 id=923 data-nosnippet>923</a>	<span class="kw">pub fn </span>as_test_tuple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32) {
+<a href=#924 id=924 data-nosnippet>924</a>		(<span class="self">self</span>.insert_counter, <span class="self">self</span>.delete_counter)
+<a href=#925 id=925 data-nosnippet>925</a>	}
+<a href=#926 id=926 data-nosnippet>926</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

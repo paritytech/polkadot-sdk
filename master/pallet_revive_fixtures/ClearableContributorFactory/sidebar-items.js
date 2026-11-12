@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClearableContributorFactoryCalls"],"struct":["createCall","createGrowAndTerminateCall","createGrowAndTerminateReturn","createReturn"]};

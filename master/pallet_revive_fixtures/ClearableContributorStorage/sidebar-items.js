@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClearableContributorStorageCalls"],"struct":["clearStorageCall","clearStorageReturn","growStorageCall","growStorageReturn","slotLengthCall","slotLengthReturn","terminateCall","terminateReturn"]};
