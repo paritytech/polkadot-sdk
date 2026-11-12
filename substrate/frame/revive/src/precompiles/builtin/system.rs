@@ -16,15 +16,18 @@
 // limitations under the License.
 
 use crate::{
-	Config, H160,
+	BalanceOf, Config, H160, U256,
 	address::AddressMapper,
+	evm::burn_from_issuance_with_dust,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
+	primitives::BalanceWithDust,
 	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
+use frame_support::traits::Get;
 use pallet_revive_uapi::precompiles::system::ISystem;
 use sp_core::hexdisplay::AsBytesRef;
 
@@ -44,7 +47,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() => {
+			ISystemCalls::terminate(_) | ISystemCalls::burn(_) if env.is_read_only() => {
 				Err(crate::Error::<T>::StateChangeDenied.into())
 			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -121,6 +124,33 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let address =
 					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
 				Ok(address.abi_encode())
+			},
+			ISystemCalls::burn(ISystem::burnCall { amount }) => {
+				let amount = U256::from_big_endian(&amount.to_be_bytes::<32>());
+				// Charged before the amount is validated. Whether dust is involved only depends
+				// on the remainder, which is known before the amount is known to fit.
+				let (_, remainder) = amount.div_mod(T::NativeToEthRatio::get().into());
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Burn { dust: !remainder.is_zero() })?;
+				let amount = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(amount)
+					.map_err(|_| Error::Revert("burn: amount out of range".into()))?;
+
+				// A delegate call runs as the delegating contract, whose caller would be burned
+				// from without having called this function.
+				if env.is_delegate_call() {
+					return Err(Error::try_to_revert::<T>(
+						crate::Error::<T>::PrecompileDelegateDenied.into(),
+					));
+				}
+				// The value was already moved to the account of this pre-compile, where it would
+				// stay. Reverting hands it back to the caller.
+				if !env.value_transferred().is_zero() {
+					return Err(Error::Revert("burn: value must not be sent along".into()));
+				}
+				let caller = env.caller();
+				burn_from_issuance_with_dust::<T>(caller.account_id()?, amount)
+					.map_err(|_| Error::Revert("burn: insufficient balance".into()))?;
+				Ok(Vec::new())
 			},
 		}
 	}
@@ -215,6 +245,54 @@ mod tests {
 				<Test as frame_system::Config>::AccountId::decode(&mut data.as_ref()),
 				Ok(EVE),
 			);
+		})
+	}
+
+	#[test]
+	fn burn_charges_weight() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			for dust in [0u32, 10] {
+				let amount =
+					crate::Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<
+						Test,
+					>(5, dust));
+				let input = ISystem::ISystemCalls::burn(ISystem::burnCall {
+					amount: alloy_core::primitives::U256::from_be_bytes(amount.to_big_endian()),
+				});
+				let weight_before = ext.frame_meter().weight_consumed();
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.expect("burning within the balance succeeds");
+				assert_eq!(
+					ext.frame_meter().weight_consumed() - weight_before,
+					Token::<Test>::weight(&RuntimeCosts::Burn { dust: dust != 0 }),
+				);
+			}
+
+			// A burn that fails is charged the same as one that succeeds.
+			for (amount, dust) in [
+				(
+					crate::Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<
+						Test,
+					>(u128::MAX, 0)),
+					false,
+				),
+				(U256::MAX, true),
+			] {
+				let input = ISystem::ISystemCalls::burn(ISystem::burnCall {
+					amount: alloy_core::primitives::U256::from_be_bytes(amount.to_big_endian()),
+				});
+				let weight_before = ext.frame_meter().weight_consumed();
+				let result =
+					<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext);
+				assert!(matches!(result, Err(Error::Revert(_))));
+				assert_eq!(
+					ext.frame_meter().weight_consumed() - weight_before,
+					Token::<Test>::weight(&RuntimeCosts::Burn { dust }),
+				);
+			}
 		})
 	}
 

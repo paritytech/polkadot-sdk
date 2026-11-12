@@ -1661,6 +1661,46 @@ mod benchmarks {
 		assert_eq!(returned_min, min);
 	}
 
+	// d: with or without dust value to burn
+	#[benchmark(pov_mode = Measured)]
+	fn burn(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		// The contract holds no dust, so burning dust has to convert it from the balance first.
+		let amount = BalanceWithDust::new_unchecked::<T>(1_000_000u32.into(), 100u32 * d);
+		let evm_amount = Pallet::<T>::convert_native_to_evm(amount);
+		let input_bytes = ISystem::ISystemCalls::burn(ISystem::burnCall {
+			amount: crate::precompiles::alloy::primitives::U256::from_be_bytes(
+				evm_amount.to_big_endian(),
+			),
+		})
+		.abi_encode();
+
+		// The burner is a contract other than the one at index 0, whose keys are the only
+		// whitelisted ones. The weight then covers loading the account info of the burner, which
+		// a caller outside of a contract frame has not paid for. The assertion guards the system
+		// account of the burner, which is whitelisted together with its account info.
+		let burner = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		burner.set_balance(caller_funding::<T>());
+		assert_account_not_whitelisted::<T>(&burner.account_id);
+		let mut call_setup = CallSetup::<T>::default();
+		call_setup.set_origin(ExecOrigin::from_account_id(burner.account_id.clone()));
+		let (mut ext, _) = call_setup.ext();
+		let balance_before = Pallet::<T>::evm_balance(&burner.address);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(Pallet::<T>::evm_balance(&burner.address), balance_before - evm_amount);
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_return_data_size() {
 		let mut setup = CallSetup::<T>::default();

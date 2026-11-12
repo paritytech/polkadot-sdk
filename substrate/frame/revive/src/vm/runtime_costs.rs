@@ -100,6 +100,9 @@ pub enum RuntimeCosts {
 	ValueTransferred,
 	/// Weight of calling `minimumBalance` on the `System` pre-compile.
 	MinimumBalance,
+	/// Weight of calling `burn` on the `System` pre-compile.
+	/// parameter `dust` indicates whether the amount has a `dust` value.
+	Burn { dust: bool },
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
@@ -358,6 +361,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::minimum_balance(),
+			Burn { dust } => T::WeightInfo::burn(dust.into()),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			BlockAuthor => T::WeightInfo::seal_block_author(),

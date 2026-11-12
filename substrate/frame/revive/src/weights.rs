@@ -114,6 +114,7 @@ pub trait WeightInfo {
 	fn seal_set_immutable_data(n: u32, ) -> Weight;
 	fn seal_value_transferred() -> Weight;
 	fn minimum_balance() -> Weight;
+	fn burn(d: u32, ) -> Weight;
 	fn seal_return_data_size() -> Weight;
 	fn seal_call_data_size() -> Weight;
 	fn seal_gas_limit() -> Weight;
@@ -935,6 +936,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 1_472_000 picoseconds.
 		Weight::from_parts(1_739_000, 0)
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn burn(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1396`
+		//  Estimated: `7336`
+		// Minimum execution time: 88_911_000 picoseconds.
+		Weight::from_parts(93_403_172, 7336)
+			.saturating_add(Weight::from_parts(37_495_060, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	fn seal_return_data_size() -> Weight {
 		// Proof Size summary in bytes:
@@ -3421,6 +3437,21 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 1_472_000 picoseconds.
 		Weight::from_parts(1_739_000, 0)
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn burn(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1396`
+		//  Estimated: `7336`
+		// Minimum execution time: 88_911_000 picoseconds.
+		Weight::from_parts(93_403_172, 7336)
+			.saturating_add(Weight::from_parts(37_495_060, 0).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	fn seal_return_data_size() -> Weight {
 		// Proof Size summary in bytes:
