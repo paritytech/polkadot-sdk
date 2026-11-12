@@ -107,6 +107,414 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+<<<<<<< HEAD
+=======
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
+/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
+///
+/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
+/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
+fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
+	let account_id = T::AddressMapper::to_fallback_account_id(&address);
+	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
+		.map_err(|_| "set_delegation failed")?;
+	Ok(account_id)
+}
+
+/// Queues `contract` for deletion as a terminated contract that left dust on its account.
+///
+/// With no contract live at the address, the deletion queue reads the `AccountInfoOf` entry and
+/// runs a `clear_prefix` on `NativeDepositOf`, even when there are no rows. In ref time this
+/// branch is the worst case per entry. With a live contract the entry is 125 bytes larger (the
+/// encoded `ContractInfo` with a 32-byte trie id and `u128` balances, against `EOA` and its
+/// dust), but the `clear_prefix` is skipped. `deletion_queue_per_entry` charges the
+/// `AccountInfoOf` read at its max encoded length, so its proof size covers either branch. The
+/// branch is also taken when the address has no entry at all; `dust: 1` keeps a stored entry so
+/// that the measured read decodes a value.
+fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
+	let info = contract.info()?;
+	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
+	ContractInfo::<T>::queue_for_deletion(info.trie_id, contract.account_id.clone());
+	Ok(())
+}
+
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
+}
+
+/// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
+///
+/// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
+fn evict_caches() {
+	const EVICTION_SIZE: usize = 8 * 1024 * 1024;
+	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
+}
+
+/// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
+fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
+	for value in values {
+		interpreter.stack.push(value).continue_value().unwrap();
+	}
+}
+
+/// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
+/// pushed onto the stack.
+fn signed_comparison_operands(r: u32) -> Vec<U256> {
+	// Every limb is one, so adding one to a limb makes the operands first differ at that limb.
+	const POSITIVE: U256 = U256([1, 1, 1, 1]);
+	const NEGATIVE: U256 = U256([1, 1, 1, (1 << 63) + 1]);
+
+	fn same_sign_operands(rng: &mut Pcg64, base: U256) -> [U256; 2] {
+		match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(limb) => [base, base + (U256::one() << (64 * limb))],
+			None => [base, base],
+		}
+	}
+
+	let mut rng = Pcg64::seed_from_u64(1337);
+	(0..r)
+		.flat_map(|_| {
+			let mut operands = if rng.gen_bool(0.5) {
+				same_sign_operands(&mut rng, NEGATIVE)
+			} else if rng.gen_bool(0.5) {
+				[U256::zero(), POSITIVE]
+			} else {
+				same_sign_operands(&mut rng, POSITIVE)
+			};
+			operands.shuffle(&mut rng);
+			operands
+		})
+		.collect()
+}
+
+enum Outcome {
+	DifferInLimb3,
+	DifferInLimb2,
+	DifferInLimb1,
+	DifferInLimb0,
+	Equal,
+}
+
+impl Outcome {
+	const ALL: [Self; 5] = [
+		Self::DifferInLimb3,
+		Self::DifferInLimb2,
+		Self::DifferInLimb1,
+		Self::DifferInLimb0,
+		Self::Equal,
+	];
+}
+
+/// The code of the `evm_dispatch_mix` benchmark: a pseudo-random, stack-neutral mix of cheap
+/// op-codes, built in blocks that each contain the op-codes of [`EvmOpcodeCosts::DISPATCH_MIX`]
+/// the number of times it lists.
+struct EvmMixedOpcodes;
+
+impl EvmMixedOpcodes {
+	/// The number of op-codes in a block.
+	const CODE_BLOCK_SIZE: usize = {
+		let mut size = 0;
+		let mut index = 0;
+		while index < EvmOpcodeCosts::DISPATCH_MIX.len() {
+			size += EvmOpcodeCosts::DISPATCH_MIX[index].repetitions as usize;
+			index += 1;
+		}
+		size
+	};
+
+	/// The height of the stack at the start and the end of every block.
+	const STACK_INITIAL_HEIGHT: usize = 16;
+
+	/// The highest the stack gets, within its initial capacity so pushing never reallocates it.
+	const STACK_MAX_HEIGHT: usize = 32;
+
+	/// Returns `r` blocks of op-codes, each in its own pseudo-random order.
+	fn generate_code(rng: &mut impl Rng, r: u32) -> Vec<u8> {
+		let mut code = Vec::with_capacity(r as usize * Self::CODE_BLOCK_SIZE);
+		for _ in 0..r {
+			Self::generate_block(rng, &mut code);
+		}
+		code
+	}
+
+	/// Appends one block to `code` in a pseudo-random order that keeps the stack between empty and
+	/// `STACK_MAX_HEIGHT`.
+	fn generate_block(rng: &mut impl Rng, code: &mut Vec<u8>) {
+		use alloc::collections::VecDeque;
+
+		let mut remaining = EvmOpcodeCosts::DISPATCH_MIX
+			.into_iter()
+			.flat_map(|mix_opcode| {
+				let info = OpCode::info_by_op(mix_opcode.opcode)
+					.expect("every op-code of the dispatch mix is defined; qed");
+				let (pops, pushes) = (usize::from(info.inputs()), usize::from(info.outputs()));
+				vec![(mix_opcode.opcode, pops, pushes); mix_opcode.repetitions as usize]
+			})
+			.collect::<VecDeque<_>>();
+		remaining.make_contiguous().shuffle(rng);
+		let mut height = Self::STACK_INITIAL_HEIGHT;
+		while let Some(instruction @ (op_code, pops, pushes)) = remaining.pop_front() {
+			if pops <= height && height - pops + pushes <= Self::STACK_MAX_HEIGHT {
+				code.push(op_code);
+				height = height - pops + pushes;
+			} else {
+				remaining.push_back(instruction);
+			}
+		}
+	}
+}
+
+/// Pairs a pseudo-randomly chosen denominator with the shared `2^255` numerator.
+fn unsigned_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let denominator = denominators.choose(rng).copied().unwrap();
+	[denominator, knuth_division_operands::NUMERATOR]
+}
+
+/// Like [`unsigned_division_operands`], but negates the divisor pseudo-randomly.
+fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let [magnitude, numerator] = unsigned_division_operands(rng, denominators);
+	let divisor =
+		if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+	[divisor, numerator]
+}
+
+/// Operands covering all 17 correction patterns possible when dividing `2^255` by two-limb
+/// divisors.
+///
+/// Knuth's Algorithm D can correct the highest quotient limb zero or one time and each lower limb
+/// up to twice. The pattern `1, 0, 2` is impossible for this numerator. The counts were checked
+/// against `uint` 0.10's division. None of these operands needs the rarer correction that adds
+/// the divisor back after subtracting.
+///
+/// Picking a denominator pseudo-randomly varies the correction branches across divisions. Each
+/// denominator also makes the `u128` divisions behind the estimates take as many steps as any we
+/// found with its pattern. Correcting a limb twice needs a second denominator limb above one, which
+/// shortens the division behind the first estimate.
+///
+/// The fixed divisors are the denominators that measured slowest for each op-code. The slowest one
+/// depends on the op-code: `SDIV` and `SMOD` measured slowest with different patterns than `DIV`
+/// and `MOD`. After updating `uint` or the Rust toolchain, search for the denominators again and
+/// measure which one is slowest for each op-code.
+mod knuth_division_operands {
+	use super::{Rng, U256};
+
+	pub fn fixed_signed_operands(rng: &mut impl Rng, magnitude: U256) -> [U256; 2] {
+		// Consume the divisor draw to match the baseline's pseudo-random sign sequence.
+		let _ = rng.gen_range(0..DENOMINATORS.len() as u32);
+		let divisor =
+			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+		[divisor, NUMERATOR]
+	}
+
+	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
+	/// divide the same magnitudes.
+	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	/// The denominator that measured slowest for `DIV`.
+	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SDIV`.
+	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `MOD`.
+	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SMOD`.
+	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	/// `ADDMOD` reuses the divisor of `MOD`.
+	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 34] = [
+		// Corrections: 0, 0, 0.
+		U256([0x1ac6_6dea_3270_0980, 0x1, 0, 0]),
+		U256([0x1150_77a4_12e2_ccc0, 0x1, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0x3c9b_ee44_0b3f_dba7, 0x1, 0, 0]),
+		U256([0x62aa_fc46_0845_aad9, 0x1, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0x2806_4b94_70ef_f3d9, 0x1, 0, 0]),
+		U256([0x61d1_c4c6_195a_2d43, 0x1, 0, 0]),
+		// Corrections: 0, 1, 1.
+		SDIV_FIXED_DIVISOR,
+		U256([0x3ef8_7550_1dce_eb99, 0x1, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xce1e_8ac2_290c_265f, 0x1, 0, 0]),
+		U256([0xd736_05ee_66e1_a76b, 0x1, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xeb2b_fb00_8fa9_e0f7, 0x1, 0, 0]),
+		SMOD_FIXED_DIVISOR,
+		// Corrections: 1, 1, 0.
+		U256([0x500c_237e_4578_d88b, 0x1, 0, 0]),
+		U256([0x0164_a34e_0b1c_a4fd, 0x1, 0, 0]),
+		// Corrections: 1, 1, 1.
+		MOD_FIXED_DIVISOR,
+		DIV_FIXED_DIVISOR,
+		// Corrections: 0, 0, 2.
+		U256([0x3db2_354e_f8e8_6ca5, 0x96aa_3b25, 0, 0]),
+		U256([0x2848_08be_ea22_56a3, 0x9339_ddd9, 0, 0]),
+		// Corrections: 0, 1, 2.
+		U256([0x2534_a796_ffdf_b85e, 0xc250_8262, 0, 0]),
+		U256([0x4726_e939_da3c_08fe, 0xc198_a4ce, 0, 0]),
+		// Corrections: 0, 2, 0.
+		U256([0x5d5b_2f53_f03d_bec8, 0x909d_ad3b, 0, 0]),
+		U256([0x8e31_4add_736d_ee08, 0x40ce_7f0c, 0, 0]),
+		// Corrections: 0, 2, 1.
+		U256([0x0c62_030f_fabf_0fc7, 0xb51d_e6cb, 0, 0]),
+		U256([0x0332_58df_e522_494c, 0xb4db_915d, 0, 0]),
+		// Corrections: 0, 2, 2.
+		U256([0x0b07_4c7e_fb00_0c1f, 0xa5b9_8f9a, 0, 0]),
+		U256([0x26a5_a3c7_fce7_abd6, 0xa4a5_d36a, 0, 0]),
+		// Corrections: 1, 1, 2.
+		U256([0x6654_d104_1c8e_6943, 0x2, 0, 0]),
+		U256([0x64b6_7f9c_0cf1_dbff, 0x2, 0, 0]),
+		// Corrections: 1, 2, 0.
+		U256([0xeff9_3d22_eeac_89cf, 0x87, 0, 0]),
+		U256([0xadb2_0f65_e0ba_c8df, 0x12, 0, 0]),
+		// Corrections: 1, 2, 1.
+		U256([0xf486_a407_463b_dfde, 0x253, 0, 0]),
+		U256([0xaea8_360c_3043_f5f9, 0x1b4, 0, 0]),
+		// Corrections: 1, 2, 2.
+		U256([0xecbe_4a28_bb14_dbf0, 0x43, 0, 0]),
+		U256([0x64e2_acbc_9934_b1f2, 0x43, 0, 0]),
+	];
+}
+
+/// Operands covering all eight correction patterns in the one-limb division path.
+///
+/// `div_mod_small` divides one numerator limb at a time. The highest limb cannot require a
+/// correction. Each remaining limb can cause one correction in the 128-bit division helper. The
+/// patterns below are ordered by numerator limbs 2, 1, 0. The counts were checked with a
+/// source-level trace of Rust 1.93 `compiler_builtins` using the shared `2^255` numerator.
+///
+/// Each pattern has two distinct full-width divisors. Selecting a divisor pseudo-randomly varies
+/// the correction branches while preserving the signed minimum-numerator case.
+mod one_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 16] = [
+		// Corrections: 0, 0, 0.
+		U256([0xfff9_9928_4b39_14e9, 0, 0, 0]),
+		U256([0xfff7_2ef6_07d7_0402, 0, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0xfffc_adff_2ef2_7bf4, 0, 0, 0]),
+		U256([0xffc7_1287_6d60_c1f0, 0, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0xfff8_74b0_648f_da8a, 0, 0, 0]),
+		U256([0xfff7_1d06_39ab_3877, 0, 0, 0]),
+		// Corrections: 0, 1, 1.
+		U256([0xf974_5f46_74c9_5adf, 0, 0, 0]),
+		U256([0xf7e1_3204_7bd0_15af, 0, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xfff7_ac60_75f1_501f, 0, 0, 0]),
+		U256([0xffe8_555d_5f54_a346, 0, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xfe7a_ca58_4afc_ed70, 0, 0, 0]),
+		U256([0xfd2b_4905_64bd_9797, 0, 0, 0]),
+		// Corrections: 1, 1, 0.
+		U256([0xfcd0_0e3d_ccbd_7da4, 0, 0, 0]),
+		U256([0xee06_4d5d_bfab_b524, 0, 0, 0]),
+		// Corrections: 1, 1, 1.
+		U256([0xf42a_21ef_e080_fc89, 0, 0, 0]),
+		U256([0xf095_aea7_fc96_fbde, 0, 0, 0]),
+	];
+}
+
+/// Operands covering the seven patterns we found when dividing `2^255` by three-limb divisors.
+///
+/// Knuth's Algorithm D estimates two quotient limbs for these divisors. We found the higher limb
+/// corrected zero or one time and the lower limb up to twice. Unlike with two-limb divisors, an
+/// estimate can still be one too large after its corrections, and the division then adds the
+/// divisor back after subtracting. We only found that on the higher limb without corrections. The
+/// counts were checked with a source-level trace of `uint` 0.10 and Rust 1.93
+/// `compiler_builtins`.
+///
+/// Each pattern has two distinct divisors. Each denominator also makes the `u128` divisions behind
+/// the estimates take as many steps as any we found with its pattern. We only found the lower limb
+/// corrected twice without the higher one with a highest denominator limb above one, which shortens
+/// the division behind the first estimate.
+mod three_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 1, 0.
+	pub const DENOMINATORS: [U256; 14] = [
+		// Corrections: 0, 0.
+		U256([0x5953_c831_477d_af4d, 0xb3aa_ba8e_016a_4a5b, 0x1, 0]),
+		U256([0xc435_0788_b8fa_4738, 0xfce4_f4ce_07f9_5693, 0x1, 0]),
+		// Corrections: 0, 1.
+		U256([0x5bea_4bdb_1b8f_828a, 0x5bee_2b88_29a3_5779, 0x1, 0]),
+		U256([0x113a_2875_4d21_7cac, 0x5915_1f88_0b93_b2e5, 0x1, 0]),
+		// Corrections: 0, 2.
+		U256([0x58d3_080e_a261_0b2c, 0x06c1_6099_c37a_fb70, 0x25d, 0]),
+		U256([0x5648_021c_ce54_ef66, 0xf709_e780_1fa7_e46e, 0x0103_59f5, 0]),
+		// Corrections: 1, 0.
+		U256([0x64c3_be1d_246d_7821, 0x00f5_75ee_0862_2f50, 0x1, 0]),
+		U256([0x5239_dfd9_4c93_12cc, 0x4de1_94ac_3a49_1826, 0x1, 0]),
+		// Corrections: 1, 1.
+		U256([0xc9e1_b256_93a4_a2cc, 0xedb3_e9e8_d16e_a87f, 0x1, 0]),
+		U256([0x5ebe_d4f9_e6f8_b9e8, 0xe261_7082_463f_8395, 0x1, 0]),
+		// Corrections: 1, 2.
+		U256([0xd0ad_3019_7337_1a13, 0x0a1b_d7f0_0fa5_0c21, 0x1, 0]),
+		U256([0xd4c3_a565_664e_aa66, 0x0ca2_823c_292b_9317, 0x1, 0]),
+		// Corrections: 0, 0, with the divisor added back to the higher limb.
+		U256([0x0e78_2bf3_fa0e_13ab, 0x386d_d8b2_091a_6756, 0x1, 0]),
+		U256([0x0c44_ac2c_7ddc_8ca9, 0x0280_e278_312b_2362, 0x1, 0]),
+	];
+}
+
+/// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
+mod mixed_division_operands {
+	use super::{
+		Rng, U256, knuth_division_operands, one_limb_division_operands, signed_division_operands,
+		unsigned_division_operands,
+	};
+
+	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		unsigned_division_operands(rng, denominators)
+	}
+
+	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		signed_division_operands(rng, denominators)
+	}
+
+	fn denominators(rng: &mut impl Rng) -> &'static [U256] {
+		if rng.gen_bool(0.5) {
+			&knuth_division_operands::DENOMINATORS
+		} else {
+			&one_limb_division_operands::DENOMINATORS
+		}
+	}
+}
+
+/// # Subtraction Safety
+///
+/// Some EVM op-codes are charged as the weight of their benchmark minus the weight of another one:
+/// `JUMP` and `JUMPI` subtract `evm_jumpdest_opcode`, and the op-codes benchmarked in pairs with a
+/// `POP` subtract `evm_pop_opcode`. A benchmark is subtraction safe when subtracting it can never
+/// undercharge the op-code that remains.
+///
+/// A benchmark is subtraction safe when it underestimates its op-code: the op-code has no operands
+/// or branches that could make it more expensive, and the benchmark runs it in the cheapest
+/// setting, straight line code whose dispatch is always predicted. Subtracting an underestimate can
+/// only overcharge the op-code that remains.
+///
+/// A benchmark is not subtraction safe when it measures the worst case we have found for its
+/// op-code. The op-code can cost less inside another benchmark than in its own worst case, so
+/// subtracting that worst case can undercharge the op-code that remains.
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 #[benchmarks(
 	where
 		T: Config,
@@ -126,15 +534,199 @@ mod benchmarks {
 		}
 	}
 
+<<<<<<< HEAD
 	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
 	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]
+=======
+	// Benchmark for processing N EIP-7702 authorizations with empty accounts
+	// This measures the overhead of processing the authorization list
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_new_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		// Worst case: every authorization targets a *distinct* contract with *distinct* code
+		// so neither `AccountInfoOf<target>` nor `CodeInfoOf<code_hash>` reads can be cached
+		// across the loop. `dummy_unique(i)` produces a unique blob per index; the contract is
+		// deployed at a unique salt-index so addresses also differ.
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, n as u32, "All authorizations should be new");
+		Ok(())
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with existing accounts.
+	//
+	// Worst case: each authority is *already* delegated to a unique target whose code is
+	// referenced only by that delegation, with the deposit paid by an account other than the
+	// bench's `caller`. Re-delegating to a fresh target then exercises the most expensive paths
+	// per auth:
+	//   - payer-change: full refund to `setup_payer` + full charge from `caller`
+	//   - old-code refcount → 0: `decrement_refcount` removes `CodeInfoOf` + `PristineCode`
+	//   - new-code refcount 0 → 1: `increment_refcount`
+	//
+	// To produce `refcount(old_code) == 1` going into the bench, we directly decrement the
+	// deployment's contribution after setup. This is equivalent to having terminated the old
+	// target (which would also drop the deployment's ref) — `#[block]` only reads the
+	// delegation snapshot's `code_hash`, never `AccountInfoOf[old_target]`, so it doesn't
+	// matter that the latter is still present.
+	//
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		// Distinct payer (≠ `caller`) so the bench takes the payer-change branch in
+		// `process_authorizations` (full refund + full charge per auth) rather than the
+		// same-payer net-diff fast path.
+		let setup_payer: T::AccountId = account("setup_payer", 0, 0);
+		T::Currency::set_balance(&setup_payer, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			// Old delegation target with unique code (so each gets its own `CodeInfoOf` entry).
+			let old_target =
+				Contract::<T>::with_index(2 * i + 1, VmBinaryModule::dummy_unique(2 * i), vec![])?;
+			let old_code_hash = <AccountInfoOf<T>>::get(&old_target.address)
+				.and_then(|info| match info.account_type {
+					AccountType::Contract(c) => Some(c.code_hash),
+					_ => None,
+				})
+				.ok_or("old_target should be a Contract")?;
+
+			// Pre-existing delegation paid by `setup_payer`. Bumps the authority's nonce to 1
+			// and brings `refcount(old_code)` to 2 (deployment + delegation snapshot).
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let setup_auth =
+				eip7702::sign_authorization(&key, chain_id, old_target.address, U256::zero());
+			let _ = eip7702::process_authorizations::<T>(&[setup_auth], &setup_payer, &exec_config);
+
+			// Drop the deployment's ref so the delegation snapshot is the sole holder. This
+			// mirrors the post-termination storage state without spending setup time on real
+			// contract calls (the bench measures `#[block]`, not setup).
+			let _ =
+				CodeInfo::<T>::decrement_refcount(old_code_hash).map_err(|_| "decrement failed")?;
+
+			// New target (also unique code) that the authority re-delegates to.
+			let new_target = Contract::<T>::with_index(
+				2 * i + 2,
+				VmBinaryModule::dummy_unique(2 * i + 1),
+				vec![],
+			)?;
+
+			// Authority's nonce is 1 after setup, so the re-delegation auth signs with nonce=1.
+			let signed_auth =
+				eip7702::sign_authorization(&key, chain_id, new_target.address, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, n as u32);
+		Ok(())
+	}
+
+	// Measures the per-tuple cost of an authorization that runs through chain_id check
+	// and ecdsa_recover but then fails validation (here: nonce mismatch) — captures the
+	// sig-recovery cost without any account creation/update work.
+	#[benchmark(pov_mode = Measured)]
+	fn process_invalid_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let chain_id = U256::from(T::ChainId::get());
+		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
+		let target = target_contract.address;
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			// Force nonce mismatch: signer's nonce is 0, but we sign nonce=1.
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, 0u32);
+		Ok(())
+	}
+
+	/// Measures the per-entry cost of `process_deletion_queue_batch`.
+	///
+	/// This is one `DeletionQueue` read, the `AccountInfoOf` read that checks for a live contract
+	/// at the address, plus the `DeletionQueue` + `DeletionQueueCounter` writes done by
+	/// `entry.remove()`.
+	///
+	/// The `AccountInfoOf` read is charged at its max encoded length, so the proof covers a
+	/// live contract's entry as well as the plain account entry this benchmark reads.
+	#[benchmark(pov_mode = Measured {
+		Revive::AccountInfoOf: MaxEncodedLen,
+	})]
+>>>>>>> 544e8299 (pallet-revive: keep native deposit records of a re-created contract (#13613))
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -149,10 +741,7 @@ mod benchmarks {
 	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -164,9 +753,10 @@ mod benchmarks {
 	}
 
 	/// Measures the cost of clearing one [`NativeDepositOf`] row during
-	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
-	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
-	/// an empty trie. The deletion queue then drains all rows in one go.
+	/// [`ContractInfo::process_deletion_queue_batch`].
+	///
+	/// Pre-populates the contract with `k` per-payer rows and queues it for deletion as a
+	/// terminated contract with an empty trie. The deletion queue then drains all rows in one go.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -177,10 +767,7 @@ mod benchmarks {
 			let payer: T::AccountId = account("payer", i, 0);
 			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
 		}
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -188,6 +775,10 @@ mod benchmarks {
 		}
 
 		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		assert!(
+			NativeDepositOf::<T>::iter_prefix(&instance.account_id).next().is_none(),
+			"native deposit rows should be cleared",
+		);
 		Ok(())
 	}
 
