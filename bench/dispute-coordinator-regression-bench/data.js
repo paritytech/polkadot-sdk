@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794501485740,
+  "lastUpdate": 1794518359879,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecdc3a28de64c3014e12354c12191dc4fc24d051",
-          "message": "Polkadot: Increase block size limit on the node side (#11900)\n\nThis pull request increases the block size limit allowed while building\na block. This block size limit is checked on the node side. The ultimate\nauthority about the actual block size limit is the runtime.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2026-04-27T17:33:01Z",
-          "tree_id": "3efed41be4a945617946fd785c6ae1e0504df49a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecdc3a28de64c3014e12354c12191dc4fc24d051"
-        },
-        "date": 1777316089628,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009111175599999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267304551,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009282894039999979,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002543676369999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "544e8299b4eec2363f9e0a52109730fbd1dead4f",
+          "message": "pallet-revive: keep native deposit records of a re-created contract (#13613)\n\nThe deletion queue cleared the `NativeDepositOf` rows of a queued\ncontract on every `on_idle` batch until its child trie was gone. The\nrows are keyed by the fallback account of the address, which every\ncontract created at that address shares. A contract re-created there\n(`CREATE2` with the same deployer, code and salt) while the old entry\nwas still queued lost its rows, so payers who later freed storage in it\ngot no native refund.\n\nThis happened when the terminated contract had no native rows (the\n`PendingDepositCleanup` check in `ContractInfo::new` passes at once), or\nwhen its child trie took more than one batch.\n\n## Change\n\n- `process_deletion_queue_batch` skips the `NativeDepositOf` phase while\na contract is live at the address. `ContractInfo::new` already rejects\ninstantiation while the prefix is non-empty, so rows under a live\ncontract belong to it. Rows under an address with no live contract,\nincluding one left as a plain account with dust after termination,\nbelong to a terminated contract and are cleared as before. The reasoning\nis documented once, on `DeletionQueueItem`.\n- The child trie of the queued entry is still removed, also while a new\ncontract lives at the address. This needs the new contract to have a\ndifferent trie id. It relies on #13620, which makes trie ids unique per\ngeneration and must land first and go into the same backports.\n- The deletion-queue benchmarks queue the contract the way termination\nwith dust leaves it: an `EOA` entry with `dust: 1` in `AccountInfoOf`.\nOtherwise the native phase would be skipped and the per-key slope would\nmeasure nothing. In ref time this branch is the worst case per entry: a\nlive contract's entry is 125 bytes larger, but the `clear_prefix` is\nskipped. `deletion_queue_per_entry` now includes one `AccountInfoOf`\nread, charged at its max encoded length (`pov_mode = Measured {\nRevive::AccountInfoOf: MaxEncodedLen }`), so the proof size covers\neither branch.\n- New fixture `ClearableContributorStorage.sol`: the\n`MultiContributorStorage` contract plus `clearStorage()` and\n`slotLength(address)`, so the tests can check the refund and the\nstorage. Existing fixtures are unchanged, so `pallet-revive-fixtures`\ngets a minor bump.\n- Tests in `src/tests/deposit_payment.rs`, Solidity fixture, Solc and\nResolc:\n- native rows drained but child trie still queued, then re-creation\n(also the first test of `PendingDepositCleanup`)\n- the same with bounded batches: re-creation after the first batch, the\nrest of the old trie drained one key per batch while the new contract is\nlive, its rows and storage checked after every batch\n- terminated contract with PGAS-only deposits, re-created before\n`on_idle`\n- two terminated contracts queued for one address, then a third created\n- terminated contract that keeps dust (`AccountInfoOf` is `EOA { dust\n}`): its rows are still cleared\n\nThe first three fail without the fix. The last one fails if the\nlive-contract check is replaced by a presence check on `AccountInfoOf`.\n\nOnly runtimes using `PGasDeposit` write `NativeDepositOf`; with `type\nDeposit = ()` the change has no effect beyond the weight.\n\n## Checks\n\n- `cargo test -p pallet-revive --lib tests::deposit_payment`: 28 passed,\n0 failed.\n- `cargo test -p pallet-revive` (on ea8cb3a468c): 962 passed, 0 failed,\n3 ignored.\n- `cargo test -p pallet-revive --features runtime-benchmarks --lib\ndeletion_queue`: 15 passed, 0 failed (the four deletion-queue benchmarks\nincluded).\n- `SKIP_WASM_BUILD=1 cargo clippy -p pallet-revive -p\npallet-revive-fixtures --all-targets --all-features`: exit 0, no\nwarnings on changed lines.\n- `git diff origin/master...HEAD -- substrate/frame/revive/fixtures`:\nonly adds `ClearableContributorStorage.sol`.\n- Weights: `dev` and `asset-hub-westend` re-benched in ea8cb3a468c.\n`deletion_queue_per_entry` proof size 3587 -> 3766 bytes, ref time\nunchanged. cb8604c704c changes tests and the new fixture only.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T19:40:14Z",
+          "tree_id": "92468e165585d756b3ad9ed35e5d66b246c91ad7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/544e8299b4eec2363f9e0a52109730fbd1dead4f"
+        },
+        "date": 1794518324894,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009441826039999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010448127660000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025714259299999998,
             "unit": "seconds"
           }
         ]
