@@ -571,7 +571,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
 	/// The cache entry is removed again when any database write fails, so only committed rows
-	/// report a block as processed.
+	/// report a block as processed. Entries the same call dropped for a fork or by pruning are
+	/// not restored, so their rows outlive the failed write.
 	///
 	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
 	/// us create Mock `SubstrateBlock`
