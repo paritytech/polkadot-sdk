@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794398416225,
+  "lastUpdate": 1794465012278,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -144827,6 +144827,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2840893632,
             "range": "± 23605379",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29119b7b9fb474b9f5a6e841bcd89980454aaf6e",
+          "message": "network: Use manual Kademlia routing table update (#13445)\n\nSwitch to manual routing table update in litep2p network backend,\npopulating peer addresses from Identify events instead of blindly\ntrusting Kademlia responses.\n\nAdditionally, add support for `--no-private-ip` flag with litep2p\nnetwork backend.\n\nAlso bump litep2p to v0.17.0 with its [stability\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.17.0).\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8631.",
+          "timestamp": "2026-11-12T05:10:55Z",
+          "tree_id": "41b4d15015cb1acf357aa3bd1fa538bfbf9c5bd1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29119b7b9fb474b9f5a6e841bcd89980454aaf6e"
+        },
+        "date": 1794464984531,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19501097,
+            "range": "± 129830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20008280,
+            "range": "± 125306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21254386,
+            "range": "± 146164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25582015,
+            "range": "± 156986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58980262,
+            "range": "± 726749",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 366903751,
+            "range": "± 3540276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2895998024,
+            "range": "± 121332456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17235817,
+            "range": "± 183686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17340134,
+            "range": "± 156568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17936099,
+            "range": "± 82781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22635359,
+            "range": "± 96196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61332545,
+            "range": "± 484256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352540401,
+            "range": "± 3972465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2758128190,
+            "range": "± 22027365",
             "unit": "ns/iter"
           }
         ]
