@@ -29,7 +29,8 @@ use std::{
 /// Statement hashes queued for propagation, per peer.
 ///
 /// Each queued hash holds its statement in the store, safe from the retention sweep, until the
-/// hash leaves the outbox. Hashes enter and leave only through these methods.
+/// hash leaves the outbox. Hashes enter and leave only through these methods. A dead-end
+/// statement, which has no peer to queue for, is held the same way.
 pub(crate) struct PropagationOutboxes {
 	store: Option<Arc<dyn StatementStore>>,
 	outboxes: HashMap<PeerId, VecDeque<Hash>>,
@@ -43,6 +44,8 @@ pub(crate) struct DeadEnd {
 	pub(crate) seq: u64,
 	pub(crate) hash: Hash,
 	pub(crate) topics: Vec<Topic>,
+	/// Unix time in seconds at which the statement expires.
+	pub(crate) expires_at: u64,
 	/// Peers that sent the statement to this node.
 	pub(crate) senders: HashSet<PeerId>,
 }
@@ -122,7 +125,7 @@ impl PropagationOutboxes {
 	}
 
 	/// Release the holds [`StatementStore::take_recent_statements`] placed, once `statements`
-	/// are queued.
+	/// are queued or held as dead ends.
 	pub(crate) fn release_taken(&self, statements: &[(u64, Hash, Statement)]) {
 		let hashes: Vec<_> = statements.iter().map(|(_, hash, _)| *hash).collect();
 		self.release(&hashes);

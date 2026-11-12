@@ -657,6 +657,21 @@ mod tests {
 	}
 
 	#[test]
+	fn connected_peers_are_listed_farthest_from_the_local_node_first() {
+		let local = peer(1);
+		let mut topology = topology(1);
+		let mut peers: Vec<PeerId> = (2..=6).map(peer).collect();
+		for peer in &peers {
+			topology.on_substream_opened(*peer);
+		}
+
+		let local_key = Topic(peer_key(&local));
+		peers.sort_by(|a, b| cmp_distance_then_peer(local_key, b, a));
+
+		assert_eq!(topology.connected_farthest_first(), peers);
+	}
+
+	#[test]
 	fn routing_targets_saturate_the_replica_set_beyond_gossip_target() {
 		// Regression: with K replicas and a smaller gossip_target, every connected
 		// replica must still be a forwarding target, otherwise the replica set

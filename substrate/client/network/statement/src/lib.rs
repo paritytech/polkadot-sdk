@@ -42,8 +42,9 @@
 //!
 //! There is no per-peer record of delivered statements. A statement is propagated once, on the
 //! tick after its import: the propagation pass drains the store's recent set, so no later pass
-//! can pick it up again. The only duplicates worth preventing are statements sent back to the
-//! peers they came from.
+//! can pick it up again. A statement with no routing target is the exception: it stays held until
+//! a later tick finds it a peer. The only duplicates worth preventing are statements sent back to
+//! the peers they came from.
 //!
 //! While a statement waits for validation, the peers it came from are recorded in
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
@@ -2306,15 +2307,17 @@ where
 				seq: *seq,
 				hash: *hash,
 				topics: statement.topics().to_vec(),
+				expires_at: u64::from(statement.get_expiration_timestamp_secs()),
 				senders,
 			});
 		}
 	}
 
-	/// Find each held dead-end statement a way out. A statement leaves when the node has become
-	/// a replica for it, or when a routing target has received it through a finished initial
-	/// sync. A statement that still has no routing target takes a detour through the farthest
-	/// peer able to forward it, whose own routing peers lie elsewhere in the key space.
+	/// Find each held dead-end statement a way out. A statement leaves when it has expired, when
+	/// the node has become a replica for it, or when the finished initial sync of a routing
+	/// target has covered it. A statement that still has no routing target takes a detour
+	/// through the peer farthest from the local node that can forward it and did not send it.
+	/// The routing peers of that peer lie elsewhere in the key space.
 	fn resolve_dead_ends(&mut self) {
 		if self.propagation_outboxes.dead_ends().is_empty() {
 			return;
@@ -2325,9 +2328,14 @@ where
 			.into_iter()
 			.filter(|peer| self.peers.get(peer).is_some_and(|peer| peer.can_forward()))
 			.collect();
+		let now = unix_timestamp_secs();
 		let mut resolved = HashSet::new();
 		let mut detours = Vec::new();
 		for dead_end in self.propagation_outboxes.dead_ends() {
+			if now >= dead_end.expires_at {
+				resolved.insert(dead_end.hash);
+				continue;
+			}
 			let synced = |peer: &PeerId| {
 				!self.pending_initial_syncs.contains_key(peer) &&
 					self.peers.get(peer).is_some_and(|peer| peer.sync_watermark > dead_end.seq)
@@ -2650,15 +2658,16 @@ where
 			} else {
 				self.do_propagate_statements(&statements);
 			}
-			// The outboxes hold what they queued, so the take's holds can go.
+			// The outboxes and the dead ends hold what they keep, so the take's holds can go.
 			self.propagation_outboxes.release_taken(&statements);
 		}
 		if v2dht_enabled() {
 			self.resolve_dead_ends();
 		}
 		// Every entry here belongs to an already drained statement, so it is done
-		// propagating. Statements imported after the drain get their entries only
-		// after this clear, when the event loop processes their submit results.
+		// propagating, and a dead end keeps its own copy of the senders. Statements imported
+		// after the drain get their entries only after this clear, when the event loop
+		// processes their submit results.
 		self.recently_received_statements.clear();
 	}
 
@@ -4579,6 +4588,37 @@ mod tests {
 		handler.pending_initial_syncs.remove(&target);
 		handler.resolve_dead_ends();
 		assert_eq!(held(), None);
+	}
+
+	#[tokio::test]
+	async fn expired_dead_end_statement_is_released() {
+		let (mut handler, statement_store, _network, _notification_service, _, _) =
+			build_handler(0);
+		// A lone node with one discovered peer is no replica of the topic at that peer's key.
+		let remote = PeerId::random();
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			PeerId::random(),
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		handler.v2dht.on_peer_identified(remote, true);
+
+		let mut statement = new_live_statement();
+		statement.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		let mut expired = statement.clone();
+		expired.set_expiry_from_parts(1, 0);
+		let statements = vec![(0, statement.hash(), statement), (1, expired.hash(), expired)];
+
+		handler.hold_dead_ends(&statements, vec![0, 1]);
+		handler.resolve_dead_ends();
+
+		let held = statement_store.held.lock().unwrap();
+		assert_eq!(held.get(&statements[0].1), Some(&1), "a live dead end waits for a peer");
+		assert_eq!(held.get(&statements[1].1), None);
 	}
 
 	#[tokio::test]
