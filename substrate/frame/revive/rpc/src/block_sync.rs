@@ -295,9 +295,10 @@ impl Client {
 			Ok::<_, ClientError>(())
 		};
 
-		tokio::try_join!(top_gap, bottom_gap)?;
-
-		Ok(())
+		// The gaps are independent: a block that fails in the top gap must not cancel the
+		// backfill of older history, which otherwise restarts from its checkpoint every time.
+		let (top, bottom) = tokio::join!(top_gap, bottom_gap);
+		top.and(bottom)
 	}
 
 	/// Backward sync from block `from` down to block `to` (inclusive).
