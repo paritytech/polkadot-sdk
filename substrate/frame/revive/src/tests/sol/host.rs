@@ -1029,8 +1029,8 @@ fn logs_work(fixture_type: FixtureType) {
 /// `seal_deposit_event(num_topic, len)` is charged as benchmarked, on the data length alone.
 ///
 /// Every LOG0 to LOG4 is traced on its own, so the step's weight is exactly the charge of that
-/// log: the EVM LOG instruction charges nothing else and the PVM `HostFn` overhead is charged
-/// before the `deposit_event` step starts.
+/// log plus, on the EVM, the `EvmDispatch` charge the LOG instruction pays before it runs. The
+/// PVM `HostFn` overhead is charged before the `deposit_event` step starts.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
@@ -1038,7 +1038,9 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 		WeightInfo,
 		evm::{ExecutionTracer, ExecutionTracerConfig},
 		limits::EXTRA_EVENT_CHARGE_PER_BYTE,
+		precompiles::Token,
 		tracing::trace,
+		vm::evm::EvmDispatch,
 		weightinfo_extension::OnFinalizeBlockParts,
 	};
 	use pallet_revive_types::runtime_api::{
@@ -1063,6 +1065,12 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let dispatch = if matches!(fixture_type, FixtureType::Solc) {
+			<EvmDispatch as Token<Test>>::weight(&EvmDispatch)
+		} else {
+			crate::Weight::zero()
+		};
 
 		let calls = [
 			(Host::logOpsWithoutDataCall {}.abi_encode(), 0u32),
@@ -1109,7 +1117,7 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 				let topic_charge = per_byte(len + topic_bytes).saturating_sub(per_byte(*len));
 				assert_eq!(
 					*charged,
-					data_only.saturating_add(topic_charge),
+					dispatch.saturating_add(data_only).saturating_add(topic_charge),
 					"{fixture_type:?}: LOG{num_topic} with {len} data bytes",
 				);
 				assert_eq!(topic_charge.ref_time() > 0, *num_topic > 0);

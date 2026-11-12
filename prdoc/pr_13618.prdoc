@@ -12,8 +12,8 @@ doc:
     events with topics include this charge.
 
     The call stipend reserves room for a `LOG4` with 64 data bytes. A call that transfers value
-    now needs about 82 us of ref time and 216 bytes of proof size left for the stipend, up from
-    about 48 us and 88 bytes. A call with less left fails with `OutOfGas`, as before.
+    now needs about 91 us of ref time and 216 bytes of proof size left for the stipend, up from
+    about 56 us and 88 bytes. A call with less left fails with `OutOfGas`, as before.
 
     A `deposit_event` call with more than `NUM_EVENT_TOPICS` topics is charged the topic bytes of
     `NUM_EVENT_TOPICS` topics and traps with `TooManyTopics` as before.
@@ -35,11 +35,11 @@ doc:
 
     ```rust
     // before
-    env.deposit_event(topics, data);
+    env.deposit_event(topics, data)?;
     // after
     let topics = pallet_revive::ContractLogTopics::try_from(topics)
         .map_err(|_| Error::Revert(Revert { reason: "Too many topics".into() }))?;
-    env.deposit_event(topics, data);
+    env.deposit_event(topics, data)?;
     ```
 
     `Event::ContractEmitted` is unchanged.
