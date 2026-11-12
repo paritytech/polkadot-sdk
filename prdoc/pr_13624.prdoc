@@ -128,7 +128,8 @@ doc:
     contract.
 
     PVM execution and calls cost more weight than before. Contracts that pass fixed weight
-    limits to their sub-calls may need to raise those limits.
+    limits to their sub-calls may need to raise those limits. Calls with a stipend do not depend
+    on the receiver's code size.
 
 crates:
 - name: pallet-revive

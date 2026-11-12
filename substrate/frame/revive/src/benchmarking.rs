@@ -6987,12 +6987,12 @@ mod benchmarks {
 	/// compiled blocks. The contract compiles to 6018 cache entries of 24 bytes, 141 KiB of the
 	/// 1 MiB interpreter cache, so the cache never resets and no block is compiled twice.
 	///
-	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops its
-	/// compiled blocks at every call into another contract and compiles a block again when
-	/// execution next enters it. A block is therefore cold only right after its compilation,
-	/// which `interpreter_compile_per_block` and `interpreter_compile_per_instruction` measure
-	/// and the interpreter charges every time it compiles a block, and later jumps to it find it
-	/// compiled.
+	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops the
+	/// compiled blocks of a contract when a PVM frame starts during a call the contract makes, and
+	/// compiles a block again when execution next enters it. A block is therefore cold only right
+	/// after its compilation, which `interpreter_compile_per_block` and
+	/// `interpreter_compile_per_instruction` measure and the interpreter charges every time it
+	/// compiles a block, and later jumps to it find it compiled.
 	///
 	/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope by
 	/// [`crate::metering::INDIRECT_JUMP_GAS`].
