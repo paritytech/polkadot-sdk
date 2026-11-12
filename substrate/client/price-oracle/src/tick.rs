@@ -61,6 +61,7 @@ pub(crate) mod cost {
 	use sc_network::ReputationChange as Rep;
 	pub(crate) const MALFORMED: Rep = Rep::new(-500, "Price oracle: undecodable report");
 	pub(crate) const STALE_REPORT: Rep = Rep::new(-50, "Price oracle: stale report");
+	pub(crate) const DUPLICATE_REPORT: Rep = Rep::new(-50, "Price oracle: duplicate report");
 	pub(crate) const UNKNOWN_SIGNER: Rep = Rep::new(-150, "Price oracle: unknown signer");
 	pub(crate) const BAD_SIGNATURE: Rep = Rep::new(-100, "Price oracle: bad signature");
 }
@@ -150,8 +151,9 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 
 	/// Check a report `sender` sent against the rules of this tick, with this node's clock at
 	/// `now_ms`: it must decode as a [`SignedPriceReport`], be within the window (see
-	/// [`Self::window`]), come from an accepted signer, and carry a valid signature, checked in
-	/// that order. `Err` is the reputation change the sender deserves, and the reason.
+	/// [`Self::window`]), come from an accepted signer, be newer than what `pool` holds of that
+	/// signer, and carry a valid signature, checked in that order. `Err` is the reputation
+	/// change the sender deserves, and the reason.
 	// TODO: consider bounding how far ahead an anchor may be. A signer anchoring far ahead pins
 	// its own pool slot and costs every author a filtered report per block.
 	pub fn check<Signature>(
@@ -159,10 +161,11 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		sender: &PeerId,
 		mut data: &[u8],
 		now_ms: u64,
+		pool: &ReportPool<Id, Signature>,
 	) -> Result<SignedPriceReport<Id, Signature>, (ReputationChange, &'static str)>
 	where
-		Id: RuntimeAppPublic<Signature = Signature> + Decode + PartialEq,
-		Signature: Decode,
+		Id: RuntimeAppPublic<Signature = Signature> + Decode + Ord,
+		Signature: Decode + Clone,
 	{
 		let reject = |cost: ReputationChange, reason: &'static str| {
 			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {reason}");
@@ -177,8 +180,11 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		if !self.settings.signers.contains(&report.signer) {
 			return reject(cost::UNKNOWN_SIGNER, "unknown_signer");
 		}
-		// TODO: drop a report the pool already holds a same or newer anchor for before verifying
-		// it. A peer replaying a real report makes this node verify signatures without penalty.
+		// A signer sends each report once, with a fresh anchor. A report the pool already holds,
+		// or an older one, is a replay: dropped before the signature is verified.
+		if pool.holds_at_least(&report.signer, &report.report.anchor) {
+			return reject(cost::DUPLICATE_REPORT, "superseded");
+		}
 		if !report.verify_signature() {
 			return reject(cost::BAD_SIGNATURE, "bad_signature");
 		}
@@ -475,7 +481,33 @@ mod tests {
 	}
 
 	fn check(tick: &TickSetup<H256, AuthorityId>, data: &[u8]) -> Result<Signed, ReputationChange> {
-		tick.check(&PeerId::random(), data, NOW_MS).map_err(|(cost, _)| cost)
+		check_with(tick, data, &ReportPool::new())
+	}
+
+	fn check_with(
+		tick: &TickSetup<H256, AuthorityId>,
+		data: &[u8],
+		pool: &ReportPool<AuthorityId, AuthoritySignature>,
+	) -> Result<Signed, ReputationChange> {
+		tick.check(&PeerId::random(), data, NOW_MS, pool).map_err(|(cost, _)| cost)
+	}
+
+	#[test]
+	fn replays_are_rejected_before_the_signature_is_checked() {
+		let tick = tick();
+		let pool = ReportPool::new();
+		pool.insert(signed(1, 100));
+		// The same anchor and an older one are replays, a newer one is not.
+		assert_eq!(check_with(&tick, &signed(1, 100).encode(), &pool), Err(cost::DUPLICATE_REPORT));
+		assert_eq!(check_with(&tick, &signed(1, 95).encode(), &pool), Err(cost::DUPLICATE_REPORT));
+		assert!(check_with(&tick, &signed(1, 101).encode(), &pool).is_ok());
+		// Another signer is not affected.
+		assert!(check_with(&tick, &signed(2, 100).encode(), &pool).is_ok());
+		// A replay with a broken signature is still a replay: it costs no verification.
+		let mut broken = signed(1, 100).encode();
+		let last = broken.len() - 1;
+		broken[last] ^= 1;
+		assert_eq!(check_with(&tick, &broken, &pool), Err(cost::DUPLICATE_REPORT));
 	}
 
 	#[test]

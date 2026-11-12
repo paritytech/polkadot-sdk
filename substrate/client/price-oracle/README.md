@@ -104,9 +104,9 @@ discovery, so the runtime must return its authority discovery keys in authoring 
 
 Every incoming message is validated. A message is rejected, and the sending peer's reputation
 lowered, if it does not decode, is anchored before a window, comes from a signer outside the
-accepted set, or carries an invalid signature, in that order, so the signature is checked last.
-A report the pool declines as superseded, which a sender repeating itself produces, is ignored
-without penalty. Anything else is pooled and rewarded.
+accepted set, is not newer than the report the pool holds of that signer, or carries an invalid
+signature, in that order, so the signature is checked last and a replayed report never reaches
+it. Anything else is pooled and rewarded.
 
 A report is within the windows if its block is at most `report_window` behind the tick's block
 and its timestamp at most `report_window_ms` behind the node's clock. Blocks and timestamps ahead

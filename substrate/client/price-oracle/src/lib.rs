@@ -258,7 +258,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 							metrics.on_received_report("no_tick_setup");
 							continue;
 						};
-						match setup.check(&peer, &notification, tick::now_ms()) {
+						match setup.check(&peer, &notification, tick::now_ms(), &pool) {
 							Ok(report) =>
 								if pool.insert(report) {
 									network.report_peer(peer, GOOD_REPORT);
