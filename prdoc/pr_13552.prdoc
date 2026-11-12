@@ -23,9 +23,11 @@ doc:
     leftover `fees` were dropped with the executor; both are now claimable.
 - audience: Runtime User
   description: |-
-    A message that leaves surplus weight without an explicit `RefundSurplus` is charged the
-    weight of one `RefundSurplus` for the refund the executor makes on its behalf, so the refund
-    is that much smaller, and no refund is made when the surplus does not cover it.
+    A message that still has unrefunded surplus weight when it ends is charged the weight of one
+    `RefundSurplus` for the refund the executor makes on its behalf, so the refund is that much
+    smaller, and no refund is made when the surplus does not cover it. This applies after an
+    explicit `RefundSurplus` too when surplus accrues later, for example from an error handler
+    that never ran.
 crates:
 - name: staging-xcm-executor
   bump: patch
