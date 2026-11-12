@@ -17,10 +17,11 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use alloc::boxed::Box;
-use core::marker::PhantomData;
+use core::{marker::PhantomData, time::Duration};
+use cumulus_pallet_parachain_system::HostConfiguration;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Get,
-	Imbalance, OnUnbalanced, OriginTrait, TypedGet,
+	Imbalance, OnUnbalanced, OriginTrait, TypedGet, UnixTime,
 };
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
@@ -167,6 +168,40 @@ where
 		if let Err(err) = result {
 			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
+	}
+}
+
+/// The latest time the relay chain can be at, given the relay parent of the current block.
+///
+/// The relay parent's slot, moved forward by the relay chain's `allowed_ancestry_len`, in relay
+/// chain slots of `RELAY_CHAIN_SLOT_DURATION_MILLIS`. The relay chain accepts relay parents at
+/// most `allowed_ancestry_len` blocks below its newest block, so this is the start of the newest
+/// relay slot the relay chain can be at, when no relay slot was skipped.
+///
+/// It is up to about one relay slot ahead of real time, when the author built on a newer relay
+/// parent than the oldest allowed, as it does by default with a relay parent offset smaller than
+/// `allowed_ancestry_len`. It lags real time by up to one relay slot when the author built on the
+/// oldest allowed relay parent, plus one per relay slot skipped below the newest relay block.
+/// Assuming the oldest relay parent keeps the lag as small as the block allows.
+///
+/// `allowed_ancestry_len` comes from the relay chain configuration in the relay chain state proof;
+/// the runtime's `RelayParentOffset` is used until one is processed. `0` until the first relay
+/// slot is known.
+pub struct LatestRelayTime<T, const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32>(PhantomData<T>);
+
+impl<T, const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32> UnixTime
+	for LatestRelayTime<T, RELAY_CHAIN_SLOT_DURATION_MILLIS>
+where
+	T: cumulus_pallet_aura_ext::Config + cumulus_pallet_parachain_system::Config,
+{
+	fn now() -> Duration {
+		let slot = cumulus_pallet_aura_ext::Pallet::<T>::relay_slot().map_or(0, |s| *s);
+		let ancestry = HostConfiguration::<T>::get()
+			.map_or(T::RelayParentOffset::get(), |config| {
+				config.async_backing_params.allowed_ancestry_len
+			});
+		let slots = slot.saturating_add(ancestry.into());
+		Duration::from_millis(slots.saturating_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()))
 	}
 }
 

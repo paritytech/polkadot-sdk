@@ -16022,6 +16022,8 @@ dependencies = [
 name = "parachains-common"
 version = "7.0.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-executive",
