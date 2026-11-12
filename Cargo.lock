@@ -22888,7 +22888,7 @@ dependencies = [
  "hyper-util",
  "log",
  "parity-scale-codec",
- "parking_lot 0.12.3",
+ "parking_lot 0.12.5",
  "rustls 0.23.31",
  "sc-keystore",
  "sc-network 0.34.0",
