@@ -29,11 +29,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{
-		fungible::{NativeFromLeft, NativeOrWithId},
-		fungibles::EmptyFungibles,
-		EitherOfDiverse, Get, Imbalance, OnUnbalanced,
-	},
+	traits::{fungibles::EmptyFungibles, EitherOfDiverse, Get, Imbalance, OnUnbalanced},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
@@ -503,14 +499,6 @@ pub fn general_staker_pot() -> AccountId {
 	SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards))
 }
 
-type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
-	Balances,
-	EmptyFungibles<u32, Balance>,
-	NativeFromLeft,
-	NativeOrWithId<u32>,
-	AccountId,
->;
-
 parameter_types! {
 	pub const MaxDistributableAssets: u32 = 1;
 }
@@ -519,14 +507,14 @@ parameter_types! {
 pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
+impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
 	fn mint_ed(account: &AccountId) -> sp_runtime::DispatchResult {
 		use frame_support::traits::fungible::Mutate;
 
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(_asset_id_seed: u32) -> Result<NativeOrWithId<u32>, sp_runtime::DispatchError> {
+	fn create_asset(_asset_id_seed: u32) -> Result<u32, sp_runtime::DispatchError> {
 		use sp_runtime::{DispatchError, TokenError};
 
 		Err(DispatchError::Token(TokenError::CannotCreate))
@@ -535,7 +523,7 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 
 impl pallet_dap::Config for Test {
 	type IssuedCurrency = Balances;
-	type Assets = NativeAndEmptyAssets;
+	type Assets = EmptyFungibles<u32, Balance>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type MaxDistributableAssets = MaxDistributableAssets;

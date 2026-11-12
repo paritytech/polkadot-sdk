@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{fungible::NativeOrWithId, EitherOf, EnsureOrigin, Get};
+use frame_support::traits::{EitherOf, EnsureOrigin, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
@@ -405,38 +405,34 @@ parameter_types! {
 	pub const MaxElapsedPerDrip: u64 = 600_000;
 }
 
-type NativeAndAssets = frame_support::traits::fungible::UnionOf<
-	Balances,
-	super::Assets,
-	frame_support::traits::fungible::NativeFromLeft,
-	NativeOrWithId<u32>,
-	AccountId,
->;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
+impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
 	fn mint_ed(account: &AccountId) -> sp_runtime::DispatchResult {
 		use frame_support::traits::{fungible::Mutate, Currency};
 
 		Balances::mint_into(account, Balances::minimum_balance()).map(|_| ())
 	}
 
-	fn create_asset(asset_id_seed: u32) -> Result<NativeOrWithId<u32>, sp_runtime::DispatchError> {
+	fn create_asset(asset_id_seed: u32) -> Result<u32, sp_runtime::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
-		let asset_id = NativeOrWithId::WithId(asset_id_seed);
-		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), true, 1)?;
+		<super::Assets as Create<AccountId>>::create(
+			asset_id_seed,
+			AccountId::from([0; 32]),
+			true,
+			1,
+		)?;
 
-		Ok(asset_id)
+		Ok(asset_id_seed)
 	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type IssuedCurrency = Balances;
-	type Assets = NativeAndAssets;
+	type Assets = super::Assets;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type MaxDistributableAssets = MaxDistributableAssets;

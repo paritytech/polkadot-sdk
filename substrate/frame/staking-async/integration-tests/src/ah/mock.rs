@@ -23,10 +23,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	sp_runtime::testing::TestXt,
-	traits::{
-		fungible::{Mutate, NativeFromLeft, NativeOrWithId},
-		fungibles::EmptyFungibles,
-	},
+	traits::{fungible::Mutate, fungibles::EmptyFungibles},
 	weights::{Weight, WeightMeter},
 };
 use pallet_election_provider_multi_block as multi_block;
@@ -620,21 +617,13 @@ impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
 	}
 }
 
-type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
-	Balances,
-	EmptyFungibles<u32, Balance>,
-	NativeFromLeft,
-	NativeOrWithId<u32>,
-	AccountId,
->;
-
 parameter_types! {
 	pub const MaxDistributableAssets: u32 = 1;
 }
 
 impl pallet_dap::Config for Runtime {
 	type IssuedCurrency = Balances;
-	type Assets = NativeAndEmptyAssets;
+	type Assets = EmptyFungibles<u32, Balance>;
 	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;

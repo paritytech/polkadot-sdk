@@ -501,11 +501,6 @@ pub mod pallet {
 			T::IssuedCurrency::deactivate(amount);
 		}
 
-		/// Reactivate funds on buffer withdrawal.
-		pub(crate) fn reactivate_buffer_funds(amount: IssuedCurrencyBalanceOf<T>) {
-			T::IssuedCurrency::reactivate(amount);
-		}
-
 		/// Set the budget allocation map.
 		fn set_budget_allocation_map(allocations: BudgetAllocationMap) -> DispatchResult {
 			// Validate all keys are registered recipients.

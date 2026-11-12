@@ -780,28 +780,25 @@ parameter_types! {
 pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
+impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
 	fn mint_ed(account: &AccountId) -> polkadot_sdk_frame::prelude::DispatchResult {
 		use frame_support::traits::fungible::Mutate;
 
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(
-		asset_id_seed: u32,
-	) -> Result<NativeOrWithId<u32>, polkadot_sdk_frame::prelude::DispatchError> {
+	fn create_asset(asset_id_seed: u32) -> Result<u32, polkadot_sdk_frame::prelude::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
-		let asset_id = NativeOrWithId::WithId(asset_id_seed);
-		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), true, 1)?;
+		<Assets as Create<AccountId>>::create(asset_id_seed, AccountId::from([0; 32]), true, 1)?;
 
-		Ok(asset_id)
+		Ok(asset_id_seed)
 	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type IssuedCurrency = Balances;
-	type Assets = NativeAndAssets;
+	type Assets = Assets;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type MaxDistributableAssets = DapMaxDistributableAssets;
