@@ -132,8 +132,8 @@ fn refund_holding_cannot_take_fails_and_is_left_to_the_end() {
 
 	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
 
-	// The end of the message refunds `(2, 2)` of the surplus, `4` of `Here`, and traps it with the
-	// leftover fees of `6`.
+	// The end of the message refunds `(2, 2)` of the surplus, `4` of `Here`, into holding with the
+	// leftover fees of `6`, and holding is trapped.
 	assert_eq!(outcome.weight_used(), Weight::from_parts(8, 8));
 	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 10u128).into()]);
 }
@@ -150,7 +150,7 @@ fn refund_surplus_without_surplus_succeeds_with_holding_at_capacity() {
 }
 
 #[test]
-fn implicit_refund_holding_cannot_take_is_trapped() {
+fn implicit_refund_is_taken_by_holding_at_capacity_and_trapped() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_total_surplus(Weight::from_parts(4, 4));
 	vm.set_holding_limit(0);
