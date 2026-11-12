@@ -68,12 +68,12 @@ pub struct Params<Client, SyncService, Recipients, Id, Signature> {
 	pub protocol_name: ProtocolName,
 	/// Where the reports are sent.
 	pub recipients: Recipients,
-	/// How many of the peers that stopped being recipients stay reserved, the most recent ones.
+	/// How many of the peers that stopped being recipients stay reserved while this node is a
+	/// recipient, the most recent ones.
 	///
-	/// A peer that is no longer a recipient may still be sending its reports to this node. For
-	/// example, when the recipients are the authors of the next 4 slots, the authors of the last
-	/// 4 slots may still be sending to this node while it is one of their next authors, so
-	/// `keep` should be 4.
+	/// While this node is a recipient, a peer that is no longer one is still sending its reports
+	/// to this node. For example, when the recipients are the authors of the next 4 slots, the
+	/// authors of the last 4 slots may be, so `keep` should be 4.
 	pub keep: usize,
 	/// Keystore to look the signer key up in and to sign reports with.
 	pub keystore: KeystorePtr,

@@ -22,7 +22,7 @@ use crate::common::{
 	ConstructNodeRuntimeApi,
 };
 use sc_client_db::DbHash;
-use sc_network::Multiaddr;
+use sc_network::{multiaddr::Protocol, Multiaddr, PeerId};
 use sc_price_oracle::ReportRecipients;
 use sc_service::TaskManager;
 use sp_api::ProvideRuntimeApi;
@@ -42,8 +42,8 @@ const LOG_TARGET: &str = "price-oracle";
 /// ones. With slots of 6 s or more, the last one starts at least 18 s ahead, which leaves time to
 /// open a substream before that author's turn.
 ///
-/// As many past recipients stay reserved, because they may still be sending their reports to
-/// this node.
+/// While this node is among them, as many past recipients stay reserved, because they are still
+/// sending their reports to it.
 const RECIPIENT_SLOTS: u64 = 4;
 /// Addresses used per author at most. Bounds the dial attempts an author's record can cause.
 const MAX_ADDRESSES_PER_AUTHOR: usize = 4;
@@ -76,8 +76,12 @@ pub struct PriceOracleNetwork<Block: BlockT> {
 pub struct AuraRecipients<Block: BlockT, RuntimeApi, AuraId> {
 	client: Arc<ParachainClient<Block, RuntimeApi>>,
 	authority_discovery: sc_authority_discovery::Service,
-	/// Holds the authority discovery key of this node, which is skipped as a recipient.
+	/// Holds the authority discovery key of this node, to recognise it among the authors.
 	keystore: KeystorePtr,
+	/// The peer id of this node. When this node is one of the authors, it stands in the list as
+	/// `/p2p/<peer id>`: discovery has no addresses for the node itself, and the service needs
+	/// to recognise itself among the recipients.
+	local_peer_id: PeerId,
 	_aura: PhantomData<AuraId>,
 }
 
@@ -88,8 +92,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT,
 {
-	/// The authority discovery keys of the authors of the coming slots at `best`, without this
-	/// node's.
+	/// The authority discovery keys of the authors of the coming slots at `best`.
 	fn coming_authors(&self, best: Block::Hash) -> Vec<AuthorityDiscoveryId> {
 		let api = self.client.runtime_api();
 		let aura_ids = match AuraApi::<Block, AuraId::BoundedPublic>::authorities(&*api, best) {
@@ -153,9 +156,6 @@ where
 		// Consecutive slots have consecutive authors, so at most `count` distinct ones.
 		(0..RECIPIENT_SLOTS.min(count))
 			.map(|ahead| discovery_ids[((*best_slot + ahead) % count) as usize].clone())
-			.filter(|author| {
-				!self.keystore.has_keys(&[(author.to_raw_vec(), AuthorityDiscoveryId::ID)])
-			})
 			.collect()
 	}
 }
@@ -171,9 +171,17 @@ where
 	fn recipients(&self, best: Block::Hash) -> impl Future<Output = Vec<Multiaddr>> + Send {
 		let authors = self.coming_authors(best);
 		let mut service = self.authority_discovery.clone();
+		let keystore = self.keystore.clone();
+		let local = Multiaddr::empty().with(Protocol::P2p(*self.local_peer_id.as_ref()));
 		async move {
 			let mut addresses = Vec::new();
 			for author in authors {
+				// Authority discovery does not know this node's own addresses; its peer id
+				// is all the service needs.
+				if keystore.has_keys(&[(author.to_raw_vec(), AuthorityDiscoveryId::ID)]) {
+					addresses.push(local.clone());
+					continue;
+				}
 				match service.get_addresses_by_authority_id(author.clone()).await {
 					Some(found) => {
 						addresses.extend(found.into_iter().take(MAX_ADDRESSES_PER_AUTHOR))
@@ -240,6 +248,7 @@ impl<AuraId: AuraIdT + Send + Sync> PriceOracle<AuraId> {
 				client: client.clone(),
 				authority_discovery: network.authority_discovery,
 				keystore: keystore.clone(),
+				local_peer_id: network.network.local_peer_id(),
 				_aura: PhantomData,
 			};
 			let service =
