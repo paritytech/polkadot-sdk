@@ -629,43 +629,6 @@ mod pgas {
 		});
 	}
 
-	/// Root creates a `NestedChild` whose constructor writes storage, through a nested CREATE.
-	/// The child records no deposit and holds nothing.
-	#[test_case(FixtureType::Solc)]
-	#[test_case(FixtureType::Resolc)]
-	fn root_created_child_with_constructor_storage_records_zero_base(fixture_type: FixtureType) {
-		use alloy_core::primitives::Address;
-		use pallet_revive_fixtures::NestedDeployer::deployChildCall;
-
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
-			if fixture_type == FixtureType::Resolc {
-				let (child_code, _) =
-					compile_module_with_type("NestedChild", fixture_type).unwrap();
-				crate::Pallet::<Test>::upload_code(signed::<Test>(&ALICE), child_code, u128::MAX)
-					.unwrap();
-			}
-			let (code, _) = compile_module_with_type("NestedDeployer", fixture_type).unwrap();
-			let Contract { addr, account_id } = instantiate::<Test>(&ALICE, code);
-			<Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
-
-			let output = BareCallBuilder::<Test>::bare_call(root::<Test>(), addr)
-				.data(deployChildCall {}.abi_encode())
-				.build_and_unwrap_result();
-			assert!(!output.did_revert());
-			let child: Address = deployChildCall::abi_decode_returns(&output.data).unwrap();
-			let child = snap::<Test>(&H160::from_slice(child.as_slice()));
-
-			// The constructor wrote `state = 42`: one item, recorded without deposit.
-			assert_eq!(child.storage_items, 1);
-			assert!(child.storage_bytes > 0);
-			assert_eq!(
-				(child.base_deposit, child.byte_deposit, child.item_deposit, child.held),
-				(0, 0, 0, 0)
-			);
-		});
-	}
-
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
 	fn root_round_trip_after_price_decrease_strands_deposit(fixture_type: FixtureType) {

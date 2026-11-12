@@ -758,7 +758,17 @@ fn root_call_can_create_and_destroy_in_next_block(
 		assert!(!create_result.did_revert());
 		let returned: Address = deployChildCall::abi_decode_returns(&create_result.data).unwrap();
 		let child_addr = H160::from_slice(returned.as_slice());
-		assert!(AccountInfo::<Test>::load_contract(&child_addr).is_some());
+		let child = AccountInfo::<Test>::load_contract(&child_addr).expect("child exists");
+
+		// The child's constructor wrote `state = 42`. The write is counted but priced at
+		// nothing, and the child records no base deposit either.
+		assert_eq!(child.storage_items, 1);
+		assert!(child.storage_bytes > 0);
+		assert_eq!(
+			(child.storage_byte_deposit, child.storage_item_deposit, child.storage_base_deposit()),
+			(0, 0, 0),
+		);
+		assert_eq!(child.total_deposit(), 0);
 
 		// Deposits stayed waived across the Root create.
 		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
