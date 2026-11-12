@@ -15,10 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Runtime API definition for transaction payment pallet.
+//! Runtime API definition for the transaction payment pallet and related payment extensions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 
@@ -52,5 +55,22 @@ sp_api::decl_runtime_apis! {
 
 		/// Query the output of the current `LengthToFee` given some input.
 		fn query_length_to_fee(length: u32) -> Balance;
+	}
+
+	/// Estimate the assets that would be charged to the sender of an extrinsic.
+	///
+	/// The estimate is read-only and best-effort: it does not imply the sender can pay, and the
+	/// amount finally charged can differ.
+	#[api_version(1)]
+	pub trait TransactionChargeApi<Balance, AssetId>
+	where
+		Balance: Codec,
+		AssetId: Codec,
+	{
+		/// Estimate the assets that would be charged for `uxt`.
+		///
+		/// `None` means the runtime cannot produce an estimate, which says nothing about whether
+		/// the transaction is valid. An empty vector means nothing would be charged.
+		fn estimate_charge(uxt: Block::Extrinsic, len: u32) -> Option<Vec<(AssetId, Balance)>>;
 	}
 }

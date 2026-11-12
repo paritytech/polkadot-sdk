@@ -38,7 +38,7 @@ use sp_runtime::{
 	Saturating,
 };
 
-/// Handle withdrawing, refunding and depositing of transaction fees.
+/// Handle quoting, withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeAssetTransaction<T: Config> {
 	/// The underlying integer type in which fees are calculated.
 	type Balance: Balance;
@@ -46,6 +46,13 @@ pub trait OnChargeAssetTransaction<T: Config> {
 	type AssetId: AssetId;
 	/// The type used to store the intermediate values between pre- and post-dispatch.
 	type LiquidityInfo;
+
+	/// Quote the amount of `asset_id` required to pay `fee`.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	///
+	/// Returns `None` if `fee` cannot be converted into `asset_id`.
+	fn quote_asset_fee(asset_id: Self::AssetId, fee: Self::Balance) -> Option<Self::Balance>;
 
 	/// Secure the payment of the transaction fees before the transaction is executed.
 	///
@@ -85,7 +92,7 @@ pub trait OnChargeAssetTransaction<T: Config> {
 	) -> Result<BalanceOf<T>, TransactionValidityError>;
 }
 
-/// Means to withdraw, correct and deposit fees in the asset accepted by the system.
+/// Means to quote, withdraw, correct and deposit fees in the asset accepted by the system.
 ///
 /// The type uses the [`SwapCredit`] implementation to swap the asset used by a user for the fee
 /// payment for the asset accepted as a fee payment be the system.
@@ -116,6 +123,16 @@ where
 	type Balance = BalanceOf<T>;
 	type LiquidityInfo = (fungibles::Credit<T::AccountId, F>, BalanceOf<T>);
 
+	fn quote_asset_fee(asset_id: Self::AssetId, fee: Self::Balance) -> Option<Self::Balance> {
+		if asset_id == A::get() {
+			// The `asset_id` is the target asset, we do not need to swap.
+			return Some(fee);
+		}
+
+		S::quote_price_tokens_for_exact_tokens(asset_id, A::get(), fee, true)
+			.filter(|asset_fee| !asset_fee.is_zero())
+	}
+
 	fn withdraw_fee(
 		who: &T::AccountId,
 		_call: &T::RuntimeCall,
@@ -139,10 +156,8 @@ where
 			return Ok((fee_credit, fee));
 		}
 
-		// Quote the amount of the `asset_id` needed to pay the fee in the asset `A`.
 		let asset_fee =
-			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
-				.filter(|asset_fee| !asset_fee.is_zero())
+			<Self as OnChargeAssetTransaction<T>>::quote_asset_fee(asset_id.clone(), fee)
 				.ok_or(InvalidTransaction::Payment)?;
 
 		// Withdraw the `asset_id` credit for the swap.
@@ -194,8 +209,7 @@ where
 		}
 
 		let asset_fee =
-			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
-				.filter(|asset_fee| !asset_fee.is_zero())
+			<Self as OnChargeAssetTransaction<T>>::quote_asset_fee(asset_id.clone(), fee)
 				.ok_or(InvalidTransaction::Payment)?;
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
