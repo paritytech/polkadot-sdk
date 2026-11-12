@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794495732150,
+  "lastUpdate": 1794501316859,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8af5df001111104be59a9f9ec146657a55e9d223",
-          "message": "Small fixes (#11804)\n\n## `pallet-asset-conversion`\n- Changes `Config::LPFee` from `Get<u32>` (tenths-of-a-percent encoding)\nto `Get<Permill>`.\n\n## `frame-system`\n- Extends `Event::CodeUpdated` to include the updated runtime code hash:\n`CodeUpdated { hash }`.\n\n## `pallet-psm`\n- Adds a `try-runtime` `pre_upgrade` guard that checks configured asset\ndecimals before initialization.\n\n## `pallet-balances`\n- Removes a tautological internal assertion in account mutation flow.\n\n## `pallet-tips`\n- Hardens tip payout by returning `NoActiveTippers` when all recorded\ntippers become inactive instead of indexing an empty tip set.\n- Adds a regression test for the `NoActiveTippers` close-path.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-28T22:47:42Z",
-          "tree_id": "177d8b612ca22dd4fb7d44fc08009f6de991b372",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8af5df001111104be59a9f9ec146657a55e9d223"
-        },
-        "date": 1777421416425,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14472958023333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009594771353333318,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02372094499333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006940250446666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007756309586666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d7050787a8552725d826c38cf4beae9ef2467ab",
+          "message": "statement-store: keep blocking store calls off the async runtime (#13812)\n\n# Description\n\nStatement store calls that wait for the disk now run on blocking\nthreads, so they can no longer stall the node's async runtime. Fixes\nhttps://github.com/paritytech/polkadot-sdk/issues/13738.\n\nThe stall is specific to the Versi setup. Tokio starts one runtime\nworker per CPU, and a Versi collator has a limit of 4 CPUs and runs six\nstore tasks: 4 validation workers (the default is 1), the gossip handler\nand the maintenance task. A node on the validator reference hardware has\n8 workers and three store tasks by default, so it most likely would not\nstall. That setup was not tested.\n\nUnder statement overload on Versi, collators missed their authoring\nslots. A statement submit holds the store lock while it commits to the\ndatabase, and the store tasks waited for that lock on worker threads of\nthe runtime, for up to a minute at a time. While they held all 4\nworkers, networking, sync and block import stopped. The collator\nreceived blocks late and had no parent to build on at its slot.\n\nThe change moves the validation workers, the gossip handler and the\nmaintenance task to blocking threads, and marks both RPC submit methods\nas blocking. The gossip loop reads the admission watermark from an\natomic counter, so it does not wait for the store lock.\n\nA blocking RPC call takes a thread from the RPC server's own tokio\nruntime, whose blocking pool is capped at the RPC connection limit (100\nby default). It does not count against the 512 blocking threads of the\nnode's main runtime.\n\n## Testing\n\nThe same stress test ran on Versi twice on 2026-11-11, on master and on\nthis PR. Each run started from a fresh chain with 80 collators and\nloaded them with 5,500 new statements per second for 100 minutes. Every\nstatement is stored on 20 nodes, which makes 110,000 copies per second.\n\n| | master (`master-366b8772`) | this PR (`13812-fc27166c`) |\n|---|---|---|\n| Parachain blocks per 10 minutes (100 is healthy) | 77 to 79 | 99 to\n101 |\n| \"Could not find parent to build upon\" warnings per 5 minutes, one per\nskipped slot | about 100 | 0 |\n| Collators that lost over a third of their 5-second status lines from\nsc-informant | 20 of 80 | 0 of 80 |\n| Times the gossip handler held its thread for over 16 s | 158 | 0 |\n| Statement copies stored per second, lowest point | 72,000 | 97,000 |\n\nOn master the trouble began once each store held about 5 million\nstatements. On this PR the parachain kept its full block rate until the\nend of the run, at 7.6 million statements per store. The store calls\nwere as slow as on master: the validation workers held their threads for\nover 16 s 646 times and the maintenance task 549 times. No other task of\nthe node held a thread for over a second.\n\nStatement throughput still drops under this overload, because the store\nwaits for the disk.\n\n## Integration\n\nNo action is needed.",
+          "timestamp": "2026-11-12T15:02:45Z",
+          "tree_id": "4946f6375778be658ec1a914d5db5d585a0c5b0f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8d7050787a8552725d826c38cf4beae9ef2467ab"
+        },
+        "date": 1794501277127,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0096274472333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14300304992666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007685474593333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02406236250666666,
             "unit": "seconds"
           }
         ]
