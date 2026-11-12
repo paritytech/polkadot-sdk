@@ -1,0 +1,44 @@
+title: 'pallet-revive: add `burn` to the `System` pre-compile'
+doc:
+- audience: Runtime User
+  description: |-
+    The `System` pre-compile at `0x900` gains `burn(uint256 amount)`. It removes `amount` of the
+    native token from the balance of its caller and from the total issuance. The caller is the
+    contract or account that calls the pre-compile, so a contract burns its own funds and an
+    account that calls the pre-compile directly burns its own. `amount` is in the unit of
+    `msg.value`. The existential deposit stays. Burning dust the caller does not hold converts
+    one unit of balance into dust first, so that unit has to be spendable as well.
+
+    The call reverts when the spendable balance of the caller, without the existential deposit
+    and without held or frozen funds, is lower than `amount`, when `amount` does not fit the
+    balance type of the chain, when value is sent along, or when the pre-compile is reached
+    through a delegate call. In a static context it fails without revert data. A call started by
+    root fails with `RootNotAllowed`. A burn is undone together with the frame it happened in
+    when that frame reverts.
+
+    The whole units burned are reported as `Balances::Burned`. A burn of dust only emits no
+    event, and a burn that first converts one unit into dust emits a `Burned` of one unit before
+    the one of the amount, so the sum of `Burned` amounts can exceed the amount requested. No
+    EVM log is emitted.
+- audience: Runtime Dev
+  description: |-
+    Contracts can now reduce the total issuance. `System.burn` does not use `Config::OnBurn`,
+    and a runtime cannot opt out of it. A runtime that redirects burned value to a treasury
+    through `OnBurn` keeps doing so for the gas rounding only. No migration is needed.
+
+    `pallet_revive::WeightInfo` gains the required method `burn(d: u32)`, where `d` is 1 when
+    `amount` has a dust part. Runtimes using `SubstrateWeight` or `()` need no change. Runtimes
+    with their own `WeightInfo` implementation stop compiling until they implement the method,
+    and should regenerate their weights with the new `burn` benchmark.
+
+    The `ISystemCalls` enum of `pallet-revive-uapi` gains a `burn` variant. Code that matches on
+    it exhaustively has to add an arm.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
