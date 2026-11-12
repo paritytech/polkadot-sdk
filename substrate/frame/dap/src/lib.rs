@@ -30,11 +30,11 @@
 //! - **Budget Distribution**: Distributes minted issuance across registered
 //!   [`sp_staking::budget::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
-//! - **Asset Distribution**: Distributes assets deposited to the [`Pallet::buffer_account`]
-//!   according to [`AssetAllocation`] map which can be configured in [`Pallet::set_allocations`].
-//!   Distribution happens at the same time as issuance drips and can be configured by
-//!   [`Config::IssuanceCadence`]. When the asset amount is insufficient, it will be
-//!   skipped(emitting an event), i.e. no retry mechanism is present.
+//! - **Asset Distribution**: Distributes assets from the [`Pallet::buffer_account`] according to
+//!   [`AssetAllocation`] map which can be configured in [`Pallet::set_allocations`] and which can
+//!   include native asset as well. Distribution follows the same schedule as issuance drips and can
+//!   be configured by [`Config::IssuanceCadence`]. When the asset amount is insufficient, it will
+//!   be skipped(emitting an event), i.e. no retry mechanism is present.
 //! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
 //!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
 //!   into the buffer account. Incoming funds are deactivated to exclude them from governance
@@ -93,23 +93,23 @@ pub type AssetKindOf<T> = <<T as Config>::Assets as Inspect<AccountIdFor<T>>>::A
 type AssetAllocationMapOf<T> =
 	AssetAllocationMap<AssetKindOf<T>, AssetsBalanceOf<T>, <T as Config>::MaxDistributableAssets>;
 
-/// Type alias for the native assets allocation map.
+/// Type alias for the issued asset allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
-/// Type alias for the non-native assets allocation map.
+/// Type alias for the distributable assets allocation map.
 pub type AssetAllocationMap<AssetKind, Balance, MaxDistributableAssets> =
 	BoundedBTreeMap<AssetKind, SingleAssetAllocationMap<Balance>, MaxDistributableAssets>;
 
-/// Type alias for the single non-native asset allocation map.
+/// Type alias for the single distributable asset allocation map.
 pub type SingleAssetAllocationMap<Balance> =
 	BoundedBTreeMap<BudgetKey, SingleAssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
-/// Asset allocation for the single budget recipient.
+/// Asset allocation for the single distribution recipient.
 #[derive(
 	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub struct SingleAssetAllocation<Balance> {
-	/// Amount of the asset that must be distributed to the given budget recipient per millisecond.
+	/// Amount of the asset that must be distributed to the given recipient per millisecond.
 	pub amount_per_ms: Balance,
 }
 
@@ -238,7 +238,7 @@ pub mod pallet {
 		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind<AssetKindOf<T>, AssetsBalanceOf<T>>),
-		/// Assets are distributed to their recipients.
+		/// Asset was distributed to the recipients.
 		AssetDistributed {
 			/// Asset that was distributed.
 			asset: AssetKindOf<T>,
@@ -598,6 +598,8 @@ pub mod pallet {
 		/// Mints `IssuanceCurve::issue(total_issuance, elapsed)` and distributes the
 		/// result according to `BudgetAllocation`.
 		///
+		/// Also distributes the assets accoring to the `AssetAllocation`.
+		///
 		/// Does not read or write `LastIssuanceTimestamp`, does not enforce
 		/// `IssuanceCadence`, and does not apply the `MaxElapsedPerDrip` safety
 		/// ceiling.
@@ -723,15 +725,15 @@ pub mod pallet {
 		/// - Every key in `BudgetAllocation` must be a registered recipient.
 		/// - Allocation percentages must sum to exactly 100%.
 		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
-			let budget_allocation = BudgetAllocation::<T>::get();
+			let allocation = BudgetAllocation::<T>::get();
 
-			ensure!(!budget_allocation.is_empty(), "BudgetAllocation is empty");
+			ensure!(!allocation.is_empty(), "BudgetAllocation is empty");
 
 			let registered: Vec<BudgetKey> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
 
-			// Every budget allocation key must be a registered recipient.
-			for key in budget_allocation.keys() {
+			// Every allocation key must be a registered recipient.
+			for key in allocation.keys() {
 				ensure!(
 					registered.contains(key),
 					"BudgetAllocation contains key not in BudgetRecipients"
@@ -739,7 +741,7 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u64 = budget_allocation.values().map(|p| p.deconstruct() as u64).sum();
+			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
 				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"

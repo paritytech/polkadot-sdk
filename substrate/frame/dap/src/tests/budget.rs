@@ -29,7 +29,23 @@ use frame_support::{assert_noop, assert_ok, traits::fungible::NativeOrWithId};
 use sp_runtime::{BoundedBTreeMap, Perbill};
 
 #[test]
+#[allow(deprecated)]
 fn set_budget_allocation_works_with_root() {
+	build_and_execute(true, || {
+		System::set_block_number(1);
+
+		let allocs =
+			budget_map(&[(b"buffer", 20), (b"staker_rewards", 60), (b"validator_incentive", 20)]);
+
+		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs.clone()));
+
+		assert_eq!(BudgetAllocation::<Test>::get(), allocs);
+		System::assert_has_event(Event::BudgetAllocationUpdated { allocations: allocs }.into());
+	});
+}
+
+#[test]
+fn set_allocations_works_with_root() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
@@ -61,6 +77,7 @@ fn set_budget_allocation_works_with_root() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn set_budget_allocation_rejects_unknown_key() {
 	build_and_execute(true, || {
 		// GIVEN: default budget allocation with known keys (buffer, staker_rewards,
@@ -72,28 +89,33 @@ fn set_budget_allocation_rejects_unknown_key() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
+			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
 			Error::<Test>::UnknownBudgetKey
 		);
 	});
 }
 
 #[test]
-fn set_asset_allocation_rejects_unknown_key() {
+fn set_allocations_rejects_unknown_key() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
-		let allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"unknown", 10)])]);
+		let budget_allocations = budget_map(&[(b"unknown_key", 50)]);
+		let asset_allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"unknown", 10)])]);
 
 		assert_noop!(
-			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),
+			Dap::set_allocations(
+				RuntimeOrigin::root(),
+				Some(budget_allocations),
+				Some(asset_allocations)
+			),
 			Error::<Test>::UnknownBudgetKey
 		);
 	});
 }
 
 #[test]
-fn set_asset_allocation_rejects_zero_amounts() {
+fn set_allocations_rejects_zero_amounts() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
@@ -107,7 +129,7 @@ fn set_asset_allocation_rejects_zero_amounts() {
 }
 
 #[test]
-fn set_asset_allocation_rejects_small_amounts() {
+fn set_allocations_rejects_small_amounts() {
 	build_and_execute(true, || {
 		use frame_support::traits::fungibles::Create;
 
@@ -134,7 +156,7 @@ fn set_asset_allocation_rejects_small_amounts() {
 }
 
 #[test]
-fn set_asset_allocation_rejects_nonexistent_assets() {
+fn set_allocations_rejects_nonexistent_assets() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
@@ -152,7 +174,7 @@ fn set_asset_allocation_rejects_nonexistent_assets() {
 }
 
 #[test]
-fn set_asset_allocation_rejects_insufficient_assets() {
+fn set_allocations_rejects_insufficient_assets() {
 	build_and_execute(true, || {
 		use frame_support::traits::fungibles::Create;
 
@@ -169,7 +191,24 @@ fn set_asset_allocation_rejects_insufficient_assets() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn set_budget_allocation_rejects_over_100_percent() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		// WHEN: allocations sum to 110%.
+		let allocs = budget_map(&[(b"buffer", 50), (b"staker_rewards", 60)]);
+
+		// THEN: rejected.
+		assert_noop!(
+			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Error::<Test>::BudgetNotExact
+		);
+	});
+}
+
+#[test]
+fn set_allocations_rejects_over_100_percent() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
@@ -185,11 +224,28 @@ fn set_budget_allocation_rejects_over_100_percent() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn set_budget_allocation_rejects_under_100_percent() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
 		// WHEN: allocations sum to only 50%.
+		let allocs = budget_map(&[(b"staker_rewards", 50)]);
+
+		// THEN: rejected.
+		assert_noop!(
+			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Error::<Test>::BudgetNotExact
+		);
+	});
+}
+
+#[test]
+fn set_allocations_rejects_under_100_percent() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		// WHEN: allocations sum to 110%.
 		let allocs = budget_map(&[(b"staker_rewards", 50)]);
 
 		// THEN: rejected.
@@ -201,12 +257,29 @@ fn set_budget_allocation_rejects_under_100_percent() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn set_budget_allocation_requires_budget_origin() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
+		let allocs = budget_map(&[(b"staker_rewards", 80)]);
+
 		assert_noop!(
-			Dap::set_allocations(RuntimeOrigin::signed(account_id(1)), None, None),
+			Dap::set_budget_allocation(RuntimeOrigin::signed(account_id(1)), allocs),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn set_allocations_requires_budget_origin() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocs = budget_map(&[(b"staker_rewards", 80)]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::signed(account_id(1)), Some(allocs), None),
 			sp_runtime::DispatchError::BadOrigin
 		);
 	});

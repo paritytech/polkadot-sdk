@@ -672,14 +672,14 @@ impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> Inspect<AccountId>
 		_: Self::Balance,
 		_: Provenance,
 	) -> DepositConsequence {
-		DepositConsequence::Success
+		DepositConsequence::UnknownAsset
 	}
 	fn can_withdraw(
 		_: Self::AssetId,
 		_: &AccountId,
 		_: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance> {
-		WithdrawConsequence::Success
+		WithdrawConsequence::UnknownAsset
 	}
 	fn asset_exists(_: Self::AssetId) -> bool {
 		false
@@ -695,7 +695,7 @@ impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> Unbalanced<Account
 		_: &AccountId,
 		_: Self::Balance,
 	) -> Result<Option<Self::Balance>, DispatchError> {
-		Ok(None)
+		Err(DispatchError::Token(TokenError::UnknownAsset))
 	}
 	fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
 }

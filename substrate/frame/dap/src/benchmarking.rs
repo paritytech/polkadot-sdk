@@ -60,21 +60,23 @@ mod benchmarks {
 		let mut allocations: AssetAllocationMapOf<T> = BoundedBTreeMap::new();
 
 		for asset_id in 0..count {
-			if let Ok(asset_id) = T::BenchmarkHelper::create_asset(asset_id) {
-				let mut single_asset_allocation = BoundedBTreeMap::new();
+			let Ok(asset_id) = T::BenchmarkHelper::create_asset(asset_id) else {
+				continue;
+			};
 
-				let recipients = T::BudgetRecipients::recipients();
-				for (budget_key, _) in recipients {
-					assert_ok!(single_asset_allocation.try_insert(
-						budget_key,
-						SingleAssetAllocation {
-							amount_per_ms: T::Assets::minimum_balance(asset_id.clone())
-						}
-					));
-				}
+			let mut single_asset_allocation = BoundedBTreeMap::new();
 
-				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
+			let recipients = T::BudgetRecipients::recipients();
+			for (budget_key, _) in recipients {
+				assert_ok!(single_asset_allocation.try_insert(
+					budget_key,
+					SingleAssetAllocation {
+						amount_per_ms: T::Assets::minimum_balance(asset_id.clone())
+					}
+				));
 			}
+
+			assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
 		}
 
 		allocations

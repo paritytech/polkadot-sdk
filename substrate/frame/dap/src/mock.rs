@@ -144,10 +144,9 @@ impl crate::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for BenchmarkHelper 
 	) -> Result<NativeOrWithId<u32>, frame_support::pallet_prelude::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
-		let asset_id = NativeOrWithId::WithId(asset_id_seed);
-		NativeAndAssets::create(asset_id.clone(), account_id(1000), true, 1)?;
+		<Assets as Create<AccountId>>::create(asset_id_seed, account_id(1000), true, 1)?;
 
-		Ok(asset_id)
+		Ok(NativeOrWithId::WithId(asset_id_seed))
 	}
 }
 

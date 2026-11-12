@@ -17,19 +17,16 @@
 
 //! Drain tests for the DAP pallet.
 
-use super::{asset_allocations, balance_of_asset, budget_map, create_asset};
+use super::budget_map;
 use crate::{
-	mock::{
-		build_and_execute, AccountId, Balances, Dap, NativeAndAssets, RuntimeOrigin, System, Test,
-	},
+	mock::{build_and_execute, AccountId, Balances, Dap, RuntimeOrigin, System, Test},
 	Event,
 };
 use frame_support::{
 	assert_ok,
 	pallet_prelude::Weight,
 	traits::{
-		fungible::{Inspect, Mutate as FungibleMutate, NativeOrWithId},
-		fungibles::Mutate,
+		fungible::{Inspect, Mutate as FungibleMutate},
 		tokens::{Fortitude, Preservation},
 		Hooks,
 	},
