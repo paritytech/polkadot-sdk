@@ -443,8 +443,8 @@ fn open_system_channel_origins() {
 		);
 		// The `ChannelManager` may, and so may any system para, even one not in the channel.
 		assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), para_a, para_b));
-		let system: crate::Origin = 4.into();
-		assert_ok!(Hrmp::establish_system_channel(system.into(), para_b, para_c));
+		let outsider: crate::Origin = 1.into();
+		assert_ok!(Hrmp::establish_system_channel(outsider.into(), para_b, para_c));
 		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }

@@ -61,15 +61,18 @@ mod benchmarks {
 		assert!(PendingRequests::<T>::get(id).is_none());
 	}
 
-	/// A request for both sides, by a parachain that already made one in its window. See
-	/// [`try_set_deposit_release`] for a release.
+	/// A request for both sides, by a parachain whose window is already started and has room for
+	/// one more. See [`try_set_deposit_release`] for a release.
 	#[benchmark]
 	fn try_set_deposit_both_sides() {
 		T::BenchmarkHelper::ensure_send_to_para();
 		let request = both_sides_request();
 		RequestWindows::<T>::insert(
 			ParaId::from(SENDER),
-			(frame_system::Pallet::<T>::block_number(), 1),
+			(
+				frame_system::Pallet::<T>::block_number(),
+				T::MaxRequestsPerWindow::get().saturating_sub(1),
+			),
 		);
 		let response;
 

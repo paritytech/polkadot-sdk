@@ -1464,4 +1464,14 @@ fn allow_unpaid_transact_from_should_work() {
 		Ok(())
 	);
 	assert_eq!(properties.message_id, Some([1; 32]));
+	// The weight is not reduced for the stripped `SetTopic`: heavier than allowed is refused.
+	assert_eq!(
+		TrailingSetTopicAsId::<Barrier>::should_execute(
+			&para,
+			with_topic.inner_mut(),
+			max.saturating_add(one),
+			&mut props(Weight::zero()),
+		),
+		Err(ProcessMessageError::Unsupported)
+	);
 }
