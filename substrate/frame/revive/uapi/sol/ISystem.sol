@@ -56,11 +56,11 @@ interface ISystem {
 	function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
 
 	/// Terminate the calling contract of this function and send balance to `beneficiary`.
+	/// The contract is only deleted if it was created in the same transaction (EIP-6780).
 	/// This will revert if:
 	/// - called from constructor
 	/// - called from static context
 	/// - called from delegate context
-	/// - the contract introduced balance locks
 	function terminate(address beneficiary) external;
 
 	/// Verify a sr25519 signature

@@ -171,27 +171,9 @@ impl SubstrateCli for Cli {
 			#[cfg(not(feature = "rococo-native"))]
 			name if name.starts_with("versi-") =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
-			path => {
-				let path = std::path::PathBuf::from(path);
-
-				let chain_spec = Box::new(polkadot_service::GenericChainSpec::from_json_file(path.clone())?)
-					as Box<dyn polkadot_service::ChainSpec>;
-
-				// When `force_*` is given or the file name starts with the name of one of the known
-				// chains, we use the chain spec for the specific chain.
-				if self.run.force_rococo ||
-					chain_spec.is_rococo() ||
-					chain_spec.is_versi()
-				{
-					Box::new(polkadot_service::RococoChainSpec::from_json_file(path)?)
-				} else if self.run.force_kusama || chain_spec.is_kusama() {
-					Box::new(polkadot_service::GenericChainSpec::from_json_file(path)?)
-				} else if self.run.force_westend || chain_spec.is_westend() {
-					Box::new(polkadot_service::WestendChainSpec::from_json_file(path)?)
-				} else {
-					chain_spec
-				}
-			},
+			path => Box::new(polkadot_service::GenericChainSpec::from_json_file(
+				std::path::PathBuf::from(path),
+			)?),
 		})
 	}
 }
@@ -258,12 +240,8 @@ where
 	// Parse collator protocol hold off value and get the list of the invlunerable collators.
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
 	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
-	// Collator revamp is the default one for Kusama, unless explicitly stated otherwise.
-	let experimental_collator_protocol = match cli.run.experimental_collator_protocol {
-		Some(experimental_protocol_flag) => experimental_protocol_flag,
-		None if chain_spec.is_kusama() => true,
-		None => false,
-	};
+	// Collator revamp is the default one, unless explicitly stated otherwise.
+	let experimental_collator_protocol = cli.run.experimental_collator_protocol.unwrap_or(true);
 
 	// Reject `collator_reputation_persist_interval` cli parameter when
 	// `experimental_collator_protocol` is `false`.
@@ -272,7 +250,7 @@ where
 	if !experimental_collator_protocol && cli.run.collator_reputation_persist_interval.is_some() {
 		return Err(Error::Other(
 			"`--collator-reputation-persist-interval` requires the experimental collator protocol \
-			 to be enabled. Pass `--experimental-collator-protocol` to enable it."
+			 to be enabled. Do not pass `--experimental-collator-protocol=false` with it."
 				.into(),
 		));
 	}
@@ -367,11 +345,6 @@ pub fn run() -> Result<()> {
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
-		#[allow(deprecated)]
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			Ok(runner.sync_run(|config| cmd.run(config.chain_spec, config.network))?)
-		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			// Directly load the embedded chain spec using the CLI’s load_spec method.
 			let spec = cli.load_spec(&cmd.chain)?;

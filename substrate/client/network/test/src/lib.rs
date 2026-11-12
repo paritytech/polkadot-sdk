@@ -30,6 +30,7 @@ mod sync;
 
 use std::{
 	collections::HashMap,
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -90,7 +91,7 @@ use sp_consensus::{
 	block_validation::{BlockAnnounceValidator, DefaultBlockAnnounceValidator},
 	BlockOrigin, Error as ConsensusError, SyncOracle,
 };
-use sp_core::H256;
+use sp_core::{testing::TaskExecutor, H256};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
@@ -858,11 +859,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let justification_import =
 			if config.disable_justification_import { None } else { justification_import };
+		let executor = TaskExecutor::new();
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
 			justification_import,
-			&sp_core::testing::TaskExecutor::new(),
+			&executor,
 			None,
 		));
 
@@ -933,14 +935,18 @@ pub trait TestNetFactory: Default + Sized + Send {
 			protocol_config
 		};
 
-		let light_client_request_protocol_config =
-			{
-				let (handler, protocol_config) = LightClientRequestHandler::new::<
-					NetworkWorker<_, _>,
-				>(&protocol_id, None, client.clone());
-				self.spawn_task(handler.run().boxed());
-				protocol_config
-			};
+		let light_client_request_protocol_config = {
+			let (handler, protocol_config) = LightClientRequestHandler::new::<NetworkWorker<_, _>>(
+				&protocol_id,
+				None,
+				client.clone(),
+				None,
+				NonZeroUsize::MIN,
+				None,
+			);
+			self.spawn_task(handler.run(executor).boxed());
+			protocol_config
+		};
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 

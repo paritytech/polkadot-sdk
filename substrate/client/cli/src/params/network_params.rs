@@ -23,8 +23,9 @@ use crate::{
 use clap::Args;
 use sc_network::{
 	config::{
-		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
-		DEFAULT_IDLE_CONNECTION_TIMEOUT,
+		default_light_request_call_workers, NetworkConfiguration, NodeKeyConfig,
+		NonReservedPeerMode, SetConfig, TransportConfig, DEFAULT_IDLE_CONNECTION_TIMEOUT,
+		DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -32,7 +33,7 @@ use sc_service::{
 	config::{Multiaddr, MultiaddrWithPeerId},
 	ChainSpec, ChainType,
 };
-use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf};
+use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf, time::Duration};
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
@@ -181,6 +182,28 @@ pub struct NetworkParams {
 	/// Specify a list of IPFS bootstrap nodes.
 	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
+
+	/// Wall-clock limit, in milliseconds, for a single runtime call serving an (untrusted)
+	/// light-client request.
+	///
+	/// `0` disables the limit.
+	///
+	/// The limit is enforced in 100ms steps, so a call may overrun it by up to 200ms.
+	///
+	/// Requests exceeding the limit are interrupted and answered with an empty proof.
+	#[arg(
+		long,
+		value_name = "MILLISECONDS",
+		default_value_t = DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT.as_millis() as u64
+	)]
+	pub light_request_execution_timeout_ms: u64,
+
+	/// Number of light-client call requests executed in parallel.
+	///
+	/// Defaults to half the available CPU cores, at most 4. Every worker may use ~128 MiB of
+	/// memory.
+	#[arg(long, value_name = "COUNT")]
+	pub light_request_call_workers: Option<NonZeroUsize>,
 
 	/// Blockchain syncing mode.
 	#[arg(
@@ -339,6 +362,13 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
+			light_request_execution_timeout: match self.light_request_execution_timeout_ms {
+				0 => None,
+				ms => Some(Duration::from_millis(ms)),
+			},
+			light_request_call_workers: self
+				.light_request_call_workers
+				.unwrap_or_else(default_light_request_call_workers),
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}
@@ -394,5 +424,16 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
+	}
+
+	#[test]
+	fn light_request_call_workers_must_be_non_zero() {
+		let parse = |workers: &str| {
+			Cli::try_parse_from(["", "--light-request-call-workers", workers])
+				.map(|cli| cli.network_params.light_request_call_workers)
+		};
+
+		assert_eq!(parse("100").unwrap(), NonZeroUsize::new(100));
+		assert!(parse("0").is_err());
 	}
 }

@@ -32,7 +32,8 @@ use frame_support::{
 		fungible,
 		fungible::{NativeFromLeft, NativeOrWithId},
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, LockableCurrency,
+		OnInitialize, WithdrawReasons,
 	},
 	PalletId,
 };
@@ -887,6 +888,36 @@ fn award_and_claim_bounty_works() {
 }
 
 #[test]
+fn claim_bounty_leaves_locked_funds_behind() {
+	ExtBuilder::default().build_and_execute(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&4, 10);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 4));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
+		go_to_block(5);
+
+		// Anyone can lock funds in the bounty account with a vested transfer.
+		let bounty_account = Bounties::bounty_account_id(0);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(0), bounty_account, 10));
+		Balances::set_lock(*b"vesting ", &bounty_account, 10, WithdrawReasons::all());
+
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0));
+
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyClaimed { index: 0, payout: 46, beneficiary: 3 }
+		);
+		assert_eq!(Balances::free_balance(4), 14);
+		assert_eq!(Balances::free_balance(3), 46);
+		assert_eq!(Balances::free_balance(bounty_account), 10);
+	});
+}
+
+#[test]
 fn claim_handles_high_fee() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1630,7 +1661,7 @@ fn accept_curator_sets_update_due_correctly() {
 		);
 
 		// Given (BountyUpdatePeriod = BlockNumber::max_value())
-		BountyUpdatePeriod::set(BlockNumberFor::<Test>::max_value());
+		BountyUpdatePeriod::set(BlockNumberFor::<Test>::MAX);
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_ok!(Bounties1::propose_bounty(
 			RuntimeOrigin::signed(proposer),
@@ -1648,7 +1679,7 @@ fn accept_curator_sets_update_due_correctly() {
 		// Then
 		assert_eq!(
 			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
-			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::MAX }
 		);
 
 		// When
@@ -1661,7 +1692,7 @@ fn accept_curator_sets_update_due_correctly() {
 		// Then
 		assert_eq!(
 			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
-			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::MAX }
 		);
 	});
 }
