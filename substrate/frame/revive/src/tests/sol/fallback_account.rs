@@ -87,11 +87,18 @@ fn shadowed_fallback_account_is_rejected(fixture_type: FixtureType) {
 		assert_ok!(instantiate_with_code.clone().dispatch(RuntimeOrigin::signed(EVE)));
 		assert!(get_contract_checked(&create1(&EVE_ADDR, 0)).is_some());
 
-		for revive_call in [instantiate_with_code, instantiate, call] {
+		for revive_call in [instantiate_with_code, call] {
 			assert_err_ignore_postinfo!(
 				as_fallback(revive_call).dispatch(RuntimeOrigin::signed(EVE)),
 				DispatchError::BadOrigin,
 			);
+		}
+		// EVM init code is never stored by hash, so the lookup fails before the origin check.
+		let instantiate = as_fallback(instantiate).dispatch(RuntimeOrigin::signed(EVE));
+		if fixture_type == FixtureType::Solc {
+			assert_err_ignore_postinfo!(instantiate, Error::<Test>::CodeNotFound);
+		} else {
+			assert_err_ignore_postinfo!(instantiate, DispatchError::BadOrigin);
 		}
 
 		// Funds stay recoverable from the fallback account.
@@ -144,15 +151,30 @@ fn fallback_account_of_unmapped_account_is_accepted(fixture_type: FixtureType) {
 	});
 }
 
-#[test]
-fn dry_run_rejects_shadowed_fallback_account() {
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		assert_ok!(Pallet::<Test>::prepare_dry_run(&EVE_FALLBACK));
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn bare_entry_points_reject_shadowed_fallback_account(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
 
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&EVE, FUNDS);
+		let _ = <Test as Config>::Currency::set_balance(&EVE_FALLBACK, FUNDS);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, FUNDS);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed(EVE)));
 
-		assert_eq!(Pallet::<Test>::prepare_dry_run(&EVE_FALLBACK), Err(DispatchError::BadOrigin));
-		assert_ok!(Pallet::<Test>::prepare_dry_run(&EVE));
+		let result = builder::bare_instantiate(Code::Upload(code))
+			.origin(RuntimeOrigin::signed(EVE_FALLBACK))
+			.build()
+			.result;
+		assert_eq!(result.map(|_| ()), Err(DispatchError::BadOrigin));
+		assert!(get_contract_checked(&create1(&EVE_ADDR, 0)).is_none());
+
+		let result = builder::bare_call(addr)
+			.origin(RuntimeOrigin::signed(EVE_FALLBACK))
+			.build()
+			.result;
+		assert_eq!(result.map(|_| ()), Err(DispatchError::BadOrigin));
 	});
 }

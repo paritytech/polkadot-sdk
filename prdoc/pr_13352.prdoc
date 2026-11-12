@@ -2,24 +2,22 @@ title: '[pallet-revive] Reject calls from a fallback account shadowed by a mappi
 doc:
 - audience: Runtime Dev
   description: |-
-    `call`, `instantiate` and `instantiate_with_code` now fail with `BadOrigin` when the signed
-    origin is not the account behind its own address. This happens when a native account is
-    mapped and then dispatches through `dispatch_as_fallback_account`: the fallback account
-    shares the mapped address but not its nonce or balance, so it used to derive CREATE1
-    addresses from a second nonce and pay with funds the EVM does not attribute to that
-    address. Funds held by such a fallback account can still be recovered by dispatching calls
-    to other pallets, for example a balance transfer, through `dispatch_as_fallback_account`.
+    Calling or instantiating a contract now fails with `BadOrigin` when the origin is an
+    eth-derived account whose address has been mapped to a native account. This happens when a
+    native account is mapped and then acts through its fallback account, for example via
+    `dispatch_as_fallback_account`. The fallback account shares the mapped address but not its
+    nonce or balance, so it used to derive CREATE1 addresses from a second nonce and pay with
+    funds the EVM does not attribute to that address.
 
-    The `call` and `instantiate` runtime APIs apply the same check, so a dry run reports the
-    error the extrinsic would hit. `Pallet::prepare_dry_run` now returns a `DispatchResult`
-    carrying it. Runtimes using `impl_runtime_apis_plus_revive` need no change. Code calling
-    `prepare_dry_run` directly must handle the returned error before executing the dry run.
+    The check applies to every entry point: the `call`, `instantiate` and
+    `instantiate_with_code` extrinsics, `Pallet::bare_call` and `Pallet::bare_instantiate`
+    (used, for example, by XCM asset transactors), and the `call` and `instantiate` runtime
+    APIs, so a dry run reports the same error. No migration or API change is needed.
 - audience: Runtime User
   description: |-
-    A mapped account can no longer call or deploy contracts as its fallback account through
-    `dispatch_as_fallback_account`. Dry runs through the runtime API report this as
-    `BadOrigin`. Moving funds out of the fallback account with calls to other pallets keeps
-    working.
+    A mapped account can no longer call or deploy contracts as its fallback account. Funds held
+    by the fallback account can still be recovered by dispatching calls to other pallets, such as
+    a balance transfer, through `dispatch_as_fallback_account`.
 crates:
 - name: pallet-revive
-  bump: major
+  bump: patch

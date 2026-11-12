@@ -340,7 +340,7 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 		// the reported `max_storage_deposit` must still match the funded run so the
 		// caller can size the allowance needed to cover the deposit.
 		let unfunded = run_in_rollback(&|| {
-			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE).unwrap();
+			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE);
 			builder::bare_call(caller_addr)
 				.origin(RawOrigin::Signed(CHARLIE).into())
 				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
