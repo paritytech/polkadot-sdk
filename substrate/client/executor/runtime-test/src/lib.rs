@@ -46,10 +46,7 @@ use sp_io::{
 	storage, wasm_tracing,
 };
 #[cfg(not(feature = "std"))]
-use sp_runtime::{
-	print,
-	traits::{BlakeTwo256, Hash},
-};
+use sp_runtime::traits::{BlakeTwo256, Hash};
 
 #[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
 extern "C" {
@@ -87,16 +84,16 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_data_in(input: Vec<u8>) -> Vec<u8> {
-		print("set_storage");
+		log::info!("set_storage");
 		storage::set(b"input", &input);
 
-		print("storage");
+		log::info!("storage");
 		let foo = storage::get(b"foo").unwrap();
 
-		print("set_storage");
+		log::info!("set_storage");
 		storage::set(b"baz", &foo);
 
-		print("finished!");
+		log::info!("finished!");
 		b"all ok!".to_vec()
 	}
 

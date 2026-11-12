@@ -88,6 +88,7 @@ use parachains_common::{
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -155,7 +156,16 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
 	}
+}
+
+mod ad_migration {
+	use super::*;
+	pub use parachains_common::ad_migration::*;
+	use parachains_common::impl_keys_translator;
+
+	impl_keys_translator!(SessionKeys, AuraId, AuthorityDiscoveryId);
 }
 
 #[sp_version::runtime_version]
@@ -166,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_002,
+	spec_version: 1_025_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -175,6 +185,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_025_004);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -240,7 +251,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
+	type EventHandler = (CollatorSelection, ValidatorCollators);
 }
 
 parameter_types! {
@@ -820,8 +831,10 @@ pub enum ProxyType {
 	/// kicking, and managing session keys. Cannot bond/unbond funds, change reward
 	/// destinations, or nominate.
 	///
-	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` batching calls (batch, batch_all, force_batch).
+	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys) for
+	/// the relay chain session keys, `Session` (set_keys, purge_keys) for the session keys of
+	/// this chain, with which a validator collates here, and `Utility` batching calls (batch,
+	/// batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -999,7 +1012,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+				) | RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
@@ -1177,6 +1192,10 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<1000>;
+}
+
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
@@ -1200,13 +1219,36 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// The validators of a set, the invulnerables and candidates of collator selection, and a
+	/// buffer for the authors that leave the collators before the next report.
+	pub MaxEntriesPerReport: u32 =
+		testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET
+			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
+			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
+			+ 30;
+	// Validators contribute no collators until governance raises the cap.
+	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
+		pallet_validator_collators::CollatorDraw::None;
+}
+
 impl pallet_validator_collators::Config for Runtime {
-	// The set is written only by the staking era-start hook.
+	// The set is written only by the staking era-start hook, since there is no cross-chain call
+	// here, unlike a remote chain.
 	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators = staking::MaxValidatorSet;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = staking::CreditBlocksLocally;
+	type DefaultMaxCollators = DefaultMaxCollators;
+	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
+	type UnixTime = Timestamp;
+	type DefaultExpectedEraDuration =
+		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
+	type DefaultReportMargin = ConstU64<300_000>;
+	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
@@ -1214,6 +1256,29 @@ impl pallet_validator_set_announcer::Config for Runtime {
 	type Sender = staking::ValidatorSetToSystemChains;
 	type Destinations = staking::ValidatorSetDestinations;
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	/// Twice the blocks a system chain can author in an expected era duration.
+	pub const MaxBlocksPerEntry: u32 = (2 *
+		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+	/// The sibling system chains that run `pallet-validator-collators` and report their authored
+	/// blocks here.
+	pub ReportingSiblings: Vec<ParaId> =
+		vec![testnet_parachains_constants::westend::locations::PeopleParaId::get()];
+}
+
+impl pallet_staking_async_points_converter::Config for Runtime {
+	type Source = ParaId;
+	type ReportOrigin = staking::EnsureReportingSiblings<ReportingSiblings>;
+	type PointsOrigin = CollatorSelectionUpdateOrigin;
+	type RewardPoints = Staking;
+	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
+	// per-unit value that matches it, while an era's total stays far from saturating.
+	type MaxPointsPerService = ConstU32<1_000>;
+	type MaxBlocksPerEntry = MaxBlocksPerEntry;
+	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1723,6 +1788,8 @@ construct_runtime!(
 		AuraExt: cumulus_pallet_aura_ext = 24,
 		ValidatorCollators: pallet_validator_collators = 25,
 		ValidatorSetAnnouncer: pallet_validator_set_announcer = 26,
+		AuthorityDiscovery: pallet_authority_discovery = 27,
+		StakingPointsConverter: pallet_staking_async_points_converter = 28,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -1905,6 +1972,18 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
+	// unreleased
+	// Appends a placeholder authority-discovery key to every collator's session keys.
+	ad_migration::AppendAuthorityDiscoveryKeys<
+		Runtime,
+		AdMigrationVersion,
+		ad_migration::KeysTranslator,
+	>,
+	// unreleased
+	// Stores the registration base deposit of every signed election submission.
+	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
+	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
+	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -2022,9 +2101,11 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_recovery, Recovery]
+		[pallet_referenda, Referenda]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
+		[pallet_staking_async_points_converter, StakingPointsConverter]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_meta_tx, MetaTx]
@@ -2197,6 +2278,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			pallet_authority_discovery::Pallet::<Runtime>::current_authorities().to_vec()
 		}
 	}
 
@@ -2807,6 +2894,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
 					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
+
+				fn wrap_call(call: RuntimeCall) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+						other_signatories: Vec::new(),
+						call: alloc::boxed::Box::new(call),
+					}))
 				}
 			}
 

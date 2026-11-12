@@ -329,7 +329,6 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
 	let all_syscalls = expand_func_list(def);
-	let lookup_syscall = expand_func_lookup(def);
 	let all_trace_ops = expand_trace_op_list(def);
 	let lookup_trace_op = expand_trace_op_lookup(def);
 
@@ -337,11 +336,6 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 		/// Returns the list of all syscalls that contracts can import.
 		pub fn list_syscalls() -> &'static [&'static [u8]] {
 			#all_syscalls
-		}
-
-		/// Return the index of a syscall in the `list_syscalls()` list.
-		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
-			#lookup_syscall
 		}
 
 		/// Returns the list of all trace operations (real syscalls + synthetic trace steps).
@@ -550,32 +544,19 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 
 fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 	let docs = def.host_funcs.iter().map(|f| {
+		let cfg = &f.cfg;
 		let name = Literal::byte_string(f.name.as_bytes());
 		quote! {
+			#cfg
 			#name.as_slice()
 		}
 	});
-	let len = docs.clone().count();
 
+	// Upload validation uses this list as the import allowlist, so it must honour `#[cfg]`.
 	quote! {
 		{
-			static FUNCS: [&[u8]; #len] = [#(#docs),*];
-			FUNCS.as_slice()
-		}
-	}
-}
-
-fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
-	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
-		let name_str = &f.name;
-		quote! {
-			#name_str => Some(#idx as u8)
-		}
-	});
-	quote! {
-		match name {
-			#( #arms, )*
-			_ => None,
+			static FUNCS: &[&[u8]] = &[#(#docs),*];
+			FUNCS
 		}
 	}
 }

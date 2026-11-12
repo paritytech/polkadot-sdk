@@ -43,6 +43,11 @@
 //! Code upgrade authorizations do lapse instead: no deposit is at stake, and their validity
 //! depends on relay-chain state the parachain does not track.
 //!
+//! ## Deregistration
+//!
+//! Applied as it arrives and answered once. A para already gone is confirmed, so the parachain's
+//! retry after a lost answer settles instead of being refused.
+//!
 //! ## Locking
 //!
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding the
@@ -72,6 +77,8 @@ use sp_core::H256;
 pub use weights::WeightInfo;
 
 pub mod weights;
+
+const LOG_TARGET: &str = "runtime::registrar-relay";
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -111,7 +118,7 @@ pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 	pub genesis_head: frame_support::BoundedVec<u8, MaxHeadDataSize>,
 	/// Blake2-256 hash the validation code must have.
 	pub code_hash: H256,
-	/// Exact length the validation code must have; the parachain sized the deposit from it.
+	/// Exact length the validation code must have, as declared by the parachain.
 	pub code_len: u32,
 }
 
@@ -200,6 +207,14 @@ pub mod pallet {
 		HeadNoted { para_id: ParaId },
 		/// A para's first head could not be reported to the parachain.
 		HeadNoteFailed { para_id: ParaId },
+		/// A para was dropped from the registry, or had already left it.
+		Deregistered { para_id: ParaId, message_id: u64 },
+		/// The registry refused to drop a para.
+		DeregistrationRejected { para_id: ParaId, message_id: u64 },
+		/// A para's current head was set at the parachain's request.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// A head update was refused.
+		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 	}
 
 	#[pallet::error]
@@ -227,9 +242,11 @@ pub mod pallet {
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
-			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::MAX,
+			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
+				T::WeightInfo::receive_deregister(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { head, .. }) =>
+				T::WeightInfo::receive_set_current_head(head.len() as u32),
+			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) => Weight::MAX,
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -456,9 +473,26 @@ pub mod pallet {
 			);
 		}
 
+		/// Drop `para_id` at the parachain's request.
+		///
+		/// A para already gone is confirmed rather than refused, so a retried request settles.
 		fn on_deregister_request(para_id: ParaId, message_id: u64) {
-			let _ = (para_id, message_id);
-			// TODO(ahm-v2): deregister the para and report the outcome back.
+			if let Err(e) = T::Registrar::deregister(para_id) {
+				log::debug!(
+					target: LOG_TARGET,
+					"registry refused to drop para {para_id}: {e:?}",
+				);
+				Self::report_deregistration(
+					para_id,
+					message_id,
+					Err(FailureReason::NotDeregisterable),
+				);
+				return Self::deposit_event(Event::DeregistrationRejected { para_id, message_id });
+			}
+
+			AwaitingFirstHead::<T>::remove(para_id);
+			Self::report_deregistration(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
 		fn on_authorize_code_upgrade_request(
@@ -471,12 +505,31 @@ pub mod pallet {
 			// TODO(ahm-v2): authorize the code upgrade and report the outcome back.
 		}
 
+		/// Set `para_id`'s head if the para is known and the head fits, and report either way.
+		///
+		/// Registration is re-checked here since a deregistration can land before an earlier head.
 		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
-			let _ = (para_id, message_id, head);
-			// TODO(ahm-v2): set the para's head and report the outcome back.
+			let fits = u32::try_from(head.len())
+				.is_ok_and(|len| T::Registrar::check_head_data(len).is_ok());
+			let reason = if !T::Registrar::is_registered(para_id) {
+				Some(FailureReason::NotRegistered)
+			} else if !fits {
+				Some(FailureReason::HeadDataTooLarge)
+			} else {
+				None
+			};
+			if let Some(reason) = reason {
+				Self::report_set_head(para_id, message_id, Err(reason.clone()));
+				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
+				return;
+			}
+
+			T::Registrar::set_current_head(para_id, head);
+			Self::report_set_head(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::HeadUpdated { para_id, message_id });
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain how a deregistration ended.
 		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
@@ -507,7 +560,7 @@ pub mod pallet {
 			);
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain whether the head was set.
 		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
@@ -523,7 +576,7 @@ pub mod pallet {
 		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
-					target: "runtime::registrar-relay",
+					target: LOG_TARGET,
 					"failed to report the outcome for para {para_id} back to the parachain",
 				);
 				Self::deposit_event(Event::ReportFailed { para_id, message_id });
@@ -545,7 +598,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
-				target: "runtime::registrar-relay",
+				target: LOG_TARGET,
 				"failed to tell the parachain about a new head for para {para_id}",
 			);
 			Self::deposit_event(Event::HeadNoteFailed { para_id });
