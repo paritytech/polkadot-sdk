@@ -20,12 +20,13 @@ use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use frame_support::{
 	derive_impl,
+	dispatch::GetDispatchInfo,
 	pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_runtime::{
-	traits::{ExtrinsicLike, TransactionExtension},
+	traits::{DispatchTransaction, ExtrinsicLike, Pipeline, PipelineAtVers, TransactionExtension},
 	transaction_validity::{TransactionSource, UnknownTransaction},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -57,6 +58,58 @@ fn rejects_when_no_metadata_hash_was_passed() {
 #[test]
 fn rejects_unknown_mode() {
 	assert!(CheckMetadataHash::<Test>::decode(&mut &50u8.encode()[..]).is_err());
+}
+
+fn remark() -> RuntimeCall {
+	RuntimeCall::System(frame_system::Call::remark { remark: vec![] })
+}
+
+fn validate_at_version(
+	ext: CheckMetadataHash<Test>,
+	version: u8,
+) -> Result<(), TransactionValidityError> {
+	let call = remark();
+	ext.validate_only(
+		Some(1).into(),
+		&call,
+		&call.get_dispatch_info(),
+		0,
+		TransactionSource::External,
+		version,
+	)
+	.map(|_| ())
+}
+
+#[test]
+fn mode_1_is_only_accepted_for_extension_version_0() {
+	let enabled = || CheckMetadataHash::<Test>::new_with_custom_hash([1; 32]);
+	assert_eq!(validate_at_version(enabled(), 0), Ok(()));
+	for version in [1, 2, u8::MAX] {
+		assert_eq!(
+			validate_at_version(enabled(), version),
+			Err(InvalidTransaction::BadProof.into())
+		);
+	}
+	for version in [0, 1, 2, u8::MAX] {
+		assert_eq!(validate_at_version(CheckMetadataHash::new(false), version), Ok(()));
+	}
+}
+
+#[test]
+fn versioned_pipelines_pass_their_extension_version() {
+	let call = remark();
+	let info = call.get_dispatch_info();
+	let enabled = || CheckMetadataHash::<Test>::new_with_custom_hash([1; 32]);
+
+	let v0 = PipelineAtVers::<0, _>::new(enabled());
+	let v1 = PipelineAtVers::<1, _>::new(enabled());
+	let source = TransactionSource::External;
+	assert!(Pipeline::<RuntimeCall>::validate_only(&v0, Some(1).into(), &call, &info, 0, source)
+		.is_ok());
+	assert_eq!(
+		Pipeline::<RuntimeCall>::validate_only(&v1, Some(1).into(), &call, &info, 0, source),
+		Err(InvalidTransaction::BadProof.into()),
+	);
 }
 
 /// Generate the metadata hash for the `test-runtime`.
