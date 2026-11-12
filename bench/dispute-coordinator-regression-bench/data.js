@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794399499343,
+  "lastUpdate": 1794466153191,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e2480cb9209b6e27b237e2c069d3cb20efb5b419",
-          "message": "View functions to support DAP debug UI (#11877)\n\nNeeded by the DAP debug UI (pjs app) currently being cooked\n\n<img width=\"1409\" height=\"851\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bed18a6a-d4e1-4d46-b474-0db421b12864\"\n/>",
-          "timestamp": "2026-04-24T14:54:47Z",
-          "tree_id": "4f139617c75f14d082a50889a9ad144738653eff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e2480cb9209b6e27b237e2c069d3cb20efb5b419"
-        },
-        "date": 1777049699804,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009507433399999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027473534299999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00993340731,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009319561989999977,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29119b7b9fb474b9f5a6e841bcd89980454aaf6e",
+          "message": "network: Use manual Kademlia routing table update (#13445)\n\nSwitch to manual routing table update in litep2p network backend,\npopulating peer addresses from Identify events instead of blindly\ntrusting Kademlia responses.\n\nAdditionally, add support for `--no-private-ip` flag with litep2p\nnetwork backend.\n\nAlso bump litep2p to v0.17.0 with its [stability\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.17.0).\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8631.",
+          "timestamp": "2026-11-12T05:10:55Z",
+          "tree_id": "41b4d15015cb1acf357aa3bd1fa538bfbf9c5bd1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29119b7b9fb474b9f5a6e841bcd89980454aaf6e"
+        },
+        "date": 1794466117774,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010377721169999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009491601559999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025795869400000006,
             "unit": "seconds"
           }
         ]
