@@ -359,13 +359,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	fn deletion_queue_per_entry() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `72`
-		//  Estimated: `3537`
-		// Minimum execution time: 13_055_000 picoseconds.
-		Weight::from_parts(14_192_000, 3537)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		//  Measured:  `122`
+		//  Estimated: `3766`
+		// Minimum execution time: 17_176_000 picoseconds.
+		Weight::from_parts(18_441_000, 3766)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -373,13 +375,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `206 + k * (69 ±0)`
-		//  Estimated: `196 + k * (70 ±0)`
-		// Minimum execution time: 13_455_000 picoseconds.
-		Weight::from_parts(13_927_000, 196)
-			// Standard Error: 959
-			.saturating_add(Weight::from_parts(1_218_479, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		//  Measured:  `256 + k * (69 ±0)`
+		//  Estimated: `246 + k * (70 ±0)`
+		// Minimum execution time: 17_497_000 picoseconds.
+		Weight::from_parts(4_003_592, 246)
+			// Standard Error: 938
+			.saturating_add(Weight::from_parts(1_212_974, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -390,13 +392,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `145 + k * (52 ±0)`
-		//  Estimated: `156 + k * (53 ±0)`
-		// Minimum execution time: 13_381_000 picoseconds.
-		Weight::from_parts(13_855_000, 156)
-			// Standard Error: 1_011
-			.saturating_add(Weight::from_parts(1_166_239, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		//  Measured:  `195 + k * (52 ±0)`
+		//  Estimated: `206 + k * (53 ±0)`
+		// Minimum execution time: 17_861_000 picoseconds.
+		Weight::from_parts(18_295_000, 206)
+			// Standard Error: 770
+			.saturating_add(Weight::from_parts(1_156_108, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -2845,13 +2847,15 @@ impl WeightInfo for () {
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::DeletionQueue` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(174), added: 2649, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	fn deletion_queue_per_entry() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `72`
-		//  Estimated: `3537`
-		// Minimum execution time: 13_055_000 picoseconds.
-		Weight::from_parts(14_192_000, 3537)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		//  Measured:  `122`
+		//  Estimated: `3766`
+		// Minimum execution time: 17_176_000 picoseconds.
+		Weight::from_parts(18_441_000, 3766)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
@@ -2859,13 +2863,13 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `206 + k * (69 ±0)`
-		//  Estimated: `196 + k * (70 ±0)`
-		// Minimum execution time: 13_455_000 picoseconds.
-		Weight::from_parts(13_927_000, 196)
-			// Standard Error: 959
-			.saturating_add(Weight::from_parts(1_218_479, 0).saturating_mul(k.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		//  Measured:  `256 + k * (69 ±0)`
+		//  Estimated: `246 + k * (70 ±0)`
+		// Minimum execution time: 17_497_000 picoseconds.
+		Weight::from_parts(4_003_592, 246)
+			// Standard Error: 938
+			.saturating_add(Weight::from_parts(1_212_974, 0).saturating_mul(k.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -2876,13 +2880,13 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[0, 1024]`.
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `145 + k * (52 ±0)`
-		//  Estimated: `156 + k * (53 ±0)`
-		// Minimum execution time: 13_381_000 picoseconds.
-		Weight::from_parts(13_855_000, 156)
-			// Standard Error: 1_011
-			.saturating_add(Weight::from_parts(1_166_239, 0).saturating_mul(k.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		//  Measured:  `195 + k * (52 ±0)`
+		//  Estimated: `206 + k * (53 ±0)`
+		// Minimum execution time: 17_861_000 picoseconds.
+		Weight::from_parts(18_295_000, 206)
+			// Standard Error: 770
+			.saturating_add(Weight::from_parts(1_156_108, 0).saturating_mul(k.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
