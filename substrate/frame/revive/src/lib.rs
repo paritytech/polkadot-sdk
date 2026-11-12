@@ -1579,11 +1579,15 @@ pub mod pallet {
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
 		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
 		/// times within a batch call transaction.
+		///
+		/// The weight includes depositing [`Event::EthExtrinsicRevert`], which is refunded when
+		/// the instantiation succeeds.
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
@@ -1659,12 +1663,16 @@ pub mod pallet {
 		/// * `effective_gas_price`: the price of a unit of gas
 		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
 		/// * `authorization_list`: EIP-7702 authorization tuples to process before execution
+		///
+		/// The weight includes depositing [`Event::EthExtrinsicRevert`], which is refunded when
+		/// the call succeeds.
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(evm::eip7702::worst_case_authorization_weight::<T>(authorization_list.len() as u32))
+			.saturating_add(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1744,11 +1752,15 @@ pub mod pallet {
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
 		/// * `call`: The Substrate runtime call to execute.
 		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
+		///
+		/// The weight includes depositing [`Event::EthExtrinsicRevert`], which is refunded when
+		/// `call` succeeds.
 		#[pallet::call_index(12)]
 		#[pallet::weight(
 			T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
 			.saturating_add(call.get_dispatch_info().call_weight)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		)]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
@@ -1760,8 +1772,10 @@ pub mod pallet {
 			let signer = Self::ensure_eth_signed(origin)?;
 			Self::ensure_non_contract_if_signed(&OriginFor::<T>::signed(signer.clone()))?;
 			let tx_len = transaction_encoded.len() as u32;
-			let weight_overhead = T::WeightInfo::eth_substrate_call(tx_len)
+			let success_overhead = T::WeightInfo::eth_substrate_call(tx_len)
 				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len));
+			let failure_overhead = success_overhead
+				.saturating_add(T::WeightInfo::deposit_eth_extrinsic_revert_event());
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
@@ -1773,17 +1787,14 @@ pub mod pallet {
 						}
 					});
 
-				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
-				match &mut call_result {
-					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
-						post_info.actual_weight = Some(
-							post_info
-								.actual_weight
-								.unwrap_or_else(|| call_weight)
-								.saturating_add(weight_overhead),
-						);
+				let (post_info, overhead) = match &mut call_result {
+					Ok(post_info) => (post_info, success_overhead),
+					Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+						(post_info, failure_overhead)
 					},
-				}
+				};
+				post_info.actual_weight =
+					Some(post_info.actual_weight.unwrap_or(call_weight).saturating_add(overhead));
 
 				// Return zero EVM gas (Substrate dispatch, not EVM contract call).
 				// Actual weight is in `post_info.actual_weight`.

@@ -1,0 +1,22 @@
+title: 'pallet-revive: runtime-benchmarks no longer changes the events of eth transactions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    With the `runtime-benchmarks` feature enabled, a successful ethereum transaction no longer
+    deposits an `EthExtrinsicRevert` event. Events are now the same with and without the feature.
+
+    `eth_call`, `eth_instantiate_with_code` and `eth_substrate_call` now charge
+    `WeightInfo::deposit_eth_extrinsic_revert_event` in their weight annotation and refund it when
+    the transaction succeeds. A failed transaction keeps the charge for the `EthExtrinsicRevert`
+    event it deposits.
+
+    The `eth_call`, `eth_instantiate_with_code` and `eth_substrate_call` benchmarks no longer
+    include depositing that event. Runtimes that use their own `pallet_revive` weights should
+    re-run these benchmarks. Until then, the old weights charge the event twice on a failed
+    transaction and once on a successful one, which overcharges but is safe. No other migration
+    is needed.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: none
