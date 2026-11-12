@@ -5,18 +5,19 @@ doc:
     description: |-
       A para with no channel to the registrar parachain can now manage itself through the relay
       chain. It calls the new `pallet-registrar-relay::relay` with a `ParaRequest` (add or remove
-      lock, deregister, schedule code upgrade, set current head), which is forwarded as
-      `MessageToParaV1::Relayed` under the para id of its origin. `pallet-registrar-para` runs the
-      request as the new `Origin::RelayedPara`, accepted wherever `ParachainOrigin` is, and reports
-      the outcome in `RelayedRequest`.
+      lock, deregister, schedule code upgrade, set current head), which is queued and forwarded as
+      `MessageToParaV1::Relayed` in `on_poll`. `pallet-registrar-para` runs it as the new
+      `Origin::RelayedPara` and reports the outcome in `RelayedRequest`.
+
+      The queue is bounded by `MaxQueuedRequests` in total, `MaxQueuedPerPara` per para so one para
+      cannot fill it, and `MaxForwardedPerBlock` per block. A request the transport refuses stays
+      first in line.
 
       `pallet-registrar-relay::Config` now requires a `RuntimeOrigin` convertible into the
-      parachains `Origin`, and `pallet-registrar-para::Config` one built from its own `Origin`. Both
-      `WeightInfo` traits gain a function: `relay` and `receive_relayed`. `MessageToPara` no longer
-      implements `MaxEncodedLen`.
-
-      The `paras_registrar` calls in `polkadot-runtime-common` get a `Deprecated` doc note naming
-      their replacement.
+      parachains `Origin`, and `pallet-registrar-para::Config` one built from its own `Origin`.
+      `pallet-registrar-relay`'s `WeightInfo` gains `relay`, `poll_relay_queue` and
+      `forward_relayed`, `pallet-registrar-para`'s gains `receive_relayed`. `MessageToPara` no longer
+      implements `MaxEncodedLen`. The `paras_registrar` calls get a `Deprecated` doc note.
 
 crates:
   - name: registrar-primitives
