@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794478641444,
+  "lastUpdate": 1794492934953,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -259007,6 +259007,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2355085001,
             "range": "± 32187972",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6c62ddce50f23017e8df717b94ee7d199bfd8fe2",
+          "message": "`pallet-collective`: include the voting threshold in the proposal hash (#13259)\n\n## Summary\n\n`pallet_collective` identified a proposal by the hash of the proposed\ncall. The `threshold`\npassed to `propose` was stored alongside the proposal but was not part\nof its identity, so a\ngiven call could only be under consideration with one threshold at a\ntime.\n\nThis PR makes the threshold part of the proposal identity. The hash is\nnow derived from the\nSCALE encoding of `(call, threshold)`, so the same call proposed with\ndifferent thresholds\nresults in distinct proposals that are voted on and closed\nindependently.\n\n## Changes\n\n- New public helper `Pallet::<T, I>::proposal_hash(&call, threshold) ->\nT::Hash`, the single\n  place where the derivation lives.\n- `do_propose_proposed` and `do_propose_execute` use the helper.\n`do_propose_execute` takes the\n`threshold` as its first argument. Both keep their `DuplicateProposal`\ncheck: a\n`ProposalProvider` such as pallet-alliance can store a motion with\n`threshold < 2`, so an\n  immediate execution can still share its hash with a pending motion.\n- Storage version bumped to 5, with `migrations::v5::MigrateToV5`\nre-keying every active\nproposal in `Proposals`, `ProposalOf`, `Voting` and `CostOf`. Entries\nmissing their call or\nvotes are logged and left in place rather than removed, so no deposit is\nstranded.\n- `try_state` now checks that every proposal hash equals\n`proposal_hash(call, threshold)`.\n- Migration wired into kitchensink (Council, Technical, Alliance) and\nCollectives Westend\n  (Alliance).\n- Docs on `propose` link to `proposal_hash` and explain why the\nthreshold is part of the\n  identity.\n- Tests: same call with two thresholds gives distinct proposals; same\ncall with the same\nthreshold is still `DuplicateProposal`, on both the voting and the\nimmediate path; the\nmigration re-keys active proposals, leaves entries missing their call or\nvotes in place,\npasses its `pre_upgrade`/`post_upgrade` checks and returns the expected\nweight. Tests and\nbenchmarks in `pallet-collective`, `pallet-alliance` and\n`pallet-utility` now derive the hash\n  with the new threshold-aware formula.\n\n## Compatibility\n\n**Storage.** Storage version 4 → 5. Runtimes must add\n`pallet_collective::migrations::v5::MigrateToV5<Runtime, Instance>` for\nevery instance of the\npallet. The migration is bounded by `MaxProposals` and runs in a single\nblock. Only active\nproposals are re-keyed: the deposit of a motion closed before the\nupgrade is still released with\n`release_proposal_cost(hash(call))`.\n\n**Public Rust API.** `do_propose_execute` gained a leading `threshold`\nparameter; no in-tree\ncaller outside the pallet uses it. The signature of\n`do_propose_proposed` (called by\n`pallet-alliance`, kitchensink and `collectives-westend`) is unchanged.\n\n**Off-chain tooling.** Proposal hashes change, both for pending motions\nand for the `Executed`\nevent emitted when `propose` is called with `threshold < 2`.\n`MemberExecuted`, emitted by\n`execute`, still carries `hash(call)`. Clients that computed the hash as\n`hash(call)` to call\n`vote`, `close`, `disapprove_proposal` or `kill` must now compute\n`hash((call, threshold))`,\nwith the threshold encoded as a plain `u32` (the extrinsic takes it\ncompact), or read the hash\nfrom the `Proposed` event, which carries both `proposal_hash` and\n`threshold`. Calls already\nqueued with an old hash will not find their motion after the upgrade.",
+          "timestamp": "2026-11-12T12:28:35Z",
+          "tree_id": "2a0e1ad430ddd15f077144b9f250c1c72769023d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6c62ddce50f23017e8df717b94ee7d199bfd8fe2"
+        },
+        "date": 1794492894007,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4153243,
+            "range": "± 33157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304739,
+            "range": "± 2092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4306426,
+            "range": "± 32722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 384470,
+            "range": "± 6440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4902256,
+            "range": "± 32243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 898801,
+            "range": "± 10305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10564635,
+            "range": "± 91982",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4898470,
+            "range": "± 67826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44759354,
+            "range": "± 441755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37838217,
+            "range": "± 346269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 362202787,
+            "range": "± 3563574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 299534023,
+            "range": "± 2710682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2529236329,
+            "range": "± 10622517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2270409547,
+            "range": "± 14230163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3494251,
+            "range": "± 25233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1900503,
+            "range": "± 12727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3636237,
+            "range": "± 23923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1997523,
+            "range": "± 16466",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4306576,
+            "range": "± 37840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2326839,
+            "range": "± 10968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8088321,
+            "range": "± 95693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5521837,
+            "range": "± 66850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38097107,
+            "range": "± 329700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38312618,
+            "range": "± 863977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321375264,
+            "range": "± 2539060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289819553,
+            "range": "± 2816346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2592118776,
+            "range": "± 26721617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2367317366,
+            "range": "± 26223930",
             "unit": "ns/iter"
           }
         ]
