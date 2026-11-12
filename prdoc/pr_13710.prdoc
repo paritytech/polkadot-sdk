@@ -1,0 +1,24 @@
+title: 'pallet-validator-collators: configurable default for MaxCollators'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-validator-collators` has a new config item `DefaultMaxCollators`, the value of
+    `MaxCollators` until governance sets it. `None` is no cap.
+
+    Asset Hub Westend and People Westend default to a cap of 0, so validators contribute no
+    collators until governance raises the cap.
+crates:
+- name: pallet-validator-collators
+  # New required `DefaultMaxCollators` config item and `MaxCollators` changes storage type.
+  bump: major
+  validate: false
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-validator-set-announcer
+  bump: none
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none

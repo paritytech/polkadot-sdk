@@ -1998,6 +1998,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
@@ -2008,6 +2009,8 @@ dependencies = [
  "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",
@@ -15125,6 +15128,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-points-converter"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 49.0.0",
+ "sp-runtime 49.0.0",
+ "sp-staking",
+]
+
+[[package]]
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
@@ -15542,6 +15559,47 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 49.0.0",
  "sp-runtime 49.0.0",
+]
+
+[[package]]
+name = "pallet-validator-collators"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-session",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "scale-info",
+ "sp-io 49.0.0",
+ "sp-runtime 49.0.0",
+ "sp-staking",
+ "sp-tracing 16.0.0",
+ "sp-trie 47.0.0",
+]
+
+[[package]]
+name = "pallet-validator-set-announcer"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "pallet-validator-collators",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 49.0.0",
+ "sp-runtime 49.0.0",
+ "sp-staking",
 ]
 
 [[package]]
@@ -16112,13 +16170,23 @@ version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-session",
+ "pallet-staking-async",
+ "pallet-staking-async-points-converter",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "sp-externalities 0.25.0",
+ "sp-keyring",
+ "sp-keystore 0.34.0",
  "sp-runtime 49.0.0",
+ "sp-staking",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",
@@ -16163,6 +16231,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
+ "pallet-validator-collators",
  "pallet-verify-signature",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
@@ -17982,6 +18051,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",
@@ -17999,6 +18069,8 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-validator-collators",
+ "pallet-validator-set-announcer",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",
