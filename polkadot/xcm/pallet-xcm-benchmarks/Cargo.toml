@@ -25,6 +25,7 @@ sp-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-procedural = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
