@@ -154,9 +154,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     code_len: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
     code_hash: H256,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Ask the relay chain to register head data and validation code for a reserved para id.</p>
-<p>The validation code itself stays here: only <code>code_hash</code> and <code>code_len</code> are sent. The
-caller uploads the blob to the relay chain separately, which accepts it only if it
-hashes to <code>code_hash</code> and is exactly <code>code_len</code> bytes long.</p>
+<p>Only <code>code_hash</code> and <code>code_len</code> are sent, never the validation code. The caller uploads
+the blob to the relay chain separately, which accepts it only if it hashes to
+<code>code_hash</code> and is exactly <code>code_len</code> bytes long.</p>
 <h3 id="costs"><a class="doc-anchor" href="#costs">§</a>Costs</h3>
 <p>Takes <a href="../trait.Config.html#associatedtype.RegistrationConsideration" title="associated type pallet_registrar_para::pallet::Config::RegistrationConsideration"><code>Config::RegistrationConsideration</code></a> for the head data and a code of the relay
 chain’s <code>max_code_size</code>, on top of the para id reservation: a para pays for the largest

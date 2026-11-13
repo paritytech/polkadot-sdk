@@ -307,26 +307,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#157 id=157 data-nosnippet>157</a>	paras::Pallet::&lt;T&gt;::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 <a href=#158 id=158 data-nosnippet>158</a>}
 <a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a><span class="doccomment">/// Sets the current parachain head with the given id.
-<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub fn </span>set_current_head&lt;T: paras::Config&gt;(id: ParaId, new_head: HeadData) {
-<a href=#162 id=162 data-nosnippet>162</a>	paras::Pallet::&lt;T&gt;::set_current_head(id, new_head)
+<a href=#160 id=160 data-nosnippet>160</a><span class="doccomment">/// Whether a validation code upgrade could be scheduled for the parachain with the given id.
+<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub fn </span>can_upgrade_validation_code&lt;T: paras::Config&gt;(id: ParaId) -&gt; bool {
+<a href=#162 id=162 data-nosnippet>162</a>	paras::Pallet::&lt;T&gt;::can_upgrade_validation_code(id)
 <a href=#163 id=163 data-nosnippet>163</a>}
 <a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a><span class="doccomment">/// Ensure more initialization for `ParaId` when benchmarking. (e.g. open HRMP channels, ...)
-<a href=#166 id=166 data-nosnippet>166</a></span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#167 id=167 data-nosnippet>167</a></span><span class="kw">pub trait </span>EnsureForParachain {
-<a href=#168 id=168 data-nosnippet>168</a>	<span class="kw">fn </span>ensure(para_id: ParaId);
-<a href=#169 id=169 data-nosnippet>169</a>}
-<a href=#170 id=170 data-nosnippet>170</a>
-<a href=#171 id=171 data-nosnippet>171</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#172 id=172 data-nosnippet>172</a>#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
-<a href=#173 id=173 data-nosnippet>173</a></span><span class="kw">impl </span>EnsureForParachain <span class="kw">for </span>Tuple {
-<a href=#174 id=174 data-nosnippet>174</a>	<span class="kw">fn </span>ensure(para: ParaId) {
-<a href=#175 id=175 data-nosnippet>175</a>		<span class="macro">for_tuples!</span>( #(
-<a href=#176 id=176 data-nosnippet>176</a>			Tuple::ensure(para);
-<a href=#177 id=177 data-nosnippet>177</a>		)* );
-<a href=#178 id=178 data-nosnippet>178</a>	}
-<a href=#179 id=179 data-nosnippet>179</a>}
+<a href=#165 id=165 data-nosnippet>165</a><span class="doccomment">/// Sets the current parachain head with the given id.
+<a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub fn </span>set_current_head&lt;T: paras::Config&gt;(id: ParaId, new_head: HeadData) {
+<a href=#167 id=167 data-nosnippet>167</a>	paras::Pallet::&lt;T&gt;::set_current_head(id, new_head)
+<a href=#168 id=168 data-nosnippet>168</a>}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a><span class="doccomment">/// Ensure more initialization for `ParaId` when benchmarking. (e.g. open HRMP channels, ...)
+<a href=#171 id=171 data-nosnippet>171</a></span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#172 id=172 data-nosnippet>172</a></span><span class="kw">pub trait </span>EnsureForParachain {
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="kw">fn </span>ensure(para_id: ParaId);
+<a href=#174 id=174 data-nosnippet>174</a>}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#177 id=177 data-nosnippet>177</a>#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+<a href=#178 id=178 data-nosnippet>178</a></span><span class="kw">impl </span>EnsureForParachain <span class="kw">for </span>Tuple {
+<a href=#179 id=179 data-nosnippet>179</a>	<span class="kw">fn </span>ensure(para: ParaId) {
+<a href=#180 id=180 data-nosnippet>180</a>		<span class="macro">for_tuples!</span>( #(
+<a href=#181 id=181 data-nosnippet>181</a>			Tuple::ensure(para);
+<a href=#182 id=182 data-nosnippet>182</a>		)* );
+<a href=#183 id=183 data-nosnippet>183</a>	}
+<a href=#184 id=184 data-nosnippet>184</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

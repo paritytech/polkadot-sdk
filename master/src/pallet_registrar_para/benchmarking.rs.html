@@ -457,8 +457,25 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#307 id=307 data-nosnippet>307</a>		<span class="prelude-val">Ok</span>(())
 <a href=#308 id=308 data-nosnippet>308</a>	}
 <a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
-<a href=#311 id=311 data-nosnippet>311</a>}
+<a href=#310 id=310 data-nosnippet>310</a>	<span class="doccomment">/// Asking for a code upgrade: one state read and the outgoing message.
+<a href=#311 id=311 data-nosnippet>311</a>	</span><span class="attr">#[benchmark]
+<a href=#312 id=312 data-nosnippet>312</a>	</span><span class="kw">fn </span>schedule_code_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#313 id=313 data-nosnippet>313</a>		<span class="kw">let </span>who = funded_manager::&lt;T&gt;();
+<a href=#314 id=314 data-nosnippet>314</a>		<span class="kw">let </span>para_id = make_registered::&lt;T&gt;(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>		<span class="attr">#[extrinsic_call]
+<a href=#317 id=317 data-nosnippet>317</a>		</span><span class="kw">_</span>(
+<a href=#318 id=318 data-nosnippet>318</a>			RawOrigin::Signed(who),
+<a href=#319 id=319 data-nosnippet>319</a>			para_id,
+<a href=#320 id=320 data-nosnippet>320</a>			sp_core::H256::repeat_byte(<span class="number">2</span>),
+<a href=#321 id=321 data-nosnippet>321</a>			host_configuration().max_code_size,
+<a href=#322 id=322 data-nosnippet>322</a>		);
+<a href=#323 id=323 data-nosnippet>323</a>
+<a href=#324 id=324 data-nosnippet>324</a>		<span class="prelude-val">Ok</span>(())
+<a href=#325 id=325 data-nosnippet>325</a>	}
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
+<a href=#328 id=328 data-nosnippet>328</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
