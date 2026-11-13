@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794591584172,
+  "lastUpdate": 1794605891265,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41dd688074605dcc0e104f2250473324ab59ec3",
-          "message": "pallet-psm: switch Westend Asset Hub to Location AssetId backed by LocalAndForeignAssets (#11921)\n\nOn Asset Hub Westend, `pallet-psm` is switched from `u32` (trust-backed\nasset id) to `xcm::v5::Location` as its `AssetId`, and from `Assets` to\n`LocalAndForeignAssets` as its `Fungibles`. PSM can now mint and redeem\nagainst both trust-backed and foreign-registered external stablecoins,\naddressed uniformly by `Location`.\n\nStorage migration: every `AssetId`-keyed PSM storage item is encoded\nunder the old `u32` key. The runtime wipes the existing PSM storage with\n`frame_support::migrations::RemovePallet` and re-seeds the pallet from\n`PsmInitialConfig` via `InitializePsm`. USDT (trust-backed asset `1984`)\nis reseeded under its `Location` representation as the first external\nasset.\n\n`pallet-psm`'s `BenchmarkHelper` trait gains a `get_asset_id(index:\nu32)` method so benchmark scenarios can derive a runtime-specific\n`AssetId` (e.g. a `Location`) from a `u32` index. Existing impls need to\nadd this method.",
-          "timestamp": "2026-04-30T09:51:00Z",
-          "tree_id": "eb4a04010530c93b8ba1d6a85bd134c3e8c49815",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d41dd688074605dcc0e104f2250473324ab59ec3"
-        },
-        "date": 1777547995363,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0236394742,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1311588286333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.640645386366668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f322d0164b344a59cd8c9ea76323b4d83cd569f7",
+          "message": "Registrar: Schedule Code Upgrade (#13112)\n\n## What's added\n\n- `schedule_code_upgrade` on `pallet-registrar-para`: asks the relay\nchain to authorize an upgrade by code hash and length. Root, the para,\nor its manager while unlocked.\n- `PendingCodeUpgrades` on `pallet-registrar-relay`: the request is\nchecked via `ParachainRegistrar::check_code_upgrade` and held until\n`CodeUpgradeValidPeriod`.\n- `apply_authorized_code_upgrade`: unsigned, fee-free upload of the\nmatching code. Schedules the upgrade and reports back to the parachain.\n- `paras_registrar` implements `check_code_upgrade` and\n`schedule_code_upgrade`, using the new `can_upgrade_validation_code` in\n`polkadot-runtime-parachains`.\n\n## Decisions\n\n- Only hash and length cross chains. The code is uploaded to the relay\nseparately, same as registration.\n- No deposit and nothing stored on the parachain, so the relay's answer\nonly surfaces as events.\n- Unlike registrations, the authorization expires: whether an upgrade\ncan be scheduled depends on relay state that moves on its own. Pool\nlongevity is capped to the expiry.\n- A new authorization replaces the para's previous one, so storage stays\nat one entry per para.\n- If scheduling fails on the relay, the extrinsic fails and the\nauthorization stays, so the upload can be retried.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-13T19:33:29Z",
+          "tree_id": "96eb4a9479c7de74f577ad7ffc949dcaa5bebda8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f322d0164b344a59cd8c9ea76323b4d83cd569f7"
+        },
+        "date": 1794605855112,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12986998869999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.749186176600002,
             "unit": "seconds"
           }
         ]
