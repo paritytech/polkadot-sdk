@@ -1,0 +1,8 @@
+title: Prevent sync from getting stuck after restart
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Keep the latest finalized header unchanged when recovering state for blocks whose headers are already finalized, and save the record of the latest finalized block with local state with the state itself. Incorrect records could cause repeated block downloads and a `Trying to canonicalize invalid block` failure when recovery continued after a restart.
+crates:
+- name: sc-client-db
+  bump: patch
