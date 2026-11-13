@@ -381,4 +381,24 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::hrmp::WeightInfo for 
 			.saturating_add(T::DbWeight::get().reads(23))
 			.saturating_add(T::DbWeight::get().writes(11))
 	}
+	// NOT MEASURED: written by hand, to be replaced by running the benchmarks.
+	/// Storage: `Hrmp::RequestWindows` (r:1 w:1)
+	/// Proof: `Hrmp::RequestWindows` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn count_request() -> Weight {
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3600))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// NOT MEASURED: written by hand, to be replaced by running the benchmarks.
+	/// Storage: `Hrmp::PruneCursor` (r:1 w:1)
+	/// Proof: `Hrmp::PruneCursor` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::RequestWindows` (r:2 w:1)
+	/// Proof: `Hrmp::RequestWindows` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn prune_request_window() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6200))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

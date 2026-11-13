@@ -24,7 +24,7 @@ use crate::{self as pallet_hrmp_relay, FailedReleases, PendingRequests, SendToPa
 use core::cell::{Cell, RefCell};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{fungible::InspectHold, ConstU128, ConstU32, EstimateNextSessionRotation, Hooks},
+	traits::{fungible::InspectHold, ConstU128, ConstU32, EstimateNextSessionRotation, Get, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::EnsureRoot;
@@ -156,6 +156,8 @@ impl hrmp::Config for Test {
 	type DepositProvider = HrmpRelay;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = ();
+	type MaxRequestsPerWindow = ConstU32<4>;
+	type RequestWindow = frame_support::traits::ConstU64<600>;
 	type WeightInfo = hrmp::TestWeightInfo;
 }
 
@@ -661,5 +663,63 @@ fn release_retried_after_transport_failure() {
 		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(B), A, 2, 8));
 		deliver();
 		assert_eq!(on_hold(B), SENDER_DEPOSIT);
+	});
+}
+
+/// A para that cannot pay has each request refused by the para holding the deposits, which
+/// frees its side for another try. Its requests are counted all the same, and refused on the
+/// relay chain once it made too many in its window.
+#[test]
+fn requests_of_a_para_are_bounded() {
+	new_test_ext(|| {
+		let max: u32 = <Test as hrmp::Config>::MaxRequestsPerWindow::get();
+		for _ in 0..max {
+			assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8));
+			deliver();
+		}
+		assert_noop!(
+			Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8),
+			hrmp::Error::<Test>::TooManyRequests
+		);
+		assert_eq!(queued_to_para(), 0);
+
+		// Another para is not held back.
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(A), B, 2, 8));
+		deliver();
+		assert_eq!(on_hold(A), SENDER_DEPOSIT);
+
+		// Once its window is over, the para may make requests again.
+		let window: u64 = <Test as hrmp::Config>::RequestWindow::get();
+		System::set_block_number(1 + window);
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), B, 2, 8));
+		deliver();
+	});
+}
+
+/// A channel with a system para needs no deposit, so nothing is asked of the para holding the
+/// deposits. Each request for one notifies the system para though, and is counted all the same.
+#[test]
+fn requests_to_a_system_para_are_bounded() {
+	new_test_ext(|| {
+		let max: u32 = <Test as hrmp::Config>::MaxRequestsPerWindow::get();
+		let notified = || Dmp::dmq_contents_do_not_call_in_consensus(SYSTEM_1).len() as u32;
+		let before = notified();
+
+		// A request and its cancellation are counted each.
+		for _ in 0..max / 2 {
+			assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(POOR), SYSTEM_1, 2, 8));
+			assert_ok!(Hrmp::hrmp_cancel_open_request(
+				para_origin(POOR),
+				channel(POOR, SYSTEM_1),
+				1
+			));
+		}
+		assert_eq!(notified() - before, max / 2);
+		assert_eq!(queued_to_para(), 0);
+
+		assert_noop!(
+			Hrmp::hrmp_init_open_channel(para_origin(POOR), SYSTEM_1, 2, 8),
+			hrmp::Error::<Test>::TooManyRequests
+		);
 	});
 }

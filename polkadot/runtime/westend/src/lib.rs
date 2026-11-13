@@ -1157,6 +1157,9 @@ impl parachains_hrmp::Config for Runtime {
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
 	type VersionWrapper = crate::XcmPallet;
+	// A non-system parachain gets its requests executed without paying, see `xcm_config`.
+	type MaxRequestsPerWindow = ConstU32<10>;
+	type RequestWindow = ConstU32<{ DAYS }>;
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
 }
 

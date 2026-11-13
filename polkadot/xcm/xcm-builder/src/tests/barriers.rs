@@ -1381,3 +1381,97 @@ fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 		Err(ProcessMessageError::StackLimitReached),
 	);
 }
+
+#[test]
+fn is_child_non_system_parachain_should_work() {
+	use polkadot_parachain_primitives::primitives::Id as ParaId;
+	type NonSystem = IsChildNonSystemParachain<ParaId>;
+
+	assert!(NonSystem::contains(&Parachain(2000).into()));
+	// A system parachain.
+	assert!(!NonSystem::contains(&Parachain(1999).into()));
+	assert!(!NonSystem::contains(&Parachain(1000).into()));
+	// A location inside the parachain.
+	assert!(!NonSystem::contains(&[Parachain(2000), PalletInstance(1)].into()));
+	// Not a child.
+	assert!(!NonSystem::contains(&Location::new(1, [Parachain(2000)])));
+	assert!(!NonSystem::contains(&Location::here()));
+}
+
+#[test]
+fn allow_unpaid_transact_from_should_work() {
+	frame_support::parameter_types! {
+		pub const MaxWeight: Weight = Weight::from_parts(100, 100);
+	}
+	type Barrier = AllowUnpaidTransactFrom<IsInVec<AllowUnpaidFrom>, MaxWeight>;
+	AllowUnpaidFrom::set(vec![Parachain(2000).into()]);
+
+	let transact =
+		|origin_kind| Transact { origin_kind, fallback_max_weight: None, call: vec![].into() };
+	let message = |weight_limit| {
+		Xcm::<()>(vec![
+			UnpaidExecution { weight_limit, check_origin: None },
+			transact(OriginKind::Native),
+		])
+	};
+	let run = |origin: Location, mut message: Xcm<()>, weight| {
+		Barrier::should_execute(&origin, message.inner_mut(), weight, &mut props(Weight::zero()))
+	};
+	let para: Location = Parachain(2000).into();
+	let max = MaxWeight::get();
+	let one = Weight::from_parts(1, 1);
+
+	assert_eq!(run(para.clone(), message(Unlimited), max), Ok(()));
+	assert_eq!(run(para.clone(), message(Limited(max)), max), Ok(()));
+	// Heavier than allowed.
+	assert_eq!(
+		run(para.clone(), message(Unlimited), max.saturating_add(one)),
+		Err(ProcessMessageError::Unsupported)
+	);
+	// The origin must cover the whole message.
+	assert_eq!(
+		run(para.clone(), message(Limited(max.saturating_sub(one))), max),
+		Err(ProcessMessageError::Unsupported)
+	);
+	// Only as the origin itself.
+	let as_account = Xcm::<()>(vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		transact(OriginKind::SovereignAccount),
+	]);
+	assert_eq!(run(para.clone(), as_account, max), Err(ProcessMessageError::Unsupported));
+	// Only one call, and nothing else.
+	let mut two_calls = message(Unlimited);
+	two_calls.inner_mut().push(transact(OriginKind::Native));
+	assert_eq!(run(para.clone(), two_calls, max), Err(ProcessMessageError::Unsupported));
+	let bare = Xcm::<()>(vec![transact(OriginKind::Native)]);
+	assert_eq!(run(para.clone(), bare, max), Err(ProcessMessageError::Unsupported));
+	// Only the allowed origins.
+	assert_eq!(
+		run(Parachain(1000).into(), message(Unlimited), max),
+		Err(ProcessMessageError::Unsupported)
+	);
+	// A trailing `SetTopic` is stripped by `TrailingSetTopicAsId`, which keeps the weight.
+	let mut with_topic = message(Unlimited);
+	with_topic.inner_mut().push(SetTopic([1; 32]));
+	let mut properties = props(Weight::zero());
+	assert_eq!(
+		TrailingSetTopicAsId::<Barrier>::should_execute(
+			&para,
+			with_topic.inner_mut(),
+			max,
+			&mut properties
+		),
+		Ok(())
+	);
+	assert_eq!(properties.message_id, Some([1; 32]));
+	// The weight is not reduced for the stripped `SetTopic`: heavier than allowed is refused.
+	assert_eq!(
+		TrailingSetTopicAsId::<Barrier>::should_execute(
+			&para,
+			with_topic.inner_mut(),
+			max.saturating_add(one),
+			&mut props(Weight::zero()),
+		),
+		Err(ProcessMessageError::Unsupported)
+	);
+}
