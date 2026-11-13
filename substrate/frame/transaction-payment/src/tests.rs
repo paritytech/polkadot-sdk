@@ -932,7 +932,9 @@ fn pallet_origin_with_fee_payer_charges_fees() {
 			let len = 10;
 
 			// FeePayer(1) has fee_payer returning Some(1), so fees should be charged.
-			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1).into();
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1)
+					.into();
 			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// base_weight(5) + byte_fee(10) + call_weight(5) + ext_weight(10) = 30
@@ -974,7 +976,9 @@ fn pallet_origin_with_fee_payer_and_tip_charges_correctly() {
 			info.extension_weight = ext.weight(CALL);
 			let len = 10;
 
-			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(2).into();
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(2)
+					.into();
 			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// base_weight(5) + byte_fee(10) + call_weight(5) + ext_weight(10) + tip(7) = 37
@@ -1010,7 +1014,9 @@ fn pallet_origin_without_fee_payer_skips_fees() {
 
 			// NonFeePayer(1) has as_account returning Some(1) but NOT fee_payer,
 			// so fee_payer() returns None and no fees should be charged.
-			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1).into();
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1)
+					.into();
 			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// Balance should be unchanged — no fees charged.
@@ -1049,7 +1055,8 @@ fn pallet_admin_origin_skips_fees() {
 			let len = 10;
 
 			// Council has no as_account at all, so fee_payer() returns None.
-			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Council.into();
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Council.into();
 			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// post_dispatch should refund extension weight.

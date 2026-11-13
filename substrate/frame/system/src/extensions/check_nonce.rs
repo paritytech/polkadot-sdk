@@ -21,9 +21,13 @@ use alloc::{vec, vec::Vec};
 
 use crate::Config;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound};
+use frame_support::{
+	dispatch::DispatchInfo,
+	pallet_prelude::TransactionSource,
+	traits::{AccountLike, OriginTrait},
+	DebugNoBound,
+};
 use scale_info::TypeInfo;
-use frame_support::traits::{AccountLike, OriginTrait};
 use sp_runtime::{
 	traits::{
 		CheckedAdd, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, TransactionExtension,
@@ -164,8 +168,7 @@ where
 		let Some(who) = origin.caller().nonce_provider() else {
 			return Ok((Default::default(), Val::Refund(self.weight(call)), origin));
 		};
-		let ValidNonceInfo { provides, requires } =
-			Self::validate_nonce_for_account(&who, self.0)?;
+		let ValidNonceInfo { provides, requires } = Self::validate_nonce_for_account(&who, self.0)?;
 
 		let validity = ValidTransaction {
 			priority: 0,

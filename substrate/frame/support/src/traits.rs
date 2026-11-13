@@ -99,9 +99,9 @@ pub use storage::{
 
 mod dispatch;
 pub use dispatch::{
-	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
-	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
-	AccountLike, OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
+	AccountLike, AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse,
+	EnsureOrigin, EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess,
+	NeverEnsureOrigin, OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
 };
 
 mod voting;

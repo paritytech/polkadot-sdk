@@ -27,9 +27,7 @@ use frame_support::{
 	pallet_prelude::*,
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::{
-	AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
-};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
 #[benchmarks(where
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,

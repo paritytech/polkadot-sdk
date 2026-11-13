@@ -25,12 +25,37 @@ pub struct OriginAccountLikeDef {
 	pub variant_ident: syn::Ident,
 	/// The fields of the variant (for generating destructure patterns).
 	pub fields: syn::Fields,
+	/// The `#[cfg(...)]` attributes of the variant, propagated to the code generated for it.
+	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The user's closure/function expression for `as_account`.
 	pub expr: syn::Expr,
 	/// Whether this variant also has `#[pallet::nonce_provider]`.
 	pub is_nonce_provider: bool,
 	/// Whether this variant also has `#[pallet::fee_payer]`.
 	pub is_fee_payer: bool,
+}
+
+/// Check a `#[pallet::nonce_provider]` / `#[pallet::fee_payer]` flag attribute on a variant.
+///
+/// These are plain flags which reuse the closure of `#[pallet::as_account(...)]`, so they must
+/// appear exactly as `#[pallet::<name>]`, at most once per variant.
+fn check_flag_attr(attr: &syn::Attribute, name: &str, already_present: bool) -> Option<syn::Error> {
+	if !matches!(attr.meta, syn::Meta::Path(_)) {
+		return Some(syn::Error::new(
+			attr.span(),
+			format!(
+				"`#[pallet::{name}]` does not take any arguments, it reuses the closure given to \
+				`#[pallet::as_account(...)]`",
+			),
+		));
+	}
+	if already_present {
+		return Some(syn::Error::new(
+			attr.span(),
+			format!("Duplicate `#[pallet::{name}]` attribute on variant"),
+		));
+	}
+	None
 }
 
 /// Definition of the pallet origin type.
@@ -92,11 +117,12 @@ impl OriginDef {
 				let mut has_fee_payer = false;
 				let mut nonce_provider_span = None;
 				let mut fee_payer_span = None;
+				// First misuse of a flag attribute: a duplicate, or one given arguments.
+				let mut flag_error: Option<syn::Error> = None;
 
 				// Find and extract the pallet attributes
 				variant.attrs.retain(|attr| {
-					if attr.path().segments.len() == 2 &&
-						attr.path().segments[0].ident == "pallet"
+					if attr.path().segments.len() == 2 && attr.path().segments[0].ident == "pallet"
 					{
 						let attr_name = attr.path().segments[1].ident.to_string();
 						match attr_name.as_str() {
@@ -108,11 +134,18 @@ impl OriginDef {
 								return false; // remove from variant attrs
 							},
 							"nonce_provider" => {
+								if flag_error.is_none() {
+									flag_error =
+										check_flag_attr(attr, "nonce_provider", has_nonce_provider);
+								}
 								has_nonce_provider = true;
 								nonce_provider_span = Some(attr.span());
 								return false;
 							},
 							"fee_payer" => {
+								if flag_error.is_none() {
+									flag_error = check_flag_attr(attr, "fee_payer", has_fee_payer);
+								}
 								has_fee_payer = true;
 								fee_payer_span = Some(attr.span());
 								return false;
@@ -128,6 +161,10 @@ impl OriginDef {
 						variant.ident.span(),
 						"Duplicate `#[pallet::as_account(...)]` attribute on variant",
 					));
+				}
+
+				if let Some(err) = flag_error {
+					return Err(err);
 				}
 
 				// Validate: nonce_provider/fee_payer require as_account
@@ -149,6 +186,7 @@ impl OriginDef {
 					account_like_defs.push(OriginAccountLikeDef {
 						variant_ident: variant.ident.clone(),
 						fields: variant.fields.clone(),
+						cfg_attrs: helper::get_item_cfg_attrs(&variant.attrs),
 						expr,
 						is_nonce_provider: has_nonce_provider,
 						is_fee_payer: has_fee_payer,
@@ -162,8 +200,7 @@ impl OriginDef {
 		if !matches!(item, syn::Item::Enum(_)) {
 			let check_attrs = |attrs: &[syn::Attribute]| -> syn::Result<()> {
 				for attr in attrs {
-					if attr.path().segments.len() == 2 &&
-						attr.path().segments[0].ident == "pallet"
+					if attr.path().segments.len() == 2 && attr.path().segments[0].ident == "pallet"
 					{
 						let attr_name = attr.path().segments[1].ident.to_string();
 						if matches!(

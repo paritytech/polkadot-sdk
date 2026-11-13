@@ -1748,9 +1748,9 @@ fn pallet_origin_with_fee_payer_charges_native_fees() {
 
 			// Member(1) has fee_payer returning Some(1), so native fees should be charged.
 			let origin: RuntimeOrigin =
-				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1).into();
-			let (pre, _origin) =
-				ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1)
+					.into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// Balance should have decreased.
 			assert!(Balances::free_balance(1) < balance_before);
@@ -1790,9 +1790,9 @@ fn pallet_origin_without_fee_payer_skips_fees() {
 
 			// NonPaying(1) has as_account but NOT fee_payer, so no fees charged.
 			let origin: RuntimeOrigin =
-				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1).into();
-			let (pre, _origin) =
-				ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1)
+					.into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			// Balance should be unchanged.
 			assert_eq!(Balances::free_balance(1), balance_before);

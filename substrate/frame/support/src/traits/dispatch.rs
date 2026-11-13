@@ -485,11 +485,11 @@ pub trait CallerTrait<AccountId>:
 /// # How this trait is used
 ///
 /// This trait is **not meant to be called directly** on individual pallet origin types. Instead, it
-/// is a building block used by the FRAME macros: the `#[pallet]` macro generates an `AccountLike`
-/// impl on each pallet's `Origin` type, and `construct_runtime!` composes those per-pallet impls
-/// into the [`CallerTrait`] implementation on `OriginCaller`. Consumer code (e.g. other pallets
-/// which want to authorize other origins besides `Signed` to run something) accesses account
-/// information through `origin.caller().as_account()`, which goes through `CallerTrait` →
+/// is a building block used by the FRAME macros: the `#[pallet]` macro generates the account
+/// lookups for each pallet's `Origin` type, and `construct_runtime!` composes those per-pallet
+/// lookups into the [`CallerTrait`] implementation on `OriginCaller`. Consumer code (e.g. other
+/// pallets which want to authorize other origins besides `Signed` to run something) accesses
+/// account information through `origin.caller().as_account()`, which goes through `CallerTrait` →
 /// `AccountLike` on `OriginCaller`, not on individual pallet origins.
 ///
 /// There is native support for nonce checking and fee payment in FRAME extensions. `CheckNonce` and
@@ -497,10 +497,10 @@ pub trait CallerTrait<AccountId>:
 /// `origin.caller().nonce_provider()` and `origin.caller().fee_payer()` respectively to understand
 /// if their logic needs to run for a given origin.
 ///
-/// For non-generic enum origins (those without `<T: Config>`), the `AccountLike` impl on the origin
-/// type itself uses default implementations (returning `None`), because the `as_account` closures
-/// may need access to `Pallet<T>`, which is not available without `T`. The runtime-level
-/// `OriginCaller` path works correctly because `construct_runtime!` routes through
+/// For non-generic enum origins (those without `<T: Config>`), the `#[pallet]` macro does not
+/// implement `AccountLike` on the origin type itself, because the `as_account` closures may need
+/// access to `Pallet<T>`, which is not available without `T`. The runtime-level `OriginCaller` path
+/// works correctly because `construct_runtime!` routes through
 /// `Pallet::<T>::__as_account_for_origin()` which has `T` in scope.
 ///
 /// Right now, there is no weight associated with `as_account`, so closures **must not access
@@ -542,7 +542,9 @@ pub trait CallerTrait<AccountId>:
 ///
 /// Using `#[pallet::fee_payer]` without `#[pallet::nonce_provider]` means fees are charged but
 /// there is no replay protection — the developer must provide their own replay protection (e.g.
-/// single-use transactions or a custom nonce scheme).
+/// single-use transactions or a custom nonce scheme). That mechanism must also set the `provides`
+/// tags of the transaction, which `CheckNonce` would otherwise set and which the transaction pool
+/// requires.
 pub trait AccountLike<AccountId> {
 	/// Return the `AccountId` this origin maps to, if any.
 	///

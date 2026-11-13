@@ -144,9 +144,16 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 	for al in &origin_def.account_like_defs {
 		let variant_ident = &al.variant_ident;
 		let expr = &al.expr;
+		// The variant may be conditionally compiled, so everything generated for it must be too.
+		let cfg_attrs = &al.cfg_attrs;
 
-		let getter_name =
-			Ident::new(&format!("__as_account_for_{}", variant_ident), variant_ident.span());
+		// The `variant_` infix keeps these apart from the `__as_account_for_origin` function below,
+		// whatever the variant is called. `format_ident!` also copes with raw identifiers.
+		let getter_name = quote::format_ident!(
+			"__as_account_for_variant_{}",
+			variant_ident,
+			span = variant_ident.span()
+		);
 
 		let field_types: Vec<_> = al.fields.iter().map(|f| &f.ty).collect();
 		let field_bindings: Vec<_> = (0..al.fields.len())
@@ -156,6 +163,7 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 
 		// Getter function on Pallet<T> — gives closures access to Self and T::AccountId.
 		getter_fns.extend(quote::quote_spanned!(expr.span() =>
+			#( #cfg_attrs )*
 			impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
 				#[doc(hidden)]
 				#[allow(non_snake_case)]
@@ -169,6 +177,7 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 
 		// as_account: all variants with #[pallet::as_account(...)]
 		as_account_match_arms.extend(quote! {
+			#( #cfg_attrs )*
 			Origin::#variant_ident #destructure => {
 				let f = Pallet::<#type_use_gen>::#getter_name();
 				f(#( #field_bindings ),*)
@@ -178,6 +187,7 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 		// nonce_provider: only variants with #[pallet::nonce_provider]
 		if al.is_nonce_provider {
 			nonce_provider_match_arms.extend(quote! {
+				#( #cfg_attrs )*
 				Origin::#variant_ident #destructure => {
 					let f = Pallet::<#type_use_gen>::#getter_name();
 					f(#( #field_bindings ),*)
@@ -188,6 +198,7 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 		// fee_payer: only variants with #[pallet::fee_payer]
 		if al.is_fee_payer {
 			fee_payer_match_arms.extend(quote! {
+				#( #cfg_attrs )*
 				Origin::#variant_ident #destructure => {
 					let f = Pallet::<#type_use_gen>::#getter_name();
 					f(#( #field_bindings ),*)
@@ -309,20 +320,12 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 		}
 	} else {
 		// For non-generic origins (like `enum Origin {..}`) we don't implement the `AccountLike`
-		// trait. Instead we rely on the generated code in the pallet, `__as_account_for_*` which is
-		// called in `__as_account_for_origin`. These are then used in the `AccountLike` impl on
-		// `OriginCaller` in `construct_runtime!`. We need to implement this trait here regardless
-		// to satisfy trait bounds on `CallerTrait`. This is why nobody should use `AccountLike`
-		// directly on origins and instead rely on methods exposed by `CallerTrait` on the
-		// `RuntimeOrigin`, which will be correct because they are generated as stated above in
-		// `construct_runtime!`.
-		//
-		// If we just got rid of the need to be able to access `T` in the closure, we could get rid
-		// of this, but we will lose the ability to access storage and other pallet methods inside
-		// natively.
-		quote! {
-			impl<AccountId> #frame_support::traits::AccountLike<AccountId> for Origin {}
-		}
+		// trait: the closures are evaluated through `Pallet<T>` and there is no `T` to name in an
+		// impl on `Origin`. The account information is still reachable through the
+		// `__*_for_origin` functions generated above, which is what the `AccountLike` impl on
+		// `OriginCaller` in `construct_runtime!` uses. Nobody should use `AccountLike` directly on
+		// pallet origins anyway, but rather go through the `RuntimeOrigin`'s caller.
+		TokenStream::new()
 	};
 
 	quote! {
