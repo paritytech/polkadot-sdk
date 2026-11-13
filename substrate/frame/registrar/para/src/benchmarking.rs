@@ -220,7 +220,7 @@ mod benchmarks {
 	/// What relaying adds around the call it runs, which fails at its first read here.
 	#[benchmark]
 	fn receive_relayed() -> Result<(), BenchmarkError> {
-		let para_id: ParaId = u32::MAX.into();
+		let para_id: ParaId = u32::MAX;
 		let message = MessageToPara::V1(MessageToParaV1::Relayed {
 			para_id,
 			request: ParaRequestV1::RemoveLock,
