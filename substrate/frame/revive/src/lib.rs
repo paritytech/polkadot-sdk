@@ -216,6 +216,9 @@ pub mod pallet {
 		/// difference is withdrawn from the caller and forwarded to this handler.
 		/// Use this to redirect burned value to a treasury or DAP instead of silently
 		/// destroying it.
+		///
+		/// Burns that a contract requests with `burn` of the `System` pre-compile do not reach
+		/// this handler. The amount is removed from the total issuance instead.
 		#[pallet::no_default_bounds]
 		type OnBurn: OnUnbalanced<CreditOf<Self>>;
 

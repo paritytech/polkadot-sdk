@@ -1,0 +1,45 @@
+title: 'pallet-revive: add `burn` to the System precompile'
+doc:
+- audience: Runtime User
+  description: |-
+    The System precompile gains `burn(uint256 amount)`. It removes `amount`, in the unit of
+    `msg.value`, from the spendable balance of the caller and from the total issuance. The caller
+    is the account that calls the precompile: a contract burns its own funds, and so does an
+    account that calls the precompile directly. Held and frozen funds and the existential deposit
+    are not spendable. When `amount` has a dust part the caller does not hold, one more spendable
+    unit is converted into dust first.
+
+    The call reverts when:
+    - the spendable balance of the caller is lower than `amount`
+    - `amount` does not fit the balance type of the chain
+    - value is sent along with the call
+    - the precompile is reached through a delegate call
+
+    In a static context it fails without revert data. A call dispatched by root fails with
+    `RootNotAllowed`.
+
+    The whole units of `amount` are reported as `Balances::Burned`. A dust conversion emits its
+    own `Burned` of one unit first, so the `Burned` amounts of one call add up to the whole units
+    of `amount` plus one. The dust part emits no event, and no EVM log is emitted.
+- audience: Runtime Dev
+  description: |-
+    Contracts can now reduce the total issuance. `System.burn` bypasses `Config::OnBurn`, which
+    keeps receiving the gas rounding only, and a runtime cannot disable the function. No
+    migration is needed.
+
+    `pallet_revive::WeightInfo` gains the required method `burn(d: u32)`, where `d` is 1 when
+    `amount` has a dust part. Runtimes using `SubstrateWeight` or `()` need no change. Runtimes
+    with their own implementation have to add the method and should regenerate their weights
+    with the new `burn` benchmark.
+
+    `ISystemCalls` in `pallet-revive-uapi` gains a `burn` variant. Code that matches on it
+    exhaustively has to add an arm.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

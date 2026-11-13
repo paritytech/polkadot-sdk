@@ -833,6 +833,22 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(2_433_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn burn(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5133`
+		//  Estimated: `11073`
+		// Minimum execution time: 117_242_000 picoseconds.
+		Weight::from_parts(125_458_255, 0)
+			.saturating_add(Weight::from_parts(0, 11073))
+			.saturating_add(Weight::from_parts(44_063_794, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	fn seal_return_data_size() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

@@ -29,6 +29,7 @@ use frame_support::{
 		tokens::{Fortitude, Precision, Preservation},
 	},
 };
+use sp_runtime::traits::Zero;
 
 /// Transfer balance between two accounts.
 fn transfer_balance<T: Config>(
@@ -130,10 +131,17 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	Ok(())
 }
 
-/// Withdraw a balance with dust from an account and forward it to [`Config::OnBurn`].
-pub(crate) fn burn_with_dust<T: Config>(
+/// Remove `value` from the balance of `from` without a receiver.
+///
+/// The dust part is taken from the dust balance of the account. The remaining part is handed to
+/// `remove`, which decides what happens to it.
+///
+/// Converting missing dust burns one unit through the currency before `remove` runs. The balance
+/// check at the top guarantees that `remove` does not fail after that.
+fn remove_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
+	remove: impl FnOnce(BalanceOf<T>) -> DispatchResult,
 ) -> DispatchResult {
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
 	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
@@ -147,7 +155,23 @@ pub(crate) fn burn_with_dust<T: Config>(
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		// No dust to handle, just withdraw the balance.
+		return remove(value);
+	}
+
+	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
+	remove(value)?;
+
+	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+	Ok(())
+}
+
+/// Withdraw a balance with dust from an account and forward it to [`Config::OnBurn`].
+pub(crate) fn burn_with_dust<T: Config>(
+	from: &AccountIdOf<T>,
+	value: BalanceWithDust<BalanceOf<T>>,
+) -> DispatchResult {
+	remove_with_dust::<T>(from, value, |value| {
 		let credit = T::Currency::withdraw(
 			from,
 			value,
@@ -160,26 +184,36 @@ pub(crate) fn burn_with_dust<T: Config>(
 			Error::<T>::TransferFailed
 		})?;
 		T::OnBurn::on_unbalanced(credit);
-		return Ok(());
-	}
+		Ok(())
+	})
+}
 
-	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
-	let credit = T::Currency::withdraw(
-		from,
-		value,
-		Precision::Exact,
-		Preservation::Preserve,
-		Fortitude::Polite,
-	)
-	.map_err(|err| {
-		log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
-		Error::<T>::TransferFailed
-	})?;
-	T::OnBurn::on_unbalanced(credit);
-
-	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-	Ok(())
+/// Remove a balance with dust from an account and from the total issuance.
+///
+/// Unlike [`burn_with_dust`], the balance is not forwarded to [`Config::OnBurn`].
+pub fn burn_from_issuance_with_dust<T: Config>(
+	from: &AccountIdOf<T>,
+	value: BalanceWithDust<BalanceOf<T>>,
+) -> DispatchResult {
+	remove_with_dust::<T>(from, value, |value| {
+		// `burn_from` emits a `Burned` event even for a zero amount. A burn of only dust does not
+		// touch the currency, so it must not report one.
+		if value.is_zero() {
+			return Ok(());
+		}
+		T::Currency::burn_from(
+			from,
+			value,
+			Preservation::Preserve,
+			Precision::Exact,
+			Fortitude::Polite,
+		)
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
+			Error::<T>::TransferFailed
+		})?;
+		Ok(())
+	})
 }
 
 #[cfg(test)]
