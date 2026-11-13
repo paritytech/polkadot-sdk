@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate pallet_revive</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#revive-pallet" title="Revive Pallet">Revive Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#host-function-tracing" title="Host function tracing">Host function tracing</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_<wbr>revive</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/lib.rs.html#18-4757">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="revive-pallet"><a class="doc-anchor" href="#revive-pallet">§</a>Revive Pallet</h2>
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate pallet_revive</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#revive-pallet" title="Revive Pallet">Revive Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#host-function-tracing" title="Host function tracing">Host function tracing</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_<wbr>revive</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/lib.rs.html#18-4765">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="revive-pallet"><a class="doc-anchor" href="#revive-pallet">§</a>Revive Pallet</h2>
 <p>This is an <strong>experimental</strong> module that provides functionality for the runtime to deploy and execute PolkaVM
 smart-contracts. It is a heavily modified <code>pallet_contracts</code> fork.</p>
 <h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
@@ -175,16 +175,18 @@ trait. The weight model uses differential benchmarking to precisely account for 
 events during Ethereum block construction:</p>
 <div class="example-wrap"><pre class="language-text"><code>Total Weight = fixed_part +
                Σ(per_tx_part(payload_i)) +
-               Σ(per_event_part(data_len_j)) +
-               Σ(per_outside_frame_log_part(data_len_k))</code></pre></div>
+               Σ(per_event_part(event_bytes_j)) +
+               Σ(per_outside_frame_log_part(num_topics_k, data_len_k))</code></pre></div>
 <p><strong>High-Level Weight API (<code>OnFinalizeBlockParts</code> trait):</strong>
 The pallet exposes these weight calculation methods for runtime use:</p>
 <ul>
 <li><strong>Fixed cost</strong>: <code>on_finalize_block_fixed()</code> - Base overhead regardless of transaction/event count</li>
 <li><strong>Per-transaction cost</strong>: <code>on_finalize_block_per_tx(payload_size)</code> - Applied incrementally during each <code>eth_call()</code></li>
-<li><strong>Per-event cost</strong>: <code>on_finalize_block_per_event(data_len)</code> - Applied dynamically during each <code>deposit_event()</code></li>
-<li><strong>Per-outside-of-frame-log cost</strong>: <code>per_outside_frame_log(data_len)</code> - Applied when a log emitted outside an
-ethereum transaction is buffered for the block’s synthetic transaction</li>
+<li><strong>Per-event cost</strong>: <code>on_finalize_block_per_event(event_bytes)</code> - Applied dynamically during each <code>deposit_event()</code>,
+with <code>event_bytes</code> counting 32 bytes per topic plus the data</li>
+<li><strong>Per-outside-of-frame-log cost</strong>: <code>per_outside_frame_log(num_topics, data_len)</code> - Applied when a log emitted
+outside an ethereum transaction is buffered for the block’s synthetic transaction, with the log’s topic count and
+data length in bytes</li>
 </ul>
 <p><strong>Underlying Benchmark Functions (<code>WeightInfo</code> trait):</strong>
 These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:</p>
@@ -192,11 +194,13 @@ These low-level benchmarks measure raw computational costs and are used to deriv
 <li><strong>Per-transaction overhead</strong>: <code>on_finalize_per_transaction(n)</code> - Measures cost scaling with <code>n</code> transaction count</li>
 <li><strong>Per-transaction data</strong>: <code>on_finalize_per_transaction_data(d)</code> - Measures cost scaling with <code>d</code> bytes of transaction payload</li>
 <li><strong>Per-event overhead</strong>: <code>on_finalize_per_event(e)</code> - Measures cost scaling with <code>e</code> event count</li>
-<li><strong>Per-event data</strong>: <code>on_finalize_per_event_data(d)</code> - Measures cost scaling with <code>d</code> bytes of event data</li>
+<li><strong>Per-event data</strong>: <code>on_finalize_per_event_data(d)</code> - Measures cost scaling with <code>d</code> event bytes (topics and data)</li>
 <li><strong>Per-outside-of-frame log</strong>: <code>outside_frame_log(n)</code> - Measures the <code>on_finalize</code> drain cost scaling with
 <code>n</code> buffered logs</li>
-<li><strong>Per-outside-of-frame log data</strong>: <code>outside_frame_log_data(d)</code> - Measures the drain cost scaling with <code>d</code> bytes
-of one buffered log’s data</li>
+<li><strong>Per-outside-of-frame log topic</strong>: <code>outside_frame_log_topics(t)</code> - Measures the drain cost scaling with <code>t</code>
+topics of one buffered log without data</li>
+<li><strong>Per-outside-of-frame log data</strong>: <code>outside_frame_log_data(d)</code> - Measures the drain cost scaling with <code>d</code> data
+bytes of one buffered log without topics</li>
 </ul>
 <p><strong>Weight Derivation Methodology:</strong>
 The high-level API methods use differential calculation to isolate marginal costs from benchmarks:</p>
@@ -204,8 +208,9 @@ The high-level API methods use differential calculation to isolate marginal cost
 <li>Per-transaction base: <code>on_finalize_per_transaction(1) - on_finalize_per_transaction(0)</code></li>
 <li>Per-transaction byte: <code>on_finalize_per_transaction_data(1) - on_finalize_per_transaction_data(0)</code></li>
 <li>Per-event base: <code>on_finalize_per_event(1) - on_finalize_per_event(0)</code></li>
-<li>Per-byte of event data: <code>on_finalize_per_event_data(data_len) - on_finalize_per_event_data(0)</code></li>
+<li>Per-byte of event topics and data: <code>on_finalize_per_event_data(event_bytes) - on_finalize_per_event_data(0)</code></li>
 <li>Per-outside-of-frame log: <code>outside_frame_log(1) - outside_frame_log(0)</code></li>
+<li>Per-topic of outside-of-frame logs: <code>outside_frame_log_topics(num_topics) - outside_frame_log_topics(0)</code></li>
 <li>Per-byte of outside-of-frame log data: <code>outside_frame_log_data(data_len) - outside_frame_log_data(0)</code></li>
 </ul>
 <p>This comprehensive weight model ensures that:</p>

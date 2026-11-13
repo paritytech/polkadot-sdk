@@ -239,10 +239,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#89 id=89 data-nosnippet>89</a>/// block builder's memory and storage budget (`BLOCK_BUILDER_BYTES`) is derived from it.
 <a href=#90 id=90 data-nosnippet>90</a></span><span class="kw">pub const </span>MAX_RECEIPT_LOGS_BYTES: u32 = <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 <a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a><span class="doccomment">/// The extra ref time charged per byte of event data.
+<a href=#92 id=92 data-nosnippet>92</a><span class="doccomment">/// The extra ref time charged per byte of an event's topics (32 bytes each) and data.
 <a href=#93 id=93 data-nosnippet>93</a>///
-<a href=#94 id=94 data-nosnippet>94</a>/// It bounds the event data a block can deposit; `integrity_test` checks that this fits the
-<a href=#95 id=95 data-nosnippet>95</a>/// storage available to the runtime. The Ethereum block builder is sized from
+<a href=#94 id=94 data-nosnippet>94</a>/// It bounds the event bytes (topics and data) a block can deposit; `integrity_test` checks that
+<a href=#95 id=95 data-nosnippet>95</a>/// this fits the storage available to the runtime. The Ethereum block builder is sized from
 <a href=#96 id=96 data-nosnippet>96</a>/// [`MAX_TRANSACTION_PAYLOAD_SIZE`] and [`MAX_RECEIPT_LOGS_BYTES`] instead.
 <a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">pub const </span>EXTRA_EVENT_CHARGE_PER_BYTE: u64 = <span class="number">256 </span>* <span class="number">1024</span>;
 <a href=#98 id=98 data-nosnippet>98</a>

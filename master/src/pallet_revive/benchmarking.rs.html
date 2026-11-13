@@ -224,7 +224,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#74 id=74 data-nosnippet>74</a>	digests::{PreDigest, PrimaryPreDigest},
 <a href=#75 id=75 data-nosnippet>75</a>};
 <a href=#76 id=76 data-nosnippet>76</a><span class="kw">use </span>sp_consensus_slots::Slot;
-<a href=#77 id=77 data-nosnippet>77</a><span class="kw">use </span>sp_runtime::{generic::DigestItem, traits::Zero};
+<a href=#77 id=77 data-nosnippet>77</a><span class="kw">use </span>sp_runtime::{SaturatedConversion, generic::DigestItem, traits::Zero};
 <a href=#78 id=78 data-nosnippet>78</a>
 <a href=#79 id=79 data-nosnippet>79</a><span class="doccomment">/// How many runs we do per API benchmark.
 <a href=#80 id=80 data-nosnippet>80</a>///
@@ -7539,177 +7539,180 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#7389 id=7389 data-nosnippet>7389</a>
 <a href=#7390 id=7390 data-nosnippet>7390</a>	<span class="doccomment">/// ## Test Setup:
 <a href=#7391 id=7391 data-nosnippet>7391</a>	/// - Creates 1 transaction with 1 ContractEmitted event
-<a href=#7392 id=7392 data-nosnippet>7392</a>	/// - Event contains `d` total bytes of data across data field and topics
-<a href=#7393 id=7393 data-nosnippet>7393</a>	///
-<a href=#7394 id=7394 data-nosnippet>7394</a>	/// ## Usage:
-<a href=#7395 id=7395 data-nosnippet>7395</a>	/// Measures the per-byte event data processing overhead during finalization
-<a href=#7396 id=7396 data-nosnippet>7396</a>	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
-<a href=#7397 id=7397 data-nosnippet>7397</a>	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
-<a href=#7398 id=7398 data-nosnippet>7398</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#7399 id=7399 data-nosnippet>7399</a>	</span><span class="kw">fn </span>on_finalize_per_event_data(d: Linear&lt;<span class="number">0</span>, <span class="number">16384</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#7400 id=7400 data-nosnippet>7400</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
-<a href=#7401 id=7401 data-nosnippet>7401</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#7402 id=7402 data-nosnippet>7402</a>
-<a href=#7403 id=7403 data-nosnippet>7403</a>		<span class="comment">// Create a single transaction with one event containing d bytes of data
-<a href=#7404 id=7404 data-nosnippet>7404</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
-<a href=#7405 id=7405 data-nosnippet>7405</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
-<a href=#7406 id=7406 data-nosnippet>7406</a>			<span class="kw-2">&amp;</span>signer_key,
-<a href=#7407 id=7407 data-nosnippet>7407</a>			instance.address,
-<a href=#7408 id=7408 data-nosnippet>7408</a>			evm_value,
-<a href=#7409 id=7409 data-nosnippet>7409</a>			input_data.clone(),
-<a href=#7410 id=7410 data-nosnippet>7410</a>		);
-<a href=#7411 id=7411 data-nosnippet>7411</a>
-<a href=#7412 id=7412 data-nosnippet>7412</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
-<a href=#7413 id=7413 data-nosnippet>7413</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
-<a href=#7414 id=7414 data-nosnippet>7414</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
-<a href=#7415 id=7415 data-nosnippet>7415</a>		};
-<a href=#7416 id=7416 data-nosnippet>7416</a>
-<a href=#7417 id=7417 data-nosnippet>7417</a>		<span class="comment">// Create one event with d bytes of data distributed across topics and data field
-<a href=#7418 id=7418 data-nosnippet>7418</a>		</span><span class="kw">let </span>(event_data, topics) = <span class="kw">if </span>d &lt; <span class="number">32 </span>{
-<a href=#7419 id=7419 data-nosnippet>7419</a>			<span class="comment">// If total data is less than 32 bytes, put all in data field
-<a href=#7420 id=7420 data-nosnippet>7420</a>			</span>(<span class="macro">vec!</span>[<span class="number">0x42u8</span>; d <span class="kw">as </span>usize], <span class="macro">vec!</span>[])
-<a href=#7421 id=7421 data-nosnippet>7421</a>		} <span class="kw">else </span>{
-<a href=#7422 id=7422 data-nosnippet>7422</a>			<span class="comment">// Fill topics first, then put remaining bytes in data field
-<a href=#7423 id=7423 data-nosnippet>7423</a>			</span><span class="kw">let </span>num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / <span class="number">32</span>);
-<a href=#7424 id=7424 data-nosnippet>7424</a>			<span class="kw">let </span>topic_bytes_used = num_topics * <span class="number">32</span>;
-<a href=#7425 id=7425 data-nosnippet>7425</a>			<span class="kw">let </span>data_bytes_remaining = d - topic_bytes_used;
-<a href=#7426 id=7426 data-nosnippet>7426</a>
-<a href=#7427 id=7427 data-nosnippet>7427</a>			<span class="comment">// Create topics filled with sequential data
-<a href=#7428 id=7428 data-nosnippet>7428</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>topics = Vec::new();
-<a href=#7429 id=7429 data-nosnippet>7429</a>			<span class="kw">for </span>topic_index <span class="kw">in </span><span class="number">0</span>..num_topics {
-<a href=#7430 id=7430 data-nosnippet>7430</a>				<span class="kw">let </span>topic_data = [topic_index <span class="kw">as </span>u8; <span class="number">32</span>];
-<a href=#7431 id=7431 data-nosnippet>7431</a>				topics.push(H256::from(topic_data));
-<a href=#7432 id=7432 data-nosnippet>7432</a>			}
+<a href=#7392 id=7392 data-nosnippet>7392</a>	/// - Event contains `d` total bytes of data across data field and topics, topics first: up to
+<a href=#7393 id=7393 data-nosnippet>7393</a>	///   `limits::NUM_EVENT_TOPICS` full 32-byte topics, the remaining bytes in the data field
+<a href=#7394 id=7394 data-nosnippet>7394</a>	///
+<a href=#7395 id=7395 data-nosnippet>7395</a>	/// ## Usage:
+<a href=#7396 id=7396 data-nosnippet>7396</a>	/// Measures the per-byte event data processing overhead during finalization
+<a href=#7397 id=7397 data-nosnippet>7397</a>	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
+<a href=#7398 id=7398 data-nosnippet>7398</a>	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
+<a href=#7399 id=7399 data-nosnippet>7399</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#7400 id=7400 data-nosnippet>7400</a>	</span><span class="kw">fn </span>on_finalize_per_event_data(d: Linear&lt;<span class="number">0</span>, <span class="number">16384</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#7401 id=7401 data-nosnippet>7401</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
+<a href=#7402 id=7402 data-nosnippet>7402</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#7403 id=7403 data-nosnippet>7403</a>
+<a href=#7404 id=7404 data-nosnippet>7404</a>		<span class="comment">// Create a single transaction with one event containing d bytes of data
+<a href=#7405 id=7405 data-nosnippet>7405</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
+<a href=#7406 id=7406 data-nosnippet>7406</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
+<a href=#7407 id=7407 data-nosnippet>7407</a>			<span class="kw-2">&amp;</span>signer_key,
+<a href=#7408 id=7408 data-nosnippet>7408</a>			instance.address,
+<a href=#7409 id=7409 data-nosnippet>7409</a>			evm_value,
+<a href=#7410 id=7410 data-nosnippet>7410</a>			input_data.clone(),
+<a href=#7411 id=7411 data-nosnippet>7411</a>		);
+<a href=#7412 id=7412 data-nosnippet>7412</a>
+<a href=#7413 id=7413 data-nosnippet>7413</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
+<a href=#7414 id=7414 data-nosnippet>7414</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
+<a href=#7415 id=7415 data-nosnippet>7415</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
+<a href=#7416 id=7416 data-nosnippet>7416</a>		};
+<a href=#7417 id=7417 data-nosnippet>7417</a>
+<a href=#7418 id=7418 data-nosnippet>7418</a>		<span class="kw">let </span>d: usize = d.saturated_into();
+<a href=#7419 id=7419 data-nosnippet>7419</a>		<span class="kw">let </span>max_topics: usize = limits::NUM_EVENT_TOPICS.saturated_into();
+<a href=#7420 id=7420 data-nosnippet>7420</a>		<span class="kw">let </span>num_topics = max_topics.min(d / H256::len_bytes());
+<a href=#7421 id=7421 data-nosnippet>7421</a>		<span class="kw">let </span>topics: Vec&lt;H256&gt; = (<span class="number">0</span>..num_topics)
+<a href=#7422 id=7422 data-nosnippet>7422</a>			.map(|index| H256::from_low_u64_be(index.saturated_into()))
+<a href=#7423 id=7423 data-nosnippet>7423</a>			.collect();
+<a href=#7424 id=7424 data-nosnippet>7424</a>		<span class="kw">let </span>event_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; d - num_topics * H256::len_bytes()];
+<a href=#7425 id=7425 data-nosnippet>7425</a>
+<a href=#7426 id=7426 data-nosnippet>7426</a>		<span class="comment">// Store transaction
+<a href=#7427 id=7427 data-nosnippet>7427</a>		</span>block_storage::bench_with_ethereum_context(|| -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#7428 id=7428 data-nosnippet>7428</a>			<span class="comment">// Captured inside the ethereum context, so the log lands on the transaction's own
+<a href=#7429 id=7429 data-nosnippet>7429</a>			// receipt — the path `on_finalize_block_per_event` is charged for on every
+<a href=#7430 id=7430 data-nosnippet>7430</a>			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
+<a href=#7431 id=7431 data-nosnippet>7431</a>			// separately.
+<a href=#7432 id=7432 data-nosnippet>7432</a>			</span>block_storage::capture_frame_log::&lt;T&gt;(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span>event_data, <span class="kw-2">&amp;</span>topics)<span class="question-mark">?</span>;
 <a href=#7433 id=7433 data-nosnippet>7433</a>
-<a href=#7434 id=7434 data-nosnippet>7434</a>			<span class="comment">// Remaining bytes go to data field
-<a href=#7435 id=7435 data-nosnippet>7435</a>			</span><span class="kw">let </span>event_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; data_bytes_remaining <span class="kw">as </span>usize];
+<a href=#7434 id=7434 data-nosnippet>7434</a>			<span class="kw">let </span>(encoded_logs, bloom) =
+<a href=#7435 id=7435 data-nosnippet>7435</a>				block_storage::get_receipt_details::&lt;T&gt;().unwrap_or_default();
 <a href=#7436 id=7436 data-nosnippet>7436</a>
-<a href=#7437 id=7437 data-nosnippet>7437</a>			(event_data, topics)
-<a href=#7438 id=7438 data-nosnippet>7438</a>		};
+<a href=#7437 id=7437 data-nosnippet>7437</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
+<a href=#7438 id=7438 data-nosnippet>7438</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
 <a href=#7439 id=7439 data-nosnippet>7439</a>
-<a href=#7440 id=7440 data-nosnippet>7440</a>		<span class="comment">// Store transaction
-<a href=#7441 id=7441 data-nosnippet>7441</a>		</span>block_storage::bench_with_ethereum_context(|| -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#7442 id=7442 data-nosnippet>7442</a>			<span class="comment">// Captured inside the ethereum context, so the log lands on the transaction's own
-<a href=#7443 id=7443 data-nosnippet>7443</a>			// receipt — the path `on_finalize_block_per_event` is charged for on every
-<a href=#7444 id=7444 data-nosnippet>7444</a>			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
-<a href=#7445 id=7445 data-nosnippet>7445</a>			// separately.
-<a href=#7446 id=7446 data-nosnippet>7446</a>			</span>block_storage::capture_frame_log::&lt;T&gt;(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span>event_data, <span class="kw-2">&amp;</span>topics)<span class="question-mark">?</span>;
+<a href=#7440 id=7440 data-nosnippet>7440</a>			block_builder.process_transaction(
+<a href=#7441 id=7441 data-nosnippet>7441</a>				signed_transaction,
+<a href=#7442 id=7442 data-nosnippet>7442</a>				<span class="bool-val">true</span>,
+<a href=#7443 id=7443 data-nosnippet>7443</a>				receipt_gas_info,
+<a href=#7444 id=7444 data-nosnippet>7444</a>				encoded_logs,
+<a href=#7445 id=7445 data-nosnippet>7445</a>				bloom,
+<a href=#7446 id=7446 data-nosnippet>7446</a>			);
 <a href=#7447 id=7447 data-nosnippet>7447</a>
-<a href=#7448 id=7448 data-nosnippet>7448</a>			<span class="kw">let </span>(encoded_logs, bloom) =
-<a href=#7449 id=7449 data-nosnippet>7449</a>				block_storage::get_receipt_details::&lt;T&gt;().unwrap_or_default();
-<a href=#7450 id=7450 data-nosnippet>7450</a>
-<a href=#7451 id=7451 data-nosnippet>7451</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
-<a href=#7452 id=7452 data-nosnippet>7452</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
-<a href=#7453 id=7453 data-nosnippet>7453</a>
-<a href=#7454 id=7454 data-nosnippet>7454</a>			block_builder.process_transaction(
-<a href=#7455 id=7455 data-nosnippet>7455</a>				signed_transaction,
-<a href=#7456 id=7456 data-nosnippet>7456</a>				<span class="bool-val">true</span>,
-<a href=#7457 id=7457 data-nosnippet>7457</a>				receipt_gas_info,
-<a href=#7458 id=7458 data-nosnippet>7458</a>				encoded_logs,
-<a href=#7459 id=7459 data-nosnippet>7459</a>				bloom,
-<a href=#7460 id=7460 data-nosnippet>7460</a>			);
-<a href=#7461 id=7461 data-nosnippet>7461</a>
-<a href=#7462 id=7462 data-nosnippet>7462</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
-<a href=#7463 id=7463 data-nosnippet>7463</a>			<span class="prelude-val">Ok</span>(())
-<a href=#7464 id=7464 data-nosnippet>7464</a>		})<span class="question-mark">?</span>;
-<a href=#7465 id=7465 data-nosnippet>7465</a>
-<a href=#7466 id=7466 data-nosnippet>7466</a>		<span class="attr">#[block]
-<a href=#7467 id=7467 data-nosnippet>7467</a>		</span>{
-<a href=#7468 id=7468 data-nosnippet>7468</a>			<span class="comment">// Initialize block
-<a href=#7469 id=7469 data-nosnippet>7469</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#7470 id=7470 data-nosnippet>7470</a>
-<a href=#7471 id=7471 data-nosnippet>7471</a>			<span class="comment">// Measure the finalization cost with d bytes of event data
-<a href=#7472 id=7472 data-nosnippet>7472</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#7473 id=7473 data-nosnippet>7473</a>		}
-<a href=#7474 id=7474 data-nosnippet>7474</a>
-<a href=#7475 id=7475 data-nosnippet>7475</a>		<span class="comment">// The real transaction only: its log is on its own receipt, so no synthetic transaction is
-<a href=#7476 id=7476 data-nosnippet>7476</a>		// built.
-<a href=#7477 id=7477 data-nosnippet>7477</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
-<a href=#7478 id=7478 data-nosnippet>7478</a>
-<a href=#7479 id=7479 data-nosnippet>7479</a>		<span class="prelude-val">Ok</span>(())
-<a href=#7480 id=7480 data-nosnippet>7480</a>	}
-<a href=#7481 id=7481 data-nosnippet>7481</a>
-<a href=#7482 id=7482 data-nosnippet>7482</a>	<span class="doccomment">/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
-<a href=#7483 id=7483 data-nosnippet>7483</a>	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
-<a href=#7484 id=7484 data-nosnippet>7484</a>	///
-<a href=#7485 id=7485 data-nosnippet>7485</a>	/// `pov_mode = Measured` because the block builder's storage is unbounded. The buffer itself is
-<a href=#7486 id=7486 data-nosnippet>7486</a>	/// whitelisted, so the marginal carries no proof size; a log's proof charge is its entry's
-<a href=#7487 id=7487 data-nosnippet>7487</a>	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
-<a href=#7488 id=7488 data-nosnippet>7488</a>	/// `buffer_outside_frame_log`.
-<a href=#7489 id=7489 data-nosnippet>7489</a>	///
-<a href=#7490 id=7490 data-nosnippet>7490</a>	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
-<a href=#7491 id=7491 data-nosnippet>7491</a>	/// data word.
-<a href=#7492 id=7492 data-nosnippet>7492</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#7493 id=7493 data-nosnippet>7493</a>	</span><span class="kw">fn </span>outside_frame_log(n: Linear&lt;<span class="number">0</span>, <span class="number">100</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#7494 id=7494 data-nosnippet>7494</a>		<span class="kw">let </span>(instance, _storage_deposit, _evm_value, _signer_key, current_block) =
-<a href=#7495 id=7495 data-nosnippet>7495</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#7496 id=7496 data-nosnippet>7496</a>
-<a href=#7497 id=7497 data-nosnippet>7497</a>		<span class="comment">// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
-<a href=#7498 id=7498 data-nosnippet>7498</a>		</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#7499 id=7499 data-nosnippet>7499</a>
-<a href=#7500 id=7500 data-nosnippet>7500</a>		<span class="comment">// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
-<a href=#7501 id=7501 data-nosnippet>7501</a>		</span><span class="kw">let </span>topics =
-<a href=#7502 id=7502 data-nosnippet>7502</a>			<span class="macro">vec!</span>[H256::repeat_byte(<span class="number">0x11</span>), H256::repeat_byte(<span class="number">0x22</span>), H256::repeat_byte(<span class="number">0x33</span>)];
-<a href=#7503 id=7503 data-nosnippet>7503</a>		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">0x44u8</span>; <span class="number">32</span>];
-<a href=#7504 id=7504 data-nosnippet>7504</a>
-<a href=#7505 id=7505 data-nosnippet>7505</a>		<span class="comment">// Appended straight into the buffer, past the cap: the drain is what is measured, and a
-<a href=#7506 id=7506 data-nosnippet>7506</a>		// runtime that keeps the buffer off still needs its weight.
-<a href=#7507 id=7507 data-nosnippet>7507</a>		</span><span class="kw">for _ in </span><span class="number">0</span>..n {
-<a href=#7508 id=7508 data-nosnippet>7508</a>			Pallet::&lt;T&gt;::bench_buffer_outside_frame_log(
-<a href=#7509 id=7509 data-nosnippet>7509</a>				instance.address,
-<a href=#7510 id=7510 data-nosnippet>7510</a>				topics.clone(),
-<a href=#7511 id=7511 data-nosnippet>7511</a>				data.clone(),
-<a href=#7512 id=7512 data-nosnippet>7512</a>			);
-<a href=#7513 id=7513 data-nosnippet>7513</a>		}
-<a href=#7514 id=7514 data-nosnippet>7514</a>
-<a href=#7515 id=7515 data-nosnippet>7515</a>		<span class="attr">#[block]
-<a href=#7516 id=7516 data-nosnippet>7516</a>		</span>{
-<a href=#7517 id=7517 data-nosnippet>7517</a>			<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#7518 id=7518 data-nosnippet>7518</a>		}
+<a href=#7448 id=7448 data-nosnippet>7448</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
+<a href=#7449 id=7449 data-nosnippet>7449</a>			<span class="prelude-val">Ok</span>(())
+<a href=#7450 id=7450 data-nosnippet>7450</a>		})<span class="question-mark">?</span>;
+<a href=#7451 id=7451 data-nosnippet>7451</a>
+<a href=#7452 id=7452 data-nosnippet>7452</a>		<span class="attr">#[block]
+<a href=#7453 id=7453 data-nosnippet>7453</a>		</span>{
+<a href=#7454 id=7454 data-nosnippet>7454</a>			<span class="comment">// Initialize block
+<a href=#7455 id=7455 data-nosnippet>7455</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#7456 id=7456 data-nosnippet>7456</a>
+<a href=#7457 id=7457 data-nosnippet>7457</a>			<span class="comment">// Measure the finalization cost with d bytes of event data
+<a href=#7458 id=7458 data-nosnippet>7458</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#7459 id=7459 data-nosnippet>7459</a>		}
+<a href=#7460 id=7460 data-nosnippet>7460</a>
+<a href=#7461 id=7461 data-nosnippet>7461</a>		<span class="comment">// The real transaction only: its log is on its own receipt, so no synthetic transaction is
+<a href=#7462 id=7462 data-nosnippet>7462</a>		// built.
+<a href=#7463 id=7463 data-nosnippet>7463</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
+<a href=#7464 id=7464 data-nosnippet>7464</a>
+<a href=#7465 id=7465 data-nosnippet>7465</a>		<span class="prelude-val">Ok</span>(())
+<a href=#7466 id=7466 data-nosnippet>7466</a>	}
+<a href=#7467 id=7467 data-nosnippet>7467</a>
+<a href=#7468 id=7468 data-nosnippet>7468</a>	<span class="doccomment">/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
+<a href=#7469 id=7469 data-nosnippet>7469</a>	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
+<a href=#7470 id=7470 data-nosnippet>7470</a>	///
+<a href=#7471 id=7471 data-nosnippet>7471</a>	/// `pov_mode = Measured` because the block builder's storage is unbounded. The buffer itself is
+<a href=#7472 id=7472 data-nosnippet>7472</a>	/// whitelisted, so the marginal carries no proof size; a log's proof charge is its entry's
+<a href=#7473 id=7473 data-nosnippet>7473</a>	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
+<a href=#7474 id=7474 data-nosnippet>7474</a>	/// `buffer_outside_frame_log`.
+<a href=#7475 id=7475 data-nosnippet>7475</a>	///
+<a href=#7476 id=7476 data-nosnippet>7476</a>	/// Each log is empty (no topics, no data), so the slope is the per-log cost alone, as in
+<a href=#7477 id=7477 data-nosnippet>7477</a>	/// `on_finalize_per_event`. The per-topic cost is `outside_frame_log_topics`'s and the per-byte
+<a href=#7478 id=7478 data-nosnippet>7478</a>	/// cost `outside_frame_log_data`'s.
+<a href=#7479 id=7479 data-nosnippet>7479</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#7480 id=7480 data-nosnippet>7480</a>	</span><span class="kw">fn </span>outside_frame_log(n: Linear&lt;<span class="number">0</span>, <span class="number">100</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#7481 id=7481 data-nosnippet>7481</a>		<span class="kw">let </span>(instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+<a href=#7482 id=7482 data-nosnippet>7482</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#7483 id=7483 data-nosnippet>7483</a>
+<a href=#7484 id=7484 data-nosnippet>7484</a>		<span class="comment">// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
+<a href=#7485 id=7485 data-nosnippet>7485</a>		</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#7486 id=7486 data-nosnippet>7486</a>
+<a href=#7487 id=7487 data-nosnippet>7487</a>		<span class="comment">// Appended straight into the buffer, past the cap: the drain is what is measured, and a
+<a href=#7488 id=7488 data-nosnippet>7488</a>		// runtime that keeps the buffer off still needs its weight.
+<a href=#7489 id=7489 data-nosnippet>7489</a>		</span><span class="kw">for _ in </span><span class="number">0</span>..n {
+<a href=#7490 id=7490 data-nosnippet>7490</a>			Pallet::&lt;T&gt;::bench_buffer_outside_frame_log(instance.address, <span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
+<a href=#7491 id=7491 data-nosnippet>7491</a>		}
+<a href=#7492 id=7492 data-nosnippet>7492</a>
+<a href=#7493 id=7493 data-nosnippet>7493</a>		<span class="attr">#[block]
+<a href=#7494 id=7494 data-nosnippet>7494</a>		</span>{
+<a href=#7495 id=7495 data-nosnippet>7495</a>			<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#7496 id=7496 data-nosnippet>7496</a>		}
+<a href=#7497 id=7497 data-nosnippet>7497</a>
+<a href=#7498 id=7498 data-nosnippet>7498</a>		<span class="comment">// Only the synthetic transaction, and only when at least one log was buffered.
+<a href=#7499 id=7499 data-nosnippet>7499</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), (n &gt; <span class="number">0</span>) <span class="kw">as </span>usize);
+<a href=#7500 id=7500 data-nosnippet>7500</a>
+<a href=#7501 id=7501 data-nosnippet>7501</a>		<span class="prelude-val">Ok</span>(())
+<a href=#7502 id=7502 data-nosnippet>7502</a>	}
+<a href=#7503 id=7503 data-nosnippet>7503</a>
+<a href=#7504 id=7504 data-nosnippet>7504</a>	<span class="doccomment">/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with `t` topics and
+<a href=#7505 id=7505 data-nosnippet>7505</a>	/// no data: the `OutsideFrameLogs::take` reads the topics back, the RLP encoding folds them
+<a href=#7506 id=7506 data-nosnippet>7506</a>	/// into the synthetic transaction's receipt, and the bloom accrual hashes each of them once.
+<a href=#7507 id=7507 data-nosnippet>7507</a>	///
+<a href=#7508 id=7508 data-nosnippet>7508</a>	/// Topics and data are measured in separate benchmarks because a benchmark with both components
+<a href=#7509 id=7509 data-nosnippet>7509</a>	/// varies one while holding the other at its maximum: the per-topic cost would be measured on
+<a href=#7510 id=7510 data-nosnippet>7510</a>	/// top of the full data and fitted away. Pairs with `outside_frame_log` and
+<a href=#7511 id=7511 data-nosnippet>7511</a>	/// `outside_frame_log_data`; together they give `OnFinalizeBlockParts::per_outside_frame_log`
+<a href=#7512 id=7512 data-nosnippet>7512</a>	/// its per-log, per-topic and per-byte marginals.
+<a href=#7513 id=7513 data-nosnippet>7513</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#7514 id=7514 data-nosnippet>7514</a>	</span><span class="kw">fn </span>outside_frame_log_topics(
+<a href=#7515 id=7515 data-nosnippet>7515</a>		t: Linear&lt;<span class="number">0</span>, { limits::NUM_EVENT_TOPICS }&gt;,
+<a href=#7516 id=7516 data-nosnippet>7516</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#7517 id=7517 data-nosnippet>7517</a>		<span class="kw">let </span>(instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+<a href=#7518 id=7518 data-nosnippet>7518</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
 <a href=#7519 id=7519 data-nosnippet>7519</a>
-<a href=#7520 id=7520 data-nosnippet>7520</a>		<span class="comment">// Only the synthetic transaction, and only when at least one log was buffered.
-<a href=#7521 id=7521 data-nosnippet>7521</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), (n &gt; <span class="number">0</span>) <span class="kw">as </span>usize);
-<a href=#7522 id=7522 data-nosnippet>7522</a>
-<a href=#7523 id=7523 data-nosnippet>7523</a>		<span class="prelude-val">Ok</span>(())
-<a href=#7524 id=7524 data-nosnippet>7524</a>	}
-<a href=#7525 id=7525 data-nosnippet>7525</a>
-<a href=#7526 id=7526 data-nosnippet>7526</a>	<span class="doccomment">/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
-<a href=#7527 id=7527 data-nosnippet>7527</a>	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
-<a href=#7528 id=7528 data-nosnippet>7528</a>	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
-<a href=#7529 id=7529 data-nosnippet>7529</a>	///
-<a href=#7530 id=7530 data-nosnippet>7530</a>	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
-<a href=#7531 id=7531 data-nosnippet>7531</a>	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
-<a href=#7532 id=7532 data-nosnippet>7532</a>	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
-<a href=#7533 id=7533 data-nosnippet>7533</a>	/// benchmark's 32-byte word alone would under-charge it.
-<a href=#7534 id=7534 data-nosnippet>7534</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#7535 id=7535 data-nosnippet>7535</a>	</span><span class="kw">fn </span>outside_frame_log_data(d: Linear&lt;<span class="number">0</span>, { limits::EVENT_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#7536 id=7536 data-nosnippet>7536</a>		<span class="kw">let </span>(instance, _storage_deposit, _evm_value, _signer_key, current_block) =
-<a href=#7537 id=7537 data-nosnippet>7537</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#7538 id=7538 data-nosnippet>7538</a>
-<a href=#7539 id=7539 data-nosnippet>7539</a>		<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#7540 id=7540 data-nosnippet>7540</a>
-<a href=#7541 id=7541 data-nosnippet>7541</a>		<span class="kw">let </span>topics =
-<a href=#7542 id=7542 data-nosnippet>7542</a>			<span class="macro">vec!</span>[H256::repeat_byte(<span class="number">0x11</span>), H256::repeat_byte(<span class="number">0x22</span>), H256::repeat_byte(<span class="number">0x33</span>)];
-<a href=#7543 id=7543 data-nosnippet>7543</a>		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">0x44u8</span>; d <span class="kw">as </span>usize];
+<a href=#7520 id=7520 data-nosnippet>7520</a>		<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#7521 id=7521 data-nosnippet>7521</a>
+<a href=#7522 id=7522 data-nosnippet>7522</a>		<span class="kw">let </span>topics = (<span class="number">0</span>..t).map(|index| H256::from_low_u64_be(index.into())).collect();
+<a href=#7523 id=7523 data-nosnippet>7523</a>		Pallet::&lt;T&gt;::bench_buffer_outside_frame_log(instance.address, topics, <span class="macro">vec!</span>[]);
+<a href=#7524 id=7524 data-nosnippet>7524</a>
+<a href=#7525 id=7525 data-nosnippet>7525</a>		<span class="attr">#[block]
+<a href=#7526 id=7526 data-nosnippet>7526</a>		</span>{
+<a href=#7527 id=7527 data-nosnippet>7527</a>			<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#7528 id=7528 data-nosnippet>7528</a>		}
+<a href=#7529 id=7529 data-nosnippet>7529</a>
+<a href=#7530 id=7530 data-nosnippet>7530</a>		<span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
+<a href=#7531 id=7531 data-nosnippet>7531</a>
+<a href=#7532 id=7532 data-nosnippet>7532</a>		<span class="prelude-val">Ok</span>(())
+<a href=#7533 id=7533 data-nosnippet>7533</a>	}
+<a href=#7534 id=7534 data-nosnippet>7534</a>
+<a href=#7535 id=7535 data-nosnippet>7535</a>	<span class="doccomment">/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with no topics and
+<a href=#7536 id=7536 data-nosnippet>7536</a>	/// `d` bytes of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so
+<a href=#7537 id=7537 data-nosnippet>7537</a>	/// does the RLP encoding that folds it into the synthetic transaction's receipt.
+<a href=#7538 id=7538 data-nosnippet>7538</a>	///
+<a href=#7539 id=7539 data-nosnippet>7539</a>	/// `d` goes up to what a contract can emit. The per-topic cost is `outside_frame_log_topics`'s.
+<a href=#7540 id=7540 data-nosnippet>7540</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#7541 id=7541 data-nosnippet>7541</a>	</span><span class="kw">fn </span>outside_frame_log_data(d: Linear&lt;<span class="number">0</span>, { limits::EVENT_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#7542 id=7542 data-nosnippet>7542</a>		<span class="kw">let </span>(instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+<a href=#7543 id=7543 data-nosnippet>7543</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
 <a href=#7544 id=7544 data-nosnippet>7544</a>
-<a href=#7545 id=7545 data-nosnippet>7545</a>		Pallet::&lt;T&gt;::bench_buffer_outside_frame_log(instance.address, topics, data);
+<a href=#7545 id=7545 data-nosnippet>7545</a>		<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
 <a href=#7546 id=7546 data-nosnippet>7546</a>
-<a href=#7547 id=7547 data-nosnippet>7547</a>		<span class="attr">#[block]
-<a href=#7548 id=7548 data-nosnippet>7548</a>		</span>{
-<a href=#7549 id=7549 data-nosnippet>7549</a>			<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#7550 id=7550 data-nosnippet>7550</a>		}
-<a href=#7551 id=7551 data-nosnippet>7551</a>
-<a href=#7552 id=7552 data-nosnippet>7552</a>		<span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
-<a href=#7553 id=7553 data-nosnippet>7553</a>
-<a href=#7554 id=7554 data-nosnippet>7554</a>		<span class="prelude-val">Ok</span>(())
-<a href=#7555 id=7555 data-nosnippet>7555</a>	}
+<a href=#7547 id=7547 data-nosnippet>7547</a>		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; d.saturated_into()];
+<a href=#7548 id=7548 data-nosnippet>7548</a>		Pallet::&lt;T&gt;::bench_buffer_outside_frame_log(instance.address, <span class="macro">vec!</span>[], data);
+<a href=#7549 id=7549 data-nosnippet>7549</a>
+<a href=#7550 id=7550 data-nosnippet>7550</a>		<span class="attr">#[block]
+<a href=#7551 id=7551 data-nosnippet>7551</a>		</span>{
+<a href=#7552 id=7552 data-nosnippet>7552</a>			<span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#7553 id=7553 data-nosnippet>7553</a>		}
+<a href=#7554 id=7554 data-nosnippet>7554</a>
+<a href=#7555 id=7555 data-nosnippet>7555</a>		<span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
 <a href=#7556 id=7556 data-nosnippet>7556</a>
-<a href=#7557 id=7557 data-nosnippet>7557</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#7558 id=7558 data-nosnippet>7558</a>		Contracts,
-<a href=#7559 id=7559 data-nosnippet>7559</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
-<a href=#7560 id=7560 data-nosnippet>7560</a>		<span class="kw">crate</span>::tests::Test,
-<a href=#7561 id=7561 data-nosnippet>7561</a>	);
-<a href=#7562 id=7562 data-nosnippet>7562</a>}
+<a href=#7557 id=7557 data-nosnippet>7557</a>		<span class="prelude-val">Ok</span>(())
+<a href=#7558 id=7558 data-nosnippet>7558</a>	}
+<a href=#7559 id=7559 data-nosnippet>7559</a>
+<a href=#7560 id=7560 data-nosnippet>7560</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#7561 id=7561 data-nosnippet>7561</a>		Contracts,
+<a href=#7562 id=7562 data-nosnippet>7562</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
+<a href=#7563 id=7563 data-nosnippet>7563</a>		<span class="kw">crate</span>::tests::Test,
+<a href=#7564 id=7564 data-nosnippet>7564</a>	);
+<a href=#7565 id=7565 data-nosnippet>7565</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
