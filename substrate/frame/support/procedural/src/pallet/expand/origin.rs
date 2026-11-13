@@ -20,7 +20,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{spanned::Spanned, Ident};
 
-/// expand the `is_origin_part_defined` macro.
+/// expand the `is_origin_part_defined` macro and the `AccountLike` impl.
 pub fn expand_origin(def: &mut Def) -> TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	let macro_ident = Ident::new(&format!("__is_origin_part_defined_{}", count), def.item.span());
@@ -38,6 +38,8 @@ pub fn expand_origin(def: &mut Def) -> TokenStream {
 		TokenStream::new()
 	};
 
+	let account_like_impl = generate_account_like_impl(def);
+
 	quote! {
 		#[doc(hidden)]
 		pub mod __substrate_origin_check {
@@ -52,5 +54,300 @@ pub fn expand_origin(def: &mut Def) -> TokenStream {
 			#[doc(hidden)]
 			pub use #macro_ident as is_origin_part_defined;
 		}
+
+		#account_like_impl
+	}
+}
+
+fn generate_account_like_impl(def: &Def) -> TokenStream {
+	let origin_def = match &def.origin {
+		Some(o) => o,
+		None => return TokenStream::new(),
+	};
+
+	let frame_support = &def.frame_support;
+	let frame_system = &def.frame_system;
+	let span = def.item.span();
+
+	// Type alias origins: delegate to the `AccountLike` trait impl on the aliased type.
+	let is_type_alias = def
+		.item
+		.content
+		.as_ref()
+		.map(|(_, items)| {
+			items.iter().any(|item| {
+				if let syn::Item::Type(t) = item {
+					t.ident == "Origin"
+				} else {
+					false
+				}
+			})
+		})
+		.unwrap_or(false);
+
+	let type_impl_gen = &def.type_impl_generics(span);
+	let type_use_gen = &def.type_use_generics(span);
+	let where_clause = &def.config.where_clause;
+
+	// The origin type as it is named inside the pallet, which may or may not be generic.
+	let origin_type = if origin_def.is_generic {
+		quote! { Origin<#type_use_gen> }
+	} else {
+		quote! { Origin }
+	};
+
+	if is_type_alias {
+		return quote! {
+			impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
+				#[doc(hidden)]
+				pub fn __as_account_for_origin(
+					origin: &#origin_type,
+				) -> Option<<T as #frame_system::Config>::AccountId> {
+					<#origin_type as
+						#frame_support::traits::AccountLike<
+							<T as #frame_system::Config>::AccountId
+						>
+					>::as_account(origin)
+				}
+
+				#[doc(hidden)]
+				pub fn __nonce_provider_for_origin(
+					origin: &#origin_type,
+				) -> Option<<T as #frame_system::Config>::AccountId> {
+					<#origin_type as
+						#frame_support::traits::AccountLike<
+							<T as #frame_system::Config>::AccountId
+						>
+					>::nonce_provider(origin)
+				}
+
+				#[doc(hidden)]
+				pub fn __fee_payer_for_origin(
+					origin: &#origin_type,
+				) -> Option<<T as #frame_system::Config>::AccountId> {
+					<#origin_type as
+						#frame_support::traits::AccountLike<
+							<T as #frame_system::Config>::AccountId
+						>
+					>::fee_payer(origin)
+				}
+			}
+		};
+	}
+
+	// The origin type reference for method parameters.
+	let origin_type_ref = quote! { &#origin_type };
+
+	// Generate getter functions and match arms for account_like_defs.
+	let mut getter_fns = TokenStream::new();
+	let mut as_account_match_arms = TokenStream::new();
+	let mut nonce_provider_match_arms = TokenStream::new();
+	let mut fee_payer_match_arms = TokenStream::new();
+
+	for al in &origin_def.account_like_defs {
+		let variant_ident = &al.variant_ident;
+		let expr = &al.expr;
+		// The variant may be conditionally compiled, so everything generated for it must be too.
+		let cfg_attrs = &al.cfg_attrs;
+
+		// The `variant_` infix keeps these apart from the `__as_account_for_origin` function below,
+		// whatever the variant is called. `format_ident!` also copes with raw identifiers.
+		let getter_name = quote::format_ident!(
+			"__as_account_for_variant_{}",
+			variant_ident,
+			span = variant_ident.span()
+		);
+
+		let field_types: Vec<_> = al.fields.iter().map(|f| &f.ty).collect();
+		let field_bindings: Vec<_> = (0..al.fields.len())
+			.map(|i| Ident::new(&format!("field_{}", i), variant_ident.span()))
+			.collect();
+		let destructure = build_destructure_pattern(&al.fields, &field_bindings);
+
+		// Getter function on Pallet<T> — gives closures access to Self and T::AccountId.
+		getter_fns.extend(quote::quote_spanned!(expr.span() =>
+			#( #cfg_attrs )*
+			impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
+				#[doc(hidden)]
+				#[allow(non_snake_case)]
+				fn #getter_name() -> impl Fn(
+					#( &#field_types ),*
+				) -> Option<<T as #frame_system::Config>::AccountId> {
+					#expr
+				}
+			}
+		));
+
+		// as_account: all variants with #[pallet::as_account(...)]
+		as_account_match_arms.extend(quote! {
+			#( #cfg_attrs )*
+			Origin::#variant_ident #destructure => {
+				let f = Pallet::<#type_use_gen>::#getter_name();
+				f(#( #field_bindings ),*)
+			},
+		});
+
+		// nonce_provider: only variants with #[pallet::nonce_provider]
+		if al.is_nonce_provider {
+			nonce_provider_match_arms.extend(quote! {
+				#( #cfg_attrs )*
+				Origin::#variant_ident #destructure => {
+					let f = Pallet::<#type_use_gen>::#getter_name();
+					f(#( #field_bindings ),*)
+				},
+			});
+		}
+
+		// fee_payer: only variants with #[pallet::fee_payer]
+		if al.is_fee_payer {
+			fee_payer_match_arms.extend(quote! {
+				#( #cfg_attrs )*
+				Origin::#variant_ident #destructure => {
+					let f = Pallet::<#type_use_gen>::#getter_name();
+					f(#( #field_bindings ),*)
+				},
+			});
+		}
+	}
+
+	// Generate method bodies for each of the three methods.
+	let has_as_account = !origin_def.account_like_defs.is_empty();
+	let has_nonce_providers = origin_def.account_like_defs.iter().any(|al| al.is_nonce_provider);
+	let has_fee_payers = origin_def.account_like_defs.iter().any(|al| al.is_fee_payer);
+
+	let as_account_body = if has_as_account {
+		quote! {
+			match origin {
+				#as_account_match_arms
+				_ => None,
+			}
+		}
+	} else {
+		quote! { None }
+	};
+
+	let nonce_provider_body = if has_nonce_providers {
+		quote! {
+			match origin {
+				#nonce_provider_match_arms
+				_ => None,
+			}
+		}
+	} else {
+		quote! { None }
+	};
+
+	let fee_payer_body = if has_fee_payers {
+		quote! {
+			match origin {
+				#fee_payer_match_arms
+				_ => None,
+			}
+		}
+	} else {
+		quote! { None }
+	};
+
+	let as_account_param =
+		if has_as_account { Ident::new("origin", span) } else { Ident::new("_origin", span) };
+	let nonce_provider_param =
+		if has_nonce_providers { Ident::new("origin", span) } else { Ident::new("_origin", span) };
+	let fee_payer_param =
+		if has_fee_payers { Ident::new("origin", span) } else { Ident::new("_origin", span) };
+
+	let pallet_methods = quote! {
+		#getter_fns
+
+		impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
+			#[doc(hidden)]
+			pub fn __as_account_for_origin(
+				#as_account_param: #origin_type_ref,
+			) -> Option<<T as #frame_system::Config>::AccountId> {
+				#as_account_body
+			}
+
+			#[doc(hidden)]
+			pub fn __nonce_provider_for_origin(
+				#nonce_provider_param: #origin_type_ref,
+			) -> Option<<T as #frame_system::Config>::AccountId> {
+				#nonce_provider_body
+			}
+
+			#[doc(hidden)]
+			pub fn __fee_payer_for_origin(
+				#fee_payer_param: #origin_type_ref,
+			) -> Option<<T as #frame_system::Config>::AccountId> {
+				#fee_payer_body
+			}
+		}
+	};
+
+	// Generate AccountLike trait impl.
+	let trait_impl = if origin_def.is_generic {
+		let as_account_method = if has_as_account {
+			quote! {
+				fn as_account(&self) -> Option<<T as #frame_system::Config>::AccountId> {
+					Pallet::<#type_use_gen>::__as_account_for_origin(self)
+				}
+			}
+		} else {
+			TokenStream::new()
+		};
+		let nonce_provider_method = if has_nonce_providers {
+			quote! {
+				fn nonce_provider(&self) -> Option<<T as #frame_system::Config>::AccountId> {
+					Pallet::<#type_use_gen>::__nonce_provider_for_origin(self)
+				}
+			}
+		} else {
+			TokenStream::new()
+		};
+		let fee_payer_method = if has_fee_payers {
+			quote! {
+				fn fee_payer(&self) -> Option<<T as #frame_system::Config>::AccountId> {
+					Pallet::<#type_use_gen>::__fee_payer_for_origin(self)
+				}
+			}
+		} else {
+			TokenStream::new()
+		};
+
+		quote! {
+			impl<#type_impl_gen> #frame_support::traits::AccountLike<
+				<T as #frame_system::Config>::AccountId
+			> for Origin<#type_use_gen> #where_clause {
+				#as_account_method
+				#nonce_provider_method
+				#fee_payer_method
+			}
+		}
+	} else {
+		// For non-generic origins (like `enum Origin {..}`) we don't implement the `AccountLike`
+		// trait: the closures are evaluated through `Pallet<T>` and there is no `T` to name in an
+		// impl on `Origin`. The account information is still reachable through the
+		// `__*_for_origin` functions generated above, which is what the `AccountLike` impl on
+		// `OriginCaller` in `construct_runtime!` uses. Nobody should use `AccountLike` directly on
+		// pallet origins anyway, but rather go through the `RuntimeOrigin`'s caller.
+		TokenStream::new()
+	};
+
+	quote! {
+		#pallet_methods
+		#trait_impl
+	}
+}
+
+fn build_destructure_pattern(fields: &syn::Fields, bindings: &[Ident]) -> TokenStream {
+	match fields {
+		syn::Fields::Named(named) => {
+			let field_names: Vec<_> = named.named.iter().map(|f| &f.ident).collect();
+			quote! { { #( #field_names: #bindings ),* } }
+		},
+		syn::Fields::Unnamed(_) => {
+			quote! { ( #( #bindings ),* ) }
+		},
+		syn::Fields::Unit => {
+			quote! {}
+		},
 	}
 }

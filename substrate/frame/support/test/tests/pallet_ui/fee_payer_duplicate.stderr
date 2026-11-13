@@ -1,0 +1,5 @@
+error: Duplicate `#[pallet::fee_payer]` attribute on variant
+  --> tests/pallet_ui/fee_payer_duplicate.rs:41:3
+   |
+41 |         #[pallet::fee_payer]
+   |         ^

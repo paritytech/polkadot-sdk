@@ -27,9 +27,7 @@ use frame_support::{
 	pallet_prelude::*,
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::{
-	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
-};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
 #[benchmarks(where
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
@@ -37,7 +35,7 @@ use sp_runtime::traits::{
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
 	ChargeAssetIdOf<T>: Send + Sync,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: Clone,
     Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
 )]
 mod benchmarks {

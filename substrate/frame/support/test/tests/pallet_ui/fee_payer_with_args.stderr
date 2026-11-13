@@ -1,0 +1,5 @@
+error: `#[pallet::fee_payer]` does not take any arguments, it reuses the closure given to `#[pallet::as_account(...)]`
+  --> tests/pallet_ui/fee_payer_with_args.rs:40:3
+   |
+40 |         #[pallet::fee_payer(|who| Some(who.clone()))]
+   |         ^

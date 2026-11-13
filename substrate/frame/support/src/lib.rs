@@ -2240,6 +2240,10 @@ pub mod pallet_macros {
 	/// 		Bar,
 	/// 	}
 	///
+	/// 	// The type behind an alias must implement `AccountLike`, which tells which account, if
+	/// 	// any, an origin maps to. The default implementation maps it to none.
+	/// 	impl<AccountId> frame_support::traits::AccountLike<AccountId> for RawOrigin {}
+	///
 	/// 	#[pallet::origin]
 	/// 	pub type Origin = RawOrigin;
 	/// }

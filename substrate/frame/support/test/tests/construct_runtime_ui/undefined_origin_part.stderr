@@ -26,11 +26,13 @@ error[E0425]: cannot find type `Origin` in module `pallet`
    | |_^ not found in `pallet`
    |
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: consider importing one of these type aliases
+help: consider importing one of these items
    |
 18 + use frame_support_test::Origin;
    |
 18 + use frame_system::Origin;
+   |
+18 + use frame_system::mocking::pallet_with_custom_origin::Origin;
    |
 
 error[E0282]: type annotations needed
@@ -38,3 +40,54 @@ error[E0282]: type annotations needed
    |
 70 |         Pallet: pallet expanded::{}::{Pallet, Origin},
    |                 ^^^^^^ cannot infer type
+
+error[E0599]: no associated item named `__as_account_for_origin` found for struct `pallet::Pallet<T>` in the current scope
+  --> tests/construct_runtime_ui/undefined_origin_part.rs:66:1
+   |
+28 |       pub struct Pallet<T>(_);
+   |       -------------------- associated item `__as_account_for_origin` not found for this struct
+...
+66 |   construct_runtime! {
+   |  _^
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+...  |
+72 | | }
+   | |_^ associated item not found in `pallet::Pallet<Runtime>`
+   |
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no associated item named `__nonce_provider_for_origin` found for struct `pallet::Pallet<T>` in the current scope
+  --> tests/construct_runtime_ui/undefined_origin_part.rs:66:1
+   |
+28 |       pub struct Pallet<T>(_);
+   |       -------------------- associated item `__nonce_provider_for_origin` not found for this struct
+...
+66 |   construct_runtime! {
+   |  _^
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+...  |
+72 | | }
+   | |_^ associated item not found in `pallet::Pallet<Runtime>`
+   |
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no associated item named `__fee_payer_for_origin` found for struct `pallet::Pallet<T>` in the current scope
+  --> tests/construct_runtime_ui/undefined_origin_part.rs:66:1
+   |
+28 |       pub struct Pallet<T>(_);
+   |       -------------------- associated item `__fee_payer_for_origin` not found for this struct
+...
+66 |   construct_runtime! {
+   |  _^
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+...  |
+72 | | }
+   | |_^ associated item not found in `pallet::Pallet<Runtime>`
+   |
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

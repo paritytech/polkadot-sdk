@@ -63,7 +63,7 @@ pub mod frame_system {
 	pub trait Config: 'static {
 		#[pallet::no_default]
 		type Block: Parameter + sp_runtime::traits::Block;
-		type AccountId;
+		type AccountId: Clone;
 		#[pallet::no_default_bounds]
 		type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 		#[pallet::no_default_bounds]

@@ -1,0 +1,17 @@
+error: unused import: `frame_system::pallet_prelude::*`
+  --> tests/pallet_ui/as_account_wrong_return_type.rs:25:6
+   |
+25 |     use frame_system::pallet_prelude::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0308]: mismatched types
+  --> tests/pallet_ui/as_account_wrong_return_type.rs:41:31
+   |
+41 |         #[pallet::as_account(|_who| true)]
+   |                                     ^^^^ expected `Option<<T as Config>::AccountId>`, found `bool`
+   |
+   = note: expected enum `std::option::Option<<T as frame_system::Config>::AccountId>`
+              found type `bool`

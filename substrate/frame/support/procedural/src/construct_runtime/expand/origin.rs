@@ -26,9 +26,14 @@ pub fn expand_outer_origin(
 	pallets: &[Pallet],
 	scrate: &TokenStream,
 ) -> syn::Result<TokenStream> {
+	let system_path = &system_pallet.path;
+
 	let mut caller_variants = TokenStream::new();
 	let mut pallet_conversions = TokenStream::new();
 	let mut query_origin_part_macros = Vec::new();
+	let mut as_account_arms = TokenStream::new();
+	let mut nonce_provider_arms = TokenStream::new();
+	let mut fee_payer_arms = TokenStream::new();
 
 	for pallet_decl in pallets.iter().filter(|pallet| pallet.name != SYSTEM_PALLET_NAME) {
 		if let Some(pallet_entry) = pallet_decl.find_part("Origin") {
@@ -64,10 +69,29 @@ pub fn expand_outer_origin(
 			query_origin_part_macros.push(quote! {
 				#path::__substrate_origin_check::is_origin_part_defined!(#name);
 			});
+
+			let attr = pallet_decl.get_attributes();
+			let pallet_type = match instance {
+				Some(inst) => quote! { #path::Pallet::<#runtime, #path::#inst> },
+				None => quote! { #path::Pallet::<#runtime> },
+			};
+			as_account_arms.extend(quote! {
+				#attr
+				OriginCaller::#name(o) =>
+					#pallet_type::__as_account_for_origin(o),
+			});
+			nonce_provider_arms.extend(quote! {
+				#attr
+				OriginCaller::#name(o) =>
+					#pallet_type::__nonce_provider_for_origin(o),
+			});
+			fee_payer_arms.extend(quote! {
+				#attr
+				OriginCaller::#name(o) =>
+					#pallet_type::__fee_payer_for_origin(o),
+			});
 		}
 	}
-
-	let system_path = &system_pallet.path;
 
 	let system_index = system_pallet.index;
 
@@ -229,6 +253,32 @@ pub fn expand_outer_origin(
 		impl From<#system_path::Origin<#runtime>> for OriginCaller {
 			fn from(x: #system_path::Origin<#runtime>) -> Self {
 				OriginCaller::system(x)
+			}
+		}
+
+		impl #scrate::traits::AccountLike<<#runtime as #system_path::Config>::AccountId> for OriginCaller {
+			fn as_account(&self) -> Option<<#runtime as #system_path::Config>::AccountId> {
+				match &self {
+					OriginCaller::system(o) => o.as_signed().cloned(),
+					#as_account_arms
+					OriginCaller::Void(v) => match *v {},
+				}
+			}
+
+			fn nonce_provider(&self) -> Option<<#runtime as #system_path::Config>::AccountId> {
+				match &self {
+					OriginCaller::system(o) => o.as_signed().cloned(),
+					#nonce_provider_arms
+					OriginCaller::Void(v) => match *v {},
+				}
+			}
+
+			fn fee_payer(&self) -> Option<<#runtime as #system_path::Config>::AccountId> {
+				match &self {
+					OriginCaller::system(o) => o.as_signed().cloned(),
+					#fee_payer_arms
+					OriginCaller::Void(v) => match *v {},
+				}
 			}
 		}
 

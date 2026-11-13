@@ -27,16 +27,14 @@ use frame_support::{
 	pallet_prelude::*,
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::{
-	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
-};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
 #[benchmarks(where
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::AssetId: Send + Sync,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: Clone,
 )]
 mod benchmarks {
 	use super::*;

@@ -60,7 +60,7 @@ mod tests {
 		#[pallet::disable_frame_system_supertrait_check]
 		pub trait Config: 'static {
 			type Block: sp_runtime::traits::Block;
-			type AccountId;
+			type AccountId: Clone;
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
 			type RuntimeCall;

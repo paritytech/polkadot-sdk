@@ -1,0 +1,17 @@
+error: unused import: `frame_system::pallet_prelude::*`
+  --> tests/pallet_ui/as_account_too_many_args.rs:24:6
+   |
+24 |     use frame_system::pallet_prelude::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0593]: closure is expected to take 1 argument, but it takes 2 arguments
+  --> tests/pallet_ui/as_account_too_many_args.rs:40:24
+   |
+40 |         #[pallet::as_account(|a, b| None)]
+   |                              ^-----
+   |                              |
+   |                              expected closure that takes 1 argument
+   |                              takes 2 arguments
