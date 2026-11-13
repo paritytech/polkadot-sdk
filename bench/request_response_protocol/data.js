@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794556246414,
+  "lastUpdate": 1794565432048,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145475,6 +145475,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2785427497,
             "range": "± 16179137",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c413aa5e11d11b5c8e814ec2660b1e35657b5b62",
+          "message": "statement-store: replace an unreachable routing peer with the next peer of its bucket (#13826)\n\n# Description\n\nOn the v2 DHT path peer steering replaces a routing peer that cannot be\nreached. A peer that stays reserved for 15 seconds without an open\nsubstream counts as unreachable for 5 minutes, and the routing selection\ntakes the next peer of its bucket in that time. An opened substream\nclears the mark, and the first substream after the node had none clears\nevery mark, because those dials may have failed on the node's own\noutage.\n\nBefore, the selection kept the nearest peer of every far bucket whether\nit connected or not. A peer that refuses the node, such as a node\nwithout the DHT path, stayed chosen and was redialed for ever. A node\nwhose only peer closer to a topic was such a peer lost every statement\nthat entered through it on that topic.\n\nA bucket keeps its nearest connected peer until a nearer chosen one\nconnects, so the retry does not release a working replacement. A gauge\nreports the number of unreachable peers.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13515. The\nloss during a restart of the routing peer needs a separate change.\n\n## Integration\n\nNo action is needed. The change applies only to nodes with the v2 DHT\npath on.\n\n## Testing\n\nThe mixed soak, 16 nodes with 4 of them off the DHT path, delivered\nevery statement over 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43236928386.\nBefore the change two of three runs of this soak lost the 23 statements\nof a wave that entered through one node.",
+          "timestamp": "2026-11-13T09:02:32Z",
+          "tree_id": "54a7e9569bd4ee71d20edee4877b2a859133009b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c413aa5e11d11b5c8e814ec2660b1e35657b5b62"
+        },
+        "date": 1794565392312,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19721671,
+            "range": "± 149186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19991176,
+            "range": "± 313814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21343911,
+            "range": "± 174883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25422124,
+            "range": "± 222009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59376268,
+            "range": "± 916134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 369868033,
+            "range": "± 5401492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2896773363,
+            "range": "± 154287130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17760418,
+            "range": "± 158503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17851107,
+            "range": "± 138284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18349087,
+            "range": "± 249519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23190642,
+            "range": "± 104723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61973632,
+            "range": "± 623179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368257654,
+            "range": "± 6120272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2791963018,
+            "range": "± 27549000",
             "unit": "ns/iter"
           }
         ]
