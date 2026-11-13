@@ -1137,7 +1137,8 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
+							let info =
+								ContractInfo::new(&address, 0u32.into(), H256::zero(), false)?;
 							CachedContract::Cached(info)
 						}
 					},
@@ -1216,6 +1217,7 @@ where
 					&address,
 					<System<T>>::account_nonce(&sender),
 					*executable.code_hash(),
+					false,
 				)?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
@@ -1436,7 +1438,11 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+				if frame_system::Pallet::<T>::account_exists(&account_id) {
+					// Account already holds an ED; record it so termination won't reclaim an ED
+					// the pallet never minted (which would skew `active_issuance`).
+					frame.contract_info().ed_externally_funded = true;
+				} else {
 					T::Deposit::init_contract(account_id)?;
 				}
 
@@ -1912,6 +1918,10 @@ where
 		let contract_address = T::AddressMapper::to_address(contract_account);
 		// Every scheduled contract has its info stored by now: popping its frame wrote it.
 		let account_info = AccountInfoOf::<T>::get(contract_address).unwrap_or_default();
+		let ed_externally_funded = matches!(
+			&account_info.account_type,
+			AccountType::Contract(info) if info.ed_externally_funded
+		);
 
 		// Refund the storage deposit as far as the freeze on the account allows. A freeze can
 		// keep part of it on hold. That part stays on the account.
@@ -1962,8 +1972,11 @@ where
 		// rolls the burn back, and so does a consumer another pallet placed while the account
 		// has no other provider. A provider or sufficient reference another pallet placed does
 		// not roll it back: the burn goes through and the account stays alive on that reference.
-		if dust == 0 &&
-			T::Currency::total_balance(contract_account) == T::Currency::minimum_balance()
+		//
+		// An externally funded ED was never minted or deactivated, so it is kept as well.
+		if !ed_externally_funded &&
+			dust == 0 && T::Currency::total_balance(contract_account) ==
+			T::Currency::minimum_balance()
 		{
 			Self::best_effort(&contract_address, "burn the existential deposit", || {
 				T::Deposit::destroy_contract(contract_account)

@@ -820,6 +820,8 @@ fn encumbered_same_tx(
 			.build_and_unwrap_contract();
 	let addr = create1(&caller_addr, System::account_nonce(&caller_account).into());
 	let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+	// The address is funded before the contract exists, so its ED is not minted by the pallet and
+	// termination leaves it on the account.
 	encumber(&account_id, encumbrance);
 	(caller_addr, addr, account_id)
 }
@@ -865,7 +867,7 @@ fn precompile_terminate_with_encumbered_balance(
 			.build_and_unwrap_result();
 
 		let (paid_out, left) = match encumbrance {
-			Encumbrance::None => (SPENDABLE, 0),
+			Encumbrance::None => (SPENDABLE, ed),
 			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) if frozen <= ed + SPENDABLE => {
 				let pinned = frozen.max(ed);
 				(ed + SPENDABLE - pinned, pinned)
@@ -938,7 +940,7 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 			.build_and_unwrap_result();
 
 		let (paid_out, swept, left) = match encumbrance {
-			Encumbrance::None => (SPENDABLE, late, 0),
+			Encumbrance::None => (SPENDABLE, late, ed),
 			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) if frozen <= ed + SPENDABLE => {
 				let pinned = frozen.max(ed);
 				(ed + SPENDABLE - pinned, late, pinned)
@@ -1201,10 +1203,95 @@ fn burned(before: u128) -> u128 {
 	get_balance(&BurnDestination::get()) - before
 }
 
+/// Terminating a contract whose address was funded before it existed must neither burn the ED nor
+/// reactivate one the pallet never deactivated.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn terminate_at_prefunded_address_keeps_issuance_balanced(fixture_type: FixtureType) {
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let (caller_addr, addr, account_id) =
+			encumbered_same_tx(fixture_type, Encumbrance::None, 0);
+		let total_before = Balances::total_issuance();
+		let inactive_before = Balances::inactive_issuance();
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::createAndTerminateCall {
+					value: alloy_core::primitives::U256::ZERO,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		assert_eq!(Balances::total_balance(&account_id), Contracts::min_balance());
+		assert_eq!(Balances::total_issuance(), total_before);
+		assert_eq!(Balances::inactive_issuance(), inactive_before);
+	});
+}
+
+/// A contract that names itself as the beneficiary leaves its minted ED on the account. A contract
+/// redeployed there finds the account already existing, so it must not pay that ED out.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn redeploy_onto_kept_account_does_not_pay_out_minted_ed(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let value = 1_000;
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let ed = Contracts::min_balance();
+		let (caller_addr, _, _) = encumbered_same_tx(fixture_type, Encumbrance::None, 0);
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+		let _ = <Test as Config>::Currency::set_balance(&caller_account, ed + value);
+		let salt = [7u8; 32];
+		let addr = create2(&caller_addr, &code, &salted_constructor(), &salt);
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let create_and_terminate = |value: u128, beneficiary: H160| {
+			let result = builder::bare_call(caller_addr)
+				.data(
+					TerminateCaller::createWithSaltAndTerminateCall {
+						salt: salt.into(),
+						value: alloy_core::primitives::U256::from_limbs(evm_value(value, 0).0),
+						method: METHOD_PRECOMPILE,
+						beneficiary: beneficiary.0.into(),
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+			assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		};
+
+		create_and_terminate(value, addr);
+		assert_eq!(Balances::total_balance(&account_id), ed + value);
+
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+		if fixture_type == FixtureType::Resolc {
+			assert_ok!(<Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code.clone(),
+				<BalanceOf<Test>>::MAX,
+			));
+		}
+		let total_before = Balances::total_issuance();
+		let inactive_before = Balances::inactive_issuance();
+		let django_before = get_balance(&DJANGO);
+
+		create_and_terminate(0, DJANGO_ADDR);
+
+		assert_eq!(get_balance(&DJANGO) - django_before, value);
+		assert_eq!(Balances::total_balance(&account_id), ed);
+		assert_eq!(Balances::total_issuance(), total_before);
+		assert_eq!(Balances::inactive_issuance(), inactive_before);
+	});
+}
+
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[
-		(Encumbrance::None, 0, 0, 0, 0),
+		(Encumbrance::None, 0, 0, 0, 50),
 		(Encumbrance::None, 43, 0, 0, 50 + 43),
 		(Encumbrance::None, 43, 7, 0, 50 + 50),
 		(Encumbrance::None, 57, 0, 0, 50 + 57),
@@ -1370,7 +1457,7 @@ fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 
 		let ed = Contracts::min_balance();
 		let (to_beneficiary, left, seen) =
-			if itself_last { (SPENDABLE, ed + late, late) } else { (SPENDABLE + late, 0, 0) };
+			if itself_last { (SPENDABLE, ed + late, late) } else { (SPENDABLE + late, ed, 0) };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(get_balance(&DJANGO) - django_before, to_beneficiary, "beneficiary payout");

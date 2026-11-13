@@ -344,7 +344,7 @@ mod tests {
 
 	fn seed_contract(address: H160, code_hash: H256, storage_deposit: u128) {
 		let contract_account = <Test as Config>::AddressMapper::to_account_id(&address);
-		let info = ContractInfo::<Test>::new(&address, 0u32.into(), code_hash).unwrap();
+		let info = ContractInfo::<Test>::new(&address, 0u32.into(), code_hash, false).unwrap();
 		AccountInfoOf::<Test>::insert(
 			address,
 			AccountInfo::<Test> { account_type: AccountType::Contract(info), dust: 0 },

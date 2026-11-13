@@ -1,0 +1,28 @@
+title: '[pallet-revive] Keep issuance balanced when terminating a pre-funded contract'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/12641
+
+    On instantiation the pallet mints and deactivates an existential deposit for the
+    contract account only when the account does not already exist, but on termination
+    `destroy_contract` unconditionally burned and reactivated an ED. When a contract was
+    instantiated at an address that already held an ED (for example a pre-funded `CREATE2`
+    address), the reactivate ran without a matching deactivate, permanently skewing
+    `active_issuance` (which feeds inflation, staking rewards and OpenGov conviction) and
+    burning an ED the pallet never minted.
+
+    `ContractInfo` now carries an `ed_externally_funded` flag that instantiation sets when the
+    account already existed, and termination only reclaims the ED when the pallet actually
+    minted it. An externally funded ED stays on the account after termination, and a contract
+    deployed to the same address later takes it over. The same applies to a minted ED left on an
+    account by an earlier termination: it is never paid out to a beneficiary.
+
+    A new multi-block migration (`pallet_revive::migrations::v5`) adds the flag to existing
+    contract and delegated account entries, defaulting to pallet-minted. Runtimes must add it to
+    their `MultiBlockMigrator` migrations tuple.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
