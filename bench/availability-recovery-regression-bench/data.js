@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794518126034,
+  "lastUpdate": 1794557253862,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "17140f35f6a598b6ed175f6b1159deddb7474e2e",
-          "message": "Snowbridge: API to Check Inbound Nonce Consumption (#11354)\n\n### Context\n\nAdds a runtime API so off-chain callers can check whether an inbound\nmessage from Ethereum (by nonce) has already been relayed/consumed on\nBridge Hub.",
-          "timestamp": "2026-04-29T10:57:57Z",
-          "tree_id": "f3068a90a05c49352d7091fcef626bcb8feb4a6e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/17140f35f6a598b6ed175f6b1159deddb7474e2e"
-        },
-        "date": 1777465040121,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12973407316666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0541239412,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.175097196533331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ad8d15d9ff822132da56dd2a650ef276f77dc4",
+          "message": "[pallet-revive] Count topic bytes in per-event byte charges (#13618)\n\nThe per-byte terms of `RuntimeCosts::DepositEvent`\n(`on_finalize_block_per_event`, `EXTRA_EVENT_CHARGE_PER_BYTE`) now count\nthe 32-byte topics as well as the data. Events are stored and encoded\ninto the receipt with their topics, and `on_finalize_per_event_data`\nalready measures that byte count.\n\n## Changes\n- Charged bytes: `len + 32 * min(num_topic, NUM_EVENT_TOPICS)`. More\ntopics still trap with `TooManyTopics`.\n- `PrecompileExt::deposit_event` takes `ContractLogTopics` (at most\n`NUM_EVENT_TOPICS`) instead of `Vec<H256>`. Callers (PVM host function,\n`LOG0` to `LOG4`, pallet-assets ERC-20 precompile) convert infallibly.\n`Event::ContractEmitted` unchanged.\n- Logs buffered outside an ethereum transaction are charged per log, per\ntopic and per data byte: `per_outside_frame_log(num_topics, data_len)`.\nEach topic costs a bloom keccak on drain, so topics are not priced as 32\ndata bytes there.\n- Benchmarks: `outside_frame_log(n)` drains `n` empty logs; new\n`outside_frame_log_topics(t)` and `outside_frame_log_data(d)` drain one\nlog with only topics or only data. One component each, so the topic\nslope is not lost next to a full data payload.\n- `integrity_test` sizes event storage with `NUM_EVENT_TOPICS` topics\nper event.\n- `on_finalize_block_per_event` parameter renamed to `event_bytes`; docs\nupdated.\n\n## Compatibility\n- `seal_deposit_event(num_topic, len)` charge unchanged.\n- With the shipped weights each topic adds about 8.57 us ref time and 32\nbytes proof size.\n- With the shipped weights a value-transferring call needs about 91 us\nand 216 bytes left for the stipend (`LOG4`, 64 data bytes), up from 56\nus and 88 bytes. A `receive()` that emits two `LOG1` events with 32 data\nbytes each now fits in the stipend.\n\n## Tests\n- `log_charges_count_topic_bytes` (Solc, Resolc): traced weight of\n`LOG0` to `LOG4`, with and without data (new `Host.logOpsWithoutData`).\n- `deposit_event_too_many_topics`: assembled PolkaVM program with\n`NUM_EVENT_TOPICS + 1` topics (not expressible in Solidity): error,\nclamped charge, no event stored.\n- `buffering_a_log_registers_at_least_its_encoded_bytes`: a four-topic\nlog registers at least four times the per-topic weight more than a log\nwithout topics, and its encoded bytes in proof size.\n- `TwoEventsReceiver` emits two `LOG4` events with 64 data bytes each\nand exceeds the stipend in ref time and proof size.\n\n`cargo nextest run -p pallet-revive`: 1032 passed. Clippy and rustdoc\nclean.\n\n## Weights\nRegenerated for `outside_frame_log`, `outside_frame_log_topics` and\n`outside_frame_log_data`, the benchmarks this PR changes or adds. Other\nweights stay as they were.\n\n| Weight (dev) | Per unit |\n|---|---|\n| `outside_frame_log`, per log | 0.99 us |\n| `outside_frame_log_topics`, per topic | 1.04 us |\n| `outside_frame_log_data`, per data byte | 8.2 ns |\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T06:30:38Z",
+          "tree_id": "28ac515969dc3e1403c4c3991fc68f2a5a0de6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ad8d15d9ff822132da56dd2a650ef276f77dc4"
+        },
+        "date": 1794557208493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12436725536666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.118838707199998,
             "unit": "seconds"
           }
         ]
