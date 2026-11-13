@@ -42,9 +42,10 @@
 //!
 //! There is no per-peer record of delivered statements. A statement is propagated once, on the
 //! tick after its import: the propagation pass drains the store's recent set, so no later pass
-//! can pick it up again. A statement with no routing target is the exception: it takes a detour
-//! through the farthest full peer, or stays held until a routing target syncs it. The only
-//! duplicates worth preventing are statements sent back to the peers they came from.
+//! can pick it up again. A statement with no routing target ready to receive it is the exception:
+//! it stays held until a routing target syncs it, or takes a detour through the farthest full
+//! peer when it has no routing target at all. The only duplicates worth preventing are statements
+//! sent back to the peers they came from.
 //!
 //! While a statement waits for validation, the peers it came from are recorded in
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
@@ -2292,7 +2293,7 @@ where
 		}
 	}
 
-	/// Hold the statements that have no routing target, so the retention sweep keeps them
+	/// Hold the statements that no routing target can receive, so the retention sweep keeps them
 	/// until [`Self::resolve_dead_ends`] finds them a peer.
 	fn hold_dead_ends(&mut self, statements: &[(u64, Hash, Statement)], dead_ends: Vec<usize>) {
 		for index in dead_ends {
@@ -2649,7 +2650,9 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				let plan = self.v2dht.propagation_plan(&statements);
+				let plan = self.v2dht.propagation_plan(&statements, |peer| {
+					self.peers.get(peer).is_some_and(Peer::can_receive)
+				});
 				self.queue_statements_for_targets(&statements, plan.targets);
 				self.hold_dead_ends(&statements, plan.dead_ends);
 			} else {
@@ -4559,7 +4562,7 @@ mod tests {
 		let statements = vec![(5, hash, statement)];
 		let held = || statement_store.held.lock().unwrap().get(&hash).copied();
 
-		let plan = handler.v2dht.propagation_plan(&statements);
+		let plan = handler.v2dht.propagation_plan(&statements, |_| true);
 		assert_eq!(plan.dead_ends, vec![0]);
 		handler.hold_dead_ends(&statements, plan.dead_ends);
 		handler.resolve_dead_ends();
@@ -4683,7 +4686,7 @@ mod tests {
 			.or_default()
 			.insert(farthest);
 
-		let plan = handler.v2dht.propagation_plan(&statements);
+		let plan = handler.v2dht.propagation_plan(&statements, |_| true);
 		assert_eq!(plan.dead_ends, vec![0, 1]);
 		handler.hold_dead_ends(&statements, plan.dead_ends);
 		handler.resolve_dead_ends();
