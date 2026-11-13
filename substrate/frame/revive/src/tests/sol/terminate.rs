@@ -17,10 +17,11 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config,
-	DeletionQueue, Deposit, ExecReturnValue, H160, H256, HoldReason, NativeDepositOf, Pallet,
-	StorageDeposit, U256,
+	DeletionQueue, DeletionQueueCounter, Deposit, ExecReturnValue, H160, H256, HoldReason,
+	NativeDepositOf, Pallet, StorageDeposit, U256,
 	address::{AddressMapper, create1, create2},
 	metering::TransactionLimits,
+	precompiles::Precompile,
 	storage::AccountType,
 	test_utils::{
 		ALICE, BOB, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT,
@@ -31,6 +32,7 @@ use crate::{
 		Assets, Balances, BurnDestination, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeCall,
 		RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, System, Test, Utility, builder,
 		pallet_dummy,
+		precompiles::{IWithInfo, WithInfo},
 		test_utils::{
 			get_balance, get_balance_on_hold, get_contract, get_contract_checked,
 			set_balance_with_dust,
@@ -38,6 +40,7 @@ use crate::{
 	},
 };
 use alloy_core::sol_types::{SolCall, SolConstructor};
+use codec::Encode;
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -47,11 +50,14 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_revive_fixtures::{
-	FixtureType, RedeployChild, RedeployDeployer, RedeployFactory, Terminate, TerminateCaller,
-	TerminateDelegator, compile_module_with_type,
+	Caller, FixtureType, RedeployChild, RedeployDeployer, RedeployFactory, Terminate,
+	TerminateCaller, TerminateDelegator, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
-use sp_runtime::AccountId32;
+use sp_runtime::{
+	AccountId32,
+	traits::{Hash, Zero},
+};
 use test_case::{test_case, test_matrix};
 
 /// Decode a contract return value into an error string.
@@ -1946,5 +1952,51 @@ fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_typ
 		assert_eq!(H160::from_slice(created.child.as_slice()), child);
 		assert_trie_not_queued(child);
 		assert_eq!(get(child, Slot::Value), 0, "the new child starts with empty storage");
+	});
+}
+
+/// A precompile with contract info gets a trie id derived from its address and a zero nonce on
+/// its first call. Earlier terminations do not change it.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn precompile_trie_id_does_not_depend_on_terminations(fixture_type: FixtureType) {
+	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
+	let (deployer_code, _) = compile_module_with_type("RedeployDeployer", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let precompile = H160(WithInfo::<Test>::MATCHER.base_address());
+	with_pgas_funded_alice(|| {
+		let uploads = fixture.pvm_uploads(&[&fixture.factory_code, &fixture.child_code]);
+		assert_ok!(Utility::batch_all(RuntimeOrigin::signed(ALICE), uploads));
+		let deployer = builder::bare_instantiate(Code::Upload(deployer_code))
+			.build_and_unwrap_contract()
+			.addr;
+		let data = RedeployDeployer::createAndDestroyCall {
+			value: alloy_core::primitives::U256::from(42),
+		};
+		call_ok(deployer, data.abi_encode());
+		assert_eq!(
+			DeletionQueueCounter::<Test>::get().as_test_tuple(),
+			(2, 0),
+			"(insert, delete) counters after both contracts were terminated",
+		);
+		assert!(get_contract_checked(&precompile).is_none(), "precompile has no contract info yet");
+
+		let caller = builder::bare_instantiate(Code::Upload(caller_code))
+			.build_and_unwrap_contract()
+			.addr;
+		let data = Caller::normalCall {
+			_callee: precompile.0.into(),
+			_value: 0,
+			_data: IWithInfo::dummyCall {}.abi_encode().into(),
+			_gas: u64::MAX,
+		};
+		let result = call_ok(caller, data.abi_encode());
+		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+		assert!(result.success, "the precompile call must succeed");
+
+		let nonce = <Test as frame_system::Config>::Nonce::zero();
+		let expected = ("bcontract_trie_v1", precompile, nonce)
+			.using_encoded(<Test as frame_system::Config>::Hashing::hash);
+		assert_eq!(get_contract(&precompile).trie_id.to_vec(), expected.as_ref().to_vec());
 	});
 }

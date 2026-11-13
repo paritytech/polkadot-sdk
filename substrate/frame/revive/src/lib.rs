@@ -779,8 +779,8 @@ pub mod pallet {
 	/// and the latest deleted contract in queue.
 	///
 	/// Both counters only ever increment, wrapping on overflow. `ContractInfo::new` mixes the
-	/// insert counter into the child trie id of every new contract, so it must never decrease or
-	/// be reset, apart from wrapping.
+	/// insert counter into the child trie id of every contract it creates, so it must never
+	/// decrease or be reset, apart from wrapping.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;

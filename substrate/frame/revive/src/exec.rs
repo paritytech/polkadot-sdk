@@ -1132,8 +1132,7 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
-							CachedContract::Cached(info)
+							CachedContract::Cached(ContractInfo::new_for_precompile(&address))
 						}
 					},
 					// A precompile address can never be delegated: skip the `code_address`

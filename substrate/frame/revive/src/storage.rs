@@ -452,6 +452,8 @@ impl<T: Config> ContractInfo<T> {
 	/// `nonce` is hashed into the id, but the id is unique because of `address` and the insert
 	/// counter alone. Only the child trie is separate per contract: `NativeDepositOf` rows are
 	/// keyed by the fallback account of `address`, which every contract at `address` shares.
+	///
+	/// Precompiles get their contract info from [`Self::new_for_precompile`] instead.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
@@ -479,15 +481,8 @@ impl<T: Config> ContractInfo<T> {
 		// contract at this address, so the trie id does too. This does not depend on `nonce`. The
 		// counter is a wrapping `u32`, so a repeat needs 2^32 terminations between two creations
 		// at the same address.
-		let trie_id = {
-			let insert_counter = DeletionQueueManager::<T>::load().insert_counter;
-			let buf = ("bcontract_trie_v2", address, nonce, insert_counter)
-				.using_encoded(T::Hashing::hash);
-			buf.as_ref()
-				.to_vec()
-				.try_into()
-				.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
-		};
+		let insert_counter = DeletionQueueManager::<T>::load().insert_counter;
+		let trie_id = Self::hash_trie_id(("bcontract_trie_v2", address, nonce, insert_counter));
 
 		let contract = Self {
 			trie_id,
@@ -509,16 +504,8 @@ impl<T: Config> ContractInfo<T> {
 	/// of the target contract they delegate to. The trie_id is derived solely from the
 	/// address so that storage persists across re-delegations to different targets.
 	pub fn new_for_delegation(address: &H160, target_code_hash: sp_core::H256) -> Self {
-		let trie_id = {
-			let buf = ("delegated_trie_v1", address).using_encoded(T::Hashing::hash);
-			buf.as_ref()
-				.to_vec()
-				.try_into()
-				.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
-		};
-
 		Self {
-			trie_id,
+			trie_id: Self::hash_trie_id(("delegated_trie_v1", address)),
 			code_hash: target_code_hash,
 			storage_bytes: 0,
 			storage_items: 0,
@@ -527,6 +514,34 @@ impl<T: Config> ContractInfo<T> {
 			storage_base_deposit: Zero::zero(),
 			immutable_data_len: 0,
 		}
+	}
+
+	/// Constructs the contract info of a precompile that has `HAS_CONTRACT_INFO` set.
+	///
+	/// Only use it when no contract info is stored at `address`. The child trie id is a hash of
+	/// `address` and a zero nonce. Unlike [`Self::new`], it does not mix in the deletion queue
+	/// insert counter and reads no storage: a precompile address never holds a contract and a
+	/// precompile is never terminated, so no other trie id is ever derived for `address`.
+	pub fn new_for_precompile(address: &H160) -> Self {
+		Self {
+			trie_id: Self::hash_trie_id(("bcontract_trie_v1", address, T::Nonce::zero())),
+			code_hash: sp_core::H256::zero(),
+			storage_bytes: 0,
+			storage_items: 0,
+			storage_byte_deposit: Zero::zero(),
+			storage_item_deposit: Zero::zero(),
+			storage_base_deposit: Zero::zero(),
+			immutable_data_len: 0,
+		}
+	}
+
+	/// Hashes `seed` into a child trie id.
+	fn hash_trie_id(seed: impl Encode) -> TrieId {
+		seed.using_encoded(T::Hashing::hash)
+			.as_ref()
+			.to_vec()
+			.try_into()
+			.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
 	}
 
 	/// Associated child trie unique id is built from the hash part of the trie id.
@@ -843,8 +858,8 @@ pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
 	/// The counter is incremented after each insertion, wrapping on overflow.
 	///
-	/// [`ContractInfo::new`] mixes it into the child trie id of every new contract, so it must
-	/// never decrease or be reset, apart from wrapping.
+	/// [`ContractInfo::new`] mixes it into the child trie id of every contract it creates, so it
+	/// must never decrease or be reset, apart from wrapping.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
 	/// The counter is incremented after each deletion, wrapping on overflow.

@@ -23,12 +23,16 @@ doc:
     `seal_instantiate_transfer`, `evm_instantiate` and `evm_instantiate_transfer`. Runtimes should
     regenerate their `pallet_revive` weights.
 
+    Contract info of precompiles with `HAS_CONTRACT_INFO` is now created by
+    `ContractInfo::new_for_precompile`. Their trie id is unchanged and `seal_call_precompile` does
+    no extra read.
+
     The `RedeployFactory` fixture is new and adds the `RedeployFactory`, `RedeployChild` and
     `RedeployDeployer` modules to `pallet-revive-fixtures`.
 
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: pallet-revive-fixtures
   bump: minor
 - name: asset-hub-westend-runtime
