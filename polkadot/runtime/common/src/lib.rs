@@ -34,8 +34,8 @@ pub mod traits;
 
 #[cfg(feature = "try-runtime")]
 pub mod try_runtime;
-pub mod xcm_sender;
 pub mod xcm_migration;
+pub mod xcm_sender;
 
 #[cfg(test)]
 mod integration_tests;
