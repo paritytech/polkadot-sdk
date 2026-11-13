@@ -339,7 +339,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#189 id=189 data-nosnippet>189</a>	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#190 id=190 data-nosnippet>190</a>	Proposer: Environment&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#191 id=191 data-nosnippet>191</a>	CS: CollatorServiceInterface&lt;Block&gt; + Send + Sync + Clone + <span class="lifetime">'static</span>,
-<a href=#192 id=192 data-nosnippet>192</a>	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#192 id=192 data-nosnippet>192</a>	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Clone + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#193 id=193 data-nosnippet>193</a>	P: Pair + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#194 id=194 data-nosnippet>194</a>	P::Public: AppPublic + Member + Codec,
 <a href=#195 id=195 data-nosnippet>195</a>	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
@@ -386,47 +386,49 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#236 id=236 data-nosnippet>236</a>		collator_service: collator_service.clone(),
 <a href=#237 id=237 data-nosnippet>237</a>		collator_receiver: rx,
 <a href=#238 id=238 data-nosnippet>238</a>		export_pov,
-<a href=#239 id=239 data-nosnippet>239</a>	};
-<a href=#240 id=240 data-nosnippet>240</a>
-<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">let </span>collation_task_fut = run_collation_task::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(collator_task_params);
+<a href=#239 id=239 data-nosnippet>239</a>		para_backend: para_backend.clone(),
+<a href=#240 id=240 data-nosnippet>240</a>		code_hash_provider: code_hash_provider.clone(),
+<a href=#241 id=241 data-nosnippet>241</a>	};
 <a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>	<span class="kw">let </span>block_builder_params = block_builder_task::BuilderTaskParams {
-<a href=#244 id=244 data-nosnippet>244</a>		create_inherent_data_providers,
-<a href=#245 id=245 data-nosnippet>245</a>		block_import,
-<a href=#246 id=246 data-nosnippet>246</a>		para_client,
-<a href=#247 id=247 data-nosnippet>247</a>		para_backend,
-<a href=#248 id=248 data-nosnippet>248</a>		relay_client,
-<a href=#249 id=249 data-nosnippet>249</a>		code_hash_provider,
-<a href=#250 id=250 data-nosnippet>250</a>		keystore,
-<a href=#251 id=251 data-nosnippet>251</a>		collator_peer_id,
-<a href=#252 id=252 data-nosnippet>252</a>		para_id,
-<a href=#253 id=253 data-nosnippet>253</a>		proposer,
-<a href=#254 id=254 data-nosnippet>254</a>		collator_service,
-<a href=#255 id=255 data-nosnippet>255</a>		collator_sender: tx,
-<a href=#256 id=256 data-nosnippet>256</a>		relay_chain_slot_duration,
-<a href=#257 id=257 data-nosnippet>257</a>		slot_offset,
-<a href=#258 id=258 data-nosnippet>258</a>		max_pov_percentage,
-<a href=#259 id=259 data-nosnippet>259</a>	};
-<a href=#260 id=260 data-nosnippet>260</a>
-<a href=#261 id=261 data-nosnippet>261</a>	<span class="kw">let </span>block_builder_fut =
-<a href=#262 id=262 data-nosnippet>262</a>		run_block_builder::&lt;Block, P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(block_builder_params);
-<a href=#263 id=263 data-nosnippet>263</a>
-<a href=#264 id=264 data-nosnippet>264</a>	spawner.spawn_essential_blocking(
-<a href=#265 id=265 data-nosnippet>265</a>		<span class="string">"slot-based-block-builder"</span>,
-<a href=#266 id=266 data-nosnippet>266</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
-<a href=#267 id=267 data-nosnippet>267</a>		block_builder_fut.boxed(),
-<a href=#268 id=268 data-nosnippet>268</a>	);
-<a href=#269 id=269 data-nosnippet>269</a>	spawner.spawn_essential_blocking(
-<a href=#270 id=270 data-nosnippet>270</a>		<span class="string">"slot-based-collation"</span>,
-<a href=#271 id=271 data-nosnippet>271</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
-<a href=#272 id=272 data-nosnippet>272</a>		collation_task_fut.boxed(),
-<a href=#273 id=273 data-nosnippet>273</a>	);
-<a href=#274 id=274 data-nosnippet>274</a>	spawner.spawn_essential_blocking(
-<a href=#275 id=275 data-nosnippet>275</a>		<span class="string">"slot-based-resubmission-backfill"</span>,
-<a href=#276 id=276 data-nosnippet>276</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
-<a href=#277 id=277 data-nosnippet>277</a>		resubmission_backfill_fut.boxed(),
-<a href=#278 id=278 data-nosnippet>278</a>	);
-<a href=#279 id=279 data-nosnippet>279</a>}
+<a href=#243 id=243 data-nosnippet>243</a>	<span class="kw">let </span>collation_task_fut = run_collation_task::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(collator_task_params);
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a>	<span class="kw">let </span>block_builder_params = block_builder_task::BuilderTaskParams {
+<a href=#246 id=246 data-nosnippet>246</a>		create_inherent_data_providers,
+<a href=#247 id=247 data-nosnippet>247</a>		block_import,
+<a href=#248 id=248 data-nosnippet>248</a>		para_client,
+<a href=#249 id=249 data-nosnippet>249</a>		para_backend,
+<a href=#250 id=250 data-nosnippet>250</a>		relay_client,
+<a href=#251 id=251 data-nosnippet>251</a>		code_hash_provider,
+<a href=#252 id=252 data-nosnippet>252</a>		keystore,
+<a href=#253 id=253 data-nosnippet>253</a>		collator_peer_id,
+<a href=#254 id=254 data-nosnippet>254</a>		para_id,
+<a href=#255 id=255 data-nosnippet>255</a>		proposer,
+<a href=#256 id=256 data-nosnippet>256</a>		collator_service,
+<a href=#257 id=257 data-nosnippet>257</a>		collator_sender: tx,
+<a href=#258 id=258 data-nosnippet>258</a>		relay_chain_slot_duration,
+<a href=#259 id=259 data-nosnippet>259</a>		slot_offset,
+<a href=#260 id=260 data-nosnippet>260</a>		max_pov_percentage,
+<a href=#261 id=261 data-nosnippet>261</a>	};
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>	<span class="kw">let </span>block_builder_fut =
+<a href=#264 id=264 data-nosnippet>264</a>		run_block_builder::&lt;Block, P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(block_builder_params);
+<a href=#265 id=265 data-nosnippet>265</a>
+<a href=#266 id=266 data-nosnippet>266</a>	spawner.spawn_essential_blocking(
+<a href=#267 id=267 data-nosnippet>267</a>		<span class="string">"slot-based-block-builder"</span>,
+<a href=#268 id=268 data-nosnippet>268</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
+<a href=#269 id=269 data-nosnippet>269</a>		block_builder_fut.boxed(),
+<a href=#270 id=270 data-nosnippet>270</a>	);
+<a href=#271 id=271 data-nosnippet>271</a>	spawner.spawn_essential_blocking(
+<a href=#272 id=272 data-nosnippet>272</a>		<span class="string">"slot-based-collation"</span>,
+<a href=#273 id=273 data-nosnippet>273</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
+<a href=#274 id=274 data-nosnippet>274</a>		collation_task_fut.boxed(),
+<a href=#275 id=275 data-nosnippet>275</a>	);
+<a href=#276 id=276 data-nosnippet>276</a>	spawner.spawn_essential_blocking(
+<a href=#277 id=277 data-nosnippet>277</a>		<span class="string">"slot-based-resubmission-backfill"</span>,
+<a href=#278 id=278 data-nosnippet>278</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
+<a href=#279 id=279 data-nosnippet>279</a>		resubmission_backfill_fut.boxed(),
+<a href=#280 id=280 data-nosnippet>280</a>	);
+<a href=#281 id=281 data-nosnippet>281</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

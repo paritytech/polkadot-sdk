@@ -463,20 +463,20 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#313 id=313 data-nosnippet>313</a>
 <a href=#314 id=314 data-nosnippet>314</a><span class="doccomment">/// Scheduling-info verifier used by `cumulus-test-runtime`.
 <a href=#315 id=315 data-nosnippet>315</a>///
-<a href=#316 id=316 data-nosnippet>316</a>/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
-<a href=#317 id=317 data-nosnippet>317</a>/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
-<a href=#318 id=318 data-nosnippet>318</a>/// per build.
-<a href=#319 id=319 data-nosnippet>319</a></span><span class="kw">pub struct </span>NoVerification;
+<a href=#316 id=316 data-nosnippet>316</a>/// Delegates to the production [`cumulus_pallet_aura_ext::AuraSchedulingVerifier`];
+<a href=#317 id=317 data-nosnippet>317</a>/// `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo feature so the test runtime
+<a href=#318 id=318 data-nosnippet>318</a>/// can flip V3 scheduling on without needing a runtime upgrade per build.
+<a href=#319 id=319 data-nosnippet>319</a></span><span class="kw">pub struct </span>SchedulingVerifier;
 <a href=#320 id=320 data-nosnippet>320</a>
-<a href=#321 id=321 data-nosnippet>321</a><span class="kw">impl </span>VerifySchedulingSignature <span class="kw">for </span>NoVerification {
+<a href=#321 id=321 data-nosnippet>321</a><span class="kw">impl </span>VerifySchedulingSignature <span class="kw">for </span>SchedulingVerifier {
 <a href=#322 id=322 data-nosnippet>322</a>	<span class="kw">const </span>V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
 <a href=#323 id=323 data-nosnippet>323</a>
 <a href=#324 id=324 data-nosnippet>324</a>	<span class="kw">fn </span>verify(
-<a href=#325 id=325 data-nosnippet>325</a>		_signed_info: <span class="kw-2">&amp;</span>cumulus_primitives_core::SignedSchedulingInfo,
-<a href=#326 id=326 data-nosnippet>326</a>		_relay_slot: cumulus_primitives_core::relay_chain::Slot,
+<a href=#325 id=325 data-nosnippet>325</a>		signed_info: <span class="kw-2">&amp;</span>cumulus_primitives_core::SignedSchedulingInfo,
+<a href=#326 id=326 data-nosnippet>326</a>		relay_slot: cumulus_primitives_core::relay_chain::Slot,
 <a href=#327 id=327 data-nosnippet>327</a>	) -&gt; bool {
-<a href=#328 id=328 data-nosnippet>328</a>		<span class="bool-val">true
-<a href=#329 id=329 data-nosnippet>329</a>	</span>}
+<a href=#328 id=328 data-nosnippet>328</a>		cumulus_pallet_aura_ext::AuraSchedulingVerifier::&lt;Runtime&gt;::verify(signed_info, relay_slot)
+<a href=#329 id=329 data-nosnippet>329</a>	}
 <a href=#330 id=330 data-nosnippet>330</a>}
 <a href=#331 id=331 data-nosnippet>331</a>
 <a href=#332 id=332 data-nosnippet>332</a><span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
@@ -500,7 +500,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#350 id=350 data-nosnippet>350</a>		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <a href=#351 id=351 data-nosnippet>351</a>	<span class="kw">type </span>ConsensusHook = ConsensusHook;
 <a href=#352 id=352 data-nosnippet>352</a>	<span class="kw">type </span>RelayParentOffset = ConstU32&lt;{ relay_parent_offset() }&gt;;
-<a href=#353 id=353 data-nosnippet>353</a>	<span class="kw">type </span>SchedulingSignatureVerifier = NoVerification;
+<a href=#353 id=353 data-nosnippet>353</a>	<span class="kw">type </span>SchedulingSignatureVerifier = SchedulingVerifier;
 <a href=#354 id=354 data-nosnippet>354</a>}
 <a href=#355 id=355 data-nosnippet>355</a>
 <a href=#356 id=356 data-nosnippet>356</a><span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}

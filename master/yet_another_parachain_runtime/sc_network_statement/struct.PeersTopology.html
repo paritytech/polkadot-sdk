@@ -191,12 +191,19 @@ replica set at <code>gossip_target + 1</code> copies instead of <code>replicatio
 <p>This uses only the locally learned topology, avoiding network lookups that would reveal
 explicit-affinity topics, and selects a minimal set of peers covering every topic,
 independent of connection state.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.peers_for_routing" class="method"><h4 class="code-header">pub fn <a href="#method.peers_for_routing" class="fn">peers_for_routing</a>(&amp;self) -&gt; <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="struct" href="../polkadot_node_network_protocol/struct.PeerId.html" title="struct yet_another_parachain_runtime::polkadot_node_network_protocol::PeerId">PeerId</a>&gt;</h4></section></summary><div class="docblock"><p>Known statement-protocol peers to keep connected: the <code>replication_factor</code> nearest peers,
+</div></details><details class="toggle method-toggle" open><summary><section id="method.peers_for_routing" class="method"><h4 class="code-header">pub fn <a href="#method.peers_for_routing" class="fn">peers_for_routing</a>(
+    &amp;self,
+    is_unreachable: impl <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;<a class="struct" href="../polkadot_node_network_protocol/struct.PeerId.html" title="struct yet_another_parachain_runtime::polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>,
+) -&gt; <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="struct" href="../polkadot_node_network_protocol/struct.PeerId.html" title="struct yet_another_parachain_runtime::polkadot_node_network_protocol::PeerId">PeerId</a>&gt;</h4></section></summary><div class="docblock"><p>Known statement-protocol peers to keep connected: the <code>replication_factor</code> nearest peers,
 then the nearest peer of every distance bucket they leave uncovered.</p>
 <p>The nearest peers are the replicas the node shares its topics with. A bucket holds the
 peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
 uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 statement for any topic a connected next hop closer to the topic.</p>
+<p>A peer that <code>is_unreachable</code> is passed over, so the next peer of its bucket takes its place.
+A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
+<code>replication_factor</code> nearest connected peers stay, so a replacement serves until the nearest
+peers themselves connect.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.evict" class="method"><h4 class="code-header">pub fn <a href="#method.evict" class="fn">evict</a>(&amp;mut self, now: <a class="struct" href="https://doc.rust-lang.org/1.93.0/std/time/struct.Instant.html" title="struct std::time::Instant">Instant</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Evict disconnected peers unseen for <code>PEER_STALENESS_TTL</code> as of <code>now</code>, plus any excess over
 <code>MAX_KNOWN_PEERS</code>.
 Returns whether the DHT candidate index changed.</p>

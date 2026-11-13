@@ -532,51 +532,58 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#382 id=382 data-nosnippet>382</a>					<span class="prelude-val">Some</span>(ParaId::from(<span class="number">2800</span>)),
 <a href=#383 id=383 data-nosnippet>383</a>				)
 <a href=#384 id=384 data-nosnippet>384</a>			},
-<a href=#385 id=385 data-nosnippet>385</a>			path =&gt; {
-<a href=#386 id=386 data-nosnippet>386</a>				<span class="kw">let </span>chain_spec: sc_chain_spec::GenericChainSpec =
-<a href=#387 id=387 data-nosnippet>387</a>					sc_chain_spec::GenericChainSpec::from_json_file(path.into())<span class="question-mark">?</span>;
-<a href=#388 id=388 data-nosnippet>388</a>				chain_spec
-<a href=#389 id=389 data-nosnippet>389</a>			},
-<a href=#390 id=390 data-nosnippet>390</a>		}))
-<a href=#391 id=391 data-nosnippet>391</a>	}
-<a href=#392 id=392 data-nosnippet>392</a>}
-<a href=#393 id=393 data-nosnippet>393</a>
-<a href=#394 id=394 data-nosnippet>394</a><span class="kw">impl </span>SubstrateCli <span class="kw">for </span>RelayChainCli {
-<a href=#395 id=395 data-nosnippet>395</a>	<span class="kw">fn </span>impl_name() -&gt; String {
-<a href=#396 id=396 data-nosnippet>396</a>		<span class="string">"Polkadot collator"</span>.into()
-<a href=#397 id=397 data-nosnippet>397</a>	}
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a>	<span class="kw">fn </span>impl_version() -&gt; String {
-<a href=#400 id=400 data-nosnippet>400</a>		String::new()
-<a href=#401 id=401 data-nosnippet>401</a>	}
-<a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a>	<span class="kw">fn </span>description() -&gt; String {
-<a href=#404 id=404 data-nosnippet>404</a>		<span class="macro">format!</span>(
-<a href=#405 id=405 data-nosnippet>405</a>			<span class="string">"Polkadot collator\n\nThe command-line arguments provided first will be \
-<a href=#406 id=406 data-nosnippet>406</a>		passed to the parachain node, while the arguments provided after -- will be passed \
-<a href=#407 id=407 data-nosnippet>407</a>		to the relay chain node.\n\n\
-<a href=#408 id=408 data-nosnippet>408</a>		{} [parachain-args] -- [relay_chain-args]"</span>,
-<a href=#409 id=409 data-nosnippet>409</a>			<span class="self">Self</span>::executable_name()
-<a href=#410 id=410 data-nosnippet>410</a>		)
-<a href=#411 id=411 data-nosnippet>411</a>	}
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>	<span class="kw">fn </span>author() -&gt; String {
-<a href=#414 id=414 data-nosnippet>414</a>		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
-<a href=#415 id=415 data-nosnippet>415</a>	}
-<a href=#416 id=416 data-nosnippet>416</a>
-<a href=#417 id=417 data-nosnippet>417</a>	<span class="kw">fn </span>support_url() -&gt; String {
-<a href=#418 id=418 data-nosnippet>418</a>		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
-<a href=#419 id=419 data-nosnippet>419</a>	}
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
-<a href=#422 id=422 data-nosnippet>422</a>		<span class="number">2017
-<a href=#423 id=423 data-nosnippet>423</a>	</span>}
-<a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>	<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>sc_service::ChainSpec&gt;, String&gt; {
-<a href=#426 id=426 data-nosnippet>426</a>		&lt;polkadot_cli::Cli <span class="kw">as </span>SubstrateCli&gt;::from_iter([RelayChainCli::executable_name()].iter())
-<a href=#427 id=427 data-nosnippet>427</a>			.load_spec(id)
-<a href=#428 id=428 data-nosnippet>428</a>	}
-<a href=#429 id=429 data-nosnippet>429</a>}
+<a href=#385 id=385 data-nosnippet>385</a>			<span class="string">"elastic-scaling-v3-rpo-1" </span>=&gt; {
+<a href=#386 id=386 data-nosnippet>386</a>				<span class="macro">tracing::info!</span>(<span class="string">"Using elastic scaling V3 with relay parent offset 1 chain spec."</span>);
+<a href=#387 id=387 data-nosnippet>387</a>				cumulus_test_service::get_chain_spec(
+<a href=#388 id=388 data-nosnippet>388</a>					cumulus_test_runtime::elastic_scaling_v3_rpo_1::WASM_BINARY,
+<a href=#389 id=389 data-nosnippet>389</a>					<span class="prelude-val">Some</span>(ParaId::from(<span class="number">2800</span>)),
+<a href=#390 id=390 data-nosnippet>390</a>				)
+<a href=#391 id=391 data-nosnippet>391</a>			},
+<a href=#392 id=392 data-nosnippet>392</a>			path =&gt; {
+<a href=#393 id=393 data-nosnippet>393</a>				<span class="kw">let </span>chain_spec: sc_chain_spec::GenericChainSpec =
+<a href=#394 id=394 data-nosnippet>394</a>					sc_chain_spec::GenericChainSpec::from_json_file(path.into())<span class="question-mark">?</span>;
+<a href=#395 id=395 data-nosnippet>395</a>				chain_spec
+<a href=#396 id=396 data-nosnippet>396</a>			},
+<a href=#397 id=397 data-nosnippet>397</a>		}))
+<a href=#398 id=398 data-nosnippet>398</a>	}
+<a href=#399 id=399 data-nosnippet>399</a>}
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a><span class="kw">impl </span>SubstrateCli <span class="kw">for </span>RelayChainCli {
+<a href=#402 id=402 data-nosnippet>402</a>	<span class="kw">fn </span>impl_name() -&gt; String {
+<a href=#403 id=403 data-nosnippet>403</a>		<span class="string">"Polkadot collator"</span>.into()
+<a href=#404 id=404 data-nosnippet>404</a>	}
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>	<span class="kw">fn </span>impl_version() -&gt; String {
+<a href=#407 id=407 data-nosnippet>407</a>		String::new()
+<a href=#408 id=408 data-nosnippet>408</a>	}
+<a href=#409 id=409 data-nosnippet>409</a>
+<a href=#410 id=410 data-nosnippet>410</a>	<span class="kw">fn </span>description() -&gt; String {
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="macro">format!</span>(
+<a href=#412 id=412 data-nosnippet>412</a>			<span class="string">"Polkadot collator\n\nThe command-line arguments provided first will be \
+<a href=#413 id=413 data-nosnippet>413</a>		passed to the parachain node, while the arguments provided after -- will be passed \
+<a href=#414 id=414 data-nosnippet>414</a>		to the relay chain node.\n\n\
+<a href=#415 id=415 data-nosnippet>415</a>		{} [parachain-args] -- [relay_chain-args]"</span>,
+<a href=#416 id=416 data-nosnippet>416</a>			<span class="self">Self</span>::executable_name()
+<a href=#417 id=417 data-nosnippet>417</a>		)
+<a href=#418 id=418 data-nosnippet>418</a>	}
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>	<span class="kw">fn </span>author() -&gt; String {
+<a href=#421 id=421 data-nosnippet>421</a>		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
+<a href=#422 id=422 data-nosnippet>422</a>	}
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>	<span class="kw">fn </span>support_url() -&gt; String {
+<a href=#425 id=425 data-nosnippet>425</a>		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
+<a href=#426 id=426 data-nosnippet>426</a>	}
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
+<a href=#429 id=429 data-nosnippet>429</a>		<span class="number">2017
+<a href=#430 id=430 data-nosnippet>430</a>	</span>}
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>	<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>sc_service::ChainSpec&gt;, String&gt; {
+<a href=#433 id=433 data-nosnippet>433</a>		&lt;polkadot_cli::Cli <span class="kw">as </span>SubstrateCli&gt;::from_iter([RelayChainCli::executable_name()].iter())
+<a href=#434 id=434 data-nosnippet>434</a>			.load_spec(id)
+<a href=#435 id=435 data-nosnippet>435</a>	}
+<a href=#436 id=436 data-nosnippet>436</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
