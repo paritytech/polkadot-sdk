@@ -176,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_004,
+	spec_version: 1_025_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1576,6 +1576,7 @@ impl pallet_migrations::Config for Runtime {
 			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
+		xcm_migration::Migration,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1587,6 +1588,23 @@ impl pallet_migrations::Config for Runtime {
 	type MaxServiceWeight = MbmServiceWeight;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
+
+/// Benchmarks of [`xcm_migration::AssetRate`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
+
+/// Benchmarks of [`xcm_migration::TreasurySpends`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type TreasurySpendsStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
+	Runtime,
+	xcm_migration::TreasurySpends,
+>;
+
+/// Benchmarks of [`xcm_migration::Bounties`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type BountiesStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::Bounties>;
 
 parameter_types! {
 	pub MaximumSchedulerWeight: frame_support::weights::Weight = Perbill::from_percent(80) *
@@ -1947,6 +1965,44 @@ parameter_types! {
 	);
 }
 
+/// Multi-block migration upgrading the XCM data stored by pallets to the latest XCM version.
+pub mod xcm_migration {
+	use super::{weights, Runtime};
+	use polkadot_runtime_common::xcm_migration::{
+		AssetRateStage, BountiesStage, MigrateXcmToLatest, TreasurySpendsStage,
+		VersionedLocatableAssetToLatest,
+	};
+
+	/// Upgrades the asset kinds of `AssetRate`.
+	pub type AssetRate = AssetRateStage<
+		Runtime,
+		VersionedLocatableAssetToLatest,
+		weights::polkadot_runtime_common_xcm_migration_asset_rate_stage::WeightInfo<Runtime>,
+	>;
+
+	/// Upgrades the spends of `Treasury`.
+	///
+	/// Beneficiaries are `VersionedLocatableAccount`s, which have no XCM v3 variant.
+	pub type TreasurySpends = TreasurySpendsStage<
+		Runtime,
+		(),
+		VersionedLocatableAssetToLatest,
+		sp_runtime::traits::Identity,
+		weights::polkadot_runtime_common_xcm_migration_treasury_spends_stage::WeightInfo<Runtime>,
+	>;
+
+	/// Upgrades the bounties of `MultiAssetBounties`.
+	pub type Bounties = BountiesStage<
+		Runtime,
+		(),
+		VersionedLocatableAssetToLatest,
+		weights::polkadot_runtime_common_xcm_migration_bounties_stage::WeightInfo<Runtime>,
+	>;
+
+	/// The migration, running every stage above.
+	pub type Migration = MigrateXcmToLatest<(AssetRate, TreasurySpends, Bounties)>;
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// unreleased
@@ -2122,6 +2178,9 @@ mod benches {
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
+		[polkadot_runtime_common::xcm_migration, AssetRateStage]
+		[polkadot_runtime_common::xcm_migration, TreasurySpendsStage]
+		[polkadot_runtime_common::xcm_migration, BountiesStage]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_revive, Revive]
 		// XCM

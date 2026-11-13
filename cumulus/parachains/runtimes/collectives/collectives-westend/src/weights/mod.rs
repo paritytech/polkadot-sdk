@@ -31,6 +31,7 @@ pub mod pallet_core_fellowship_ambassador_core;
 pub mod pallet_core_fellowship_fellowship_core;
 pub mod pallet_message_queue;
 pub mod pallet_meta_tx;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
@@ -49,6 +50,8 @@ pub mod pallet_utility;
 pub mod pallet_verify_signature;
 pub mod pallet_xcm;
 pub mod paritydb_weights;
+pub mod polkadot_runtime_common_xcm_migration_asset_rate_stage;
+pub mod polkadot_runtime_common_xcm_migration_fellowship_spends_stage;
 pub mod rocksdb_weights;
 pub mod xcm;
 

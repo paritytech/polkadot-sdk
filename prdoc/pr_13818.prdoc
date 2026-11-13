@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Migration to upgrade stored XCM data to the latest version
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `polkadot_runtime_common::xcm_migration::MigrateXcmToLatest`, a multi-block migration
+      that upgrades the versioned XCM data stored by pallets to the latest XCM version. It covers
+      `pallet_asset_rate::ConversionRateToNative`, `pallet_treasury::Spends` and
+      `pallet_multi_asset_bounties::Bounties`.
+
+      The `try-runtime` checks of `pallet_xcm::migration::MigrateToLatestXcmVersion` now also
+      cover `AuthorizedAliases`.
+
+      The Westend, Rococo, Asset Hub Westend and Collectives Westend runtimes run the migration.
+      Collectives Westend gains `pallet-migrations`.
+
+crates:
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: pallet-xcm
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: major
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
