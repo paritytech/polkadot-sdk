@@ -18,10 +18,7 @@
 //! Tests for `#[pallet::as_account(...)]`, `#[pallet::nonce_provider]`, and
 //! `#[pallet::fee_payer]` on pallet origin enum variants.
 
-use frame_support::{
-	derive_impl,
-	traits::AccountLike,
-};
+use frame_support::{derive_impl, traits::AccountLike};
 use sp_runtime::{generic, traits::BlakeTwo256};
 
 /// Pallet 1: Generic enum origin with `as_account` + `nonce_provider` on some variants.
@@ -114,6 +111,18 @@ pub mod pallet3 {
 	pub enum Origin {
 		StakingAdmin,
 		Treasurer,
+	}
+
+	// The `#[pallet]` macro does not implement `AccountLike` for non-generic origins, so a pallet
+	// which wants direct calls on its origin type to work can write the impl itself. This impl is
+	// not what `OriginCaller` uses, that is driven only by the `#[pallet::as_account]` attributes.
+	impl frame_support::traits::AccountLike<u64> for Origin {
+		fn as_account(&self) -> Option<u64> {
+			match self {
+				Origin::StakingAdmin => Some(1),
+				Origin::Treasurer => None,
+			}
+		}
 	}
 }
 
@@ -264,8 +273,7 @@ pub mod pallet8 {
 
 	/// Storage mapping from u32 council IDs to AccountIds.
 	#[pallet::storage]
-	pub type CouncilAccounts<T: Config> =
-		StorageMap<_, Twox64Concat, u32, T::AccountId>;
+	pub type CouncilAccounts<T: Config> = StorageMap<_, Twox64Concat, u32, T::AccountId>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -380,9 +388,7 @@ pub mod pallet10 {
 		Root,
 	}
 
-	impl<AccountId: Clone> frame_support::traits::AccountLike<AccountId>
-		for CustomOrigin<AccountId>
-	{
+	impl<AccountId: Clone> frame_support::traits::AccountLike<AccountId> for CustomOrigin<AccountId> {
 		fn as_account(&self) -> Option<AccountId> {
 			match self {
 				CustomOrigin::Admin(who) => Some(who.clone()),
@@ -529,7 +535,10 @@ pub mod pallet14 {
 		#[pallet::as_account(|who, _rank| Some(who.clone()))]
 		#[pallet::nonce_provider]
 		#[pallet::fee_payer]
-		Member { who: T::AccountId, rank: u32 },
+		Member {
+			who: T::AccountId,
+			rank: u32,
+		},
 		Admin,
 	}
 }
@@ -607,6 +616,83 @@ pub mod pallet16 {
 	}
 }
 
+/// Pallet 17: Conditionally compiled variants carrying `as_account`.
+///
+/// `Present` is compiled in and `Absent` is compiled out, so the code generated for both must
+/// follow the variant's `#[cfg]`.
+#[frame_support::pallet(dev_mode)]
+pub mod pallet17 {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn noop(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	#[pallet::origin]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
+	pub enum Origin<T: Config> {
+		#[cfg(all())]
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::nonce_provider]
+		#[pallet::fee_payer]
+		Present(T::AccountId),
+		#[cfg(any())]
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::nonce_provider]
+		#[pallet::fee_payer]
+		Absent(T::AccountId),
+		Other,
+	}
+}
+
+/// Pallet 18: Variant names which must not clash with the functions the macro generates.
+#[frame_support::pallet(dev_mode)]
+pub mod pallet18 {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn noop(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	#[pallet::origin]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
+	#[allow(non_camel_case_types)]
+	pub enum Origin<T: Config> {
+		/// Same name as the suffix of the generated `__as_account_for_origin`.
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::nonce_provider]
+		origin(T::AccountId),
+		/// A raw identifier.
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::fee_payer]
+		r#type(T::AccountId),
+	}
+}
+
 pub type AccountId = u64;
 pub type Header = generic::Header<u32, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
@@ -633,6 +719,8 @@ frame_support::construct_runtime!(
 		Pallet14: pallet14,
 		Pallet15: pallet15,
 		Pallet16: pallet16,
+		Pallet17: pallet17,
+		Pallet18: pallet18,
 	}
 );
 
@@ -659,6 +747,8 @@ impl pallet13::Config for Runtime {}
 impl pallet14::Config for Runtime {}
 impl pallet15::Config for Runtime {}
 impl pallet16::Config for Runtime {}
+impl pallet17::Config for Runtime {}
+impl pallet18::Config for Runtime {}
 
 // =============================================================================
 // Tests for as_account
@@ -694,104 +784,56 @@ fn test_system_origin_fee_payer() {
 #[test]
 fn test_enum_origin_with_as_account() {
 	// Pallet1: Member has as_account + nonce_provider
-	assert_eq!(
-		OriginCaller::Pallet1(pallet1::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet1(pallet1::Origin::Member(42)).as_account(), Some(42u64));
 	assert_eq!(OriginCaller::Pallet1(pallet1::Origin::Admin).as_account(), None);
 
-	assert_eq!(
-		OriginCaller::Pallet1(pallet1::Origin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet1(pallet1::Origin::Member(42)).nonce_provider(), Some(42u64));
 	assert_eq!(OriginCaller::Pallet1(pallet1::Origin::Admin).nonce_provider(), None);
 
 	// No fee_payer on pallet1
-	assert_eq!(
-		OriginCaller::Pallet1(pallet1::Origin::Member(42)).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet1(pallet1::Origin::Member(42)).fee_payer(), None);
 }
 
 #[test]
 fn test_enum_origin_multiple_fields() {
 	// Pallet2: WithData has as_account + nonce_provider + fee_payer
-	assert_eq!(
-		OriginCaller::Pallet2(pallet2::Origin::WithData(42, 100)).as_account(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet2(pallet2::Origin::WithData(42, 100)).as_account(), Some(42u64));
 	assert_eq!(
 		OriginCaller::Pallet2(pallet2::Origin::WithData(42, 100)).nonce_provider(),
 		Some(42u64)
 	);
-	assert_eq!(
-		OriginCaller::Pallet2(pallet2::Origin::WithData(42, 100)).fee_payer(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet2(pallet2::Origin::WithData(42, 100)).fee_payer(), Some(42u64));
 
 	// NoAccount has as_account (returning None) but no nonce_provider/fee_payer flags
-	assert_eq!(
-		OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).as_account(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).as_account(), None);
+	assert_eq!(OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet2(pallet2::Origin::NoAccount(1, 2)).fee_payer(), None);
 }
 
 #[test]
 fn test_non_generic_enum_origin() {
-	assert_eq!(
-		OriginCaller::Pallet3(pallet3::Origin::StakingAdmin).as_account(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet3(pallet3::Origin::Treasurer).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet3(pallet3::Origin::StakingAdmin).as_account(), None);
+	assert_eq!(OriginCaller::Pallet3(pallet3::Origin::Treasurer).as_account(), None);
 }
 
 #[test]
 fn test_struct_origin() {
 	use core::marker::PhantomData;
 
-	assert_eq!(
-		OriginCaller::Pallet4(pallet4::Origin(PhantomData)).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet4(pallet4::Origin(PhantomData)).as_account(), None);
 }
 
 #[test]
 fn test_function_reference_as_account() {
-	assert_eq!(
-		OriginCaller::Pallet5(pallet5::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet5(pallet5::Origin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet5(pallet5::Origin::Member(42)).fee_payer(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet5(pallet5::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet5(pallet5::Origin::Member(42)).nonce_provider(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet5(pallet5::Origin::Member(42)).fee_payer(), Some(42u64));
 }
 
 #[test]
 fn test_instanced_origin() {
-	assert_eq!(
-		OriginCaller::Pallet6(pallet6::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet6(pallet6::Origin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet6(pallet6::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet6(pallet6::Origin::Member(42)).nonce_provider(), Some(42u64));
 	assert_eq!(
 		OriginCaller::Pallet6Instance2(pallet6::Origin::Member(42)).nonce_provider(),
 		Some(42u64)
@@ -800,38 +842,17 @@ fn test_instanced_origin() {
 
 #[test]
 fn test_account_like_trait_directly() {
-	assert_eq!(
-		AccountLike::as_account(&pallet1::Origin::<Runtime>::Member(42)),
-		Some(42u64)
-	);
-	assert_eq!(
-		AccountLike::as_account(&pallet1::Origin::<Runtime>::Admin),
-		None
-	);
-	assert_eq!(
-		AccountLike::nonce_provider(&pallet1::Origin::<Runtime>::Member(42)),
-		Some(42u64)
-	);
-	assert_eq!(
-		AccountLike::fee_payer(&pallet1::Origin::<Runtime>::Member(42)),
-		None
-	);
+	assert_eq!(AccountLike::as_account(&pallet1::Origin::<Runtime>::Member(42)), Some(42u64));
+	assert_eq!(AccountLike::as_account(&pallet1::Origin::<Runtime>::Admin), None);
+	assert_eq!(AccountLike::nonce_provider(&pallet1::Origin::<Runtime>::Member(42)), Some(42u64));
+	assert_eq!(AccountLike::fee_payer(&pallet1::Origin::<Runtime>::Member(42)), None);
 }
 
 #[test]
 fn test_generic_enum_all_variants_as_account() {
-	assert_eq!(
-		OriginCaller::Pallet7(pallet7::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet7(pallet7::Origin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet7(pallet7::Origin::Member(42)).fee_payer(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet7(pallet7::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet7(pallet7::Origin::Member(42)).nonce_provider(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet7(pallet7::Origin::Member(42)).fee_payer(), Some(42u64));
 	assert_eq!(
 		OriginCaller::Pallet7(pallet7::Origin::MemberWithData(99, 7)).as_account(),
 		Some(99u64)
@@ -841,14 +862,8 @@ fn test_generic_enum_all_variants_as_account() {
 		Some(99u64)
 	);
 	// MemberWithData does NOT have fee_payer
-	assert_eq!(
-		OriginCaller::Pallet7(pallet7::Origin::MemberWithData(99, 7)).fee_payer(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet7(pallet7::Origin::Anonymous(1, 2)).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet7(pallet7::Origin::MemberWithData(99, 7)).fee_payer(), None);
+	assert_eq!(OriginCaller::Pallet7(pallet7::Origin::Anonymous(1, 2)).as_account(), None);
 }
 
 #[test]
@@ -860,35 +875,20 @@ fn test_non_generic_enum_with_storage() {
 	ext.execute_with(|| {
 		pallet8::CouncilAccounts::<Runtime>::insert(1u32, 42u64);
 
-		assert_eq!(
-			OriginCaller::Pallet8(pallet8::Origin::Council(1)).as_account(),
-			Some(42u64)
-		);
+		assert_eq!(OriginCaller::Pallet8(pallet8::Origin::Council(1)).as_account(), Some(42u64));
 		assert_eq!(
 			OriginCaller::Pallet8(pallet8::Origin::Council(1)).nonce_provider(),
 			Some(42u64)
 		);
-		assert_eq!(
-			OriginCaller::Pallet8(pallet8::Origin::Council(999)).as_account(),
-			None
-		);
-		assert_eq!(
-			OriginCaller::Pallet8(pallet8::Origin::Members(3, 5)).as_account(),
-			None
-		);
-		assert_eq!(
-			OriginCaller::Pallet8(pallet8::Origin::TechCommittee).as_account(),
-			None
-		);
+		assert_eq!(OriginCaller::Pallet8(pallet8::Origin::Council(999)).as_account(), None);
+		assert_eq!(OriginCaller::Pallet8(pallet8::Origin::Members(3, 5)).as_account(), None);
+		assert_eq!(OriginCaller::Pallet8(pallet8::Origin::TechCommittee).as_account(), None);
 	});
 }
 
 #[test]
 fn test_existing_pallets_unaffected() {
-	assert_eq!(
-		OriginCaller::Pallet3(pallet3::Origin::StakingAdmin).nonce_provider(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet3(pallet3::Origin::StakingAdmin).nonce_provider(), None);
 	assert_eq!(
 		OriginCaller::Pallet4(pallet4::Origin(core::marker::PhantomData)).nonce_provider(),
 		None
@@ -899,45 +899,21 @@ fn test_existing_pallets_unaffected() {
 fn test_type_alias_origin_delegates_to_account_like() {
 	use pallet9::RawOrigin;
 
-	assert_eq!(
-		OriginCaller::Pallet9(RawOrigin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet9(RawOrigin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet9(RawOrigin::Members(3, 5)).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet9(RawOrigin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet9(RawOrigin::Member(42)).nonce_provider(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet9(RawOrigin::Members(3, 5)).as_account(), None);
 
-	assert_eq!(
-		OriginCaller::Pallet9Instance2(RawOrigin::Member(99)).nonce_provider(),
-		Some(99u64)
-	);
+	assert_eq!(OriginCaller::Pallet9Instance2(RawOrigin::Member(99)).nonce_provider(), Some(99u64));
 }
 
 #[test]
 fn test_type_alias_custom_origin_with_manual_account_like() {
 	use pallet10::CustomOrigin;
 
-	assert_eq!(
-		OriginCaller::Pallet10(CustomOrigin::Admin(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet10(CustomOrigin::Admin(42)).nonce_provider(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet10(CustomOrigin::Admin(42)).fee_payer(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet10(CustomOrigin::Root).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet10(CustomOrigin::Admin(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet10(CustomOrigin::Admin(42)).nonce_provider(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet10(CustomOrigin::Admin(42)).fee_payer(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet10(CustomOrigin::Root).as_account(), None);
 }
 
 // =============================================================================
@@ -947,18 +923,9 @@ fn test_type_alias_custom_origin_with_manual_account_like() {
 #[test]
 fn test_as_account_only_no_flags() {
 	// Pallet11: Member has as_account but no nonce_provider or fee_payer
-	assert_eq!(
-		OriginCaller::Pallet11(pallet11::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet11(pallet11::Origin::Member(42)).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet11(pallet11::Origin::Member(42)).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet11(pallet11::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet11(pallet11::Origin::Member(42)).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet11(pallet11::Origin::Member(42)).fee_payer(), None);
 }
 
 // =============================================================================
@@ -968,22 +935,10 @@ fn test_as_account_only_no_flags() {
 #[test]
 fn test_as_account_with_fee_payer_only() {
 	// Pallet12: Member has as_account + fee_payer but no nonce_provider
-	assert_eq!(
-		OriginCaller::Pallet12(pallet12::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet12(pallet12::Origin::Member(42)).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet12(pallet12::Origin::Member(42)).fee_payer(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet12(pallet12::Origin::Admin).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet12(pallet12::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet12(pallet12::Origin::Member(42)).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet12(pallet12::Origin::Member(42)).fee_payer(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet12(pallet12::Origin::Admin).fee_payer(), None);
 }
 
 // =============================================================================
@@ -993,23 +948,11 @@ fn test_as_account_with_fee_payer_only() {
 #[test]
 fn test_as_account_unit_variant() {
 	// Pallet13: Member has as_account + nonce_provider, Admin has as_account returning None
-	assert_eq!(
-		OriginCaller::Pallet13(pallet13::Origin::Member(42)).as_account(),
-		Some(42u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet13(pallet13::Origin::Member(42)).nonce_provider(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet13(pallet13::Origin::Member(42)).as_account(), Some(42u64));
+	assert_eq!(OriginCaller::Pallet13(pallet13::Origin::Member(42)).nonce_provider(), Some(42u64));
 	// Admin is a unit variant with as_account(|| None)
-	assert_eq!(
-		OriginCaller::Pallet13(pallet13::Origin::Admin).as_account(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet13(pallet13::Origin::Admin).nonce_provider(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet13(pallet13::Origin::Admin).as_account(), None);
+	assert_eq!(OriginCaller::Pallet13(pallet13::Origin::Admin).nonce_provider(), None);
 }
 
 // =============================================================================
@@ -1037,18 +980,9 @@ fn test_as_account_named_fields_variant() {
 		Some(42u64)
 	);
 	// Admin has no as_account
-	assert_eq!(
-		OriginCaller::Pallet14(pallet14::Origin::Admin).as_account(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet14(pallet14::Origin::Admin).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet14(pallet14::Origin::Admin).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet14(pallet14::Origin::Admin).as_account(), None);
+	assert_eq!(OriginCaller::Pallet14(pallet14::Origin::Admin).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet14(pallet14::Origin::Admin).fee_payer(), None);
 }
 
 // =============================================================================
@@ -1058,10 +992,7 @@ fn test_as_account_named_fields_variant() {
 #[test]
 fn test_same_origin_and_variant_names_are_independent() {
 	// pallet15::Origin::Delegate always returns Some(account), ignoring the weight field.
-	assert_eq!(
-		OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 0)).as_account(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 0)).as_account(), Some(42u64));
 	assert_eq!(
 		OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 999)).as_account(),
 		Some(42u64)
@@ -1071,81 +1002,90 @@ fn test_same_origin_and_variant_names_are_independent() {
 		OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 0)).nonce_provider(),
 		Some(42u64)
 	);
-	assert_eq!(
-		OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 0)).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet15(pallet15::Origin::Delegate(42, 0)).fee_payer(), None);
 	// pallet15::Treasurer has fee_payer but NOT nonce_provider.
-	assert_eq!(
-		OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).as_account(),
-		Some(7u64)
-	);
-	assert_eq!(
-		OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).fee_payer(),
-		Some(7u64)
-	);
+	assert_eq!(OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).as_account(), Some(7u64));
+	assert_eq!(OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet15(pallet15::Origin::Treasurer(7)).fee_payer(), Some(7u64));
 
 	// pallet16::Origin::Delegate returns None when power == 0 (disabled delegate).
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).as_account(), None);
 	// pallet16::Delegate returns Some when power > 0.
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 5)).as_account(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 5)).as_account(), Some(42u64));
 	// pallet16::Delegate has all three flags, but they all use the same closure.
 	assert_eq!(
 		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 5)).nonce_provider(),
 		Some(42u64)
 	);
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 5)).fee_payer(),
-		Some(42u64)
-	);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 5)).fee_payer(), Some(42u64));
 	// Disabled delegate: all return None.
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).nonce_provider(),
-		None
-	);
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).fee_payer(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).nonce_provider(), None);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Delegate(42, 0)).fee_payer(), None);
 	// pallet16::Spectator has no as_account at all.
-	assert_eq!(
-		OriginCaller::Pallet16(pallet16::Origin::Spectator).as_account(),
-		None
-	);
+	assert_eq!(OriginCaller::Pallet16(pallet16::Origin::Spectator).as_account(), None);
 }
 
 // =============================================================================
-// Test: direct AccountLike trait on non-generic origin type (pallet8)
+// Test: direct AccountLike trait on non-generic origin types (pallet3, pallet8)
 // =============================================================================
 
 #[test]
 fn test_non_generic_origin_account_like_trait_directly() {
-	// For non-generic enum origins, the AccountLike trait impl on the origin type
-	// itself uses default implementations (returns None), because the closures need
-	// access to T. The actual behavior is routed through OriginCaller.
-	assert_eq!(AccountLike::<u64>::as_account(&pallet8::Origin::Council(1)), None);
-	assert_eq!(AccountLike::<u64>::nonce_provider(&pallet8::Origin::Council(1)), None);
-	assert_eq!(AccountLike::<u64>::fee_payer(&pallet8::Origin::Council(1)), None);
-
-	// But through OriginCaller, it works correctly (with storage).
+	// For non-generic enum origins the `#[pallet]` macro does not implement `AccountLike` on the
+	// origin type itself, because the closures need access to `T`. `pallet8::Origin` has no impl at
+	// all, so a direct `AccountLike` call on it does not compile. The actual behavior is routed
+	// through `OriginCaller` (here with storage).
 	use sp_runtime::BuildStorage;
 	let t = RuntimeGenesisConfig { ..Default::default() }.build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
 		pallet8::CouncilAccounts::<Runtime>::insert(1u32, 42u64);
-		assert_eq!(
-			OriginCaller::Pallet8(pallet8::Origin::Council(1)).as_account(),
-			Some(42u64)
-		);
+		assert_eq!(OriginCaller::Pallet8(pallet8::Origin::Council(1)).as_account(), Some(42u64));
 	});
+
+	// `pallet3` wrote its own `AccountLike` impl, which is used for direct calls on the origin
+	// type...
+	assert_eq!(AccountLike::<u64>::as_account(&pallet3::Origin::StakingAdmin), Some(1u64));
+	assert_eq!(AccountLike::<u64>::as_account(&pallet3::Origin::Treasurer), None);
+	assert_eq!(AccountLike::<u64>::nonce_provider(&pallet3::Origin::StakingAdmin), None);
+	// ...but not by `OriginCaller`, which only follows the `#[pallet::as_account]` attributes.
+	assert_eq!(OriginCaller::Pallet3(pallet3::Origin::StakingAdmin).as_account(), None);
+}
+
+// =============================================================================
+// Test: conditionally compiled variants (pallet17)
+// =============================================================================
+
+#[test]
+fn test_cfg_gated_variants() {
+	// `Present` is compiled in and behaves like any other annotated variant.
+	let present = OriginCaller::Pallet17(pallet17::Origin::Present(42));
+	assert_eq!(present.as_account(), Some(42u64));
+	assert_eq!(present.nonce_provider(), Some(42u64));
+	assert_eq!(present.fee_payer(), Some(42u64));
+	assert_eq!(AccountLike::as_account(&pallet17::Origin::<Runtime>::Present(42)), Some(42u64));
+
+	// `Absent` is compiled out. This test compiling at all is the check that no code was
+	// generated for it.
+	let other = OriginCaller::Pallet17(pallet17::Origin::Other);
+	assert_eq!(other.as_account(), None);
+	assert_eq!(other.nonce_provider(), None);
+	assert_eq!(other.fee_payer(), None);
+}
+
+// =============================================================================
+// Test: variant names clashing with generated function names (pallet18)
+// =============================================================================
+
+#[test]
+fn test_awkward_variant_names() {
+	let origin = OriginCaller::Pallet18(pallet18::Origin::origin(42));
+	assert_eq!(origin.as_account(), Some(42u64));
+	assert_eq!(origin.nonce_provider(), Some(42u64));
+	assert_eq!(origin.fee_payer(), None);
+
+	let raw = OriginCaller::Pallet18(pallet18::Origin::r#type(7));
+	assert_eq!(raw.as_account(), Some(7u64));
+	assert_eq!(raw.nonce_provider(), None);
+	assert_eq!(raw.fee_payer(), Some(7u64));
 }

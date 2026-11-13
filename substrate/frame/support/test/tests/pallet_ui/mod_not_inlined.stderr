@@ -1,4 +1,4 @@
-error[E0658]: non-inline modules in proc macro input are unstable
+error[E0658]: file modules in proc macro input are unstable
   --> tests/pallet_ui/mod_not_inlined.rs:19:1
    |
 19 | mod foo;

@@ -31,7 +31,7 @@ error[E0283]: type annotations needed
    |         ^^^^^ cannot infer type
    |
    = note: cannot satisfy `_: pallet::Config`
-note: required by a bound in `Origin::Admin`
+note: required by a bound in `pallet::Origin::Admin`
   --> tests/pallet_ui/as_account_too_many_args_unit.rs:39:21
    |
 39 |     pub enum Origin<T: Config> {
@@ -50,7 +50,7 @@ error[E0283]: type annotations needed
    | |_____________^ cannot infer type for type parameter `T` declared on the enum `Origin`
    |
    = note: cannot satisfy `_: pallet::Config`
-note: required by a bound in `Origin::Admin`
+note: required by a bound in `pallet::Origin::Admin`
   --> tests/pallet_ui/as_account_too_many_args_unit.rs:39:21
    |
 39 |     pub enum Origin<T: Config> {
@@ -66,7 +66,7 @@ error[E0283]: type annotations needed
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
    |
    = note: cannot satisfy `_: pallet::Config`
-note: required by a bound in `Origin::Admin`
+note: required by a bound in `pallet::Origin::Admin`
   --> tests/pallet_ui/as_account_too_many_args_unit.rs:39:21
    |
 39 |     pub enum Origin<T: Config> {
