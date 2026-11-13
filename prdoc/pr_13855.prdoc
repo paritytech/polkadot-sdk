@@ -1,0 +1,10 @@
+title: Remove pallet::getter usage from pallet-state-trie-migration
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces the `#[pallet::getter]` attributes of `pallet-state-trie-migration` with explicit public
+    functions on `Pallet<T>`. `migration_process()`, `auto_limits()` and
+    `signed_migration_max_limits()` keep their signatures, so no changes are needed downstream.
+crates:
+- name: pallet-state-trie-migration
+  bump: minor
