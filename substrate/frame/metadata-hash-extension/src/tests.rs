@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use frame_support::{
 	derive_impl,
-	pallet_prelude::{InvalidTransaction, TransactionValidityError},
+	pallet_prelude::{InvalidTransaction, TransactionValidityError, Zero},
 };
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::{Metadata, ProvideRuntimeApi};
@@ -57,6 +57,36 @@ fn rejects_when_no_metadata_hash_was_passed() {
 #[test]
 fn rejects_unknown_mode() {
 	assert!(CheckMetadataHash::<Test>::decode(&mut &50u8.encode()[..]).is_err());
+}
+
+#[test]
+fn custom_hash_is_used_in_implicit() {
+	let hash = [42u8; 32];
+	let ext = CheckMetadataHash::<Test>::new_with_custom_hash(hash);
+	assert_eq!(Ok(Some(hash)), ext.implicit());
+}
+
+#[test]
+fn disabled_mode_returns_none_implicit() {
+	assert_eq!(Ok(None), CheckMetadataHash::<Test>::new(false).implicit());
+
+	// A decoded `0` mode byte behaves the same.
+	let ext = CheckMetadataHash::<Test>::decode(&mut &0u8.encode()[..]).unwrap();
+	assert_eq!(Ok(None), ext.implicit());
+}
+
+#[test]
+fn encoding_is_a_single_mode_byte() {
+	assert_eq!(vec![1u8], CheckMetadataHash::<Test>::new(true).encode());
+	assert_eq!(vec![0u8], CheckMetadataHash::<Test>::new(false).encode());
+	assert_eq!(vec![1u8], CheckMetadataHash::<Test>::new_with_custom_hash([1u8; 32]).encode());
+}
+
+#[test]
+fn weight_is_zero() {
+	let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+	assert!(CheckMetadataHash::<Test>::new(true).weight(&call).is_zero());
+	assert!(CheckMetadataHash::<Test>::new(false).weight(&call).is_zero());
 }
 
 /// Generate the metadata hash for the `test-runtime`.
