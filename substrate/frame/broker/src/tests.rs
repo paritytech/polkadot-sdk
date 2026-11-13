@@ -2760,6 +2760,83 @@ fn auto_renewal_works() {
 }
 
 #[test]
+fn auto_renewals_stay_sorted_when_a_record_is_carried_over() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region_1 = Broker::do_purchase(1, u64::MAX).unwrap();
+		let region_2 = Broker::do_purchase(1, u64::MAX).unwrap();
+		let region_3 = Broker::do_purchase(1, u64::MAX).unwrap();
+		assert_eq!(region_1.core, 0);
+		assert_eq!(region_2.core, 1);
+		assert_eq!(region_3.core, 2);
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
+
+		// Task 1002's next renewal is scheduled further in the future than the next region
+		// (as is the case for lease-holding tasks), so its record is carried over with its
+		// old core index at the next rotation.
+		PotentialRenewals::<Test>::insert(
+			PotentialRenewalId { core: 1, when: 10 },
+			PotentialRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1002) }]
+						.try_into()
+						.unwrap(),
+				),
+			},
+		);
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(10)));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
+			]
+		);
+
+		endow(1003, 1000);
+
+		// Next cycle starting at 7: task 1002's record is carried over with stale core 1 while
+		// task 1003 is remapped from core 2 to the freshly allocated core 0. The records must
+		// remain sorted by core for the binary searches in `do_enable_auto_renew` and
+		// `do_disable_auto_renew` to work.
+		advance_to(7);
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1003, // sovereign account
+				old_core: 2,
+				core: 0,
+				price: 100,
+				begin: 7,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1003),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1003, next_renewal: 10 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },
+			]
+		);
+
+		// The remapped record must be findable: the task can still disable auto-renewal.
+		assert_ok!(Broker::do_disable_auto_renew(0, 1003));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },]
+		);
+	});
+}
+
+#[test]
 fn enable_auto_renew_immediate_updates_core_and_renews() {
 	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
