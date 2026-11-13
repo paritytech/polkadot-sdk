@@ -2474,6 +2474,89 @@ async fn observer_finalizes_through_authority_set_change() {
 }
 
 #[tokio::test]
+async fn startup_requests_justifications_above_best_block() {
+	for delay in [0, 1] {
+		let mut net = GrandpaTestNet::new(TestApi::new(make_ids(&[Ed25519Keyring::Alice])), 2, 0);
+		net.peer(0).generate_blocks(1, BlockOrigin::File, |mut builder| {
+			add_scheduled_change(
+				&mut builder,
+				ScheduledChange { next_authorities: make_ids(&[Ed25519Keyring::Bob]), delay },
+			);
+			builder.build().expect("scheduled change block builds").block
+		});
+		net.peer(0).push_blocks(delay as usize, false);
+
+		let source = net.peer(0).client().as_client();
+		let client = net.peer(1).client().clone();
+		let full_client = client.as_client();
+		let (block_import, ..) = net.make_block_import(client.clone());
+		for number in 1..=delay + 1 {
+			let hash = source
+				.expect_block_hash_from_id(&BlockId::Number(number))
+				.expect("source block exists");
+			let header = source
+				.header(hash)
+				.expect("header lookup succeeds")
+				.expect("source header exists");
+			let mut import = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			import.state_action = sc_consensus::StateAction::Skip;
+			import.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+			assert_matches!(
+				block_import.import_block(import).await.expect("header import succeeds"),
+				ImportResult::Imported(_)
+			);
+
+			if number < delay + 1 {
+				let (_, justification_import, _) = net.make_block_import(client.clone());
+				assert!(justification_import
+					.expect("GRANDPA imports justifications")
+					.on_start()
+					.await
+					.is_empty());
+			}
+		}
+		assert_eq!(full_client.chain_info().best_number, 0);
+
+		// Rebuild GRANDPA from persisted changes, as a restarted import queue does.
+		let (_, justification_import, link) = net.make_block_import(client.clone());
+		let mut justification_import =
+			justification_import.expect("GRANDPA imports justifications");
+		let link = link.lock().take().expect("GRANDPA link initialized");
+		let number = delay + 1;
+		let hash = source
+			.expect_block_hash_from_id(&BlockId::Number(number))
+			.expect("source block exists");
+		assert_eq!(
+			justification_import.on_start().await,
+			vec![(hash, number)],
+			"stored effective block needs a justification with delay {delay}",
+		);
+
+		let precommit = finality_grandpa::Precommit { target_hash: hash, target_number: number };
+		let message = finality_grandpa::Message::Precommit(precommit.clone());
+		let payload = sp_consensus_grandpa::localized_payload(1, 0, &message);
+		let commit = finality_grandpa::Commit {
+			target_hash: hash,
+			target_number: number,
+			precommits: vec![finality_grandpa::SignedPrecommit {
+				precommit,
+				signature: Ed25519Keyring::Alice.sign(&payload).into(),
+				id: Ed25519Keyring::Alice.public().into(),
+			}],
+		};
+		let proof =
+			GrandpaJustification::from_commit(&full_client, 1, commit).expect("valid commit");
+		justification_import
+			.import_justification(hash, number, (GRANDPA_ENGINE_ID, proof.encode()))
+			.await
+			.expect("signed justification finalizes the effective block");
+		assert_eq!(full_client.chain_info().finalized_number, number);
+		assert_eq!(link.shared_authority_set().set_id(), 1);
+		assert!(justification_import.on_start().await.is_empty());
+	}
+}
+
+#[tokio::test]
 async fn concurrent_finalization_of_change_block_doesnt_panic() {
 	// Regression test for a panic in `GrandpaBlockImport::import_justification`:
 	//
