@@ -657,17 +657,13 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_approval_voting_params(
+	pub async fn parachain_host_approval_voting_params(
 		&self,
 		at: RelayHash,
 		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_approval_voting_params",
-			at,
-			None::<()>,
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_approval_voting_params", at, None::<()>)
+			.await
 	}
 
 	pub async fn parachain_host_para_backing_state(
@@ -799,14 +795,14 @@ impl RelayChainRpcClient {
 			.await
 	}
 
-	pub async fn parachain_host_allowed_relay_parent_info(
+	pub async fn parachain_host_ancestor_relay_parent_info(
 		&self,
 		at: RelayHash,
 		session_index: SessionIndex,
 		relay_parent: RelayHash,
 	) -> Result<Option<RelayParentInfo<RelayHash, BlockNumber>>, RelayChainError> {
 		self.call_remote_runtime_function(
-			"ParachainHost_allowed_relay_parent_info",
+			"ParachainHost_ancestor_relay_parent_info",
 			at,
 			Some((session_index, relay_parent)),
 		)

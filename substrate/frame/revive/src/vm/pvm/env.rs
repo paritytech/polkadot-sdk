@@ -18,11 +18,12 @@
 use super::*;
 
 use crate::{
-	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
+	AccountIdOf, CodeInfo, Config, ContractBlob, ContractLogTopics, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
 	exec::Ext,
 	limits,
+	metering::EngineMeter,
 	primitives::ExecReturnValue,
 	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
 };
@@ -38,14 +39,18 @@ use sp_runtime::{DispatchError, SaturatedConversion};
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
 	///
-	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
-	/// don't make use of this buffer. Hence this should not be set to anything
-	/// other than `0` when not used for benchmarking.
+	/// With the interpreter backend the instance starts with the frame's gas plus a credit for
+	/// the first allocation of the interpreter's map of compiled blocks:
+	/// `ceil(code_section_bytes * per_code_byte_millis / 1000)`, the gas the interpreter charges
+	/// for it. The caller pays for that allocation with the code load of stored code, or with the
+	/// code length slope of `instantiate_with_code` or `eth_instantiate_with_code` for code the
+	/// transaction uploads. The frame's meter keeps accounting against the gas it handed over, so
+	/// the credit is not counted as the callee's consumption. Other backends do not charge for the
+	/// map and get no credit.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
-		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		// Log filtering by level with log::enabled! returns always true,
@@ -66,15 +71,29 @@ impl<T: Config> ContractBlob<T> {
 				interpreter is available on all platforms; qed",
 		);
 
+		let compilation_cost = EngineMeter::<T>::interpreter_compilation_cost();
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_aux_data_size(aux_data_size);
-		let module =
-			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
-				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-				Error::<T>::CodeRejected
-			})?;
+		module_config.set_interpreter_compilation_cost(Some(compilation_cost));
+		let blob = polkavm::ProgramBlob::parse(self.code.into()).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
+		let charges_code_map = engine.backend() == polkavm::BackendKind::Interpreter;
+		let code_map_credit: polkavm::Gas = if charges_code_map {
+			let code_section_bytes: u64 = blob.code().len().saturated_into();
+			code_section_bytes
+				.saturating_mul(compilation_cost.per_code_byte_millis.into())
+				.div_ceil(1000)
+				.saturated_into()
+		} else {
+			0
+		};
+		let module = polkavm::Module::from_blob(&engine, &module_config, blob).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
 
 		let entry_program_counter = module
 			.exports()
@@ -89,7 +108,7 @@ impl<T: Config> ContractBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		instance.set_gas(gas_limit_polkavm);
+		instance.set_gas(gas_limit_polkavm.saturating_add(code_map_credit));
 		instance
 			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
 				max_block_size: limits::code::BASIC_BLOCK_SIZE,
@@ -109,8 +128,7 @@ impl<T: Config> ContractBlob<T> {
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let available_syscalls = list_syscalls();
-		let code = limits::code::enforce::<T>(code, available_syscalls)?;
+		let code = limits::code::enforce::<T>(code)?;
 
 		let code_len = code.len() as u32;
 		let deposit = calculate_code_deposit::<T>(code_len);
@@ -615,10 +633,14 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		// quering the length is free as it is stored with the contract metadata
-		let len = self.ext.immutable_data_len();
-		self.charge_gas(RuntimeCosts::GetImmutableData(len))?;
+		// `immutable_data_len` is exact for a frame executing its own code and the
+		// `IMMUTABLE_BYTES` cap when the code (and so the data) belongs to another account —
+		// delegate calls, and calls to EIP-7702 delegated EOAs. Charge it, then settle on the
+		// actual length.
+		let charge_len = self.ext.immutable_data_len();
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(charge_len))?;
 		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
@@ -657,12 +679,18 @@ pub mod env {
 		addr_ptr: u32,
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::BalanceOf)?;
 		let address = memory.read_h160(addr_ptr)?;
+		let balance = if address == self.ext.address() {
+			self.charge_gas(RuntimeCosts::Balance)?;
+			self.ext.balance()
+		} else {
+			self.charge_gas(RuntimeCosts::BalanceOf)?;
+			self.ext.balance_of(&address)
+		};
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.balance_of(&address).to_little_endian(),
+			&balance.to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -766,9 +794,11 @@ pub mod env {
 				v
 			},
 		};
+		let topics =
+			ContractLogTopics::try_from(topics).map_err(|_| Error::<E::T>::TooManyTopics)?;
 
 		let event_data = memory.read(data_ptr, data_len)?;
-		self.ext.deposit_event(topics, event_data);
+		self.ext.deposit_event(topics, event_data)?;
 		Ok(())
 	}
 
@@ -955,5 +985,31 @@ pub mod env {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use pallet_revive_types::runtime_api::*;
+	use strum::VariantArray;
+
+	#[test]
+	fn wire_has_all_syscalls() {
+		let wire_syscalls = PolkavmSyscallV1::VARIANTS
+			.iter()
+			.copied()
+			.map(<&'static str>::from)
+			.collect::<Vec<_>>();
+		let canonical_syscalls = list_trace_ops()
+			.iter()
+			.map(|bytes| str::from_utf8(bytes).unwrap())
+			.collect::<Vec<_>>();
+
+		assert_eq!(
+			wire_syscalls, canonical_syscalls,
+			"There is a difference between the syscalls defined for the wire and the syscalls \
+			available in the system. Wire = {wire_syscalls:?}. Available = {canonical_syscalls:?}"
+		)
 	}
 }

@@ -25,6 +25,7 @@
 //! `DispatchClass`. This module contains configuration object for both resources,
 //! which should be passed to `frame_system` configuration when runtime is being set up.
 
+use alloc::{format, string::String, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchClass, OneOrMany, PerDispatchClass},
 	weights::{constants, Weight},
@@ -61,32 +62,6 @@ impl Default for BlockLength {
 }
 
 impl BlockLength {
-	/// Create new `BlockLength` with `max` for every class.
-	#[deprecated(
-		note = "Use `BlockLength::builder().max(value).build()` instead. Will be removed after July 2026."
-	)]
-	pub fn max(max: u32) -> Self {
-		Self { max: PerDispatchClass::new(|_| max), max_header_size: None }
-	}
-
-	/// Create new `BlockLength` with `max` for `Operational` & `Mandatory`
-	/// and `normal * max` for `Normal`.
-	#[deprecated(
-		note = "Use `BlockLength::builder().normal_ratio(value, ratio).build()` instead. Will be removed after July 2026."
-	)]
-	pub fn max_with_normal_ratio(max: u32, normal: Perbill) -> Self {
-		Self {
-			max: PerDispatchClass::new(|class| {
-				if class == DispatchClass::Normal {
-					normal * max
-				} else {
-					max
-				}
-			}),
-			max_header_size: None,
-		}
-	}
-
 	/// Returns a builder to build a [`BlockLength`].
 	pub fn builder() -> BlockLengthBuilder {
 		BlockLengthBuilder { length: Default::default() }
@@ -117,6 +92,21 @@ impl BlockLengthBuilder {
 		self
 	}
 
+	/// Set `max` for `Operational` and `Mandatory`, and `ratio * max` for `Normal`.
+	pub fn normal_ratio(mut self, max: u32, ratio: Perbill) -> Self {
+		self.length.max =
+			PerDispatchClass::new(
+				|class| {
+					if class == DispatchClass::Normal {
+						ratio * max
+					} else {
+						max
+					}
+				},
+			);
+		self
+	}
+
 	/// Modify max block length for the given [`DispatchClass`].
 	pub fn modify_max_length_for_class(
 		mut self,
@@ -142,7 +132,6 @@ impl BlockLengthBuilder {
 #[derive(Default, Debug)]
 pub struct ValidationErrors {
 	pub has_errors: bool,
-	#[cfg(feature = "std")]
 	pub errors: Vec<String>,
 }
 
@@ -150,7 +139,6 @@ macro_rules! error_assert {
 	($cond : expr, $err : expr, $format : expr $(, $params: expr )*$(,)*) => {
 		if !$cond {
 			$err.has_errors = true;
-			#[cfg(feature = "std")]
 			{ $err.errors.push(format!($format $(, &$params )*)); }
 		}
 	}
@@ -516,5 +504,14 @@ mod tests {
 	#[test]
 	fn default_weights_are_valid() {
 		BlockWeights::default().validate().unwrap();
+	}
+
+	#[test]
+	fn normal_ratio_limits_the_normal_class() {
+		let length = BlockLength::builder().normal_ratio(1_000, Perbill::from_percent(75)).build();
+		assert_eq!(*length.max.get(DispatchClass::Normal), 750);
+		assert_eq!(*length.max.get(DispatchClass::Operational), 1_000);
+		assert_eq!(*length.max.get(DispatchClass::Mandatory), 1_000);
+		assert!(length.max_header_size.is_none());
 	}
 }

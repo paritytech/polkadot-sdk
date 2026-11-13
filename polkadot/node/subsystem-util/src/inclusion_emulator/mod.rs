@@ -80,10 +80,9 @@
 ///
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
-use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
 	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals, BlockNumber,
-	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	CandidateCommitments, Hash, HeadData, Id as ParaId, PersistedValidationData,
 	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -792,62 +791,6 @@ fn validate_against_constraints(
 	constraints
 		.check_modifications(&modifications)
 		.map_err(FragmentValidityError::OutputsInvalid)
-}
-
-/// Trait for a hypothetical or concrete candidate, as needed when assessing the validity of a
-/// potential candidate.
-pub trait HypotheticalOrConcreteCandidate {
-	/// Return a reference to the candidate commitments, if present.
-	fn commitments(&self) -> Option<&CandidateCommitments>;
-	/// Return a reference to the persisted validation data, if present.
-	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
-	/// Return a reference to the validation code hash, if present.
-	fn validation_code_hash(&self) -> Option<ValidationCodeHash>;
-	/// Return the parent head hash.
-	fn parent_head_data_hash(&self) -> Hash;
-	/// Return the output head hash, if present.
-	fn output_head_data_hash(&self) -> Option<Hash>;
-	/// Return the relay parent hash.
-	fn relay_parent(&self) -> Hash;
-	/// Return the candidate hash.
-	fn candidate_hash(&self) -> CandidateHash;
-	/// Return the scheduling parent hash.
-	///
-	/// For V3 candidates, this may differ from relay_parent.
-	/// For V1/V2 candidates and hypothetical candidates, this defaults to relay_parent.
-	fn scheduling_parent(&self) -> Hash {
-		self.relay_parent()
-	}
-}
-
-impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
-	fn commitments(&self) -> Option<&CandidateCommitments> {
-		self.commitments()
-	}
-
-	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
-		self.persisted_validation_data()
-	}
-
-	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
-		self.validation_code_hash()
-	}
-
-	fn parent_head_data_hash(&self) -> Hash {
-		self.parent_head_data_hash()
-	}
-
-	fn output_head_data_hash(&self) -> Option<Hash> {
-		self.output_head_data_hash()
-	}
-
-	fn relay_parent(&self) -> Hash {
-		self.relay_parent()
-	}
-
-	fn candidate_hash(&self) -> CandidateHash {
-		self.candidate_hash()
-	}
 }
 
 #[cfg(test)]

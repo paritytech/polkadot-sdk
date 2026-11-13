@@ -24,20 +24,22 @@ use crate::{
 	ExecReturnValue, Weight,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
-	metering::TransactionLimits,
+	metering::{EngineMeter, TransactionLimits},
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
-	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, Test, builder},
+	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
-	primitives::{Bytes, FixedBytes},
+	primitives::{Bytes, FixedBytes, U256},
 	sol_types::{Revert, SolCall, SolError, SolInterface},
 };
 use frame_support::{
 	assert_err,
-	traits::fungible::{Balanced, Mutate},
+	traits::fungible::{Balanced, Inspect, Mutate},
 };
 use itertools::Itertools;
-use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
+use pallet_revive_fixtures::{
+	Callee, Caller, FixtureType, Host, SubCaller, compile_module_with_type,
+};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
@@ -147,6 +149,233 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the store call must succeed");
+	});
+}
+
+/// What `SubCaller` does in a loop.
+///
+/// Every loop body is one assembly call, delegate call or create, see `SubCaller.sol`.
+enum SubCall {
+	/// Calls the identity pre-compile, a builtin pre-compile.
+	BuiltinPrecompile,
+	/// Calls `NoInfo`, an external pre-compile of the test runtime, ignoring its revert.
+	///
+	/// The input does not decode, so `NoInfo` reverts.
+	ExternalPrecompile,
+	/// Calls `NoInfo`, which calls a contract that accepts the call and has the caller's type.
+	PrecompileCallingContract,
+	/// Calls a contract that accepts the call.
+	Call,
+	/// As `Call`, while an outer `SubCaller` of the same type waits on this one.
+	///
+	/// The outer `SubCaller` calls this one once, with the input of `Call`.
+	NestedCall,
+	/// Calls a contract that reverts.
+	RevertingCall,
+	/// Delegate calls a contract that accepts the call.
+	DelegateCall,
+	/// Creates a contract.
+	Create,
+	/// Transfers value to an account without code.
+	Transfer,
+	/// Calls an EVM contract that accepts the call.
+	EvmCall,
+	/// Calls an EVM contract that calls a PVM contract that accepts the call.
+	EvmCallingPvm,
+}
+
+impl SubCall {
+	/// Whether a PVM caller's sub-call starts a PVM frame.
+	fn starts_pvm_frame(&self) -> bool {
+		match self {
+			Self::BuiltinPrecompile | Self::ExternalPrecompile | Self::Transfer | Self::EvmCall => {
+				false
+			},
+			Self::PrecompileCallingContract |
+			Self::Call |
+			Self::NestedCall |
+			Self::RevertingCall |
+			Self::DelegateCall |
+			Self::Create |
+			Self::EvmCallingPvm => true,
+		}
+	}
+}
+
+/// A PVM caller pays for its code map again after each sub-call that starts a PVM frame.
+///
+/// The charge is in proportion to the size of the caller's code and applies whether the
+/// sub-call succeeds or not. The suspended PVM caller's interpreter cache is reset when a PVM
+/// frame starts: a call, delegate call or creation of a PVM contract, also when a pre-compile or
+/// an EVM contract in between makes it. Of several waiting PVM frames, the innermost one is
+/// reset, which [`SubCall::NestedCall`] checks. Pre-compiles that call no contract, transfers to
+/// accounts without code and EVM contracts that start no PVM frame leave the cache alone. The
+/// interpreter charges the rebuild as gas through the `per_code_byte_millis` compilation cost.
+/// An EVM caller keeps no code map.
+///
+/// `SubCallerLarge` runs the same functions as `SubCaller` but has more code. Both make one
+/// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are
+/// compiled separately, so their loops can differ by a few instructions. The caller runs them
+/// and, when its cache was reset during the sub-call, compiles them again in every iteration.
+/// The comparison allows for 4 instructions and one basic block per sub-call, while the cost of
+/// the extra code is asserted to be more than ten times that.
+#[test_case(FixtureType::Solc, SubCall::BuiltinPrecompile)]
+#[test_case(FixtureType::Solc, SubCall::ExternalPrecompile)]
+#[test_case(FixtureType::Solc, SubCall::PrecompileCallingContract)]
+#[test_case(FixtureType::Solc, SubCall::Call)]
+#[test_case(FixtureType::Solc, SubCall::NestedCall)]
+#[test_case(FixtureType::Solc, SubCall::RevertingCall)]
+#[test_case(FixtureType::Solc, SubCall::DelegateCall)]
+#[test_case(FixtureType::Solc, SubCall::Create)]
+#[test_case(FixtureType::Solc, SubCall::Transfer)]
+#[test_case(FixtureType::Solc, SubCall::EvmCall)]
+#[test_case(FixtureType::Solc, SubCall::EvmCallingPvm)]
+#[test_case(FixtureType::Resolc, SubCall::BuiltinPrecompile)]
+#[test_case(FixtureType::Resolc, SubCall::ExternalPrecompile)]
+#[test_case(FixtureType::Resolc, SubCall::PrecompileCallingContract)]
+#[test_case(FixtureType::Resolc, SubCall::Call)]
+#[test_case(FixtureType::Resolc, SubCall::NestedCall)]
+#[test_case(FixtureType::Resolc, SubCall::RevertingCall)]
+#[test_case(FixtureType::Resolc, SubCall::DelegateCall)]
+#[test_case(FixtureType::Resolc, SubCall::Create)]
+#[test_case(FixtureType::Resolc, SubCall::Transfer)]
+#[test_case(FixtureType::Resolc, SubCall::EvmCall)]
+#[test_case(FixtureType::Resolc, SubCall::EvmCallingPvm)]
+fn sub_call_charges_caller_code_map(fixture_type: FixtureType, sub_call: SubCall) {
+	use crate::{precompiles::Precompile, tests::precompiles::NoInfo};
+
+	let (small_code, _) = compile_module_with_type("SubCaller", fixture_type).unwrap();
+	let (large_code, _) = compile_module_with_type("SubCallerLarge", fixture_type).unwrap();
+	let (sink_code, _) = compile_module_with_type("Sink", fixture_type).unwrap();
+	let (reverter_code, _) = compile_module_with_type("Reverter", fixture_type).unwrap();
+	let other_type = match fixture_type {
+		FixtureType::Solc => FixtureType::Resolc,
+		_ => FixtureType::Solc,
+	};
+	let (other_sink_code, _) = compile_module_with_type("Sink", other_type).unwrap();
+	let (forwarder_code, _) = compile_module_with_type("Forwarder", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let deploy =
+			|code| builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+		// Deploying `Sink` also uploads the code that `createN` instantiates with resolc.
+		let sink = deploy(sink_code);
+		let reverter = deploy(reverter_code);
+		let other_sink = deploy(other_sink_code);
+		let (evm_sink, pvm_sink) = match fixture_type {
+			FixtureType::Solc => (sink, other_sink),
+			_ => (other_sink, sink),
+		};
+		let forwarder = deploy(forwarder_code);
+		let outer = builder::bare_instantiate(Code::Upload(small_code.clone()))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract()
+			.addr;
+		let receiver = H160::repeat_byte(0x42);
+		let _ = <Test as Config>::Currency::set_balance(
+			&<Test as Config>::AddressMapper::to_account_id(&receiver),
+			100_000_000_000,
+		);
+		let no_info = <NoInfo<Test> as Precompile>::MATCHER.base_address().into();
+		let call_data = |n: u64| {
+			let n = U256::from(n);
+			match sub_call {
+				SubCall::BuiltinPrecompile => {
+					let target = H160::from_low_u64_be(4).0.into();
+					SubCaller::callNCall { target, n }.abi_encode()
+				},
+				SubCall::ExternalPrecompile => {
+					SubCaller::callIgnoringNCall { target: no_info, n }.abi_encode()
+				},
+				SubCall::PrecompileCallingContract => {
+					use crate::tests::precompiles::INoInfo;
+					let input = INoInfo::callContractCall { target: sink.0.into() }.abi_encode();
+					SubCaller::callWithInputNCall { target: no_info, input: input.into(), n }
+						.abi_encode()
+				},
+				SubCall::Call | SubCall::NestedCall => {
+					SubCaller::callNCall { target: sink.0.into(), n }.abi_encode()
+				},
+				SubCall::RevertingCall => {
+					SubCaller::callIgnoringNCall { target: reverter.0.into(), n }.abi_encode()
+				},
+				SubCall::DelegateCall => {
+					SubCaller::delegateCallNCall { target: sink.0.into(), n }.abi_encode()
+				},
+				SubCall::Create => SubCaller::createNCall { n }.abi_encode(),
+				SubCall::Transfer => {
+					let value = crate::Pallet::<Test>::convert_native_to_evm(1_000u128);
+					let value = U256::from_limbs(value.0);
+					SubCaller::transferNCall { target: receiver.0.into(), value, n }.abi_encode()
+				},
+				SubCall::EvmCall => {
+					SubCaller::callNCall { target: evm_sink.0.into(), n }.abi_encode()
+				},
+				SubCall::EvmCallingPvm => {
+					use alloy_core::{primitives::Address, sol_types::SolValue};
+					let input = Address::from(pvm_sink.0).abi_encode();
+					SubCaller::callWithInputNCall {
+						target: forwarder.0.into(),
+						input: input.into(),
+						n,
+					}
+					.abi_encode()
+				},
+			}
+		};
+		let two_calls = |code: Vec<u8>| {
+			let Contract { addr, account_id } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000);
+			let weight = |n: u64| {
+				let (target, data) = match sub_call {
+					SubCall::NestedCall => {
+						let input = call_data(n).into();
+						let once = U256::from(1);
+						let data =
+							SubCaller::callWithInputNCall { target: addr.0.into(), input, n: once }
+								.abi_encode();
+						(outer, data)
+					},
+					_ => (addr, call_data(n)),
+				};
+				let result = builder::bare_call(target).data(data).build();
+				assert!(!result.result.unwrap().did_revert());
+				result.weight_consumed.ref_time()
+			};
+			weight(3) - weight(1)
+		};
+		let small = two_calls(small_code.clone());
+		let large = two_calls(large_code.clone());
+
+		let ref_time_per_fuel = EngineMeter::<Test>::ref_time_per_fuel();
+		let expected = match fixture_type {
+			FixtureType::Resolc if sub_call.starts_pvm_frame() => {
+				let per_code_byte_millis =
+					EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
+				let code_map_gas = |code: Vec<u8>| {
+					let blob = polkavm::ProgramBlob::parse(code.into()).unwrap();
+					let code_len = u64::try_from(blob.code().len()).unwrap();
+					(code_len * u64::from(per_code_byte_millis)).div_ceil(1000)
+				};
+				let (small_gas, large_gas) = (code_map_gas(small_code), code_map_gas(large_code));
+				assert!(large_gas > small_gas);
+				2 * (large_gas - small_gas) * ref_time_per_fuel
+			},
+			_ => 0,
+		};
+		// 4 instructions and one basic block per sub-call, each instruction executed once and
+		// compiled once.
+		let cost = EngineMeter::<Test>::interpreter_compilation_cost();
+		let per_sub_call_millis =
+			4 * (1000 + u64::from(cost.per_instruction_millis)) + 1000 * u64::from(cost.per_block);
+		let tolerance = (2 * per_sub_call_millis).div_ceil(1000) * ref_time_per_fuel;
+		assert!(expected == 0 || expected > 10 * tolerance, "{expected} <= 10 * {tolerance}");
+		assert!(
+			large.abs_diff(small + expected) <= tolerance,
+			"{large} - {small} != {expected} +- {tolerance}"
+		);
 	});
 }
 
@@ -698,6 +927,186 @@ fn instantiate_from_constructor_works() {
 		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
 		let result = callBarCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(result, 42u64);
+	});
+}
+
+/// Root creates a contract via nested CREATE in block N and terminates it via the
+/// system precompile in block N+1. Confirms the deposit waiver holds across both calls.
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn root_call_can_create_and_terminate_in_next_block(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	use crate::{
+		AccountInfo, HoldReason, Pallet,
+		address::AddressMapper,
+		test_utils::DJANGO_ADDR,
+		tests::{System, initialize_block, test_utils::get_balance_on_hold},
+	};
+	use alloy_core::primitives::Address;
+	use pallet_revive_fixtures::{
+		NestedChild::{NestedChildCalls, destroyViaPrecompileCall},
+		NestedDeployer::{NestedDeployerCalls, deployChildCall},
+	};
+
+	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		if caller_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
+
+		// Snapshot balances/holds the two Root calls must not touch.
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
+
+		// Block 1: Root creates the child via nested CREATE.
+		let create_result = builder::bare_call(addr)
+			.origin(RuntimeOrigin::root())
+			.data(NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode())
+			.build_and_unwrap_result();
+		assert!(!create_result.did_revert());
+		let returned: Address = deployChildCall::abi_decode_returns(&create_result.data).unwrap();
+		let child_addr = H160::from_slice(returned.as_slice());
+		assert!(AccountInfo::<Test>::load_contract(&child_addr).is_some());
+
+		// Deposits stayed waived across the Root create.
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+
+		// Block 2: Root tells the child to self-terminate via the system precompile.
+		initialize_block(System::block_number() + 1);
+		let destroy_result = builder::bare_call(child_addr)
+			.origin(RuntimeOrigin::root())
+			.data(
+				NestedChildCalls::destroyViaPrecompile(destroyViaPrecompileCall {
+					beneficiary: DJANGO_ADDR.0.into(),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!destroy_result.did_revert(), "Root terminate should succeed");
+
+		assert!(
+			AccountInfo::<Test>::load_contract(&child_addr).is_some(),
+			"child must stay since it was created in an earlier tx",
+		);
+
+		// Deposits stayed waived across both Root calls.
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		if caller_type == FixtureType::Solc {
+			assert_eq!(
+				get_balance_on_hold(&upload_hold, &pallet_account),
+				pallet_upload_hold_before
+			);
+		}
+	});
+}
+
+/// Sibling of the cross-block test, but using the Solidity `selfdestruct` opcode. To
+/// actually reach `do_terminate` past the EIP-6780 gate at [exec.rs]
+/// `contracts_to_destroy`, creation and destruction must happen in the same tx.
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn root_call_can_create_and_destroy_in_same_tx(caller_type: FixtureType, callee_type: FixtureType) {
+	use crate::{
+		AccountInfo, HoldReason, Pallet, address::AddressMapper, test_utils::DJANGO_ADDR,
+		tests::test_utils::get_balance_on_hold,
+	};
+	use alloy_core::primitives::Address;
+	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployAndDestroyChildCall};
+
+	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		if caller_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
+
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
+
+		let result = builder::bare_call(addr)
+			.origin(RuntimeOrigin::root())
+			.data(
+				NestedDeployerCalls::deployAndDestroyChild(deployAndDestroyChildCall {
+					beneficiary: DJANGO_ADDR.0.into(),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "Root nested CREATE + SELFDESTRUCT should succeed");
+
+		let returned: Address =
+			deployAndDestroyChildCall::abi_decode_returns(&result.data).unwrap();
+		let child_addr = H160::from_slice(returned.as_slice());
+
+		// EIP-6780: created-and-destroyed in the same tx must actually remove the
+		// contract. Before the do_terminate fix this silently failed under Root and
+		// the ContractInfo stayed put.
+		assert!(
+			AccountInfo::<Test>::load_contract(&child_addr).is_none(),
+			"child contract must have been terminated, not silently left on-chain",
+		);
+
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		if caller_type == FixtureType::Solc {
+			assert_eq!(
+				get_balance_on_hold(&upload_hold, &pallet_account),
+				pallet_upload_hold_before
+			);
+		}
 	});
 }
 

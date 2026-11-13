@@ -15,6 +15,7 @@ workspace = true
 frame-support = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true }
+pallet-on-demand-para = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
@@ -24,6 +25,7 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
+coretime-westend-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 westend-system-emulated-network = { workspace = true }

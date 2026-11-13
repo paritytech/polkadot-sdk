@@ -117,8 +117,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		config,
 		None,
 		false,
-		1,
-		sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND,
+		Default::default(),
 		|_, _| (),
 	)
 	.expect("creating a full node doesn't fail")

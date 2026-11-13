@@ -23,7 +23,9 @@ pub use pallet::*;
 const LOG_TARGET: &str = "pallet_foreign_assets";
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+impl<T: Config, I>
+	AssetsCallback<T::AssetId, T::AccountId, <T as pallet_assets::Config<I>>::Balance>
+	for ForeignAssetId<T, I>
 where
 	T: Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
 	I: 'static,
@@ -103,7 +105,6 @@ pub mod pallet {
 			let asset_index = NextAssetIndex::<T>::get();
 			let next_index = asset_index.checked_add(1).ok_or_else(|| {
 				log::error!(target: LOG_TARGET, "Asset index overflow");
-				()
 			})?;
 
 			AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
@@ -116,9 +117,8 @@ pub mod pallet {
 
 		/// Remove an asset mapping if it exists, else this function has no effect.
 		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {
-			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
+			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::take(asset_id) {
 				AssetIndexToForeignAssetId::<T>::remove(asset_index);
-				ForeignAssetIdToAssetIndex::<T>::remove(asset_id);
 			}
 		}
 	}

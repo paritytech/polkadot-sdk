@@ -42,8 +42,13 @@ pub struct ValidationContext {
 	pub executor_params: ExecutorParams,
 	/// Execution timeout
 	pub exec_timeout: Duration,
-	/// Whether V3 features are enabled
-	pub v3_enabled: bool,
+	/// Whether the `CandidateReceiptV3` node feature has ever been seen enabled.
+	///
+	/// During the V3 transition period, this flag determines whether to trust
+	/// `descriptor.version()` or fall back to `descriptor.version_old_rules()`
+	/// for approval/dispute validations.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation`.
+	pub v3_seen: bool,
 }
 
 impl ValidationContext {
@@ -52,14 +57,18 @@ impl ValidationContext {
 		self.candidate_receipt.descriptor.relay_parent()
 	}
 
-	/// Get the scheduling parent hash from the candidate descriptor
+	/// Get the scheduling parent hash, using transition-safe logic.
+	// Note: This uses _for_candidate_validation which is the transition-safe version.
+	// It is used in both backing and approval/dispute contexts.
 	pub fn scheduling_parent(&self) -> Hash {
-		self.candidate_receipt.descriptor.scheduling_parent(self.v3_enabled)
+		self.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(self.v3_seen)
 	}
 
-	/// Get the candidate descriptor version
+	/// Get the effective candidate descriptor version, using transition-safe logic.
 	pub fn descriptor_version(&self) -> CandidateDescriptorVersion {
-		self.candidate_receipt.descriptor.version(self.v3_enabled)
+		self.candidate_receipt.descriptor.version_for_candidate_validation(self.v3_seen)
 	}
 
 	/// Convert to an ExecuteRequest for sending to the worker.

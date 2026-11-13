@@ -59,6 +59,7 @@ impl frame_system::Config for Runtime {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]

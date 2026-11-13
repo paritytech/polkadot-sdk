@@ -30,6 +30,7 @@ sc-executor-common = { workspace = true, default-features = true }
 sc-executor-wasmtime = { workspace = true, default-features = true }
 
 sp-core = { workspace = true, default-features = true }
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }

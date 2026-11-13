@@ -940,6 +940,8 @@ pub mod pallet {
 	impl<T: Config + pallet_authorship::Config>
 		pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
 	{
+		// TODO: once DAP allocates collator budgets, draw rewards from DAP allocation
+		// instead of StakingPot. StakingPot becomes redundant at that point.
 		fn note_author(author: T::AccountId) {
 			let pot = Self::account_id();
 			// assumes an ED will be sent to pot.

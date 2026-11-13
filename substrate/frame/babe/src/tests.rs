@@ -717,6 +717,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn report_equivocation_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -766,7 +767,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 				&inner,
 			),
 			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
+				priority: TransactionPriority::MAX,
 				requires: vec![],
 				provides: vec![("BabeEquivocation", tx_tag).encode()],
 				longevity: ReportLongevity::get(),

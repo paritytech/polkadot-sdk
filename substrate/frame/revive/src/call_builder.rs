@@ -25,6 +25,9 @@
 // benchmarks.
 #![cfg_attr(test, allow(dead_code))]
 
+#[cfg(all(test, feature = "runtime-benchmarks"))]
+mod tests;
+
 use crate::{
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
 	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
@@ -55,6 +58,8 @@ pub struct CallSetup<T: Config> {
 	data: Vec<u8>,
 	transient_storage_size: u32,
 	exec_config: ExecConfig<T>,
+	read_only: bool,
+	delegate_call: bool,
 }
 
 impl<T> Default for CallSetup<T>
@@ -76,22 +81,14 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
+		// The call that creates the frame already pays for the info.
 		#[cfg(feature = "runtime-benchmarks")]
-		{
-			// Whitelist contract account, as it is already accounted for in the call benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
-			);
-
-			// Whitelist the contract's contractInfo as it is already accounted for in the call
-			// benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
-					&contract.account_id,
-				))
-				.into(),
-			);
-		}
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				&contract.account_id,
+			))
+			.into(),
+		);
 
 		Self {
 			contract,
@@ -106,6 +103,8 @@ where
 			data: vec![],
 			transient_storage_size: 0,
 			exec_config: ExecConfig::new_substrate_tx(),
+			read_only: false,
+			delegate_call: false,
 		}
 	}
 
@@ -138,6 +137,16 @@ where
 		self.transient_storage_size = size;
 	}
 
+	/// Set the read-only flag on the call stack frame.
+	pub fn set_read_only(&mut self, read_only: bool) {
+		self.read_only = read_only;
+	}
+
+	/// Mark the call as a delegate call.
+	pub fn set_delegate_call(&mut self, delegate: bool) {
+		self.delegate_call = delegate;
+	}
+
 	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
@@ -156,6 +165,8 @@ where
 			&mut self.transaction_meter,
 			self.value,
 			&self.exec_config,
+			self.read_only,
+			self.delegate_call,
 		);
 		if self.transient_storage_size > 0 {
 			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
@@ -168,11 +179,8 @@ where
 		ext: &'a mut StackExt<'a, T>,
 		module: ContractBlob<T>,
 		input: Vec<u8>,
-		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module
-			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
-			.unwrap()
+		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 	}
 
 	/// Add transient_storage
@@ -413,6 +421,14 @@ impl VmBinaryModule {
 		];
 		Self::new(code)
 	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
+		Self::new(code)
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -462,52 +478,278 @@ impl VmBinaryModule {
 			}
 		}
 		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// The number of branches in [`Self::with_branch_blocks`].
+	///
+	/// All blocks the contract enters must fit into the interpreter cache at the same time, or
+	/// the interpreter would reset the cache and compile blocks again. The cache holds
+	/// `INTERPRETER_CACHE_BYTES / 24` entries and keeps room for one block of
+	/// `BASIC_BLOCK_SIZE` instructions. A block of one instruction takes two entries: its gas
+	/// charge and the instruction. 16000 such blocks and the final block of two instructions
+	/// take 32003 entries, below the 42689 usable.
+	///
+	/// The cache entries are kept in vectors that double their capacity as they grow, up to
+	/// the cache limit. 32003 entries stay below a capacity of 32768. Above it the vectors would
+	/// be reallocated once more, which adds a copy of the whole cache to the largest values of
+	/// `b` and skews the linear fit.
+	pub const BRANCH_BLOCKS: u32 = 16_000;
+
+	/// A contract whose `call` export enters `b` basic blocks of one instruction and returns.
+	///
+	/// The code holds [`Self::BRANCH_BLOCKS`] branches, one `ecalli SENTINEL` and one `ret`.
+	/// Each branch ends a basic block, so each forms a block of its own, and it is always taken
+	/// to the next block. The `ecalli SENTINEL` comes after `b` of them: the call compiles and
+	/// runs `b` blocks of one branch each, then compiles the block of the `ecalli SENTINEL` and
+	/// the instruction after it, and stops at the `ecalli SENTINEL`. The code holds the same
+	/// instructions for every `b`, so its size does not depend on `b`.
+	///
+	/// The branch is a `branch_eq` of two registers. Of the instructions that end a basic block
+	/// and continue at another one, a register branch is the slowest to compile and run per
+	/// block, so the slope is an upper bound for the other terminators.
+	///
+	/// `b` is within `0..=BRANCH_BLOCKS`.
+	pub fn with_branch_blocks(b: u32) -> Self {
+		let mut text = alloc::string::String::from("pub @deploy:\nret\npub @call:\n");
+		for i in 0..Self::BRANCH_BLOCKS {
+			if i == b {
+				text.push_str(&alloc::format!("ecalli {}\n", crate::SENTINEL));
+			}
+			text.push_str(&alloc::format!("jump @next{i} if a0 == a0\n@next{i}:\n"));
+		}
+		if b == Self::BRANCH_BLOCKS {
+			text.push_str(&alloc::format!("ecalli {}\n", crate::SENTINEL));
+		}
+		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// A contract whose `call` export compiles an entry block of `n` instructions and returns.
+	///
+	/// The entry block starts with an `ecalli SENTINEL`, which ends the execution but not the
+	/// basic block, so the interpreter compiles the whole block before running it. `n - 2`
+	/// fillers and a `fallthrough` follow. The remaining `BASIC_BLOCK_SIZE - n` fillers and a
+	/// `ret` form a second block, which is never entered. The code holds the same instructions
+	/// for every `n`, so its size does not depend on `n`.
+	///
+	/// The filler is a `store_imm_indirect_u64` with two 4 byte immediates. It never executes.
+	/// Of the instructions that do not end a basic block, the `store_imm_indirect` kinds are the
+	/// slowest to compile per instruction, with short immediates as well, so the slope is an
+	/// upper bound for the others.
+	///
+	/// `n` is within `2..=BASIC_BLOCK_SIZE`.
+	pub fn with_entry_block(n: u32) -> Self {
+		const FILLER: &str = "u64 [a0 + 0x12345678] = 0x12345678\n";
+		let mut text =
+			alloc::format!("pub @deploy:\nret\npub @call:\necalli {}\n", crate::SENTINEL);
+		for _ in 2..n {
+			text.push_str(FILLER);
+		}
+		text.push_str("fallthrough\n");
+		for _ in n..limits::code::BASIC_BLOCK_SIZE {
+			text.push_str(FILLER);
+		}
+		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// The number of slots in the chain of addresses of [`Self::with_load_chain`].
+	///
+	/// With slots [`Self::LOAD_CHAIN_SLOT_BYTES`] apart, the chain stays in the L2 but not in the
+	/// L1 data cache of the reference hardware: Intel Ice Lake (48 KiB L1D of 12 ways, 1.25 MiB
+	/// L2 of 20 ways) and AMD Zen 3 (32 KiB L1D of 8 ways, 512 KiB L2 of 8 ways), all with 64
+	/// byte lines, 64 L1D sets and 1024 L2 sets. A load touches one line, or two in the
+	/// benchmark variant where every load spans two lines. With slots two lines apart, the 1024
+	/// lines (64 KiB) of the other variants map to every other set and the 2048 lines (128 KiB)
+	/// of the spanning variant to every set. Either way each L1D set in use receives 32 lines
+	/// against at most 12 ways, and each L2 set 2 lines, a quarter of the Zen 3 ways. The L2 is
+	/// physically indexed, so 2 lines per set is an average that depends on where the 32 4 KiB
+	/// pages of the chain land. Every load also takes a DTLB lookup; the 32 pages fit the 64 entry
+	/// L1 DTLB of both.
+	pub const LOAD_CHAIN_SLOTS: u32 = 1024;
+
+	/// The distance between two slots of [`Self::with_load_chain`] in bytes.
+	///
+	/// Two 64 byte cache lines; see [`Self::LOAD_CHAIN_SLOTS`].
+	pub const LOAD_CHAIN_SLOT_BYTES: u32 = 128;
+
+	/// A contract whose `call` export runs `a1` iterations of `LOAD_CHAIN_GAS - 3` dependent
+	/// loads.
+	///
+	/// An iteration is the branch `jump @done if t0 == a1`, then one basic block of loads
+	/// `a0 = u64 [a0]`, `t0 = t0 + 1` and `jump @loop`. Each load reads the address of the next
+	/// one, so it cannot start before the previous load has finished. The contract declares
+	/// [`Self::LOAD_CHAIN_SLOTS`] slots of [`Self::LOAD_CHAIN_SLOT_BYTES`] as read-write data.
+	/// The caller writes the chain of addresses into it and sets `a0` to the first address.
+	pub fn with_load_chain() -> Self {
+		let mut text = alloc::format!(
+			"%rw_data_size = {}\npub @deploy:\nret\npub @call:\n@loop:\njump @done if t0 == a1\n",
+			Self::LOAD_CHAIN_SLOTS * Self::LOAD_CHAIN_SLOT_BYTES,
+		);
+		for _ in 3..crate::metering::LOAD_CHAIN_GAS {
+			text.push_str("a0 = u64 [a0]\n");
+		}
+		text.push_str("t0 = t0 + 1\njump @loop\n@done:\nret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// A contract whose `call` export runs `a1` laps of a random cycle of indirect jumps.
+	///
+	/// The cycle has `INDIRECT_JUMP_GAS - 3` basic blocks of one instruction each. Every block
+	/// is a `load_imm_and_jump_indirect` that jumps to the address in `a0` and loads the address
+	/// of the block after the next one into `a0`. A lap starts and ends at a block with the
+	/// branch `jump @done if t0 == a1`, followed by `t0 = t0 + 1` and the jump into the cycle.
+	/// The order of the blocks in the cycle is a fixed random permutation, so consecutive
+	/// jumps go to unrelated code addresses.
+	///
+	/// Before the first lap, a warm-up loop enters every cycle block once in code order, with
+	/// `a0` holding the loop's own address so that the block jumps back to it. The interpreter
+	/// compiles a block when execution first enters it and appends its handlers to its cache,
+	/// so the cache holds the cycle blocks in code order. A lap visits them in the random order
+	/// of the cycle, so its reads of handlers and arguments are as scattered as its reads of the
+	/// jump table and the code map. The warm-up runs once per call whatever `a1` is.
+	///
+	/// The number of blocks keeps the interpreter data a lap reads in the L2 but not in the L1
+	/// data cache of the reference hardware (see [`Self::LOAD_CHAIN_SLOTS`]). A jump into a
+	/// block reads the block's 2 byte jump table entry, its 4 byte entry in the code map, and
+	/// the 8 byte handler and 16 byte arguments of its two compiled instructions: the gas charge
+	/// and the jump. The code map has one entry per code byte and a block is 5 bytes of code, so
+	/// the entries of consecutive blocks are 20 bytes apart and a lap reads every cache line of
+	/// the map: 20 bytes per block. Every block thus adds 2 + 20 + 2 * 24 = 70 bytes to the data
+	/// of a lap. The code itself is read only when a block is compiled. The
+	/// `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB, 4.3 times the Ice Lake L1D: each of
+	/// the 64 L1D sets receives about 51 lines against at most 12 ways. Each of the 1024 L2 sets
+	/// receives 3.2 lines, 40% of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
+	/// set is an average that depends on where the pages land. The data spans four arrays of
+	/// 4 KiB pages, jump table 2 to 3, code map 15 to 16, handlers 12 to 13 and arguments 24 to
+	/// 25, so 53 to 57 pages plus the interpreter's own state. They fit the fully associative 64
+	/// entry L1 DTLB of Zen 3. The 64 entry L1 DTLB of Ice Lake is 4-way set associative, so some
+	/// of them may miss it and hit the second level TLB.
+	pub fn with_indirect_jump_cycle() -> Self {
+		use polkavm_common::{
+			abi::VM_CODE_ADDRESS_ALIGNMENT,
+			program::{Instruction, Reg},
+			writer::ProgramBlobBuilder,
+		};
+		use rand::{SeedableRng, seq::SliceRandom};
+
+		const DEPLOY: u32 = 0;
+		const ENTRY: u32 = 1;
+		const WARM_UP: u32 = 2;
+		const WARM_UP_DONE: u32 = 4;
+		const HEAD: u32 = 5;
+		const DONE: u32 = 7;
+		const CYCLE: u32 = 8;
+
+		let blocks = crate::metering::INDIRECT_JUMP_GAS - 3;
+		// Jump table entry 0 is `HEAD`, entry `1 + i` is cycle block `i` and entry `1 + blocks`
+		// is `WARM_UP`. A jump table entry `k` has the code address
+		// `(k + 1) * VM_CODE_ADDRESS_ALIGNMENT`.
+		let address = |entry: u32| {
+			i32::try_from((entry + 1) * VM_CODE_ADDRESS_ALIGNMENT)
+				.expect("the jump table has fewer than 2^30 entries; qed")
+		};
+		let head = address(0);
+		let block = |i: u32| address(1 + i);
+		let warm_up = address(1 + blocks);
+		let step = block(0) - head;
+
+		let mut order: Vec<u32> = (0..blocks).collect();
+		order.shuffle(&mut rand_pcg::Pcg64::seed_from_u64(1337));
+		// The lap visits `HEAD`, then the cycle blocks in `order`. Each block loads the address
+		// of the block two steps ahead.
+		let lap: Vec<i32> = core::iter::once(head).chain(order.iter().map(|&i| block(i))).collect();
+		let two_ahead = |position: usize| lap[(position + 2) % lap.len()];
+
+		let a0 = Reg::A0.into();
+		let a1 = Reg::A1.into();
+		let t0 = Reg::T0.into();
+		let t1 = Reg::T1.into();
+		let ra = Reg::RA.into();
+		let mut code = vec![
+			Instruction::jump_indirect(ra, 0),
+			// `t1` walks the addresses of the cycle blocks in code order. Each block is entered
+			// with `a0` holding the address of `WARM_UP`, so it jumps back.
+			Instruction::load_imm(t1, head),
+			Instruction::fallthrough,
+			Instruction::add_imm_64(t1, t1, step),
+			Instruction::branch_eq_imm(t1, warm_up, WARM_UP_DONE),
+			Instruction::load_imm_and_jump_indirect(a0, t1, warm_up, 0),
+			Instruction::load_imm(a0, lap[1]),
+			Instruction::fallthrough,
+			Instruction::branch_eq(t0, a1, DONE),
+			Instruction::add_imm_64(t0, t0, 1),
+			Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(0), 0),
+			Instruction::jump_indirect(ra, 0),
+		];
+		let mut cycle: Vec<(u32, Instruction)> = order
+			.iter()
+			.enumerate()
+			.map(|(k, &i)| {
+				(i, Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(1 + k), 0))
+			})
+			.collect();
+		cycle.sort_by_key(|(i, _)| *i);
+		code.extend(cycle.into_iter().map(|(_, instruction)| instruction));
+		let jump_table: Vec<u32> = core::iter::once(HEAD)
+			.chain((0..blocks).map(|i| CYCLE + i))
+			.chain(core::iter::once(WARM_UP))
+			.collect();
+
+		let mut builder =
+			ProgramBlobBuilder::new(polkavm_common::program::InstructionSetKind::ReviveV1);
+		builder.set_code(&code, &jump_table);
+		builder.add_export_by_basic_block(DEPLOY, b"deploy");
+		builder.add_export_by_basic_block(ENTRY, b"call");
+		Self::new(builder.into_vec().expect("the program built here is valid; qed"))
+	}
+
+	/// The largest code section [`Self::with_code_bytes`] builds.
+	///
+	/// The interpreter keeps a map with one entry per byte of the code section. It counts
+	/// towards [`limits::code::PURGABLE_MEMORY_LIMIT`] next to the interpreter cache, which a
+	/// contract of this size fills. That allows at most 512 KiB of code. One page is left as a
+	/// margin for the code that [`Self::with_code_bytes`] adds.
+	pub const MAX_CODE_BYTES: u32 = (limits::code::PURGABLE_MEMORY_LIMIT -
+		limits::code::INTERPRETER_CACHE_BYTES) /
+		polkavm_common::program::INTERPRETER_FLATMAP_ENTRY_SIZE -
+		limits::PAGE_SIZE;
+
+	/// A contract with a code section of about `code_bytes` bytes whose `call` export returns
+	/// at once.
+	///
+	/// The `call` export is a basic block of `ecalli SENTINEL` and `fallthrough`, which stops
+	/// the call. Blocks of `a0 = a1 + a2`, 3 bytes each, fill the rest of the code section and
+	/// never run. Only the size of the code section depends on `code_bytes`.
+	pub fn with_code_bytes(code_bytes: u32) -> Self {
+		let mut text = alloc::format!(
+			"pub @deploy:\nret\npub @call:\necalli {}\nfallthrough\n",
+			crate::SENTINEL
+		);
+		for i in 0..code_bytes / 3 {
+			if i % limits::code::BASIC_BLOCK_SIZE == limits::code::BASIC_BLOCK_SIZE - 1 {
+				text.push_str("fallthrough\n");
+			} else {
+				text.push_str("a0 = a1 + a2\n");
+			}
+		}
+		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// Assembles `text` into a contract for the instruction set contracts use.
+	fn from_assembly(text: &str) -> Self {
 		let code = polkavm_common::assembler::assemble(
 			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
+			text,
 		)
-		.unwrap();
+		.expect("callers pass assembly text built in this module, which is valid; qed");
 		Self::new(code)
 	}
 
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
 		Self::new(bench_fixtures::noop().to_vec())
-	}
-
-	/// A contract code that does unaligned memory accessed in a loop.
-	pub fn instr(do_load: bool) -> Self {
-		let load = match do_load {
-			false => "",
-			true => "a0 = u64 [a0]",
-		};
-		let text = alloc::format!(
-			"
-		pub @deploy:
-		ret
-		pub @call:
-			@loop:
-				jump @done if t0 == a1
-				{load}
-				t0 = t0 + 1
-				jump @loop
-			@done:
-		ret
-		"
-		);
-		let code = polkavm_common::assembler::assemble(
-			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
-		)
-		.unwrap();
-		Self::new(code)
-	}
-
-	/// An evm contract that executes `size` JUMPDEST instructions.
-	pub fn evm_noop(size: u32) -> Self {
-		use revm::bytecode::opcode::JUMPDEST;
-
-		let code = vec![JUMPDEST; size as usize];
-		Self::new(code)
 	}
 }

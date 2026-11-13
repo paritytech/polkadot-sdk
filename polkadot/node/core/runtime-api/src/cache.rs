@@ -82,7 +82,7 @@ pub(crate) struct RequestResultCache {
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
 	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
-	allowed_relay_parent_info:
+	ancestor_relay_parent_info:
 		LruMap<(Hash, SessionIndex, Hash), Option<RelayParentInfo<Hash, BlockNumber>>>,
 }
 
@@ -127,7 +127,7 @@ impl Default for RequestResultCache {
 			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			allowed_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			ancestor_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -656,25 +656,25 @@ impl RequestResultCache {
 			.insert(session_index, max_relay_parent_session_age);
 	}
 
-	pub(crate) fn allowed_relay_parent_info(
+	pub(crate) fn ancestor_relay_parent_info(
 		&mut self,
 		relay_parent: Hash,
 		session_index: SessionIndex,
 		queried_relay_parent: Hash,
 	) -> Option<&Option<RelayParentInfo<Hash, BlockNumber>>> {
-		self.allowed_relay_parent_info
+		self.ancestor_relay_parent_info
 			.get(&(relay_parent, session_index, queried_relay_parent))
 			.map(|v| &*v)
 	}
 
-	pub(crate) fn cache_allowed_relay_parent_info(
+	pub(crate) fn cache_ancestor_relay_parent_info(
 		&mut self,
 		relay_parent: Hash,
 		session_index: SessionIndex,
 		queried_relay_parent: Hash,
 		value: Option<RelayParentInfo<Hash, BlockNumber>>,
 	) {
-		self.allowed_relay_parent_info
+		self.ancestor_relay_parent_info
 			.insert((relay_parent, session_index, queried_relay_parent), value);
 	}
 }
@@ -732,7 +732,7 @@ pub(crate) enum RequestResult {
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
 	MaxRelayParentSessionAge(SessionIndex, u32),
-	AllowedRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
+	AncestorRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 }
 

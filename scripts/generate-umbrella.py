@@ -82,7 +82,7 @@ def main(path, version):
 			nostd_crate = False
 			for line in f:
 				line = line.strip()
-				if line == "#![no_std]" or line == '#![cfg_attr(not(feature = "std"), no_std)]':
+				if line == "#![no_std]" or line == '#![cfg_attr(not(feature = "std"), no_std)]' or line == "#![cfg_attr(substrate_runtime, no_std)]":
 					nostd_crate = True
 					break
 				elif "no_std" in line:
@@ -121,6 +121,7 @@ def main(path, version):
 		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
+		"tuples-128": [],
 	}
 
 	manifest = {

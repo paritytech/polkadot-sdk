@@ -17,8 +17,8 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, Code, CodeRemoved, Config, ContractLogTopics, DispatchResult, ExecReturnValue,
+	ImmutableData, ReentrancyProtection,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -113,6 +113,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller_is_root")
 	}
 
+	fn origin_is_root(&self) -> bool {
+		panic!("MockExt::origin_is_root")
+	}
+
 	fn account_id(&self) -> &AccountIdOf<Self::T> {
 		panic!("MockExt::account_id")
 	}
@@ -137,7 +141,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) {
+	fn deposit_event(
+		&mut self,
+		_topics: ContractLogTopics,
+		_data: Vec<u8>,
+	) -> Result<(), DispatchError> {
 		panic!("MockExt::deposit_event")
 	}
 
@@ -254,6 +262,18 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		panic!("MockExt::set_storage")
+	}
+
+	fn touch_storage_access(
+		&mut self,
+		_key: &Key,
+		_op: crate::access_list::StorageOp,
+	) -> crate::access_list::Warmth {
+		panic!("MockExt::touch_storage_access")
+	}
+
+	fn peek_storage_access(&self, _key: &Key) -> crate::access_list::Warmth {
+		panic!("MockExt::peek_storage_access")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

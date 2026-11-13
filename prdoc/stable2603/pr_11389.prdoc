@@ -1,0 +1,14 @@
+title: 'Fix: AssetTrapped event with Fungible(0) due to `SwapFirstAssetTrader::buy_weight`
+  for exact trades'
+doc:
+- audience: Runtime Dev
+  description: "When `PayFees` contained the exact quoted fee, `SwapFirstAssetTrader::buy_weight`\
+    \ produces zero swap change. This 0-amount credit was unconditionally wrapped\
+    \ into an `AssetsInHolding` entry, which propagated through `fees` \u2192 `refund_surplus`\
+    \ \u2192 `holding` \u2192 `drop_assets`, emitting an `AssetsTrapped` event with\
+    \ `Fungible(0)` that fails to decode.\n\nThis PR simply guards that by checking\
+    \ if value is 0 before putting it into the holding, and omitting the step if the\
+    \ value is 0.\n\nCloses #11388"
+crates:
+- name: cumulus-primitives-utility
+  bump: patch

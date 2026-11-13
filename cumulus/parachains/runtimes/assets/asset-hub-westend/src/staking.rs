@@ -17,13 +17,18 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::traits::{EitherOf, EnsureOrigin, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
-use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
+};
+use sp_staking::{EraIndex, ServiceKind};
+use testnet_parachains_constants::westend::{
+	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
 };
 use xcm::latest::prelude::*;
 
@@ -35,10 +40,12 @@ parameter_types! {
 	pub MaxElectingVoters: u32 = 22_500;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
-	pub const MaxValidatorSet: u32 = 1000;
+	pub const MaxValidatorSet: u32 = MAX_VALIDATOR_SET;
 
-	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// Number of nominators per page of the snapshot, and consequently number of backers in the
+	/// solution. Uses ceiling division so that `VoterSnapshotPerBlock * Pages >= MaxElectingVoters`
+	/// holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// Number of validators per page of the snapshot.
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
@@ -151,6 +158,8 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -161,14 +170,17 @@ impl multi_block::signed::Config for Runtime {
 	type DepositPerPage = DepositPerPage;
 	type InvulnerableDeposit = ();
 	type RewardBase = RewardBase;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
+	type Slash = Dap;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
 parameter_types! {
 	/// Priority of the offchain miner transactions.
-	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub MinerTxPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	/// Try and run the OCW miner 4 times during the unsigned phase.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
 	pub storage MinerPages: u32 = 2;
@@ -228,29 +240,31 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
-pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+parameter_types! {
+	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
+	// Used for reward pot migration (MigrateEraPotsToPool). Can be removed once executed on-chain.
+	pub const StakingStakerRewardKind: pallet_staking_async::RewardKind =
+		pallet_staking_async::RewardKind::StakerRewards;
+}
+
+/// Westend inflation curve for DAP.
+///
+/// Same computation as the previous `EraPayout` but returns total emission.
+/// The budget split (ex. 85/15 staker/treasury) is now handled by pallet-dap.
+pub struct IssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for IssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
 		// Fixed total TI that we use as baseline for the issuance.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let emission = relative_period.saturating_mul_int(yearly_emission);
+		emission.saturated_into()
 	}
 }
 
@@ -270,6 +284,39 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	/// The era points below which an elected validator is inactive in an era, as
+	/// `(min_relay_consensus, min_collation)`.
+	///
+	/// `None` means no validator is ever inactive. `Some((min_rc, min_collation))` means a
+	/// validator is inactive if it earned fewer than `min_rc` relay consensus points OR fewer than
+	/// `min_collation` collation points.
+	///
+	/// Benchmarks need a validator with no points to be inactive, to measure `chill_inactive`.
+	pub storage IsValidatorInactiveThresholds: Option<(RewardPoint, RewardPoint)> =
+		if cfg!(feature = "runtime-benchmarks") { Some((1, 1)) } else { None };
+}
+
+/// A validator is inactive if its points for a service are below the threshold set for it in
+/// [`IsValidatorInactiveThresholds`].
+pub struct IsValidatorInactive;
+impl pallet_staking_async::IsValidatorInactive<AccountId> for IsValidatorInactive {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		points: &[(ServiceKind, RewardPoint)],
+	) -> bool {
+		let Some((min_rc, min_collation)) = IsValidatorInactiveThresholds::get() else {
+			return false;
+		};
+		let points_of = |kind: ServiceKind| {
+			points
+				.iter()
+				.find(|(service, _)| *service == kind)
+				.map_or(0, |(_, points)| *points)
+		};
+		points_of(ServiceKind::RelayConsensus) < min_rc ||
+			points_of(ServiceKind::Collation) < min_collation
+	}
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -279,7 +326,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -287,7 +334,7 @@ impl pallet_staking_async::Config for Runtime {
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -301,8 +348,15 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type IsValidatorInactive = IsValidatorInactive;
+	type OnEraStart = AnnounceValidatorSet;
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.
@@ -343,12 +397,31 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
+	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
+	pub const IssuanceCadence: u64 = 60_000;
+	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.
+	pub const MaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = IssuanceCurve;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+	);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = IssuanceCadence;
+	type MaxElapsedPerDrip = MaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = weights::pallet_dap::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
@@ -380,6 +453,7 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
 		rc_client::build_transact_xcm(
 			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+			OriginKind::Native,
 		)
 	}
 }
@@ -395,7 +469,7 @@ impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for
 				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode()
 			},
 		};
-		rc_client::build_transact_xcm(encoded_call)
+		rc_client::build_transact_xcm(encoded_call, OriginKind::Native)
 	}
 }
 
@@ -405,6 +479,167 @@ parameter_types! {
 	/// Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
 	/// Slight overpaymennt is the price we pay for maintainability here.
 	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
+}
+
+/// Announces the validators of every new era to this chain and to the other system chains.
+pub struct AnnounceValidatorSet;
+impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		// A rejected set is reported by the announcer with `AnnouncementRejected`.
+		let _ = ValidatorSetAnnouncer::announce(era, validators);
+	}
+
+	fn weight(validators: u32) -> Weight {
+		ValidatorSetAnnouncer::announce_weight(validators)
+	}
+}
+
+/// The system chains the announcer sends the validator set of every era to, one variant each.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ValidatorSetDestination {
+	People,
+}
+
+parameter_types! {
+	pub ValidatorSetDestinations: Vec<ValidatorSetDestination> =
+		vec![ValidatorSetDestination::People];
+}
+
+// `people-westend-integration-tests` executes this call on the People Westend runtime and fails
+// if this encoding drifts.
+#[derive(Encode)]
+enum PeopleRuntimePallets {
+	// index of `ValidatorCollators` in the People Westend runtime.
+	#[codec(index = 25)]
+	ValidatorCollators(ValidatorCollatorsCalls),
+}
+
+#[derive(Encode)]
+enum ValidatorCollatorsCalls {
+	// index of `fn set_validators` in `pallet-validator-collators`.
+	#[codec(index = 0)]
+	SetValidators { era: EraIndex, validators: Vec<AccountId> },
+}
+
+/// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`, which the
+/// destination dispatches with Asset Hub's location as an XCM origin.
+pub struct ValidatorSetToSystemChains;
+impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
+	type Destination = ValidatorSetDestination;
+
+	fn send(
+		destination: &ValidatorSetDestination,
+		era: EraIndex,
+		validators: &[AccountId],
+	) -> Result<(), ()> {
+		let (location, call) = match destination {
+			ValidatorSetDestination::People => (
+				PeopleLocation::get(),
+				PeopleRuntimePallets::ValidatorCollators(ValidatorCollatorsCalls::SetValidators {
+					era,
+					validators: validators.to_vec(),
+				})
+				.encode(),
+			),
+		};
+		send_xcm::<xcm_config::XcmRouter>(
+			location,
+			rc_client::build_transact_xcm(call, OriginKind::Xcm),
+		)
+		.map(|_| ())
+		.map_err(|error| {
+			log::warn!(
+				target: "runtime::validator-set-announcer",
+				"failed to send the validator set of era {era} to {destination:?}: {error:?}",
+			);
+		})
+	}
+
+	#[cfg(feature = "std")]
+	fn max_message_size(_: &ValidatorSetDestination) -> Option<usize> {
+		Some(
+			testnet_parachains_constants::westend::staking::LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE
+				as usize,
+		)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_send(destination: &ValidatorSetDestination) {
+		match destination {
+			ValidatorSetDestination::People => {
+				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+				)
+			},
+		}
+	}
+}
+
+/// Accepts the sibling parachain origin of one of the `Reporters`, the system chains allowed to
+/// report the blocks authored on them, and returns its parachain id.
+pub struct EnsureReportingSiblings<Reporters>(core::marker::PhantomData<Reporters>);
+impl<Reporters: Get<Vec<ParaId>>> EnsureOrigin<RuntimeOrigin>
+	for EnsureReportingSiblings<Reporters>
+{
+	type Success = ParaId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
+		match o.clone().into() {
+			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id))
+				if Reporters::get().contains(&id) =>
+			{
+				Ok(id)
+			},
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		let id = Reporters::get().first().copied().ok_or(())?;
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id).into())
+	}
+}
+
+/// Credits the block counts of this chain's own blocks.
+pub struct CreditBlocksLocally;
+impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlocksLocally {
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
+		StakingPointsConverter::credit_authored_blocks(
+			ParachainInfo::parachain_id(),
+			blocks.iter().cloned(),
+		);
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
+		// Weight this chain's blocks and expose every account in an active era, so that the
+		// credit reaches staking and accrues every entry.
+		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
+			ParachainInfo::parachain_id(),
+			sp_staking::ServiceKind::Collation,
+			1,
+		);
+		let era = pallet_staking_async::ActiveEra::<Runtime>::get()
+			.map(|active| active.index)
+			.unwrap_or_else(|| {
+				pallet_staking_async::ActiveEra::<Runtime>::put(
+					pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+				);
+				1
+			});
+		for (who, _) in blocks {
+			Staking::add_era_stakers(
+				era,
+				who.clone(),
+				sp_staking::Exposure { total: 1, own: 1, others: vec![] },
+			);
+			pallet_staking_async::ErasValidatorIncentiveWeight::<Runtime>::insert(era, who, 1);
+		}
+	}
 }
 
 pub struct StakingXcmToRelayChain;
@@ -492,7 +727,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = ConstU32<4>;
+	// Buffer (4) + bonding duration (2).
+	type MaxUnbondingPools = ConstU32<6>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
 	type MaxUnbonding = <Self as pallet_staking_async::Config>::MaxUnlockingChunks;
@@ -549,6 +785,33 @@ where
 	}
 }
 
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+		)
+			.into()
+	}
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -583,7 +846,12 @@ where
 			frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+				tip, None,
+			)),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));

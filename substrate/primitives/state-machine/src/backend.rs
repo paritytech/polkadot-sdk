@@ -392,13 +392,11 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, H, C>;
 }
 
-/// Whether to to take `:pending_code` into account
+/// Whether to take `:pending_code` into account
 /// when fetching the runtime code.
 ///
 /// We want to use `:pending_code` in block production and import
 /// but avoid using it in runtime api calls.
-///
-/// See <https://github.com/paritytech/polkadot-sdk/issues/64> for more details.
 #[cfg(feature = "std")]
 pub enum TryPendingCode {
 	/// Used by runtime api calls.
@@ -411,7 +409,7 @@ pub enum TryPendingCode {
 impl From<sp_core::traits::CallContext> for TryPendingCode {
 	fn from(context: sp_core::traits::CallContext) -> Self {
 		match context {
-			sp_core::traits::CallContext::Onchain => TryPendingCode::Yes,
+			sp_core::traits::CallContext::Onchain { .. } => TryPendingCode::Yes,
 			sp_core::traits::CallContext::Offchain => TryPendingCode::No,
 		}
 	}

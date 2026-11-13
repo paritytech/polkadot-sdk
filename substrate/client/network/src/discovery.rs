@@ -137,7 +137,7 @@ impl DiscoveryConfig {
 			dht_random_walk: true,
 			allow_private_ip: true,
 			allow_non_globals_in_dht: false,
-			discovery_only_if_under_num: std::u64::MAX,
+			discovery_only_if_under_num: u64::MAX,
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
 			kademlia_protocol: None,

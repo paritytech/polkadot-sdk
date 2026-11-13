@@ -171,7 +171,7 @@ where
 			priority: 0,
 			requires,
 			provides,
-			longevity: TransactionLongevity::max_value(),
+			longevity: TransactionLongevity::MAX,
 			propagate: true,
 		};
 

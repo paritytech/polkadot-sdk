@@ -21,6 +21,8 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
+	StorageAccessKind,
+	access_list::StorageOp,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -33,6 +35,7 @@ use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
 #[cfg(doc)]
 pub use env::SyscallDoc;
+use environmental::environmental;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
@@ -58,7 +61,10 @@ pub trait Memory<T: Config> {
 	/// Returns `Err` if one of the following conditions occurs:
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
+
+	/// Returns whether `len` bytes starting at `ptr` are within the bounds of the sandbox memory.
+	fn is_readable(&self, ptr: u32, len: u32) -> bool;
 
 	/// Write the given buffer to the designated location in the sandbox memory.
 	///
@@ -74,52 +80,56 @@ pub trait Memory<T: Config> {
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
 
-	/// This will reset all compilation artifacts of the currently executing instance.
+	/// Runs `f` with this instance registered as the cache to reset when a PVM frame starts.
 	///
-	/// This is used before we call into a new contract to free up some memory. Doing
-	/// so we make sure that we only ever have to hold one compilation cache at a time
-	/// independtently of of our call stack depth.
-	fn reset_interpreter_cache(&mut self);
+	/// The contract's calls, delegate calls and instantiations run inside it. A PVM frame that
+	/// starts while `f` runs resets the interpreter cache of the innermost registered instance
+	/// (see [`reset_caller_cache`]), so only one PVM frame of a call stack holds a cache. Memory
+	/// that is not a PVM instance registers nothing.
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R;
 
 	/// Read designated chunk from the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
-	fn read(&self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
+	fn read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
+		if !self.is_readable(ptr, len) {
+			return Err(Error::<T>::OutOfBounds.into());
+		}
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
 	}
 
 	/// Same as `read` but reads into a fixed size buffer.
-	fn read_array<const N: usize>(&self, ptr: u32) -> Result<[u8; N], DispatchError> {
+	fn read_array<const N: usize>(&mut self, ptr: u32) -> Result<[u8; N], DispatchError> {
 		let mut buf = [0u8; N];
 		self.read_into_buf(ptr, &mut buf)?;
 		Ok(buf)
 	}
 
 	/// Read a `u32` from the sandbox memory.
-	fn read_u32(&self, ptr: u32) -> Result<u32, DispatchError> {
+	fn read_u32(&mut self, ptr: u32) -> Result<u32, DispatchError> {
 		let buf: [u8; 4] = self.read_array(ptr)?;
 		Ok(u32::from_le_bytes(buf))
 	}
 
 	/// Read a `U256` from the sandbox memory.
-	fn read_u256(&self, ptr: u32) -> Result<U256, DispatchError> {
+	fn read_u256(&mut self, ptr: u32) -> Result<U256, DispatchError> {
 		let buf: [u8; 32] = self.read_array(ptr)?;
 		Ok(U256::from_little_endian(&buf))
 	}
 
 	/// Read a `H160` from the sandbox memory.
-	fn read_h160(&self, ptr: u32) -> Result<H160, DispatchError> {
+	fn read_h160(&mut self, ptr: u32) -> Result<H160, DispatchError> {
 		let mut buf = H160::default();
 		self.read_into_buf(ptr, buf.as_bytes_mut())?;
 		Ok(buf)
 	}
 
 	/// Read a `H256` from the sandbox memory.
-	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
+	fn read_h256(&mut self, ptr: u32) -> Result<H256, DispatchError> {
 		let mut code_hash = H256::default();
 		self.read_into_buf(ptr, code_hash.as_bytes_mut())?;
 		Ok(code_hash)
@@ -146,7 +156,11 @@ pub trait PolkaVmInstance<T: Config>: Memory<T> {
 // in the streaming implementation while it could fail with a segfault in the copy implementation.
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> Memory<T> for [u8] {
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		(ptr as usize).checked_add(len as usize).is_some_and(|end| end <= self.len())
+	}
+
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		let ptr = ptr as usize;
 		let bound_checked =
 			self.get(ptr..ptr + buf.len()).ok_or_else(|| Error::<T>::OutOfBounds)?;
@@ -166,11 +180,17 @@ impl<T: Config> Memory<T> for [u8] {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
 
-	fn reset_interpreter_cache(&mut self) {}
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R {
+		f()
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		self.is_memory_accessible(ptr, len, polkavm::MemoryProtection::Read)
+	}
+
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		self.read_memory_into(ptr, buf)
 			.map(|_| ())
 			.map_err(|_| Error::<T>::OutOfBounds.into())
@@ -184,9 +204,22 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
-	fn reset_interpreter_cache(&mut self) {
-		self.reset_interpreter_cache();
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R {
+		caller_cache::using(self, f)
 	}
+}
+
+environmental!(caller_cache: polkavm::RawInstance);
+
+/// Resets the interpreter cache of the innermost PVM frame that waits on a sub-call.
+///
+/// The call stack calls it when a PVM frame starts. The frames that wait on a sub-call are
+/// the ones inside [`Memory::with_caller_cache`]; EVM frames register no cache. Does nothing
+/// when no PVM frame waits on a sub-call. The interpreter compiles the code of the reset frame
+/// again, and charges for it, when the frame resumes. Fails only when the module has gas
+/// metering but no compilation cost, which `ContractBlob::prepare_call` always sets.
+pub fn reset_caller_cache() -> Result<(), polkavm::Error> {
+	caller_cache::with(|instance| instance.reset_interpreter_cache()).unwrap_or(Ok(()))
 }
 
 impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
@@ -451,7 +484,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		Ok(())
 	}
 
-	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
+	fn decode_key(&self, memory: &mut M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
 				let mut buffer = [0u8; 32];
@@ -476,20 +509,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	fn set_storage(
 		&mut self,
-		memory: &M,
+		memory: &mut M,
 		flags: u32,
 		key_ptr: u32,
 		key_len: u32,
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |new_bytes: u32, old_bytes: u32| {
-			if transient {
-				RuntimeCosts::SetTransientStorage { new_bytes, old_bytes }
-			} else {
-				RuntimeCosts::SetStorage { new_bytes, old_bytes }
-			}
-		};
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -497,13 +523,28 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let max_size = limits::STORAGE_BYTES;
-		let charged = self.charge_gas(costs(value_len, max_size))?;
+		let key = self.decode_key(memory, key_ptr, key_len)?;
+
 		if value_len > max_size {
+			// Don't warm the slot on a failed validation as the storage was not accessed.
+			let access_kind =
+				StorageAccessKind::new(transient, || self.ext.peek_storage_access(&key));
+			self.charge_gas(RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: max_size,
+				kind: access_kind,
+			})?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let key = self.decode_key(memory, key_ptr, key_len)?;
-
+		let access_kind = StorageAccessKind::new(transient, || {
+			self.ext.touch_storage_access(&key, StorageOp::Write)
+		});
+		let charged = self.charge_gas(RuntimeCosts::SetStorage {
+			new_bytes: value_len,
+			old_bytes: max_size,
+			kind: access_kind,
+		})?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
@@ -515,33 +556,42 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.ext.set_storage(&key, value, false)?
 		};
 
-		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: write_outcome.old_len(),
+				kind: access_kind,
+			},
+		);
 		Ok(write_outcome.old_len_with_sentinel())
 	}
 
 	fn clear_storage(
 		&mut self,
-		memory: &M,
+		memory: &mut M,
 		flags: u32,
 		key_ptr: u32,
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::ClearTransientStorage(len)
-			} else {
-				RuntimeCosts::ClearStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let access_kind = StorageAccessKind::new(transient, || {
+			self.ext.touch_storage_access(&key, StorageOp::Write)
+		});
+		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
+			len: limits::STORAGE_BYTES,
+			kind: access_kind,
+		})?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
 		} else {
 			self.ext.set_storage(&key, None, false)?
 		};
-		self.adjust_gas(charged, costs(outcome.old_len()));
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::ClearStorage { len: outcome.old_len(), kind: access_kind },
+		);
 		Ok(outcome.old_len_with_sentinel())
 	}
 
@@ -555,24 +605,23 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::GetTransientStorage(len)
-			} else {
-				RuntimeCosts::GetStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let access_kind = StorageAccessKind::new(transient, || {
+			self.ext.touch_storage_access(&key, StorageOp::Read)
+		});
+		let charged = self.charge_gas(RuntimeCosts::GetStorage {
+			len: limits::STORAGE_BYTES,
+			kind: access_kind,
+		})?;
 		let outcome = if transient {
 			self.ext.get_transient_storage(&key)
 		} else {
 			self.ext.get_storage(&key)
 		};
+		let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+		self.adjust_gas(charged, RuntimeCosts::GetStorage { len, kind: access_kind });
 
 		if let Some(value) = outcome {
-			self.adjust_gas(charged, costs(value.len() as u32));
-
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
 					let mut fixed_output = [0u8; 32];
@@ -601,8 +650,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				},
 			}
 		} else {
-			self.adjust_gas(charged, costs(0));
-
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
 					self.write_fixed_sandbox_output(
@@ -661,8 +708,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
-		memory.reset_interpreter_cache();
-
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
@@ -685,13 +730,15 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				memory.with_caller_cache(|| {
+					self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				})
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(resources, callee, input_data)
+				memory.with_caller_cache(|| self.ext.delegate_call(resources, callee, input_data))
 			},
 		};
 
@@ -772,15 +819,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(salt)
 		};
 
-		memory.reset_interpreter_cache();
-
-		match self.ext.instantiate(
-			&CallResources::from_weight_and_deposit(weight, deposit_limit),
-			Code::Existing(code_hash),
-			value,
-			input_data,
-			salt.as_ref(),
-		) {
+		let instantiate_outcome = memory.with_caller_cache(|| {
+			self.ext.instantiate(
+				&CallResources::from_weight_and_deposit(weight, deposit_limit),
+				Code::Existing(code_hash),
+				value,
+				input_data,
+				salt.as_ref(),
+			)
+		});
+		match instantiate_outcome {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
 					self.write_fixed_sandbox_output(
@@ -840,36 +888,88 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result;
 			}
 		};
-		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
+		crate::tracing::if_tracing(|tracer| {
+			tracer.enter_ecall(crate::tracing::PVM_FUEL_NAME, &[], &self.runtime)
+		});
+		let sync_result =
+			self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas());
+		crate::tracing::if_tracing(|tracer| tracer.exit_step(&self.runtime, None));
+		sync_result?;
 		exec_result
 	}
+}
 
-	/// The guest memory address at which the aux data is located.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
+/// Access to the instance for the benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+impl<'a, E: Ext> PreparedCall<'a, E> {
+	/// The memory map of the contract.
+	pub fn memory_map(&self) -> &polkavm::MemoryMap {
+		self.instance.module().memory_map()
 	}
 
-	/// Copies `data` to the aux data at address `offset`.
-	///
-	/// It sets `a0` to the beginning of data inside the aux data.
-	/// It sets `a1` to the value passed.
-	///
-	/// Only used in benchmarking so far.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn setup_aux_data(
+	/// Writes `data` to the contract's memory at `address`.
+	pub fn write_memory(
 		&mut self,
+		address: u32,
 		data: &[u8],
-		offset: u32,
-		a1: u64,
 	) -> frame_support::dispatch::DispatchResult {
-		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
-			Error::<E::T>::CodeRejected
-		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
-		Ok(())
+		self.instance.write_memory(address, data).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to write memory: {err:?}");
+			Error::<E::T>::CodeRejected.into()
+		})
+	}
+
+	/// Sets the register `reg` to `value`.
+	pub fn set_reg(&mut self, reg: polkavm::Reg, value: u64) {
+		self.instance.set_reg(reg, value);
+	}
+
+	/// Drops the compiled code of the contract, as a PVM frame started by its sub-call does.
+	///
+	/// Fails with `ExecutionFailed` only when the module has gas metering but no compilation
+	/// cost, which `ContractBlob::prepare_call` always sets.
+	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		self.instance.reset_interpreter_cache().map_err(|err| {
+			log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+			Error::<E::T>::ExecutionFailed.into()
+		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::Test;
+
+	struct Unreadable;
+
+	impl Memory<Test> for Unreadable {
+		fn is_readable(&self, _ptr: u32, _len: u32) -> bool {
+			false
+		}
+
+		fn read_into_buf(&mut self, _ptr: u32, _buf: &mut [u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn write(&mut self, _ptr: u32, _buf: &[u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn zero(&mut self, _ptr: u32, _len: u32) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn with_caller_cache<R>(&mut self, _f: impl FnOnce() -> R) -> R {
+			unimplemented!()
+		}
+	}
+
+	#[test]
+	fn mem_read_early_return() {
+		assert_eq!(
+			Memory::<Test>::read(&mut Unreadable, 0, 1024 * 1024),
+			Err(Error::<Test>::OutOfBounds.into())
+		);
 	}
 }

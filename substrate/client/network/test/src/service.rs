@@ -34,7 +34,10 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	strategy::polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+	strategy::{
+		chain_sync::GapSyncBodyPolicy,
+		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+	},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -43,7 +46,7 @@ use substrate_test_runtime_client::{
 	TestClientBuilder, TestClientBuilderExt as _,
 };
 
-use std::{sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 type TestNetworkWorker = NetworkWorker<TestBlock, TestHash>;
 type TestNetworkService = NetworkService<TestBlock, TestHash>;
@@ -144,12 +147,13 @@ impl TestNetworkBuilder {
 			}
 		}
 
+		let executor = sp_core::testing::TaskExecutor::new();
 		let mut import_queue =
 			self.import_queue.unwrap_or(Box::new(sc_consensus::BasicQueue::new(
 				PassThroughVerifier(false),
 				Box::new(client.clone()),
 				None,
-				&sp_core::testing::TaskExecutor::new(),
+				&executor,
 				None,
 			)));
 
@@ -183,13 +187,14 @@ impl TestNetworkBuilder {
 		};
 
 		let light_client_request_protocol_config = {
-			let (handler, protocol_config) = LightClientRequestHandler::new::<
-				NetworkWorker<
-					substrate_test_runtime_client::runtime::Block,
-					substrate_test_runtime_client::runtime::Hash,
-				>,
-			>(&protocol_id, None, client.clone());
-			tokio::spawn(handler.run().boxed());
+			let (handler, protocol_config) =
+				LightClientRequestHandler::new::<
+					NetworkWorker<
+						substrate_test_runtime_client::runtime::Block,
+						substrate_test_runtime_client::runtime::Hash,
+					>,
+				>(&protocol_id, None, client.clone(), None, NonZeroUsize::MIN, None);
+			tokio::spawn(handler.run(executor).boxed());
 			protocol_config
 		};
 
@@ -212,7 +217,9 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			archive_blocks: false,
+			// Keep gap sync header-only in this harness, matching the previous
+			// non-archive behavior.
+			gap_sync_body_policy: Arc::new(|| Ok(GapSyncBodyPolicy::HeadersOnly)),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -281,7 +288,7 @@ impl TestNetworkBuilder {
 			protocol_id,
 			fork_id,
 			metrics_registry: None,
-			bitswap_config: None,
+			ipfs_config: None,
 			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();

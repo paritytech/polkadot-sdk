@@ -1,0 +1,14 @@
+title: '[pallet-assets] fix: decrement supply when refund burns balance'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When a user calls `refund` with `allow_burn = true`, their token balance is destroyed, but the asset's total supply was never updated. This caused `total_issuance()` to overcount. The fix decrements supply and emits a `Burned` event, consistent with how every other burn path works.
+
+    In production, burning path is rarely triggered. The fungibles trait interface always passes `allow_burn = false`, so only users manually submitting the refund extrinsic with the burn flag would hit it.
+
+    Follow-up issue for migrating the discrepancy (observed on Westend): https://github.com/paritytech/polkadot-sdk/issues/11443.
+
+    Fixes #10412
+crates:
+- name: pallet-assets
+  bump: patch

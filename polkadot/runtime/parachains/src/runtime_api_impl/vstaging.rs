@@ -39,8 +39,12 @@ pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
 	configuration::ActiveConfig::<T>::get().max_relay_parent_session_age
 }
 
-/// Implementation of `allowed_relay_parent_info` runtime API.
-pub fn allowed_relay_parent_info<T: shared::Config>(
+/// Implementation of `ancestor_relay_parent_info` runtime API.
+///
+/// Looks up relay parent info for an **ancestor** block. A block is not in its
+/// own `AllowedRelayParents` (it gets added during the next block's inherent),
+/// so querying a block about itself always returns `None`.
+pub fn ancestor_relay_parent_info<T: shared::Config>(
 	session_index: SessionIndex,
 	relay_parent: T::Hash,
 ) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {

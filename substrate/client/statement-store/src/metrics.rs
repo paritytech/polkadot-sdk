@@ -21,8 +21,8 @@
 use std::sync::Arc;
 
 use prometheus_endpoint::{
-	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts,
-	Opts, PrometheusError, Registry, U64,
+	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, GaugeVec, Histogram,
+	HistogramOpts, Opts, PrometheusError, Registry, U64,
 };
 
 #[derive(Clone, Default)]
@@ -59,16 +59,20 @@ impl MetricsLink {
 
 /// Statement store Prometheus metrics.
 pub struct Metrics {
-	pub submitted_statements: Counter<U64>,
-	pub validations_invalid: Counter<U64>,
+	pub submitted_statements: CounterVec<U64>,
+	pub validations_invalid: CounterVec<U64>,
 	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
 	pub bytes_total: Gauge<U64>,
+	pub bytes_by_retention: GaugeVec<U64>,
 	pub accounts_total: Gauge<U64>,
 	pub expired_total: Gauge<U64>,
+	pub held_statements: Gauge<U64>,
 	pub capacity_statements: Gauge<U64>,
 	pub capacity_bytes: Gauge<U64>,
 	pub rejections: CounterVec<U64>,
+	pub internal_errors: CounterVec<U64>,
+	pub known_statements: CounterVec<U64>,
 	pub submit_duration_seconds: Histogram,
 	pub check_expiration_duration_seconds: Histogram,
 	pub statements_expired_total: Counter<U64>,
@@ -78,23 +82,29 @@ impl Metrics {
 	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			submitted_statements: register(
-				Counter::new(
-					"substrate_sub_statement_store_submitted_statements",
-					"Total number of statements submitted",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_submitted_statements",
+						"Total number of new statements successfully accepted into the store, by retention reason at admission",
+					),
+					&["reason"],
 				)?,
 				registry,
 			)?,
 			validations_invalid: register(
-				Counter::new(
-					"substrate_sub_statement_store_validations_invalid",
-					"Total number of statements that were fail validation during submission",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_validations_invalid",
+						"Total statement validation failures during submission, by reason",
+					),
+					&["reason"],
 				)?,
 				registry,
 			)?,
 			statements_pruned: register(
 				Counter::new(
-					"substrate_sub_statement_store_block_statements",
-					"Total number of statements that was requested to be pruned by block events",
+					"substrate_sub_statement_store_statements_pruned_total",
+					"Total number of expired-statement hashes pruned after the grace period, leaving no trace of the statement",
 				)?,
 				registry,
 			)?,
@@ -127,6 +137,16 @@ impl Metrics {
 				)?,
 				registry,
 			)?,
+			bytes_by_retention: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_bytes_by_retention",
+						"Current size of statement data in bytes, by the retention track keeping it",
+					),
+					&["track"],
+				)?,
+				registry,
+			)?,
 			accounts_total: register(
 				Gauge::new(
 					"substrate_sub_statement_store_accounts_total",
@@ -141,6 +161,13 @@ impl Metrics {
 				)?,
 				registry,
 			)?,
+			held_statements: register(
+				Gauge::new(
+					"substrate_sub_statement_store_held_statements",
+					"Current number of statement hashes propagation outboxes hold back from the retention sweep",
+				)?,
+				registry,
+			)?,
 			rejections: register(
 				CounterVec::new(
 					Opts::new(
@@ -148,6 +175,26 @@ impl Metrics {
 						"Total statement rejections by reason",
 					),
 					&["reason"],
+				)?,
+				registry,
+			)?,
+			internal_errors: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_internal_errors_total",
+						"Total internal errors during statement submission by source",
+					),
+					&["source"],
+				)?,
+				registry,
+			)?,
+			known_statements: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_known_statements_total",
+						"Total submissions of statements already known to the store, by prior state",
+					),
+					&["state"],
 				)?,
 				registry,
 			)?,
@@ -174,7 +221,7 @@ impl Metrics {
 			statements_expired_total: register(
 				Counter::new(
 					"substrate_sub_statement_store_statements_expired_total",
-					"Total number of statements that expired and were removed",
+					"Total number of statements that expired and were removed; the hash is retained to be pruned after the grace period",
 				)?,
 				registry,
 			)?,

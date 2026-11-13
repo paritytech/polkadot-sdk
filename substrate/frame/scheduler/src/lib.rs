@@ -580,7 +580,8 @@ pub mod pallet {
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
 		///
-		/// This call **cannot** be used to set a retry configuration for a named task.
+		/// This call **cannot** be used to set a retry configuration for a named task; it fails
+		/// with [`Error::Named`]. Use [`Pallet::set_retry_named`] for those.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -598,6 +599,8 @@ pub mod pallet {
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
 			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			// Named tasks must go through `set_retry_named`.
+			ensure!(scheduled.maybe_id.is_none(), Error::<T>::Named);
 			Retries::<T>::insert(
 				(when, index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
@@ -651,6 +654,10 @@ pub mod pallet {
 		}
 
 		/// Removes the retry configuration of a task.
+		///
+		/// Unlike [`Pallet::set_retry`], this accepts named tasks too: dropping a retry
+		/// configuration is always safe, and configurations left by older runtimes still need a
+		/// way out. The `RetryCancelled` event therefore carries `id: None` even for a named task.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
 		pub fn cancel_retry(
@@ -737,11 +744,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();
@@ -802,11 +810,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();
@@ -912,11 +921,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();
@@ -1532,84 +1542,6 @@ impl<T: Config> Pallet<T> {
 			return Err(BadOrigin.into());
 		}
 		Ok(())
-	}
-}
-
-#[allow(deprecated)]
-impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
-	for Pallet<T>
-{
-	type Address = TaskAddress<BlockNumberFor<T>>;
-	type Hash = T::Hash;
-
-	fn schedule(
-		when: DispatchTime<BlockNumberFor<T>>,
-		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
-		priority: schedule::Priority,
-		origin: T::PalletsOrigin,
-		call: CallOrHashOf<T>,
-	) -> Result<Self::Address, DispatchError> {
-		let call = call.as_value().ok_or(DispatchError::CannotLookup)?;
-		let call = T::Preimages::bound(call)?.transmute();
-		Self::do_schedule(when, maybe_periodic, priority, origin, call)
-	}
-
-	fn cancel((when, index): Self::Address) -> Result<(), ()> {
-		Self::do_cancel(None, (when, index)).map_err(|_| ())
-	}
-
-	fn reschedule(
-		address: Self::Address,
-		when: DispatchTime<BlockNumberFor<T>>,
-	) -> Result<Self::Address, DispatchError> {
-		Self::do_reschedule(address, when)
-	}
-
-	fn next_dispatch_time((when, index): Self::Address) -> Result<BlockNumberFor<T>, ()> {
-		Agenda::<T>::get(when).get(index as usize).ok_or(()).map(|_| when)
-	}
-}
-
-// TODO: migrate `schedule::v2::Anon` to `v3`
-#[allow(deprecated)]
-impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
-	for Pallet<T>
-{
-	type Address = TaskAddress<BlockNumberFor<T>>;
-	type Hash = T::Hash;
-
-	fn schedule_named(
-		id: Vec<u8>,
-		when: DispatchTime<BlockNumberFor<T>>,
-		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
-		priority: schedule::Priority,
-		origin: T::PalletsOrigin,
-		call: CallOrHashOf<T>,
-	) -> Result<Self::Address, ()> {
-		let call = call.as_value().ok_or(())?;
-		let call = T::Preimages::bound(call).map_err(|_| ())?.transmute();
-		let name = blake2_256(&id[..]);
-		Self::do_schedule_named(name, when, maybe_periodic, priority, origin, call).map_err(|_| ())
-	}
-
-	fn cancel_named(id: Vec<u8>) -> Result<(), ()> {
-		let name = blake2_256(&id[..]);
-		Self::do_cancel_named(None, name).map_err(|_| ())
-	}
-
-	fn reschedule_named(
-		id: Vec<u8>,
-		when: DispatchTime<BlockNumberFor<T>>,
-	) -> Result<Self::Address, DispatchError> {
-		let name = blake2_256(&id[..]);
-		Self::do_reschedule_named(name, when)
-	}
-
-	fn next_dispatch_time(id: Vec<u8>) -> Result<BlockNumberFor<T>, ()> {
-		let name = blake2_256(&id[..]);
-		Lookup::<T>::get(name)
-			.and_then(|(when, index)| Agenda::<T>::get(when).get(index as usize).map(|_| when))
-			.ok_or(())
 	}
 }
 

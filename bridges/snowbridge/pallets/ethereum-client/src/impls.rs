@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 use frame_support::ensure;
-use snowbridge_beacon_primitives::ExecutionProof;
+use snowbridge_beacon_primitives::{CommitmentError, ExecutionProof};
+use sp_runtime::DispatchError;
 
 use alloy_primitives::Log as AlloyLog;
 use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
@@ -19,11 +20,19 @@ impl<T: Config> Verifier for Pallet<T> {
 	/// is also sent with the message, to check if the header is an ancestor of a finalized
 	/// header.
 	fn verify(event_log: &Log, proof: &Proof) -> Result<(), VerificationError> {
-		Self::verify_execution_proof(&proof.execution_proof)
+		// Refuse to verify any Ethereum-side proof while the beacon light client is halted.
+		// Governance halts the light client when it suspects a compromise (e.g. sync committee
+		// takeover), at which point any signed headers/receipts must be treated as untrusted.
+		// Covers every Verifier consumer, including `inbound_queue_v2::submit` and
+		// `outbound_queue_v2::submit_delivery_receipt` (which would otherwise still drain
+		// pending relayer rewards while the bridge is halted).
+		ensure!(!Self::operating_mode().is_halted(), VerificationError::Halted);
+
+		let receipts_root = Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
 		Self::verify_receipt_inclusion(
-			proof.execution_proof.execution_header.receipts_root(),
+			receipts_root,
 			event_log.tx_index,
 			&proof.receipt_proof,
 			event_log,
@@ -73,7 +82,9 @@ impl<T: Config> Pallet<T> {
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on
 	/// chain.The beacon header containing the execution header is sent, plus the execution header,
 	/// along with a proof that the execution header is rooted in the beacon header body.
-	pub(crate) fn verify_execution_proof(execution_proof: &ExecutionProof) -> DispatchResult {
+	pub(crate) fn verify_execution_proof(
+		execution_proof: &ExecutionProof,
+	) -> Result<H256, DispatchError> {
 		let latest_finalized_state =
 			FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 				.ok_or(Error::<T>::NotBootstrapped)?;
@@ -109,26 +120,28 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
-		// Gets the hash tree root of the execution header, in preparation for the execution
-		// header proof (used to check that the execution header is rooted in the beacon
-		// header body.
-		let execution_header_root: H256 = execution_proof
-			.execution_header
-			.hash_tree_root()
-			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
-
-		let execution_header_gindex = Self::execution_header_gindex();
+		let (commitment, gindex) = Self::execution_commitment_at_slot(
+			&execution_proof.execution_header,
+			execution_proof.header.slot,
+			T::ForkVersions::get(),
+		)
+		.map_err(|e| match e {
+			CommitmentError::Merkleization => Error::<T>::BlockBodyHashTreeRootFailed,
+			CommitmentError::MalformedExecutionHeader => Error::<T>::MalformedExecutionHeader,
+			CommitmentError::EraMismatch => Error::<T>::ExecutionHeaderEraMismatch,
+		})?;
 		ensure!(
 			verify_merkle_branch(
-				execution_header_root,
+				commitment.leaf(),
 				&execution_proof.execution_branch,
-				subtree_index(execution_header_gindex),
-				generalized_index_length(execution_header_gindex),
+				subtree_index(gindex),
+				generalized_index_length(gindex),
 				execution_proof.header.body_root
 			),
 			Error::<T>::InvalidExecutionHeaderProof
 		);
-		Ok(())
+
+		Ok(commitment.receipts_root())
 	}
 
 	/// Verify that `block_root` is an ancestor of `finalized_block_root` Used to prove that

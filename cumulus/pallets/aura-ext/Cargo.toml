@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
@@ -26,13 +27,13 @@ sp-runtime = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
@@ -49,8 +50,10 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-aura/std",
 	"pallet-timestamp/std",
 	"scale-info/std",

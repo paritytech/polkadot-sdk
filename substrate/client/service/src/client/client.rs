@@ -23,6 +23,7 @@ use super::{
 	CodeProvider,
 };
 use crate::client::notification_pinning::NotificationPinningWorker;
+use codec::Encode;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
@@ -41,7 +42,8 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
+	UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -62,11 +64,12 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
+	H256,
 };
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, Hash as HashT, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -83,10 +86,35 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
+
+/// Checks that `body` matches the extrinsics root of `header`.
+///
+/// The trie layout of the extrinsics root depends on the `system_version` of the runtime, which
+/// is not known when importing a block without state. Thus, both layouts are accepted.
+fn check_extrinsics_root<Block: BlockT>(
+	header: &Block::Header,
+	body: &[Block::Extrinsic],
+) -> sp_blockchain::Result<()> {
+	let extrinsics = body.iter().map(Encode::encode).collect::<Vec<_>>();
+	let expected = *header.extrinsics_root();
+	let v0_root = HashingFor::<Block>::ordered_trie_root(extrinsics.clone(), StateVersion::V0);
+
+	if v0_root == expected ||
+		HashingFor::<Block>::ordered_trie_root(extrinsics, StateVersion::V1) == expected
+	{
+		return Ok(());
+	}
+
+	Err(Error::ExtrinsicRootInvalid {
+		received: format!("{v0_root:?}"),
+		expected: format!("{expected:?}"),
+	})
+}
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -394,7 +422,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state, true)?;
+			op.set_block_data(header, Some(body), None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -475,19 +503,24 @@ where
 			justifications,
 			post_digests,
 			body,
-			indexed_body,
 			finalized,
 			auxiliary,
 			fork_choice,
 			intermediates,
 			import_existing,
 			create_gap,
+			prefetched_indexed_transactions,
 			..
 		} = import_block;
 
 		if !intermediates.is_empty() {
 			return Err(Error::IncompletePipeline);
 		}
+
+		let PrefetchedIndexedTransactions { ops: prefetched_index_ops, renew_payloads } =
+			prefetched_indexed_transactions;
+		operation.op.set_renew_payloads(renew_payloads)?;
+		operation.op.update_transaction_index(prefetched_index_ops)?;
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
 
@@ -515,7 +548,6 @@ where
 			import_headers,
 			justifications,
 			body,
-			indexed_body,
 			storage_changes,
 			finalized,
 			auxiliary,
@@ -552,7 +584,6 @@ where
 		import_headers: PrePostHeader<Block::Header>,
 		justifications: Option<Justifications>,
 		body: Option<Vec<Block::Extrinsic>>,
-		indexed_body: Option<Vec<Vec<u8>>>,
 		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
 		finalized: bool,
 		aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
@@ -603,76 +634,67 @@ where
 		};
 
 		let storage_changes = match storage_changes {
-			Some(storage_changes) => {
-				let storage_changes = match storage_changes {
-					sc_consensus::StorageChanges::Changes(storage_changes) => {
-						self.backend.begin_state_operation(&mut operation.op, parent_hash)?;
-						let (main_sc, child_sc, offchain_sc, tx, _, tx_index) =
-							storage_changes.into_inner();
+			Some(sc_consensus::StorageChanges::Changes(storage_changes)) => {
+				self.backend.begin_state_operation(&mut operation.op, parent_hash)?;
+				let (main_sc, child_sc, offchain_sc, tx, _, tx_index) =
+					storage_changes.into_inner();
 
-						if self.config.offchain_indexing_api {
-							operation.op.update_offchain_storage(offchain_sc)?;
+				if self.config.offchain_indexing_api {
+					operation.op.update_offchain_storage(offchain_sc)?;
+				}
+
+				operation.op.update_db_storage(tx)?;
+				operation.op.update_storage(main_sc.clone(), child_sc.clone())?;
+				operation.op.update_transaction_index(tx_index)?;
+
+				Some((main_sc, child_sc))
+			},
+			Some(sc_consensus::StorageChanges::Import(changes)) => {
+				let mut storage = sp_storage::Storage::default();
+				for state in changes.state.0.into_iter() {
+					if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
+						for (key, value) in state.key_values.into_iter() {
+							storage.top.insert(key, value);
 						}
-
-						operation.op.update_db_storage(tx)?;
-						operation.op.update_storage(main_sc.clone(), child_sc.clone())?;
-						operation.op.update_transaction_index(tx_index)?;
-
-						Some((main_sc, child_sc))
-					},
-					sc_consensus::StorageChanges::Import(changes) => {
-						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
-							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
-								for (key, value) in state.key_values.into_iter() {
-									storage.top.insert(key, value);
-								}
-							} else {
-								for parent_storage in state.parent_storage_keys {
-									let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
-									let storage_key =
-										match ChildType::from_prefixed_key(storage_key) {
-											Some((ChildType::ParentKeyId, storage_key)) => {
-												storage_key
-											},
-											None => {
-												return Err(Error::Backend(
-													"Invalid child storage key.".to_string(),
-												))
-											},
-										};
-									let entry = storage
-										.children_default
-										.entry(storage_key.to_vec())
-										.or_insert_with(|| StorageChild {
-											data: Default::default(),
-											child_info: ChildInfo::new_default(storage_key),
-										});
-									for (key, value) in state.key_values.iter() {
-										entry.data.insert(key.clone(), value.clone());
-									}
-								}
+					} else {
+						for parent_storage in state.parent_storage_keys {
+							let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
+							let storage_key = match ChildType::from_prefixed_key(storage_key) {
+								Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+								None => {
+									return Err(Error::Backend(
+										"Invalid child storage key.".to_string(),
+									))
+								},
+							};
+							let entry = storage
+								.children_default
+								.entry(storage_key.to_vec())
+								.or_insert_with(|| StorageChild {
+									data: Default::default(),
+									child_info: ChildInfo::new_default(storage_key),
+								});
+							for (key, value) in state.key_values.iter() {
+								entry.data.insert(key.clone(), value.clone());
 							}
 						}
+					}
+				}
 
-						// This is use by fast sync for runtime version to be resolvable from
-						// changes.
-						let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
-							&storage,
-							&self.executor,
-						)?;
-						let state_root = operation.op.reset_storage(storage, state_version)?;
-						if state_root != *import_headers.post().state_root() {
-							// State root mismatch when importing state. This should not happen in
-							// safe fast sync mode, but may happen in unsafe mode.
-							warn!("Error importing state: State root mismatch.");
-							return Err(Error::InvalidStateRoot);
-						}
-						None
-					},
-				};
-
-				storage_changes
+				// This is use by fast sync for runtime version to be resolvable from
+				// changes.
+				let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
+					&storage,
+					&self.executor,
+				)?;
+				let state_root = operation.op.reset_storage(storage, state_version)?;
+				if state_root != *import_headers.post().state_root() {
+					// State root mismatch when importing state. This should not happen in
+					// safe fast sync mode, but may happen in unsafe mode.
+					warn!("Error importing state: State root mismatch.");
+					return Err(Error::InvalidStateRoot);
+				}
+				None
 			},
 			None => None,
 		};
@@ -729,7 +751,6 @@ where
 		operation.op.set_block_data(
 			import_headers.post().clone(),
 			body,
-			indexed_body,
 			justifications,
 			leaf_state,
 			register_as_leaf,
@@ -838,6 +859,12 @@ where
 			(_, StateAction::ExecuteIfPossible) => (true, None),
 		};
 
+		// Executed blocks have their extrinsics root checked by the runtime.
+		let execute = enact_state && storage_changes.is_none();
+		if let (false, Some(body)) = (execute, &import_block.body) {
+			check_extrinsics_root::<Block>(&import_block.header, body)?;
+		}
+
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything
 			// here
@@ -846,7 +873,7 @@ where
 			// block.
 			(true, None, Some(ref body)) => {
 				let mut runtime_api = self.runtime_api();
-				let call_context = CallContext::Onchain;
+				let call_context = CallContext::Onchain { import: true };
 				runtime_api.set_call_context(call_context);
 
 				if self.config.enable_import_proof_recording {
@@ -1244,8 +1271,9 @@ where
 		hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		self.executor.prove_execution(hash, method, call_data, timeout)
 	}
 
 	fn read_proof_collection(
@@ -1391,7 +1419,7 @@ where
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
-			Some(&root),
+			&root,
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
@@ -1993,12 +2021,16 @@ where
 		self.backend.blockchain().hash(number)
 	}
 
-	fn indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn indexed_transaction(&self, hash: H256) -> sp_blockchain::Result<Option<Vec<u8>>> {
 		self.backend.blockchain().indexed_transaction(hash)
 	}
 
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<bool> {
+	fn has_indexed_transaction(&self, hash: H256) -> sp_blockchain::Result<bool> {
 		self.backend.blockchain().has_indexed_transaction(hash)
+	}
+
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
+		self.backend.blockchain().block_indexed_hashes(hash)
 	}
 
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {

@@ -18,12 +18,13 @@
 //! This module contains routines for accessing and altering a contract related state.
 
 use crate::{
-	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
-	SENTINEL, TrieId,
+	AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfoOf, Config, DeletionQueue,
+	DeletionQueueCounter, Error, LOG_TARGET, NativeDepositOf, SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
 	tracing::if_tracing,
+	vm::CodeInfo,
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -64,8 +65,8 @@ pub struct AccountInfo<T: Config> {
 	/// The type of the account.
 	pub account_type: AccountType<T>,
 
-	// The  amount that was transferred to this account that is less than the
-	// NativeToEthRatio, and can be represented in the native currency
+	// The amount that was transferred to this account that is less than the
+	// NativeToEthRatio, and cannot be represented in the native currency
 	pub dust: u32,
 }
 
@@ -78,9 +79,33 @@ pub enum AccountType<T: Config> {
 	/// An account that is a contract.
 	Contract(ContractInfo<T>),
 
-	/// An account that is an externally owned account (EOA).
+	/// An externally owned account (no delegation).
 	#[default]
 	EOA,
+
+	/// An EOA that has been delegated via EIP-7702.
+	/// Once delegated, the account stays `DelegatedEOA` even after clearing.
+	DelegatedEOA {
+		/// When `Some`, the account delegates code execution to that address.
+		delegate_target: Option<H160>,
+		/// Storage accounting for this EOA's child trie.
+		contract_info: ContractInfo<T>,
+		/// Account that paid the current `contract_info.storage_base_deposit`, so that a
+		/// clear or re-delegation refunds them rather than whoever relays it.
+		payer: Option<T::AccountId>,
+	},
+}
+
+/// `storage_base_deposit` before and after [`AccountInfo::set_delegation`].
+///
+/// `current` covers the account entry itself, which outlives the delegation, plus the code
+/// lockup while one is held. The caller refunds `previous` to `previous_payer` and charges
+/// `current` to the new payer, which `set_delegation` has already recorded on the entry.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DelegationDepositChange<T: Config> {
+	pub previous: BalanceOf<T>,
+	pub current: BalanceOf<T>,
+	pub previous_payer: Option<T::AccountId>,
 }
 
 /// Information for managing an account and its sub trie abstraction.
@@ -139,6 +164,24 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 	}
 }
 
+impl<T: Config> AccountType<T> {
+	/// Returns the ContractInfo if this account type has loadable contract code.
+	///
+	/// For `DelegatedEOA`, only returns `Some` when delegation is active and the
+	/// code_hash is non-default (i.e., the target is a contract).
+	pub fn contract_info(self) -> Option<ContractInfo<T>> {
+		match self {
+			AccountType::Contract(info) => Some(info),
+			AccountType::DelegatedEOA { delegate_target: Some(_), contract_info, .. }
+				if !contract_info.code_hash.is_zero() =>
+			{
+				Some(contract_info)
+			},
+			_ => None,
+		}
+	}
+}
+
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
 	pub fn is_contract(address: &H160) -> bool {
@@ -169,30 +212,248 @@ impl<T: Config> AccountInfo<T> {
 		BalanceWithDust::new_unchecked::<T>(value, dust)
 	}
 
-	/// Loads the contract information for a given address.
+	/// Loads the `ContractInfo` backing the address's storage namespace.
+	///
+	/// Returns `Some` for deployed contracts *and* for EIP-7702 delegated EOAs with an
+	/// active delegation; in the latter case the returned info is the authority's own.
+	/// Use [`Self::is_contract`] for a strict "deployed contract" check.
 	pub fn load_contract(address: &H160) -> Option<ContractInfo<T>> {
-		let Some(info) = <AccountInfoOf<T>>::get(address) else { return None };
-		let AccountType::Contract(contract_info) = info.account_type else { return None };
-		Some(contract_info)
+		<AccountInfoOf<T>>::get(address)?.account_type.contract_info()
+	}
+
+	/// [`Self::load_contract`] plus the EIP-7702 delegation target, from a single read.
+	///
+	/// Callers that need both must use this rather than pairing `load_contract` with
+	/// [`Self::get_delegation_target`], which decodes the same entry twice.
+	pub fn load_contract_with_delegation(
+		address: &H160,
+	) -> (Option<ContractInfo<T>>, Option<H160>) {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return (None, None) };
+		let target = match &info.account_type {
+			AccountType::DelegatedEOA { delegate_target, .. } => *delegate_target,
+			_ => None,
+		};
+		(info.account_type.contract_info(), target)
 	}
 
 	/// Insert a contract, existing dust if any will be unchanged.
 	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			if let Some(account) = account {
-				account.account_type = contract.clone().into();
+				match &mut account.account_type {
+					AccountType::DelegatedEOA { contract_info, .. } => {
+						*contract_info = contract;
+					},
+					_ => account.account_type = contract.into(),
+				}
 			} else {
-				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
+				*account = Some(AccountInfo { account_type: contract.into(), dust: 0 });
 			}
 		});
+	}
+
+	/// Updates the ContractInfo for storage operations at a given address.
+	pub fn update_contract_info(address: &H160, contract_info: ContractInfo<T>) {
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account {
+				match &mut account.account_type {
+					AccountType::Contract(info) => *info = contract_info,
+					AccountType::DelegatedEOA { contract_info: info, .. } => *info = contract_info,
+					AccountType::EOA => {},
+				}
+			}
+		});
+	}
+
+	/// EIP-7702: Check if an account has a delegation indicator set
+	pub fn is_delegated(address: &H160) -> bool {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
+		matches!(info.account_type, AccountType::DelegatedEOA { delegate_target: Some(_), .. })
+	}
+
+	/// EIP-7702: Get the delegation target for an address
+	pub fn get_delegation_target(address: &H160) -> Option<H160> {
+		let info = <AccountInfoOf<T>>::get(address)?;
+		match info.account_type {
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => Some(target),
+			_ => None,
+		}
+	}
+
+	/// EIP-7702: Build the 23-byte delegation indicator `0xef0100 || target`.
+	pub fn delegation_indicator(target: &H160) -> [u8; 23] {
+		let mut buf = [0u8; 23];
+		buf[0] = 0xef;
+		buf[1] = 0x01;
+		buf[2] = 0x00;
+		buf[3..23].copy_from_slice(target.as_bytes());
+		buf
+	}
+
+	/// EIP-7702: Set or clear the delegation indicator for an EOA.
+	///
+	/// `Some(target)` marks the account as delegated to that address; `None` clears an
+	/// existing delegation — the account stays `DelegatedEOA` with `delegate_target = None`,
+	/// preserving the child trie and deposit accounting, while clearing an account that was
+	/// never delegated is a no-op (no entry is created).
+	/// The `DelegatedEOA` variant always carries a `ContractInfo`, but per EIP-7702 it only
+	/// snapshots the target's `code_hash`/deposit when the target is a contract. If the target is
+	/// itself delegated or a plain EOA, those fields are zeroed (no chain following). Existing
+	/// deposit accounting is preserved across re-delegations.
+	///
+	/// `payer` is recorded on the entry whenever the resulting deposit is non-zero. Returns the
+	/// deposit movement and the previously recorded payer (see [`DelegationDepositChange`]) so
+	/// the caller can refund the old deposit and charge the new one.
+	///
+	/// Not atomic on its own: an `Err` from the refcount update leaves the account mutation in
+	/// place. Run it inside a transactional storage layer (`process_authorizations` wraps each
+	/// tuple in one) or treat any `Err` as fatal to the surrounding operation.
+	///
+	/// # Spec deviation: code is resolved at delegation time, not at call time
+	///
+	/// The target's `code_hash` (and the resulting `ContractInfo`) is snapshotted from
+	/// `AccountInfoOf::<T>::get(&target)` here, not looked up live on every call. This is
+	/// stable when `target` is already a deployed contract: the only way to change a
+	/// contract's code is via root `set_code`, so the snapshot stays accurate.
+	///
+	/// It is **not** spec-compliant when `target` is **empty** at delegation time and a
+	/// contract is later deployed to that address (e.g., via `CREATE2` or Nick's method,
+	/// possibly even in the same transaction as the delegation). Spec-compliant clients
+	/// resolve code at call time, so a post-delegation deployment would "wake up" the
+	/// delegation. Here, the snapshot stays at zero and the authority continues to
+	/// behave like a no-code EOA. The niche but real case this breaks is a single EIP-7702
+	/// transaction that calls a factory which deploys to the future target *and* delegates
+	/// to it — on revive the delegation never activates.
+	pub(crate) fn set_delegation(
+		address: &H160,
+		target: Option<H160>,
+		payer: &T::AccountId,
+	) -> Result<DelegationDepositChange<T>, DispatchError> {
+		// `Some` iff target is a deployed contract with a real (non-zero) code
+		// hash. Precompiles and other special accounts surface as
+		// `AccountType::Contract` with `code_hash == 0` and have no `CodeInfo`;
+		// per EIP-7702 they should be delegated to successfully and behave as
+		// empty code on call, so we filter them out here. The deposit is looked
+		// up separately so a contract with a non-zero hash but missing
+		// `CodeInfo` (malformed state) still snapshots and surfaces via the
+		// refcount bump below.
+		let target_code_hash: Option<sp_core::H256> = target
+			.and_then(|target| <AccountInfoOf<T>>::get(&target))
+			.and_then(|info| match info.account_type {
+				AccountType::Contract(c) if !c.code_hash.is_zero() => Some(c.code_hash),
+				_ => None,
+			});
+		let target_code_deposit: Option<BalanceOf<T>> =
+			target_code_hash.and_then(|h| CodeInfoOf::<T>::get(h).map(|ci| ci.deposit()));
+
+		// Ensure the account is `DelegatedEOA` (creating one if necessary), then
+		// update its fields in a single pass. `None` when clearing an account that
+		// was never delegated: per spec that authorization is still valid, but no
+		// entry must be created just to record an empty delegation.
+		let mutation = AccountInfoOf::<T>::mutate(address, |slot| {
+			let fresh_delegated = || AccountType::DelegatedEOA {
+				delegate_target: None,
+				contract_info: ContractInfo::<T>::new_for_delegation(address, Default::default()),
+				payer: None,
+			};
+			if target.is_none() &&
+				!matches!(
+					slot,
+					Some(AccountInfo { account_type: AccountType::DelegatedEOA { .. }, .. })
+				) {
+				return None;
+			}
+			match slot.as_mut() {
+				None => *slot = Some(AccountInfo { account_type: fresh_delegated(), dust: 0 }),
+				Some(AccountInfo { account_type: AccountType::DelegatedEOA { .. }, .. }) => {},
+				Some(account) => {
+					debug_assert!(
+						!matches!(account.account_type, AccountType::Contract(_)),
+						"set_delegation must not be called on contract accounts"
+					);
+					// Preserve `dust`; only swap `account_type`.
+					account.account_type = fresh_delegated();
+				},
+			}
+
+			let Some(AccountInfo {
+				account_type:
+					AccountType::DelegatedEOA { delegate_target, contract_info, payer: stored_payer },
+				..
+			}) = slot
+			else {
+				unreachable!("initialized to DelegatedEOA above; qed")
+			};
+
+			let old_code_hash = Some(contract_info.code_hash).filter(|h| !h.is_zero());
+			let old_deposit = contract_info.storage_base_deposit;
+			let previous_payer = stored_payer.clone();
+
+			*delegate_target = target;
+			let new_deposit = match target_code_hash {
+				Some(code_hash) => {
+					contract_info.code_hash = code_hash;
+					// Deposit is only updated if we found the `CodeInfo`; if not,
+					// `new_deposit` stays at zero and the failing `increment_refcount`
+					// below propagates the malformed-state error.
+					target_code_deposit
+						.map(|d| contract_info.update_base_deposit(d))
+						.unwrap_or(Zero::zero())
+				},
+				None => {
+					// Clearing, or delegating to a non-contract: drop any stale
+					// snapshot so a later re-delegation doesn't double-account
+					// refcount/deposit. Still non-zero: only the code lockup drops
+					// out, the account entry stays charged.
+					contract_info.code_hash = Default::default();
+					contract_info.update_base_deposit(Zero::zero())
+				},
+			};
+			*stored_payer = if new_deposit.is_zero() { None } else { Some(payer.clone()) };
+
+			Some((old_code_hash, old_deposit, new_deposit, previous_payer))
+		});
+		let Some((old_code_hash, old_deposit, new_deposit, previous_payer)) = mutation else {
+			return Ok(DelegationDepositChange {
+				previous: Zero::zero(),
+				current: Zero::zero(),
+				previous_payer: None,
+			});
+		};
+
+		// Manage code refcounts, skipping when the hash is unchanged.
+		if let Some(new_hash) = target_code_hash &&
+			Some(new_hash) != old_code_hash
+		{
+			CodeInfo::<T>::increment_refcount(new_hash).inspect_err(|e| {
+				log::warn!(target: LOG_TARGET, "increment_refcount({new_hash:?}) failed: {e:?}");
+			})?;
+		}
+		if let Some(old_hash) = old_code_hash &&
+			Some(old_hash) != target_code_hash
+		{
+			let _ = CodeInfo::<T>::decrement_refcount(old_hash).inspect_err(|e| {
+				log::warn!(target: LOG_TARGET, "decrement_refcount({old_hash:?}) failed: {e:?}");
+			})?;
+		}
+
+		Ok(DelegationDepositChange { previous: old_deposit, current: new_deposit, previous_payer })
 	}
 }
 
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
-	/// This returns an `Err` if an contract with the supplied `account` already exists
-	/// in storage.
+	/// This returns an `Err` if a contract with the supplied `address` already exists in storage
+	/// ([`Error::DuplicateContract`]), or if [`NativeDepositOf`] still holds rows under the
+	/// fallback account of `address` ([`Error::PendingDepositCleanup`]).
+	///
+	/// The child trie id is a hash of `address`, `nonce` and the deletion queue insert counter.
+	/// `nonce` is hashed into the id, but the id is unique because of `address` and the insert
+	/// counter alone. Only the child trie is separate per contract: `NativeDepositOf` rows are
+	/// keyed by the fallback account of `address`, which every contract at `address` shares.
+	///
+	/// Precompiles get their contract info from [`Self::new_for_precompile`] instead.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
@@ -202,13 +463,24 @@ impl<T: Config> ContractInfo<T> {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 
-		let trie_id = {
-			let buf = ("bcontract_trie_v1", address, nonce).using_encoded(T::Hashing::hash);
-			buf.as_ref()
-				.to_vec()
-				.try_into()
-				.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
-		};
+		// Reject reuse of an address whose previous occupant still has `NativeDepositOf` rows
+		// that the deletion queue has not cleared yet. `DeletionQueueItem` explains why.
+		let account_id = T::AddressMapper::to_fallback_account_id(address);
+		if NativeDepositOf::<T>::iter_prefix(&account_id).next().is_some() {
+			return Err(Error::<T>::PendingDepositCleanup.into());
+		}
+
+		// The address is part of the derivation, so the trie id only has to be unique per address.
+		// A contract is only created where none is live: `is_contract` above rejects a stored one,
+		// and the EIP-684 check in `Stack::push_frame` rejects one still in construction. Every
+		// earlier contract at this address was therefore removed by `Stack::do_terminate`, which
+		// queues its trie and increments the insert counter. As long as the counter never
+		// decreases or resets, the value read here differs from the one read for any earlier
+		// contract at this address, so the trie id does too. This does not depend on `nonce`. The
+		// counter is a wrapping `u32`, so a repeat needs 2^32 terminations between two creations
+		// at the same address.
+		let insert_counter = DeletionQueueManager::<T>::load().insert_counter;
+		let trie_id = Self::hash_trie_id(("bcontract_trie_v2", address, nonce, insert_counter));
 
 		let contract = Self {
 			trie_id,
@@ -222,6 +494,54 @@ impl<T: Config> ContractInfo<T> {
 		};
 
 		Ok(contract)
+	}
+
+	/// Constructs a new contract info for a delegated account (EIP-7702).
+	///
+	/// Delegated accounts have their own child trie for storage but use the code hash
+	/// of the target contract they delegate to. The trie_id is derived solely from the
+	/// address so that storage persists across re-delegations to different targets.
+	pub fn new_for_delegation(address: &H160, target_code_hash: sp_core::H256) -> Self {
+		Self {
+			trie_id: Self::hash_trie_id(("delegated_trie_v1", address)),
+			code_hash: target_code_hash,
+			storage_bytes: 0,
+			storage_items: 0,
+			storage_byte_deposit: Zero::zero(),
+			storage_item_deposit: Zero::zero(),
+			storage_base_deposit: Zero::zero(),
+			immutable_data_len: 0,
+		}
+	}
+
+	/// Constructs the contract info of a precompile that has `HAS_CONTRACT_INFO` set.
+	///
+	/// Only use it when no contract info is stored at `address`. The child trie id is a hash of
+	/// `address` and a zero nonce. Unlike [`Self::new`], it does not mix in the deletion queue
+	/// insert counter and reads no storage. A precompile's contract info is never removed, because
+	/// a precompile frame is never a constructor and so cannot be terminated. Its child trie is
+	/// therefore never queued for deletion and cannot be inherited by later contract info at
+	/// `address`.
+	pub fn new_for_precompile(address: &H160) -> Self {
+		Self {
+			trie_id: Self::hash_trie_id(("bcontract_trie_v1", address, T::Nonce::zero())),
+			code_hash: sp_core::H256::zero(),
+			storage_bytes: 0,
+			storage_items: 0,
+			storage_byte_deposit: Zero::zero(),
+			storage_item_deposit: Zero::zero(),
+			storage_base_deposit: Zero::zero(),
+			immutable_data_len: 0,
+		}
+	}
+
+	/// Hashes `seed` into a child trie id.
+	fn hash_trie_id(seed: impl Encode) -> TrieId {
+		seed.using_encoded(T::Hashing::hash)
+			.as_ref()
+			.to_vec()
+			.try_into()
+			.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
 	}
 
 	/// Associated child trie unique id is built from the hash part of the trie id.
@@ -378,34 +698,25 @@ impl<T: Config> ContractInfo<T> {
 		deposit
 	}
 
-	/// Push a contract's trie to the deletion queue for lazy removal.
+	/// Push a contract's trie and account to the deletion queue for lazy removal.
 	///
-	/// You must make sure that the contract is also removed when queuing the trie for deletion.
-	pub fn queue_trie_for_deletion(trie_id: TrieId) {
-		DeletionQueueManager::<T>::load().insert(trie_id);
+	/// You must make sure that the contract is also removed when queuing for deletion.
+	/// Both the contract's child trie and any [`NativeDepositOf`] entries it held are drained
+	/// lazily in `on_idle`.
+	pub fn queue_for_deletion(trie_id: TrieId, contract: AccountIdOf<T>) {
+		DeletionQueueManager::<T>::load().insert(DeletionQueueItem::new(trie_id, contract));
 	}
 
-	/// Calculates the weight that is necessary to remove one key from the trie and how many
-	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
-	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
-		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
-		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
-			T::WeightInfo::on_initialize_per_trie_key(0);
-
-		// `weight_per_key` being zero makes no sense and would constitute a failure to
-		// benchmark properly. We opt for not removing any keys at all in this case.
-		let key_budget = meter
-			.limit()
-			.saturating_sub(base_weight)
-			.checked_div_per_component(&weight_per_key)
-			.unwrap_or(0) as u32;
-
-		(weight_per_key, key_budget)
+	/// Returns the total weight available for deletion-queue processing after subtracting
+	/// the fixed [`WeightInfo::deletion_queue_batch`] base.
+	pub fn deletion_budget(meter: &WeightMeter) -> Weight {
+		meter.limit().saturating_sub(T::WeightInfo::deletion_queue_batch())
 	}
 
-	/// Delete as many items from the deletion queue possible within the supplied weight limit.
+	/// Delete as many items from the deletion queue as possible within the supplied weight
+	/// limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
-		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
+		if meter.try_consume(T::WeightInfo::deletion_queue_batch()).is_err() {
 			return;
 		};
 
@@ -414,32 +725,72 @@ impl<T: Config> ContractInfo<T> {
 			return;
 		}
 
-		let (weight_per_key, budget) = Self::deletion_budget(&meter);
-		let mut remaining_key_budget = budget;
-		while remaining_key_budget > 0 {
+		let weight_per_entry = T::WeightInfo::deletion_queue_per_entry()
+			.saturating_sub(T::WeightInfo::deletion_queue_batch());
+		let weight_per_native_key = T::WeightInfo::deletion_queue_per_native_deposit_key(1)
+			.saturating_sub(T::WeightInfo::deletion_queue_per_native_deposit_key(0));
+		let weight_per_trie_key = T::WeightInfo::deletion_queue_per_trie_key(1)
+			.saturating_sub(T::WeightInfo::deletion_queue_per_trie_key(0));
+
+		let budget = Self::deletion_budget(&meter);
+		let mut remaining = budget;
+
+		let key_budget_for = |remaining: Weight, w: Weight| -> u32 {
+			// `w == 0` would be a benchmark misconfiguration; refuse to touch keys in that case
+			// rather than loop forever.
+			remaining.checked_div_per_component(&w).unwrap_or(0).min(u32::MAX as u64) as u32
+		};
+
+		loop {
 			let Some(entry) = queue.next() else { break };
 
+			// Charge the per-entry overhead.
+			let Some(after_entry) = remaining.checked_sub(&weight_per_entry) else { break };
+			remaining = after_entry;
+
+			// Phase 1: drain `NativeDepositOf` rows for this contract. Skipped while a contract is
+			// live at the address, because the rows then belong to it. See `DeletionQueueItem`.
+			let address = T::AddressMapper::to_address(&entry.value.account_id);
+			if !AccountInfo::<T>::is_contract(&address) {
+				let key_budget = key_budget_for(remaining, weight_per_native_key);
+				if key_budget == 0 {
+					break;
+				}
+				let result =
+					NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
+				remaining = remaining
+					.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
+				if result.maybe_cursor.is_some() {
+					break;
+				}
+			}
+
+			// Phase 2: kill the child trie.
+			let key_budget = key_budget_for(remaining, weight_per_trie_key);
+			if key_budget == 0 {
+				break;
+			}
 			#[allow(deprecated)]
 			let outcome = child::kill_storage(
-				&ChildInfo::new_default(&entry.trie_id),
-				Some(remaining_key_budget),
+				&ChildInfo::new_default(&entry.value.trie_id),
+				Some(key_budget),
 			);
-
 			match outcome {
-				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
-					remaining_key_budget.saturating_reduce(keys_removed);
+					remaining = remaining
+						.saturating_sub(weight_per_trie_key.saturating_mul(keys_removed.into()));
 					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
+					remaining = remaining.saturating_sub(
+						weight_per_trie_key.saturating_mul(u64::from(keys_removed)),
+					);
 					entry.remove();
-					// charge at least one key even if none were removed.
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.max(1));
 				},
 			};
 		}
 
-		meter.consume(weight_per_key.saturating_mul(u64::from(budget - remaining_key_budget)))
+		meter.consume(budget.saturating_sub(remaining));
 	}
 
 	/// Returns the code hash of the contract specified by `account` ID.
@@ -509,19 +860,49 @@ impl WriteOutcome {
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
-	/// The counter is incremented after each insertion.
+	/// The counter is incremented after each insertion, wrapping on overflow.
+	///
+	/// [`ContractInfo::new`] mixes it into the child trie id of every contract it creates, so it
+	/// must never decrease or be reset, apart from wrapping.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
-	/// The counter is incremented after each deletion.
+	/// The counter is incremented after each deletion, wrapping on overflow.
 	delete_counter: u32,
 
 	_phantom: PhantomData<T>,
 }
 
+/// A contract queued for lazy cleanup.
+///
+/// Holds the data needed to drain both the contract's [`NativeDepositOf`] rows and its child
+/// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
+/// stays in the queue until both phases have finished for it.
+///
+/// The native rows are keyed by `account_id`, the fallback account of the address, which every
+/// contract created at that address shares. [`ContractInfo::new`] refuses to create a contract
+/// at an address that still has rows, so a new contract cannot inherit the per-payer
+/// entitlements of a terminated one. Once a contract is live at the address again, every row
+/// under `account_id` belongs to it. Therefore the first phase only runs while no contract is
+/// live at the address; otherwise only the child trie is removed.
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
+#[scale_info(skip_type_params(T))]
+pub struct DeletionQueueItem<T: Config> {
+	/// The contract's child trie.
+	pub trie_id: TrieId,
+	/// The contract account whose [`NativeDepositOf`] entries must be cleared.
+	pub account_id: AccountIdOf<T>,
+}
+
+impl<T: Config> DeletionQueueItem<T> {
+	pub fn new(trie_id: TrieId, account_id: AccountIdOf<T>) -> Self {
+		Self { trie_id, account_id }
+	}
+}
+
 /// View on a contract that is marked for deletion.
 struct DeletionQueueEntry<'a, T: Config> {
-	/// the trie id of the contract to delete.
-	trie_id: TrieId,
+	/// The queued deletion record.
+	value: DeletionQueueItem<T>,
 
 	/// A mutable reference on the queue so that the contract can be removed, and none can be added
 	/// or read in the meantime.
@@ -550,8 +931,8 @@ impl<T: Config> DeletionQueueManager<T> {
 	}
 
 	/// Insert a contract in the deletion queue.
-	fn insert(&mut self, trie_id: TrieId) {
-		<DeletionQueue<T>>::insert(self.insert_counter, trie_id);
+	fn insert(&mut self, value: DeletionQueueItem<T>) {
+		<DeletionQueue<T>>::insert(self.insert_counter, value);
 		self.insert_counter = self.insert_counter.wrapping_add(1);
 		<DeletionQueueCounter<T>>::set(self.clone());
 	}
@@ -567,7 +948,7 @@ impl<T: Config> DeletionQueueManager<T> {
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);
-		entry.map(|trie_id| DeletionQueueEntry { trie_id, queue: self })
+		entry.map(|value| DeletionQueueEntry { value, queue: self })
 	}
 }
 
