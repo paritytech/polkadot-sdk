@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794581703605,
+  "lastUpdate": 1794591719846,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "82e8ce499e8e0e55f052e72377f38416f5e2b6d6",
-          "message": "statement-latency-bench: harden failure handling and drop unused sync wait (#10915)\n\nReworks `statement-latency-bench`'s failure handling so a single hung\npeer no longer wedges the whole run, and removes the wall-clock sync\nwait that we no longer need.",
-          "timestamp": "2026-04-28T16:42:54Z",
-          "tree_id": "1f44b12e9c07352a3c43ed3447255addde6df497",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/82e8ce499e8e0e55f052e72377f38416f5e2b6d6"
-        },
-        "date": 1777400113149,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.156,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08489916446799986,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038643469092000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08122007365599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5983c93547f33715dbf1d44d5d52161448059cf2",
+          "message": "pallet-revive: derive child trie ids from the deletion queue counter (#13620)\n\nChild trie ids came from the address and the deployer's nonce, and a\ndeployer reaped on termination restarts at the same nonce. A contract\nre-created at the address of a terminated contract could therefore get\nthe old trie id while that trie was still queued for deletion: it saw\nthe old storage, and the queued deletion later removed its own. New trie\nids mix in `DeletionQueueCounter`, which every termination increments.\n\n## Changes\n- Trie id preimage: `(\"bcontract_trie_v2\", address, nonce,\ninsert_counter)`. Existing contracts and queued entries keep theirs; no\nmigration; `ContractInfo::new` signature unchanged.\n- Precompiles with contract info use the new\n`ContractInfo::new_for_precompile`, which keeps the\n`(\"bcontract_trie_v1\", address, 0)` id and reads no storage.\n- `DeletionQueueCounter` docs: must never decrease or reset, apart from\nwrapping.\n- Instantiation reads `DeletionQueueCounter` once more (`instantiate`,\n`instantiate_with_code`, `eth_instantiate_with_code`,\n`seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`); `dev` and `asset-hub-westend` weights\nregenerated.\n- Off-chain tools that compute trie ids must read `trie_id` from\n`ContractInfo`.\n- Keeping `NativeDepositOf` rows of a re-created contract is #13613.\n\n## Tests\n`tests/sol/terminate.rs` with `RedeployFactory.sol`, Solc and Resolc.\nEach fails without the change.\n- Active:\n`child_recreated_after_same_tx_selfdestruct_does_not_share_storage`\n(child created and destroyed in one call, re-created later with the same\nsalt) and `precompile_trie_id_does_not_depend_on_terminations`.\n- `#[ignore]` until the termination restriction from #13689 is lifted:\nredeploy after termination in an earlier transaction (CREATE1, CREATE2,\ninside one `batch_all`), covering the queued drain and the deposit\ncharge and refund of the new child.\n\n`cargo nextest run -p pallet-revive`: 1063 passed, 0 failed. Clippy and\nrustdoc clean.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T15:39:27Z",
+          "tree_id": "32947fe201f6a281b10cc174429267b687961dbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5983c93547f33715dbf1d44d5d52161448059cf2"
+        },
+        "date": 1794591680711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08653680317399985,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038857092355999996,
             "unit": "seconds"
           }
         ]
