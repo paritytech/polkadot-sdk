@@ -29,7 +29,16 @@ pub fn genesis() -> Storage {
 	let genesis_config = collectives_westend_runtime::RuntimeGenesisConfig {
 		system: collectives_westend_runtime::SystemConfig::default(),
 		balances: collectives_westend_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ED * 4096))
+				.chain(std::iter::once((
+					collectives_westend_runtime::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ED,
+				)))
+				.collect(),
 			..Default::default()
 		},
 		parachain_info: collectives_westend_runtime::ParachainInfoConfig {

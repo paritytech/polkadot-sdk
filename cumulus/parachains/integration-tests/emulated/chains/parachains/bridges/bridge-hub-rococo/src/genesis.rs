@@ -32,7 +32,16 @@ pub fn genesis() -> Storage {
 	let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
 		system: bridge_hub_rococo_runtime::SystemConfig::default(),
 		balances: bridge_hub_rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ED * 4096))
+				.chain(std::iter::once((
+					bridge_hub_rococo_runtime::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ED,
+				)))
+				.collect(),
 			..Default::default()
 		},
 		parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {

@@ -56,7 +56,15 @@ pub fn genesis() -> Storage {
 	let genesis_config = rococo_runtime::RuntimeGenesisConfig {
 		system: rococo_runtime::SystemConfig::default(),
 		balances: rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.map(|k| (k.clone(), ENDOWMENT))
+				.chain(std::iter::once((
+					rococo_runtime::XcmPallet::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					rococo_runtime::ExistentialDeposit::get(),
+				)))
+				.collect(),
 			..Default::default()
 		},
 		session: rococo_runtime::SessionConfig {

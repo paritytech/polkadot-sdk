@@ -121,7 +121,14 @@ fn polkadot_testnet_genesis(
 
 	serde_json::json!({
 		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+			"balances": endowed_accounts
+				.iter()
+				.map(|k| (k.clone(), ENDOWMENT))
+				.chain(core::iter::once((
+					polkadot_test_runtime::Xcm::trap_account().expect("the trap location converts to an account; qed"),
+					polkadot_test_runtime::ExistentialDeposit::get()
+				)))
+				.collect::<Vec<_>>(),
 		},
 		"session": {
 			"keys": initial_authorities
