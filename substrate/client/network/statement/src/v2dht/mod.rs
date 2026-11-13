@@ -395,6 +395,7 @@ impl V2DhtOrchestrator {
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+			metrics.set_unreachable_peers(self.peer_steering.unreachable_count());
 		}
 	}
 

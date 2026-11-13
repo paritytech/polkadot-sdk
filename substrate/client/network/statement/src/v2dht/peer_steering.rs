@@ -180,6 +180,10 @@ impl PeerSteering {
 		self.unreachable.contains_key(peer)
 	}
 
+	pub(crate) fn unreachable_count(&self) -> usize {
+		self.unreachable.len()
+	}
+
 	// === Desired set ===
 
 	/// Replace the set of peers the node needs connected.
