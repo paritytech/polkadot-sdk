@@ -78,5 +78,30 @@ mod benchmarks {
 		assert_eq!(Deposits::<T>::iter().count(), 0);
 	}
 
+	/// A deposit moved whole from the migration's hold to a side that held nothing.
+	#[benchmark]
+	fn receive_deposit() {
+		let deposit = endow::<T>();
+		let side = DepositSide::Sender;
+		// The benchmark can name no other hold reason than the pallet's own. It stands for the
+		// migration's: the storage read and written is the same.
+		let source = HoldReason::ChannelDeposit.into();
+		T::Currency::hold(&source, &Pallet::<T>::payer(&CHANNEL, side), deposit)
+			.expect("endowed; qed");
+		let result;
+
+		#[block]
+		{
+			result = Pallet::<T>::receive_deposit(
+				DepositKey { channel: CHANNEL, side },
+				deposit,
+				&source,
+			);
+		}
+
+		assert!(result.is_ok());
+		assert_eq!(Deposits::<T>::get((CHANNEL, side)).map(|d| d.amount), Some(deposit));
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);
 }

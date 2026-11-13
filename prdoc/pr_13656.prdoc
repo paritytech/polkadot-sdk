@@ -1,0 +1,13 @@
+title: 'HRMP: let a migration hand its deposits to `pallet-hrmp-para`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replace `ReceiveMigratedChannels` with `ReceiveMigratedDeposits`: the migration trait now hands
+    over the deposit of one side of a channel, along with the reason the migration holds it for.
+    Implement `ReceiveMigratedDeposits` on `pallet-hrmp-para`, for the AHMv2 migration.
+
+crates:
+- name: pallet-hrmp-para
+  bump: major
+- name: hrmp-primitives
+  bump: major
