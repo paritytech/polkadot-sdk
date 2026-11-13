@@ -11,7 +11,7 @@ The generator emits a single `tip-sync-100-bundle-v2.tar.gz` (a zombienet-sdk
 `BundleBuilder` artefact) containing:
 
 | Member | Contents |
-|---|---|
+| --- | --- |
 | `parachain-db.tgz` | `pruned-node` full-node DB (`data/` + embedded `relay-data/`) |
 | `relaychain-db.tgz` | `alice` relay validator DB (`data/`) |
 | `manifest.json` | SDK schema + `user_data` carrying `SnapshotMetadata` plus both raw chain specs |
