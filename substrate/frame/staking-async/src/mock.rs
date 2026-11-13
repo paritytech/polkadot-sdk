@@ -620,11 +620,6 @@ where
 	}
 }
 
-parameter_types! {
-	// if true, skips the try-state for the test running.
-	pub static SkipTryStateCheck: bool = false;
-}
-
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
@@ -778,16 +773,6 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
-	/// Do NOT use this. Disabling try-state means the test stops proving that storage
-	/// invariants hold at the end, which hides real corruption. A test that deliberately
-	/// corrupts storage to exercise a code path must restore valid state before its closure
-	/// returns so this hook still runs and passes. Existing `false` call sites are bugs to
-	/// be fixed.
-	pub(crate) fn try_state(self, enable: bool) -> Self {
-		SkipTryStateCheck::set(!enable);
-		self
-	}
-
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -885,9 +870,7 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			if !SkipTryStateCheck::get() {
-				Staking::do_try_state(System::block_number()).unwrap();
-			}
+			Staking::do_try_state(System::block_number()).unwrap();
 		});
 	}
 }
@@ -1112,6 +1095,19 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	assert_eq!(Bonded::<Test>::get(555), Some(777));
 	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(555)), Some(777));
 	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
+}
+
+/// Removes the `Bonded`, `Ledger`, `Payee` and staking hold entries that
+/// [`setup_double_bonded_ledgers`] creates for its four accounts (the minted free balance
+/// stays). Idempotent, so it is safe to call after further mutations on those accounts. Used by
+/// tests that leave those ledgers corrupted, so the post-test invariant check can pass.
+pub(crate) fn cleanup_double_bonded_ledgers() {
+	for who in [333u64, 444, 555, 777] {
+		Bonded::<Test>::remove(who);
+		Ledger::<Test>::remove(who);
+		Payee::<Test>::remove(who);
+		assert_ok!(asset::kill_stake::<Test>(&who));
+	}
 }
 
 #[macro_export]
