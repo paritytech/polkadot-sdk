@@ -20,6 +20,8 @@
 //! Structured after `polkadot/xcm/xcm-simulator/example/src/parachain`, trimmed to what the
 //! registrar needs and with `ParentAsSuperuser` added to the origin converter so the relay
 //! chain's `Superuser` reports land as `Root` here.
+//!
+//! The managed para runs this same runtime, as ParaA and ParaB do in that example.
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -36,14 +38,14 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, DescribeAllTerminal, DescribeFamily,
 	EnsureDecodableXcm, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsConcrete, ParentAsSuperuser, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	FungibleAdapter, HashedDescription, IsConcrete, ParentAsSuperuser, SiblingParachainAsNative,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 use xcm_executor::XcmExecutor;
 use xcm_simulator::mock_message_queue;
 
 use crate::{
-	senders::{ParaSendToRelay, PARA_ID},
+	senders::{EnsureSiblingPara, ParaSendToRelay},
 	MAX_CODE_SIZE, MAX_HEAD_SIZE, MIN_CODE_SIZE,
 };
 
@@ -79,11 +81,19 @@ impl mock_message_queue::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
+impl cumulus_pallet_xcm::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get()), Parachain(PARA_ID)].into();
+	pub UniversalLocation: InteriorLocation = [
+		GlobalConsensus(RelayNetwork::get()),
+		Parachain(mock_message_queue::ParachainId::<Runtime>::get().into()),
+	]
+	.into();
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -99,10 +109,12 @@ pub type LocalAssetTransactor =
 
 /// Note `ParentAsSuperuser`: it is what turns the relay chain's `OriginKind::Superuser` report
 /// into `Root` here, which is what `pallet-registrar-para`'s `RelayOrigin` accepts.
+/// `SiblingParachainAsNative` gives a sibling's own call the origin `ParachainOrigin` accepts.
 pub type OriginConverter = (
 	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
 	ParentAsSuperuser<RuntimeOrigin>,
+	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
 	pallet_xcm::XcmPassthrough<RuntimeOrigin>,
 );
 
@@ -220,7 +232,7 @@ impl pallet_registrar_para::Config for Runtime {
 	// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
 	type RelayOrigin = EnsureRoot<AccountId>;
-	type ParachainOrigin = frame_system::EnsureNever<u32>;
+	type ParachainOrigin = EnsureSiblingPara;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
@@ -245,5 +257,6 @@ construct_runtime!(
 		MsgQueue: mock_message_queue,
 		PolkadotXcm: pallet_xcm,
 		Registrar: pallet_registrar_para,
+		CumulusXcm: cumulus_pallet_xcm,
 	}
 );

@@ -22,7 +22,7 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use polkadot_primitives::AsyncBackingParams;
-use registrar_primitives::{MessageToPara, MessageToParaV1};
+use registrar_primitives::{MessageToPara, MessageToParaV1, ParaRequestV1};
 
 /// The host configuration every benchmark runs under.
 fn host_configuration() -> AbridgedHostConfiguration {
@@ -214,6 +214,25 @@ mod benchmarks {
 		_(RawOrigin::Root, message);
 
 		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// What relaying adds around the call it runs, which fails at its first read here.
+	#[benchmark]
+	fn receive_relayed() -> Result<(), BenchmarkError> {
+		let para_id: ParaId = u32::MAX;
+		let message = MessageToPara::V1(MessageToParaV1::Relayed {
+			para_id,
+			request: ParaRequestV1::RemoveLock,
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		frame_system::Pallet::<T>::assert_last_event(
+			Event::<T>::RelayedRequest { para_id, result: Err(Error::<T>::NotReserved.into()) }
+				.into(),
+		);
 		Ok(())
 	}
 

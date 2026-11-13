@@ -28,7 +28,7 @@ use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
 use polkadot_runtime_parachains::Origin as ParachainsOrigin;
-use registrar_primitives::{MessageToPara, MessageToRelay};
+use registrar_primitives::{MessageToPara, MessageToRelay, ParaRequest};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
 
@@ -50,6 +50,9 @@ pub enum RegistrarRelayCalls<AccountId> {
 	/// Index of `fn receive` in `pallet-registrar-relay`.
 	#[codec(index = 0)]
 	Receive(MessageToRelay<AccountId>),
+	/// Index of `fn relay` in `pallet-registrar-relay`.
+	#[codec(index = 3)]
+	Relay(ParaRequest),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -67,6 +70,9 @@ pub enum RegistrarParaCalls {
 	/// Index of `fn receive` in `pallet-registrar-para`.
 	#[codec(index = 0)]
 	Receive(MessageToPara),
+	/// Index of `fn remove_lock` in `pallet-registrar-para`.
+	#[codec(index = 5)]
+	RemoveLock(u32),
 }
 
 /// The parachain's half of the transport.
@@ -126,6 +132,11 @@ impl SendToPara for RelaySendToPara {
 		let dest = Location::new(0, [Junction::Parachain(PARA_ID)]);
 		send_xcm::<crate::relay::XcmRouter>(dest, program).map(|_| ()).map_err(|_| ())
 	}
+
+	// The simulator's router has no size limit.
+	fn max_message_size() -> u32 {
+		u32::MAX
+	}
 }
 
 frame_support::parameter_types! {
@@ -158,5 +169,25 @@ impl frame_support::traits::EnsureOrigin<crate::relay::RuntimeOrigin> for Ensure
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<crate::relay::RuntimeOrigin, ()> {
 		Ok(crate::relay::RuntimeOrigin::root())
+	}
+}
+
+/// Accepts a sibling parachain calling over XCMP as itself, the way a Coretime chain would.
+pub struct EnsureSiblingPara;
+
+impl frame_support::traits::EnsureOrigin<crate::para::RuntimeOrigin> for EnsureSiblingPara {
+	type Success = u32;
+
+	fn try_origin(
+		o: crate::para::RuntimeOrigin,
+	) -> Result<Self::Success, crate::para::RuntimeOrigin> {
+		cumulus_pallet_xcm::ensure_sibling_para(o.clone())
+			.map(Into::into)
+			.map_err(|_| o)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<crate::para::RuntimeOrigin, ()> {
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(crate::para::FIRST_PARA_ID.into()).into())
 	}
 }

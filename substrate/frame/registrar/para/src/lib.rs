@@ -71,6 +71,12 @@
 //! that, so it is never re-applied.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
+//!
+//! ## Relayed requests
+//!
+//! A para with no HRMP channel to this chain asks the relay chain's registrar pallet instead. The
+//! request arrives in [`Pallet::receive`] as [`MessageToParaV1::Relayed`] and runs as
+//! [`Origin::RelayedPara`], which every check that takes [`Config::ParachainOrigin`] accepts too.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -81,16 +87,17 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	traits::{Consideration, EnsureOrigin, Footprint, Get},
+	weights::Weight,
 };
 use polkadot_primitives::AbridgedHostConfiguration;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId,
+	ParaId, ParaRequestV1,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlockNumberProvider, Saturating},
+	traits::{BadOrigin, BlockNumberProvider, Saturating},
 	DispatchError, DispatchResult,
 };
 
@@ -230,7 +237,12 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeOrigin: From<Origin>
+		                   + Into<Result<Origin, <Self as frame_system::Config>::RuntimeOrigin>>,
+	>
+	{
 		/// The cost of reserving a para id. The footprint is a single zero-sized item, so a flat
 		/// price fits.
 		type ReservationConsideration: Consideration<Self::AccountId, Footprint>;
@@ -246,6 +258,8 @@ pub mod pallet {
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// An origin a parachain uses to act as itself, resolved to its para id.
+		///
+		/// [`Origin::RelayedPara`] is accepted alongside it.
 		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
 
 		/// The origin allowed to call [`Pallet::force_register`].
@@ -304,6 +318,17 @@ pub mod pallet {
 		/// Held for the head data and validation code of a registration.
 		#[codec(index = 1)]
 		Registration,
+	}
+
+	/// Origins this pallet dispatches with.
+	#[pallet::origin]
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub enum Origin {
+		/// A para acting as itself, through the relay chain.
+		#[codec(index = 0)]
+		RelayedPara(ParaId),
 	}
 
 	/// The next para id that [`Pallet::reserve`] will hand out.
@@ -376,6 +401,8 @@ pub mod pallet {
 		HeadUpdated { para_id: ParaId, message_id: u64 },
 		/// The relay chain refused the head.
 		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A para's request relayed by the relay chain ran, with `result`.
+		RelayedRequest { para_id: ParaId, result: DispatchResult },
 	}
 
 	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
@@ -463,7 +490,11 @@ pub mod pallet {
 		///
 		/// Not callable by users: the origin must be the relay chain.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::receive())]
+		#[pallet::weight(match message {
+			MessageToPara::V1(MessageToParaV1::Relayed { request, .. }) =>
+				Pallet::<T>::relayed_weight(request),
+			_ => T::WeightInfo::receive(),
+		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
 
@@ -499,6 +530,9 @@ pub mod pallet {
 				}) => Self::on_set_head_response(para_id, message_id, outcome),
 				MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }) => {
 					Self::on_head_noted(para_id)
+				},
+				MessageToPara::V1(MessageToParaV1::Relayed { para_id, request }) => {
+					Self::on_relayed_request(para_id, request)
 				},
 			}
 		}
@@ -668,11 +702,7 @@ pub mod pallet {
 		/// Can be called again on a para that is already deregistering, once `can_retry_after`
 		/// has passed. This resends the request.
 		#[pallet::call_index(6)]
-		#[pallet::weight(
-			T::WeightInfo::deregister_reserved()
-				.max(T::WeightInfo::deregister_registered())
-				.max(T::WeightInfo::deregister_retry())
-		)]
+		#[pallet::weight(Pallet::<T>::deregister_weight())]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
@@ -941,13 +971,24 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// The para `origin` acts as, relayed by the relay chain or direct.
+	fn ensure_para(
+		origin: frame_system::pallet_prelude::OriginFor<T>,
+	) -> Result<ParaId, BadOrigin> {
+		let relayed: Result<Origin, _> = origin.into();
+		match relayed {
+			Ok(Origin::RelayedPara(para_id)) => Ok(para_id),
+			Err(origin) => T::ParachainOrigin::ensure_origin(origin),
+		}
+	}
+
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
 	fn ensure_root_para_or_manager(
 		origin: frame_system::pallet_prelude::OriginFor<T>,
 		para_id: ParaId,
 		info: &ParaInfoOf<T>,
 	) -> DispatchResult {
-		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
+		if let Ok(id) = Self::ensure_para(origin.clone()) {
 			ensure!(id == para_id, Error::<T>::NotOwner);
 			return Ok(());
 		}
@@ -968,9 +1009,50 @@ impl<T: Config> Pallet<T> {
 		if frame_system::ensure_root(origin.clone()).is_ok() {
 			return Ok(());
 		}
-		let id = T::ParachainOrigin::ensure_origin(origin)?;
+		let id = Self::ensure_para(origin)?;
 		ensure!(id == para_id, Error::<T>::NotOwner);
 		Ok(())
+	}
+
+	/// Run a para's relayed request as that para.
+	///
+	/// A failure only goes into the event: the failed call has rolled itself back, and failing the
+	/// message would hide why.
+	fn on_relayed_request(para_id: ParaId, request: ParaRequestV1) -> DispatchResult {
+		let origin: frame_system::pallet_prelude::OriginFor<T> =
+			Origin::RelayedPara(para_id).into();
+		let result = match request {
+			ParaRequestV1::AddLock => Self::add_lock(origin, para_id),
+			ParaRequestV1::RemoveLock => Self::remove_lock(origin, para_id),
+			ParaRequestV1::Deregister => Self::deregister(origin, para_id),
+			ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len } => {
+				Self::schedule_code_upgrade(origin, para_id, code_hash, code_len)
+			},
+			ParaRequestV1::SetCurrentHead { head } => Self::set_current_head(origin, para_id, head),
+		};
+		Self::deposit_event(Event::RelayedRequest { para_id, result });
+		Ok(())
+	}
+
+	/// The weight of a relayed `request`: relaying it plus the call it runs.
+	fn relayed_weight(request: &ParaRequestV1) -> Weight {
+		let call = match request {
+			ParaRequestV1::AddLock => T::WeightInfo::add_lock(),
+			ParaRequestV1::RemoveLock => T::WeightInfo::remove_lock(),
+			ParaRequestV1::Deregister => Self::deregister_weight(),
+			ParaRequestV1::ScheduleCodeUpgrade { .. } => T::WeightInfo::schedule_code_upgrade(),
+			ParaRequestV1::SetCurrentHead { head } => {
+				T::WeightInfo::set_current_head(head.len() as u32)
+			},
+		};
+		T::WeightInfo::receive_relayed().saturating_add(call)
+	}
+
+	/// The heaviest of the three paths through [`Pallet::deregister`].
+	fn deregister_weight() -> Weight {
+		T::WeightInfo::deregister_reserved()
+			.max(T::WeightInfo::deregister_registered())
+			.max(T::WeightInfo::deregister_retry())
 	}
 
 	/// Store `info`, back to [`RegistrationState::Reserved`] after its registration fell through.

@@ -142,9 +142,7 @@ pub enum MessageToRelayV1<AccountId> {
 /// Registrar report messages sent back to the parachain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToPara {
 	/// Version 1 of the registrar report messages to the parachain.
 	#[codec(index = 0)]
@@ -152,9 +150,7 @@ pub enum MessageToPara {
 }
 
 /// Version 1 payloads for [`MessageToPara`].
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToParaV1 {
 	/// Report how a registration requested with [`MessageToRelayV1::Register`] ended.
 	///
@@ -245,6 +241,53 @@ pub enum MessageToParaV1 {
 	HeadNoted {
 		/// The para id that produced a head.
 		para_id: ParaId,
+	},
+	/// A para's request about itself, relayed by the relay chain.
+	#[codec(index = 7)]
+	Relayed {
+		/// The para that sent the request, taken from its origin on the relay chain.
+		para_id: ParaId,
+		/// What the para asks for.
+		request: ParaRequestV1,
+	},
+}
+
+/// A request a para makes about itself through the relay chain, for a para with no channel to
+/// the registrar parachain.
+///
+/// The variant's `#[codec(index)]` is the on-wire version tag.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum ParaRequest {
+	/// Version 1 of the para requests.
+	#[codec(index = 0)]
+	V1(ParaRequestV1),
+}
+
+/// Version 1 payloads for [`ParaRequest`], each running the registrar call of the same name.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum ParaRequestV1 {
+	/// Lock the para, keeping its manager out.
+	#[codec(index = 0)]
+	AddLock,
+	/// Lift the para's lock.
+	#[codec(index = 1)]
+	RemoveLock,
+	/// Drop the para.
+	#[codec(index = 2)]
+	Deregister,
+	/// Authorize a validation code upgrade.
+	#[codec(index = 3)]
+	ScheduleCodeUpgrade {
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
+	},
+	/// Set the para's current head.
+	#[codec(index = 4)]
+	SetCurrentHead {
+		/// The new head data.
+		head: Vec<u8>,
 	},
 }
 
@@ -408,4 +451,30 @@ impl<AccountId> ReceiveMigratedParas<AccountId> for () {
 	}
 
 	fn receive_next_free_para_id(_: ParaId) {}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn relayed_requests_keep_their_wire_encoding() {
+		let code_hash = H256::repeat_byte(0xaa);
+		let upgrade = [&[3u8][..], code_hash.as_bytes(), &9u32.to_le_bytes()].concat();
+
+		assert_eq!(ParaRequest::V1(ParaRequestV1::AddLock).encode(), vec![0, 0]);
+		assert_eq!(ParaRequestV1::RemoveLock.encode(), vec![1]);
+		assert_eq!(ParaRequestV1::Deregister.encode(), vec![2]);
+		assert_eq!(ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len: 9 }.encode(), upgrade);
+		// Compact length 2 is `0x08`.
+		assert_eq!(ParaRequestV1::SetCurrentHead { head: vec![7, 7] }.encode(), vec![4, 8, 7, 7]);
+		assert_eq!(
+			MessageToPara::V1(MessageToParaV1::Relayed {
+				para_id: 2000,
+				request: ParaRequestV1::AddLock
+			})
+			.encode(),
+			[&[0u8, 7][..], &2000u32.to_le_bytes(), &[0]].concat()
+		);
+	}
 }

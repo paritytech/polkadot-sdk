@@ -14739,6 +14739,7 @@ dependencies = [
 name = "pallet-registrar-test"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-xcm",
  "frame-support",
  "frame-system",
  "pallet-balances",
