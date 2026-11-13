@@ -451,6 +451,26 @@ impl<
 			),
 		}
 	}
+	fn deactivate(asset: Self::AssetId, amount: Self::Balance) {
+		match Criterion::convert(asset) {
+			Left(()) => {
+				<Left as fungible::Unbalanced<AccountId>>::deactivate(amount);
+			},
+			Right(a) => {
+				<Right as fungibles::Unbalanced<AccountId>>::deactivate(a, amount);
+			},
+		}
+	}
+	fn reactivate(asset: Self::AssetId, amount: Self::Balance) {
+		match Criterion::convert(asset) {
+			Left(()) => {
+				<Left as fungible::Unbalanced<AccountId>>::reactivate(amount);
+			},
+			Right(a) => {
+				<Right as fungibles::Unbalanced<AccountId>>::reactivate(a, amount);
+			},
+		}
+	}
 }
 
 impl<

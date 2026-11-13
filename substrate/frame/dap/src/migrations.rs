@@ -21,6 +21,54 @@ use super::*;
 use crate::weights::WeightInfo;
 use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 
+/// V2 to V3 migration: Sets the value to the newly introduced `TotalDeactivatedAmount` equal to the
+/// reducible balance of the buffer account.
+pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	InnerMigrateV2ToV3<T>,
+	pallet::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Inner (unversioned) migration logic. Use [`MigrateV2ToV3`] instead.
+pub struct InnerMigrateV2ToV3<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> UncheckedOnRuntimeUpgrade for InnerMigrateV2ToV3<T> {
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let buffer_balance = T::IssuedCurrency::reducible_balance(
+			&Pallet::<T>::buffer_account(),
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+
+		TotalDeactivatedAmount::<T>::put(buffer_balance);
+
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(vec![])
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let buffer_balance = T::IssuedCurrency::reducible_balance(
+			&Pallet::<T>::buffer_account(),
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+
+		frame_support::ensure!(
+			TotalDeactivatedAmount::<T>::get() == buffer_balance,
+			"TotalDeactivatedAmount should be equal to the buffer account balance after migration"
+		);
+
+		Ok(())
+	}
+}
+
 /// V1 to V2 migration: seeds `BudgetAllocation`, credits a one-shot catch-up drip
 /// for the window `[P::get(), now]`, and initializes `LastIssuanceTimestamp` to
 /// `now` so regular drips start a fresh cadence from here.
@@ -83,7 +131,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 			);
 		}
 		let minted = pallet::Pallet::<T>::mint_and_distribute(elapsed);
-		weight = weight.saturating_add(<T as Config>::WeightInfo::drip_issuance());
+		weight = weight.saturating_add(<T as Config>::WeightInfo::drip_issuance(0));
 
 		// Regular drips resume from `now`.
 		LastIssuanceTimestamp::<T>::put(now);
@@ -111,7 +159,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 		let last_inflation = P::get();
 		let now: u64 = T::Time::now().saturated_into();
 		let elapsed = now.saturating_sub(last_inflation).min(M::get());
-		let total_issuance_before = T::Currency::total_issuance();
+		let total_issuance_before = T::IssuedCurrency::total_issuance();
 		let expected_mint = T::IssuanceCurve::issue(total_issuance_before, elapsed);
 
 		Ok((now, total_issuance_before, expected_mint).encode())
@@ -122,8 +170,10 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 		use codec::Decode;
 
 		let (expected_now, total_issuance_before, expected_mint) =
-			<(u64, BalanceOf<T>, BalanceOf<T>)>::decode(&mut &state[..])
-				.map_err(|_| "pre_upgrade state decode failed")?;
+			<(u64, IssuedCurrencyBalanceOf<T>, IssuedCurrencyBalanceOf<T>)>::decode(
+				&mut &state[..],
+			)
+			.map_err(|_| "pre_upgrade state decode failed")?;
 
 		// Clock hand-off: regular drips resume from `now`.
 		frame_support::ensure!(
@@ -138,9 +188,9 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 		// share is `Perbill::mul_floor(issuance)`, so the sum only ever rounds *down*,
 		// bounded by one unit per budget entry. Anything outside this window indicates
 		// something other than the catch-up touched issuance.
-		let actual_mint = T::Currency::total_issuance().saturating_sub(total_issuance_before);
+		let actual_mint = T::IssuedCurrency::total_issuance().saturating_sub(total_issuance_before);
 		let budget_len = BudgetAllocation::<T>::get().len();
-		let max_dust = BalanceOf::<T>::from(budget_len as u32);
+		let max_dust = IssuedCurrencyBalanceOf::<T>::from(budget_len as u32);
 		frame_support::ensure!(
 			actual_mint <= expected_mint && actual_mint.saturating_add(max_dust) >= expected_mint,
 			"Catch-up mint outside expected [expected - dust, expected] window"

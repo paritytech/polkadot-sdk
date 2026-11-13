@@ -18,8 +18,16 @@
 //! Test mock for the DAP pallet.
 
 use crate::{self as pallet_dap, Config};
-use frame_support::{derive_impl, parameter_types, PalletId};
-use sp_core::crypto::AccountId32;
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{
+		fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+		AsEnsureOriginWithArg,
+	},
+	PalletId,
+};
+use frame_system::EnsureSigned;
+use sp_core::{crypto::AccountId32, ConstU32};
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -35,10 +43,15 @@ pub fn account_id(n: u64) -> AccountId {
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
+		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Dap: pallet_dap,
 	}
 );
+
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -52,6 +65,15 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
+}
+
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u64;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -103,8 +125,36 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 	}
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
+parameter_types! {
+	pub static NativeCurrencyAssetKind: Option<NativeOrWithId<u32>> = Some(NativeOrWithId::Native);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for BenchmarkHelper {
+	fn create_asset(
+		asset_id_seed: u32,
+	) -> Result<NativeOrWithId<u32>, frame_support::pallet_prelude::DispatchError> {
+		use frame_support::traits::fungibles::Create;
+
+		<Assets as Create<AccountId>>::create(asset_id_seed, account_id(1000), true, 1)?;
+
+		Ok(NativeOrWithId::WithId(asset_id_seed))
+	}
+}
+
 impl Config for Test {
-	type Currency = Balances;
+	type IssuedCurrency = Balances;
+	type Assets = NativeAndAssets;
+	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
+	type MaxDistributableAssets = ConstU32<8>;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);
@@ -127,6 +177,11 @@ pub fn set_default_budget_allocation() {
 	map.try_insert(TestValidatorIncentiveRecipient::budget_key(), Perbill::from_percent(0))
 		.unwrap();
 	crate::BudgetAllocation::<Test>::put(map);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext_bench() -> sp_io::TestExternalities {
+	new_test_ext_inner(true)
 }
 
 fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {

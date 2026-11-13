@@ -175,6 +175,12 @@ impl<
 	) -> Result<Self::Balance, DispatchError> {
 		<F as fungibles::Unbalanced<AccountId>>::increase_balance(A::get(), who, amount, precision)
 	}
+	fn deactivate(amount: Self::Balance) -> () {
+		<F as fungibles::Unbalanced<AccountId>>::deactivate(A::get(), amount)
+	}
+	fn reactivate(amount: Self::Balance) -> () {
+		<F as fungibles::Unbalanced<AccountId>>::reactivate(A::get(), amount)
+	}
 }
 
 impl<
