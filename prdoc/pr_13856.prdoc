@@ -7,4 +7,4 @@ doc:
     `derivative_extra()` keep their signatures, so no changes are needed downstream.
 crates:
 - name: pallet-derivatives
-  bump: patch
+  bump: minor
