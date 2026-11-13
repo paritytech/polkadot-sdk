@@ -49,11 +49,11 @@ pub trait OnFinalizeBlockParts {
 	/// - Data-dependent costs (RLP encoding scales with event data size)
 	/// - Storage operations for event persistence
 	///
-	/// Uses differential cost calculation: `per_event_base + (data_len * per_byte_cost)`
+	/// Uses differential cost calculation: `per_event_base + (event_bytes * per_byte_cost)`
 	///
 	/// # Parameters
-	/// - `data_len`: Total bytes of event data (includes topics and data field)
-	fn on_finalize_block_per_event(data_len: u32) -> Weight;
+	/// - `event_bytes`: Total bytes of the event (includes topics and data field)
+	fn on_finalize_block_per_event(event_bytes: u32) -> Weight;
 
 	/// Returns the weight of draining one buffered outside-of-frame log (see `OutsideFrameLogs`)
 	/// in `on_finalize`.
@@ -68,12 +68,19 @@ pub trait OnFinalizeBlockParts {
 	/// disjoint from [`Self::on_finalize_block_per_event`], which folds a log into the receipt of
 	/// the transaction that emitted it and never touches this buffer.
 	///
-	/// Uses differential cost calculation: `per_log_base + (data_len * per_byte_cost)`.
+	/// Uses differential cost calculation:
+	/// `per_log_base + (num_topics * per_topic_cost) + (data_len * per_byte_cost)`.
+	///
+	/// Topics are priced apart from data because the bloom accrual hashes each topic once, a cost
+	/// per topic that a per-byte rate does not capture. The three marginals come from
+	/// `outside_frame_log`, `outside_frame_log_topics` and `outside_frame_log_data`.
 	///
 	/// # Parameters
-	/// - `data_len`: Bytes in the log's data field; the take reads them back and the receipt
+	/// - `num_topics`: Number of topics of the log; the take reads them back, and the receipt
 	///   encoding and bloom accrual scale with them.
-	fn per_outside_frame_log(data_len: u32) -> Weight;
+	/// - `data_len`: Length of the log's data in bytes; the take reads it back and the receipt
+	///   encoding scales with it.
+	fn per_outside_frame_log(num_topics: u32, data_len: u32) -> Weight;
 }
 
 /// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
@@ -84,8 +91,8 @@ pub trait OnFinalizeBlockParts {
 ///
 /// **Weight Formula:**
 /// ```text
-/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j)) +
-///                Σ(per_outside_frame_log_part_k)
+/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(event_bytes_j)) +
+///                Σ(per_outside_frame_log_part(num_topics_k, data_len_k))
 /// where:
 ///   per_tx_part(payload) = tx_marginal_cost + (payload × byte_marginal_cost)
 /// ```
@@ -123,17 +130,17 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		per_tx_cost.saturating_add(payload_cost)
 	}
 
-	fn on_finalize_block_per_event(data_len: u32) -> Weight {
-		// Calculate marginal cost of adding one event with given data length
+	fn on_finalize_block_per_event(event_bytes: u32) -> Weight {
+		// Calculate marginal cost of adding one event with given size
 		// Combines results from two linearly independent benchmarks:
 
 		// 1. Event count cost: marginal cost of one additional event
 		let per_event_cost =
 			W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0));
 
-		// 2. Event data cost: marginal cost per byte of event data
-		let data_cost = if data_len > 0 {
-			let per_byte_cost = W::on_finalize_per_event_data(data_len)
+		// 2. Event data cost: marginal cost per byte of event topics and data
+		let data_cost = if event_bytes > 0 {
+			let per_byte_cost = W::on_finalize_per_event_data(event_bytes)
 				.saturating_sub(W::on_finalize_per_event_data(0));
 			per_byte_cost
 		} else {
@@ -143,18 +150,17 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		per_event_cost.saturating_add(data_cost)
 	}
 
-	fn per_outside_frame_log(data_len: u32) -> Weight {
+	fn per_outside_frame_log(num_topics: u32, data_len: u32) -> Weight {
 		// Ref time only: `OutsideFrameLogs` is whitelisted, so the take adds no proof size to
-		// either marginal. A log's proof charge is its entry's bytes, registered where it is
+		// any marginal. A log's proof charge is its entry's bytes, registered where it is
 		// buffered.
 		let per_log_cost = W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0));
 
-		let data_cost = if data_len > 0 {
-			W::outside_frame_log_data(data_len).saturating_sub(W::outside_frame_log_data(0))
-		} else {
-			Weight::zero()
-		};
+		let topics_cost =
+			W::outside_frame_log_topics(num_topics).saturating_sub(W::outside_frame_log_topics(0));
+		let data_cost =
+			W::outside_frame_log_data(data_len).saturating_sub(W::outside_frame_log_data(0));
 
-		per_log_cost.saturating_add(data_cost)
+		per_log_cost.saturating_add(topics_cost).saturating_add(data_cost)
 	}
 }
