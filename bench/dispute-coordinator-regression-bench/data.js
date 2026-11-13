@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794581763051,
+  "lastUpdate": 1794591764672,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77a735ba012ff2de30923ce209cc1ea4e0ace243",
-          "message": "cli: Update list of AH Polkadot relay chain side peers (#11906)\n\nThis PR updates the list of relay chain side peer IDs corresponding to\nthe AH Polkadot collators.\n\nPreviously, the list contained the parachain side peer IDs. This\nbehavior resulted in all collations being held off for 300 ms.\n\nThe peer IDs have been confirmed with their respective node operators.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-28T12:01:58Z",
-          "tree_id": "6003abc7b636695a7ba55e276cb6d34f55496bbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77a735ba012ff2de30923ce209cc1ea4e0ace243"
-        },
-        "date": 1777385099241,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00933466793,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009194310619999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00266045919,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009281593909999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5983c93547f33715dbf1d44d5d52161448059cf2",
+          "message": "pallet-revive: derive child trie ids from the deletion queue counter (#13620)\n\nChild trie ids came from the address and the deployer's nonce, and a\ndeployer reaped on termination restarts at the same nonce. A contract\nre-created at the address of a terminated contract could therefore get\nthe old trie id while that trie was still queued for deletion: it saw\nthe old storage, and the queued deletion later removed its own. New trie\nids mix in `DeletionQueueCounter`, which every termination increments.\n\n## Changes\n- Trie id preimage: `(\"bcontract_trie_v2\", address, nonce,\ninsert_counter)`. Existing contracts and queued entries keep theirs; no\nmigration; `ContractInfo::new` signature unchanged.\n- Precompiles with contract info use the new\n`ContractInfo::new_for_precompile`, which keeps the\n`(\"bcontract_trie_v1\", address, 0)` id and reads no storage.\n- `DeletionQueueCounter` docs: must never decrease or reset, apart from\nwrapping.\n- Instantiation reads `DeletionQueueCounter` once more (`instantiate`,\n`instantiate_with_code`, `eth_instantiate_with_code`,\n`seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`); `dev` and `asset-hub-westend` weights\nregenerated.\n- Off-chain tools that compute trie ids must read `trie_id` from\n`ContractInfo`.\n- Keeping `NativeDepositOf` rows of a re-created contract is #13613.\n\n## Tests\n`tests/sol/terminate.rs` with `RedeployFactory.sol`, Solc and Resolc.\nEach fails without the change.\n- Active:\n`child_recreated_after_same_tx_selfdestruct_does_not_share_storage`\n(child created and destroyed in one call, re-created later with the same\nsalt) and `precompile_trie_id_does_not_depend_on_terminations`.\n- `#[ignore]` until the termination restriction from #13689 is lifted:\nredeploy after termination in an earlier transaction (CREATE1, CREATE2,\ninside one `batch_all`), covering the queued drain and the deposit\ncharge and refund of the new child.\n\n`cargo nextest run -p pallet-revive`: 1063 passed, 0 failed. Clippy and\nrustdoc clean.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T15:39:27Z",
+          "tree_id": "32947fe201f6a281b10cc174429267b687961dbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5983c93547f33715dbf1d44d5d52161448059cf2"
+        },
+        "date": 1794591725680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010755530969999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025328459200000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00952144738999998,
             "unit": "seconds"
           }
         ]
