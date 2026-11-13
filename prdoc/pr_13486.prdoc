@@ -4,8 +4,9 @@ doc:
   description: |-
     State sync writes each verified chunk to the database as it arrives instead of holding the
     whole state in memory (#5053). A restart resumes the download from the recorded cursor. In
-    warp sync, if the peers are by then 256 blocks or more past the target, the download is
-    dropped and the warp sync starts over: peers on default pruning no longer serve that state.
+    warp sync, a target too old for the peers to serve starts the warp sync over: on a parachain
+    when the finalized head is 256 blocks or more past it, on other chains after three state
+    requests in a row fail.
     `--sync fast-unsafe` is a deprecated alias of `--sync fast`: the state is always downloaded
     with proofs.
 - audience: Node Dev

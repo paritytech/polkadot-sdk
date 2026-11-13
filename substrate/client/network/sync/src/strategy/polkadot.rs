@@ -26,7 +26,9 @@ use crate::{
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode, GapSyncBodyPolicyProvider},
 		state::StateStrategy,
-		state_sync::{resumable_state_sync, StateSync, STALE_TARGET_DISTANCE},
+		state_sync::{
+			resumable_state_sync, StateSync, STALE_TARGET_DISTANCE, STALE_TARGET_FAILED_REQUESTS,
+		},
 		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -93,8 +95,8 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// `PolkadotSyncingStrategy::proceed_to_next`.
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 	/// Warp sync configuration and protocol name, needed to start the warp sync again. `Some`
-	/// from a startup that resumed a state sync until `restart_warp_sync_if_stale` has decided
-	/// whether the resumed target is too old.
+	/// from a startup that resumed a state sync until `restart_warp_sync_if_stale` starts the
+	/// warp sync over.
 	warp_restart: Option<(WarpSyncConfig<B>, Option<ProtocolName>)>,
 }
 
@@ -370,7 +372,7 @@ where
 		if let SyncMode::Warp = config.mode {
 			// An interrupted state sync is resumed as recorded. No warp proof is downloaded again,
 			// so no authority set change above its target is imported header-only, and the target
-			// never moves. If the peers show the target is too old, the warp sync starts over.
+			// never moves. If the target turns out too old, the warp sync starts over.
 			if let Some(resumable) = resumable_state_sync(&*client)? {
 				let state = StateStrategy::new_with_provider(
 					Box::new(StateSync::resume(client.clone(), resumable)),
@@ -430,31 +432,38 @@ where
 	}
 
 	/// Start the warp sync over if the state sync resumed at startup has a target too old to
-	/// download: [`STALE_TARGET_DISTANCE`] blocks or more below the best block of the peers.
-	/// Decided once, when the first peer at or above the target is known. The state strategy
-	/// requests from no peer below its target, so no request is in flight yet. The old attempt
-	/// stays in the database until the state sync that follows the warp sync begins, which
-	/// discards it.
+	/// download. A parachain is given its finalized head at startup, and the target is too old
+	/// [`STALE_TARGET_DISTANCE`] blocks or more below it. Other chains do not know the finalized
+	/// block of their peers: there the target is too old once [`STALE_TARGET_FAILED_REQUESTS`]
+	/// state requests in a row failed. The old attempt stays in the database until the state
+	/// sync that follows the warp sync begins, which discards it.
 	fn restart_warp_sync_if_stale(&mut self) {
-		// Only a state sync resumed at startup is checked, and only until it is decided.
-		let (Some(state), Some(_)) = (&self.state, &self.warp_restart) else { return };
+		// Only a state sync resumed at startup is checked.
+		let (Some(state), Some((warp_sync_config, _))) = (&self.state, &self.warp_restart) else {
+			return;
+		};
 		// A download with every chunk written is idle: it needs no peer, only the import is left.
 		let SyncState::Downloading { target } = state.status().state else { return };
-		// How far the highest best block of the peers is above the target. With no peer at or
-		// above the target there is nothing to compare yet: wait for the next one.
-		let best = self.peer_best_blocks.values().map(|(_, best_number)| *best_number).max();
-		let Some(distance) = best.and_then(|best| best.checked_sub(&target)) else { return };
+		let stale = match warp_sync_config {
+			WarpSyncConfig::WithTarget(finalized) => finalized
+				.number()
+				.checked_sub(&target)
+				.is_some_and(|distance| distance >= STALE_TARGET_DISTANCE.into()),
+			WarpSyncConfig::WithProvider(_) => {
+				state.failed_requests() >= STALE_TARGET_FAILED_REQUESTS
+			},
+		};
+		// Recent enough: the resumed state sync goes on.
+		if !stale {
+			return;
+		}
 		let Some((warp_sync_config, warp_sync_protocol_name)) = self.warp_restart.take() else {
 			return;
 		};
-		// Recent enough: the resumed state sync goes on.
-		if distance < STALE_TARGET_DISTANCE.into() {
-			return;
-		}
 		info!(
 			target: LOG_TARGET,
-			"The resumed state sync of #{target} is {distance} blocks behind the peers, which keep \
-			 the state of {STALE_TARGET_DISTANCE} blocks. Starting the warp sync over.",
+			"The resumed state sync of #{target} is too old for the peers to serve. Starting the \
+			 warp sync over.",
 		);
 		// Too old: a new warp sync replaces the state sync and takes over its peers.
 		let mut warp_sync = WarpSync::new(
@@ -567,8 +576,9 @@ where
 mod test {
 	use super::*;
 	use crate::{
-		mock::MockBlockDownloader, service::network::NetworkServiceProvider,
-		strategy::chain_sync::GapSyncBodyPolicy,
+		mock::MockBlockDownloader,
+		service::network::NetworkServiceProvider,
+		strategy::{chain_sync::GapSyncBodyPolicy, warp::test::MockWarpSyncProvider},
 	};
 	use sc_client_api::partial_state::PartialStateTarget;
 	use substrate_test_runtime_client::{
@@ -636,14 +646,15 @@ mod test {
 		assert!(strategy.warp.is_some() && strategy.state.is_none());
 	}
 
-	/// A resumed state sync starts the warp sync over when the first peer at or above its target
-	/// is `STALE_TARGET_DISTANCE` blocks or more ahead of it. One block less keeps it, for good.
+	/// A resumed state sync starts the warp sync over when its target is too old. A parachain
+	/// tells by the finalized head it is given: `STALE_TARGET_DISTANCE` blocks or more past the
+	/// target. Other chains tell by `STALE_TARGET_FAILED_REQUESTS` state requests failing in a row.
 	#[test]
 	fn warp_mode_restarts_the_warp_sync_when_the_resumed_target_is_too_old() {
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
-		// Resume the state sync of block 1, then connect one peer per best block.
-		let resumed_with_peers_at = |best_numbers: &[u64]| {
+		// Resume the state sync of block 1.
+		let resumed = |warp_sync_config| {
 			let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 			client
 				.begin_partial_state(PartialStateTarget {
@@ -652,33 +663,31 @@ mod test {
 					justifications: None,
 				})
 				.unwrap();
-			// A warp target above every peer: the restarted warp sync has nobody to ask.
-			let mut strategy = PolkadotSyncingStrategy::new(
-				warp_mode_config(),
-				client,
-				Some(WarpSyncConfig::WithTarget(header(10_000))),
-				None,
-			)
-			.unwrap();
-			for best_number in best_numbers {
-				strategy.add_peer(PeerId::random(), Default::default(), *best_number);
-				strategy.actions(&network_handle).unwrap();
-			}
-			strategy
+			PolkadotSyncingStrategy::new(warp_mode_config(), client, Some(warp_sync_config), None)
+				.unwrap()
 		};
 		let stale = 1 + STALE_TARGET_DISTANCE as u64;
 
-		let strategy = resumed_with_peers_at(&[stale - 1]);
+		let mut strategy = resumed(WarpSyncConfig::WithTarget(header(stale - 1)));
+		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_none() && strategy.state.is_some(), "recent enough");
 
-		let strategy = resumed_with_peers_at(&[stale - 1, stale]);
-		assert!(strategy.warp.is_none() && strategy.state.is_some(), "decided once");
-
-		let strategy = resumed_with_peers_at(&[stale]);
+		let mut strategy = resumed(WarpSyncConfig::WithTarget(header(stale)));
+		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_some() && strategy.state.is_none(), "too old");
-		assert_eq!(strategy.warp.as_ref().map(|warp| warp.num_peers()), Some(1));
 
-		let strategy = resumed_with_peers_at(&[0, stale]);
-		assert!(strategy.warp.is_some() && strategy.state.is_none(), "a peer below is ignored");
+		// Without a finalized head the best block of a peer does not count, however far it is.
+		// Each peer is asked for the state and dropped before it answers.
+		let provider = Arc::new(MockWarpSyncProvider::<Block>::new());
+		let mut strategy = resumed(WarpSyncConfig::WithProvider(provider));
+		for _ in 0..STALE_TARGET_FAILED_REQUESTS {
+			let peer_id = PeerId::random();
+			strategy.add_peer(peer_id, Default::default(), stale);
+			strategy.actions(&network_handle).unwrap();
+			assert!(strategy.warp.is_none() && strategy.state.is_some(), "still asking");
+			strategy.remove_peer(&peer_id);
+		}
+		strategy.actions(&network_handle).unwrap();
+		assert!(strategy.warp.is_some() && strategy.state.is_none(), "no peer serves it");
 	}
 }

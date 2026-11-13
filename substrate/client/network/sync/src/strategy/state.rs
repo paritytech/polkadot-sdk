@@ -80,6 +80,8 @@ pub struct StateStrategy<B: BlockT> {
 	succeeded: bool,
 	/// Set once the state sync gave up on its target. No more requests after that.
 	aborted: bool,
+	/// State requests in a row that got no response.
+	failed_requests: u32,
 }
 
 impl<B: BlockT> StateStrategy<B> {
@@ -123,6 +125,7 @@ impl<B: BlockT> StateStrategy<B> {
 			protocol_name,
 			succeeded: false,
 			aborted: false,
+			failed_requests: 0,
 		}
 	}
 
@@ -135,6 +138,7 @@ impl<B: BlockT> StateStrategy<B> {
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		if let Some(state) = self.peers.remove(peer_id) {
 			if !state.state.is_available() {
+				self.failed_requests += 1;
 				if let Some(bad_peer) =
 					self.disconnected_peers.on_disconnect_during_request(*peer_id)
 				{
@@ -177,6 +181,7 @@ impl<B: BlockT> StateStrategy<B> {
 		peer_id: &PeerId,
 		response: &[u8],
 	) -> Result<(), BadPeer> {
+		self.failed_requests = 0;
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
@@ -400,6 +405,12 @@ impl<B: BlockT> StateStrategy<B> {
 	#[must_use]
 	pub fn is_succeeded(&self) -> bool {
 		self.succeeded
+	}
+
+	/// State requests in a row that got no response: the peer was dropped first. A peer that no
+	/// longer has the state drops the request.
+	pub(crate) fn failed_requests(&self) -> u32 {
+		self.failed_requests
 	}
 }
 
@@ -667,6 +678,29 @@ mod test {
 		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		assert!(state_strategy.peers.get(&peer_id).unwrap().state.is_available());
+	}
+
+	#[test]
+	fn failed_requests_count_the_peers_dropped_during_a_request_until_a_response() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
+		let [idle, requested, answering] = [(); 3].map(|_| PeerId::random());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			[idle, requested, answering].into_iter().map(|peer_id| (peer_id, 10)),
+			ProtocolName::Static(""),
+		);
+		// Manually set the peer's state.
+		state_strategy.peers.get_mut(&requested).unwrap().state = PeerState::DownloadingState;
+
+		state_strategy.remove_peer(&idle);
+		assert_eq!(state_strategy.failed_requests(), 0);
+		state_strategy.remove_peer(&requested);
+		assert_eq!(state_strategy.failed_requests(), 1);
+
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&answering, dummy_response);
+		assert_eq!(state_strategy.failed_requests(), 0);
 	}
 
 	#[test]

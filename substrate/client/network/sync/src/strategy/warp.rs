@@ -780,7 +780,7 @@ where
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
 	use super::*;
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
