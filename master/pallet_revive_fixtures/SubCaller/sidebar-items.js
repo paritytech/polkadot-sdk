@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SubCallerCalls"],"struct":["callIgnoringNCall","callIgnoringNReturn","callNCall","callNReturn","callWithInputNCall","callWithInputNReturn","createNCall","createNReturn","delegateCallNCall","delegateCallNReturn","transferNCall","transferNReturn"]};

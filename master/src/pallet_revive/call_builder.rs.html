@@ -175,162 +175,162 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#25 id=25 data-nosnippet>25</a>// benchmarks.
 <a href=#26 id=26 data-nosnippet>26</a></span><span class="attr">#![cfg_attr(test, allow(dead_code))]
 <a href=#27 id=27 data-nosnippet>27</a>
-<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">use crate</span>::{
-<a href=#29 id=29 data-nosnippet>29</a>	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-<a href=#30 id=30 data-nosnippet>30</a>	Error, ExecConfig, ExecOrigin <span class="kw">as </span>Origin, OriginFor, Pallet <span class="kw">as </span>Contracts, PristineCode, Weight,
-<a href=#31 id=31 data-nosnippet>31</a>	address::AddressMapper,
-<a href=#32 id=32 data-nosnippet>32</a>	exec::{ExportedFunction, Key, PrecompileExt, Stack},
-<a href=#33 id=33 data-nosnippet>33</a>	limits,
-<a href=#34 id=34 data-nosnippet>34</a>	metering::{TransactionLimits, TransactionMeter},
-<a href=#35 id=35 data-nosnippet>35</a>	transient_storage::MeterEntry,
-<a href=#36 id=36 data-nosnippet>36</a>	vm::pvm::{PreparedCall, Runtime},
-<a href=#37 id=37 data-nosnippet>37</a>};
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>alloc::{vec, vec::Vec};
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>frame_support::{storage::child, traits::fungible::Mutate};
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>frame_system::RawOrigin;
-<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>pallet_revive_fixtures::bench <span class="kw">as </span>bench_fixtures;
-<a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span>sp_core::{H160, H256, U256};
-<a href=#43 id=43 data-nosnippet>43</a><span class="kw">use </span>sp_io::hashing::keccak_256;
-<a href=#44 id=44 data-nosnippet>44</a><span class="kw">use </span>sp_runtime::traits::{Bounded, Hash};
-<a href=#45 id=45 data-nosnippet>45</a>
-<a href=#46 id=46 data-nosnippet>46</a><span class="kw">type </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt; = Stack&lt;<span class="lifetime">'a</span>, T, ContractBlob&lt;T&gt;&gt;;
-<a href=#47 id=47 data-nosnippet>47</a>
-<a href=#48 id=48 data-nosnippet>48</a><span class="doccomment">/// A builder used to prepare a contract call.
-<a href=#49 id=49 data-nosnippet>49</a></span><span class="kw">pub struct </span>CallSetup&lt;T: Config&gt; {
-<a href=#50 id=50 data-nosnippet>50</a>	contract: Contract&lt;T&gt;,
-<a href=#51 id=51 data-nosnippet>51</a>	dest: T::AccountId,
-<a href=#52 id=52 data-nosnippet>52</a>	origin: Origin&lt;T&gt;,
-<a href=#53 id=53 data-nosnippet>53</a>	transaction_meter: TransactionMeter&lt;T&gt;,
-<a href=#54 id=54 data-nosnippet>54</a>	value: BalanceOf&lt;T&gt;,
-<a href=#55 id=55 data-nosnippet>55</a>	data: Vec&lt;u8&gt;,
-<a href=#56 id=56 data-nosnippet>56</a>	transient_storage_size: u32,
-<a href=#57 id=57 data-nosnippet>57</a>	exec_config: ExecConfig&lt;T&gt;,
-<a href=#58 id=58 data-nosnippet>58</a>	read_only: bool,
-<a href=#59 id=59 data-nosnippet>59</a>	delegate_call: bool,
-<a href=#60 id=60 data-nosnippet>60</a>}
-<a href=#61 id=61 data-nosnippet>61</a>
-<a href=#62 id=62 data-nosnippet>62</a><span class="kw">impl</span>&lt;T&gt; Default <span class="kw">for </span>CallSetup&lt;T&gt;
-<a href=#63 id=63 data-nosnippet>63</a><span class="kw">where
-<a href=#64 id=64 data-nosnippet>64</a>	</span>T: Config,
-<a href=#65 id=65 data-nosnippet>65</a>{
-<a href=#66 id=66 data-nosnippet>66</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#67 id=67 data-nosnippet>67</a>		<span class="self">Self</span>::new(VmBinaryModule::dummy())
-<a href=#68 id=68 data-nosnippet>68</a>	}
-<a href=#69 id=69 data-nosnippet>69</a>}
-<a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a><span class="kw">impl</span>&lt;T&gt; CallSetup&lt;T&gt;
-<a href=#72 id=72 data-nosnippet>72</a><span class="kw">where
-<a href=#73 id=73 data-nosnippet>73</a>	</span>T: Config,
-<a href=#74 id=74 data-nosnippet>74</a>{
-<a href=#75 id=75 data-nosnippet>75</a>	<span class="doccomment">/// Setup a new call for the given module.
-<a href=#76 id=76 data-nosnippet>76</a>	</span><span class="kw">pub fn </span>new(module: VmBinaryModule) -&gt; <span class="self">Self </span>{
-<a href=#77 id=77 data-nosnippet>77</a>		<span class="kw">let </span>contract = Contract::&lt;T&gt;::new(module, <span class="macro">vec!</span>[]).unwrap();
-<a href=#78 id=78 data-nosnippet>78</a>		<span class="kw">let </span>dest = contract.account_id.clone();
-<a href=#79 id=79 data-nosnippet>79</a>		<span class="kw">let </span>origin = Origin::from_account_id(contract.caller.clone());
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>		<span class="comment">// The call that creates the frame already pays for the info.
-<a href=#82 id=82 data-nosnippet>82</a>		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#83 id=83 data-nosnippet>83</a>		</span>frame_benchmarking::benchmarking::add_to_whitelist(
-<a href=#84 id=84 data-nosnippet>84</a>			<span class="kw">crate</span>::AccountInfoOf::&lt;T&gt;::hashed_key_for(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(
-<a href=#85 id=85 data-nosnippet>85</a>				<span class="kw-2">&amp;</span>contract.account_id,
-<a href=#86 id=86 data-nosnippet>86</a>			))
-<a href=#87 id=87 data-nosnippet>87</a>			.into(),
-<a href=#88 id=88 data-nosnippet>88</a>		);
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>		<span class="self">Self </span>{
-<a href=#91 id=91 data-nosnippet>91</a>			contract,
-<a href=#92 id=92 data-nosnippet>92</a>			dest,
-<a href=#93 id=93 data-nosnippet>93</a>			origin,
-<a href=#94 id=94 data-nosnippet>94</a>			transaction_meter: TransactionMeter::new(TransactionLimits::WeightAndDeposit {
-<a href=#95 id=95 data-nosnippet>95</a>				weight_limit: Weight::MAX,
-<a href=#96 id=96 data-nosnippet>96</a>				deposit_limit: default_deposit_limit::&lt;T&gt;(),
-<a href=#97 id=97 data-nosnippet>97</a>			})
-<a href=#98 id=98 data-nosnippet>98</a>			.unwrap(),
-<a href=#99 id=99 data-nosnippet>99</a>			value: <span class="number">0u32</span>.into(),
-<a href=#100 id=100 data-nosnippet>100</a>			data: <span class="macro">vec!</span>[],
-<a href=#101 id=101 data-nosnippet>101</a>			transient_storage_size: <span class="number">0</span>,
-<a href=#102 id=102 data-nosnippet>102</a>			exec_config: ExecConfig::new_substrate_tx(),
-<a href=#103 id=103 data-nosnippet>103</a>			read_only: <span class="bool-val">false</span>,
-<a href=#104 id=104 data-nosnippet>104</a>			delegate_call: <span class="bool-val">false</span>,
-<a href=#105 id=105 data-nosnippet>105</a>		}
-<a href=#106 id=106 data-nosnippet>106</a>	}
-<a href=#107 id=107 data-nosnippet>107</a>
-<a href=#108 id=108 data-nosnippet>108</a>	<span class="doccomment">/// Set the meter's storage deposit limit.
-<a href=#109 id=109 data-nosnippet>109</a>	</span><span class="kw">pub fn </span>set_storage_deposit_limit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, balance: BalanceOf&lt;T&gt;) {
-<a href=#110 id=110 data-nosnippet>110</a>		<span class="self">self</span>.transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
-<a href=#111 id=111 data-nosnippet>111</a>			weight_limit: Weight::MAX,
-<a href=#112 id=112 data-nosnippet>112</a>			deposit_limit: balance,
-<a href=#113 id=113 data-nosnippet>113</a>		})
-<a href=#114 id=114 data-nosnippet>114</a>		.unwrap();
-<a href=#115 id=115 data-nosnippet>115</a>	}
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a>	<span class="doccomment">/// Set the call's origin.
-<a href=#118 id=118 data-nosnippet>118</a>	</span><span class="kw">pub fn </span>set_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: Origin&lt;T&gt;) {
-<a href=#119 id=119 data-nosnippet>119</a>		<span class="self">self</span>.origin = origin;
-<a href=#120 id=120 data-nosnippet>120</a>	}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// Set the contract's balance.
-<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="kw">pub fn </span>set_balance(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: <span class="kw">impl </span>Into&lt;BalanceWithDust&lt;BalanceOf&lt;T&gt;&gt;&gt;) {
-<a href=#124 id=124 data-nosnippet>124</a>		<span class="self">self</span>.contract.set_balance(value);
-<a href=#125 id=125 data-nosnippet>125</a>	}
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>	<span class="doccomment">/// Set the call's input data.
-<a href=#128 id=128 data-nosnippet>128</a>	</span><span class="kw">pub fn </span>set_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) {
-<a href=#129 id=129 data-nosnippet>129</a>		<span class="self">self</span>.data = value;
-<a href=#130 id=130 data-nosnippet>130</a>	}
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>	<span class="doccomment">/// Set the transient storage size.
-<a href=#133 id=133 data-nosnippet>133</a>	</span><span class="kw">pub fn </span>set_transient_storage_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: u32) {
-<a href=#134 id=134 data-nosnippet>134</a>		<span class="self">self</span>.transient_storage_size = size;
-<a href=#135 id=135 data-nosnippet>135</a>	}
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a>	<span class="doccomment">/// Set the read-only flag on the call stack frame.
-<a href=#138 id=138 data-nosnippet>138</a>	</span><span class="kw">pub fn </span>set_read_only(<span class="kw-2">&amp;mut </span><span class="self">self</span>, read_only: bool) {
-<a href=#139 id=139 data-nosnippet>139</a>		<span class="self">self</span>.read_only = read_only;
-<a href=#140 id=140 data-nosnippet>140</a>	}
-<a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>	<span class="doccomment">/// Mark the call as a delegate call.
-<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">pub fn </span>set_delegate_call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delegate: bool) {
-<a href=#144 id=144 data-nosnippet>144</a>		<span class="self">self</span>.delegate_call = delegate;
-<a href=#145 id=145 data-nosnippet>145</a>	}
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a>	<span class="doccomment">/// Get the call's input data.
-<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">pub fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-<a href=#149 id=149 data-nosnippet>149</a>		<span class="self">self</span>.data.clone()
-<a href=#150 id=150 data-nosnippet>150</a>	}
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a>	<span class="doccomment">/// Get the call's contract.
-<a href=#153 id=153 data-nosnippet>153</a>	</span><span class="kw">pub fn </span>contract(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Contract&lt;T&gt; {
-<a href=#154 id=154 data-nosnippet>154</a>		<span class="self">self</span>.contract.clone()
-<a href=#155 id=155 data-nosnippet>155</a>	}
-<a href=#156 id=156 data-nosnippet>156</a>
-<a href=#157 id=157 data-nosnippet>157</a>	<span class="doccomment">/// Build the call stack.
-<a href=#158 id=158 data-nosnippet>158</a>	</span><span class="kw">pub fn </span>ext(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (StackExt&lt;<span class="lifetime">'_</span>, T&gt;, ContractBlob&lt;T&gt;) {
-<a href=#159 id=159 data-nosnippet>159</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = StackExt::bench_new_call(
-<a href=#160 id=160 data-nosnippet>160</a>			T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.dest),
-<a href=#161 id=161 data-nosnippet>161</a>			<span class="self">self</span>.origin.clone(),
-<a href=#162 id=162 data-nosnippet>162</a>			<span class="kw-2">&amp;mut </span><span class="self">self</span>.transaction_meter,
-<a href=#163 id=163 data-nosnippet>163</a>			<span class="self">self</span>.value,
-<a href=#164 id=164 data-nosnippet>164</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.exec_config,
-<a href=#165 id=165 data-nosnippet>165</a>			<span class="self">self</span>.read_only,
-<a href=#166 id=166 data-nosnippet>166</a>			<span class="self">self</span>.delegate_call,
-<a href=#167 id=167 data-nosnippet>167</a>		);
-<a href=#168 id=168 data-nosnippet>168</a>		<span class="kw">if </span><span class="self">self</span>.transient_storage_size &gt; <span class="number">0 </span>{
-<a href=#169 id=169 data-nosnippet>169</a>			<span class="self">Self</span>::with_transient_storage(<span class="kw-2">&amp;mut </span>ext.<span class="number">0</span>, <span class="self">self</span>.transient_storage_size).unwrap();
-<a href=#170 id=170 data-nosnippet>170</a>		}
-<a href=#171 id=171 data-nosnippet>171</a>		ext
-<a href=#172 id=172 data-nosnippet>172</a>	}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>	<span class="doccomment">/// Prepare a call to the module.
-<a href=#175 id=175 data-nosnippet>175</a>	</span><span class="kw">pub fn </span>prepare_call&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#176 id=176 data-nosnippet>176</a>		ext: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt;,
-<a href=#177 id=177 data-nosnippet>177</a>		module: ContractBlob&lt;T&gt;,
-<a href=#178 id=178 data-nosnippet>178</a>		input: Vec&lt;u8&gt;,
-<a href=#179 id=179 data-nosnippet>179</a>		aux_data_size: u32,
-<a href=#180 id=180 data-nosnippet>180</a>	) -&gt; PreparedCall&lt;<span class="lifetime">'a</span>, StackExt&lt;<span class="lifetime">'a</span>, T&gt;&gt; {
-<a href=#181 id=181 data-nosnippet>181</a>		module
-<a href=#182 id=182 data-nosnippet>182</a>			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
-<a href=#183 id=183 data-nosnippet>183</a>			.unwrap()
+<a href=#28 id=28 data-nosnippet>28</a>#[cfg(all(test, feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">mod </span>tests;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use crate</span>::{
+<a href=#32 id=32 data-nosnippet>32</a>	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+<a href=#33 id=33 data-nosnippet>33</a>	Error, ExecConfig, ExecOrigin <span class="kw">as </span>Origin, OriginFor, Pallet <span class="kw">as </span>Contracts, PristineCode, Weight,
+<a href=#34 id=34 data-nosnippet>34</a>	address::AddressMapper,
+<a href=#35 id=35 data-nosnippet>35</a>	exec::{ExportedFunction, Key, PrecompileExt, Stack},
+<a href=#36 id=36 data-nosnippet>36</a>	limits,
+<a href=#37 id=37 data-nosnippet>37</a>	metering::{TransactionLimits, TransactionMeter},
+<a href=#38 id=38 data-nosnippet>38</a>	transient_storage::MeterEntry,
+<a href=#39 id=39 data-nosnippet>39</a>	vm::pvm::{PreparedCall, Runtime},
+<a href=#40 id=40 data-nosnippet>40</a>};
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>alloc::{vec, vec::Vec};
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span>frame_support::{storage::child, traits::fungible::Mutate};
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">use </span>frame_system::RawOrigin;
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">use </span>pallet_revive_fixtures::bench <span class="kw">as </span>bench_fixtures;
+<a href=#45 id=45 data-nosnippet>45</a><span class="kw">use </span>sp_core::{H160, H256, U256};
+<a href=#46 id=46 data-nosnippet>46</a><span class="kw">use </span>sp_io::hashing::keccak_256;
+<a href=#47 id=47 data-nosnippet>47</a><span class="kw">use </span>sp_runtime::traits::{Bounded, Hash};
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">type </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt; = Stack&lt;<span class="lifetime">'a</span>, T, ContractBlob&lt;T&gt;&gt;;
+<a href=#50 id=50 data-nosnippet>50</a>
+<a href=#51 id=51 data-nosnippet>51</a><span class="doccomment">/// A builder used to prepare a contract call.
+<a href=#52 id=52 data-nosnippet>52</a></span><span class="kw">pub struct </span>CallSetup&lt;T: Config&gt; {
+<a href=#53 id=53 data-nosnippet>53</a>	contract: Contract&lt;T&gt;,
+<a href=#54 id=54 data-nosnippet>54</a>	dest: T::AccountId,
+<a href=#55 id=55 data-nosnippet>55</a>	origin: Origin&lt;T&gt;,
+<a href=#56 id=56 data-nosnippet>56</a>	transaction_meter: TransactionMeter&lt;T&gt;,
+<a href=#57 id=57 data-nosnippet>57</a>	value: BalanceOf&lt;T&gt;,
+<a href=#58 id=58 data-nosnippet>58</a>	data: Vec&lt;u8&gt;,
+<a href=#59 id=59 data-nosnippet>59</a>	transient_storage_size: u32,
+<a href=#60 id=60 data-nosnippet>60</a>	exec_config: ExecConfig&lt;T&gt;,
+<a href=#61 id=61 data-nosnippet>61</a>	read_only: bool,
+<a href=#62 id=62 data-nosnippet>62</a>	delegate_call: bool,
+<a href=#63 id=63 data-nosnippet>63</a>}
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a><span class="kw">impl</span>&lt;T&gt; Default <span class="kw">for </span>CallSetup&lt;T&gt;
+<a href=#66 id=66 data-nosnippet>66</a><span class="kw">where
+<a href=#67 id=67 data-nosnippet>67</a>	</span>T: Config,
+<a href=#68 id=68 data-nosnippet>68</a>{
+<a href=#69 id=69 data-nosnippet>69</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#70 id=70 data-nosnippet>70</a>		<span class="self">Self</span>::new(VmBinaryModule::dummy())
+<a href=#71 id=71 data-nosnippet>71</a>	}
+<a href=#72 id=72 data-nosnippet>72</a>}
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a><span class="kw">impl</span>&lt;T&gt; CallSetup&lt;T&gt;
+<a href=#75 id=75 data-nosnippet>75</a><span class="kw">where
+<a href=#76 id=76 data-nosnippet>76</a>	</span>T: Config,
+<a href=#77 id=77 data-nosnippet>77</a>{
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// Setup a new call for the given module.
+<a href=#79 id=79 data-nosnippet>79</a>	</span><span class="kw">pub fn </span>new(module: VmBinaryModule) -&gt; <span class="self">Self </span>{
+<a href=#80 id=80 data-nosnippet>80</a>		<span class="kw">let </span>contract = Contract::&lt;T&gt;::new(module, <span class="macro">vec!</span>[]).unwrap();
+<a href=#81 id=81 data-nosnippet>81</a>		<span class="kw">let </span>dest = contract.account_id.clone();
+<a href=#82 id=82 data-nosnippet>82</a>		<span class="kw">let </span>origin = Origin::from_account_id(contract.caller.clone());
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a>		<span class="comment">// The call that creates the frame already pays for the info.
+<a href=#85 id=85 data-nosnippet>85</a>		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#86 id=86 data-nosnippet>86</a>		</span>frame_benchmarking::benchmarking::add_to_whitelist(
+<a href=#87 id=87 data-nosnippet>87</a>			<span class="kw">crate</span>::AccountInfoOf::&lt;T&gt;::hashed_key_for(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(
+<a href=#88 id=88 data-nosnippet>88</a>				<span class="kw-2">&amp;</span>contract.account_id,
+<a href=#89 id=89 data-nosnippet>89</a>			))
+<a href=#90 id=90 data-nosnippet>90</a>			.into(),
+<a href=#91 id=91 data-nosnippet>91</a>		);
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a>		<span class="self">Self </span>{
+<a href=#94 id=94 data-nosnippet>94</a>			contract,
+<a href=#95 id=95 data-nosnippet>95</a>			dest,
+<a href=#96 id=96 data-nosnippet>96</a>			origin,
+<a href=#97 id=97 data-nosnippet>97</a>			transaction_meter: TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+<a href=#98 id=98 data-nosnippet>98</a>				weight_limit: Weight::MAX,
+<a href=#99 id=99 data-nosnippet>99</a>				deposit_limit: default_deposit_limit::&lt;T&gt;(),
+<a href=#100 id=100 data-nosnippet>100</a>			})
+<a href=#101 id=101 data-nosnippet>101</a>			.unwrap(),
+<a href=#102 id=102 data-nosnippet>102</a>			value: <span class="number">0u32</span>.into(),
+<a href=#103 id=103 data-nosnippet>103</a>			data: <span class="macro">vec!</span>[],
+<a href=#104 id=104 data-nosnippet>104</a>			transient_storage_size: <span class="number">0</span>,
+<a href=#105 id=105 data-nosnippet>105</a>			exec_config: ExecConfig::new_substrate_tx(),
+<a href=#106 id=106 data-nosnippet>106</a>			read_only: <span class="bool-val">false</span>,
+<a href=#107 id=107 data-nosnippet>107</a>			delegate_call: <span class="bool-val">false</span>,
+<a href=#108 id=108 data-nosnippet>108</a>		}
+<a href=#109 id=109 data-nosnippet>109</a>	}
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>	<span class="doccomment">/// Set the meter's storage deposit limit.
+<a href=#112 id=112 data-nosnippet>112</a>	</span><span class="kw">pub fn </span>set_storage_deposit_limit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, balance: BalanceOf&lt;T&gt;) {
+<a href=#113 id=113 data-nosnippet>113</a>		<span class="self">self</span>.transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+<a href=#114 id=114 data-nosnippet>114</a>			weight_limit: Weight::MAX,
+<a href=#115 id=115 data-nosnippet>115</a>			deposit_limit: balance,
+<a href=#116 id=116 data-nosnippet>116</a>		})
+<a href=#117 id=117 data-nosnippet>117</a>		.unwrap();
+<a href=#118 id=118 data-nosnippet>118</a>	}
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>	<span class="doccomment">/// Set the call's origin.
+<a href=#121 id=121 data-nosnippet>121</a>	</span><span class="kw">pub fn </span>set_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: Origin&lt;T&gt;) {
+<a href=#122 id=122 data-nosnippet>122</a>		<span class="self">self</span>.origin = origin;
+<a href=#123 id=123 data-nosnippet>123</a>	}
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Set the contract's balance.
+<a href=#126 id=126 data-nosnippet>126</a>	</span><span class="kw">pub fn </span>set_balance(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: <span class="kw">impl </span>Into&lt;BalanceWithDust&lt;BalanceOf&lt;T&gt;&gt;&gt;) {
+<a href=#127 id=127 data-nosnippet>127</a>		<span class="self">self</span>.contract.set_balance(value);
+<a href=#128 id=128 data-nosnippet>128</a>	}
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// Set the call's input data.
+<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="kw">pub fn </span>set_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) {
+<a href=#132 id=132 data-nosnippet>132</a>		<span class="self">self</span>.data = value;
+<a href=#133 id=133 data-nosnippet>133</a>	}
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>	<span class="doccomment">/// Set the transient storage size.
+<a href=#136 id=136 data-nosnippet>136</a>	</span><span class="kw">pub fn </span>set_transient_storage_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: u32) {
+<a href=#137 id=137 data-nosnippet>137</a>		<span class="self">self</span>.transient_storage_size = size;
+<a href=#138 id=138 data-nosnippet>138</a>	}
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="doccomment">/// Set the read-only flag on the call stack frame.
+<a href=#141 id=141 data-nosnippet>141</a>	</span><span class="kw">pub fn </span>set_read_only(<span class="kw-2">&amp;mut </span><span class="self">self</span>, read_only: bool) {
+<a href=#142 id=142 data-nosnippet>142</a>		<span class="self">self</span>.read_only = read_only;
+<a href=#143 id=143 data-nosnippet>143</a>	}
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="doccomment">/// Mark the call as a delegate call.
+<a href=#146 id=146 data-nosnippet>146</a>	</span><span class="kw">pub fn </span>set_delegate_call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delegate: bool) {
+<a href=#147 id=147 data-nosnippet>147</a>		<span class="self">self</span>.delegate_call = delegate;
+<a href=#148 id=148 data-nosnippet>148</a>	}
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Get the call's input data.
+<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="kw">pub fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="self">self</span>.data.clone()
+<a href=#153 id=153 data-nosnippet>153</a>	}
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="doccomment">/// Get the call's contract.
+<a href=#156 id=156 data-nosnippet>156</a>	</span><span class="kw">pub fn </span>contract(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Contract&lt;T&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>		<span class="self">self</span>.contract.clone()
+<a href=#158 id=158 data-nosnippet>158</a>	}
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>	<span class="doccomment">/// Build the call stack.
+<a href=#161 id=161 data-nosnippet>161</a>	</span><span class="kw">pub fn </span>ext(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (StackExt&lt;<span class="lifetime">'_</span>, T&gt;, ContractBlob&lt;T&gt;) {
+<a href=#162 id=162 data-nosnippet>162</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = StackExt::bench_new_call(
+<a href=#163 id=163 data-nosnippet>163</a>			T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.dest),
+<a href=#164 id=164 data-nosnippet>164</a>			<span class="self">self</span>.origin.clone(),
+<a href=#165 id=165 data-nosnippet>165</a>			<span class="kw-2">&amp;mut </span><span class="self">self</span>.transaction_meter,
+<a href=#166 id=166 data-nosnippet>166</a>			<span class="self">self</span>.value,
+<a href=#167 id=167 data-nosnippet>167</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.exec_config,
+<a href=#168 id=168 data-nosnippet>168</a>			<span class="self">self</span>.read_only,
+<a href=#169 id=169 data-nosnippet>169</a>			<span class="self">self</span>.delegate_call,
+<a href=#170 id=170 data-nosnippet>170</a>		);
+<a href=#171 id=171 data-nosnippet>171</a>		<span class="kw">if </span><span class="self">self</span>.transient_storage_size &gt; <span class="number">0 </span>{
+<a href=#172 id=172 data-nosnippet>172</a>			<span class="self">Self</span>::with_transient_storage(<span class="kw-2">&amp;mut </span>ext.<span class="number">0</span>, <span class="self">self</span>.transient_storage_size).unwrap();
+<a href=#173 id=173 data-nosnippet>173</a>		}
+<a href=#174 id=174 data-nosnippet>174</a>		ext
+<a href=#175 id=175 data-nosnippet>175</a>	}
+<a href=#176 id=176 data-nosnippet>176</a>
+<a href=#177 id=177 data-nosnippet>177</a>	<span class="doccomment">/// Prepare a call to the module.
+<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="kw">pub fn </span>prepare_call&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#179 id=179 data-nosnippet>179</a>		ext: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt;,
+<a href=#180 id=180 data-nosnippet>180</a>		module: ContractBlob&lt;T&gt;,
+<a href=#181 id=181 data-nosnippet>181</a>		input: Vec&lt;u8&gt;,
+<a href=#182 id=182 data-nosnippet>182</a>	) -&gt; PreparedCall&lt;<span class="lifetime">'a</span>, StackExt&lt;<span class="lifetime">'a</span>, T&gt;&gt; {
+<a href=#183 id=183 data-nosnippet>183</a>		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 <a href=#184 id=184 data-nosnippet>184</a>	}
 <a href=#185 id=185 data-nosnippet>185</a>
 <a href=#186 id=186 data-nosnippet>186</a>	<span class="doccomment">/// Add transient_storage
@@ -628,47 +628,281 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#478 id=478 data-nosnippet>478</a>			}
 <a href=#479 id=479 data-nosnippet>479</a>		}
 <a href=#480 id=480 data-nosnippet>480</a>		text.push_str(<span class="string">"ret\n"</span>);
-<a href=#481 id=481 data-nosnippet>481</a>		<span class="kw">let </span>code = polkavm_common::assembler::assemble(
-<a href=#482 id=482 data-nosnippet>482</a>			<span class="prelude-val">Some</span>(polkavm_common::program::InstructionSetKind::ReviveV1),
-<a href=#483 id=483 data-nosnippet>483</a>			<span class="kw-2">&amp;</span>text,
-<a href=#484 id=484 data-nosnippet>484</a>		)
-<a href=#485 id=485 data-nosnippet>485</a>		.unwrap();
-<a href=#486 id=486 data-nosnippet>486</a>		<span class="self">Self</span>::new(code)
-<a href=#487 id=487 data-nosnippet>487</a>	}
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>	<span class="doccomment">/// A contract code that calls the "noop" host function in a loop depending in the input.
-<a href=#490 id=490 data-nosnippet>490</a>	</span><span class="kw">pub fn </span>noop() -&gt; <span class="self">Self </span>{
-<a href=#491 id=491 data-nosnippet>491</a>		<span class="self">Self</span>::new(bench_fixtures::noop().to_vec())
-<a href=#492 id=492 data-nosnippet>492</a>	}
-<a href=#493 id=493 data-nosnippet>493</a>
-<a href=#494 id=494 data-nosnippet>494</a>	<span class="doccomment">/// A contract code that does unaligned memory accessed in a loop.
-<a href=#495 id=495 data-nosnippet>495</a>	</span><span class="kw">pub fn </span>instr(do_load: bool) -&gt; <span class="self">Self </span>{
-<a href=#496 id=496 data-nosnippet>496</a>		<span class="kw">let </span>load = <span class="kw">match </span>do_load {
-<a href=#497 id=497 data-nosnippet>497</a>			<span class="bool-val">false </span>=&gt; <span class="string">""</span>,
-<a href=#498 id=498 data-nosnippet>498</a>			<span class="bool-val">true </span>=&gt; <span class="string">"a0 = u64 [a0]"</span>,
-<a href=#499 id=499 data-nosnippet>499</a>		};
-<a href=#500 id=500 data-nosnippet>500</a>		<span class="kw">let </span>text = <span class="macro">alloc::format!</span>(
-<a href=#501 id=501 data-nosnippet>501</a>			<span class="string">"
-<a href=#502 id=502 data-nosnippet>502</a>		pub @deploy:
-<a href=#503 id=503 data-nosnippet>503</a>		ret
-<a href=#504 id=504 data-nosnippet>504</a>		pub @call:
-<a href=#505 id=505 data-nosnippet>505</a>			@loop:
-<a href=#506 id=506 data-nosnippet>506</a>				jump @done if t0 == a1
-<a href=#507 id=507 data-nosnippet>507</a>				{load}
-<a href=#508 id=508 data-nosnippet>508</a>				t0 = t0 + 1
-<a href=#509 id=509 data-nosnippet>509</a>				jump @loop
-<a href=#510 id=510 data-nosnippet>510</a>			@done:
-<a href=#511 id=511 data-nosnippet>511</a>		ret
-<a href=#512 id=512 data-nosnippet>512</a>		"
-<a href=#513 id=513 data-nosnippet>513</a>		</span>);
-<a href=#514 id=514 data-nosnippet>514</a>		<span class="kw">let </span>code = polkavm_common::assembler::assemble(
-<a href=#515 id=515 data-nosnippet>515</a>			<span class="prelude-val">Some</span>(polkavm_common::program::InstructionSetKind::ReviveV1),
-<a href=#516 id=516 data-nosnippet>516</a>			<span class="kw-2">&amp;</span>text,
-<a href=#517 id=517 data-nosnippet>517</a>		)
-<a href=#518 id=518 data-nosnippet>518</a>		.unwrap();
-<a href=#519 id=519 data-nosnippet>519</a>		<span class="self">Self</span>::new(code)
-<a href=#520 id=520 data-nosnippet>520</a>	}
-<a href=#521 id=521 data-nosnippet>521</a>}
+<a href=#481 id=481 data-nosnippet>481</a>		<span class="self">Self</span>::from_assembly(<span class="kw-2">&amp;</span>text)
+<a href=#482 id=482 data-nosnippet>482</a>	}
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>	<span class="doccomment">/// The number of branches in [`Self::with_branch_blocks`].
+<a href=#485 id=485 data-nosnippet>485</a>	///
+<a href=#486 id=486 data-nosnippet>486</a>	/// All blocks the contract enters must fit into the interpreter cache at the same time, or
+<a href=#487 id=487 data-nosnippet>487</a>	/// the interpreter would reset the cache and compile blocks again. The cache holds
+<a href=#488 id=488 data-nosnippet>488</a>	/// `INTERPRETER_CACHE_BYTES / 24` entries and keeps room for one block of
+<a href=#489 id=489 data-nosnippet>489</a>	/// `BASIC_BLOCK_SIZE` instructions. A block of one instruction takes two entries: its gas
+<a href=#490 id=490 data-nosnippet>490</a>	/// charge and the instruction. 16000 such blocks and the final block of two instructions
+<a href=#491 id=491 data-nosnippet>491</a>	/// take 32003 entries, below the 42689 usable.
+<a href=#492 id=492 data-nosnippet>492</a>	///
+<a href=#493 id=493 data-nosnippet>493</a>	/// The cache entries are kept in vectors that double their capacity as they grow, up to
+<a href=#494 id=494 data-nosnippet>494</a>	/// the cache limit. 32003 entries stay below a capacity of 32768. Above it the vectors would
+<a href=#495 id=495 data-nosnippet>495</a>	/// be reallocated once more, which adds a copy of the whole cache to the largest values of
+<a href=#496 id=496 data-nosnippet>496</a>	/// `b` and skews the linear fit.
+<a href=#497 id=497 data-nosnippet>497</a>	</span><span class="kw">pub const </span>BRANCH_BLOCKS: u32 = <span class="number">16_000</span>;
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="doccomment">/// A contract whose `call` export enters `b` basic blocks of one instruction and returns.
+<a href=#500 id=500 data-nosnippet>500</a>	///
+<a href=#501 id=501 data-nosnippet>501</a>	/// The code holds [`Self::BRANCH_BLOCKS`] branches, one `ecalli SENTINEL` and one `ret`.
+<a href=#502 id=502 data-nosnippet>502</a>	/// Each branch ends a basic block, so each forms a block of its own, and it is always taken
+<a href=#503 id=503 data-nosnippet>503</a>	/// to the next block. The `ecalli SENTINEL` comes after `b` of them: the call compiles and
+<a href=#504 id=504 data-nosnippet>504</a>	/// runs `b` blocks of one branch each, then compiles the block of the `ecalli SENTINEL` and
+<a href=#505 id=505 data-nosnippet>505</a>	/// the instruction after it, and stops at the `ecalli SENTINEL`. The code holds the same
+<a href=#506 id=506 data-nosnippet>506</a>	/// instructions for every `b`, so its size does not depend on `b`.
+<a href=#507 id=507 data-nosnippet>507</a>	///
+<a href=#508 id=508 data-nosnippet>508</a>	/// The branch is a `branch_eq` of two registers. Of the instructions that end a basic block
+<a href=#509 id=509 data-nosnippet>509</a>	/// and continue at another one, a register branch is the slowest to compile and run per
+<a href=#510 id=510 data-nosnippet>510</a>	/// block, so the slope is an upper bound for the other terminators.
+<a href=#511 id=511 data-nosnippet>511</a>	///
+<a href=#512 id=512 data-nosnippet>512</a>	/// `b` is within `0..=BRANCH_BLOCKS`.
+<a href=#513 id=513 data-nosnippet>513</a>	</span><span class="kw">pub fn </span>with_branch_blocks(b: u32) -&gt; <span class="self">Self </span>{
+<a href=#514 id=514 data-nosnippet>514</a>		<span class="kw">let </span><span class="kw-2">mut </span>text = alloc::string::String::from(<span class="string">"pub @deploy:\nret\npub @call:\n"</span>);
+<a href=#515 id=515 data-nosnippet>515</a>		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">Self</span>::BRANCH_BLOCKS {
+<a href=#516 id=516 data-nosnippet>516</a>			<span class="kw">if </span>i == b {
+<a href=#517 id=517 data-nosnippet>517</a>				text.push_str(<span class="kw-2">&amp;</span><span class="macro">alloc::format!</span>(<span class="string">"ecalli {}\n"</span>, <span class="kw">crate</span>::SENTINEL));
+<a href=#518 id=518 data-nosnippet>518</a>			}
+<a href=#519 id=519 data-nosnippet>519</a>			text.push_str(<span class="kw-2">&amp;</span><span class="macro">alloc::format!</span>(<span class="string">"jump @next{i} if a0 == a0\n@next{i}:\n"</span>));
+<a href=#520 id=520 data-nosnippet>520</a>		}
+<a href=#521 id=521 data-nosnippet>521</a>		<span class="kw">if </span>b == <span class="self">Self</span>::BRANCH_BLOCKS {
+<a href=#522 id=522 data-nosnippet>522</a>			text.push_str(<span class="kw-2">&amp;</span><span class="macro">alloc::format!</span>(<span class="string">"ecalli {}\n"</span>, <span class="kw">crate</span>::SENTINEL));
+<a href=#523 id=523 data-nosnippet>523</a>		}
+<a href=#524 id=524 data-nosnippet>524</a>		text.push_str(<span class="string">"ret\n"</span>);
+<a href=#525 id=525 data-nosnippet>525</a>		<span class="self">Self</span>::from_assembly(<span class="kw-2">&amp;</span>text)
+<a href=#526 id=526 data-nosnippet>526</a>	}
+<a href=#527 id=527 data-nosnippet>527</a>
+<a href=#528 id=528 data-nosnippet>528</a>	<span class="doccomment">/// A contract whose `call` export compiles an entry block of `n` instructions and returns.
+<a href=#529 id=529 data-nosnippet>529</a>	///
+<a href=#530 id=530 data-nosnippet>530</a>	/// The entry block starts with an `ecalli SENTINEL`, which ends the execution but not the
+<a href=#531 id=531 data-nosnippet>531</a>	/// basic block, so the interpreter compiles the whole block before running it. `n - 2`
+<a href=#532 id=532 data-nosnippet>532</a>	/// fillers and a `fallthrough` follow. The remaining `BASIC_BLOCK_SIZE - n` fillers and a
+<a href=#533 id=533 data-nosnippet>533</a>	/// `ret` form a second block, which is never entered. The code holds the same instructions
+<a href=#534 id=534 data-nosnippet>534</a>	/// for every `n`, so its size does not depend on `n`.
+<a href=#535 id=535 data-nosnippet>535</a>	///
+<a href=#536 id=536 data-nosnippet>536</a>	/// The filler is a `store_imm_indirect_u64` with two 4 byte immediates. It never executes.
+<a href=#537 id=537 data-nosnippet>537</a>	/// Of the instructions that do not end a basic block, the `store_imm_indirect` kinds are the
+<a href=#538 id=538 data-nosnippet>538</a>	/// slowest to compile per instruction, with short immediates as well, so the slope is an
+<a href=#539 id=539 data-nosnippet>539</a>	/// upper bound for the others.
+<a href=#540 id=540 data-nosnippet>540</a>	///
+<a href=#541 id=541 data-nosnippet>541</a>	/// `n` is within `2..=BASIC_BLOCK_SIZE`.
+<a href=#542 id=542 data-nosnippet>542</a>	</span><span class="kw">pub fn </span>with_entry_block(n: u32) -&gt; <span class="self">Self </span>{
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="kw">const </span>FILLER: <span class="kw-2">&amp;</span>str = <span class="string">"u64 [a0 + 0x12345678] = 0x12345678\n"</span>;
+<a href=#544 id=544 data-nosnippet>544</a>		<span class="kw">let </span><span class="kw-2">mut </span>text =
+<a href=#545 id=545 data-nosnippet>545</a>			<span class="macro">alloc::format!</span>(<span class="string">"pub @deploy:\nret\npub @call:\necalli {}\n"</span>, <span class="kw">crate</span>::SENTINEL);
+<a href=#546 id=546 data-nosnippet>546</a>		<span class="kw">for _ in </span><span class="number">2</span>..n {
+<a href=#547 id=547 data-nosnippet>547</a>			text.push_str(FILLER);
+<a href=#548 id=548 data-nosnippet>548</a>		}
+<a href=#549 id=549 data-nosnippet>549</a>		text.push_str(<span class="string">"fallthrough\n"</span>);
+<a href=#550 id=550 data-nosnippet>550</a>		<span class="kw">for _ in </span>n..limits::code::BASIC_BLOCK_SIZE {
+<a href=#551 id=551 data-nosnippet>551</a>			text.push_str(FILLER);
+<a href=#552 id=552 data-nosnippet>552</a>		}
+<a href=#553 id=553 data-nosnippet>553</a>		text.push_str(<span class="string">"ret\n"</span>);
+<a href=#554 id=554 data-nosnippet>554</a>		<span class="self">Self</span>::from_assembly(<span class="kw-2">&amp;</span>text)
+<a href=#555 id=555 data-nosnippet>555</a>	}
+<a href=#556 id=556 data-nosnippet>556</a>
+<a href=#557 id=557 data-nosnippet>557</a>	<span class="doccomment">/// The number of slots in the chain of addresses of [`Self::with_load_chain`].
+<a href=#558 id=558 data-nosnippet>558</a>	///
+<a href=#559 id=559 data-nosnippet>559</a>	/// With slots [`Self::LOAD_CHAIN_SLOT_BYTES`] apart, the chain stays in the L2 but not in the
+<a href=#560 id=560 data-nosnippet>560</a>	/// L1 data cache of the reference hardware: Intel Ice Lake (48 KiB L1D of 12 ways, 1.25 MiB
+<a href=#561 id=561 data-nosnippet>561</a>	/// L2 of 20 ways) and AMD Zen 3 (32 KiB L1D of 8 ways, 512 KiB L2 of 8 ways), all with 64
+<a href=#562 id=562 data-nosnippet>562</a>	/// byte lines, 64 L1D sets and 1024 L2 sets. A load touches one line, or two in the
+<a href=#563 id=563 data-nosnippet>563</a>	/// benchmark variant where every load spans two lines. With slots two lines apart, the 1024
+<a href=#564 id=564 data-nosnippet>564</a>	/// lines (64 KiB) of the other variants map to every other set and the 2048 lines (128 KiB)
+<a href=#565 id=565 data-nosnippet>565</a>	/// of the spanning variant to every set. Either way each L1D set in use receives 32 lines
+<a href=#566 id=566 data-nosnippet>566</a>	/// against at most 12 ways, and each L2 set 2 lines, a quarter of the Zen 3 ways. The L2 is
+<a href=#567 id=567 data-nosnippet>567</a>	/// physically indexed, so 2 lines per set is an average that depends on where the 32 4 KiB
+<a href=#568 id=568 data-nosnippet>568</a>	/// pages of the chain land. Every load also takes a DTLB lookup; the 32 pages fit the 64 entry
+<a href=#569 id=569 data-nosnippet>569</a>	/// L1 DTLB of both.
+<a href=#570 id=570 data-nosnippet>570</a>	</span><span class="kw">pub const </span>LOAD_CHAIN_SLOTS: u32 = <span class="number">1024</span>;
+<a href=#571 id=571 data-nosnippet>571</a>
+<a href=#572 id=572 data-nosnippet>572</a>	<span class="doccomment">/// The distance between two slots of [`Self::with_load_chain`] in bytes.
+<a href=#573 id=573 data-nosnippet>573</a>	///
+<a href=#574 id=574 data-nosnippet>574</a>	/// Two 64 byte cache lines; see [`Self::LOAD_CHAIN_SLOTS`].
+<a href=#575 id=575 data-nosnippet>575</a>	</span><span class="kw">pub const </span>LOAD_CHAIN_SLOT_BYTES: u32 = <span class="number">128</span>;
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>	<span class="doccomment">/// A contract whose `call` export runs `a1` iterations of `LOAD_CHAIN_GAS - 3` dependent
+<a href=#578 id=578 data-nosnippet>578</a>	/// loads.
+<a href=#579 id=579 data-nosnippet>579</a>	///
+<a href=#580 id=580 data-nosnippet>580</a>	/// An iteration is the branch `jump @done if t0 == a1`, then one basic block of loads
+<a href=#581 id=581 data-nosnippet>581</a>	/// `a0 = u64 [a0]`, `t0 = t0 + 1` and `jump @loop`. Each load reads the address of the next
+<a href=#582 id=582 data-nosnippet>582</a>	/// one, so it cannot start before the previous load has finished. The contract declares
+<a href=#583 id=583 data-nosnippet>583</a>	/// [`Self::LOAD_CHAIN_SLOTS`] slots of [`Self::LOAD_CHAIN_SLOT_BYTES`] as read-write data.
+<a href=#584 id=584 data-nosnippet>584</a>	/// The caller writes the chain of addresses into it and sets `a0` to the first address.
+<a href=#585 id=585 data-nosnippet>585</a>	</span><span class="kw">pub fn </span>with_load_chain() -&gt; <span class="self">Self </span>{
+<a href=#586 id=586 data-nosnippet>586</a>		<span class="kw">let </span><span class="kw-2">mut </span>text = <span class="macro">alloc::format!</span>(
+<a href=#587 id=587 data-nosnippet>587</a>			<span class="string">"%rw_data_size = {}\npub @deploy:\nret\npub @call:\n@loop:\njump @done if t0 == a1\n"</span>,
+<a href=#588 id=588 data-nosnippet>588</a>			<span class="self">Self</span>::LOAD_CHAIN_SLOTS * <span class="self">Self</span>::LOAD_CHAIN_SLOT_BYTES,
+<a href=#589 id=589 data-nosnippet>589</a>		);
+<a href=#590 id=590 data-nosnippet>590</a>		<span class="kw">for _ in </span><span class="number">3</span>..<span class="kw">crate</span>::metering::LOAD_CHAIN_GAS {
+<a href=#591 id=591 data-nosnippet>591</a>			text.push_str(<span class="string">"a0 = u64 [a0]\n"</span>);
+<a href=#592 id=592 data-nosnippet>592</a>		}
+<a href=#593 id=593 data-nosnippet>593</a>		text.push_str(<span class="string">"t0 = t0 + 1\njump @loop\n@done:\nret\n"</span>);
+<a href=#594 id=594 data-nosnippet>594</a>		<span class="self">Self</span>::from_assembly(<span class="kw-2">&amp;</span>text)
+<a href=#595 id=595 data-nosnippet>595</a>	}
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a>	<span class="doccomment">/// A contract whose `call` export runs `a1` laps of a random cycle of indirect jumps.
+<a href=#598 id=598 data-nosnippet>598</a>	///
+<a href=#599 id=599 data-nosnippet>599</a>	/// The cycle has `INDIRECT_JUMP_GAS - 3` basic blocks of one instruction each. Every block
+<a href=#600 id=600 data-nosnippet>600</a>	/// is a `load_imm_and_jump_indirect` that jumps to the address in `a0` and loads the address
+<a href=#601 id=601 data-nosnippet>601</a>	/// of the block after the next one into `a0`. A lap starts and ends at a block with the
+<a href=#602 id=602 data-nosnippet>602</a>	/// branch `jump @done if t0 == a1`, followed by `t0 = t0 + 1` and the jump into the cycle.
+<a href=#603 id=603 data-nosnippet>603</a>	/// The order of the blocks in the cycle is a fixed random permutation, so consecutive
+<a href=#604 id=604 data-nosnippet>604</a>	/// jumps go to unrelated code addresses.
+<a href=#605 id=605 data-nosnippet>605</a>	///
+<a href=#606 id=606 data-nosnippet>606</a>	/// Before the first lap, a warm-up loop enters every cycle block once in code order, with
+<a href=#607 id=607 data-nosnippet>607</a>	/// `a0` holding the loop's own address so that the block jumps back to it. The interpreter
+<a href=#608 id=608 data-nosnippet>608</a>	/// compiles a block when execution first enters it and appends its handlers to its cache,
+<a href=#609 id=609 data-nosnippet>609</a>	/// so the cache holds the cycle blocks in code order. A lap visits them in the random order
+<a href=#610 id=610 data-nosnippet>610</a>	/// of the cycle, so its reads of handlers and arguments are as scattered as its reads of the
+<a href=#611 id=611 data-nosnippet>611</a>	/// jump table and the code map. The warm-up runs once per call whatever `a1` is.
+<a href=#612 id=612 data-nosnippet>612</a>	///
+<a href=#613 id=613 data-nosnippet>613</a>	/// The number of blocks keeps the interpreter data a lap reads in the L2 but not in the L1
+<a href=#614 id=614 data-nosnippet>614</a>	/// data cache of the reference hardware (see [`Self::LOAD_CHAIN_SLOTS`]). A jump into a
+<a href=#615 id=615 data-nosnippet>615</a>	/// block reads the block's 2 byte jump table entry, its 4 byte entry in the code map, and
+<a href=#616 id=616 data-nosnippet>616</a>	/// the 8 byte handler and 16 byte arguments of its two compiled instructions: the gas charge
+<a href=#617 id=617 data-nosnippet>617</a>	/// and the jump. The code map has one entry per code byte and a block is 5 bytes of code, so
+<a href=#618 id=618 data-nosnippet>618</a>	/// the entries of consecutive blocks are 20 bytes apart and a lap reads every cache line of
+<a href=#619 id=619 data-nosnippet>619</a>	/// the map: 20 bytes per block. Every block thus adds 2 + 20 + 2 * 24 = 70 bytes to the data
+<a href=#620 id=620 data-nosnippet>620</a>	/// of a lap. The code itself is read only when a block is compiled. The
+<a href=#621 id=621 data-nosnippet>621</a>	/// `INDIRECT_JUMP_GAS - 3 = 3000` blocks take 205 KiB, 4.3 times the Ice Lake L1D: each of
+<a href=#622 id=622 data-nosnippet>622</a>	/// the 64 L1D sets receives about 51 lines against at most 12 ways. Each of the 1024 L2 sets
+<a href=#623 id=623 data-nosnippet>623</a>	/// receives 3.2 lines, 40% of the Zen 3 ways. The L2 is physically indexed, so 3.2 lines per
+<a href=#624 id=624 data-nosnippet>624</a>	/// set is an average that depends on where the pages land. The data spans four arrays of
+<a href=#625 id=625 data-nosnippet>625</a>	/// 4 KiB pages, jump table 2 to 3, code map 15 to 16, handlers 12 to 13 and arguments 24 to
+<a href=#626 id=626 data-nosnippet>626</a>	/// 25, so 53 to 57 pages plus the interpreter's own state. They fit the fully associative 64
+<a href=#627 id=627 data-nosnippet>627</a>	/// entry L1 DTLB of Zen 3. The 64 entry L1 DTLB of Ice Lake is 4-way set associative, so some
+<a href=#628 id=628 data-nosnippet>628</a>	/// of them may miss it and hit the second level TLB.
+<a href=#629 id=629 data-nosnippet>629</a>	</span><span class="kw">pub fn </span>with_indirect_jump_cycle() -&gt; <span class="self">Self </span>{
+<a href=#630 id=630 data-nosnippet>630</a>		<span class="kw">use </span>polkavm_common::{
+<a href=#631 id=631 data-nosnippet>631</a>			abi::VM_CODE_ADDRESS_ALIGNMENT,
+<a href=#632 id=632 data-nosnippet>632</a>			program::{Instruction, Reg},
+<a href=#633 id=633 data-nosnippet>633</a>			writer::ProgramBlobBuilder,
+<a href=#634 id=634 data-nosnippet>634</a>		};
+<a href=#635 id=635 data-nosnippet>635</a>		<span class="kw">use </span>rand::{SeedableRng, seq::SliceRandom};
+<a href=#636 id=636 data-nosnippet>636</a>
+<a href=#637 id=637 data-nosnippet>637</a>		<span class="kw">const </span>DEPLOY: u32 = <span class="number">0</span>;
+<a href=#638 id=638 data-nosnippet>638</a>		<span class="kw">const </span>ENTRY: u32 = <span class="number">1</span>;
+<a href=#639 id=639 data-nosnippet>639</a>		<span class="kw">const </span>WARM_UP: u32 = <span class="number">2</span>;
+<a href=#640 id=640 data-nosnippet>640</a>		<span class="kw">const </span>WARM_UP_DONE: u32 = <span class="number">4</span>;
+<a href=#641 id=641 data-nosnippet>641</a>		<span class="kw">const </span>HEAD: u32 = <span class="number">5</span>;
+<a href=#642 id=642 data-nosnippet>642</a>		<span class="kw">const </span>DONE: u32 = <span class="number">7</span>;
+<a href=#643 id=643 data-nosnippet>643</a>		<span class="kw">const </span>CYCLE: u32 = <span class="number">8</span>;
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a>		<span class="kw">let </span>blocks = <span class="kw">crate</span>::metering::INDIRECT_JUMP_GAS - <span class="number">3</span>;
+<a href=#646 id=646 data-nosnippet>646</a>		<span class="comment">// Jump table entry 0 is `HEAD`, entry `1 + i` is cycle block `i` and entry `1 + blocks`
+<a href=#647 id=647 data-nosnippet>647</a>		// is `WARM_UP`. A jump table entry `k` has the code address
+<a href=#648 id=648 data-nosnippet>648</a>		// `(k + 1) * VM_CODE_ADDRESS_ALIGNMENT`.
+<a href=#649 id=649 data-nosnippet>649</a>		</span><span class="kw">let </span>address = |entry: u32| {
+<a href=#650 id=650 data-nosnippet>650</a>			i32::try_from((entry + <span class="number">1</span>) * VM_CODE_ADDRESS_ALIGNMENT)
+<a href=#651 id=651 data-nosnippet>651</a>				.expect(<span class="string">"the jump table has fewer than 2^30 entries; qed"</span>)
+<a href=#652 id=652 data-nosnippet>652</a>		};
+<a href=#653 id=653 data-nosnippet>653</a>		<span class="kw">let </span>head = address(<span class="number">0</span>);
+<a href=#654 id=654 data-nosnippet>654</a>		<span class="kw">let </span>block = |i: u32| address(<span class="number">1 </span>+ i);
+<a href=#655 id=655 data-nosnippet>655</a>		<span class="kw">let </span>warm_up = address(<span class="number">1 </span>+ blocks);
+<a href=#656 id=656 data-nosnippet>656</a>		<span class="kw">let </span>step = block(<span class="number">0</span>) - head;
+<a href=#657 id=657 data-nosnippet>657</a>
+<a href=#658 id=658 data-nosnippet>658</a>		<span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">0</span>..blocks).collect();
+<a href=#659 id=659 data-nosnippet>659</a>		order.shuffle(<span class="kw-2">&amp;mut </span>rand_pcg::Pcg64::seed_from_u64(<span class="number">1337</span>));
+<a href=#660 id=660 data-nosnippet>660</a>		<span class="comment">// The lap visits `HEAD`, then the cycle blocks in `order`. Each block loads the address
+<a href=#661 id=661 data-nosnippet>661</a>		// of the block two steps ahead.
+<a href=#662 id=662 data-nosnippet>662</a>		</span><span class="kw">let </span>lap: Vec&lt;i32&gt; = core::iter::once(head).chain(order.iter().map(|<span class="kw-2">&amp;</span>i| block(i))).collect();
+<a href=#663 id=663 data-nosnippet>663</a>		<span class="kw">let </span>two_ahead = |position: usize| lap[(position + <span class="number">2</span>) % lap.len()];
+<a href=#664 id=664 data-nosnippet>664</a>
+<a href=#665 id=665 data-nosnippet>665</a>		<span class="kw">let </span>a0 = Reg::A0.into();
+<a href=#666 id=666 data-nosnippet>666</a>		<span class="kw">let </span>a1 = Reg::A1.into();
+<a href=#667 id=667 data-nosnippet>667</a>		<span class="kw">let </span>t0 = Reg::T0.into();
+<a href=#668 id=668 data-nosnippet>668</a>		<span class="kw">let </span>t1 = Reg::T1.into();
+<a href=#669 id=669 data-nosnippet>669</a>		<span class="kw">let </span>ra = Reg::RA.into();
+<a href=#670 id=670 data-nosnippet>670</a>		<span class="kw">let </span><span class="kw-2">mut </span>code = <span class="macro">vec!</span>[
+<a href=#671 id=671 data-nosnippet>671</a>			Instruction::jump_indirect(ra, <span class="number">0</span>),
+<a href=#672 id=672 data-nosnippet>672</a>			<span class="comment">// `t1` walks the addresses of the cycle blocks in code order. Each block is entered
+<a href=#673 id=673 data-nosnippet>673</a>			// with `a0` holding the address of `WARM_UP`, so it jumps back.
+<a href=#674 id=674 data-nosnippet>674</a>			</span>Instruction::load_imm(t1, head),
+<a href=#675 id=675 data-nosnippet>675</a>			Instruction::fallthrough,
+<a href=#676 id=676 data-nosnippet>676</a>			Instruction::add_imm_64(t1, t1, step),
+<a href=#677 id=677 data-nosnippet>677</a>			Instruction::branch_eq_imm(t1, warm_up, WARM_UP_DONE),
+<a href=#678 id=678 data-nosnippet>678</a>			Instruction::load_imm_and_jump_indirect(a0, t1, warm_up, <span class="number">0</span>),
+<a href=#679 id=679 data-nosnippet>679</a>			Instruction::load_imm(a0, lap[<span class="number">1</span>]),
+<a href=#680 id=680 data-nosnippet>680</a>			Instruction::fallthrough,
+<a href=#681 id=681 data-nosnippet>681</a>			Instruction::branch_eq(t0, a1, DONE),
+<a href=#682 id=682 data-nosnippet>682</a>			Instruction::add_imm_64(t0, t0, <span class="number">1</span>),
+<a href=#683 id=683 data-nosnippet>683</a>			Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(<span class="number">0</span>), <span class="number">0</span>),
+<a href=#684 id=684 data-nosnippet>684</a>			Instruction::jump_indirect(ra, <span class="number">0</span>),
+<a href=#685 id=685 data-nosnippet>685</a>		];
+<a href=#686 id=686 data-nosnippet>686</a>		<span class="kw">let </span><span class="kw-2">mut </span>cycle: Vec&lt;(u32, Instruction)&gt; = order
+<a href=#687 id=687 data-nosnippet>687</a>			.iter()
+<a href=#688 id=688 data-nosnippet>688</a>			.enumerate()
+<a href=#689 id=689 data-nosnippet>689</a>			.map(|(k, <span class="kw-2">&amp;</span>i)| {
+<a href=#690 id=690 data-nosnippet>690</a>				(i, Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(<span class="number">1 </span>+ k), <span class="number">0</span>))
+<a href=#691 id=691 data-nosnippet>691</a>			})
+<a href=#692 id=692 data-nosnippet>692</a>			.collect();
+<a href=#693 id=693 data-nosnippet>693</a>		cycle.sort_by_key(|(i, <span class="kw">_</span>)| <span class="kw-2">*</span>i);
+<a href=#694 id=694 data-nosnippet>694</a>		code.extend(cycle.into_iter().map(|(<span class="kw">_</span>, instruction)| instruction));
+<a href=#695 id=695 data-nosnippet>695</a>		<span class="kw">let </span>jump_table: Vec&lt;u32&gt; = core::iter::once(HEAD)
+<a href=#696 id=696 data-nosnippet>696</a>			.chain((<span class="number">0</span>..blocks).map(|i| CYCLE + i))
+<a href=#697 id=697 data-nosnippet>697</a>			.chain(core::iter::once(WARM_UP))
+<a href=#698 id=698 data-nosnippet>698</a>			.collect();
+<a href=#699 id=699 data-nosnippet>699</a>
+<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">let </span><span class="kw-2">mut </span>builder =
+<a href=#701 id=701 data-nosnippet>701</a>			ProgramBlobBuilder::new(polkavm_common::program::InstructionSetKind::ReviveV1);
+<a href=#702 id=702 data-nosnippet>702</a>		builder.set_code(<span class="kw-2">&amp;</span>code, <span class="kw-2">&amp;</span>jump_table);
+<a href=#703 id=703 data-nosnippet>703</a>		builder.add_export_by_basic_block(DEPLOY, <span class="string">b"deploy"</span>);
+<a href=#704 id=704 data-nosnippet>704</a>		builder.add_export_by_basic_block(ENTRY, <span class="string">b"call"</span>);
+<a href=#705 id=705 data-nosnippet>705</a>		<span class="self">Self</span>::new(builder.into_vec().expect(<span class="string">"the program built here is valid; qed"</span>))
+<a href=#706 id=706 data-nosnippet>706</a>	}
+<a href=#707 id=707 data-nosnippet>707</a>
+<a href=#708 id=708 data-nosnippet>708</a>	<span class="doccomment">/// The largest code section [`Self::with_code_bytes`] builds.
+<a href=#709 id=709 data-nosnippet>709</a>	///
+<a href=#710 id=710 data-nosnippet>710</a>	/// The interpreter keeps a map with one entry per byte of the code section. It counts
+<a href=#711 id=711 data-nosnippet>711</a>	/// towards [`limits::code::PURGABLE_MEMORY_LIMIT`] next to the interpreter cache, which a
+<a href=#712 id=712 data-nosnippet>712</a>	/// contract of this size fills. That allows at most 512 KiB of code. One page is left as a
+<a href=#713 id=713 data-nosnippet>713</a>	/// margin for the code that [`Self::with_code_bytes`] adds.
+<a href=#714 id=714 data-nosnippet>714</a>	</span><span class="kw">pub const </span>MAX_CODE_BYTES: u32 = (limits::code::PURGABLE_MEMORY_LIMIT -
+<a href=#715 id=715 data-nosnippet>715</a>		limits::code::INTERPRETER_CACHE_BYTES) /
+<a href=#716 id=716 data-nosnippet>716</a>		polkavm_common::program::INTERPRETER_FLATMAP_ENTRY_SIZE -
+<a href=#717 id=717 data-nosnippet>717</a>		limits::PAGE_SIZE;
+<a href=#718 id=718 data-nosnippet>718</a>
+<a href=#719 id=719 data-nosnippet>719</a>	<span class="doccomment">/// A contract with a code section of about `code_bytes` bytes whose `call` export returns
+<a href=#720 id=720 data-nosnippet>720</a>	/// at once.
+<a href=#721 id=721 data-nosnippet>721</a>	///
+<a href=#722 id=722 data-nosnippet>722</a>	/// The `call` export is a basic block of `ecalli SENTINEL` and `fallthrough`, which stops
+<a href=#723 id=723 data-nosnippet>723</a>	/// the call. Blocks of `a0 = a1 + a2`, 3 bytes each, fill the rest of the code section and
+<a href=#724 id=724 data-nosnippet>724</a>	/// never run. Only the size of the code section depends on `code_bytes`.
+<a href=#725 id=725 data-nosnippet>725</a>	</span><span class="kw">pub fn </span>with_code_bytes(code_bytes: u32) -&gt; <span class="self">Self </span>{
+<a href=#726 id=726 data-nosnippet>726</a>		<span class="kw">let </span><span class="kw-2">mut </span>text = <span class="macro">alloc::format!</span>(
+<a href=#727 id=727 data-nosnippet>727</a>			<span class="string">"pub @deploy:\nret\npub @call:\necalli {}\nfallthrough\n"</span>,
+<a href=#728 id=728 data-nosnippet>728</a>			<span class="kw">crate</span>::SENTINEL
+<a href=#729 id=729 data-nosnippet>729</a>		);
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..code_bytes / <span class="number">3 </span>{
+<a href=#731 id=731 data-nosnippet>731</a>			<span class="kw">if </span>i % limits::code::BASIC_BLOCK_SIZE == limits::code::BASIC_BLOCK_SIZE - <span class="number">1 </span>{
+<a href=#732 id=732 data-nosnippet>732</a>				text.push_str(<span class="string">"fallthrough\n"</span>);
+<a href=#733 id=733 data-nosnippet>733</a>			} <span class="kw">else </span>{
+<a href=#734 id=734 data-nosnippet>734</a>				text.push_str(<span class="string">"a0 = a1 + a2\n"</span>);
+<a href=#735 id=735 data-nosnippet>735</a>			}
+<a href=#736 id=736 data-nosnippet>736</a>		}
+<a href=#737 id=737 data-nosnippet>737</a>		text.push_str(<span class="string">"ret\n"</span>);
+<a href=#738 id=738 data-nosnippet>738</a>		<span class="self">Self</span>::from_assembly(<span class="kw-2">&amp;</span>text)
+<a href=#739 id=739 data-nosnippet>739</a>	}
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>	<span class="doccomment">/// Assembles `text` into a contract for the instruction set contracts use.
+<a href=#742 id=742 data-nosnippet>742</a>	</span><span class="kw">fn </span>from_assembly(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+<a href=#743 id=743 data-nosnippet>743</a>		<span class="kw">let </span>code = polkavm_common::assembler::assemble(
+<a href=#744 id=744 data-nosnippet>744</a>			<span class="prelude-val">Some</span>(polkavm_common::program::InstructionSetKind::ReviveV1),
+<a href=#745 id=745 data-nosnippet>745</a>			text,
+<a href=#746 id=746 data-nosnippet>746</a>		)
+<a href=#747 id=747 data-nosnippet>747</a>		.expect(<span class="string">"callers pass assembly text built in this module, which is valid; qed"</span>);
+<a href=#748 id=748 data-nosnippet>748</a>		<span class="self">Self</span>::new(code)
+<a href=#749 id=749 data-nosnippet>749</a>	}
+<a href=#750 id=750 data-nosnippet>750</a>
+<a href=#751 id=751 data-nosnippet>751</a>	<span class="doccomment">/// A contract code that calls the "noop" host function in a loop depending in the input.
+<a href=#752 id=752 data-nosnippet>752</a>	</span><span class="kw">pub fn </span>noop() -&gt; <span class="self">Self </span>{
+<a href=#753 id=753 data-nosnippet>753</a>		<span class="self">Self</span>::new(bench_fixtures::noop().to_vec())
+<a href=#754 id=754 data-nosnippet>754</a>	}
+<a href=#755 id=755 data-nosnippet>755</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
