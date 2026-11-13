@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794606127643,
+  "lastUpdate": 1794611031333,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8af5df001111104be59a9f9ec146657a55e9d223",
-          "message": "Small fixes (#11804)\n\n## `pallet-asset-conversion`\n- Changes `Config::LPFee` from `Get<u32>` (tenths-of-a-percent encoding)\nto `Get<Permill>`.\n\n## `frame-system`\n- Extends `Event::CodeUpdated` to include the updated runtime code hash:\n`CodeUpdated { hash }`.\n\n## `pallet-psm`\n- Adds a `try-runtime` `pre_upgrade` guard that checks configured asset\ndecimals before initialization.\n\n## `pallet-balances`\n- Removes a tautological internal assertion in account mutation flow.\n\n## `pallet-tips`\n- Hardens tip payout by returning `NoActiveTippers` when all recorded\ntippers become inactive instead of indexing an empty tip set.\n- Adds a regression test for the `NoActiveTippers` close-path.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-28T22:47:42Z",
-          "tree_id": "177d8b612ca22dd4fb7d44fc08009f6de991b372",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8af5df001111104be59a9f9ec146657a55e9d223"
-        },
-        "date": 1777421507226,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010119744130000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267716989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009265550679999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011120038180000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faaef02073cfb5857cc25a88ca8f457172e16f62",
+          "message": "FRAME: reject duplicate view-function blocks and pallet indices (#13752)\n\n# Description\n\nReject duplicate FRAME macro attributes instead of silently overwriting\nearlier declarations:\n\n- A second `#[pallet::view_functions]` block now fails at the duplicate\nattribute. A pallet defines all view functions in one block, matching\nthe existing single-block pattern for calls and other pallet sections.\n- Repeated `#[runtime::pallet_index]` attributes on one pallet now fail\nat the second index, including when the values are identical.\n\nRelated to the separate `extra_constants` fix in #13750. That fix\ncontinues to support multiple extra-constant blocks.\n\n## Integration\n\nMove methods from multiple `#[pallet::view_functions]` blocks into one\nblock, preserving any bounds those methods require. Previously, only the\nlast block contributed functions to metadata and runtime view dispatch.\n\nKeep exactly one `#[runtime::pallet_index]` attribute per pallet. Retain\nthe last previously specified index to preserve existing call/event\nencoding:\n\n```diff\n-#[runtime::pallet_index(3)]\n #[runtime::pallet_index(7)]\n pub type Example = pallet_example;\n```\n\nNo storage migration is required. The release note records major bumps\nfor `frame-support-procedural` and `frame-support` because previously\naccepted declarations now fail to compile.\n\n## Review Notes\n\nThe pallet parser stores one view-function block and uses the existing\nduplicate-attribute diagnostic for a second block. View-function\nexpansion retains its existing single-block implementation. A\ncompiler-output regression test checks that the second attribute is\nhighlighted, and an integration test verifies metadata and runtime\ndispatch for a valid block.\n\nRuntime parser tests cover duplicate index attributes with both\nidentical and conflicting values, for implicit and explicit pallet\ndeclarations.\n\nValidation:\n- Runtime parser tests: 10 passed.\n- Pallet integration tests: 34 passed.\n- View-function UI tests, including duplicate-block rejection and a\nvalid block.\n- Nightly rustfmt, `prdoc check -n 13752`, and `git diff --check`.",
+          "timestamp": "2026-11-13T21:11:19Z",
+          "tree_id": "71c61f67644c67e4c6aa1dfdf0f3276ecaeca533",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/faaef02073cfb5857cc25a88ca8f457172e16f62"
+        },
+        "date": 1794610990301,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011007733109999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002574705210000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009826573669999996,
             "unit": "seconds"
           }
         ]
