@@ -98,6 +98,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::EncodeLike;
 use frame_support::{
 	pallet_prelude::*,
 	traits::tokens::asset_ops::{
@@ -181,17 +182,14 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn original_to_derivative)]
 	pub type OriginalToDerivative<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, OriginalOf<T, I>, DerivativeOf<T, I>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn derivative_to_original)]
 	pub type DerivativeToOriginal<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, DerivativeOf<T, I>, OriginalOf<T, I>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn derivative_extra)]
 	pub type DerivativeExtra<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, DerivativeOf<T, I>, DerivativeExtraOf<T, I>, OptionQuery>;
 
@@ -268,6 +266,29 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Public function to access the derivative registered for an original.
+	pub fn original_to_derivative<KArg: EncodeLike<OriginalOf<T, I>>>(
+		original: KArg,
+	) -> Option<DerivativeOf<T, I>> {
+		OriginalToDerivative::<T, I>::get(original)
+	}
+
+	/// Public function to access the original registered for a derivative.
+	pub fn derivative_to_original<KArg: EncodeLike<DerivativeOf<T, I>>>(
+		derivative: KArg,
+	) -> Option<OriginalOf<T, I>> {
+		DerivativeToOriginal::<T, I>::get(derivative)
+	}
+
+	/// Public function to access the extra data of a derivative.
+	pub fn derivative_extra<KArg: EncodeLike<DerivativeOf<T, I>>>(
+		derivative: KArg,
+	) -> Option<DerivativeExtraOf<T, I>> {
+		DerivativeExtra::<T, I>::get(derivative)
+	}
+}
+
 impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeOf<T, I>>
 	for Pallet<T, I>
 {
@@ -276,11 +297,11 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 		derivative: &DerivativeOf<T, I>,
 	) -> DispatchResult {
 		ensure!(
-			Self::original_to_derivative(original).is_none(),
+			OriginalToDerivative::<T, I>::get(original).is_none(),
 			Error::<T, I>::DerivativeAlreadyExists,
 		);
 		ensure!(
-			Self::derivative_to_original(derivative).is_none(),
+			DerivativeToOriginal::<T, I>::get(derivative).is_none(),
 			Error::<T, I>::DerivativeAlreadyExists,
 		);
 
@@ -402,7 +423,8 @@ where
 /// and can't be computed from one another.
 pub struct StoreMapping<CreateOp>(PhantomData<CreateOp>);
 impl<CreateOp, Original, Derivative>
-	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>> for StoreMapping<CreateOp>
+	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>
+	for StoreMapping<CreateOp>
 where
 	CreateOp: Create<DeriveAndReportId<Original, Derivative>>,
 {
