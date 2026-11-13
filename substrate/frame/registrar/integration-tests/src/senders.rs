@@ -132,6 +132,11 @@ impl SendToPara for RelaySendToPara {
 		let dest = Location::new(0, [Junction::Parachain(PARA_ID)]);
 		send_xcm::<crate::relay::XcmRouter>(dest, program).map(|_| ()).map_err(|_| ())
 	}
+
+	// The simulator's router has no size limit.
+	fn max_message_size() -> u32 {
+		u32::MAX
+	}
 }
 
 frame_support::parameter_types! {

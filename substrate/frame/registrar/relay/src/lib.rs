@@ -115,12 +115,19 @@ pub trait SendToPara {
 	/// unwind committed state.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
+
+	/// The largest encoded [`MessageToPara`] [`Self::send`] can ever carry.
+	fn max_message_size() -> u32;
 }
 
 #[cfg(feature = "std")]
 impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
+	}
+
+	fn max_message_size() -> u32 {
+		u32::MAX
 	}
 }
 
@@ -379,7 +386,7 @@ pub mod pallet {
 		QueueFull,
 		/// This para already holds its share of the relay queue.
 		TooManyQueued,
-		/// The head data is larger than this pallet will hold.
+		/// The head data is larger than this pallet will hold or the transport can carry.
 		HeadDataTooLarge,
 	}
 
@@ -545,6 +552,13 @@ pub mod pallet {
 		pub fn relay(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
 			let para_id: ParaId = ensure_parachain(origin)?.into();
 			let ParaRequest::V1(request) = request;
+			// A refused send stays first in line, so one that can never fit would block the queue.
+			let message =
+				MessageToPara::V1(MessageToParaV1::Relayed { para_id, request: request.clone() });
+			ensure!(
+				message.encoded_size() <= T::SendToPara::max_message_size() as usize,
+				Error::<T>::HeadDataTooLarge
+			);
 			let request: QueuedRequestOf<T> =
 				request.try_into().map_err(|()| Error::<T>::HeadDataTooLarge)?;
 

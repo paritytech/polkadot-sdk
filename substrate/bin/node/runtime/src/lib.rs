@@ -2684,6 +2684,10 @@ impl pallet_registrar_relay::SendToPara for DiscardRegistrarMessages {
 	fn send(_message: registrar_primitives::MessageToPara) -> Result<(), ()> {
 		Ok(())
 	}
+
+	fn max_message_size() -> u32 {
+		u32::MAX
+	}
 }
 
 parameter_types! {

@@ -11,7 +11,7 @@ doc:
 
       The queue is bounded by `MaxQueuedRequests` in total, `MaxQueuedPerPara` per para so one para
       cannot fill it, and `MaxForwardedPerBlock` per block. A request the transport refuses stays
-      first in line.
+      first in line, so `relay` refuses one larger than the new `SendToPara::max_message_size`.
 
       `pallet-registrar-relay::Config` now requires a `RuntimeOrigin` convertible into the
       parachains `Origin`, and `pallet-registrar-para::Config` one built from its own `Origin`.

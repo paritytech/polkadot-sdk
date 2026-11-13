@@ -1525,6 +1525,41 @@ mod relay {
 	}
 
 	#[test]
+	fn a_request_the_transport_cannot_carry_does_not_stall_other_paras() {
+		new_test_ext().execute_with(|| {
+			MaxSendSize::set(50);
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
+			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+
+			for n in 2..12 {
+				System::set_block_number(n);
+				poll();
+			}
+
+			assert_eq!(take_sent(), vec![relayed(PARA_B, ParaRequestV1::AddLock)]);
+		});
+	}
+
+	#[test]
+	fn a_stuck_entry_does_not_lock_everyone_out() {
+		new_test_ext().execute_with(|| {
+			MaxSendSize::set(50);
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
+			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
+			for n in 2..12 {
+				System::set_block_number(n);
+				poll();
+			}
+
+			assert_ok!(relay(2003, ParaRequestV1::AddLock));
+		});
+	}
+
+	#[test]
 	fn forwarding_stops_when_the_meter_runs_out() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));

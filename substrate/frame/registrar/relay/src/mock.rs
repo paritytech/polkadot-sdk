@@ -24,6 +24,7 @@
 //! the job of the `pallet-registrar-test` crate.
 
 use crate::{self as pallet_registrar_relay, SendToPara};
+use codec::Encode;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
@@ -93,6 +94,8 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// The largest encoded message the transport carries.
+	pub static MaxSendSize: u32 = u32::MAX;
 	/// When true, `MockRegistrar::check_code_upgrade` fails.
 	pub static UpgradeCheckFails: bool = false;
 	/// Code upgrades `MockRegistrar` has scheduled, in order.
@@ -192,11 +195,15 @@ pub struct RecordingSender;
 
 impl SendToPara for RecordingSender {
 	fn send(message: MessageToPara) -> Result<(), ()> {
-		if SendFails::get() {
+		if SendFails::get() || message.encoded_size() > MaxSendSize::get() as usize {
 			return Err(());
 		}
 		SentMessages::mutate(|sent| sent.push(message));
 		Ok(())
+	}
+
+	fn max_message_size() -> u32 {
+		MaxSendSize::get()
 	}
 }
 
@@ -235,6 +242,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	MaxSendSize::set(u32::MAX);
 	UpgradeCheckFails::set(false);
 	ScheduledUpgrades::set(Vec::new());
 	ScheduleFails::set(false);
