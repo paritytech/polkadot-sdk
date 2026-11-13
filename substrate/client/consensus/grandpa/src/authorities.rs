@@ -728,11 +728,9 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 		self.0.push((set_id, block_number));
 	}
 
-	/// The changes known right after the state of a finalized block was imported.
-	///
-	/// The state of a block that enacts a change is already the state of the new set `set_id`,
-	/// and the block is never finalized through GRANDPA, so the end of the previous set is
-	/// recorded here.
+	/// The changes known right after importing the state of a finalized block. A block that
+	/// enacts a change is already in set `set_id` and is never finalized through GRANDPA, so the
+	/// end of the previous set is recorded here.
 	pub(crate) fn after_state_import(enacts_change: bool, set_id: u64, block_number: N) -> Self {
 		let mut changes = Self::empty();
 		if let Some(previous_set_id) = set_id.checked_sub(1).filter(|_| enacts_change) {
