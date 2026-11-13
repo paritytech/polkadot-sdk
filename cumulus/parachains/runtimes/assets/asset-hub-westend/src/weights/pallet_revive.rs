@@ -2641,18 +2641,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Revive::NativeDepositOf` (r:1 w:1)
-	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
-	fn v4_clear_code_credit_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `206`
-		//  Estimated: `3545`
-		// Minimum execution time: 16_096_000 picoseconds.
-		Weight::from_parts(17_556_000, 0)
-			.saturating_add(Weight::from_parts(0, 3545))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)

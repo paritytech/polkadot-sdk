@@ -3408,15 +3408,8 @@ mod remote_test {
 		#[storage_alias]
 		type CodeInfoOf = StorageMap<Revive, Identity, H256, CodeInfoHead>;
 		#[storage_alias]
-		type NativeDepositOf = StorageDoubleMap<
-			Revive,
-			Identity,
-			AccountId,
-			Identity,
-			AccountId,
-			Balance,
-			ValueQuery,
-		>;
+		type NativeDepositOf =
+			StorageDoubleMap<Revive, Identity, AccountId, Identity, AccountId, Balance, ValueQuery>;
 
 		/// Every `(key suffix, value)` of a Revive storage map, undecoded.
 		fn raw_map(item: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
@@ -3443,7 +3436,11 @@ mod remote_test {
 				.into_iter()
 				.map(|(k, v)| {
 					let addr = H160::from_slice(&k[..20]);
-					(addr, <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&addr), v[0])
+					(
+						addr,
+						<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&addr),
+						v[0],
+					)
 				})
 				.collect()
 		}
@@ -3494,12 +3491,18 @@ mod remote_test {
 			Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap) })
 		} else {
 			Mode::Online(OnlineConfig {
-				transport_uris: vec![std::env::var("WS").unwrap_or_else(|_| {
-					"wss://westend-asset-hub-rpc.polkadot.io:443".into()
-				})],
-				pallets: ["System", "Balances", "Revive", "Assets", "AssetsHolder", "AssetsFreezer"]
-					.map(String::from)
-					.to_vec(),
+				transport_uris: vec![std::env::var("WS")
+					.unwrap_or_else(|_| "wss://westend-asset-hub-rpc.polkadot.io:443".into())],
+				pallets: [
+					"System",
+					"Balances",
+					"Revive",
+					"Assets",
+					"AssetsHolder",
+					"AssetsFreezer",
+				]
+				.map(String::from)
+				.to_vec(),
 				child_trie: false,
 				disable_root_check: true,
 				state_snapshot: Some(SnapshotConfig::new(snap)),
@@ -3518,9 +3521,10 @@ mod remote_test {
 				accounts.iter().filter(|a| a.2 == kind).map(|a| a.1.clone()).collect()
 			};
 			let (contracts, delegated) = (of_kind(0), of_kind(2));
-			let sum = |reason: HoldReason, f: fn(HoldReason, &AccountId) -> Balance, who: &[AccountId]| -> Balance {
-				who.iter().map(|w| f(reason, w)).sum()
-			};
+			let sum = |reason: HoldReason,
+			           f: fn(HoldReason, &AccountId) -> Balance,
+			           who: &[AccountId]|
+			 -> Balance { who.iter().map(|w| f(reason, w)).sum() };
 
 			// The state v4 starts from.
 			let rows = rows_by_holder();
@@ -3531,7 +3535,10 @@ mod remote_test {
 			let code_native_before = native(code, &pallet_account);
 			let code_pgas_before = pgas(code, &pallet_account);
 			println!("== before v4");
-			println!("PGAS asset registered: {}", <Assets as fungibles::Inspect<AccountId>>::asset_exists(PGASAssetId::get()));
+			println!(
+				"PGAS asset registered: {}",
+				<Assets as fungibles::Inspect<AccountId>>::asset_exists(PGASAssetId::get())
+			);
 			println!(
 				"pallet account: code native {code_native_before}, code PGAS {code_pgas_before}, \
 				 rows {:?}; CodeInfoOf {} entries, deposits {}",
@@ -3565,10 +3572,8 @@ mod remote_test {
 				rows.len(),
 				max_rows.map(|r| r.1 .0),
 			);
-			let over = mismatches(storage, &contracts, &rows)
-				.into_iter()
-				.filter(|m| m.2 > m.1)
-				.count();
+			let over =
+				mismatches(storage, &contracts, &rows).into_iter().filter(|m| m.2 > m.1).count();
 			println!("contracts whose rows already exceed their native hold: {over}");
 			println!("DeletionQueue (legacy, new): {:?}", deletion_queue());
 
@@ -3649,7 +3654,8 @@ mod remote_test {
 				post.expect("post_upgrade");
 				return;
 			};
-			let pgas_free = || <Assets as fungibles::Inspect<AccountId>>::balance(PGASAssetId::get(), &owner);
+			let pgas_free =
+				|| <Assets as fungibles::Inspect<AccountId>>::balance(PGASAssetId::get(), &owner);
 			let (native_before, pgas_before) = (Balances::balance(&owner), pgas_free());
 			let removed = Revive::remove_code(RuntimeOrigin::signed(owner.clone()), hash);
 			println!(

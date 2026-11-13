@@ -266,7 +266,6 @@ pub trait WeightInfo {
 	fn v2_migration_step() -> Weight;
 	fn v3_migration_step() -> Weight;
 	fn v4_code_upload_step() -> Weight;
-	fn v4_clear_code_credit_step() -> Weight;
 	fn v4_contract_step() -> Weight;
 	fn v4_deletion_queue_step() -> Weight;
 	fn on_finalize_per_transaction(n: u32, ) -> Weight;
@@ -2578,17 +2577,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 15_019_000 picoseconds.
 		Weight::from_parts(16_335_000, 6134)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::NativeDepositOf` (r:1 w:1)
-	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
-	fn v4_clear_code_credit_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `206`
-		//  Estimated: `3545`
-		// Minimum execution time: 14_418_000 picoseconds.
-		Weight::from_parts(15_902_000, 3545)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:0)
@@ -5103,17 +5091,6 @@ impl WeightInfo for () {
 		// Minimum execution time: 15_019_000 picoseconds.
 		Weight::from_parts(16_335_000, 6134)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::NativeDepositOf` (r:1 w:1)
-	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
-	fn v4_clear_code_credit_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `206`
-		//  Estimated: `3545`
-		// Minimum execution time: 14_418_000 picoseconds.
-		Weight::from_parts(15_902_000, 3545)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:0)
