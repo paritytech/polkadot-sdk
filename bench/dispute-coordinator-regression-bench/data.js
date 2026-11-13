@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794557536933,
+  "lastUpdate": 1794568659699,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7333c29c30e9c95dc0f061712c626db03b067d10",
-          "message": "Add pallet-gas-allowance with ChargePGAS transaction extension (#11818)\n\n## Summary\n\n- Introduces `pallet-pgas-allowance` providing a new `ChargePGAS<T, S>`\ntransaction extension that wraps an inner fee extension `S`.\n- When a signed transaction dispatches a call matching\n`Config::CallFilter` and the signer holds enough PGAS (a trusted asset\non Asset Hub), the fee is withdrawn as a `fungibles::Credit`. In\n`post_dispatch` the `actual_fee` portion is dropped and burned and the\nunused remainder refunded to the payer.\n- A `PGASFeePaid { who, actual_fee }` event is emitted when the fee is\npaid in PGAS.\n- Wires the extension into `asset-hub-westend`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2026-04-28T08:45:05Z",
-          "tree_id": "11dd2b4f354287f389088fade03698eabd920b6d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7333c29c30e9c95dc0f061712c626db03b067d10"
-        },
-        "date": 1777372711063,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026607518399999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009329044009999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009721022709999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009394880679999978,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "880e1f7ff2e009541c36bf981c902f93554d7c26",
+          "message": "cumulus: wire resubmission of segments per core (#13391)\n\n# Description\n\nFInal wiring for the resubmission pipeline, forwarding the resubmittable\nsegment as headers to the collation task whenever the block builder can\nhand over something (e.g. it just built a block, or it can not build due\nto unincluded segment being full, but it can still signal to resubmit a\nresubmittable segment).\n\nCollation-task takes a freshly built bundle (if built) and the\nresubmittable segment, generates all collation data that must be sent to\nthe collation-generation subsystem, and then submits it to the\ncollation-generation subsystem.\n\nAdded two tests with one and three collators parachain.. throughput\nlooks like on the prototype.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12313\n\n# Known issues\n\nWill be fixed in follow up PRs.\n\n- #13658 \n- #13631\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T09:34:37Z",
+          "tree_id": "ea72dabd772cc3ce8bc3b73e7650ecffe3d66e84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/880e1f7ff2e009541c36bf981c902f93554d7c26"
+        },
+        "date": 1794568625077,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025175382100000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009485830779999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011104189429999996,
             "unit": "seconds"
           }
         ]
