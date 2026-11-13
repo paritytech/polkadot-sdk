@@ -207,9 +207,20 @@ impl<T: Config> Origin<T> {
 	///
 	/// We require an origin to be mapped in order to be used in a `Stack`. Otherwise
 	/// [`Stack::caller`] returns an address that can't be reverted to the original address.
+	///
+	/// An eth-derived account always counts as mapped, but once a native account is mapped to
+	/// the same address it is shadowed: its address now reverts to the native account.
 	fn ensure_mapped(&self) -> DispatchResult {
 		match self {
 			Self::Root => Ok(()),
+			Self::Signed(account_id) if T::AddressMapper::is_eth_derived(account_id) => {
+				let address = T::AddressMapper::to_address(account_id);
+				if T::AddressMapper::to_account_id(&address) == *account_id {
+					Ok(())
+				} else {
+					Err(DispatchError::BadOrigin)
+				}
+			},
 			Self::Signed(account_id) if T::AddressMapper::is_mapped(account_id) => Ok(()),
 			Self::Signed(_) => Err(<Error<T>>::AccountUnmapped.into()),
 		}

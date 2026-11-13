@@ -2018,6 +2018,10 @@ pub mod pallet {
 		/// Every `AccountId32` can control its corresponding fallback account. The fallback account
 		/// is the `AccountId20` with the last 12 bytes set to `0xEE`. This is essentially a
 		/// recovery function in case an `AccountId20` was used without creating a mapping first.
+		///
+		/// Once the caller is mapped, its fallback account can no longer call or instantiate
+		/// contracts. Its funds can still be recovered through other pallets, such as a balance
+		/// transfer.
 		#[pallet::call_index(9)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
