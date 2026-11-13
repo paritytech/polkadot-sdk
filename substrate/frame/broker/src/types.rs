@@ -89,8 +89,10 @@ pub type Schedule = BoundedVec<ScheduleItem, ConstU32<{ CORE_MASK_BITS as u32 }>
 /// with making pro rata payments to contributors.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ContributionRecord<AccountId> {
-	/// The end of the Region contributed.
-	pub length: Timeslice,
+	/// Revenue has been claimed for all timeslices before this one.
+	pub claimed_until: Timeslice,
+	/// The end of the contribution. Lowered when the Region is removed from the Pool.
+	pub end: Timeslice,
 	/// The identity of the contributor.
 	pub payee: AccountId,
 }
