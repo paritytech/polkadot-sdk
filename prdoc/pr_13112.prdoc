@@ -20,8 +20,9 @@ doc:
       `paras_registrar` in `polkadot-runtime-common` implements `check_code_upgrade` and
       `schedule_code_upgrade`, using the new
       `polkadot_runtime_parachains::can_upgrade_validation_code`. `check_code_upgrade` refuses a
-      para that is unknown or offboarding, so an authorization stops working however the para is
-      deregistered.
+      para that is unknown, onboarding or offboarding. Onboarding is refused because a rejected
+      genesis PVF would leave the upgrade behind, and offboarding so an authorization stops working
+      however the para is deregistered.
 
 crates:
   - name: registrar-primitives
