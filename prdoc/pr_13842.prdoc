@@ -1,0 +1,14 @@
+title: 'pallet-broker: keep `AutoRenewals` sorted after core remapping in `renew_cores`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `renew_cores` rebuilt `AutoRenewals` in old sale order while remapping renewed records to
+    freshly allocated core indices and carrying un-renewed records over with their stale index,
+    so the vector does not stay sorted by `core` once records can be carried over between sales
+    (e.g. auto-renewal registered well before the renewal is due). The binary searches in
+    `do_enable_auto_renew` and `do_disable_auto_renew` rely on that ordering. The rebuilt vector
+    is now sorted by `core` before being written back. No live chain is affected today: no
+    carried over records can currently be created, and the on-chain vectors are sorted.
+crates:
+- name: pallet-broker
+  bump: patch
