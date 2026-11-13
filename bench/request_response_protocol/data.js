@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794565432048,
+  "lastUpdate": 1794567414545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145583,6 +145583,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2791963018,
             "range": "± 27549000",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "880e1f7ff2e009541c36bf981c902f93554d7c26",
+          "message": "cumulus: wire resubmission of segments per core (#13391)\n\n# Description\n\nFInal wiring for the resubmission pipeline, forwarding the resubmittable\nsegment as headers to the collation task whenever the block builder can\nhand over something (e.g. it just built a block, or it can not build due\nto unincluded segment being full, but it can still signal to resubmit a\nresubmittable segment).\n\nCollation-task takes a freshly built bundle (if built) and the\nresubmittable segment, generates all collation data that must be sent to\nthe collation-generation subsystem, and then submits it to the\ncollation-generation subsystem.\n\nAdded two tests with one and three collators parachain.. throughput\nlooks like on the prototype.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12313\n\n# Known issues\n\nWill be fixed in follow up PRs.\n\n- #13658 \n- #13631\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T09:34:37Z",
+          "tree_id": "ea72dabd772cc3ce8bc3b73e7650ecffe3d66e84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/880e1f7ff2e009541c36bf981c902f93554d7c26"
+        },
+        "date": 1794567379428,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19925515,
+            "range": "± 218988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19785815,
+            "range": "± 170331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21222361,
+            "range": "± 179943",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25190042,
+            "range": "± 116183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58628304,
+            "range": "± 877869",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353366760,
+            "range": "± 8070419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2448272162,
+            "range": "± 98890399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16918894,
+            "range": "± 100829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17158595,
+            "range": "± 117192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17598609,
+            "range": "± 119726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22414346,
+            "range": "± 113590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60478399,
+            "range": "± 833702",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 353657876,
+            "range": "± 5763334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2721371238,
+            "range": "± 20814154",
             "unit": "ns/iter"
           }
         ]
