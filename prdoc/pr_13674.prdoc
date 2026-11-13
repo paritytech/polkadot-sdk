@@ -1,50 +1,40 @@
-title: 'pallet-revive: fix v4 migration double credit and partial swap'
+title: 'pallet-revive: fix v4 migration for runtimes that enabled PGasDeposit before it'
 doc:
 - audience: Runtime Dev
   description: |-
-    Fixes `pallet_revive::migrations::v4` for runtimes that switched `Config::Deposit` to
+    Fixes `pallet_revive::migrations::v4` on runtimes that switched `Config::Deposit` to
     `PGasDeposit` before scheduling v4.
 
-    Phase 1 now clears the pallet account's `NativeDepositOf` rows and rebuilds them from
-    `CodeInfoOf`. Before, it added to rows already written since the switch, crediting those code
-    deposits twice. `PGasDeposit::migrate_native_to_pgas` now rolls back if minting or holding
-    PGAS fails. Before, phase 2 could burn a contract's native deposit and leave nothing in its
-    place, for example when the PGAS asset was not registered yet. Phase 2 now swaps only the part
-    of a contract's native hold not recorded in its `NativeDepositOf` rows. Before, it swapped the
-    whole hold, so payers who paid native after the switch could no longer free storage.
+    After v4, every account holding a deposit holds exactly the native recorded in its `NativeDepositOf` rows. Native
+    with no row was paid before the switch: it is burned and the same amount of PGAS is minted and
+    held under the same reason. When that storage is freed, the payer gets `RefundPercent` of it
+    back in PGAS and the rest is burned. Native paid after the switch keeps its row and is still
+    refunded in native. Each converted account is given the PGAS existential deposit, frozen, as a
+    new contract is.
 
-    `CodeInfoOf` does not record which asset paid a code deposit. When the pallet account already
-    holds PGAS under `CodeUploadDepositReserve`, phase 1 no longer rebuilds its rows: it keeps the
-    rows written since the switch and swaps the native they do not account for to PGAS, as phase 2
-    does for contracts. Code uploaded before the switch is then refunded from PGAS, like code paid
-    in PGAS. Before, phase 1 credited PGAS-paid code as native, so its owners were refunded from
-    other uploaders' native deposits and the last owner's `remove_code` failed with
-    `StorageRefundLocked`.
+    Code deposit rows are rebuilt from `CodeInfoOf` only when the pallet account has no rows and no
+    PGAS on hold, i.e. every code deposit was paid in native.
 
-    Phase 3 now rewrites only `DeletionQueue` slots still in the legacy `TrieId` layout. Before, it
-    also rewrote items queued in the new layout after the runtime upgrade, replacing their contract
-    account with the zero placeholder. The deletion processor then never cleared that contract's
-    `NativeDepositOf` rows, and its address could not be instantiated again
-    (`PendingDepositCleanup`).
+    Fixed:
+    - Code deposits were credited twice when rows already existed.
+    - Contracts' recorded native was swapped, so those payers' refunds failed with
+      `StorageRefundLocked`.
+    - A failed swap burned native without minting PGAS. It now rolls back and is logged.
+    - Delegated accounts' deposits were not migrated.
+    - `DeletionQueue` entries already in the new layout were overwritten with a zero account.
+    - Reading an account's rows could exceed the block limit. Rows are now read in chunks across
+      steps.
 
-    A contract, or the pallet account for code deposits, has one `NativeDepositOf` row per payer,
-    and nothing bounds how many. Each swap now reads those rows in chunks across steps, keeping the
-    last payer and the native summed so far in the cursor, and is charged for the rows it reads
-    before reading them. A step can no longer exceed the migration's weight or proof size limit
-    because one account has many payers.
+    The pallet now refuses calls, instantiations, code upload and removal, and `set_code` with
+    `Error::MigrationsOngoing` while a multi-block migration runs. This covers XCM and scheduled
+    calls, which the executive does not pause. Dry runs are still served.
 
-    Runtimes that already ran v4 are unaffected. Runtimes that have not:
-    - Register the PGAS asset before scheduling v4, and run the `try-runtime` migration checks.
-      v4 never fails on chain, since a failed migration is handled by `FailedMigrationHandler`,
-      which commonly freezes the chain. Without the asset every swap rolls back, v4 completes with
-      nothing converted and is not run again. `pre_upgrade` rejects a missing asset and
-      `post_upgrade` rejects any account left on native, so the checks catch this before release.
-    - If you implement `pallet_revive::WeightInfo` yourself, add `v4_clear_code_credit_step`, or
-      regenerate your weights.
-    - `pallet_revive::migrations::v4::Cursor` is now generic over the account id and balance, with
-      `CursorOf<T>` as the runtime's alias, and has new `ClearCodeCredits(Option<AccountId>)`,
-      `CodeRows` and `ContractRows` variants. Code that names the type should use `CursorOf<T>`;
-      code that matches on it must handle the new variants.
+    Runtimes that have not run v4 yet:
+    - Register the PGAS asset before scheduling v4, and run the `try-runtime` checks. A swap that
+      fails on chain is skipped, not retried.
+    - Expect XCM that calls into revive to fail while migrations run, unless the runtime pauses
+      `MessageQueue` for that time.
+    - `migrations::v4::Cursor` is now generic (use `CursorOf<T>`) and has new variants.
 crates:
 - name: pallet-revive
   bump: major
