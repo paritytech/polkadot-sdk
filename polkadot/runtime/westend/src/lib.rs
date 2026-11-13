@@ -1363,6 +1363,22 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = xcm_builder::TeleportForwarderBenchmarkHelper<
+		polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+			xcm_config::XcmConfig,
+			(),
+			xcm_config::PriceForChildParachainDelivery,
+			AccumulateForwardDestParaId,
+			Dmp,
+		>,
+		xcm_config::AssetHub,
+	>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub AccumulateForwardDestParaId: ParaId = ASSET_HUB_ID.into();
 }
 
 parameter_types! {

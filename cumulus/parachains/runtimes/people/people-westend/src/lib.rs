@@ -747,6 +747,17 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = xcm_builder::TeleportForwarderBenchmarkHelper<
+		polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+			xcm_config::XcmConfig,
+			(),
+			PriceForSiblingParachainDelivery,
+			testnet_parachains_constants::westend::locations::AssetHubParaId,
+			ParachainSystem,
+		>,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+	>;
 }
 
 pub type MetaTxExtension = (

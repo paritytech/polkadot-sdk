@@ -86,6 +86,18 @@ pub trait Forwarder<AccountId, Balance> {
 	fn forward(source: AccountId, amount: Balance) -> Result<(), ()>;
 }
 
+/// Prepares the environment so that a forward from `source` succeeds in benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<AccountId> {
+	/// Make the destination reachable from `source`.
+	fn ensure_successful_forward(source: &AccountId);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<AccountId> BenchmarkHelper<AccountId> for () {
+	fn ensure_successful_forward(_source: &AccountId) {}
+}
+
 const LOG_TARGET: &str = "runtime::accumulate-forward";
 
 /// Type alias for balance.
@@ -143,6 +155,10 @@ pub mod pallet {
 
 		/// Weight information for the pallet's operations.
 		type WeightInfo: weights::WeightInfo;
+
+		/// Sets up a deliverable destination for the `send_native` benchmark.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: super::BenchmarkHelper<Self::AccountId>;
 	}
 
 	/// Block of [`Config::BlockNumberProvider`] at which a forward was last attempted.
