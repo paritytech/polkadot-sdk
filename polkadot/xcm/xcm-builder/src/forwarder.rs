@@ -69,6 +69,12 @@ where
 
 /// Like [`TeleportForwarderForAccountId32`], but burns the teleported tokens at the destination
 /// instead of depositing them. For networks without a DAP.
+///
+/// NOTE: The origin is preserved, so the destination executes `BurnAsset` under the aliased
+/// `source chain/AccountId32(source)` origin after an `UnpaidExecution`. The destination barrier
+/// must therefore allow unpaid execution for the accumulation accounts (as Asset Hub Polkadot does
+/// with `SystemChainAccumulationAccounts`) before this forwarder is wired in. Otherwise the tokens
+/// are burned locally, the message is rejected at the destination, and its issuance drifts.
 pub struct TeleportAndBurnForwarderForAccountId32<XcmConfig, Dest, NativeAsset>(
 	PhantomData<(XcmConfig, Dest, NativeAsset)>,
 );
@@ -114,6 +120,9 @@ fn teleport_from_account<XcmConfig: xcm_executor::Config>(
 	dest: Location,
 	remote_xcm: Xcm<()>,
 ) -> Result<(), ()> {
+	// The XCM flow: `ReceiveTeleportedAsset → AliasOrigin(source) → UnpaidExecution →
+	// remote_xcm`. `preserve_origin: true` causes `InitiateTransfer` to prepend
+	// `AliasOrigin(source_location)` to the remote XCM.
 	let xcm: Xcm<XcmConfig::RuntimeCall> = Xcm(vec![
 		UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
 		DescendOrigin(Junction::AccountId32 { network: None, id: source }.into()),

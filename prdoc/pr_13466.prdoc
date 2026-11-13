@@ -8,6 +8,13 @@ doc:
     Kusama system chains, which currently carry their own copy of this logic.
     `TeleportForwarderForAccountId32` keeps its behaviour; both forwarders now share the local
     execution and rollback logic.
+
+    Integration note: the origin is preserved, so the destination receives
+    `AliasOrigin(source chain/AccountId32(account))`, `UnpaidExecution`, `BurnAsset` and its
+    barrier checks the aliased location. Before switching to this forwarder, the destination
+    (e.g. Asset Hub Kusama) must allow unpaid execution for the accumulation accounts, as Asset
+    Hub Polkadot does with `SystemChainAccumulationAccounts`. Otherwise the source chain removes
+    the tokens, the destination rejects the message, and the destination issuance drifts.
 crates:
 - name: staging-xcm-builder
   bump: minor
