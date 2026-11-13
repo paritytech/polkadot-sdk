@@ -40,6 +40,12 @@
 //! reason. The recorded part was paid in native after `PGasDeposit` was enabled and stays native,
 //! so those payers are still refunded in native.
 //!
+//! A contract, or the pallet account for code deposits, has one [`crate::NativeDepositOf`] row per
+//! payer, and nothing bounds how many. A swap therefore reads the rows in chunks over as many
+//! steps as they need: the cursor keeps the payer of the last row read and the native summed so
+//! far ([`RowSum`]), and nothing is written until the last row is read. Each step is charged for
+//! one row up front and reads further rows only while the weight meter has room for them.
+//!
 //! Phase 3 rewrites the [`crate::DeletionQueue`] entries from their old `TrieId` value into the
 //! new [`crate::storage::DeletionQueueItem`] format. Entries already in the new format, queued by
 //! contracts terminated after the runtime upgrade but before this migration ran, are left as
@@ -81,10 +87,29 @@ extern crate alloc;
 #[cfg(feature = "try-runtime")]
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
+/// The [`NativeDepositOf`] rows of one account that a swap has summed so far.
+///
+/// An account can have one row per payer, so the sum is carried across steps instead of reading
+/// every row in one.
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+pub struct RowSum<AccountId, Balance> {
+	/// Payer of the last row summed. The next step resumes after it.
+	last_payer: Option<AccountId>,
+	/// Native owed by the rows summed so far.
+	owed: Balance,
+}
+
+impl<AccountId, Balance: Zero> RowSum<AccountId, Balance> {
+	/// A sum that has read no rows yet.
+	fn new() -> Self {
+		Self { last_payer: None, owed: Zero::zero() }
+	}
+}
+
 /// Cursor: clearing the pallet account's code credits, then code uploads, contracts, and the
 /// deletion-queue rewrite.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
-pub enum Cursor<AccountId> {
+pub enum Cursor<AccountId, Balance> {
 	/// Last code hash processed in phase 1 (`CodeInfoOf` iteration).
 	CodeUpload(H256),
 	/// Last contract address processed in phase 2 (`AccountInfoOf` iteration).
@@ -101,10 +126,16 @@ pub enum Cursor<AccountId> {
 	/// Holds the owner of the last row removed. Resuming after it, rather than from the start of
 	/// the prefix, keeps each step from walking over the rows already removed in the same block.
 	ClearCodeCredits(Option<AccountId>),
+	/// Summing the pallet account's [`NativeDepositOf`] rows in phase 1, before swapping its
+	/// unrecorded native code deposits.
+	CodeRows(RowSum<AccountId, Balance>),
+	/// Summing the [`NativeDepositOf`] rows of the contract at this address in phase 2, before
+	/// swapping its unrecorded native storage deposit.
+	ContractRows(H160, RowSum<AccountId, Balance>),
 }
 
-/// The [`Cursor`] for a runtime's account id.
-pub type CursorOf<T> = Cursor<<T as frame_system::Config>::AccountId>;
+/// The [`Cursor`] for a runtime's account id and balance.
+pub type CursorOf<T> = Cursor<<T as frame_system::Config>::AccountId, BalanceOf<T>>;
 
 /// Switches native storage deposits over to PGAS.
 pub struct Migration<T>(PhantomData<T>);
@@ -125,11 +156,14 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		// A clearing step removes one row or, once none are left, runs the first phase 1 step.
 		let clear_step =
 			<T as Config>::WeightInfo::v4_clear_code_credit_step().saturating_add(code_step);
-		let contract_step = <T as Config>::WeightInfo::v4_contract_step();
+		// A swap step reads at least one `NativeDepositOf` row, which the benchmark does not
+		// include, and as many more as the meter still has room for.
+		let row = Self::native_row_reads(1);
+		let swap_step = <T as Config>::WeightInfo::v4_contract_step().saturating_add(row);
 		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
 		// The first step reads the pallet account's two code-deposit holds to pick between
-		// rebuilding its rows and swapping its unrecorded native, which costs a contract step.
-		let first_step = clear_step.max(contract_step).saturating_add(T::DbWeight::get().reads(2));
+		// rebuilding its rows and swapping its unrecorded native, which costs a swap step.
+		let first_step = clear_step.max(swap_step).saturating_add(T::DbWeight::get().reads(2));
 		let required = first_step.max(deletion_queue_step);
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
@@ -140,16 +174,19 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				None => first_step,
 				Some(Cursor::ClearCodeCredits(_)) => clear_step,
 				Some(Cursor::CodeUpload(_)) => code_step,
-				Some(Cursor::Contract(_)) => contract_step,
+				Some(Cursor::CodeRows(_)) |
+				Some(Cursor::Contract(_)) |
+				Some(Cursor::ContractRows(..)) => swap_step,
 				Some(Cursor::DeletionQueue(_)) => deletion_queue_step,
 			};
 			if meter.try_consume(step_weight).is_err() {
 				break;
 			}
-			let (next, rows_read) = Self::step_once_counting_rows(cursor);
-			// Swapping reads every `NativeDepositOf` row of the account; charge those reads
-			// after the fact, since their number is only known once read.
-			meter.consume(Self::native_row_reads(rows_read));
+			// The step weight covers the first row; allow as many more as still fit.
+			let max_rows = Self::rows_within(meter.remaining(), row).saturating_add(1);
+			let (next, rows_read) = Self::step_once_counting_rows(cursor, max_rows);
+			// `rows_read <= max_rows`, so the rows beyond the first fit in what was left.
+			meter.consume(Self::native_row_reads(rows_read.saturating_sub(1)));
 			cursor = next;
 			if cursor.is_none() {
 				break;
@@ -193,7 +230,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			}
 			let contract = T::AddressMapper::to_account_id(&addr);
 			let total = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, &contract);
-			per_contract.insert(addr, (total, Self::recorded_native(&contract).0));
+			per_contract.insert(addr, (total, Self::recorded_native(&contract)));
 		}
 
 		// Per slot: the item expected after phase 3. Legacy slots get the zero placeholder;
@@ -261,7 +298,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			}
 			// `remove_code` refunds these rows from the native hold with `Precision::Exact`.
 			// After a swap the native hold is exactly the rows; a skipped swap leaves more.
-			let credited = Self::recorded_native(&pallet_account).0;
+			let credited = Self::recorded_native(&pallet_account);
 			let native = T::Currency::balance_on_hold(&reason.into(), &pallet_account);
 			if credited > native || (swap_code && credited != native) {
 				log::error!(
@@ -284,7 +321,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				);
 				return Err("v4: contract total_on_hold changed".into());
 			}
-			let rows = Self::recorded_native(&contract).0;
+			let rows = Self::recorded_native(&contract);
 			if rows != owed_native {
 				log::error!(
 					target: LOG_TARGET,
@@ -336,14 +373,28 @@ impl<T: Config> Migration<T> {
 	/// `None` if the migration is complete.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn step_once(cursor: Option<CursorOf<T>>) -> Option<CursorOf<T>> {
-		Self::step_once_counting_rows(cursor).0
+		Self::step_once_counting_rows(cursor, u32::MAX).0
 	}
 
-	/// [`Self::step_once`], also returning how many [`NativeDepositOf`] rows a swap read.
-	fn step_once_counting_rows(cursor: Option<CursorOf<T>>) -> (Option<CursorOf<T>>, u32) {
+	/// [`Self::step_once`] reading at most `max_rows` [`NativeDepositOf`] rows, which must not be
+	/// zero. Also returns how many rows a swap read.
+	fn step_once_counting_rows(
+		cursor: Option<CursorOf<T>>,
+		max_rows: u32,
+	) -> (Option<CursorOf<T>>, u32) {
 		let mut rows_read = 0;
-		let next = Self::step_once_inner(cursor, &mut rows_read);
+		let next = Self::step_once_inner(cursor, max_rows, &mut rows_read);
 		(next, rows_read)
+	}
+
+	/// How many [`NativeDepositOf`] rows, each costing `row`, fit in `weight`.
+	fn rows_within(
+		weight: frame_support::weights::Weight,
+		row: frame_support::weights::Weight,
+	) -> u32 {
+		weight
+			.checked_div_per_component(&row)
+			.map_or(u32::MAX, |rows| u32::try_from(rows).unwrap_or(u32::MAX))
 	}
 
 	/// Weight of reading `rows` [`NativeDepositOf`] rows, on top of the phase 2 step weight.
@@ -362,12 +413,12 @@ impl<T: Config> Migration<T> {
 		)
 	}
 
-	/// Sum and count of the [`NativeDepositOf`] rows recorded against `contract`.
-	fn recorded_native(contract: &T::AccountId) -> (BalanceOf<T>, u32) {
-		NativeDepositOf::<T>::iter_prefix_values(contract)
-			.fold((BalanceOf::<T>::zero(), 0u32), |(sum, n), v| {
-				(sum.saturating_add(v), n.saturating_add(1))
-			})
+	/// Sum of the [`NativeDepositOf`] rows recorded against `holder`. Reads every row, so it is
+	/// only for `try-runtime` checks, never for a migration step.
+	#[cfg(feature = "try-runtime")]
+	fn recorded_native(holder: &T::AccountId) -> BalanceOf<T> {
+		NativeDepositOf::<T>::iter_prefix_values(holder)
+			.fold(BalanceOf::<T>::zero(), |sum, v| sum.saturating_add(v))
 	}
 
 	/// PGAS the pallet account holds under `CodeUploadDepositReserve`, i.e. code deposits that
@@ -381,7 +432,11 @@ impl<T: Config> Migration<T> {
 		T::Deposit::total_on_hold(reason, &pallet_account).saturating_sub(native)
 	}
 
-	fn step_once_inner(cursor: Option<CursorOf<T>>, rows_read: &mut u32) -> Option<CursorOf<T>> {
+	fn step_once_inner(
+		cursor: Option<CursorOf<T>>,
+		max_rows: u32,
+		rows_read: &mut u32,
+	) -> Option<CursorOf<T>> {
 		// Without PGAS support phases 1 and 2 are no-ops, so skip straight to phase 3.
 		// Forced on under `runtime-benchmarks` so per-phase weights are still measured.
 		if !T::Deposit::SUPPORTS_PGAS && !cfg!(feature = "runtime-benchmarks") {
@@ -389,7 +444,9 @@ impl<T: Config> Migration<T> {
 				None |
 				Some(Cursor::ClearCodeCredits(_)) |
 				Some(Cursor::CodeUpload(_)) |
-				Some(Cursor::Contract(_)) => Some(Cursor::DeletionQueue(None)),
+				Some(Cursor::CodeRows(_)) |
+				Some(Cursor::Contract(_)) |
+				Some(Cursor::ContractRows(..)) => Some(Cursor::DeletionQueue(None)),
 				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
 					Some(next) => Some(Cursor::DeletionQueue(Some(next))),
 					None => None,
@@ -399,9 +456,9 @@ impl<T: Config> Migration<T> {
 
 		match cursor {
 			None if !Self::pgas_code_deposits().is_zero() => {
-				Self::swap_unrecorded_code_deposits(rows_read);
-				Some(Cursor::Contract(None))
+				Some(Self::step_1_code_rows(RowSum::new(), max_rows, rows_read))
 			},
+			Some(Cursor::CodeRows(sum)) => Some(Self::step_1_code_rows(sum, max_rows, rows_read)),
 			None | Some(Cursor::ClearCodeCredits(None)) => {
 				match Self::clear_one_code_credit(None) {
 					Some(owner) => Some(Cursor::ClearCodeCredits(Some(owner))),
@@ -413,10 +470,10 @@ impl<T: Config> Migration<T> {
 				None => Self::step_1_code_upload(None),
 			},
 			Some(Cursor::CodeUpload(last)) => Self::step_1_code_upload(Some(last)),
-			Some(Cursor::Contract(last)) => Some(match Self::step_2_contract(last, rows_read) {
-				Some(next) => Cursor::Contract(Some(next)),
-				None => Cursor::DeletionQueue(None),
-			}),
+			Some(Cursor::Contract(last)) => Some(Self::step_2_contract(last, max_rows, rows_read)),
+			Some(Cursor::ContractRows(contract, sum)) => {
+				Some(Self::step_2_contract_rows(contract, sum, max_rows, rows_read))
+			},
 			Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
 				Some(next) => Some(Cursor::DeletionQueue(Some(next))),
 				None => None,
@@ -430,14 +487,43 @@ impl<T: Config> Migration<T> {
 	/// The rows were written by `PGasDeposit` for native paid after it was enabled, and
 	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
 	/// native would leave those payers unable to be refunded. A failed swap rolls back and is
-	/// logged, leaving `who` on native; `post_upgrade` reports it. `rows_read` is increased by
-	/// the number of rows read.
-	fn swap_unrecorded_native(reason: HoldReason, who: &T::AccountId, rows_read: &mut u32) {
+	/// logged, leaving `who` on native; `post_upgrade` reports it.
+	///
+	/// `who` can have a row per payer, so at most `max_rows` rows are read per call. `sum` is the
+	/// progress of the previous calls, and `rows_read` is increased by the number of rows read.
+	/// Returns the progress to resume from if more rows may remain, or `None` once the swap is
+	/// done. Nothing is written until the last row is read, so the hold does not change between
+	/// calls. `max_rows` must not be zero, or no call makes progress.
+	fn swap_unrecorded_native(
+		reason: HoldReason,
+		who: &T::AccountId,
+		mut sum: RowSum<T::AccountId, BalanceOf<T>>,
+		max_rows: u32,
+		rows_read: &mut u32,
+	) -> Option<RowSum<T::AccountId, BalanceOf<T>>> {
 		use frame_support::traits::fungible::InspectHold;
 
+		let rows = match &sum.last_payer {
+			Some(last) => NativeDepositOf::<T>::iter_prefix_from(
+				who,
+				NativeDepositOf::<T>::hashed_key_for(who, last),
+			),
+			None => NativeDepositOf::<T>::iter_prefix(who),
+		};
+		let mut read = 0u32;
+		for (payer, amount) in rows.take(max_rows as usize) {
+			sum.owed = sum.owed.saturating_add(amount);
+			sum.last_payer = Some(payer);
+			read = read.saturating_add(1);
+		}
+		*rows_read = rows_read.saturating_add(read);
+		if read >= max_rows {
+			// The budget ran out, so rows may remain. A call that finds none finishes the swap.
+			return Some(sum);
+		}
+
 		let held = T::Currency::balance_on_hold(&reason.into(), who);
-		let (owed_native, rows) = Self::recorded_native(who);
-		*rows_read = rows_read.saturating_add(rows);
+		let owed_native = sum.owed;
 		if owed_native > held {
 			log::warn!(
 				target: LOG_TARGET,
@@ -451,6 +537,7 @@ impl<T: Config> Migration<T> {
 				"v4: failed to migrate native -> PGAS {reason:?} deposit of {who:?}: {err:?}",
 			);
 		}
+		None
 	}
 
 	/// Phase 1 when the pallet account already holds PGAS code deposits.
@@ -459,12 +546,24 @@ impl<T: Config> Migration<T> {
 	/// The existing rows are correct (written for native code deposits paid after the switch),
 	/// and every code deposit without a row was paid either in native before the switch or in
 	/// PGAS after it. Swapping the unrecorded native to PGAS refunds all of those from PGAS.
-	fn swap_unrecorded_code_deposits(rows_read: &mut u32) {
-		Self::swap_unrecorded_native(
+	///
+	/// The pallet account has a row per uploader, so this is spread over as many steps as the
+	/// rows need, see [`Self::swap_unrecorded_native`]. Returns the cursor to continue from.
+	fn step_1_code_rows(
+		sum: RowSum<T::AccountId, BalanceOf<T>>,
+		max_rows: u32,
+		rows_read: &mut u32,
+	) -> CursorOf<T> {
+		match Self::swap_unrecorded_native(
 			HoldReason::CodeUploadDepositReserve,
 			&Pallet::<T>::account_id(),
+			sum,
+			max_rows,
 			rows_read,
-		);
+		) {
+			Some(sum) => Cursor::CodeRows(sum),
+			None => Cursor::Contract(None),
+		}
 	}
 
 	/// Before phase 1: remove the pallet account's next [`NativeDepositOf`] row after `last`.
@@ -505,19 +604,39 @@ impl<T: Config> Migration<T> {
 	}
 
 	/// Phase 2: swap the next contract's unrecorded native storage deposit to PGAS with
-	/// [`Self::swap_unrecorded_native`]. EOAs are skipped but still advance the cursor.
-	fn step_2_contract(last: Option<H160>, rows_read: &mut u32) -> Option<H160> {
+	/// [`Self::swap_unrecorded_native`]. EOAs are skipped but still advance the cursor. Returns
+	/// the cursor to continue from, which is phase 3 once there are no accounts left.
+	fn step_2_contract(last: Option<H160>, max_rows: u32, rows_read: &mut u32) -> CursorOf<T> {
 		let mut iter = match last {
 			Some(last) => AccountInfoOf::<T>::iter_from(AccountInfoOf::<T>::hashed_key_for(last)),
 			None => AccountInfoOf::<T>::iter(),
 		};
 
-		let (addr, info) = iter.next()?;
+		let Some((addr, info)) = iter.next() else { return Cursor::DeletionQueue(None) };
 		if matches!(info.account_type, AccountType::Contract(_)) {
-			let contract = T::AddressMapper::to_account_id(&addr);
-			Self::swap_unrecorded_native(HoldReason::StorageDepositReserve, &contract, rows_read);
+			return Self::step_2_contract_rows(addr, RowSum::new(), max_rows, rows_read);
 		}
-		Some(addr)
+		Cursor::Contract(Some(addr))
+	}
+
+	/// Phase 2 for the contract at `address`, continuing from the rows already summed in `sum`.
+	fn step_2_contract_rows(
+		address: H160,
+		sum: RowSum<T::AccountId, BalanceOf<T>>,
+		max_rows: u32,
+		rows_read: &mut u32,
+	) -> CursorOf<T> {
+		let contract = T::AddressMapper::to_account_id(&address);
+		match Self::swap_unrecorded_native(
+			HoldReason::StorageDepositReserve,
+			&contract,
+			sum,
+			max_rows,
+			rows_read,
+		) {
+			Some(sum) => Cursor::ContractRows(address, sum),
+			None => Cursor::Contract(Some(address)),
+		}
 	}
 
 	/// Phase 3: rewrite the next [`DeletionQueue`] slot from the old `TrieId`-only layout
@@ -1109,6 +1228,145 @@ mod tests {
 				),
 				600,
 			);
+		});
+	}
+
+	/// Runs v4 with `limit` per block until it completes and returns the number of blocks and
+	/// whether any block ended with a cursor for which `in_rows` holds. No block may use more
+	/// than `limit`, which a step that charges its row reads after the fact would break.
+	fn run_with_limit(limit: Weight, in_rows: impl Fn(&CursorOf<Test>) -> bool) -> (u32, bool) {
+		let mut cursor = None;
+		let (mut blocks, mut seen_rows) = (0, false);
+		loop {
+			blocks += 1;
+			let mut meter = WeightMeter::with_limit(limit);
+			let next = V4::step(cursor, &mut meter).unwrap();
+			assert!(meter.consumed().all_lte(limit), "a block used more than its limit");
+			match next {
+				Some(next) => {
+					seen_rows |= in_rows(&next);
+					cursor = Some(next);
+				},
+				None => return (blocks, seen_rows),
+			}
+		}
+	}
+
+	/// A contract with many payers has a row per payer. They are summed across blocks, so no
+	/// block reads more rows than its weight pays for, and the swap still leaves exactly the
+	/// recorded native.
+	#[test]
+	fn phase_two_sums_many_payers_across_blocks() {
+		use crate::deposit_payment::Funds;
+		use frame_support::traits::tokens::fungibles::InspectHold;
+
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let owner = AccountId32::new([1; 32]);
+			let hash = H256::repeat_byte(0xCC);
+			seed_code_upload(hash, owner, 0);
+
+			let address = H160::repeat_byte(0x10);
+			seed_contract(address, hash, 1_000);
+			let contract = <Test as Config>::AddressMapper::to_account_id(&address);
+			let payers = 40u8;
+			for i in 0..payers {
+				NativeDepositOf::<Test>::insert(&contract, AccountId32::new([i + 10; 32]), 5);
+			}
+
+			let required = match V4::step(None, &mut WeightMeter::with_limit(Weight::zero())) {
+				Err(SteppedMigrationError::InsufficientWeight { required }) => required,
+				other => panic!("expected InsufficientWeight, got {other:?}"),
+			};
+			let (blocks, seen_rows) =
+				run_with_limit(required, |c| matches!(c, Cursor::ContractRows(..)));
+
+			assert!(seen_rows, "the contract's rows should span several steps");
+			assert!(blocks > 1, "the migration should span several blocks");
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&contract,
+				),
+				u128::from(payers) * 5,
+			);
+			assert_eq!(
+				AssetsHolder::balance_on_hold(
+					PGasAssetId::get(),
+					&HoldReason::StorageDepositReserve.into(),
+					&contract,
+				),
+				1_000 - u128::from(payers) * 5,
+			);
+			// Every recorded payer can still be refunded in native.
+			let payer = AccountId32::new([10; 32]);
+			let free_before = <Test as Config>::Currency::balance(&payer);
+			assert_ok!(<Test as Config>::Deposit::refund_on_hold(
+				HoldReason::StorageDepositReserve,
+				&contract,
+				Funds::Balance(&payer),
+				5,
+			));
+			assert_eq!(<Test as Config>::Currency::balance(&payer), free_before + 5);
+		});
+	}
+
+	/// The same for the pallet account, which has a row per code uploader.
+	#[test]
+	fn phase_one_sums_many_uploaders_across_blocks() {
+		use frame_support::traits::tokens::fungibles::InspectHold;
+
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let pallet_account = Pallet::<Test>::account_id();
+			let owners = [AccountId32::new([1; 32]), AccountId32::new([2; 32])];
+			seed_code_uploads_paid_in_both(&owners[0], &owners[1], &AccountId32::new([3; 32]));
+			let uploaders = 30u8;
+			for i in 0..uploaders {
+				NativeDepositOf::<Test>::insert(&pallet_account, AccountId32::new([i + 10; 32]), 2);
+			}
+			let owed = 500 + u128::from(uploaders) * 2;
+
+			let required = match V4::step(None, &mut WeightMeter::with_limit(Weight::zero())) {
+				Err(SteppedMigrationError::InsufficientWeight { required }) => required,
+				other => panic!("expected InsufficientWeight, got {other:?}"),
+			};
+			let (blocks, seen_rows) =
+				run_with_limit(required, |c| matches!(c, Cursor::CodeRows(_)));
+
+			assert!(seen_rows, "the pallet account's rows should span several steps");
+			assert!(blocks > 1, "the migration should span several blocks");
+			let reason = HoldReason::CodeUploadDepositReserve;
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(&reason.into(), &pallet_account),
+				owed,
+			);
+			assert_eq!(
+				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &pallet_account),
+				1_900 - owed,
+			);
+		});
+	}
+
+	/// With room for more than the minimum, a step reads several rows and the migration needs
+	/// fewer blocks, still within the limit.
+	#[test]
+	fn phase_two_reads_more_rows_per_block_when_the_meter_allows() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let hash = H256::repeat_byte(0xCC);
+			seed_code_upload(hash, AccountId32::new([1; 32]), 0);
+			let address = H160::repeat_byte(0x10);
+			seed_contract(address, hash, 1_000);
+			let contract = <Test as Config>::AddressMapper::to_account_id(&address);
+			for i in 0..40u8 {
+				NativeDepositOf::<Test>::insert(&contract, AccountId32::new([i + 10; 32]), 5);
+			}
+
+			let required = match V4::step(None, &mut WeightMeter::with_limit(Weight::zero())) {
+				Err(SteppedMigrationError::InsufficientWeight { required }) => required,
+				other => panic!("expected InsufficientWeight, got {other:?}"),
+			};
+			let roomy = required.saturating_add(V4::native_row_reads(20));
+			let (blocks, _) = run_with_limit(roomy, |_| false);
+			assert!(blocks < 40, "{blocks} blocks for 40 rows with room for 20 extra per block");
 		});
 	}
 
