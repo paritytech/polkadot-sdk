@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794581642906,
+  "lastUpdate": 1794591674412,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "604a8e8c2f9b0df285eec01b307d0e9ddfc28575",
-          "message": "statement-store: reduce sync burst interval (#11892)\n\n... with a lot of light clients connected the sync interval impacts how\nfast a light client syncs and see the statements of interest, so let's\nreduce the period we check to 10 ms, this shouldn't be affecting other\nflows because the polling is already in a select biased at the end.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-04-29T08:55:48Z",
-          "tree_id": "e78237f2e0955ea3ba1411db5c1b924cf2ab5d4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/604a8e8c2f9b0df285eec01b307d0e9ddfc28575"
-        },
-        "date": 1777457972598,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63644.490000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.772674244949962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4745310712899986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8243399852399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7873481796900004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001806885,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.50536531221996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005316192140000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.831128287769999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.39618961880297,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001806885,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002006847,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8100273511399996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002006847,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.000023654720000000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5983c93547f33715dbf1d44d5d52161448059cf2",
+          "message": "pallet-revive: derive child trie ids from the deletion queue counter (#13620)\n\nChild trie ids came from the address and the deployer's nonce, and a\ndeployer reaped on termination restarts at the same nonce. A contract\nre-created at the address of a terminated contract could therefore get\nthe old trie id while that trie was still queued for deletion: it saw\nthe old storage, and the queued deletion later removed its own. New trie\nids mix in `DeletionQueueCounter`, which every termination increments.\n\n## Changes\n- Trie id preimage: `(\"bcontract_trie_v2\", address, nonce,\ninsert_counter)`. Existing contracts and queued entries keep theirs; no\nmigration; `ContractInfo::new` signature unchanged.\n- Precompiles with contract info use the new\n`ContractInfo::new_for_precompile`, which keeps the\n`(\"bcontract_trie_v1\", address, 0)` id and reads no storage.\n- `DeletionQueueCounter` docs: must never decrease or reset, apart from\nwrapping.\n- Instantiation reads `DeletionQueueCounter` once more (`instantiate`,\n`instantiate_with_code`, `eth_instantiate_with_code`,\n`seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`); `dev` and `asset-hub-westend` weights\nregenerated.\n- Off-chain tools that compute trie ids must read `trie_id` from\n`ContractInfo`.\n- Keeping `NativeDepositOf` rows of a re-created contract is #13613.\n\n## Tests\n`tests/sol/terminate.rs` with `RedeployFactory.sol`, Solc and Resolc.\nEach fails without the change.\n- Active:\n`child_recreated_after_same_tx_selfdestruct_does_not_share_storage`\n(child created and destroyed in one call, re-created later with the same\nsalt) and `precompile_trie_id_does_not_depend_on_terminations`.\n- `#[ignore]` until the termination restriction from #13689 is lifted:\nredeploy after termination in an earlier transaction (CREATE1, CREATE2,\ninside one `batch_all`), covering the queued drain and the deposit\ncharge and refund of the new child.\n\n`cargo nextest run -p pallet-revive`: 1063 passed, 0 failed. Clippy and\nrustdoc clean.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T15:39:27Z",
+          "tree_id": "32947fe201f6a281b10cc174429267b687961dbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5983c93547f33715dbf1d44d5d52161448059cf2"
+        },
+        "date": 1794591636171,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63571.15999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.966444313039954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6963261689499984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.46164582908282,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000179675,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005018106780000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.72380135971,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000179675,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000016954710000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000016954710000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.71193711296,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3215687959500064,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.688553377239997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8192393914499517,
             "unit": "seconds"
           }
         ]
