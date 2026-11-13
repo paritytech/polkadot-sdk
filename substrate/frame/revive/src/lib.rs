@@ -692,6 +692,11 @@ pub mod pallet {
 		/// The logs of the ethereum transaction would exceed
 		/// [`limits::MAX_RECEIPT_LOGS_BYTES`] in its receipt.
 		ReceiptTooLarge = 0x45,
+		/// A multi-block migration is running.
+		///
+		/// The pallet refuses to change state until it is done, because a migration reads and
+		/// rewrites deposits over several blocks and expects them to stay as it found them.
+		MigrationsOngoing = 0x46,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1637,6 +1642,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
+			Self::ensure_no_migration_ongoing()?;
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
@@ -1720,6 +1726,8 @@ pub mod pallet {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 
+			// Before the authorizations, which change state outside of `bare_call`.
+			Self::ensure_no_migration_ongoing()?;
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
 				dest,
@@ -1869,6 +1877,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
+			Self::ensure_no_migration_ongoing()?;
 			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
@@ -1892,6 +1901,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			Self::ensure_no_migration_ongoing()?;
 			<AccountInfoOf<T>>::try_mutate(&dest, |account| {
 				let Some(account) = account else {
 					return Err(<Error<T>>::ContractNotFound.into());
@@ -2072,6 +2082,12 @@ impl<T: Config> Pallet<T> {
 		data: Vec<u8>,
 		exec_config: &ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		if exec_config.is_dry_run.is_none() && Self::migrations_ongoing() {
+			return ContractResult {
+				result: Err(<Error<T>>::MigrationsOngoing.into()),
+				..Default::default()
+			};
+		}
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
 			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
@@ -2157,6 +2173,12 @@ impl<T: Config> Pallet<T> {
 		salt: Option<[u8; 32]>,
 		exec_config: &ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		if exec_config.is_dry_run.is_none() && Self::migrations_ongoing() {
+			return ContractResult {
+				result: Err(<Error<T>>::MigrationsOngoing.into()),
+				..Default::default()
+			};
+		}
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
 			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
@@ -2927,6 +2949,7 @@ impl<T: Config> Pallet<T> {
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
+		Self::ensure_no_migration_ongoing()?;
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
 
 		let bytecode_type = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
@@ -3240,6 +3263,23 @@ impl<T: Config> Pallet<T> {
 			Ok(Origin::EthTransaction(signer)) => Ok(signer),
 			_ => Err(BadOrigin.into()),
 		}
+	}
+
+	/// Whether a multi-block migration is running.
+	///
+	/// This is the same condition under which the executive only accepts inherents, but it also
+	/// covers the work that reaches the pallet outside of an extrinsic, like XCM execution and
+	/// scheduled calls.
+	fn migrations_ongoing() -> bool {
+		use frame_support::migrations::MultiStepMigrator;
+
+		<T as frame_system::Config>::MultiBlockMigrator::ongoing()
+	}
+
+	/// Fail with [`Error::MigrationsOngoing`] while a multi-block migration is running.
+	fn ensure_no_migration_ongoing() -> DispatchResult {
+		ensure!(!Self::migrations_ongoing(), <Error<T>>::MigrationsOngoing);
+		Ok(())
 	}
 
 	/// Ensure that the origin is neither a pre-compile nor a contract.

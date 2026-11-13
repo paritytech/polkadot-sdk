@@ -2768,6 +2768,28 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
+	fn v4_account_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `301`
+		//  Estimated: `5552`
+		// Minimum execution time: 11_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5552))
+			.saturating_add(T::DbWeight::get().reads(2))
+	}
+	/// Storage: `Revive::NativeDepositOf` (r:2 w:0)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	fn v4_row_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `5110`
+		// Minimum execution time: 9_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5110))
+			.saturating_add(T::DbWeight::get().reads(2))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
@@ -2786,7 +2808,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `AssetsHolder::BalancesOnHold` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)
 	/// Storage: `AssetsHolder::Holds` (r:1 w:1)
 	/// Proof: `AssetsHolder::Holds` (`max_values`: None, `max_size`: Some(429), added: 2904, mode: `MaxEncodedLen`)
-	fn v4_contract_step() -> Weight {
+	fn v4_swap_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6023`
 		//  Estimated: `6542`

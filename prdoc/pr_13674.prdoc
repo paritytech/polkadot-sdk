@@ -1,0 +1,42 @@
+title: 'pallet-revive: fix v4 migration for runtimes that enabled PGasDeposit before it'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes `pallet_revive::migrations::v4` on runtimes that switched `Config::Deposit` to
+    `PGasDeposit` before scheduling v4.
+
+    After v4, every account holding a deposit holds exactly the native recorded in its
+    `NativeDepositOf` rows. Native with no row was paid before the switch: it is burned and the
+    same amount of PGAS is minted and held under the same reason. When that storage is freed, the
+    payer gets `RefundPercent` of it back in PGAS and the rest is burned. Native paid after the
+    switch keeps its row and is still refunded in native. Each reconciled account is given the
+    PGAS existential deposit, frozen, as a new contract is.
+
+    Code deposit rows are rebuilt from `CodeInfoOf` only when the pallet account has no rows and no
+    PGAS on hold, i.e. every code deposit was paid in native.
+
+    Fixed:
+    - Code deposits were credited twice when rows already existed.
+    - Contracts' recorded native was swapped, so those payers' refunds failed with
+      `StorageRefundLocked`.
+    - A failed swap burned native without minting PGAS. It now rolls back and is logged.
+    - Delegated accounts' deposits were not migrated.
+    - `DeletionQueue` entries already in the new layout were overwritten with a zero account.
+    - Each step iteration now does one item of work (a code entry, an account, a row,
+      a swap or a queue slot) at its own benchmarked weight.
+
+    The pallet now refuses calls, instantiations, code upload and removal, and `set_code` with
+    `Error::MigrationsOngoing` while a multi-block migration runs. This covers XCM and scheduled
+    calls, which the executive does not pause. Dry runs are still served.
+
+    Runtimes that have not run v4 yet:
+    - Register the PGAS asset before scheduling v4, and run the `try-runtime` checks. A swap that
+      fails on chain is skipped, not retried.
+    - Expect XCM that calls into revive to fail while migrations run, unless the runtime pauses
+      `MessageQueue` for that time.
+    - `migrations::v4::Cursor` is now generic (use `CursorOf<T>`) and has new variants.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
