@@ -67,7 +67,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, evm::EvmDispatch, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -775,8 +775,12 @@ pub mod pallet {
 	pub(crate) type DeletionQueue<T: Config> =
 		StorageMap<_, Twox64Concat, u32, crate::storage::DeletionQueueItem<T>>;
 
-	/// A pair of monotonic counters used to track the latest contract marked for deletion
+	/// A pair of counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
+	///
+	/// Both counters only ever increment, wrapping on overflow. `ContractInfo::new` mixes the
+	/// insert counter into the child trie id of every contract it creates, so it must never
+	/// decrease or be reset, apart from wrapping.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
@@ -1191,7 +1195,11 @@ pub mod pallet {
 			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
 			// bytes per entry without a per-producer weight.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
+				T::WeightInfo::per_outside_frame_log(
+					topics.len().saturated_into(),
+					data.len().saturated_into(),
+				)
+				.max(entry_bytes),
 				DispatchClass::Normal,
 			);
 
@@ -1255,7 +1263,36 @@ pub mod pallet {
 
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
+			assert!(
+				crate::metering::EngineMeter::<T>::ref_time_per_fuel() > 0,
+				"The ref time per PolkaVM gas derived from the weights must not be 0"
+			);
+
+			let compilation_cost =
+				crate::metering::EngineMeter::<T>::interpreter_compilation_cost();
+			assert!(
+				compilation_cost.per_block > 0,
+				"The interpreter compile weight per block must exceed per instruction plus one gas"
+			);
+			assert!(
+				compilation_cost.per_instruction_millis > 0,
+				"The interpreter compile weight per instruction must not be 0"
+			);
+			assert!(
+				compilation_cost.per_code_byte_millis > 0,
+				"The interpreter code map weight per byte must not be 0"
+			);
+			let ref_time_slope =
+				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
+			assert!(
+				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >=
+					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
+				"The PVM code load weight per byte must be at least the code map weight per byte"
+			);
+
 			T::FeeInfo::integrity_test();
+
+			EvmDispatch::integrity_test::<T>();
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
@@ -1297,12 +1334,16 @@ pub mod pallet {
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
 
 			// We can use storage to store events using the available block ref_time with the
-			// `deposit_event` host function. The overhead of stored events, which is around 100B,
-			// is not taken into account to simplify calculations, as it does not change much.
+			// `deposit_event` host function. Each event stores its topics (32 bytes each) and its
+			// data. The overhead of stored events, which is around 100B, is not taken into account
+			// to simplify calculations, as it does not change much.
+			let max_event_bytes = u64::from(limits::NUM_EVENT_TOPICS)
+				.saturating_mul(H256::len_bytes() as u64)
+				.saturating_add(limits::EVENT_BYTES.into());
 			let max_events_size = max_block_weight
 				.checked_div_per_component(
 					&(<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::DepositEvent {
-						num_topic: 0,
+						num_topic: limits::NUM_EVENT_TOPICS,
 						len: limits::EVENT_BYTES,
 					})
 					.saturating_add(<RuntimeCosts as WeightToken<T>>::weight(
@@ -1310,7 +1351,7 @@ pub mod pallet {
 					))),
 				)
 				.unwrap()
-				.saturating_mul(limits::EVENT_BYTES.into());
+				.saturating_mul(max_event_bytes);
 
 			assert!(
 				max_events_size <= storage_size_limit,
