@@ -38,10 +38,10 @@ pub mod pallet_utility;
 pub mod pallet_validator_collators;
 pub mod pallet_verify_signature;
 pub mod pallet_xcm;
+pub mod pallet_xcm_benchmarks;
 pub mod paritydb_weights;
 pub mod polkadot_runtime_common_identity_migrator;
 pub mod rocksdb_weights;
-pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;

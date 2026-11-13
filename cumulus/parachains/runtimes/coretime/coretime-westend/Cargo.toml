@@ -63,7 +63,7 @@ sp-version = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-benchmarks = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 westend-runtime-constants = { workspace = true }
@@ -133,7 +133,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-verify-signature/std",
-	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-benchmarks/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

@@ -1,0 +1,15 @@
+title: 'collectives-westend, coretime-westend, people-westend: use AutoXcmWeight for XCM weighing'
+doc:
+  - audience: Runtime Dev
+    description: |
+      The XCM weigher of the Collectives, Coretime and People Westend runtimes is now built with `AutoXcmWeight` instead of a
+      hand-written `XcmWeightInfo`. The generated generic and fungible benchmark weight files are merged into a single
+      `pallet_xcm_benchmarks` module. No weight value changes.
+
+crates:
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch
