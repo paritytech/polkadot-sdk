@@ -286,10 +286,6 @@ pub fn with_ethereum_context<T: Config>(
 			);
 			Ok(post_info)
 		} else {
-			// deposit a dummy event in benchmark mode
-			#[cfg(feature = "runtime-benchmarks")]
-			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
-
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,
 				true,

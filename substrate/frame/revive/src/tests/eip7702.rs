@@ -2616,6 +2616,7 @@ fn empty_authorization_list_reserves_and_bills_nothing() {
 				.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
 					transaction_encoded.len() as u32
 				))
+				.saturating_add(<Test as Config>::WeightInfo::deposit_eth_extrinsic_revert_event())
 		);
 		assert_eq!(worst_case_authorization_weight::<Test>(0), Weight::zero());
 		assert!(worst_case_authorization_weight::<Test>(1).all_gt(Weight::zero()));

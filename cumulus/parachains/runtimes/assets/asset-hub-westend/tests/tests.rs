@@ -2425,10 +2425,6 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 // A mirrored transfer inside a `batch_all` that rolls back: the balance change and its event are
 // gone, and the receipt of the `eth_substrate_call` around it, which succeeds since `batch` returns
 // `Ok` on an interrupted inner call, must not keep the `Transfer` either.
-//
-// Benchmark builds deposit an `EthExtrinsicRevert` for every successful ethereum transaction, so
-// the success check only holds without them.
-#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 	erc20_mirror_ext().execute_with(|| {

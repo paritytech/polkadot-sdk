@@ -1318,7 +1318,139 @@ fn eth_substrate_call_tracks_weight_correctly() {
 			expected_weight,
 			post_info.actual_weight.unwrap(),
 		);
+		assert!(!has_eth_extrinsic_revert_event(), "a successful call deposits no revert event");
 	});
+}
+
+/// A failed `eth_substrate_call` keeps the weight of its revert event.
+///
+/// It deposits [`crate::Event::EthExtrinsicRevert`] and is charged for it. The successful call in
+/// `eth_substrate_call_tracks_weight_correctly` gets that weight refunded.
+#[test]
+fn eth_substrate_call_charges_revert_event_on_failure() {
+	use crate::weights::WeightInfo;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+
+		let inner_call = frame_system::Call::set_heap_pages { pages: 1 };
+		let transaction_encoded = vec![0u8; 200];
+		let transaction_encoded_len = u32::try_from(transaction_encoded.len()).unwrap();
+
+		let post_info = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.clone().into()),
+			transaction_encoded,
+		)
+		.expect("a failed inner call is recorded as a failed transaction, not an error");
+
+		let expected_weight =
+			<Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len)
+				.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+					transaction_encoded_len,
+				))
+				.saturating_add(<Test as Config>::WeightInfo::deposit_eth_extrinsic_revert_event())
+				.saturating_add(inner_call.get_dispatch_info().call_weight);
+		assert_eq!(post_info.actual_weight, Some(expected_weight));
+		assert!(has_eth_extrinsic_revert_event(), "a failed call deposits a revert event");
+	});
+}
+
+/// A reverted `eth_instantiate_with_code` keeps the weight of its revert event.
+///
+/// The transaction pre-charges depositing [`crate::Event::EthExtrinsicRevert`]. A constructor
+/// that reverts deposits the event and keeps the charge; a successful deploy gets it refunded.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn eth_instantiate_with_code_charges_revert_event_on_revert(fixture_type: FixtureType) {
+	use crate::{
+		evm::{ExecutionTracer, ExecutionTracerConfig, TransactionSigned, fees::InfoT},
+		tests::Contracts,
+		weights::WeightInfo,
+	};
+	use alloy_core::sol_types::SolConstructor;
+	use frame_support::traits::{Hooks, fungible::Balanced};
+
+	const FUNDS: u128 = 1_000_000_000_000_000;
+
+	let (reverting_code, _) =
+		compile_module_with_type("ConstructorRevertAfterAction", fixture_type).unwrap();
+	let reverting_args = ConstructorRevertAfterAction::constructorCall {
+		action: ConstructorRevertAfterAction::Action::WriteStorage,
+	}
+	.abi_encode();
+	let (succeeding_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+
+	let deploy = |mut code: Vec<u8>, args: Vec<u8>| {
+		let data = match fixture_type {
+			FixtureType::Solc => {
+				code.extend(args);
+				vec![]
+			},
+			_ => args,
+		};
+		let transaction_encoded =
+			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload();
+		let len = |bytes: &Vec<u8>| u32::try_from(bytes.len()).unwrap();
+		let base_weight =
+			<Test as Config>::WeightInfo::eth_instantiate_with_code(len(&code), len(&data), 0)
+				.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(len(
+					&transaction_encoded,
+				)));
+
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, FUNDS);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(FUNDS));
+		Contracts::on_initialize(1);
+
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		let post_info = trace(&mut tracer, || {
+			builder::eth_instantiate_with_code(code)
+				.data(data)
+				.transaction_encoded(transaction_encoded)
+				.build()
+		})
+		.expect("a deploy is recorded as a transaction whether its constructor reverts or not");
+		let trace = tracer.collect_trace();
+		assert_eq!(
+			post_info.actual_weight,
+			Some(trace.weight_consumed.saturating_add(trace.base_call_weight)),
+		);
+		(trace.base_call_weight, base_weight)
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let (charged, base_weight) = deploy(reverting_code, reverting_args);
+		assert_eq!(
+			charged,
+			base_weight
+				.saturating_add(<Test as Config>::WeightInfo::deposit_eth_extrinsic_revert_event()),
+		);
+		let reverted: sp_runtime::DispatchError = Error::<Test>::ContractReverted.into();
+		assert!(
+			crate::tests::System::events().iter().any(|record| matches!(
+				&record.event,
+				crate::tests::RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert {
+					dispatch_error,
+				}) if *dispatch_error == reverted
+			)),
+			"a reverted deploy deposits a revert event",
+		);
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let (charged, base_weight) = deploy(succeeding_code, Vec::new());
+		assert_eq!(charged, base_weight);
+		assert!(!has_eth_extrinsic_revert_event(), "a successful deploy deposits no revert event");
+	});
+}
+
+/// Whether an [`crate::Event::EthExtrinsicRevert`] was deposited.
+fn has_eth_extrinsic_revert_event() -> bool {
+	crate::tests::System::events().iter().any(|record| {
+		matches!(
+			record.event,
+			crate::tests::RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { .. })
+		)
+	})
 }
 
 /// Tests execution tracing for both EVM and PVM.
