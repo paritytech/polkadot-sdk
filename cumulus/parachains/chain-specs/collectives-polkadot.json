@@ -7,8 +7,7 @@
     "/dns/polkadot-collectives-connect-ew6-1.polkadot.io/tcp/30334/p2p/12D3KooWC9BwKMDyRUTXsE7teSmoKMgbyxqAp3zi2MTGRJR5nhCL",
     "/dns/polkadot-collectives-connect-ew6-0.polkadot.io/tcp/443/wss/p2p/12D3KooWLDZT5gAjMtC8fojiCwiz17SC61oeX2C7GWBCqqf9TwVD",
     "/dns/polkadot-collectives-connect-ew6-1.polkadot.io/tcp/443/wss/p2p/12D3KooWC9BwKMDyRUTXsE7teSmoKMgbyxqAp3zi2MTGRJR5nhCL",
-    "/dns/boot-polkadot-collectives.luckyfriday.io/tcp/443/wss/p2p/12D3KooWCzifnPooTt4kvTnXT7FTKTymVL7xn7DURQLsS2AKpf6w",
-    "/dns/boot-collectives-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWPqVor7DwfKUKNJjuNJk57YXB7nN7SHd5erFBBo2VXo6U"
+    "/dns/boot-polkadot-collectives.luckyfriday.io/tcp/443/wss/p2p/12D3KooWCzifnPooTt4kvTnXT7FTKTymVL7xn7DURQLsS2AKpf6w"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
