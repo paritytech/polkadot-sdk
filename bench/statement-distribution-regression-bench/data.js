@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794557466315,
+  "lastUpdate": 1794568602920,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5baad90313e671998e402797370d3b76105b88b",
-          "message": "statement-store: add mass expiration zombienet integration test (#11663)\n\n## Summary\n\nImplement #11534 for Mass expiration.\n\nAdd `statement_store_mass_expiration` zombienet test that verifies the\nstore\ndoes not lose concurrently-arriving submits while `enforce_limits`\ncleans up a\nlarge batch of expired statements. \n\n## What the test covers\n**Fill** – 10 000 ephemeral statements (20 accounts × 500) with a short\nTTL\nare submitted and indexed locally.\n**Verify** – after a grace period, a fresh subscription returns exactly\nthe\n500 persistent statements, proving:\n- all concurrent submits returning `New` are present (no losses under\ncleanup),\n- all 10 000 expired entries were removed from index and DB,\n- no duplicates or stragglers leak through\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-28T10:38:57Z",
-          "tree_id": "69032a02b8ae59f900db077aafd3e6e470543ae2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5baad90313e671998e402797370d3b76105b88b"
-        },
-        "date": 1777380106024,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.136,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08782896530599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03876419636199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08978081589199992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "880e1f7ff2e009541c36bf981c902f93554d7c26",
+          "message": "cumulus: wire resubmission of segments per core (#13391)\n\n# Description\n\nFInal wiring for the resubmission pipeline, forwarding the resubmittable\nsegment as headers to the collation task whenever the block builder can\nhand over something (e.g. it just built a block, or it can not build due\nto unincluded segment being full, but it can still signal to resubmit a\nresubmittable segment).\n\nCollation-task takes a freshly built bundle (if built) and the\nresubmittable segment, generates all collation data that must be sent to\nthe collation-generation subsystem, and then submits it to the\ncollation-generation subsystem.\n\nAdded two tests with one and three collators parachain.. throughput\nlooks like on the prototype.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12313\n\n# Known issues\n\nWill be fixed in follow up PRs.\n\n- #13658 \n- #13631\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T09:34:37Z",
+          "tree_id": "ea72dabd772cc3ce8bc3b73e7650ecffe3d66e84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/880e1f7ff2e009541c36bf981c902f93554d7c26"
+        },
+        "date": 1794568568503,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.096,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038521526343999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08287248549799985,
             "unit": "seconds"
           }
         ]
