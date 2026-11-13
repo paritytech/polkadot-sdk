@@ -1560,6 +1560,29 @@ mod relay {
 	}
 
 	#[test]
+	fn nothing_overtakes_a_bounced_request() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
+			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
+
+			// Only PARA_A's message is refused this block.
+			MaxSendSize::set(10);
+			poll();
+			assert!(take_sent().is_empty());
+
+			MaxSendSize::set(u32::MAX);
+			poll();
+			assert_eq!(
+				take_sent(),
+				vec![
+					relayed(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }),
+					relayed(PARA_B, ParaRequestV1::RemoveLock)
+				]
+			);
+		});
+	}
+
+	#[test]
 	fn forwarding_stops_when_the_meter_runs_out() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
