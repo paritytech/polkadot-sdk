@@ -79,6 +79,9 @@ pub trait WeightInfo {
 	fn on_new_head_already_noted() -> Weight;
 	fn receive_deregister() -> Weight;
 	fn receive_set_current_head(h: u32, ) -> Weight;
+	fn receive_authorize_code_upgrade() -> Weight;
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight;
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -198,6 +201,46 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(166, 0).saturating_mul(h.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+	/// Storage: UNKNOWN KEY `0x1c5b7931414d5d82c2165c2278c2c400` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1c5b7931414d5d82c2165c2278c2c400` (r:1 w:0)
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:0 w:1)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	fn receive_authorize_code_upgrade() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `133`
+		//  Estimated: `3598`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3598)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:1 w:0)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[9, 3145728]`.
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `408`
+		//  Estimated: `3533`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(5_860_608, 3533)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(643, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:1 w:1)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[9, 3145728]`.
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `408`
+		//  Estimated: `3533`
+		// Minimum execution time: 9_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3533)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(1_085, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -315,5 +358,45 @@ impl WeightInfo for () {
 			// Standard Error: 0
 			.saturating_add(Weight::from_parts(166, 0).saturating_mul(h.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x1c5b7931414d5d82c2165c2278c2c400` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1c5b7931414d5d82c2165c2278c2c400` (r:1 w:0)
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:0 w:1)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	fn receive_authorize_code_upgrade() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `133`
+		//  Estimated: `3598`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3598)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:1 w:0)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[9, 3145728]`.
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `408`
+		//  Estimated: `3533`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(5_860_608, 3533)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(643, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `RegistrarRelay::PendingCodeUpgrades` (r:1 w:1)
+	/// Proof: `RegistrarRelay::PendingCodeUpgrades` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[9, 3145728]`.
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `408`
+		//  Estimated: `3533`
+		// Minimum execution time: 9_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3533)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(1_085, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

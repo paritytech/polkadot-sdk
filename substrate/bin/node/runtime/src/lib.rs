@@ -2810,6 +2810,14 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_code_upgrade(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
+		Ok(())
+	}
+
 	fn schedule_code_upgrade(
 		_para_id: registrar_primitives::ParaId,
 		_validation_code: Vec<u8>,
@@ -2826,6 +2834,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
 	type MaxPendingRegistrations = ConstU32<128>;
+	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
