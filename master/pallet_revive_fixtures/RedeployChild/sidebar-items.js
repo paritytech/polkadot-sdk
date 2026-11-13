@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RedeployChildCalls"],"struct":["otherCall","otherReturn","selfDestructCall","selfDestructReturn","setOtherCall","setOtherReturn","setValueCall","setValueReturn","terminateCall","terminateReturn","valueCall","valueReturn"]};
