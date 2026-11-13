@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794518244982,
+  "lastUpdate": 1794557395559,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8af5df001111104be59a9f9ec146657a55e9d223",
-          "message": "Small fixes (#11804)\n\n## `pallet-asset-conversion`\n- Changes `Config::LPFee` from `Get<u32>` (tenths-of-a-percent encoding)\nto `Get<Permill>`.\n\n## `frame-system`\n- Extends `Event::CodeUpdated` to include the updated runtime code hash:\n`CodeUpdated { hash }`.\n\n## `pallet-psm`\n- Adds a `try-runtime` `pre_upgrade` guard that checks configured asset\ndecimals before initialization.\n\n## `pallet-balances`\n- Removes a tautological internal assertion in account mutation flow.\n\n## `pallet-tips`\n- Hardens tip payout by returning `NoActiveTippers` when all recorded\ntippers become inactive instead of indexing an empty tip set.\n- Adds a regression test for the `NoActiveTippers` close-path.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-28T22:47:42Z",
-          "tree_id": "177d8b612ca22dd4fb7d44fc08009f6de991b372",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8af5df001111104be59a9f9ec146657a55e9d223"
-        },
-        "date": 1777421446747,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52947.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63633.72000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.805473583759998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4458494037599996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.3653661133630575,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7519940480700007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7481465394499986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022399190000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7747569751199522,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.351529283149947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.819731192269999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022399190000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005577540719999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022524290000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022524290000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.673537923119999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ad8d15d9ff822132da56dd2a650ef276f77dc4",
+          "message": "[pallet-revive] Count topic bytes in per-event byte charges (#13618)\n\nThe per-byte terms of `RuntimeCosts::DepositEvent`\n(`on_finalize_block_per_event`, `EXTRA_EVENT_CHARGE_PER_BYTE`) now count\nthe 32-byte topics as well as the data. Events are stored and encoded\ninto the receipt with their topics, and `on_finalize_per_event_data`\nalready measures that byte count.\n\n## Changes\n- Charged bytes: `len + 32 * min(num_topic, NUM_EVENT_TOPICS)`. More\ntopics still trap with `TooManyTopics`.\n- `PrecompileExt::deposit_event` takes `ContractLogTopics` (at most\n`NUM_EVENT_TOPICS`) instead of `Vec<H256>`. Callers (PVM host function,\n`LOG0` to `LOG4`, pallet-assets ERC-20 precompile) convert infallibly.\n`Event::ContractEmitted` unchanged.\n- Logs buffered outside an ethereum transaction are charged per log, per\ntopic and per data byte: `per_outside_frame_log(num_topics, data_len)`.\nEach topic costs a bloom keccak on drain, so topics are not priced as 32\ndata bytes there.\n- Benchmarks: `outside_frame_log(n)` drains `n` empty logs; new\n`outside_frame_log_topics(t)` and `outside_frame_log_data(d)` drain one\nlog with only topics or only data. One component each, so the topic\nslope is not lost next to a full data payload.\n- `integrity_test` sizes event storage with `NUM_EVENT_TOPICS` topics\nper event.\n- `on_finalize_block_per_event` parameter renamed to `event_bytes`; docs\nupdated.\n\n## Compatibility\n- `seal_deposit_event(num_topic, len)` charge unchanged.\n- With the shipped weights each topic adds about 8.57 us ref time and 32\nbytes proof size.\n- With the shipped weights a value-transferring call needs about 91 us\nand 216 bytes left for the stipend (`LOG4`, 64 data bytes), up from 56\nus and 88 bytes. A `receive()` that emits two `LOG1` events with 32 data\nbytes each now fits in the stipend.\n\n## Tests\n- `log_charges_count_topic_bytes` (Solc, Resolc): traced weight of\n`LOG0` to `LOG4`, with and without data (new `Host.logOpsWithoutData`).\n- `deposit_event_too_many_topics`: assembled PolkaVM program with\n`NUM_EVENT_TOPICS + 1` topics (not expressible in Solidity): error,\nclamped charge, no event stored.\n- `buffering_a_log_registers_at_least_its_encoded_bytes`: a four-topic\nlog registers at least four times the per-topic weight more than a log\nwithout topics, and its encoded bytes in proof size.\n- `TwoEventsReceiver` emits two `LOG4` events with 64 data bytes each\nand exceeds the stipend in ref time and proof size.\n\n`cargo nextest run -p pallet-revive`: 1032 passed. Clippy and rustdoc\nclean.\n\n## Weights\nRegenerated for `outside_frame_log`, `outside_frame_log_topics` and\n`outside_frame_log_data`, the benchmarks this PR changes or adds. Other\nweights stay as they were.\n\n| Weight (dev) | Per unit |\n|---|---|\n| `outside_frame_log`, per log | 0.99 us |\n| `outside_frame_log_topics`, per topic | 1.04 us |\n| `outside_frame_log_data`, per data byte | 8.2 ns |\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T06:30:38Z",
+          "tree_id": "28ac515969dc3e1403c4c3991fc68f2a5a0de6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ad8d15d9ff822132da56dd2a650ef276f77dc4"
+        },
+        "date": 1794557349794,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.11,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6915401492299993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8461446482099717,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005241671059999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.649068162919999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001772098,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3125233573400035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017368910000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.844820191119974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017368910000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.68538398556,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6549182168000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001772098,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.537298802702894,
             "unit": "seconds"
           }
         ]
