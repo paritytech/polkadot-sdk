@@ -105,3 +105,29 @@ where
 		.map_err(|_| ())
 	}
 }
+
+/// Benchmark helper for [`TeleportForwarderForAccountId32`] that makes `Dest` reachable through
+/// `DeliveryHelper`.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TeleportForwarderBenchmarkHelper<DeliveryHelper, Dest>(
+	PhantomData<(DeliveryHelper, Dest)>,
+);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<DeliveryHelper, Dest, AccountId> pallet_accumulate_and_forward::BenchmarkHelper<AccountId>
+	for TeleportForwarderBenchmarkHelper<DeliveryHelper, Dest>
+where
+	DeliveryHelper: crate::EnsureDelivery,
+	Dest: Get<Location>,
+	AccountId: Into<[u8; 32]> + Clone,
+{
+	fn ensure_successful_forward(source: &AccountId) {
+		let origin: Location =
+			Junction::AccountId32 { network: None, id: source.clone().into() }.into();
+		DeliveryHelper::ensure_successful_delivery(
+			&origin,
+			&Dest::get(),
+			xcm_executor::traits::FeeReason::InitiateTransfer,
+		);
+	}
+}
