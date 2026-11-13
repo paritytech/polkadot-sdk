@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794568659699,
+  "lastUpdate": 1794581763051,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5baad90313e671998e402797370d3b76105b88b",
-          "message": "statement-store: add mass expiration zombienet integration test (#11663)\n\n## Summary\n\nImplement #11534 for Mass expiration.\n\nAdd `statement_store_mass_expiration` zombienet test that verifies the\nstore\ndoes not lose concurrently-arriving submits while `enforce_limits`\ncleans up a\nlarge batch of expired statements. \n\n## What the test covers\n**Fill** – 10 000 ephemeral statements (20 accounts × 500) with a short\nTTL\nare submitted and indexed locally.\n**Verify** – after a grace period, a fresh subscription returns exactly\nthe\n500 persistent statements, proving:\n- all concurrent submits returning `New` are present (no losses under\ncleanup),\n- all 10 000 expired entries were removed from index and DB,\n- no duplicates or stragglers leak through\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-28T10:38:57Z",
-          "tree_id": "69032a02b8ae59f900db077aafd3e6e470543ae2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5baad90313e671998e402797370d3b76105b88b"
-        },
-        "date": 1777380136692,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264881205,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010258746900000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009298423279999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011104189429999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "797efbf6ee51b3c684d8282e06de69fd3d4a246d",
+          "message": "pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624)\n\nBumps PolkaVM from 0.36 to 0.38. With 0.38 the interpreter charges gas\nfor compiling contract code, and `pallet-revive` sets that cost from new\nbenchmarks. Without a compilation cost, 0.38 rejects the interpreter\ncache limit the pallet sets, so the bump and the wiring land together.\n\n## Changes\n- `vm/pvm/env.rs`: `ModuleConfig::set_interpreter_compilation_cost` from\n`EngineMeter::interpreter_compilation_cost` (per block, per instruction,\nper code byte).\n- New benchmarks for the cost:\n- `interpreter_compile_per_instruction`: entry block of\n`store_imm_indirect_u64`.\n- `interpreter_compile_per_block`: one-instruction blocks ending in a\ntaken branch. `per_block` is its slope minus the per instruction slope\nminus one gas of execution.\n- `interpreter_code_map_per_byte`: code map allocated after a cache\nreset, per code byte.\n- Ref time per gas is the largest of nine slopes, each divided by the\ngas of one iteration. They replace `instr` and `instr_empty_loop`.\n- `instr_load_chain_0..7`: dependent loads through a random cycle of\n1024 slots 128 bytes apart (128 KiB).\n- The cycle stays in L2 but not in L1 on Ice Lake and Zen 3; contract\nmemory is priced as L2 resident.\n- One variant per 8-byte offset modulo 64, so one variant has every load\nspanning two cache lines.\n- `instr_indirect_jump`: indirect jumps through a random cycle of 3000\ncompiled blocks. The interpreter data of a lap (jump table, code map,\nhandlers and arguments, 70 bytes per block, 205 KiB) stays in L2 but not\nin L1.\n- `CodeLoadToken` charges the `call_with_pvm_code_per_byte` slope per\nblob byte to the caller and no longer adds a `basic_block_compilation`\nslope. The callee's instance starts with a gas credit (interpreter\nbackend) equal to the interpreter's charge for its first code map,\n`ceil(code_section_bytes * per_code_byte_millis / 1000)`. Every compiled\nblock is charged to the callee as gas.\n- The interpreter cache of the innermost PVM frame that waits on a\nsub-call is reset when a PVM frame starts (`exec.rs`, `push_frame`).\nPre-compile calls that start no PVM frame, transfers to accounts without\ncode and calls to EVM contracts that start no PVM frame keep the\ncaller's cache.\n- `integrity_test` asserts that the ref time per gas, `per_block`,\n`per_instruction_millis` and `per_code_byte_millis` are larger than 0,\nand that the `call_with_pvm_code_per_byte` slope is at least the\n`interpreter_code_map_per_byte` slope.\n- `sync_from_executor`: negative interpreter gas consumes all ref time\nhanded to the interpreter, then `OutOfGas`.\n- `reset_interpreter_cache` returns `Result` in 0.38; a failure fails\nthe sub-call with `ExecutionFailed`.\n\n## Compatibility\nReviveV1 stays on the legacy blob format. For all 130 fixtures (Rust and\nresolc), decoding, jump targets and gas per block are identical between\n0.36 and 0.38.\n\n## Tests\n- `tests::pvm::compilation_cost_benchmark`: exact weight difference\nbetween a 2- and a 1000-instruction entry block, and between 1 and 8000\none-instruction blocks; out of gas inside the entry block compile\nconsumes all gas.\n- `code_load_is_charged_per_code_byte`: calls to callees with a 1 KiB\nand the largest code section differ by exactly the\n`call_with_pvm_code_per_byte` slope times the blob size difference; the\ncallee's gas does not depend on its code size.\n- `code_map_credit_is_not_spendable` (Solc and Resolc caller): a callee\ncalled with 0 gas fails with `OutOfGas`, and the caller's weight differs\nby the callee's code load only.\n-\n`tests::stipends::code_size_benchmark::call_stipends_cover_pvm_receivers_of_any_code_size`\n(Solc and Resolc sender): `send` and `transfer` reach a PVM receiver on\nthe stipend at code sizes from 1 KiB to\n`VmBinaryModule::MAX_CODE_BYTES`.\n- `sub_call_charges_caller_code_map`: 11 sub-call kinds for a Solc and a\nResolc caller, 22 cases.\n- A Resolc caller pays its code map per code byte after a call,\nreverting call, delegate call or create of a PVM contract, a pre-compile\nthat calls a PVM contract, and an EVM contract that calls a PVM\ncontract. With an outer PVM contract waiting on it, it pays the same.\n- No difference for a Resolc caller after a builtin pre-compile, an\nexternal pre-compile that calls no contract, a transfer to an account\nwithout code and a call to an EVM contract, and for a Solc caller in\nevery case.\n  - Tolerance: 4 instructions and one basic block per sub-call.\n- `negative_executor_gas_consumes_all_gas`,\n`compilation_cost_rounds_up`,\n`per_block_compilation_cost_leaves_out_the_instruction`.\n- `cargo nextest run -p pallet-revive --retries 0`: 1054 passed. With\n`--features runtime-benchmarks`: 1265 passed, 24 failed, all in\n`tests::sol::emitter_logs` and `tests::sol::receipt_size_limit`, which\nfail the same way on master locally.\n- `RESOLC_VERSION` moves to 1.5.0; the sub-call tolerance is measured\nwith it. The resolc differential tests run only in CI.\n\n## Weights\nFrom `/cmd bench` for `dev` and `asset-hub-westend`. On Asset Hub\nWestend:\n\n| | Value |\n|---|---|\n| Ref time per gas | 36618 ps (master: 30303), set by\n`instr_indirect_jump` |\n| Worst load chain | 10692 ps per gas (`instr_load_chain_3`) |\n| Compilation | 3 gas per block, 1.579 gas per instruction, 0.015 gas\nper code byte |\n| Code load | 2081 ps per blob byte (`call_with_pvm_code_per_byte`) |\n\n`sha2_256`, `seal_hash_keccak_256`, `hash_blake2_256`,\n`hash_blake2_128`, `process_new_account_authorization`,\n`process_invalid_authorization`, `batch_map_accounts` and\n`deletion_queue_per_native_deposit_key` (Asset Hub Westend) and\n`ripemd_160` (dev) keep master's weights; the PR does not change these\nbenchmarks.\n\n## Backports\nThe backport PRs set `validate: false` on the three `major` bumps. The\ncompilation cost needs `polkavm` 0.38. That bump makes\n`sc-executor-common` and `sc-executor-polkavm` major; the new benchmarks\nmake `pallet-revive` major.\n- `pallet-revive`:\n- `WeightInfo` loses `basic_block_compilation`, `instr` and\n`instr_empty_loop` and gains twelve methods. Runtimes implement it with\na generated weight file. It fails to compile until it is regenerated\nwith the new benchmarks, which a release does anyway, and the\n`integrity_test` asserts check the result.\n- With `runtime-benchmarks`, the benchmark helpers in `call_builder`\nchange: `CallSetup::prepare_call` loses `aux_data_size`,\n`VmBinaryModule::instr` is removed, and `PreparedCall` loses\n`aux_data_base` and `setup_aux_data`. No other crate in the repository\nuses these items. `ContractBlob::prepare_call` loses `aux_data_size`\ntoo; its other argument types are not reachable outside the crate, so no\ndownstream code can call it.\n- `sc-executor-common`, `sc-executor-polkavm`: source unchanged.\n`RuntimeBlob::as_polkavm_blob` returns and `create_runtime` takes a\n`polkavm::ProgramBlob`, and `sc-executor-common` implements `From` for\nthe `polkavm` error types. Code that passes `polkavm` types to them\nmoves to 0.38 with the release. Code that does not name `polkavm` types\nneeds no change.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T13:04:10Z",
+          "tree_id": "c4a1e93d389bfba3c27200396a584dcc78ce8c05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/797efbf6ee51b3c684d8282e06de69fd3d4a246d"
+        },
+        "date": 1794581728359,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009784371330000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00253640046,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009281593909999986,
             "unit": "seconds"
           }
         ]
