@@ -7,7 +7,8 @@ doc:
     per address across terminations. They are derived from the address, the deployer's nonce and
     that counter.
 
-    Existing contracts keep their trie ids.
+    Existing contracts keep their trie ids. Precompiles with contract info are not affected: their
+    trie id is still derived from the address and a zero nonce.
 
     Off-chain tools that compute a contract's trie id from its address and the deployer's nonce
     must read `trie_id` from the contract's `ContractInfo` in `AccountInfoOf` instead. The id of a

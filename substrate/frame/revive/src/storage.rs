@@ -520,8 +520,10 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// Only use it when no contract info is stored at `address`. The child trie id is a hash of
 	/// `address` and a zero nonce. Unlike [`Self::new`], it does not mix in the deletion queue
-	/// insert counter and reads no storage: a precompile address never holds a contract and a
-	/// precompile is never terminated, so no other trie id is ever derived for `address`.
+	/// insert counter and reads no storage. A precompile's contract info is never removed, because
+	/// a precompile frame is never a constructor and so cannot be terminated. Its child trie is
+	/// therefore never queued for deletion and cannot be inherited by later contract info at
+	/// `address`.
 	pub fn new_for_precompile(address: &H160) -> Self {
 		Self {
 			trie_id: Self::hash_trie_id(("bcontract_trie_v1", address, T::Nonce::zero())),
