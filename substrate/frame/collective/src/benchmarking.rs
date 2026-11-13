@@ -90,7 +90,7 @@ mod benchmarks {
 					Box::new(proposal.clone()),
 					MAX_BYTES,
 				)?;
-				let hash = T::Hashing::hash_of(&proposal);
+				let hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 				// Vote on the proposal to increase state relevant for `set_members`.
 				// Not voting for last old member because they proposed and not voting for the first
 				// member to keep the proposal from passing.
@@ -200,7 +200,7 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		// Note that execution fails due to mis-matched origin
 		assert_last_event::<T, I>(Event::Executed { proposal_hash, result: Ok(()) }.into());
 		Ok(())
@@ -261,7 +261,7 @@ mod benchmarks {
 
 		// New proposal is recorded
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		assert_last_event::<T, I>(
 			Event::Proposed { account: caller, proposal_index: p - 1, proposal_hash, threshold }
 				.into(),
@@ -309,7 +309,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		let index = p - 1;
@@ -395,7 +395,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		let index = p - 1;
@@ -483,7 +483,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		// Caller switches vote to nay on their own proposal, allowing them to be the deciding
@@ -578,7 +578,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		let index = p - 1;
@@ -666,7 +666,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		// The prime member votes aye, so abstentions default to aye.
@@ -742,7 +742,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -801,7 +801,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -865,7 +865,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = Collective::<T, I>::proposal_hash(&proposal, threshold);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());

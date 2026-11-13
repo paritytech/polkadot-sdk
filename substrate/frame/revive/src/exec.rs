@@ -17,8 +17,8 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts,
+	CodeRemoved, Config, ContractInfo, ContractLogTopics, Error, Event, ImmutableData,
+	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -33,7 +33,7 @@ use crate::{
 	transient_storage::TransientStorage,
 };
 use alloc::{
-	collections::{BTreeMap, BTreeSet, btree_map},
+	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
 use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
@@ -249,16 +249,6 @@ impl<T: Config> Default for CallResources<T> {
 	}
 }
 
-/// Stored inside the `Stack` for each contract that is scheduled for termination.
-struct TerminateArgs<T: Config> {
-	/// Where to send the free balance of the terminated contract.
-	beneficiary: T::AccountId,
-	/// Triggered by the EVM opcode.
-	only_if_same_tx: bool,
-	/// The storage deposit already refunded when the termination was scheduled.
-	refunded: BalanceOf<T>,
-}
-
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -436,8 +426,19 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Deposit an event with the given topics.
 	///
-	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
+	/// There should not be any duplicates in `topics`. [`ContractLogTopics`] bounds `topics` to
+	/// [`limits::NUM_EVENT_TOPICS`], so no event with more topics reaches the event sink.
+	///
+	/// Fails with [`Error::ReceiptTooLarge`] when the log would take the open ethereum
+	/// transaction's receipt past [`limits::MAX_RECEIPT_LOGS_BYTES`]. Nothing is deposited then.
+	/// The frame fails with the same error when it returns, also if the error is ignored here,
+	/// unless a storage layer opened inside the frame around this call is rolled back: the
+	/// overflow then rolls back with that layer's changes.
+	fn deposit_event(
+		&mut self,
+		topics: ContractLogTopics,
+		data: Vec<u8>,
+	) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -516,7 +517,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// This is supposed to be used by the terminate precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
-	/// Contract is deleted at the end of the call stack.
+	/// Contract is deleted only if it was created in the same call stack.
 	///
 	/// This function will fail if called from constructor.
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError>;
@@ -693,7 +694,7 @@ struct Frame<T: Config> {
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
 	/// The set of contracts that are registered for destruction at the end of this call stack.
-	contracts_to_be_destroyed: BTreeMap<T::AccountId, TerminateArgs<T>>,
+	contracts_to_be_destroyed: BTreeMap<T::AccountId, T::AccountId>,
 }
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
@@ -778,28 +779,6 @@ impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
 		self.contract_info.get(&self.account_id)
-	}
-
-	/// Schedule `account_id` for termination at the end of the call stack.
-	///
-	/// A contract can be scheduled more than once, for example by `System.terminate` followed by
-	/// `SELFDESTRUCT`. A later termination must never downgrade an earlier one: once any of them
-	/// is unconditional the contract is deleted, since `System.terminate` already refunded the
-	/// deposit when it was called. The refunds add up, so the transaction meter sees each one.
-	/// The `beneficiary` comes from the later termination, since it is the one the contract named
-	/// last.
-	fn schedule_termination(&mut self, account_id: T::AccountId, args: TerminateArgs<T>) {
-		match self.contracts_to_be_destroyed.entry(account_id) {
-			btree_map::Entry::Occupied(mut entry) => {
-				let old = entry.get();
-				let only_if_same_tx = old.only_if_same_tx && args.only_if_same_tx;
-				let refunded = old.refunded.saturating_add(args.refunded);
-				entry.insert(TerminateArgs { only_if_same_tx, refunded, ..args });
-			},
-			btree_map::Entry::Vacant(entry) => {
-				entry.insert(args);
-			},
-		}
 	}
 }
 
@@ -1578,7 +1557,12 @@ where
 					<CodeInfo<T>>::increment_refcount(code_hash)?;
 				}
 
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				// Root pays no storage deposit, so a base deposit recorded here would never be
+				// held. It stays zero, as storage refunds are bounded by the deposit held above it.
+				let deposit = match &self.origin {
+					Origin::Signed(_) => frame.contract_info().update_base_deposit(code_deposit),
+					Origin::Root => Zero::zero(),
+				};
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),
@@ -1595,6 +1579,12 @@ where
 			frame
 				.frame_meter
 				.finalize(contract)
+				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
+
+			// A log that did not fit the receipt fails the frame it was emitted in, also when the
+			// runtime mirrored it or a precompile did not propagate the error, unless the storage
+			// layer that recorded the overflow was rolled back inside the frame.
+			block_storage::ensure_receipt_within_limit::<T>()
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			Ok(output)
@@ -1762,9 +1752,7 @@ where
 
 			// only on success inherit the created and to be destroyed contracts
 			prev.contracts_created.extend(frame.contracts_created);
-			for (account, args) in frame.contracts_to_be_destroyed {
-				prev.schedule_termination(account, args);
-			}
+			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
 			if let Some(contract) = contract {
 				// Persist the info and invalidate the first stale cache we find.
@@ -1803,8 +1791,8 @@ where
 			// End of the callstack: destroy scheduled contracts in line with EVM semantics.
 			let contracts_created = mem::take(&mut self.first_frame.contracts_created);
 			let contracts_to_destroy = mem::take(&mut self.first_frame.contracts_to_be_destroyed);
-			for (contract_account, args) in contracts_to_destroy {
-				if args.only_if_same_tx && !contracts_created.contains(&contract_account) {
+			for (contract_account, beneficiary) in contracts_to_destroy {
+				if !contracts_created.contains(&contract_account) {
 					continue;
 				}
 				Self::do_terminate(
@@ -1812,7 +1800,7 @@ where
 					self.exec_config,
 					&contract_account,
 					&self.origin,
-					&args,
+					&beneficiary,
 				);
 			}
 		}
@@ -1909,15 +1897,14 @@ where
 		exec_config: &ExecConfig<T>,
 		contract_account: &T::AccountId,
 		origin: &Origin<T>,
-		args: &TerminateArgs<T>,
+		beneficiary: &T::AccountId,
 	) {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 		// Every scheduled contract has its info stored by now: popping its frame wrote it.
 		let account_info = AccountInfoOf::<T>::get(contract_address).unwrap_or_default();
 
-		// `System.terminate` refunded the deposit when it was called, as far as the freeze on
-		// the account allowed. This refunds what is still held. A freeze can keep part of it on
-		// hold. That part stays on the account.
+		// Refund the storage deposit as far as the freeze on the account allows. A freeze can
+		// keep part of it on hold. That part stays on the account.
 		let refund = Self::best_effort(&contract_address, "refund the storage deposit", || {
 			Self::refund_on_terminate(exec_config, contract_account, origin)
 		})
@@ -1943,7 +1930,7 @@ where
 			Self::transfer(
 				&origin,
 				contract_account,
-				&args.beneficiary,
+				beneficiary,
 				balance,
 				Preservation::Preserve,
 				transaction_meter,
@@ -1990,7 +1977,7 @@ where
 		ImmutableDataOf::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract
-		transaction_meter.terminate(contract_account.clone(), args.refunded.saturating_add(refund));
+		transaction_meter.terminate(contract_account.clone(), refund);
 
 		log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 	}
@@ -2006,10 +1993,8 @@ where
 		}
 	}
 
-	/// The storage deposit refund that `System.terminate` does when it is called.
-	///
-	/// Refunds the deposit held on `contract_account` to the termination origin, as far as the
-	/// freezes on the account allow, and returns the amount refunded.
+	/// Refunds the storage deposit held on `contract_account` to the termination origin, as far
+	/// as the freezes on the account allow, and returns the amount refunded.
 	fn refund_on_terminate(
 		exec_config: &ExecConfig<T>,
 		contract_account: &T::AccountId,
@@ -2276,10 +2261,7 @@ where
 
 		// schedule for delayed deletion
 		let account_id = frame.account_id.clone();
-		self.top_frame_mut().schedule_termination(
-			account_id,
-			TerminateArgs { beneficiary, only_if_same_tx: true, refunded: Zero::zero() },
-		);
+		self.top_frame_mut().contracts_to_be_destroyed.insert(account_id, beneficiary);
 		Ok(CodeRemoved::Yes)
 	}
 
@@ -2641,16 +2623,25 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+	fn deposit_event(
+		&mut self,
+		topics: ContractLogTopics,
+		data: Vec<u8>,
+	) -> Result<(), DispatchError> {
 		let contract = T::AddressMapper::to_address(self.account_id());
+		block_storage::capture_frame_log::<T>(&contract, &data, &topics)?;
+
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<Self::T>::event_count();
 			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
-		block_storage::capture_frame_log::<T>(&contract, &data, &topics);
-
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
+			contract,
+			data,
+			topics: topics.into_inner(),
+		});
+		Ok(())
 	}
 
 	fn block_number(&self) -> U256 {
@@ -2777,12 +2768,6 @@ where
 
 		let parent_account_id = parent.account_id.clone();
 
-		// Refund the storage deposit before the payout. The hold counts towards any freeze on
-		// the account, so after the payout it would be needed to cover the freeze. Released now,
-		// it is paid back as far as the freeze allows, and only the remainder stays on hold.
-		let refunded =
-			Self::refund_on_terminate(&self.exec_config, &parent_account_id, &self.origin)?;
-
 		// balance transfer is immediate
 		Self::transfer(
 			&self.origin,
@@ -2795,8 +2780,9 @@ where
 		)?;
 
 		// schedule for delayed deletion
-		let args = TerminateArgs { beneficiary, only_if_same_tx: false, refunded };
-		self.top_frame_mut().schedule_termination(parent_account_id, args);
+		self.top_frame_mut()
+			.contracts_to_be_destroyed
+			.insert(parent_account_id, beneficiary);
 
 		Ok(())
 	}
@@ -2860,32 +2846,22 @@ pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
-/// Runs the balance work of a termination: the storage deposit refund that `System.terminate`
-/// does when it is called, followed by the teardown at the end of the call stack. `SELFDESTRUCT`
-/// (`only_if_same_tx`) does not refund when it is called, so the refund is skipped for it.
+/// Runs the teardown of a terminated contract at the end of the call stack.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn bench_do_terminate<T: Config>(
 	transaction_meter: &mut TransactionMeter<T>,
 	exec_config: &ExecConfig<T>,
 	contract_account: &T::AccountId,
 	origin: &Origin<T>,
-	beneficiary: T::AccountId,
-	only_if_same_tx: bool,
-) -> Result<(), DispatchError> {
-	type BenchStack<'a, T> = Stack<'a, T, crate::ContractBlob<T>>;
-	let refunded = if only_if_same_tx {
-		Zero::zero()
-	} else {
-		BenchStack::<T>::refund_on_terminate(exec_config, contract_account, origin)?
-	};
-	BenchStack::<T>::do_terminate(
+	beneficiary: &T::AccountId,
+) {
+	Stack::<T, crate::ContractBlob<T>>::do_terminate(
 		transaction_meter,
 		exec_config,
 		contract_account,
 		origin,
-		&TerminateArgs { beneficiary, only_if_same_tx, refunded },
+		beneficiary,
 	);
-	Ok(())
 }
 
 mod sealing {
