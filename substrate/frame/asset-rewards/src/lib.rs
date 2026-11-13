@@ -80,8 +80,11 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
+use alloc::boxed::Box;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
@@ -99,7 +102,6 @@ use sp_runtime::{
 	traits::{BadOrigin, BlockNumberProvider, EnsureAdd, MaybeDisplay, Zero},
 	DispatchError, DispatchResult,
 };
-use sp_std::boxed::Box;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
