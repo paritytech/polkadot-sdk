@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794517088432,
+  "lastUpdate": 1794556186620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -259583,6 +259583,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2470506447,
             "range": "± 23690874",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ad8d15d9ff822132da56dd2a650ef276f77dc4",
+          "message": "[pallet-revive] Count topic bytes in per-event byte charges (#13618)\n\nThe per-byte terms of `RuntimeCosts::DepositEvent`\n(`on_finalize_block_per_event`, `EXTRA_EVENT_CHARGE_PER_BYTE`) now count\nthe 32-byte topics as well as the data. Events are stored and encoded\ninto the receipt with their topics, and `on_finalize_per_event_data`\nalready measures that byte count.\n\n## Changes\n- Charged bytes: `len + 32 * min(num_topic, NUM_EVENT_TOPICS)`. More\ntopics still trap with `TooManyTopics`.\n- `PrecompileExt::deposit_event` takes `ContractLogTopics` (at most\n`NUM_EVENT_TOPICS`) instead of `Vec<H256>`. Callers (PVM host function,\n`LOG0` to `LOG4`, pallet-assets ERC-20 precompile) convert infallibly.\n`Event::ContractEmitted` unchanged.\n- Logs buffered outside an ethereum transaction are charged per log, per\ntopic and per data byte: `per_outside_frame_log(num_topics, data_len)`.\nEach topic costs a bloom keccak on drain, so topics are not priced as 32\ndata bytes there.\n- Benchmarks: `outside_frame_log(n)` drains `n` empty logs; new\n`outside_frame_log_topics(t)` and `outside_frame_log_data(d)` drain one\nlog with only topics or only data. One component each, so the topic\nslope is not lost next to a full data payload.\n- `integrity_test` sizes event storage with `NUM_EVENT_TOPICS` topics\nper event.\n- `on_finalize_block_per_event` parameter renamed to `event_bytes`; docs\nupdated.\n\n## Compatibility\n- `seal_deposit_event(num_topic, len)` charge unchanged.\n- With the shipped weights each topic adds about 8.57 us ref time and 32\nbytes proof size.\n- With the shipped weights a value-transferring call needs about 91 us\nand 216 bytes left for the stipend (`LOG4`, 64 data bytes), up from 56\nus and 88 bytes. A `receive()` that emits two `LOG1` events with 32 data\nbytes each now fits in the stipend.\n\n## Tests\n- `log_charges_count_topic_bytes` (Solc, Resolc): traced weight of\n`LOG0` to `LOG4`, with and without data (new `Host.logOpsWithoutData`).\n- `deposit_event_too_many_topics`: assembled PolkaVM program with\n`NUM_EVENT_TOPICS + 1` topics (not expressible in Solidity): error,\nclamped charge, no event stored.\n- `buffering_a_log_registers_at_least_its_encoded_bytes`: a four-topic\nlog registers at least four times the per-topic weight more than a log\nwithout topics, and its encoded bytes in proof size.\n- `TwoEventsReceiver` emits two `LOG4` events with 64 data bytes each\nand exceeds the stipend in ref time and proof size.\n\n`cargo nextest run -p pallet-revive`: 1032 passed. Clippy and rustdoc\nclean.\n\n## Weights\nRegenerated for `outside_frame_log`, `outside_frame_log_topics` and\n`outside_frame_log_data`, the benchmarks this PR changes or adds. Other\nweights stay as they were.\n\n| Weight (dev) | Per unit |\n|---|---|\n| `outside_frame_log`, per log | 0.99 us |\n| `outside_frame_log_topics`, per topic | 1.04 us |\n| `outside_frame_log_data`, per data byte | 8.2 ns |\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T06:30:38Z",
+          "tree_id": "28ac515969dc3e1403c4c3991fc68f2a5a0de6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ad8d15d9ff822132da56dd2a650ef276f77dc4"
+        },
+        "date": 1794556150439,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4121514,
+            "range": "± 33950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 299202,
+            "range": "± 2307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 3942876,
+            "range": "± 18944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373353,
+            "range": "± 2897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4842392,
+            "range": "± 22544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 884948,
+            "range": "± 9980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10459728,
+            "range": "± 110272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4887505,
+            "range": "± 67334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43976239,
+            "range": "± 426223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37666956,
+            "range": "± 353645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 357048136,
+            "range": "± 3434636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 298601255,
+            "range": "± 1468912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2565470748,
+            "range": "± 6874476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2297982476,
+            "range": "± 22537959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3477938,
+            "range": "± 31207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1887985,
+            "range": "± 11938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3584895,
+            "range": "± 22282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1983706,
+            "range": "± 8456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4219315,
+            "range": "± 39543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2314079,
+            "range": "± 12205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8143868,
+            "range": "± 85346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5451567,
+            "range": "± 114124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38848831,
+            "range": "± 250798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37828712,
+            "range": "± 407771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 323600748,
+            "range": "± 2796172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285523346,
+            "range": "± 1308400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2590834483,
+            "range": "± 35848228",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2343835924,
+            "range": "± 12043494",
             "unit": "ns/iter"
           }
         ]
