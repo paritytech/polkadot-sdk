@@ -1,0 +1,10 @@
+title: 'pallet-oracle: remove sp-std and make the median provider macro self-contained'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the `sp-std` dependency from `pallet-oracle`. The exported
+    `create_median_value_data_provider!` macro no longer requires callers to depend on `sp-std` or
+    to have `vec!` in scope; it uses the new hidden `pallet_oracle::__private` re-exports instead.
+crates:
+- name: pallet-oracle
+  bump: minor
