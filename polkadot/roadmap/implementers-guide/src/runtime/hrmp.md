@@ -247,18 +247,23 @@ executed the message.
     1. Remove `HrmpAcceptedChannelRequestCount` for `P`.
     1. Remove `HrmpOpenChannelRequests` and `HrmpOpenChannelRequestsList` for `(P, _)` and `(_, P)`.
         1. For each removed channel request `C`:
-            1. Unreserve the sender's deposit if the sender is not present in `outgoing_paras`
-            1. Unreserve the recipient's deposit if `C` is confirmed and the recipient is not present in
-               `outgoing_paras`
+            1. Unreserve the sender's deposit `C.sender_deposit`.
+            1. If `C` is confirmed, decrement `HrmpAcceptedChannelRequestCount` for the recipient by 1 and
+               unreserve the recipient's deposit. No recipient deposit is taken for a channel with or amongst
+               the system, so none is unreserved for those.
+            1. Decrement `HrmpOpenChannelRequestCount` for the sender by 1 if the sender is not present in
+               `outgoing_paras`.
 1. For each channel designator `D` in `HrmpOpenChannelRequestsList` we query the request `R` from
    `HrmpOpenChannelRequests`:
     1. if `R.confirmed = true`,
         1. if both `D.sender` and `D.recipient` are not offboarded.
           1. create a new channel `C` between `(D.sender, D.recipient)`.
               1. Initialize the `C.sender_deposit` with `R.sender_deposit` and `C.recipient_deposit` with the value
-              found in the configuration `config.hrmp_recipient_deposit`.
+              found in the configuration `config.hrmp_recipient_deposit`, or `0` for a channel with or
+              amongst the system.
               1. Insert `sender` into the set `HrmpIngressChannelsIndex` for the `recipient`.
               1. Insert `recipient` into the set `HrmpEgressChannelsIndex` for the `sender`.
+        1. otherwise, unreserve the sender's deposit `R.sender_deposit` and the recipient's deposit.
         1. decrement `HrmpOpenChannelRequestCount` for `D.sender` by 1.
         1. decrement `HrmpAcceptedChannelRequestCount` for `D.recipient` by 1.
         1. remove `R`
