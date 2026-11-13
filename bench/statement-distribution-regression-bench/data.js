@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794606068968,
+  "lastUpdate": 1794610973358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29b07cd379f927f0194f721148c403f63d0674d3",
-          "message": "Refactor asset-conversion tx payment fee correction (#11823)\n\nFixes a bug where the `AssetTxFeePaid` event reported an incorrect\n`actual_fee` when paying in the native asset via the asset-conversion\nextension (`asset_id == A::get()`). The returned fee amount was\ndouble-subtracting the refund, under-reporting the fee in the event.\n\nRefactors `SwapAssetAdapter::correct_and_deposit_fee` in\n`pallet-asset-conversion-tx-payment` to handle all edge cases gracefully\nduring post-dispatch fee correction. Adds test coverage for fee\ncorrection paths including account killed, account blocked, pool\ndrained, and native account with no free balance scenarios.",
-          "timestamp": "2026-04-29T00:30:45Z",
-          "tree_id": "ecb619753a8991b7d22a84bffa4e1f9eebde53aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/29b07cd379f927f0194f721148c403f63d0674d3"
-        },
-        "date": 1777427673626,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.082,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08000621433799993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03831053184600002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038386778042,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faaef02073cfb5857cc25a88ca8f457172e16f62",
+          "message": "FRAME: reject duplicate view-function blocks and pallet indices (#13752)\n\n# Description\n\nReject duplicate FRAME macro attributes instead of silently overwriting\nearlier declarations:\n\n- A second `#[pallet::view_functions]` block now fails at the duplicate\nattribute. A pallet defines all view functions in one block, matching\nthe existing single-block pattern for calls and other pallet sections.\n- Repeated `#[runtime::pallet_index]` attributes on one pallet now fail\nat the second index, including when the values are identical.\n\nRelated to the separate `extra_constants` fix in #13750. That fix\ncontinues to support multiple extra-constant blocks.\n\n## Integration\n\nMove methods from multiple `#[pallet::view_functions]` blocks into one\nblock, preserving any bounds those methods require. Previously, only the\nlast block contributed functions to metadata and runtime view dispatch.\n\nKeep exactly one `#[runtime::pallet_index]` attribute per pallet. Retain\nthe last previously specified index to preserve existing call/event\nencoding:\n\n```diff\n-#[runtime::pallet_index(3)]\n #[runtime::pallet_index(7)]\n pub type Example = pallet_example;\n```\n\nNo storage migration is required. The release note records major bumps\nfor `frame-support-procedural` and `frame-support` because previously\naccepted declarations now fail to compile.\n\n## Review Notes\n\nThe pallet parser stores one view-function block and uses the existing\nduplicate-attribute diagnostic for a second block. View-function\nexpansion retains its existing single-block implementation. A\ncompiler-output regression test checks that the second attribute is\nhighlighted, and an integration test verifies metadata and runtime\ndispatch for a valid block.\n\nRuntime parser tests cover duplicate index attributes with both\nidentical and conflicting values, for implicit and explicit pallet\ndeclarations.\n\nValidation:\n- Runtime parser tests: 10 passed.\n- Pallet integration tests: 34 passed.\n- View-function UI tests, including duplicate-block rejection and a\nvalid block.\n- Nightly rustfmt, `prdoc check -n 13752`, and `git diff --check`.",
+          "timestamp": "2026-11-13T21:11:19Z",
+          "tree_id": "71c61f67644c67e4c6aa1dfdf0f3276ecaeca533",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/faaef02073cfb5857cc25a88ca8f457172e16f62"
+        },
+        "date": 1794610931780,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.19600000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03896261677199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08912504084399993,
             "unit": "seconds"
           }
         ]
