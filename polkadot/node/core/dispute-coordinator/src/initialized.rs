@@ -17,7 +17,7 @@
 //! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -1126,7 +1126,7 @@ impl Initialized {
 			.cloned()
 			.collect::<Vec<_>>();
 
-		let import_result = {
+		let mut import_result = {
 			let intermediate_result = old_state.import_statements(&env, statements, now);
 
 			// Handle approval vote import:
@@ -1196,25 +1196,26 @@ impl Initialized {
 			"Import result ready"
 		);
 
-		let new_state = import_result.new_state();
-
 		let is_included = self.scraper.is_candidate_included(&candidate_hash);
 		let is_backed = self.scraper.is_candidate_backed(&candidate_hash);
-		let own_vote_missing = new_state.own_vote_missing();
-		let is_disputed = new_state.is_disputed();
-		let is_confirmed = new_state.is_confirmed();
 		let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
-		let potential_spam =
-			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
-		let allow_participation = !potential_spam;
+		// Whether the gate applies is decided from the imported set, before any
+		// per-validator dropping. Included, backed, and confirmed candidates (and
+		// our own votes, which clear slots) stay on the `!potential_spam` path.
+		let potential_spam = is_potential_spam(
+			&self.scraper,
+			import_result.new_state(),
+			&candidate_hash,
+			is_disabled,
+		);
 
 		gum::trace!(
 			target: LOG_TARGET,
-			?own_vote_missing,
+			own_vote_missing = ?import_result.new_state().own_vote_missing(),
 			?potential_spam,
 			?is_included,
 			?candidate_hash,
-			confirmed = ?new_state.is_confirmed(),
+			confirmed = ?import_result.new_state().is_confirmed(),
 			has_invalid_voters = ?!import_result.new_invalid_voters().is_empty(),
 			n_disabled_validators = ?env.disabled_indices().len(),
 			"Is spam?"
@@ -1229,18 +1230,27 @@ impl Initialized {
 
 		// Potential spam:
 		} else if !import_result.new_invalid_voters().is_empty() {
-			let mut free_spam_slots_available = false;
-			// Only allow import if at least one validator voting invalid, has not exceeded
-			// its spam slots:
+			// Spam capacity is per validator. `add_unconfirmed` returns false without
+			// incrementing when that validator is already at `MAX_SPAM_VOTES`. One
+			// validator with a free slot must not admit another validator's invalid
+			// vote in the same batch.
+			//
+			// If every new invalid voter is capped, the whole import is `InvalidImport`
+			// and nothing is persisted (honest peers retry; see `spam_slots` module docs).
+			// If some still have capacity, only the capped validators' invalid statements
+			// are dropped and the rest are recorded as `ValidImport`. Valid votes are not
+			// spam-limited. Only invalid votes consume slots, so backing validators are
+			// not penalized for the opposing vote dispute-distribution requires.
+			let mut accepted_any = false;
+			let mut rejected = HashSet::new();
 			for index in import_result.new_invalid_voters() {
-				// Disputes can only be triggered via an invalidity stating vote, thus we only
-				// need to increase spam slots on invalid votes. (If we did not, we would also
-				// increase spam slots for backing validators for example - as validators have to
-				// provide some opposing vote for dispute-distribution).
-				free_spam_slots_available |=
-					self.spam_slots.add_unconfirmed(session, candidate_hash, *index);
+				if self.spam_slots.add_unconfirmed(session, candidate_hash, *index) {
+					accepted_any = true;
+				} else {
+					rejected.insert(*index);
+				}
 			}
-			if !free_spam_slots_available {
+			if !accepted_any {
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
@@ -1250,7 +1260,23 @@ impl Initialized {
 				);
 				return Ok(ImportStatementsResult::InvalidImport);
 			}
+			if !rejected.is_empty() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?session,
+					?rejected,
+					"Dropping invalid votes from validators that exceeded their spam slots."
+				);
+				import_result = import_result.drop_invalid_votes(&env, &rejected, now);
+			}
 		}
+
+		let new_state = import_result.new_state();
+		let own_vote_missing = new_state.own_vote_missing();
+		let is_disputed = new_state.is_disputed();
+		let is_confirmed = new_state.is_confirmed();
+		let allow_participation = !potential_spam;
 
 		// Participate in dispute if we did not cast a vote before and actually have keys to cast a
 		// local vote. Disputes should fall in one of the categories below, otherwise we will

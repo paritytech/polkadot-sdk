@@ -1,0 +1,13 @@
+title: 'dispute-coordinator: enforce spam slots per validator in batched imports'
+doc:
+- audience: Node Dev
+  description: |-
+    The spam-slot check in `handle_import_statements` was OR'd across all new invalid voters of an
+    `ImportStatements` batch, so a single validator with a free slot let an already-capped
+    validator's invalid vote be persisted and counted towards dispute thresholds. Spam slots are
+    now enforced per validator: invalid votes from capped validators are dropped from the import
+    and the dispute state is recomputed from the remaining votes. If every new invalid voter is
+    capped, the import is still rejected.
+crates:
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch
