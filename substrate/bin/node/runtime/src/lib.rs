@@ -771,6 +771,7 @@ impl pallet_staking::Config for Runtime {
 
 parameter_types! {
 	pub const DapMaxDistributableAssets: u32 = 1;
+	pub const DapNativeCurrencyAssetKind: Option<u32> = None;
 	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 0; // drip every block
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
@@ -793,6 +794,7 @@ impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
 impl pallet_dap::Config for Runtime {
 	type IssuedCurrency = Balances;
 	type Assets = Assets;
+	type NativeCurrencyAssetKind = DapNativeCurrencyAssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type MaxDistributableAssets = DapMaxDistributableAssets;

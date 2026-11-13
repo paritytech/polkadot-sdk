@@ -619,11 +619,13 @@ impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
 
 parameter_types! {
 	pub const MaxDistributableAssets: u32 = 1;
+	pub const NativeCurrencyAssetKind: Option<u32> = None;
 }
 
 impl pallet_dap::Config for Runtime {
 	type IssuedCurrency = Balances;
 	type Assets = EmptyFungibles<u32, Balance>;
+	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
 	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;

@@ -128,6 +128,10 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 pub type NativeAndAssets =
 	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 
+parameter_types! {
+	pub static NativeCurrencyAssetKind: Option<NativeOrWithId<u32>> = Some(NativeOrWithId::Native);
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub struct BenchmarkHelper;
 
@@ -147,6 +151,7 @@ impl crate::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for BenchmarkHelper 
 impl Config for Test {
 	type IssuedCurrency = Balances;
 	type Assets = NativeAndAssets;
+	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = BenchmarkHelper;
 	type MaxDistributableAssets = ConstU32<8>;

@@ -501,6 +501,7 @@ pub fn general_staker_pot() -> AccountId {
 
 parameter_types! {
 	pub const MaxDistributableAssets: u32 = 1;
+	pub const NativeCurrencyAssetKind: Option<u32> = None;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -518,6 +519,7 @@ impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
 impl pallet_dap::Config for Test {
 	type IssuedCurrency = Balances;
 	type Assets = EmptyFungibles<u32, Balance>;
+	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type MaxDistributableAssets = MaxDistributableAssets;

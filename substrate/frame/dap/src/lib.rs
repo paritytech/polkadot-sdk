@@ -156,8 +156,13 @@ pub mod pallet {
 		/// ```ignore
 		/// pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 		///
+		/// parameter_types! {
+		/// 	pub static NativeCurrencyAssetKind: Option<NativeOrWithId<u32>> = Some(NativeOrWithId::Native);
+		/// }
+		///
 		/// impl Config for Runtime {
 		/// 	type Assets = NativeAndAssets;
+		/// 	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
 		/// 	...
 		/// }
 		/// ```
@@ -165,6 +170,12 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>;
+
+		/// The native currency asset kind.
+		///
+		/// It must be set if the native currency is present in the [`Assets`].
+		#[pallet::constant]
+		type NativeCurrencyAssetKind: Get<Option<AssetKindOf<Self>>>;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, AssetKindOf<Self>>;
@@ -521,16 +532,18 @@ pub mod pallet {
 		fn set_asset_allocations_map(allocations: AssetAllocationMapOf<T>) -> DispatchResult {
 			let registered: Vec<_> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+			let native_currency_asset_kind = T::NativeCurrencyAssetKind::get();
+
 			// Validate all keys are registered recipients and no zero amounts are set.
 			for (asset, allocations) in &allocations {
 				ensure!(T::Assets::asset_exists(asset.clone()), Error::<T>::AssetDoesntExist);
 
-				// TODO: Reintroduce.
-				// ensure!(
-				// 	T::NativeCurrencyAssetId::get() == *asset ||
-				// 		T::Assets::is_sufficient(asset.clone()),
-				// 	Error::<T>::AssetIsNotSufficient
-				// );
+				ensure!(
+					Some(asset) == native_currency_asset_kind.as_ref() ||
+						T::Assets::is_sufficient(asset.clone()),
+					Error::<T>::AssetIsNotSufficient
+				);
 
 				let min_balance = T::Assets::minimum_balance(asset.clone());
 				for (key, amount) in allocations {
@@ -666,6 +679,8 @@ pub mod pallet {
 			let elapsed_as_balance =
 				SaturatedConversion::saturated_into::<AssetsBalanceOf<T>>(elapsed);
 
+			let native_currency_asset_kind = T::NativeCurrencyAssetKind::get();
+
 			let allocations = AssetAllocation::<T>::get();
 			for (asset, allocations) in allocations {
 				let mut total_distributed = AssetsBalanceOf::<T>::zero();
@@ -695,7 +710,10 @@ pub mod pallet {
 						));
 					} else {
 						total_distributed.saturating_accrue(amount);
-						// TODO: Reactivate the funds if it's the native asset?
+
+						if Some(&asset) == native_currency_asset_kind.as_ref() {
+							// TODO: Reactivate the funds
+						}
 					}
 				}
 
