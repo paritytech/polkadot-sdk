@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794604900913,
+  "lastUpdate": 1794610020699,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -260735,6 +260735,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2371599079,
             "range": "± 26607121",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faaef02073cfb5857cc25a88ca8f457172e16f62",
+          "message": "FRAME: reject duplicate view-function blocks and pallet indices (#13752)\n\n# Description\n\nReject duplicate FRAME macro attributes instead of silently overwriting\nearlier declarations:\n\n- A second `#[pallet::view_functions]` block now fails at the duplicate\nattribute. A pallet defines all view functions in one block, matching\nthe existing single-block pattern for calls and other pallet sections.\n- Repeated `#[runtime::pallet_index]` attributes on one pallet now fail\nat the second index, including when the values are identical.\n\nRelated to the separate `extra_constants` fix in #13750. That fix\ncontinues to support multiple extra-constant blocks.\n\n## Integration\n\nMove methods from multiple `#[pallet::view_functions]` blocks into one\nblock, preserving any bounds those methods require. Previously, only the\nlast block contributed functions to metadata and runtime view dispatch.\n\nKeep exactly one `#[runtime::pallet_index]` attribute per pallet. Retain\nthe last previously specified index to preserve existing call/event\nencoding:\n\n```diff\n-#[runtime::pallet_index(3)]\n #[runtime::pallet_index(7)]\n pub type Example = pallet_example;\n```\n\nNo storage migration is required. The release note records major bumps\nfor `frame-support-procedural` and `frame-support` because previously\naccepted declarations now fail to compile.\n\n## Review Notes\n\nThe pallet parser stores one view-function block and uses the existing\nduplicate-attribute diagnostic for a second block. View-function\nexpansion retains its existing single-block implementation. A\ncompiler-output regression test checks that the second attribute is\nhighlighted, and an integration test verifies metadata and runtime\ndispatch for a valid block.\n\nRuntime parser tests cover duplicate index attributes with both\nidentical and conflicting values, for implicit and explicit pallet\ndeclarations.\n\nValidation:\n- Runtime parser tests: 10 passed.\n- Pallet integration tests: 34 passed.\n- View-function UI tests, including duplicate-block rejection and a\nvalid block.\n- Nightly rustfmt, `prdoc check -n 13752`, and `git diff --check`.",
+          "timestamp": "2026-11-13T21:11:19Z",
+          "tree_id": "71c61f67644c67e4c6aa1dfdf0f3276ecaeca533",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/faaef02073cfb5857cc25a88ca8f457172e16f62"
+        },
+        "date": 1794609978100,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4150127,
+            "range": "± 24442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297595,
+            "range": "± 2283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 3954235,
+            "range": "± 19151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 369024,
+            "range": "± 6064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4667917,
+            "range": "± 24134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 874452,
+            "range": "± 10650",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10339675,
+            "range": "± 71325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4761111,
+            "range": "± 59489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43776685,
+            "range": "± 367271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37142516,
+            "range": "± 411825",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 349383471,
+            "range": "± 2139056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 297652332,
+            "range": "± 1916824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2519917673,
+            "range": "± 8291588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2335190068,
+            "range": "± 14291836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3450643,
+            "range": "± 11862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1913993,
+            "range": "± 8473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3556954,
+            "range": "± 14805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2007703,
+            "range": "± 8957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4256979,
+            "range": "± 17468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2288540,
+            "range": "± 12328",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7864079,
+            "range": "± 42782",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5339172,
+            "range": "± 47193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37907110,
+            "range": "± 391410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37212397,
+            "range": "± 204139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 317098217,
+            "range": "± 2526815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 290298627,
+            "range": "± 2111619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2500394605,
+            "range": "± 11847870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2359525527,
+            "range": "± 14868351",
             "unit": "ns/iter"
           }
         ]
