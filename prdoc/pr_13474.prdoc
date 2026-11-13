@@ -1,0 +1,12 @@
+title: 'pallet-revive: test the access items against actual reads and writes'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests that compare the entries each access item names with the keys an operation
+      actually reads and writes, so a declaration cannot drift from the code unnoticed. No
+      runtime behaviour changes.
+
+crates:
+  - name: pallet-revive
+    bump: none
