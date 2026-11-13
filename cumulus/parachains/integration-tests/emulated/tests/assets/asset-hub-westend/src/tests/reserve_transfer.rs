@@ -303,9 +303,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
-			// Delivery fees are deposited to the DAP buffer account.
+			// Delivery fees are deposited to the DAP staging account.
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-				who: *who == DapBufferAccount::get(),
+				who: *who == DapStagingAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(

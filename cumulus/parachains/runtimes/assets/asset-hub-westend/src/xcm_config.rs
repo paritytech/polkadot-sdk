@@ -215,7 +215,7 @@ parameter_types! {
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
-	pub DapBufferAccount: AccountId = pallet_dap::Pallet::<Runtime>::buffer_account();
+	pub DapStagingAccount: AccountId = pallet_dap::Pallet::<Runtime>::staging_account();
 }
 
 /// Transactor for ERC20 tokens.
@@ -489,7 +489,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, DapBufferAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapStagingAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases =
