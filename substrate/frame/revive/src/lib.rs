@@ -2571,14 +2571,20 @@ impl<T: Config> Pallet<T> {
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-			weight_limit: Self::evm_max_extrinsic_weight(),
+			// The weight the dry run reports as required can reach this limit, and the transaction
+			// adds its base weight on top, so the limit leaves room for it.
+			weight_limit: Self::evm_max_extrinsic_weight()
+				.saturating_sub(base_info.total_weight())
+				// The transaction sets the call's weight limit before its authorizations run, so
+				// their refund does not give the call more weight. The dry run uses the same limit.
+				.min(call_info.weight_limit),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call with a receipt open, so that its logs count against the receipt size
 		// limit as they do when the transaction is included.
-		let mut dry_run = block_storage::with_receipt_scope::<T, _>(|| {
+		let (mut dry_run, weight_consumed) = block_storage::with_receipt_scope::<T, _>(|| {
 			let dry_run = match to {
 				// A contract call.
 				Some(dest) => {
@@ -2628,13 +2634,16 @@ impl<T: Config> Pallet<T> {
 							},
 						};
 
-						EthTransactInfo {
-							weight_required: result.weight_required,
-							storage_deposit: result.storage_deposit.charge_or_zero(),
-							max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-							data,
-							eth_gas: Default::default(),
-						}
+						(
+							EthTransactInfo {
+								weight_required: result.weight_required,
+								storage_deposit: result.storage_deposit.charge_or_zero(),
+								max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
+								data,
+								eth_gas: Default::default(),
+							},
+							result.weight_consumed,
+						)
 					}
 				},
 				// A contract deployment
@@ -2670,13 +2679,16 @@ impl<T: Config> Pallet<T> {
 						},
 					};
 
-					EthTransactInfo {
-						weight_required: result.weight_required,
-						storage_deposit: result.storage_deposit.charge_or_zero(),
-						max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-						data: returned_data,
-						eth_gas: Default::default(),
-					}
+					(
+						EthTransactInfo {
+							weight_required: result.weight_required,
+							storage_deposit: result.storage_deposit.charge_or_zero(),
+							max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
+							data: returned_data,
+							eth_gas: Default::default(),
+						},
+						result.weight_consumed,
+					)
 				},
 			};
 			Ok(dry_run)
@@ -2711,15 +2723,23 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// not enough gas supplied to pay for both the tx fees and the storage deposit
-		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
+		// A transaction pays for the weight it consumed. `weight_required` also includes the part
+		// callers keep under the 63/64 rule, so deposits paid from that part would count twice.
+		let actual_fee = T::FeeInfo::tx_fee_from_weight(
+			call_info.encoded_len,
+			&weight_consumed.saturating_add(base_weight),
+		);
 		let available_fee = T::FeeInfo::remaining_txfee();
-		if transaction_fee > available_fee {
+		if actual_fee > available_fee {
 			Err(EthTransactError::Message(format!(
 				"Not enough gas supplied: Off by: {:?}",
-				transaction_fee.saturating_sub(available_fee),
+				actual_fee.saturating_sub(available_fee),
 			)))?;
 		}
 
+		// The estimated gas must cover `weight_required`, including the part callers keep. Deposits
+		// paid from that part count twice, which only raises the estimate; unused gas is refunded.
+		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let total_cost = transaction_fee.saturating_add(dry_run.max_storage_deposit);
 		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
 		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
@@ -2730,6 +2750,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact finished: \
 			weight_limit={}, \
+			weight_consumed={weight_consumed}, \
 			total_weight={total_weight}, \
 			max_weight={max_weight}, \
 			weight_left={}, \
