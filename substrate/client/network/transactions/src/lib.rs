@@ -52,7 +52,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -61,6 +61,9 @@ use std::{
 };
 
 pub mod config;
+
+#[cfg(test)]
+mod tests;
 
 /// A set of transactions.
 pub type Transactions<E> = Vec<E>;
@@ -257,8 +260,9 @@ pub struct TransactionsHandler<
 	/// As multiple peers can send us the same transaction, we group
 	/// these peers using the transaction hash while the transaction is
 	/// imported. This prevents that we import the same transaction
-	/// multiple times concurrently.
-	pending_transactions_peers: HashMap<H, Vec<PeerId>>,
+	/// multiple times concurrently. Each peer is recorded once so duplicate
+	/// submissions cannot multiply its reputation changes.
+	pending_transactions_peers: HashMap<H, HashSet<PeerId>>,
 	/// Network service to use to send messages and manage peers.
 	network: N,
 	/// Syncing service.
@@ -423,20 +427,22 @@ where
 				let hash = self.transaction_pool.hash_of(&t);
 				peer.known_transactions.insert(hash.clone());
 
-				self.network.report_peer(who, rep::ANY_TRANSACTION);
-
 				match self.pending_transactions_peers.entry(hash.clone()) {
 					Entry::Vacant(entry) => {
 						self.pending_transactions.push(PendingTransaction {
 							validation: self.transaction_pool.import(t),
 							tx_hash: hash,
 						});
-						entry.insert(vec![who]);
+						entry.insert(HashSet::from([who]));
 					},
 					Entry::Occupied(mut entry) => {
-						entry.get_mut().push(who);
+						if !entry.get_mut().insert(who) {
+							continue;
+						}
 					},
 				}
+
+				self.network.report_peer(who, rep::ANY_TRANSACTION);
 			}
 		}
 	}
