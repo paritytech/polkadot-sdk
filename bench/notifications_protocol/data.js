@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794580556324,
+  "lastUpdate": 1794588990235,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -260351,6 +260351,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2597585459,
             "range": "± 18502923",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5983c93547f33715dbf1d44d5d52161448059cf2",
+          "message": "pallet-revive: derive child trie ids from the deletion queue counter (#13620)\n\nChild trie ids came from the address and the deployer's nonce, and a\ndeployer reaped on termination restarts at the same nonce. A contract\nre-created at the address of a terminated contract could therefore get\nthe old trie id while that trie was still queued for deletion: it saw\nthe old storage, and the queued deletion later removed its own. New trie\nids mix in `DeletionQueueCounter`, which every termination increments.\n\n## Changes\n- Trie id preimage: `(\"bcontract_trie_v2\", address, nonce,\ninsert_counter)`. Existing contracts and queued entries keep theirs; no\nmigration; `ContractInfo::new` signature unchanged.\n- Precompiles with contract info use the new\n`ContractInfo::new_for_precompile`, which keeps the\n`(\"bcontract_trie_v1\", address, 0)` id and reads no storage.\n- `DeletionQueueCounter` docs: must never decrease or reset, apart from\nwrapping.\n- Instantiation reads `DeletionQueueCounter` once more (`instantiate`,\n`instantiate_with_code`, `eth_instantiate_with_code`,\n`seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`); `dev` and `asset-hub-westend` weights\nregenerated.\n- Off-chain tools that compute trie ids must read `trie_id` from\n`ContractInfo`.\n- Keeping `NativeDepositOf` rows of a re-created contract is #13613.\n\n## Tests\n`tests/sol/terminate.rs` with `RedeployFactory.sol`, Solc and Resolc.\nEach fails without the change.\n- Active:\n`child_recreated_after_same_tx_selfdestruct_does_not_share_storage`\n(child created and destroyed in one call, re-created later with the same\nsalt) and `precompile_trie_id_does_not_depend_on_terminations`.\n- `#[ignore]` until the termination restriction from #13689 is lifted:\nredeploy after termination in an earlier transaction (CREATE1, CREATE2,\ninside one `batch_all`), covering the queued drain and the deposit\ncharge and refund of the new child.\n\n`cargo nextest run -p pallet-revive`: 1063 passed, 0 failed. Clippy and\nrustdoc clean.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T15:39:27Z",
+          "tree_id": "32947fe201f6a281b10cc174429267b687961dbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5983c93547f33715dbf1d44d5d52161448059cf2"
+        },
+        "date": 1794588958045,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4299896,
+            "range": "± 40513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 313104,
+            "range": "± 5106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4384002,
+            "range": "± 36929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 381621,
+            "range": "± 5996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5051115,
+            "range": "± 81848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 913984,
+            "range": "± 14884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10760362,
+            "range": "± 125941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4978035,
+            "range": "± 69721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44788942,
+            "range": "± 508944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38594580,
+            "range": "± 489176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 359234621,
+            "range": "± 4800270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 304060941,
+            "range": "± 13428334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2911656087,
+            "range": "± 174651976",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2619102583,
+            "range": "± 138893264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3859844,
+            "range": "± 91325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1974220,
+            "range": "± 16152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3870154,
+            "range": "± 60339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2051877,
+            "range": "± 13353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4629148,
+            "range": "± 19785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2429096,
+            "range": "± 11901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 9000137,
+            "range": "± 133818",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5709310,
+            "range": "± 66026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 42935090,
+            "range": "± 318715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39886045,
+            "range": "± 739770",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 338718480,
+            "range": "± 2637888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 295138743,
+            "range": "± 2090452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2588225880,
+            "range": "± 19993799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2435411527,
+            "range": "± 20230307",
             "unit": "ns/iter"
           }
         ]
