@@ -42,6 +42,7 @@ use sc_network_types::PeerId;
 use std::{
 	collections::{HashMap, HashSet},
 	iter,
+	time::{Duration, Instant},
 };
 
 /// Per-connection score changes.
@@ -61,6 +62,14 @@ pub(crate) mod score {
 /// instead of dropping every undesired connection at once.
 const MAX_DISCONNECT_PERCENT: usize = 20;
 
+/// How long a reserved peer may stay without a substream before it counts as unreachable. The
+/// peerset redials a reserved peer about 6 seconds after a failed attempt, so a peer that refuses
+/// the dial gets two attempts and one whose dial times out gets one.
+pub(super) const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
+
+/// How long an unreachable peer is passed over before it is tried again.
+pub(super) const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
+
 /// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
 ///
 /// The desired set comes from the orchestrator and the connected set from the statement substream
@@ -77,6 +86,11 @@ pub(crate) struct PeerSteering {
 	desired: HashSet<PeerId>,
 	/// Peers held in the statement protocol's reserved set.
 	reserved: HashSet<PeerId>,
+	/// When each reserved peer was first seen without an open substream.
+	awaiting_substream: HashMap<PeerId, Instant>,
+	/// Peers that stayed reserved without a substream for [`UNREACHABLE_AFTER`], each with the
+	/// instant it is tried again.
+	unreachable: HashMap<PeerId, Instant>,
 }
 
 /// The state of one connected peer.
@@ -96,6 +110,8 @@ impl PeerSteering {
 			next_connection_seq: 0,
 			desired: HashSet::new(),
 			reserved: HashSet::new(),
+			awaiting_substream: HashMap::new(),
+			unreachable: HashMap::new(),
 		}
 	}
 
@@ -103,11 +119,17 @@ impl PeerSteering {
 
 	/// Record that the statement notification substream to `peer` opened.
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
+		if self.connected.is_empty() {
+			// The dials that failed with no substream open may be this node's own outage.
+			self.unreachable.clear();
+			self.awaiting_substream.clear();
+		}
 		if !self.connected.contains_key(&peer) {
 			self.connected
 				.insert(peer, ConnectedPeer { seq: self.next_connection_seq, score: 0 });
 			self.next_connection_seq += 1;
 		}
+		self.unreachable.remove(&peer);
 	}
 
 	/// Record that the statement notification substream to `peer` closed.
@@ -126,6 +148,40 @@ impl PeerSteering {
 	#[cfg(test)]
 	pub(crate) fn score_of(&self, peer: &PeerId) -> Option<i32> {
 		self.connected.get(peer).map(|entry| entry.score)
+	}
+
+	// === Unreachable peers ===
+
+	/// Mark the peers reserved without a substream for [`UNREACHABLE_AFTER`] as unreachable, and
+	/// clear the marks due for a retry.
+	pub(crate) fn update_unreachable_peers(&mut self, now: Instant) {
+		self.unreachable.retain(|_, retry_at| *retry_at > now);
+		let waiting: HashSet<PeerId> = self
+			.reserved
+			.iter()
+			.filter(|peer| {
+				!self.connected.contains_key(peer) && !self.unreachable.contains_key(peer)
+			})
+			.copied()
+			.collect();
+		self.awaiting_substream.retain(|peer, _| waiting.contains(peer));
+		for peer in waiting {
+			let since = *self.awaiting_substream.entry(peer).or_insert(now);
+			if now.saturating_duration_since(since) >= UNREACHABLE_AFTER {
+				log::debug!(target: LOG_TARGET, "peer_steering: {peer} is unreachable");
+				self.awaiting_substream.remove(&peer);
+				self.unreachable.insert(peer, now + UNREACHABLE_RETRY_AFTER);
+			}
+		}
+	}
+
+	/// Whether `peer` failed to open a substream while reserved and is not yet due for a retry.
+	pub(crate) fn is_unreachable(&self, peer: &PeerId) -> bool {
+		self.unreachable.contains_key(peer)
+	}
+
+	pub(crate) fn unreachable_count(&self) -> usize {
+		self.unreachable.len()
 	}
 
 	// === Desired set ===
@@ -366,6 +422,95 @@ mod tests {
 		connect_reserved(&mut steering, [1, 2]);
 		steering.update_score(peer(2), score::BAD_ACTION);
 		assert_eq!(steering.peers_to_release(), vec![peer(2)]);
+	}
+
+	#[test]
+	fn reserved_peer_without_a_substream_becomes_unreachable_until_the_retry() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		connect_reserved(&mut steering, [1]);
+		steering.reserve([peer(2)]);
+		let start = Instant::now();
+
+		steering.update_unreachable_peers(start);
+		steering.update_unreachable_peers(start + UNREACHABLE_AFTER - Duration::from_secs(1));
+		assert!(!steering.is_unreachable(&peer(2)));
+
+		let marked_at = start + UNREACHABLE_AFTER;
+		steering.update_unreachable_peers(marked_at);
+		assert!(steering.is_unreachable(&peer(2)));
+		assert!(!steering.is_unreachable(&peer(1)), "a connected peer is reachable");
+
+		steering.update_unreachable_peers(marked_at + UNREACHABLE_RETRY_AFTER);
+		assert!(!steering.is_unreachable(&peer(2)));
+	}
+
+	#[test]
+	fn unreachable_mark_outlives_the_release_of_the_peer() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		steering.update_unreachable_peers(marked_at);
+
+		steering.reserved.remove(&peer(1));
+		let before_retry = marked_at + UNREACHABLE_RETRY_AFTER - Duration::from_secs(1);
+		steering.update_unreachable_peers(before_retry);
+		assert!(steering.is_unreachable(&peer(1)));
+	}
+
+	#[test]
+	fn opened_substream_clears_the_unreachable_mark() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+		steering.update_unreachable_peers(start + UNREACHABLE_AFTER);
+		assert!(steering.is_unreachable(&peer(1)));
+
+		steering.on_substream_opened(peer(1));
+		assert!(!steering.is_unreachable(&peer(1)));
+	}
+
+	#[test]
+	fn first_substream_after_none_clears_every_unreachable_mark() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1), peer(2)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		steering.update_unreachable_peers(marked_at);
+		assert!(steering.is_unreachable(&peer(1)));
+		assert!(steering.is_unreachable(&peer(2)));
+
+		steering.on_substream_opened(peer(3));
+		assert!(!steering.is_unreachable(&peer(1)));
+		assert!(!steering.is_unreachable(&peer(2)));
+
+		// With a substream open the marks return and a further substream leaves them.
+		steering.update_unreachable_peers(marked_at);
+		steering.update_unreachable_peers(marked_at + UNREACHABLE_AFTER);
+		steering.on_substream_opened(peer(4));
+		assert!(steering.is_unreachable(&peer(1)));
+		assert!(steering.is_unreachable(&peer(2)));
+	}
+
+	#[test]
+	fn reconnected_peer_starts_a_fresh_wait_after_its_substream_closes() {
+		let mut steering = PeerSteering::new("/statement/test".into());
+		steering.reserve([peer(1)]);
+		let start = Instant::now();
+		steering.update_unreachable_peers(start);
+
+		steering.on_substream_opened(peer(1));
+		steering.update_unreachable_peers(start + Duration::from_secs(10));
+		steering.on_substream_closed(peer(1));
+		let closed_at = start + Duration::from_secs(20);
+		steering.update_unreachable_peers(closed_at);
+		assert!(!steering.is_unreachable(&peer(1)));
+
+		steering.update_unreachable_peers(closed_at + UNREACHABLE_AFTER);
+		assert!(steering.is_unreachable(&peer(1)));
 	}
 
 	#[test]
