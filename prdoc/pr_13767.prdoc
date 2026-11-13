@@ -1,15 +1,10 @@
-title: 'cumulus-collator: emit the scheduling-signal tail as validate_block does'
+title: 'cumulus-collator: drop extra UMP separators when building signal tail'
 doc:
 - audience: Node Dev
   description: |-
-    The collator skips a collation whose scheduling UMP signals some runtime's `validate_block`
-    would reject or rewrite: a signal that does not decode exactly, or two different signals of one
-    variant. Other signals pass through in the blocks' order with identical repeats kept once,
-    preserving compatibility with older runtimes that emit signals in every block of a PoV.
-    Compatibility with runtimes that re-encode the tail relies on `parachain-system` emitting
-    `SelectCore` before `ApprovedPeer`.
+    Drop any extra `UMP_SEPARATOR` entries after the first separator when splitting a block's
+    upward messages, matching `validate_block`. Forward the remaining raw signal bytes unchanged
+    unless a `SignedSchedulingInfo` overrides them.
 crates:
 - name: cumulus-client-collator
   bump: patch
-- name: cumulus-primitives-core
-  bump: minor
