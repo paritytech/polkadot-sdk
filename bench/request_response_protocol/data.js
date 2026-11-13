@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794589045339,
+  "lastUpdate": 1794604960944,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145907,6 +145907,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2677926389,
             "range": "± 29520520",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f322d0164b344a59cd8c9ea76323b4d83cd569f7",
+          "message": "Registrar: Schedule Code Upgrade (#13112)\n\n## What's added\n\n- `schedule_code_upgrade` on `pallet-registrar-para`: asks the relay\nchain to authorize an upgrade by code hash and length. Root, the para,\nor its manager while unlocked.\n- `PendingCodeUpgrades` on `pallet-registrar-relay`: the request is\nchecked via `ParachainRegistrar::check_code_upgrade` and held until\n`CodeUpgradeValidPeriod`.\n- `apply_authorized_code_upgrade`: unsigned, fee-free upload of the\nmatching code. Schedules the upgrade and reports back to the parachain.\n- `paras_registrar` implements `check_code_upgrade` and\n`schedule_code_upgrade`, using the new `can_upgrade_validation_code` in\n`polkadot-runtime-parachains`.\n\n## Decisions\n\n- Only hash and length cross chains. The code is uploaded to the relay\nseparately, same as registration.\n- No deposit and nothing stored on the parachain, so the relay's answer\nonly surfaces as events.\n- Unlike registrations, the authorization expires: whether an upgrade\ncan be scheduled depends on relay state that moves on its own. Pool\nlongevity is capped to the expiry.\n- A new authorization replaces the para's previous one, so storage stays\nat one entry per para.\n- If scheduling fails on the relay, the extrinsic fails and the\nauthorization stays, so the upload can be retried.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-13T19:33:29Z",
+          "tree_id": "96eb4a9479c7de74f577ad7ffc949dcaa5bebda8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f322d0164b344a59cd8c9ea76323b4d83cd569f7"
+        },
+        "date": 1794604925229,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19742982,
+            "range": "± 121741",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20056580,
+            "range": "± 161462",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21382888,
+            "range": "± 106318",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25519947,
+            "range": "± 53789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57543369,
+            "range": "± 743680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367786721,
+            "range": "± 5144695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2818554381,
+            "range": "± 21756136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17074765,
+            "range": "± 144488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17354007,
+            "range": "± 140612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17795974,
+            "range": "± 99332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22426974,
+            "range": "± 134899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60101611,
+            "range": "± 766594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 350201400,
+            "range": "± 3674421",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2752943630,
+            "range": "± 21796093",
             "unit": "ns/iter"
           }
         ]
