@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794591764672,
+  "lastUpdate": 1794606127643,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "82e8ce499e8e0e55f052e72377f38416f5e2b6d6",
-          "message": "statement-latency-bench: harden failure handling and drop unused sync wait (#10915)\n\nReworks `statement-latency-bench`'s failure handling so a single hung\npeer no longer wedges the whole run, and removes the wall-clock sync\nwait that we no longer need.",
-          "timestamp": "2026-04-28T16:42:54Z",
-          "tree_id": "1f44b12e9c07352a3c43ed3447255addde6df497",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/82e8ce499e8e0e55f052e72377f38416f5e2b6d6"
-        },
-        "date": 1777400144075,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009284869689999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264463373,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010071471949999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00952144738999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f322d0164b344a59cd8c9ea76323b4d83cd569f7",
+          "message": "Registrar: Schedule Code Upgrade (#13112)\n\n## What's added\n\n- `schedule_code_upgrade` on `pallet-registrar-para`: asks the relay\nchain to authorize an upgrade by code hash and length. Root, the para,\nor its manager while unlocked.\n- `PendingCodeUpgrades` on `pallet-registrar-relay`: the request is\nchecked via `ParachainRegistrar::check_code_upgrade` and held until\n`CodeUpgradeValidPeriod`.\n- `apply_authorized_code_upgrade`: unsigned, fee-free upload of the\nmatching code. Schedules the upgrade and reports back to the parachain.\n- `paras_registrar` implements `check_code_upgrade` and\n`schedule_code_upgrade`, using the new `can_upgrade_validation_code` in\n`polkadot-runtime-parachains`.\n\n## Decisions\n\n- Only hash and length cross chains. The code is uploaded to the relay\nseparately, same as registration.\n- No deposit and nothing stored on the parachain, so the relay's answer\nonly surfaces as events.\n- Unlike registrations, the authorization expires: whether an upgrade\ncan be scheduled depends on relay state that moves on its own. Pool\nlongevity is capped to the expiry.\n- A new authorization replaces the para's previous one, so storage stays\nat one entry per para.\n- If scheduling fails on the relay, the extrinsic fails and the\nauthorization stays, so the upload can be retried.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-13T19:33:29Z",
+          "tree_id": "96eb4a9479c7de74f577ad7ffc949dcaa5bebda8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f322d0164b344a59cd8c9ea76323b4d83cd569f7"
+        },
+        "date": 1794606091139,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025988683000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00960997092999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011120038180000003,
             "unit": "seconds"
           }
         ]
