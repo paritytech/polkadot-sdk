@@ -17,9 +17,18 @@
 
 //! Derive macros to derive traits without bounding generic parameters.
 
+use syn::spanned::Spanned;
+
 pub mod clone;
 pub mod debug;
 pub mod default;
 pub mod ord;
 pub mod partial_eq;
 pub mod partial_ord;
+
+/// Create a tuple-field index that points to the original field type.
+fn field_index(index: usize, field: &syn::Field) -> syn::Index {
+	let mut index = syn::Index::from(index);
+	index.span = field.ty.span();
+	index
+}

@@ -36,8 +36,12 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 				quote::quote!( Self { #( #fields, )* } )
 			},
 			syn::Fields::Unnamed(unnamed) => {
-				let fields =
-					unnamed.unnamed.iter().enumerate().map(|(i, _)| syn::Index::from(i)).map(|i| {
+				let fields = unnamed
+					.unnamed
+					.iter()
+					.enumerate()
+					.map(|(i, field)| super::field_index(i, field))
+					.map(|i| {
 						quote::quote_spanned!(i.span() =>
 							::core::clone::Clone::clone(&self.#i)
 						)

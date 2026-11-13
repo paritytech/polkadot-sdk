@@ -93,7 +93,7 @@ impl ExtraConstantsDef {
 		];
 
 		if let Some((_, _, for_)) = item.trait_ {
-			let msg = "Invalid pallet::call, expected no trait ident as in \
+			let msg = "Invalid pallet::extra_constants, expected no trait ident as in \
 				`impl<..> Pallet<..> { .. }`";
 			return Err(syn::Error::new(for_.span(), msg));
 		}
@@ -103,7 +103,7 @@ impl ExtraConstantsDef {
 			let method = if let syn::ImplItem::Fn(method) = impl_item {
 				method
 			} else {
-				let msg = "Invalid pallet::call, only method accepted";
+				let msg = "Invalid pallet::extra_constants, only method accepted";
 				return Err(syn::Error::new(impl_item.span(), msg));
 			};
 
