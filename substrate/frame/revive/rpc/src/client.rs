@@ -784,6 +784,10 @@ impl Client {
 						},
 					};
 
+					// The best block subscription can skip heights, so a block replaced while
+					// the server was down may never be compared against its replacement there.
+					self.receipt_provider.remove_non_canonical_blocks(block_number, hash).await?;
+
 					self.update_and_announce_latest_block(block, eth_block, subscription_type)
 						.await;
 					self.advance_sync_head(block_number, hash).await;
