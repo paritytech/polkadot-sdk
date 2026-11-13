@@ -1279,6 +1279,8 @@ pub mod pallet_macros {
 	/// View functions methods must be read-only and always return some output. A
 	/// `view_functions` impl block only allows methods to be defined inside of
 	/// it.
+	/// Only one `#[pallet::view_functions]` block is allowed per pallet. Define all view
+	/// functions in that block.
 	///
 	/// ## Example
 	/// ```

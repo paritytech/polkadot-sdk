@@ -212,7 +212,7 @@ impl Def {
 					}
 					composites.push(composite);
 				},
-				Some(PalletAttr::ViewFunctions(span)) => {
+				Some(PalletAttr::ViewFunctions(span)) if view_functions.is_none() => {
 					view_functions = Some(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
 				}
 				Some(attr) => {
