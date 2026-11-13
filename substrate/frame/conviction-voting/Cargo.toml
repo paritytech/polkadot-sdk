@@ -21,6 +21,7 @@ codec = { features = ["derive", "max-encoded-len"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-balances = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
@@ -38,6 +39,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances?/std",
 	"scale-info/std",
 	"serde",

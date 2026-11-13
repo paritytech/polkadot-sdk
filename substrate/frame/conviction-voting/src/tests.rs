@@ -21,7 +21,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Contains, Polling, VariantCountOf, VoteTally},
+	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
 use sp_runtime::BuildStorage;
 
@@ -57,8 +57,6 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -1133,4 +1131,126 @@ fn failed_tally_add_leaves_tally_unchanged() {
 	let mut t = initial.clone();
 	assert!(t.add(split_abstain(10, 0, 10)).is_none());
 	assert_eq!(t, initial);
+}
+
+mod v1_migration {
+	use super::*;
+	use crate::migrations::{v1::LazyMigrationV0ToV1, CONVICTION_VOTING_ID};
+	use frame_support::{
+		migrations::SteppedMigration,
+		traits::{
+			fungible::InspectFreeze, GetStorageVersion, LockableCurrency, StorageVersion,
+			WithdrawReasons,
+		},
+		weights::{Weight, WeightMeter},
+		BoundedVec,
+	};
+
+	type Migration = LazyMigrationV0ToV1<Test, (), Balances>;
+
+	/// Recreate the pre-migration state: class locks in storage backed by a currency lock.
+	fn set_old_lock(who: u64, locks: Vec<(u8, u64)>) {
+		let max = locks.iter().map(|(_, a)| *a).max().unwrap_or(0);
+		ClassLocksFor::<Test>::insert(who, BoundedVec::try_from(locks).unwrap());
+		if max > 0 {
+			<Balances as LockableCurrency<u64>>::set_lock(
+				CONVICTION_VOTING_ID,
+				&who,
+				max,
+				WithdrawReasons::except(WithdrawReasons::RESERVE),
+			);
+		}
+	}
+
+	fn has_old_lock(who: u64) -> bool {
+		pallet_balances::Locks::<Test>::get(who)
+			.iter()
+			.any(|l| l.id == CONVICTION_VOTING_ID)
+	}
+
+	fn frozen(who: u64) -> u64 {
+		Balances::balance_frozen(&FreezeReason::ConvictionVoting.into(), &who)
+	}
+
+	fn run_to_completion() -> u32 {
+		let mut cursor = None;
+		let mut steps = 0;
+		loop {
+			// Room for exactly one account per step, to exercise the cursor.
+			let mut meter = WeightMeter::with_limit(
+				<() as crate::weights::WeightInfo>::v1_migration_step() * 2 -
+					Weight::from_parts(1, 1),
+			);
+			cursor = Migration::step(cursor, &mut meter).unwrap();
+			steps += 1;
+			if cursor.is_none() {
+				return steps;
+			}
+		}
+	}
+
+	#[test]
+	fn migrates_locks_to_freezes() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(0).put::<Voting>();
+			set_old_lock(1, vec![(0, 5), (1, 8)]);
+			set_old_lock(2, vec![(2, 20)]);
+			set_old_lock(3, vec![]);
+			assert_eq!(Balances::usable_balance(1), 2);
+
+			run_to_completion();
+
+			assert_eq!(frozen(1), 8);
+			assert_eq!(frozen(2), 20);
+			assert_eq!(frozen(3), 0);
+			for who in 1..=3 {
+				assert!(!has_old_lock(who));
+			}
+			// The restriction is unchanged by the migration.
+			assert_eq!(Balances::usable_balance(1), 2);
+			assert_eq!(Balances::usable_balance(2), 0);
+			// Class locks themselves are untouched.
+			assert_eq!(ClassLocksFor::<Test>::get(1).into_inner(), vec![(0, 5), (1, 8)]);
+			assert_eq!(Voting::on_chain_storage_version(), StorageVersion::new(1));
+		});
+	}
+
+	#[test]
+	fn migration_resumes_from_cursor() {
+		new_test_ext().execute_with(|| {
+			for who in 1..=5 {
+				set_old_lock(who, vec![(0, who)]);
+			}
+
+			// One account per step, plus a final step that sees the end of the map.
+			assert_eq!(run_to_completion(), 6);
+
+			for who in 1..=5 {
+				assert_eq!(frozen(who), who);
+				assert!(!has_old_lock(who));
+			}
+		});
+	}
+
+	#[test]
+	fn migrated_freeze_is_updated_on_unlock() {
+		new_test_ext().execute_with(|| {
+			set_old_lock(1, vec![(0, 5)]);
+			run_to_completion();
+			assert_eq!(frozen(1), 5);
+
+			// No votes back the class lock, so unlocking clears the freeze.
+			assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+			assert_eq!(frozen(1), 0);
+			assert_eq!(Balances::usable_balance(1), 10);
+		});
+	}
+
+	#[test]
+	fn insufficient_weight_errors() {
+		new_test_ext().execute_with(|| {
+			let mut meter = WeightMeter::with_limit(Weight::zero());
+			assert!(Migration::step(None, &mut meter).is_err());
+		});
+	}
 }
