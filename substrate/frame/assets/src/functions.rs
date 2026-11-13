@@ -368,6 +368,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Returns a deposit or a consumer reference, destroying an asset-account.
 	/// Non-zero balance accounts refunded and destroyed only if `allow_burn` is true.
+	///
+	/// A blocked account is not destroyed: it keeps a zero-balance entry that stays blocked until
+	/// thawed, so refunding cannot be used to lift the block.
 	pub(super) fn do_refund(id: T::AssetId, who: T::AccountId, allow_burn: bool) -> DispatchResult {
 		use AssetStatus::*;
 		use ExistenceReason::*;
@@ -382,34 +385,45 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Some(deposit) = account.reason.take_deposit() {
 			T::Currency::unreserve(&who, deposit);
 		}
+		let burned = core::mem::replace(&mut account.balance, Zero::zero());
+		let keep_blocked = account.status.is_blocked();
 
-		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
-			if !account.balance.is_zero() {
-				debug_assert!(details.supply >= account.balance, "supply < balance; qed");
-				details.supply = details.supply.saturating_sub(account.balance);
+		if keep_blocked {
+			if let Consumer = account.reason {
+				frame_system::Pallet::<T>::dec_consumers(&who);
 			}
+			account.reason = DepositRefunded;
+			Account::<T, I>::insert(&id, &who, account);
+		} else if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
 			// deposit may have been refunded, need to update `Account`
+			account.balance = burned;
 			Account::<T, I>::insert(id, &who, account);
 			return Ok(());
 		}
 
+		if !burned.is_zero() {
+			debug_assert!(details.supply >= burned, "supply < balance; qed");
+			details.supply = details.supply.saturating_sub(burned);
+		}
 		Asset::<T, I>::insert(&id, details);
 
-		if !account.balance.is_zero() {
+		if !burned.is_zero() {
 			Self::deposit_event(Event::Burned {
 				asset_id: id.clone(),
 				owner: who.clone(),
-				balance: account.balance,
+				balance: burned,
 			});
-			T::CallbackHandle::burned(&id, &who, account.balance);
+			T::CallbackHandle::burned(&id, &who, burned);
 		}
 
-		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id.clone(), &who);
-		T::Holder::died(id, &who);
+		if !keep_blocked {
+			// Executing a hook here is safe, since it is not in a `mutate`.
+			T::Freezer::died(id.clone(), &who);
+			T::Holder::died(id, &who);
+		}
 		Ok(())
 	}
 

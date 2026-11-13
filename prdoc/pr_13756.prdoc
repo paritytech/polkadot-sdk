@@ -1,0 +1,16 @@
+title: Keep a refunded asset account blocked
+
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    `pallet_assets::refund` removed the asset account even when it was blocked, so the holder
+    could burn their balance, drop the `Blocked` status together with the entry and receive the
+    asset again afterwards. Refunding a blocked account now burns the balance and returns the
+    deposit or consumer reference as before, but keeps a zero-balance entry that stays blocked
+    until the admin thaws it, which removes the entry. A blocked holder can therefore still free
+    a consumer reference forced on them by an asset owner, but can no longer lift the block.
+    `freeze` fails with `NoAccount` on such an entry.
+
+crates:
+- name: pallet-assets
+  bump: patch

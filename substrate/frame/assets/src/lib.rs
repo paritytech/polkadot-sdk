@@ -1249,8 +1249,9 @@ pub mod pallet {
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Frozen;
+				let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
+				ensure!(!account.is_tombstone(), Error::<T, I>::NoAccount);
+				account.status = AccountStatus::Frozen;
 				Ok(())
 			})?;
 
@@ -1265,6 +1266,8 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be unfrozen.
 		///
+		/// A blocked account left with a zero balance by `refund` is removed.
+		///
 		/// Emits `Thawed`.
 		///
 		/// Weight: `O(1)`
@@ -1277,7 +1280,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 
-			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
 				Error::<T, I>::IncorrectStatus
@@ -1285,11 +1288,18 @@ pub mod pallet {
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Liquid;
-				Ok(())
-			})?;
+			let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoAccount)?;
+			if account.is_tombstone() {
+				Self::ensure_account_can_die(id.clone(), &who)?;
+				Account::<T, I>::remove(&id, &who);
+				details.accounts.saturating_dec();
+				Asset::<T, I>::insert(&id, details);
+				T::Freezer::died(id.clone(), &who);
+				T::Holder::died(id.clone(), &who);
+			} else {
+				account.status = AccountStatus::Liquid;
+				Account::<T, I>::insert(&id, &who, account);
+			}
 
 			Self::deposit_event(Event::<T, I>::Thawed { asset_id: id, who });
 			Ok(())
@@ -1791,6 +1801,9 @@ pub mod pallet {
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
 		/// the asset account contains holds or freezes in place.
 		///
+		/// A blocked asset account is not destroyed: its balance is burned and its deposit or
+		/// consumer reference returned, but it stays blocked with a zero balance until thawed.
+		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::refund())]
@@ -2120,10 +2133,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				let total_balance = account.balance.saturating_add(held);
 				if total_balance < details.min_balance {
-					if !matches!(
-						account.reason,
-						ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
-					) {
+					let blocked_tombstone = account.is_tombstone() && account.status.is_blocked();
+					if !blocked_tombstone &&
+						!matches!(
+							account.reason,
+							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+						) {
 						log::warn!(
 							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
 							account.balance,
