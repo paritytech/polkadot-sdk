@@ -761,7 +761,7 @@ mod compilation_cost_benchmark {
 }
 
 /// Check that contracts with the same account id have different trie ids.
-/// Check the `Nonce` storage item for more information.
+/// See `ContractInfo::new` for how the trie id is derived.
 #[test]
 fn instantiate_unique_trie_id() {
 	let (factory_binary, _) = compile_module("self_destruct_factory").unwrap();

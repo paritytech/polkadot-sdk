@@ -322,6 +322,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:3 w:2)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -347,7 +349,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(21_137, 0).saturating_mul(c.into()))
 			// Standard Error: 80
 			.saturating_add(Weight::from_parts(4_698, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().reads(17))
 			.saturating_add(T::DbWeight::get().writes(12))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:2)
@@ -364,6 +366,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:3 w:2)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -392,7 +396,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(17_665, 0).saturating_mul(c.into()))
 			// Standard Error: 38
 			.saturating_add(Weight::from_parts(1_332, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(19))
+			.saturating_add(T::DbWeight::get().reads(20))
 			.saturating_add(T::DbWeight::get().writes(17))
 	}
 	fn deposit_eth_extrinsic_revert_event() -> Weight {
@@ -413,6 +417,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -437,7 +443,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 11483))
 			// Standard Error: 5
 			.saturating_add(Weight::from_parts(4_342, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
+			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
@@ -1488,6 +1494,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:1 w:1)
@@ -1506,7 +1514,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 9681))
 			// Standard Error: 5
 			.saturating_add(Weight::from_parts(4_183, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
@@ -1519,6 +1527,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:1 w:1)
@@ -1537,7 +1547,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 9234))
 			// Standard Error: 413_638
 			.saturating_add(Weight::from_parts(38_283_558, 0).saturating_mul(d.into()))
-			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
 	/// Storage: `System::Account` (r:3 w:3)
@@ -1546,6 +1556,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:2 w:1)
@@ -1572,7 +1584,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 14057))
 			// Standard Error: 18
 			.saturating_add(Weight::from_parts(7_554, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
+			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().writes(12))
 	}
 	/// Storage: `System::Account` (r:3 w:3)
@@ -1581,6 +1593,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:2 w:1)
@@ -1607,7 +1621,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 13932))
 			// Standard Error: 689_756
 			.saturating_add(Weight::from_parts(43_325_556, 0).saturating_mul(d.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
+			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().writes(12))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
