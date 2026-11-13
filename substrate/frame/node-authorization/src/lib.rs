@@ -50,7 +50,7 @@ extern crate alloc;
 
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame::{
-	deps::{sp_core::OpaquePeerId as PeerId, sp_io},
+	deps::{codec::EncodeLike, sp_core::OpaquePeerId as PeerId, sp_io},
 	prelude::*,
 };
 pub use pallet::*;
@@ -99,17 +99,14 @@ pub mod pallet {
 
 	/// The set of well known nodes. This is stored sorted (just by value).
 	#[pallet::storage]
-	#[pallet::getter(fn well_known_nodes)]
 	pub type WellKnownNodes<T> = StorageValue<_, BTreeSet<PeerId>, ValueQuery>;
 
 	/// A map that maintains the ownership of each node.
 	#[pallet::storage]
-	#[pallet::getter(fn owners)]
 	pub type Owners<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, T::AccountId>;
 
 	/// The additional adaptive connections of each node.
 	#[pallet::storage]
-	#[pallet::getter(fn additional_connection)]
 	pub type AdditionalConnections<T> =
 		StorageMap<_, Blake2_128Concat, PeerId, BTreeSet<PeerId>, ValueQuery>;
 
@@ -449,6 +446,21 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The set of well known nodes.
+	pub fn well_known_nodes() -> BTreeSet<PeerId> {
+		WellKnownNodes::<T>::get()
+	}
+
+	/// The owner of the given node, if any.
+	pub fn owners<KArg: EncodeLike<PeerId>>(node: KArg) -> Option<T::AccountId> {
+		Owners::<T>::get(node)
+	}
+
+	/// The additional adaptive connections of the given node.
+	pub fn additional_connection<KArg: EncodeLike<PeerId>>(node: KArg) -> BTreeSet<PeerId> {
+		AdditionalConnections::<T>::get(node)
+	}
+
 	fn initialize_nodes(nodes: &Vec<(PeerId, T::AccountId)>) {
 		let peer_ids = nodes.iter().map(|item| item.0.clone()).collect::<BTreeSet<PeerId>>();
 		WellKnownNodes::<T>::put(&peer_ids);
