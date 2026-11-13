@@ -263,7 +263,7 @@ fn deregister_works() {
 }
 
 #[test]
-fn check_code_upgrade_refuses_a_deregistered_para() {
+fn check_code_upgrade_refuses_a_transitioning_para() {
 	new_test_ext().execute_with(|| {
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -285,6 +285,8 @@ fn check_code_upgrade_refuses_a_deregistered_para() {
 			test_genesis_head(32),
 			validation_code.clone(),
 		));
+		assert!(paras::Pallet::<Test>::lifecycle(para_id).is_some_and(|l| l.is_onboarding()));
+		assert_eq!(check(), Err(()));
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);

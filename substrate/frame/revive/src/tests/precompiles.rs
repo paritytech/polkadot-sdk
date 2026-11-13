@@ -30,6 +30,7 @@ use alloy_core::{
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_system::RawOrigin;
+use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 
 sol! {
@@ -46,6 +47,7 @@ sol! {
 		function callRuntime(bytes memory call) external;
 		function passData(uint32 inputLen) external;
 		function returnData(uint32 returnLen) external returns (bytes);
+		function callContract(address target) external;
 	}
 }
 
@@ -124,6 +126,17 @@ impl<T: Config> Precompile for NoInfo<T> {
 			},
 			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) => {
 				Ok(vec![42; *returnLen as usize])
+			},
+			INoInfoCalls::callContract(INoInfo::callContractCall { target }) => {
+				env.call(
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
+					&H160::from_slice(target.as_slice()),
+					0.into(),
+					Vec::new(),
+					ReentrancyProtection::AllowReentry,
+					false,
+				)?;
+				Ok(Vec::new())
 			},
 		}
 	}
