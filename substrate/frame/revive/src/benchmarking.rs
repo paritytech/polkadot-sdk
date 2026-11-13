@@ -1674,10 +1674,10 @@ mod benchmarks {
 		})
 		.abi_encode();
 
-		// The burner is a contract other than the one at index 0, whose keys are the only
-		// whitelisted ones. The weight then covers loading the account info of the burner, which
-		// a caller outside of a contract frame has not paid for. The assertion guards the system
-		// account of the burner, which is whitelisted together with its account info.
+		// `CallSetup` whitelists the account info of its own contract, so the burner is another
+		// one. The weight then covers loading the account info of the burner, which a caller
+		// outside of a contract frame has not paid for. The assertion guards the system account
+		// of the burner against a future whitelist.
 		let burner = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		burner.set_balance(caller_funding::<T>());
 		assert_account_not_whitelisted::<T>(&burner.account_id);

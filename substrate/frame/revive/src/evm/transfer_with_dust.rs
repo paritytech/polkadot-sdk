@@ -137,9 +137,7 @@ pub(crate) fn transfer_with_dust<T: Config>(
 /// `remove`, which decides what happens to it.
 ///
 /// Converting missing dust burns one unit through the currency before `remove` runs. The balance
-/// check at the top guarantees that `remove` does not fail after that. Callers run inside a
-/// frame whose changes are rolled back on failure, so a failure of `remove` would not leave the
-/// conversion behind either.
+/// check at the top guarantees that `remove` does not fail after that.
 fn remove_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
