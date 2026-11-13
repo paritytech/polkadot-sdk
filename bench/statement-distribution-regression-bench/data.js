@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794591719846,
+  "lastUpdate": 1794606068968,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8af5df001111104be59a9f9ec146657a55e9d223",
-          "message": "Small fixes (#11804)\n\n## `pallet-asset-conversion`\n- Changes `Config::LPFee` from `Get<u32>` (tenths-of-a-percent encoding)\nto `Get<Permill>`.\n\n## `frame-system`\n- Extends `Event::CodeUpdated` to include the updated runtime code hash:\n`CodeUpdated { hash }`.\n\n## `pallet-psm`\n- Adds a `try-runtime` `pre_upgrade` guard that checks configured asset\ndecimals before initialization.\n\n## `pallet-balances`\n- Removes a tautological internal assertion in account mutation flow.\n\n## `pallet-tips`\n- Hardens tip payout by returning `NoActiveTippers` when all recorded\ntippers become inactive instead of indexing an empty tip set.\n- Adds a regression test for the `NoActiveTippers` close-path.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-28T22:47:42Z",
-          "tree_id": "177d8b612ca22dd4fb7d44fc08009f6de991b372",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8af5df001111104be59a9f9ec146657a55e9d223"
-        },
-        "date": 1777421476651,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.10000000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07846359779999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03823132451399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038857092355999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f322d0164b344a59cd8c9ea76323b4d83cd569f7",
+          "message": "Registrar: Schedule Code Upgrade (#13112)\n\n## What's added\n\n- `schedule_code_upgrade` on `pallet-registrar-para`: asks the relay\nchain to authorize an upgrade by code hash and length. Root, the para,\nor its manager while unlocked.\n- `PendingCodeUpgrades` on `pallet-registrar-relay`: the request is\nchecked via `ParachainRegistrar::check_code_upgrade` and held until\n`CodeUpgradeValidPeriod`.\n- `apply_authorized_code_upgrade`: unsigned, fee-free upload of the\nmatching code. Schedules the upgrade and reports back to the parachain.\n- `paras_registrar` implements `check_code_upgrade` and\n`schedule_code_upgrade`, using the new `can_upgrade_validation_code` in\n`polkadot-runtime-parachains`.\n\n## Decisions\n\n- Only hash and length cross chains. The code is uploaded to the relay\nseparately, same as registration.\n- No deposit and nothing stored on the parachain, so the relay's answer\nonly surfaces as events.\n- Unlike registrations, the authorization expires: whether an upgrade\ncan be scheduled depends on relay state that moves on its own. Pool\nlongevity is capped to the expiry.\n- A new authorization replaces the para's previous one, so storage stays\nat one entry per para.\n- If scheduling fails on the relay, the extrinsic fails and the\nauthorization stays, so the upload can be retried.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-13T19:33:29Z",
+          "tree_id": "96eb4a9479c7de74f577ad7ffc949dcaa5bebda8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f322d0164b344a59cd8c9ea76323b4d83cd569f7"
+        },
+        "date": 1794606032517,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08685900584999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038386778042,
             "unit": "seconds"
           }
         ]
