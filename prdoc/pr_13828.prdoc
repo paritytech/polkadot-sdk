@@ -1,0 +1,15 @@
+title: 'statement-store: send a statement that has no routing target on a detour'
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT path a node no longer loses a statement that it cannot route. When the node is
+    no replica for the statement's topics and has no connected peer closer to them, it sends the
+    statement to its farthest connected full peer that did not send it, whose own routing peers
+    lie elsewhere in the key space. While no peer can take the statement, it stays held in the
+    store, and the initial sync of the next routing target delivers it. The hold ends when the
+    statement expires or the node becomes a replica for it. Before, the retention sweep removed
+    such a statement and banned its hash, so a restart of the only routing peer toward a topic
+    lost every statement sent in that window.
+crates:
+- name: sc-network-statement
+  bump: patch

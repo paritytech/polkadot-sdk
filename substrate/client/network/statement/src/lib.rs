@@ -42,8 +42,9 @@
 //!
 //! There is no per-peer record of delivered statements. A statement is propagated once, on the
 //! tick after its import: the propagation pass drains the store's recent set, so no later pass
-//! can pick it up again. The only duplicates worth preventing are statements sent back to the
-//! peers they came from.
+//! can pick it up again. A statement with no routing target is the exception: it takes a detour
+//! through the farthest full peer, or stays held until a routing target syncs it. The only
+//! duplicates worth preventing are statements sent back to the peers they came from.
 //!
 //! While a statement waits for validation, the peers it came from are recorded in
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
@@ -135,7 +136,7 @@ use governor::{
 	state::{InMemoryState, NotKeyed},
 	Quota, RateLimiter,
 };
-use outbox::PropagationOutboxes;
+use outbox::{DeadEnd, PropagationOutboxes};
 use prometheus_endpoint::{
 	exponential_buckets, register, Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramOpts,
 	HistogramVec, Opts, PrometheusError, Registry, U64,
@@ -1265,6 +1266,12 @@ impl Peer {
 			(self.is_light || v2dht_enabled()))
 	}
 
+	/// Whether a statement may take a detour through this peer: it is ready to receive, and as
+	/// a full node it forwards what it receives.
+	fn can_forward(&self) -> bool {
+		self.can_receive() && !self.is_light
+	}
+
 	/// The `route` label for this peer.
 	///
 	/// If the v2 DHT path is off, we send everything to every peer, so the answer is always
@@ -2285,6 +2292,69 @@ where
 		}
 	}
 
+	/// Hold the statements that have no routing target, so the retention sweep keeps them
+	/// until [`Self::resolve_dead_ends`] finds them a peer.
+	fn hold_dead_ends(&mut self, statements: &[(u64, Hash, Statement)], dead_ends: Vec<usize>) {
+		for index in dead_ends {
+			let (seq, hash, statement) = &statements[index];
+			let senders = [&self.recently_received_statements, &self.pending_statements_peers]
+				.iter()
+				.filter_map(|senders| senders.get(hash))
+				.flatten()
+				.copied()
+				.collect();
+			self.propagation_outboxes.hold_dead_end(DeadEnd {
+				seq: *seq,
+				hash: *hash,
+				topics: statement.topics().to_vec(),
+				expires_at: u64::from(statement.get_expiration_timestamp_secs()),
+				senders,
+			});
+		}
+	}
+
+	/// Release or detour each held dead end. The farthest peer takes the detour because its
+	/// routing peers lie elsewhere in the key space.
+	fn resolve_dead_ends(&mut self) {
+		if self.propagation_outboxes.dead_ends().is_empty() {
+			return;
+		}
+		let detour_peers: Vec<PeerId> = self
+			.v2dht
+			.peers_farthest_first()
+			.into_iter()
+			.filter(|peer| self.peers.get(peer).is_some_and(|peer| peer.can_forward()))
+			.collect();
+		let now = unix_timestamp_secs();
+		let mut resolved = HashSet::new();
+		let mut detours = Vec::new();
+		for dead_end in self.propagation_outboxes.dead_ends() {
+			if now >= dead_end.expires_at {
+				resolved.insert(dead_end.hash);
+				continue;
+			}
+			let synced = |peer: &PeerId| {
+				!self.pending_initial_syncs.contains_key(peer) &&
+					self.peers.get(peer).is_some_and(|peer| peer.sync_watermark > dead_end.seq)
+			};
+			let targets = self.v2dht.routing_targets(&dead_end.topics);
+			if self.v2dht.is_replica_for(&dead_end.topics) || targets.iter().any(synced) {
+				resolved.insert(dead_end.hash);
+			} else if targets.is_empty() {
+				let detour = detour_peers.iter().find(|peer| !dead_end.senders.contains(peer));
+				detours.extend(detour.map(|peer| (*peer, dead_end.hash)));
+			}
+		}
+		// The outbox takes its own hold on a hash before the dead end gives up its one.
+		for (peer, hash) in detours {
+			log::debug!(target: LOG_TARGET, "No routing target for {hash:?}, detour via {peer}");
+			self.push_outbox_hashes(&peer, vec![hash]);
+			resolved.insert(hash);
+		}
+		self.propagation_outboxes
+			.retain_dead_ends(|dead_end| !resolved.contains(&dead_end.hash));
+	}
+
 	/// Append `hashes` to the peer's outbox and send the next chunk if its slot is free.
 	fn push_outbox_hashes(&mut self, who: &PeerId, hashes: Vec<Hash>) {
 		if hashes.is_empty() {
@@ -2579,17 +2649,22 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				let targets = self.v2dht.propagation_plan(&statements);
-				self.queue_statements_for_targets(&statements, targets);
+				let plan = self.v2dht.propagation_plan(&statements);
+				self.queue_statements_for_targets(&statements, plan.targets);
+				self.hold_dead_ends(&statements, plan.dead_ends);
 			} else {
 				self.do_propagate_statements(&statements);
 			}
-			// The outboxes hold what they queued, so the take's holds can go.
+			// The outboxes and the dead ends hold what they keep, so the take's holds can go.
 			self.propagation_outboxes.release_taken(&statements);
 		}
-		// Every entry here belongs to an already drained statement, so it is done
-		// propagating. Statements imported after the drain get their entries only
-		// after this clear, when the event loop processes their submit results.
+		if v2dht_enabled() {
+			self.resolve_dead_ends();
+		}
+		// Every entry here belongs to an already drained statement. It is done propagating, or
+		// it is a dead end with its own copy of the senders. Statements imported after the
+		// drain get their entries only after this clear, when the event loop processes their
+		// submit results.
 		self.recently_received_statements.clear();
 	}
 
@@ -2637,7 +2712,8 @@ where
 				}
 				// Hashes queued for propagation before this scheduling sit below the new
 				// watermark, so the cursor already covers them; dropping the outbox keeps
-				// them from arriving twice.
+				// them from arriving twice. A hash on a detour is lost here, because the sync of
+				// a peer that is no routing target skips it.
 				self.propagation_outboxes.remove(&peer);
 			}
 			self.pending_initial_syncs.insert(
@@ -4457,6 +4533,187 @@ mod tests {
 
 		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
 		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+	}
+
+	#[tokio::test]
+	async fn dead_end_statement_stays_held_until_a_routing_target_syncs_it() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let target = peer_ids[0];
+		// With one replica per topic, the target is the replica of the topic at its own key.
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			PeerId::random(),
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		handler.v2dht.on_peer_identified(target, true);
+
+		let mut statement = new_live_statement();
+		statement.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&target.to_bytes())));
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(5, hash, statement)];
+		let held = || statement_store.held.lock().unwrap().get(&hash).copied();
+
+		let plan = handler.v2dht.propagation_plan(&statements);
+		assert_eq!(plan.dead_ends, vec![0]);
+		handler.hold_dead_ends(&statements, plan.dead_ends);
+		handler.resolve_dead_ends();
+		assert_eq!(held(), Some(1), "no routing target is connected");
+
+		handler.v2dht.on_substream_opened(target);
+		handler.resolve_dead_ends();
+		assert_eq!(held(), Some(1), "the target has no initial sync yet");
+
+		handler.peers.get_mut(&target).unwrap().sync_watermark = 5;
+		handler.resolve_dead_ends();
+		assert_eq!(held(), Some(1), "a sync up to the statement's sequence leaves it out");
+
+		handler.peers.get_mut(&target).unwrap().sync_watermark = 6;
+		handler.pending_initial_syncs.insert(
+			target,
+			PendingInitialSync {
+				cursor: 0,
+				watermark: 6,
+				started_at: Instant::now(),
+				sync_id: 0,
+				already_served: None,
+			},
+		);
+		handler.resolve_dead_ends();
+		assert_eq!(held(), Some(1), "the initial sync is still running");
+
+		handler.pending_initial_syncs.remove(&target);
+		handler.resolve_dead_ends();
+		assert_eq!(held(), None);
+	}
+
+	#[tokio::test]
+	async fn dead_end_statement_is_released_on_expiry_or_once_the_node_is_its_replica() {
+		let (mut handler, statement_store, _network, _notification_service, _, _) =
+			build_handler(0);
+		// A lone node with one discovered peer is no replica of the topic at that peer's key,
+		// and the replica of the topic at its own key.
+		let remote = PeerId::random();
+		let local = PeerId::random();
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			local,
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		handler.v2dht.on_peer_identified(remote, true);
+
+		let mut statement = new_live_statement();
+		statement.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		let mut expired = statement.clone();
+		expired.set_expiry_from_parts(1, 0);
+		let mut replicated = statement.clone();
+		replicated.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&local.to_bytes())));
+		let statements = vec![
+			(0, statement.hash(), statement),
+			(1, expired.hash(), expired),
+			(2, replicated.hash(), replicated),
+		];
+
+		handler.hold_dead_ends(&statements, vec![0, 1, 2]);
+		handler.resolve_dead_ends();
+
+		let held = statement_store.held.lock().unwrap();
+		assert_eq!(held.get(&statements[0].1), Some(&1), "a live dead end waits for a peer");
+		assert_eq!(held.get(&statements[1].1), None);
+		assert_eq!(held.get(&statements[2].1), None);
+	}
+
+	#[tokio::test]
+	async fn dead_end_statement_takes_a_detour_past_its_sender_and_a_light_peer() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(2);
+		let key = |peer: &PeerId| sp_crypto_hashing::blake2_256(&peer.to_bytes());
+		// With one replica per topic, the unreachable peer is the replica of the topic at its
+		// own key. The local node is closer to the topic than both connected peers, so neither
+		// is a routing target.
+		let unreachable = PeerId::random();
+		let topic = key(&unreachable);
+		let distance = |peer: &PeerId| -> Vec<u8> {
+			key(peer).iter().zip(topic).map(|(a, b)| a ^ b).collect()
+		};
+		let local = iter::repeat_with(PeerId::random)
+			.find(|local| peer_ids.iter().all(|peer| distance(local) < distance(peer)))
+			.expect("a random peer is closer to the topic than two others soon enough");
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			local,
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		handler.v2dht.on_peer_identified(unreachable, true);
+		for peer in &peer_ids {
+			handler.v2dht.on_substream_opened(*peer);
+			// A busy send slot keeps the queued hash in the outbox.
+			handler.in_flight_chunks.insert(*peer, 0);
+		}
+		let farthest = handler.v2dht.peers_farthest_first()[0];
+		let other = *peer_ids.iter().find(|peer| **peer != farthest).unwrap();
+
+		let statements: Vec<_> = [b"from the farthest peer", b"submitted on this node"]
+			.into_iter()
+			.enumerate()
+			.map(|(seq, data)| {
+				let mut statement = new_live_statement();
+				statement.set_plain_data(data.to_vec());
+				statement.set_topic(0, Topic(topic));
+				(seq as u64, statement.hash(), statement)
+			})
+			.collect();
+		let (received, submitted) = (statements[0].1, statements[1].1);
+		handler
+			.recently_received_statements
+			.entry(received)
+			.or_default()
+			.insert(farthest);
+
+		let plan = handler.v2dht.propagation_plan(&statements);
+		assert_eq!(plan.dead_ends, vec![0, 1]);
+		handler.hold_dead_ends(&statements, plan.dead_ends);
+		handler.resolve_dead_ends();
+
+		assert_eq!(handler.propagation_outboxes.get(&other).unwrap(), &VecDeque::from([received]));
+		assert_eq!(
+			handler.propagation_outboxes.get(&farthest).unwrap(),
+			&VecDeque::from([submitted])
+		);
+
+		// A light peer forwards nothing, so the detour passes it by.
+		handler.peers.get_mut(&farthest).unwrap().is_light = true;
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"past a light peer".to_vec());
+		statement.set_topic(0, Topic(topic));
+		let past_light = statement.hash();
+		handler.hold_dead_ends(&[(2, past_light, statement)], vec![0]);
+		handler.resolve_dead_ends();
+
+		assert_eq!(
+			handler.propagation_outboxes.get(&other).unwrap(),
+			&VecDeque::from([received, past_light])
+		);
+		assert!(handler.propagation_outboxes.dead_ends().is_empty());
+		let held = statement_store.held.lock().unwrap();
+		assert_eq!(
+			(held[&received], held[&submitted], held[&past_light]),
+			(1, 1, 1),
+			"only the outboxes hold them"
+		);
 	}
 
 	#[tokio::test]
