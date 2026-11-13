@@ -41,10 +41,11 @@
 //! given one, frozen, as a new contract is.
 //!
 //! A contract, or the pallet account for code deposits, has one [`crate::NativeDepositOf`] row per
-//! payer, and nothing bounds how many. A swap therefore reads the rows in chunks over as many
-//! steps as they need: the cursor keeps the payer of the last row read and the native summed so
-//! far ([`RowSum`]), and nothing is written until the last row is read. Each step is charged for
-//! one row up front and reads further rows only while the weight meter has room for them.
+//! payer, and nothing bounds how many. Every iteration of a step therefore does one item of work
+//! and is charged its own benchmarked weight: a code entry, an account, one row, the swap once
+//! the rows are summed, or a deletion-queue slot. The cursor keeps the payer of the last row read
+//! and the native summed so far ([`RowSum`]), and nothing is written until the swap. Revive
+//! refuses state changes while migrations run, so the rows cannot change between iterations.
 //!
 //! Phase 3 rewrites the [`crate::DeletionQueue`] entries from their old `TrieId` value into the
 //! new [`crate::storage::DeletionQueueItem`] format. Entries already in the new format, queued by
@@ -85,7 +86,10 @@ use sp_runtime::traits::{Get, Saturating, TrailingZeroInput, Zero};
 extern crate alloc;
 
 #[cfg(feature = "try-runtime")]
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 
 /// The [`NativeDepositOf`] rows of one account that a swap has summed so far.
 ///
@@ -97,12 +101,14 @@ pub struct RowSum<AccountId, Balance> {
 	last_payer: Option<AccountId>,
 	/// Native owed by the rows summed so far.
 	owed: Balance,
+	/// Whether no rows are left, so the next iteration swaps.
+	complete: bool,
 }
 
 impl<AccountId, Balance: Zero> RowSum<AccountId, Balance> {
 	/// A sum that has read no rows yet.
-	fn new() -> Self {
-		Self { last_payer: None, owed: Zero::zero() }
+	pub fn new() -> Self {
+		Self { last_payer: None, owed: Zero::zero(), complete: false }
 	}
 }
 
@@ -145,34 +151,16 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let code_step = <T as Config>::WeightInfo::v4_code_upload_step();
-		let row = Self::native_row_reads(1);
-		let swap_step = <T as Config>::WeightInfo::v4_contract_step().saturating_add(row);
-		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
-		let first_step = code_step.max(swap_step).saturating_add(T::DbWeight::get().reads(3));
-		let required = first_step.max(deletion_queue_step);
+		let required = Self::required_weight();
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
 		loop {
-			let step_weight = match &cursor {
-				None => first_step,
-				Some(Cursor::CodeUpload(_)) => code_step,
-				Some(Cursor::CodeRows(_)) |
-				Some(Cursor::Contract(_)) |
-				Some(Cursor::ContractRows(..)) => swap_step,
-				Some(Cursor::DeletionQueue(_)) => deletion_queue_step,
-			};
-			if meter.try_consume(step_weight).is_err() {
+			if meter.try_consume(Self::iteration_weight(&cursor)).is_err() {
 				break;
 			}
-			// The step weight covers the first row; allow as many more as still fit.
-			let max_rows = Self::rows_within(meter.remaining(), row).saturating_add(1);
-			let (next, rows_read) = Self::step_once_counting_rows(cursor, max_rows);
-			// `rows_read <= max_rows`, so the rows beyond the first fit in what was left.
-			meter.consume(Self::native_row_reads(rows_read.saturating_sub(1)));
-			cursor = next;
+			cursor = Self::step_once(cursor);
 			if cursor.is_none() {
 				break;
 			}
@@ -208,10 +196,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		}
 
 		// Per contract and delegated account: total deposit on hold and the native amount owed by
-		// its rows.
+		// its rows. Without PGAS support phase 2 does not run and there is nothing to check.
 		let mut per_contract: BTreeMap<H160, (BalanceOf<T>, BalanceOf<T>)> = BTreeMap::new();
 		for (addr, info) in AccountInfoOf::<T>::iter() {
-			if matches!(info.account_type, AccountType::EOA) {
+			if !T::Deposit::SUPPORTS_PGAS || matches!(info.account_type, AccountType::EOA) {
 				continue;
 			}
 			let contract = T::AddressMapper::to_account_id(&addr);
@@ -248,6 +236,84 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			)>::decode(&mut &prev[..])
 			.expect("Failed to decode pre_upgrade state");
 
+		// Without PGAS support phases 1 and 2 do not run, so only phase 3 is checked.
+		if T::Deposit::SUPPORTS_PGAS {
+			Self::check_deposits(per_owner, swap_code, code_hold, per_contract)?;
+		}
+
+		for (key, expected) in deletion_queue {
+			let got = DeletionQueue::<T>::get(key);
+			if got.as_ref() != Some(&expected) {
+				log::error!(
+					target: LOG_TARGET,
+					"v4: DeletionQueue[{key}] = {got:?}, expected {expected:?}",
+				);
+				return Err("v4: DeletionQueue entry does not match the expected item".into());
+			}
+		}
+		Ok(())
+	}
+}
+
+/// Pre-v4 storage layouts.
+pub(crate) mod old {
+	use super::*;
+
+	/// Pre-v4 layout: a single [`TrieId`] per slot, no associated contract account. We only
+	/// iterate it; new entries are written via the live [`crate::DeletionQueue`].
+	#[storage_alias]
+	pub(crate) type DeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
+}
+
+impl<T: Config> Migration<T> {
+	/// The weight of the most expensive iteration, which a block must have room for.
+	fn required_weight() -> frame_support::weights::Weight {
+		let first = Self::iteration_weight(&None);
+		[
+			<T as Config>::WeightInfo::v4_account_step(),
+			<T as Config>::WeightInfo::v4_row_step(),
+			<T as Config>::WeightInfo::v4_swap_step(),
+			<T as Config>::WeightInfo::v4_deletion_queue_step(),
+		]
+		.into_iter()
+		.fold(first, |max, weight| max.max(weight))
+	}
+
+	/// The weight of the next iteration from `cursor`.
+	fn iteration_weight(cursor: &Option<CursorOf<T>>) -> frame_support::weights::Weight {
+		match cursor {
+			// Decides between rebuilding and reconciling, then does the first code entry.
+			None => <T as Config>::WeightInfo::v4_code_upload_step()
+				.saturating_add(T::DbWeight::get().reads(3)),
+			Some(Cursor::CodeUpload(_)) => <T as Config>::WeightInfo::v4_code_upload_step(),
+			Some(Cursor::Contract(_)) => <T as Config>::WeightInfo::v4_account_step(),
+			Some(Cursor::CodeRows(sum)) | Some(Cursor::ContractRows(_, sum)) if sum.complete => {
+				<T as Config>::WeightInfo::v4_swap_step()
+			},
+			Some(Cursor::CodeRows(_)) | Some(Cursor::ContractRows(..)) => {
+				<T as Config>::WeightInfo::v4_row_step()
+			},
+			Some(Cursor::DeletionQueue(_)) => <T as Config>::WeightInfo::v4_deletion_queue_step(),
+		}
+	}
+
+	/// Sum of the [`NativeDepositOf`] rows recorded against `holder`. Reads every row, so it is
+	/// only for `try-runtime` checks and tests, never for a migration step.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn recorded_native(holder: &T::AccountId) -> BalanceOf<T> {
+		NativeDepositOf::<T>::iter_prefix_values(holder)
+			.fold(BalanceOf::<T>::zero(), |sum, v| sum.saturating_add(v))
+	}
+
+	/// The deposit half of `post_upgrade`: every holder v4 visited holds exactly the native its
+	/// rows owe and the same total as before, and no holder was left unvisited.
+	#[cfg(feature = "try-runtime")]
+	fn check_deposits(
+		per_owner: BTreeMap<T::AccountId, BalanceOf<T>>,
+		swap_code: bool,
+		code_hold: BalanceOf<T>,
+		per_contract: BTreeMap<H160, (BalanceOf<T>, BalanceOf<T>)>,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
 		// Phase 1 either rebuilds the pallet account's rows from `CodeInfoOf` alone or, when it
 		// swaps the unrecorded native, keeps the rows it found.
 		let pallet_account = Pallet::<T>::account_id();
@@ -295,7 +361,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			}
 		}
 
-		for (addr, (expected, owed_native)) in per_contract {
+		for (addr, (expected, owed_native)) in &per_contract {
+			let (expected, owed_native) = (*expected, *owed_native);
 			use frame_support::traits::fungible::InspectHold;
 
 			let contract = T::AddressMapper::to_account_id(&addr);
@@ -330,81 +397,27 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			}
 		}
 
-		for (key, expected) in deletion_queue {
-			let got = DeletionQueue::<T>::get(key);
-			if got.as_ref() != Some(&expected) {
-				log::error!(
-					target: LOG_TARGET,
-					"v4: DeletionQueue[{key}] = {got:?}, expected {expected:?}",
-				);
-				return Err("v4: DeletionQueue entry does not match the expected item".into());
+		// Every account that can hold a storage deposit was visited.
+		for (addr, info) in AccountInfoOf::<T>::iter() {
+			if !matches!(info.account_type, AccountType::EOA) && !per_contract.contains_key(&addr) {
+				log::error!(target: LOG_TARGET, "v4: account {addr:?} was not visited");
+				return Err("v4: account with a storage deposit was not visited".into());
+			}
+		}
+		// Rows only exist on holders v4 visited, or on terminated contracts awaiting deletion.
+		let visited: BTreeSet<T::AccountId> = per_contract
+			.keys()
+			.map(T::AddressMapper::to_account_id)
+			.chain(DeletionQueue::<T>::iter_values().map(|item| item.account_id))
+			.chain(core::iter::once(pallet_account))
+			.collect();
+		for (holder, _, _) in NativeDepositOf::<T>::iter() {
+			if !visited.contains(&holder) {
+				log::error!(target: LOG_TARGET, "v4: NativeDepositOf rows on unvisited {holder:?}");
+				return Err("v4: NativeDepositOf rows on an account v4 did not visit".into());
 			}
 		}
 		Ok(())
-	}
-}
-
-/// Pre-v4 storage layouts.
-pub(crate) mod old {
-	use super::*;
-
-	/// Pre-v4 layout: a single [`TrieId`] per slot, no associated contract account. We only
-	/// iterate it; new entries are written via the live [`crate::DeletionQueue`].
-	#[storage_alias]
-	pub(crate) type DeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
-}
-
-impl<T: Config> Migration<T> {
-	/// Run a single iteration of the migration's inner loop, returning the next cursor or
-	/// `None` if the migration is complete.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn step_once(cursor: Option<CursorOf<T>>) -> Option<CursorOf<T>> {
-		Self::step_once_counting_rows(cursor, u32::MAX).0
-	}
-
-	/// [`Self::step_once`] reading at most `max_rows` [`NativeDepositOf`] rows, which must not be
-	/// zero. Also returns how many rows a swap read.
-	fn step_once_counting_rows(
-		cursor: Option<CursorOf<T>>,
-		max_rows: u32,
-	) -> (Option<CursorOf<T>>, u32) {
-		let mut rows_read = 0;
-		let next = Self::step_once_inner(cursor, max_rows, &mut rows_read);
-		(next, rows_read)
-	}
-
-	/// How many [`NativeDepositOf`] rows, each costing `row`, fit in `weight`.
-	fn rows_within(
-		weight: frame_support::weights::Weight,
-		row: frame_support::weights::Weight,
-	) -> u32 {
-		weight
-			.checked_div_per_component(&row)
-			.map_or(u32::MAX, |rows| u32::try_from(rows).unwrap_or(u32::MAX))
-	}
-
-	/// Weight of reading `rows` [`NativeDepositOf`] rows, on top of the phase 2 step weight.
-	fn native_row_reads(rows: u32) -> frame_support::weights::Weight {
-		use frame_support::traits::StorageInfoTrait;
-
-		let row_proof = NativeDepositOf::<T>::storage_info()
-			.first()
-			.and_then(|info| info.max_size)
-			.unwrap_or_default();
-		T::DbWeight::get().reads(rows.into()).saturating_add(
-			frame_support::weights::Weight::from_parts(
-				0,
-				u64::from(row_proof).saturating_mul(rows.into()),
-			),
-		)
-	}
-
-	/// Sum of the [`NativeDepositOf`] rows recorded against `holder`. Reads every row, so it is
-	/// only for `try-runtime` checks, never for a migration step.
-	#[cfg(feature = "try-runtime")]
-	fn recorded_native(holder: &T::AccountId) -> BalanceOf<T> {
-		NativeDepositOf::<T>::iter_prefix_values(holder)
-			.fold(BalanceOf::<T>::zero(), |sum, v| sum.saturating_add(v))
 	}
 
 	/// PGAS the pallet account holds under `CodeUploadDepositReserve`, i.e. code deposits that
@@ -430,82 +443,95 @@ impl<T: Config> Migration<T> {
 				.is_some()
 	}
 
-	fn step_once_inner(
-		cursor: Option<CursorOf<T>>,
-		max_rows: u32,
-		rows_read: &mut u32,
-	) -> Option<CursorOf<T>> {
+	/// Run a single iteration of the migration's inner loop, returning the next cursor or
+	/// `None` if the migration is complete.
+	fn step_once(cursor: Option<CursorOf<T>>) -> Option<CursorOf<T>> {
 		// Without PGAS support phases 1 and 2 are no-ops, so skip straight to phase 3.
-		// Forced on under `runtime-benchmarks` so per-phase weights are still measured.
-		if !T::Deposit::SUPPORTS_PGAS && !cfg!(feature = "runtime-benchmarks") {
+		if !T::Deposit::SUPPORTS_PGAS {
 			return match cursor {
-				None |
-				Some(Cursor::CodeUpload(_)) |
-				Some(Cursor::CodeRows(_)) |
-				Some(Cursor::Contract(_)) |
-				Some(Cursor::ContractRows(..)) => Some(Cursor::DeletionQueue(None)),
-				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
-					Some(next) => Some(Cursor::DeletionQueue(Some(next))),
-					None => None,
+				Some(Cursor::DeletionQueue(last)) => {
+					Self::step_3_deletion_queue(last).map(|next| Cursor::DeletionQueue(Some(next)))
 				},
+				_ => Some(Cursor::DeletionQueue(None)),
 			};
 		}
 
 		match cursor {
-			None if Self::code_deposits_need_reconcile() => {
-				Some(Self::step_1_code_rows(RowSum::new(), max_rows, rows_read))
-			},
+			None if Self::code_deposits_need_reconcile() => Some(Cursor::CodeRows(RowSum::new())),
 			None => Self::step_1_code_upload(None),
-			Some(Cursor::CodeRows(sum)) => Some(Self::step_1_code_rows(sum, max_rows, rows_read)),
 			Some(Cursor::CodeUpload(last)) => Self::step_1_code_upload(Some(last)),
-			Some(Cursor::Contract(last)) => Some(Self::step_2_contract(last, max_rows, rows_read)),
-			Some(Cursor::ContractRows(contract, sum)) => {
-				Some(Self::step_2_contract_rows(contract, sum, max_rows, rows_read))
-			},
-			Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
-				Some(next) => Some(Cursor::DeletionQueue(Some(next))),
-				None => None,
+			Some(Cursor::CodeRows(sum)) => Some(
+				match Self::reconcile_once(
+					HoldReason::CodeUploadDepositReserve,
+					&Pallet::<T>::account_id(),
+					sum,
+				) {
+					Some(sum) => Cursor::CodeRows(sum),
+					None => Cursor::Contract(None),
+				},
+			),
+			Some(Cursor::Contract(last)) => Some(Self::step_2_account(last)),
+			Some(Cursor::ContractRows(address, sum)) => Some(
+				match Self::reconcile_once(
+					HoldReason::StorageDepositReserve,
+					&T::AddressMapper::to_account_id(&address),
+					sum,
+				) {
+					Some(sum) => Cursor::ContractRows(address, sum),
+					None => Cursor::Contract(Some(address)),
+				},
+			),
+			Some(Cursor::DeletionQueue(last)) => {
+				Self::step_3_deletion_queue(last).map(|next| Cursor::DeletionQueue(Some(next)))
 			},
 		}
 	}
 
-	/// Swap the part of `who`'s native hold under `reason` that its [`NativeDepositOf`] rows do
-	/// not account for to PGAS, leaving the rows and the native they are owed in place.
-	///
-	/// The rows were written by `PGasDeposit` for native paid after it was enabled, and
-	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
-	/// native would leave those payers unable to be refunded. A failed swap rolls back and is
-	/// logged, leaving `who` on native; `post_upgrade` reports it.
-	fn swap_unrecorded_native(
+	/// One reconcile iteration for `who`'s `reason` hold: sum the next [`NativeDepositOf`] row
+	/// into `sum`, or once none is left, swap. Returns the sum to continue with, or `None` once
+	/// the swap is done.
+	pub fn reconcile_once(
 		reason: HoldReason,
 		who: &T::AccountId,
 		mut sum: RowSum<T::AccountId, BalanceOf<T>>,
-		max_rows: u32,
-		rows_read: &mut u32,
 	) -> Option<RowSum<T::AccountId, BalanceOf<T>>> {
-		use frame_support::traits::fungible::InspectHold;
+		if sum.complete {
+			Self::swap_unrecorded_native(reason, who, sum.owed);
+			return None;
+		}
 
-		let rows = match &sum.last_payer {
+		let mut rows = match &sum.last_payer {
 			Some(last) => NativeDepositOf::<T>::iter_prefix_from(
 				who,
 				NativeDepositOf::<T>::hashed_key_for(who, last),
 			),
 			None => NativeDepositOf::<T>::iter_prefix(who),
 		};
-		let mut read = 0u32;
-		for (payer, amount) in rows.take(max_rows as usize) {
-			sum.owed = sum.owed.saturating_add(amount);
-			sum.last_payer = Some(payer);
-			read = read.saturating_add(1);
+		match rows.next() {
+			Some((payer, amount)) => {
+				sum.owed = sum.owed.saturating_add(amount);
+				sum.last_payer = Some(payer);
+			},
+			None => sum.complete = true,
 		}
-		*rows_read = rows_read.saturating_add(read);
-		if read >= max_rows {
-			// The budget ran out, so rows may remain. A call that finds none finishes the swap.
-			return Some(sum);
-		}
+		Some(sum)
+	}
+
+	/// Swap the part of `who`'s native hold under `reason` that `owed_native`, the sum of its
+	/// [`NativeDepositOf`] rows, does not account for to PGAS.
+	///
+	/// The rows were written by `PGasDeposit` for native paid after it was enabled, and
+	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
+	/// native would leave those payers unable to be refunded. A failed swap rolls back and is
+	/// logged, leaving `who` on native; `post_upgrade` reports it.
+	pub fn swap_unrecorded_native(
+		reason: HoldReason,
+		who: &T::AccountId,
+		owed_native: BalanceOf<T>,
+	) {
+		use frame_support::traits::fungible::InspectHold;
 
 		let held = T::Currency::balance_on_hold(&reason.into(), who);
-		let owed_native = sum.owed;
 		if owed_native > held {
 			log::warn!(
 				target: LOG_TARGET,
@@ -519,37 +545,11 @@ impl<T: Config> Migration<T> {
 				"v4: failed to migrate native -> PGAS {reason:?} deposit of {who:?}: {err:?}",
 			);
 		}
-		None
-	}
-
-	/// Phase 1: reconcile the pallet account's code deposits.
-	///
-	/// The existing rows are correct (written for native code deposits paid after the switch),
-	/// and every code deposit without a row was paid either in native before the switch or in
-	/// PGAS after it. Swapping the unrecorded native to PGAS refunds all of those from PGAS.
-	///
-	/// The pallet account has a row per uploader, so this is spread over as many steps as the
-	/// rows need, see [`Self::swap_unrecorded_native`]. Returns the cursor to continue from.
-	fn step_1_code_rows(
-		sum: RowSum<T::AccountId, BalanceOf<T>>,
-		max_rows: u32,
-		rows_read: &mut u32,
-	) -> CursorOf<T> {
-		match Self::swap_unrecorded_native(
-			HoldReason::CodeUploadDepositReserve,
-			&Pallet::<T>::account_id(),
-			sum,
-			max_rows,
-			rows_read,
-		) {
-			Some(sum) => Cursor::CodeRows(sum),
-			None => Cursor::Contract(None),
-		}
 	}
 
 	/// Phase 1: credit the next `CodeInfoOf` entry's owner in [`NativeDepositOf`]. Returns
 	/// `Some(Cursor::Contract(None))` when phase 1 is exhausted.
-	fn step_1_code_upload(last: Option<H256>) -> Option<CursorOf<T>> {
+	pub fn step_1_code_upload(last: Option<H256>) -> Option<CursorOf<T>> {
 		let mut iter = match last {
 			Some(last) => CodeInfoOf::<T>::iter_from(CodeInfoOf::<T>::hashed_key_for(last)),
 			None => CodeInfoOf::<T>::iter(),
@@ -564,39 +564,19 @@ impl<T: Config> Migration<T> {
 		Some(Cursor::CodeUpload(hash))
 	}
 
-	/// Phase 2: swap the next account's unrecorded native storage deposit to PGAS with
-	/// [`Self::swap_unrecorded_native`]. Accounts that are neither a contract nor delegated are
-	/// skipped but still advance the cursor. Returns the cursor to continue from, which is phase 3
-	/// once there are no accounts left.
-	fn step_2_contract(last: Option<H160>, max_rows: u32, rows_read: &mut u32) -> CursorOf<T> {
+	/// Phase 2: move to the next account after `last`. A contract or delegated account continues
+	/// with its rows, anything else is skipped. Returns phase 3 once there are no accounts left.
+	pub fn step_2_account(last: Option<H160>) -> CursorOf<T> {
 		let mut iter = match last {
 			Some(last) => AccountInfoOf::<T>::iter_from(AccountInfoOf::<T>::hashed_key_for(last)),
 			None => AccountInfoOf::<T>::iter(),
 		};
 
 		let Some((addr, info)) = iter.next() else { return Cursor::DeletionQueue(None) };
-		if !matches!(info.account_type, AccountType::EOA) {
-			return Self::step_2_contract_rows(addr, RowSum::new(), max_rows, rows_read);
-		}
-		Cursor::Contract(Some(addr))
-	}
-
-	/// Phase 2 for the account at `address`, continuing from the rows already summed in `sum`.
-	fn step_2_contract_rows(
-		address: H160,
-		sum: RowSum<T::AccountId, BalanceOf<T>>,
-		max_rows: u32,
-		rows_read: &mut u32,
-	) -> CursorOf<T> {
-		match Self::swap_unrecorded_native(
-			HoldReason::StorageDepositReserve,
-			&T::AddressMapper::to_account_id(&address),
-			sum,
-			max_rows,
-			rows_read,
-		) {
-			Some(sum) => Cursor::ContractRows(address, sum),
-			None => Cursor::Contract(Some(address)),
+		if matches!(info.account_type, AccountType::EOA) {
+			Cursor::Contract(Some(addr))
+		} else {
+			Cursor::ContractRows(addr, RowSum::new())
 		}
 	}
 
@@ -605,7 +585,7 @@ impl<T: Config> Migration<T> {
 	/// rows, so the recorded `account_id` is a zero placeholder; phase 1 of the deletion
 	/// processor will clear an empty prefix on it. Slots already in the new format are left
 	/// unchanged. Returns `None` when phase 3 finishes.
-	fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
+	pub fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
 		let mut keys = match last {
 			Some(last) => old::DeletionQueue::<T>::iter_keys_from(
 				old::DeletionQueue::<T>::hashed_key_for(last),
@@ -714,58 +694,6 @@ mod tests {
 			storage_deposit,
 		)
 		.unwrap();
-	}
-
-	/// A chain that enabled `PGasDeposit` before running v4 already has rows for code uploaded
-	/// since the switch. The rows are kept, and the pre-switch deposit, which has none, is
-	/// swapped to PGAS and refunded from there.
-	#[test]
-	fn phase_one_reconciles_code_deposits_when_rows_exist() {
-		use frame_support::traits::tokens::fungibles::InspectHold;
-
-		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let pallet_account = Pallet::<Test>::account_id();
-			let legacy_owner = AccountId32::new([1; 32]);
-			let native_owner = AccountId32::new([2; 32]);
-			<Test as Config>::Currency::set_balance(&legacy_owner, 1_000_000);
-			<Test as Config>::Currency::set_balance(&native_owner, 1_000_000);
-
-			let legacy = H256::repeat_byte(0xAA);
-			let native = H256::repeat_byte(0xAB);
-			seed_code_upload(legacy, legacy_owner.clone(), 1_000);
-			seed_code_upload(native, native_owner.clone(), 500);
-			NativeDepositOf::<Test>::insert(&pallet_account, &native_owner, 500);
-
-			V4::run_to_completion();
-
-			let reason = HoldReason::CodeUploadDepositReserve;
-			assert_eq!(NativeDepositOf::<Test>::iter_prefix(&pallet_account).count(), 1);
-			assert_eq!(
-				<Test as Config>::Currency::balance_on_hold(&reason.into(), &pallet_account),
-				500,
-			);
-			assert_eq!(
-				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &pallet_account),
-				1_000,
-			);
-
-			// 10% of the swapped deposit comes back, in PGAS.
-			let pgas_before = Assets::balance(PGasAssetId::get(), &legacy_owner);
-			let free_before = <Test as Config>::Currency::balance(&legacy_owner);
-			assert_ok!(Pallet::<Test>::remove_code(
-				RuntimeOrigin::signed(legacy_owner.clone()),
-				legacy
-			));
-			assert_eq!(<Test as Config>::Currency::balance(&legacy_owner), free_before);
-			assert_eq!(Assets::balance(PGasAssetId::get(), &legacy_owner), pgas_before + 100);
-
-			let free_before = <Test as Config>::Currency::balance(&native_owner);
-			assert_ok!(Pallet::<Test>::remove_code(
-				RuntimeOrigin::signed(native_owner.clone()),
-				native
-			));
-			assert_eq!(<Test as Config>::Currency::balance(&native_owner), free_before + 500);
-		});
 	}
 
 	/// Seeds the pallet account as a chain that enabled `PGasDeposit` before v4 leaves it: code
@@ -882,39 +810,6 @@ mod tests {
 			assert!(blocks > 1, "the migration should span several blocks");
 			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner_a), 1_500);
 			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner_b), 2_000);
-		});
-	}
-
-	#[test]
-	fn phase_one_populates_native_deposit_for_code_upload() {
-		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let pallet_account = Pallet::<Test>::account_id();
-			let owner_a = AccountId32::new([1; 32]);
-			let owner_b = AccountId32::new([2; 32]);
-			seed_code_upload(H256::repeat_byte(0xAA), owner_a.clone(), 1_000);
-			seed_code_upload(H256::repeat_byte(0xAB), owner_a.clone(), 500);
-			seed_code_upload(H256::repeat_byte(0xBB), owner_b.clone(), 2_000);
-
-			V4::run_to_completion();
-
-			assert_eq!(
-				NativeDepositOf::<Test>::get(&pallet_account, &owner_a),
-				1_500,
-				"owner_a sum of code deposits"
-			);
-			assert_eq!(
-				NativeDepositOf::<Test>::get(&pallet_account, &owner_b),
-				2_000,
-				"owner_b sum of code deposits"
-			);
-
-			assert_eq!(
-				<Test as Config>::Currency::balance_on_hold(
-					&HoldReason::CodeUploadDepositReserve.into(),
-					&pallet_account,
-				),
-				3_500,
-			);
 		});
 	}
 
@@ -1044,157 +939,194 @@ mod tests {
 		});
 	}
 
-	#[test]
-	fn phase_two_burns_native_and_mints_pgas_on_contracts() {
-		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let owner = AccountId32::new([1; 32]);
-			let hash = H256::repeat_byte(0xCC);
-			seed_code_upload(hash, owner.clone(), 0);
-
-			let c1 = H160::repeat_byte(0x10);
-			let c2 = H160::repeat_byte(0x20);
-			seed_contract(c1, hash, 700);
-			seed_contract(c2, hash, 1_300);
-
-			let c1_acc = <Test as Config>::AddressMapper::to_account_id(&c1);
-			let c2_acc = <Test as Config>::AddressMapper::to_account_id(&c2);
-
-			let total_issuance_before = <Test as Config>::Currency::total_issuance();
-
-			V4::run_to_completion();
-
-			assert_eq!(
-				<Test as Config>::Currency::balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&c1_acc,
-				),
-				0,
-			);
-			assert_eq!(
-				<Test as Config>::Currency::balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&c2_acc,
-				),
-				0,
-			);
-
-			assert_eq!(
-				total_issuance_before - <Test as Config>::Currency::total_issuance(),
-				700 + 1_300,
-			);
-
-			use frame_support::traits::tokens::fungibles::{Inspect, InspectHold};
-			let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
-			assert_eq!(
-				AssetsHolder::balance_on_hold(
-					PGasAssetId::get(),
-					&HoldReason::StorageDepositReserve.into(),
-					&c1_acc,
-				),
-				700,
-			);
-			assert_eq!(
-				AssetsHolder::balance_on_hold(
-					PGasAssetId::get(),
-					&HoldReason::StorageDepositReserve.into(),
-					&c2_acc,
-				),
-				1_300,
-			);
-			// Each migrated contract also gets the PGAS ED minted into its free balance and
-			// frozen under `FreezeReason::PGasMinBalance`, matching the post-`init_contract`
-			// invariant.
-			assert_eq!(Assets::balance(PGasAssetId::get(), &c1_acc), pgas_ed);
-			assert_eq!(Assets::balance(PGasAssetId::get(), &c2_acc), pgas_ed);
-			use frame_support::traits::tokens::fungibles::InspectFreeze;
-			assert_eq!(
-				AssetsFreezer::balance_frozen(
-					PGasAssetId::get(),
-					&FreezeReason::PGasMinBalance.into(),
-					&c1_acc,
-				),
-				pgas_ed,
-			);
-			assert_eq!(
-				AssetsFreezer::balance_frozen(
-					PGasAssetId::get(),
-					&FreezeReason::PGasMinBalance.into(),
-					&c2_acc,
-				),
-				pgas_ed,
-			);
-		});
+	/// An account that holds a deposit: the pallet account for code, a contract or a delegated
+	/// account.
+	#[derive(Clone, Copy, Debug)]
+	enum Holder {
+		Code,
+		Contract,
+		Delegated,
 	}
 
-	/// A chain that enabled `PGasDeposit` before running v4 recorded native storage deposits
-	/// paid since the switch in `NativeDepositOf[contract][payer]`. Phase 2 must leave that part
-	/// native, so the payer can still free storage, and swap only the unrecorded rest.
+	/// How a holder's deposit was paid before v4 runs. Every history has native paid before the
+	/// switch (`LEGACY`, no row); some add native paid after it (`NATIVE`, a row for `payer`) or
+	/// PGAS paid after it (`PGAS`).
+	#[derive(Clone, Copy, Debug)]
+	struct History {
+		native_after: bool,
+		pgas_after: bool,
+	}
+
+	const LEGACY: u128 = 1_000;
+	const NATIVE: u128 = 500;
+	const PGAS: u128 = 400;
+
+	/// Seeds `holder` with `history` and returns its account and hold reason.
+	fn seed_holder(
+		holder: Holder,
+		history: History,
+		legacy: &AccountId32,
+		payer: &AccountId32,
+		pgas_payer: &AccountId32,
+	) -> (AccountId32, HoldReason) {
+		use crate::storage::ContractInfo;
+		use frame_support::traits::tokens::fungibles::{
+			Inspect as _, Mutate as _, MutateHold as _,
+		};
+
+		let native = LEGACY + if history.native_after { NATIVE } else { 0 };
+		let (account, reason) = match holder {
+			Holder::Code => {
+				seed_code_upload(H256::repeat_byte(0xAA), legacy.clone(), LEGACY);
+				if history.native_after {
+					seed_code_upload(H256::repeat_byte(0xAB), payer.clone(), NATIVE);
+				}
+				(Pallet::<Test>::account_id(), HoldReason::CodeUploadDepositReserve)
+			},
+			Holder::Contract => {
+				let address = H160::repeat_byte(0x10);
+				seed_contract(address, H256::repeat_byte(0xCC), native);
+				(
+					<Test as Config>::AddressMapper::to_account_id(&address),
+					HoldReason::StorageDepositReserve,
+				)
+			},
+			Holder::Delegated => {
+				let address = H160::repeat_byte(0x30);
+				AccountInfoOf::<Test>::insert(
+					address,
+					AccountInfo::<Test> {
+						account_type: AccountType::DelegatedEOA {
+							delegate_target: Some(H160::repeat_byte(0x31)),
+							contract_info: ContractInfo::<Test>::new_for_delegation(
+								&address,
+								H256::zero(),
+							),
+							payer: Some(legacy.clone()),
+						},
+						dust: 0,
+					},
+				);
+				let account = <Test as Config>::AddressMapper::to_account_id(&address);
+				let ed = <Test as Config>::Currency::minimum_balance();
+				<Test as Config>::Currency::mint_into(&account, ed + native).unwrap();
+				<Test as Config>::Currency::hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&account,
+					native,
+				)
+				.unwrap();
+				(account, HoldReason::StorageDepositReserve)
+			},
+		};
+		if history.native_after {
+			NativeDepositOf::<Test>::insert(&account, payer, NATIVE);
+		}
+		if history.pgas_after {
+			let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
+			Assets::mint_into(PGasAssetId::get(), &account, pgas_ed + PGAS).unwrap();
+			AssetsHolder::hold(PGasAssetId::get(), &reason.into(), &account, PGAS).unwrap();
+			if matches!(holder, Holder::Code) {
+				CodeInfoOf::<Test>::insert(
+					H256::repeat_byte(0xBB),
+					CodeInfo::<Test>::new_with_deposit(pgas_payer.clone(), PGAS),
+				);
+			}
+		}
+		(account, reason)
+	}
+
+	/// v4 leaves every holder, whatever its history, holding exactly the native its rows owe and
+	/// the same total, and every payer can then be refunded: native for a row, `RefundPercent` in
+	/// PGAS for anything else. The one exception is code on a chain that never enabled
+	/// `PGasDeposit` (no rows, no PGAS), whose rows are rebuilt from `CodeInfoOf` so uploaders
+	/// keep a native refund.
+	///
+	/// Refunds go through `Deposit::refund_on_hold`, which `remove_code`, contract termination and
+	/// clearing a delegation all use.
 	#[test]
-	fn phase_two_keeps_recorded_native_deposits() {
+	fn reconcile_by_holder_and_history() {
 		use crate::deposit_payment::Funds;
-		use frame_support::traits::tokens::fungibles::InspectHold;
+		use frame_support::traits::tokens::fungibles::{Inspect, InspectFreeze, InspectHold};
 
-		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let owner = AccountId32::new([1; 32]);
-			let payer = AccountId32::new([2; 32]);
-			let legacy_payer = AccountId32::new([3; 32]);
-			<Test as Config>::Currency::set_balance(&payer, 1_000_000);
-			<Test as Config>::Currency::set_balance(&legacy_payer, 1_000_000);
-			let hash = H256::repeat_byte(0xCC);
-			seed_code_upload(hash, owner, 0);
+		let histories = [
+			History { native_after: false, pgas_after: false },
+			History { native_after: true, pgas_after: false },
+			History { native_after: false, pgas_after: true },
+			History { native_after: true, pgas_after: true },
+		];
+		for holder in [Holder::Code, Holder::Contract, Holder::Delegated] {
+			for history in histories {
+				let case = format!("{holder:?} {history:?}");
+				ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+					let legacy = AccountId32::new([1; 32]);
+					let payer = AccountId32::new([2; 32]);
+					let pgas_payer = AccountId32::new([3; 32]);
+					for who in [&legacy, &payer, &pgas_payer] {
+						<Test as Config>::Currency::set_balance(who, 1_000_000);
+					}
+					let (account, reason) =
+						seed_holder(holder, history, &legacy, &payer, &pgas_payer);
+					let native_hold =
+						|| <Test as Config>::Currency::balance_on_hold(&reason.into(), &account);
+					let pgas_hold = || {
+						AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &account)
+					};
+					let total = native_hold() + pgas_hold();
+					let issuance = <Test as Config>::Currency::total_issuance();
 
-			// 700 paid before the switch (no row), 300 paid in native after it (row).
-			let address = H160::repeat_byte(0x10);
-			seed_contract(address, hash, 1_000);
-			let contract = <Test as Config>::AddressMapper::to_account_id(&address);
-			NativeDepositOf::<Test>::insert(&contract, &payer, 300);
+					V4::run_to_completion();
 
-			V4::run_to_completion();
+					// Only code on a chain that never enabled `PGasDeposit` is rebuilt.
+					let rebuilt = matches!(holder, Holder::Code) &&
+						!history.native_after &&
+						!history.pgas_after;
+					let native = if history.native_after { NATIVE } else { 0 };
+					let swapped = if rebuilt { 0 } else { LEGACY };
+					assert_eq!(native_hold() + pgas_hold(), total, "{case}: total changed");
+					assert_eq!(native_hold(), native + LEGACY - swapped, "{case}: native hold");
+					assert_eq!(V4::recorded_native(&account), native_hold(), "{case}: rows");
+					assert_eq!(
+						issuance - <Test as Config>::Currency::total_issuance(),
+						swapped,
+						"{case}: native burned",
+					);
+					// A reconciled holder gets the frozen PGAS ED its PGAS hold needs.
+					let frozen = AssetsFreezer::balance_frozen(
+						PGasAssetId::get(),
+						&FreezeReason::PGasMinBalance.into(),
+						&account,
+					);
+					let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
+					assert_eq!(frozen, if rebuilt { 0 } else { pgas_ed }, "{case}: frozen ED");
 
-			assert_eq!(
-				<Test as Config>::Currency::balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&contract,
-				),
-				300,
-			);
-			assert_eq!(
-				AssetsHolder::balance_on_hold(
-					PGasAssetId::get(),
-					&HoldReason::StorageDepositReserve.into(),
-					&contract,
-				),
-				700,
-			);
-			assert_eq!(NativeDepositOf::<Test>::get(&contract, &payer), 300);
-
-			// A partial refund to the recorded payer is paid in native and lowers the row.
-			let free_before = <Test as Config>::Currency::balance(&payer);
-			assert_ok!(<Test as Config>::Deposit::refund_on_hold(
-				HoldReason::StorageDepositReserve,
-				&contract,
-				Funds::Balance(&payer),
-				100,
-			));
-			assert_eq!(<Test as Config>::Currency::balance(&payer), free_before + 100);
-			assert_eq!(NativeDepositOf::<Test>::get(&contract, &payer), 200);
-
-			// A payer without a row is settled from the swapped PGAS.
-			assert_ok!(<Test as Config>::Deposit::refund_on_hold(
-				HoldReason::StorageDepositReserve,
-				&contract,
-				Funds::Balance(&legacy_payer),
-				100,
-			));
-			assert_eq!(
-				AssetsHolder::balance_on_hold(
-					PGasAssetId::get(),
-					&HoldReason::StorageDepositReserve.into(),
-					&contract,
-				),
-				600,
-			);
-		});
+					// Refund every payer.
+					let refund = |who: &AccountId32, amount: u128| {
+						let native = <Test as Config>::Currency::balance(who);
+						let pgas = Assets::balance(PGasAssetId::get(), who);
+						assert_ok!(<Test as Config>::Deposit::refund_on_hold(
+							reason,
+							&account,
+							Funds::Balance(who),
+							amount,
+						));
+						(
+							<Test as Config>::Currency::balance(who) - native,
+							Assets::balance(PGasAssetId::get(), who) - pgas,
+						)
+					};
+					if history.native_after {
+						assert_eq!(refund(&payer, NATIVE), (NATIVE, 0), "{case}: row payer");
+					}
+					let legacy_refund = if rebuilt { (LEGACY, 0) } else { (0, LEGACY / 10) };
+					assert_eq!(refund(&legacy, LEGACY), legacy_refund, "{case}: legacy payer");
+					if history.pgas_after {
+						assert_eq!(refund(&pgas_payer, PGAS), (0, PGAS / 10), "{case}: PGAS payer");
+					}
+					assert_eq!(native_hold() + pgas_hold(), 0, "{case}: hold left over");
+				});
+			}
+		}
 	}
 
 	/// Runs v4 with `limit` per block until it completes and returns the number of blocks and
@@ -1330,7 +1262,9 @@ mod tests {
 				Err(SteppedMigrationError::InsufficientWeight { required }) => required,
 				other => panic!("expected InsufficientWeight, got {other:?}"),
 			};
-			let roomy = required.saturating_add(V4::native_row_reads(20));
+			let roomy = required.saturating_add(
+				<<Test as Config>::WeightInfo as WeightInfo>::v4_row_step().saturating_mul(20),
+			);
 			let (blocks, _) = run_with_limit(roomy, |_| false);
 			assert!(blocks < 40, "{blocks} blocks for 40 rows with room for 20 extra per block");
 		});
@@ -1428,92 +1362,9 @@ mod tests {
 		});
 	}
 
-	/// A delegated account holds a storage deposit like a contract and is reconciled the same
-	/// way, including the frozen PGAS existential deposit its PGAS hold needs.
-	#[test]
-	fn delegated_accounts_are_reconciled() {
-		use crate::{deposit_payment::Funds, storage::ContractInfo};
-		use frame_support::traits::tokens::fungibles::{Inspect, InspectFreeze, InspectHold};
-
-		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let address = H160::repeat_byte(0x30);
-			let account = <Test as Config>::AddressMapper::to_account_id(&address);
-			let payer = AccountId32::new([2; 32]);
-			let legacy_payer = AccountId32::new([3; 32]);
-			<Test as Config>::Currency::set_balance(&payer, 1_000_000);
-			<Test as Config>::Currency::set_balance(&legacy_payer, 1_000_000);
-			seed_code_upload(H256::repeat_byte(0xDD), AccountId32::new([1; 32]), 0);
-
-			AccountInfoOf::<Test>::insert(
-				address,
-				AccountInfo::<Test> {
-					account_type: AccountType::DelegatedEOA {
-						delegate_target: Some(H160::repeat_byte(0x31)),
-						contract_info: ContractInfo::<Test>::new_for_delegation(
-							&address,
-							H256::zero(),
-						),
-						payer: Some(payer.clone()),
-					},
-					dust: 0,
-				},
-			);
-			let ed = <Test as Config>::Currency::minimum_balance();
-			<Test as Config>::Currency::mint_into(&account, ed + 1_000).unwrap();
-			<Test as Config>::Currency::hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&account,
-				1_000,
-			)
-			.unwrap();
-			NativeDepositOf::<Test>::insert(&account, &payer, 300);
-
-			V4::run_to_completion();
-
-			let reason = HoldReason::StorageDepositReserve;
-			assert_eq!(<Test as Config>::Currency::balance_on_hold(&reason.into(), &account), 300,);
-			assert_eq!(
-				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &account),
-				700,
-			);
-			let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
-			assert!(pallet_assets::Account::<Test>::contains_key(PGasAssetId::get(), &account));
-			assert_eq!(Assets::balance(PGasAssetId::get(), &account), pgas_ed);
-			assert_eq!(
-				AssetsFreezer::balance_frozen(
-					PGasAssetId::get(),
-					&FreezeReason::PGasMinBalance.into(),
-					&account,
-				),
-				pgas_ed,
-			);
-
-			// The recorded payer is refunded in native, the other from the swapped PGAS.
-			let free_before = <Test as Config>::Currency::balance(&payer);
-			assert_ok!(<Test as Config>::Deposit::refund_on_hold(
-				reason,
-				&account,
-				Funds::Balance(&payer),
-				300,
-			));
-			assert_eq!(<Test as Config>::Currency::balance(&payer), free_before + 300);
-			let pgas_before = Assets::balance(PGasAssetId::get(), &legacy_payer);
-			assert_ok!(<Test as Config>::Deposit::refund_on_hold(
-				reason,
-				&account,
-				Funds::Balance(&legacy_payer),
-				700,
-			));
-			assert_eq!(Assets::balance(PGasAssetId::get(), &legacy_payer), pgas_before + 70);
-			assert_eq!(
-				AssetsHolder::balance_on_hold(PGasAssetId::get(), &reason.into(), &account),
-				0,
-			);
-		});
-	}
-
 	/// `pre_upgrade` and `post_upgrade` pass on a chain that enabled `PGasDeposit` before v4, and
-	/// `post_upgrade` rejects a pallet-account row that was not there before.
+	/// `post_upgrade` rejects a pallet-account row that was not there before and rows on an
+	/// account v4 did not visit.
 	#[cfg(feature = "try-runtime")]
 	#[test]
 	fn try_runtime_checks_pass_on_late_switch_and_catch_extra_row() {
@@ -1547,8 +1398,20 @@ mod tests {
 			V4::run_to_completion();
 			assert_ok!(V4::post_upgrade(state.clone()));
 
-			NativeDepositOf::<Test>::insert(&pallet_account, AccountId32::new([3; 32]), 100);
-			assert!(V4::post_upgrade(state).is_err());
+			let extra = AccountId32::new([3; 32]);
+			NativeDepositOf::<Test>::insert(&pallet_account, &extra, 100);
+			assert_eq!(
+				V4::post_upgrade(state.clone()),
+				Err("v4: pallet-account NativeDepositOf row left without code".into()),
+			);
+			NativeDepositOf::<Test>::remove(&pallet_account, &extra);
+
+			// Rows on an account that is neither visited nor queued for deletion.
+			NativeDepositOf::<Test>::insert(AccountId32::new([9; 32]), &payer, 100);
+			assert_eq!(
+				V4::post_upgrade(state),
+				Err("v4: NativeDepositOf rows on an account v4 did not visit".into()),
+			);
 		});
 	}
 
@@ -1557,7 +1420,7 @@ mod tests {
 	#[cfg(feature = "try-runtime")]
 	#[test]
 	fn try_runtime_checks_pass_with_pgas_code_deposits_and_catch_extra_native() {
-		use frame_support::traits::fungible::{Mutate as _, MutateHold as _};
+		use frame_support::traits::tokens::{Fortitude, Precision, fungibles::MutateHold as _};
 
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			let pallet_account = Pallet::<Test>::account_id();
@@ -1571,15 +1434,24 @@ mod tests {
 			V4::run_to_completion();
 			assert_ok!(V4::post_upgrade(state.clone()));
 
-			// Native held for code beyond what the rows owe.
-			<Test as Config>::Currency::mint_into(&pallet_account, 100).unwrap();
-			<Test as Config>::Currency::hold(
-				&HoldReason::CodeUploadDepositReserve.into(),
+			// Turn 100 of the PGAS hold back into native, as a skipped swap would leave it: the
+			// total is unchanged, but the native hold is more than the rows owe.
+			let reason = HoldReason::CodeUploadDepositReserve;
+			AssetsHolder::burn_held(
+				PGasAssetId::get(),
+				&reason.into(),
 				&pallet_account,
 				100,
+				Precision::Exact,
+				Fortitude::Polite,
 			)
 			.unwrap();
-			assert!(V4::post_upgrade(state).is_err());
+			<Test as Config>::Currency::mint_into(&pallet_account, 100).unwrap();
+			<Test as Config>::Currency::hold(&reason.into(), &pallet_account, 100).unwrap();
+			assert_eq!(
+				V4::post_upgrade(state),
+				Err("v4: pallet account native code deposits do not match its rows".into()),
+			);
 		});
 	}
 }

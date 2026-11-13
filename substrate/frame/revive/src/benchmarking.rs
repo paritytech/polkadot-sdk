@@ -6962,15 +6962,14 @@ mod benchmarks {
 			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
 		);
 
-		let first = match v4::Migration::<T>::step_once(None) {
+		let first = match v4::Migration::<T>::step_1_code_upload(None) {
 			Some(v4::Cursor::CodeUpload(h)) => h,
 			other => panic!("expected CodeUpload cursor, got {other:?}"),
 		};
-		let cursor = Some(v4::Cursor::CodeUpload(first));
 
 		#[block]
 		{
-			let _ = v4::Migration::<T>::step_once(cursor);
+			let _ = v4::Migration::<T>::step_1_code_upload(Some(first));
 		}
 
 		assert_eq!(
@@ -6980,22 +6979,19 @@ mod benchmarks {
 		);
 	}
 
-	/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
+	/// One iteration of v4 phase 2 over an account: find the next one and start on its rows.
 	///
 	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
 	/// iteration exercises the `iter_from` path that dominates phase 2 in production.
 	#[benchmark]
-	fn v4_contract_step() {
+	fn v4_account_step() {
 		use crate::migrations::v4;
 
 		let _ = AccountInfoOf::<T>::clear(u32::MAX, None);
 
 		let code_hash = H256::from([0u8; 32]);
-		let deposit: BalanceOf<T> = 1_000u32.into();
-
 		for byte in [0x41u8, 0x42u8] {
 			let addr = H160::from([byte; 20]);
-			let contract_account = T::AddressMapper::to_account_id(&addr);
 			let info =
 				ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
 			AccountInfoOf::<T>::insert(
@@ -7005,42 +7001,83 @@ mod benchmarks {
 					dust: 0,
 				},
 			);
-			T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
-			T::Currency::mint_into(&contract_account, deposit).unwrap();
-			T::Currency::hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&contract_account,
-				deposit,
-			)
-			.unwrap();
 		}
 
-		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {
-			Some(v4::Cursor::Contract(Some(addr))) => addr,
-			other => panic!("expected Contract cursor, got {other:?}"),
+		let first = match v4::Migration::<T>::step_2_account(None) {
+			v4::Cursor::ContractRows(addr, _) => addr,
+			other => panic!("expected ContractRows cursor, got {other:?}"),
 		};
-		let cursor = Some(v4::Cursor::Contract(Some(first)));
+
+		let next;
+		#[block]
+		{
+			next = v4::Migration::<T>::step_2_account(Some(first));
+		}
+
+		assert!(matches!(next, v4::Cursor::ContractRows(..)), "second contract reached");
+	}
+
+	/// One iteration of a v4 swap that sums a single [`NativeDepositOf`] row.
+	///
+	/// Seeds two rows and sums the first, so the benched iteration exercises the `iter_prefix_from`
+	/// path.
+	#[benchmark]
+	fn v4_row_step() {
+		use crate::migrations::v4;
+
+		let holder: T::AccountId = account("holder", 0, 0);
+		let reason = HoldReason::StorageDepositReserve;
+		let amount: BalanceOf<T> = 5u32.into();
+		for i in 0..2 {
+			NativeDepositOf::<T>::insert(&holder, account::<T::AccountId>("payer", i, 0), amount);
+		}
+
+		let sum = v4::Migration::<T>::reconcile_once(reason, &holder, v4::RowSum::new())
+			.expect("a row is left to sum");
+
+		let next;
+		#[block]
+		{
+			next = v4::Migration::<T>::reconcile_once(reason, &holder, sum);
+		}
+
+		assert!(next.is_some(), "the swap is still to come");
+		assert_eq!(NativeDepositOf::<T>::iter_prefix(&holder).count(), 2);
+	}
+
+	/// The v4 swap once the rows are summed: burn the unrecorded native hold, mint and hold PGAS.
+	#[benchmark]
+	fn v4_swap_step() {
+		use crate::migrations::v4;
+
+		let addr = H160::from([0x41u8; 20]);
+		let contract_account = T::AddressMapper::to_account_id(&addr);
+		let deposit: BalanceOf<T> = 1_000u32.into();
+		T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
+		T::Currency::mint_into(&contract_account, deposit).unwrap();
+		T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
+			.unwrap();
 
 		#[block]
 		{
-			let _ = v4::Migration::<T>::step_once(cursor);
+			v4::Migration::<T>::swap_unrecorded_native(
+				HoldReason::StorageDepositReserve,
+				&contract_account,
+				Zero::zero(),
+			);
 		}
 
 		// `migrate_native_to_pgas` is a no-op for `Deposit = ()`, so the hold only clears on
-		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the iter cost.
+		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the call.
 		if T::Deposit::SUPPORTS_PGAS {
-			for byte in [0x41u8, 0x42u8] {
-				let addr = H160::from([byte; 20]);
-				let contract_account = T::AddressMapper::to_account_id(&addr);
-				assert_eq!(
-					T::Currency::balance_on_hold(
-						&HoldReason::StorageDepositReserve.into(),
-						&contract_account,
-					),
-					0u32.into(),
-					"native storage deposit burned for {addr:?}",
-				);
-			}
+			assert_eq!(
+				T::Currency::balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&contract_account,
+				),
+				0u32.into(),
+				"native storage deposit burned",
+			);
 		}
 	}
 
@@ -7060,15 +7097,11 @@ mod benchmarks {
 		v4::old::DeletionQueue::<T>::insert(0u32, trie_a);
 		v4::old::DeletionQueue::<T>::insert(1u32, trie_b);
 
-		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
-			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
-			other => panic!("expected DeletionQueue cursor, got {other:?}"),
-		};
-		let cursor = Some(v4::Cursor::DeletionQueue(Some(first)));
+		let first = v4::Migration::<T>::step_3_deletion_queue(None).expect("a legacy entry");
 
 		#[block]
 		{
-			let _ = v4::Migration::<T>::step_once(cursor);
+			let _ = v4::Migration::<T>::step_3_deletion_queue(Some(first));
 		}
 
 		assert!(
