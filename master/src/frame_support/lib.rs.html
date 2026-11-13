@@ -1429,1092 +1429,1094 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1279 id=1279 data-nosnippet>1279</a>	/// View functions methods must be read-only and always return some output. A
 <a href=#1280 id=1280 data-nosnippet>1280</a>	/// `view_functions` impl block only allows methods to be defined inside of
 <a href=#1281 id=1281 data-nosnippet>1281</a>	/// it.
-<a href=#1282 id=1282 data-nosnippet>1282</a>	///
-<a href=#1283 id=1283 data-nosnippet>1283</a>	/// ## Example
-<a href=#1284 id=1284 data-nosnippet>1284</a>	/// ```
-<a href=#1285 id=1285 data-nosnippet>1285</a>	/// #[frame_support::pallet]
-<a href=#1286 id=1286 data-nosnippet>1286</a>	/// pub mod pallet {
-<a href=#1287 id=1287 data-nosnippet>1287</a>	/// 	use frame_support::pallet_prelude::*;
-<a href=#1288 id=1288 data-nosnippet>1288</a>	///
-<a href=#1289 id=1289 data-nosnippet>1289</a>	///  	#[pallet::config]
-<a href=#1290 id=1290 data-nosnippet>1290</a>	///  	pub trait Config: frame_system::Config {}
-<a href=#1291 id=1291 data-nosnippet>1291</a>	///
-<a href=#1292 id=1292 data-nosnippet>1292</a>	///  	#[pallet::pallet]
-<a href=#1293 id=1293 data-nosnippet>1293</a>	///  	pub struct Pallet&lt;T&gt;(_);
-<a href=#1294 id=1294 data-nosnippet>1294</a>	///
-<a href=#1295 id=1295 data-nosnippet>1295</a>	///     #[pallet::storage]
-<a href=#1296 id=1296 data-nosnippet>1296</a>	/// 	pub type SomeMap&lt;T: Config&gt; = StorageMap&lt;_, Twox64Concat, u32, u32, OptionQuery&gt;;
-<a href=#1297 id=1297 data-nosnippet>1297</a>	///
-<a href=#1298 id=1298 data-nosnippet>1298</a>	///     #[pallet::view_functions]
-<a href=#1299 id=1299 data-nosnippet>1299</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1300 id=1300 data-nosnippet>1300</a>	/// 		/// Retrieve a map storage value by key.
-<a href=#1301 id=1301 data-nosnippet>1301</a>	///         pub fn get_value_with_arg(key: u32) -&gt; Option&lt;u32&gt; {
-<a href=#1302 id=1302 data-nosnippet>1302</a>	/// 			SomeMap::&lt;T&gt;::get(key)
-<a href=#1303 id=1303 data-nosnippet>1303</a>	/// 		}
-<a href=#1304 id=1304 data-nosnippet>1304</a>	///     }
-<a href=#1305 id=1305 data-nosnippet>1305</a>	/// }
-<a href=#1306 id=1306 data-nosnippet>1306</a>	/// ```
-<a href=#1307 id=1307 data-nosnippet>1307</a>	///
-<a href=#1308 id=1308 data-nosnippet>1308</a>	///
-<a href=#1309 id=1309 data-nosnippet>1309</a>	/// ## Usage and implementation details
-<a href=#1310 id=1310 data-nosnippet>1310</a>	/// To allow outside access to pallet view functions, you need to add a runtime API that
-<a href=#1311 id=1311 data-nosnippet>1311</a>	/// accepts view function queries and dispatches them to the right pallet. You can do that
-<a href=#1312 id=1312 data-nosnippet>1312</a>	/// by implementing the
-<a href=#1313 id=1313 data-nosnippet>1313</a>	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
-<a href=#1314 id=1314 data-nosnippet>1314</a>	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
-<a href=#1315 id=1315 data-nosnippet>1315</a>	/// block.
-<a href=#1316 id=1316 data-nosnippet>1316</a>	///
-<a href=#1317 id=1317 data-nosnippet>1317</a>	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
-<a href=#1318 id=1318 data-nosnippet>1318</a>	/// dispatch view functions to the right method in the right pallet based on their IDs. A
-<a href=#1319 id=1319 data-nosnippet>1319</a>	/// view function ID depends both on its pallet and on its method signature, so it remains
-<a href=#1320 id=1320 data-nosnippet>1320</a>	/// stable as long as those two elements are not modified. In general, pallet view
-<a href=#1321 id=1321 data-nosnippet>1321</a>	/// functions should expose a _stable_ interface and changes to the method signature are
-<a href=#1322 id=1322 data-nosnippet>1322</a>	/// strongly discouraged. For more details on the dispatching mechanism, see the
-<a href=#1323 id=1323 data-nosnippet>1323</a>	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
-<a href=#1324 id=1324 data-nosnippet>1324</a>	</span><span class="kw">pub use </span>frame_support_procedural::view_functions;
-<a href=#1325 id=1325 data-nosnippet>1325</a>
-<a href=#1326 id=1326 data-nosnippet>1326</a>	<span class="doccomment">/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
-<a href=#1327 id=1327 data-nosnippet>1327</a>	/// ease the use of storage types.
-<a href=#1328 id=1328 data-nosnippet>1328</a>	///
-<a href=#1329 id=1329 data-nosnippet>1329</a>	/// This attribute is meant to be used alongside [`#[pallet::storage]`](`storage`) to
-<a href=#1330 id=1330 data-nosnippet>1330</a>	/// define a storage's default value. This attribute can be used multiple times.
-<a href=#1331 id=1331 data-nosnippet>1331</a>	///
-<a href=#1332 id=1332 data-nosnippet>1332</a>	/// Item must be defined as:
+<a href=#1282 id=1282 data-nosnippet>1282</a>	/// Only one `#[pallet::view_functions]` block is allowed per pallet. Define all view
+<a href=#1283 id=1283 data-nosnippet>1283</a>	/// functions in that block.
+<a href=#1284 id=1284 data-nosnippet>1284</a>	///
+<a href=#1285 id=1285 data-nosnippet>1285</a>	/// ## Example
+<a href=#1286 id=1286 data-nosnippet>1286</a>	/// ```
+<a href=#1287 id=1287 data-nosnippet>1287</a>	/// #[frame_support::pallet]
+<a href=#1288 id=1288 data-nosnippet>1288</a>	/// pub mod pallet {
+<a href=#1289 id=1289 data-nosnippet>1289</a>	/// 	use frame_support::pallet_prelude::*;
+<a href=#1290 id=1290 data-nosnippet>1290</a>	///
+<a href=#1291 id=1291 data-nosnippet>1291</a>	///  	#[pallet::config]
+<a href=#1292 id=1292 data-nosnippet>1292</a>	///  	pub trait Config: frame_system::Config {}
+<a href=#1293 id=1293 data-nosnippet>1293</a>	///
+<a href=#1294 id=1294 data-nosnippet>1294</a>	///  	#[pallet::pallet]
+<a href=#1295 id=1295 data-nosnippet>1295</a>	///  	pub struct Pallet&lt;T&gt;(_);
+<a href=#1296 id=1296 data-nosnippet>1296</a>	///
+<a href=#1297 id=1297 data-nosnippet>1297</a>	///     #[pallet::storage]
+<a href=#1298 id=1298 data-nosnippet>1298</a>	/// 	pub type SomeMap&lt;T: Config&gt; = StorageMap&lt;_, Twox64Concat, u32, u32, OptionQuery&gt;;
+<a href=#1299 id=1299 data-nosnippet>1299</a>	///
+<a href=#1300 id=1300 data-nosnippet>1300</a>	///     #[pallet::view_functions]
+<a href=#1301 id=1301 data-nosnippet>1301</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1302 id=1302 data-nosnippet>1302</a>	/// 		/// Retrieve a map storage value by key.
+<a href=#1303 id=1303 data-nosnippet>1303</a>	///         pub fn get_value_with_arg(key: u32) -&gt; Option&lt;u32&gt; {
+<a href=#1304 id=1304 data-nosnippet>1304</a>	/// 			SomeMap::&lt;T&gt;::get(key)
+<a href=#1305 id=1305 data-nosnippet>1305</a>	/// 		}
+<a href=#1306 id=1306 data-nosnippet>1306</a>	///     }
+<a href=#1307 id=1307 data-nosnippet>1307</a>	/// }
+<a href=#1308 id=1308 data-nosnippet>1308</a>	/// ```
+<a href=#1309 id=1309 data-nosnippet>1309</a>	///
+<a href=#1310 id=1310 data-nosnippet>1310</a>	///
+<a href=#1311 id=1311 data-nosnippet>1311</a>	/// ## Usage and implementation details
+<a href=#1312 id=1312 data-nosnippet>1312</a>	/// To allow outside access to pallet view functions, you need to add a runtime API that
+<a href=#1313 id=1313 data-nosnippet>1313</a>	/// accepts view function queries and dispatches them to the right pallet. You can do that
+<a href=#1314 id=1314 data-nosnippet>1314</a>	/// by implementing the
+<a href=#1315 id=1315 data-nosnippet>1315</a>	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
+<a href=#1316 id=1316 data-nosnippet>1316</a>	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
+<a href=#1317 id=1317 data-nosnippet>1317</a>	/// block.
+<a href=#1318 id=1318 data-nosnippet>1318</a>	///
+<a href=#1319 id=1319 data-nosnippet>1319</a>	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
+<a href=#1320 id=1320 data-nosnippet>1320</a>	/// dispatch view functions to the right method in the right pallet based on their IDs. A
+<a href=#1321 id=1321 data-nosnippet>1321</a>	/// view function ID depends both on its pallet and on its method signature, so it remains
+<a href=#1322 id=1322 data-nosnippet>1322</a>	/// stable as long as those two elements are not modified. In general, pallet view
+<a href=#1323 id=1323 data-nosnippet>1323</a>	/// functions should expose a _stable_ interface and changes to the method signature are
+<a href=#1324 id=1324 data-nosnippet>1324</a>	/// strongly discouraged. For more details on the dispatching mechanism, see the
+<a href=#1325 id=1325 data-nosnippet>1325</a>	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
+<a href=#1326 id=1326 data-nosnippet>1326</a>	</span><span class="kw">pub use </span>frame_support_procedural::view_functions;
+<a href=#1327 id=1327 data-nosnippet>1327</a>
+<a href=#1328 id=1328 data-nosnippet>1328</a>	<span class="doccomment">/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
+<a href=#1329 id=1329 data-nosnippet>1329</a>	/// ease the use of storage types.
+<a href=#1330 id=1330 data-nosnippet>1330</a>	///
+<a href=#1331 id=1331 data-nosnippet>1331</a>	/// This attribute is meant to be used alongside [`#[pallet::storage]`](`storage`) to
+<a href=#1332 id=1332 data-nosnippet>1332</a>	/// define a storage's default value. This attribute can be used multiple times.
 <a href=#1333 id=1333 data-nosnippet>1333</a>	///
-<a href=#1334 id=1334 data-nosnippet>1334</a>	/// ```
-<a href=#1335 id=1335 data-nosnippet>1335</a>	/// #[frame_support::pallet]
-<a href=#1336 id=1336 data-nosnippet>1336</a>	/// mod pallet {
-<a href=#1337 id=1337 data-nosnippet>1337</a>	/// # 	use sp_runtime::FixedU128;
-<a href=#1338 id=1338 data-nosnippet>1338</a>	/// # 	use frame_support::pallet_prelude::*;
-<a href=#1339 id=1339 data-nosnippet>1339</a>	/// #
-<a href=#1340 id=1340 data-nosnippet>1340</a>	/// 	#[pallet::pallet]
-<a href=#1341 id=1341 data-nosnippet>1341</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1342 id=1342 data-nosnippet>1342</a>	///
-<a href=#1343 id=1343 data-nosnippet>1343</a>	/// 	#[pallet::storage]
-<a href=#1344 id=1344 data-nosnippet>1344</a>	/// 	pub(super) type SomeStorage&lt;T: Config&gt; =
-<a href=#1345 id=1345 data-nosnippet>1345</a>	/// 		StorageValue&lt;_, FixedU128, ValueQuery, DefaultForSomeValue&gt;;
-<a href=#1346 id=1346 data-nosnippet>1346</a>	///
-<a href=#1347 id=1347 data-nosnippet>1347</a>	/// 	// Define default for ParachainId
-<a href=#1348 id=1348 data-nosnippet>1348</a>	/// 	#[pallet::type_value]
-<a href=#1349 id=1349 data-nosnippet>1349</a>	/// 	pub fn DefaultForSomeValue() -&gt; FixedU128 {
-<a href=#1350 id=1350 data-nosnippet>1350</a>	/// 		FixedU128::from_u32(1)
-<a href=#1351 id=1351 data-nosnippet>1351</a>	/// 	}
-<a href=#1352 id=1352 data-nosnippet>1352</a>	/// #
-<a href=#1353 id=1353 data-nosnippet>1353</a>	/// # 	#[pallet::config]
-<a href=#1354 id=1354 data-nosnippet>1354</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1355 id=1355 data-nosnippet>1355</a>	/// }
-<a href=#1356 id=1356 data-nosnippet>1356</a>	/// ```
-<a href=#1357 id=1357 data-nosnippet>1357</a>	///
-<a href=#1358 id=1358 data-nosnippet>1358</a>	/// ## Macro expansion
+<a href=#1334 id=1334 data-nosnippet>1334</a>	/// Item must be defined as:
+<a href=#1335 id=1335 data-nosnippet>1335</a>	///
+<a href=#1336 id=1336 data-nosnippet>1336</a>	/// ```
+<a href=#1337 id=1337 data-nosnippet>1337</a>	/// #[frame_support::pallet]
+<a href=#1338 id=1338 data-nosnippet>1338</a>	/// mod pallet {
+<a href=#1339 id=1339 data-nosnippet>1339</a>	/// # 	use sp_runtime::FixedU128;
+<a href=#1340 id=1340 data-nosnippet>1340</a>	/// # 	use frame_support::pallet_prelude::*;
+<a href=#1341 id=1341 data-nosnippet>1341</a>	/// #
+<a href=#1342 id=1342 data-nosnippet>1342</a>	/// 	#[pallet::pallet]
+<a href=#1343 id=1343 data-nosnippet>1343</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1344 id=1344 data-nosnippet>1344</a>	///
+<a href=#1345 id=1345 data-nosnippet>1345</a>	/// 	#[pallet::storage]
+<a href=#1346 id=1346 data-nosnippet>1346</a>	/// 	pub(super) type SomeStorage&lt;T: Config&gt; =
+<a href=#1347 id=1347 data-nosnippet>1347</a>	/// 		StorageValue&lt;_, FixedU128, ValueQuery, DefaultForSomeValue&gt;;
+<a href=#1348 id=1348 data-nosnippet>1348</a>	///
+<a href=#1349 id=1349 data-nosnippet>1349</a>	/// 	// Define default for ParachainId
+<a href=#1350 id=1350 data-nosnippet>1350</a>	/// 	#[pallet::type_value]
+<a href=#1351 id=1351 data-nosnippet>1351</a>	/// 	pub fn DefaultForSomeValue() -&gt; FixedU128 {
+<a href=#1352 id=1352 data-nosnippet>1352</a>	/// 		FixedU128::from_u32(1)
+<a href=#1353 id=1353 data-nosnippet>1353</a>	/// 	}
+<a href=#1354 id=1354 data-nosnippet>1354</a>	/// #
+<a href=#1355 id=1355 data-nosnippet>1355</a>	/// # 	#[pallet::config]
+<a href=#1356 id=1356 data-nosnippet>1356</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1357 id=1357 data-nosnippet>1357</a>	/// }
+<a href=#1358 id=1358 data-nosnippet>1358</a>	/// ```
 <a href=#1359 id=1359 data-nosnippet>1359</a>	///
-<a href=#1360 id=1360 data-nosnippet>1360</a>	/// The macro renames the function to some internal name, generates a struct with the
-<a href=#1361 id=1361 data-nosnippet>1361</a>	/// original name of the function and its generic, and implements `Get&lt;$ReturnType&gt;` by
-<a href=#1362 id=1362 data-nosnippet>1362</a>	/// calling the user defined function.
-<a href=#1363 id=1363 data-nosnippet>1363</a>	</span><span class="kw">pub use </span>frame_support_procedural::type_value;
-<a href=#1364 id=1364 data-nosnippet>1364</a>
-<a href=#1365 id=1365 data-nosnippet>1365</a>	<span class="doccomment">/// Allows defining a storage version for the pallet.
-<a href=#1366 id=1366 data-nosnippet>1366</a>	///
-<a href=#1367 id=1367 data-nosnippet>1367</a>	/// Because the `pallet::pallet` macro implements
-<a href=#1368 id=1368 data-nosnippet>1368</a>	/// [`GetStorageVersion`](frame_support::traits::GetStorageVersion), the current storage
-<a href=#1369 id=1369 data-nosnippet>1369</a>	/// version needs to be communicated to the macro. This can be done by using the
-<a href=#1370 id=1370 data-nosnippet>1370</a>	/// `pallet::storage_version` attribute:
-<a href=#1371 id=1371 data-nosnippet>1371</a>	///
-<a href=#1372 id=1372 data-nosnippet>1372</a>	/// ```
-<a href=#1373 id=1373 data-nosnippet>1373</a>	/// #[frame_support::pallet]
-<a href=#1374 id=1374 data-nosnippet>1374</a>	/// mod pallet {
-<a href=#1375 id=1375 data-nosnippet>1375</a>	/// # 	use frame_support::pallet_prelude::StorageVersion;
-<a href=#1376 id=1376 data-nosnippet>1376</a>	/// # 	use frame_support::traits::GetStorageVersion;
-<a href=#1377 id=1377 data-nosnippet>1377</a>	/// #
-<a href=#1378 id=1378 data-nosnippet>1378</a>	/// 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
-<a href=#1379 id=1379 data-nosnippet>1379</a>	///
-<a href=#1380 id=1380 data-nosnippet>1380</a>	/// 	#[pallet::pallet]
-<a href=#1381 id=1381 data-nosnippet>1381</a>	/// 	#[pallet::storage_version(STORAGE_VERSION)]
-<a href=#1382 id=1382 data-nosnippet>1382</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1383 id=1383 data-nosnippet>1383</a>	/// #
-<a href=#1384 id=1384 data-nosnippet>1384</a>	/// # 	#[pallet::config]
-<a href=#1385 id=1385 data-nosnippet>1385</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1386 id=1386 data-nosnippet>1386</a>	/// }
-<a href=#1387 id=1387 data-nosnippet>1387</a>	/// ```
-<a href=#1388 id=1388 data-nosnippet>1388</a>	///
-<a href=#1389 id=1389 data-nosnippet>1389</a>	/// If not present, the current storage version is set to the default value.
-<a href=#1390 id=1390 data-nosnippet>1390</a>	</span><span class="kw">pub use </span>frame_support_procedural::storage_version;
-<a href=#1391 id=1391 data-nosnippet>1391</a>
-<a href=#1392 id=1392 data-nosnippet>1392</a>	<span class="doccomment">/// The `#[pallet::hooks]` attribute allows you to specify a
-<a href=#1393 id=1393 data-nosnippet>1393</a>	/// [`frame_support::traits::Hooks`] implementation for `Pallet` that specifies
-<a href=#1394 id=1394 data-nosnippet>1394</a>	/// pallet-specific logic.
-<a href=#1395 id=1395 data-nosnippet>1395</a>	///
-<a href=#1396 id=1396 data-nosnippet>1396</a>	/// The item the attribute attaches to must be defined as follows:
+<a href=#1360 id=1360 data-nosnippet>1360</a>	/// ## Macro expansion
+<a href=#1361 id=1361 data-nosnippet>1361</a>	///
+<a href=#1362 id=1362 data-nosnippet>1362</a>	/// The macro renames the function to some internal name, generates a struct with the
+<a href=#1363 id=1363 data-nosnippet>1363</a>	/// original name of the function and its generic, and implements `Get&lt;$ReturnType&gt;` by
+<a href=#1364 id=1364 data-nosnippet>1364</a>	/// calling the user defined function.
+<a href=#1365 id=1365 data-nosnippet>1365</a>	</span><span class="kw">pub use </span>frame_support_procedural::type_value;
+<a href=#1366 id=1366 data-nosnippet>1366</a>
+<a href=#1367 id=1367 data-nosnippet>1367</a>	<span class="doccomment">/// Allows defining a storage version for the pallet.
+<a href=#1368 id=1368 data-nosnippet>1368</a>	///
+<a href=#1369 id=1369 data-nosnippet>1369</a>	/// Because the `pallet::pallet` macro implements
+<a href=#1370 id=1370 data-nosnippet>1370</a>	/// [`GetStorageVersion`](frame_support::traits::GetStorageVersion), the current storage
+<a href=#1371 id=1371 data-nosnippet>1371</a>	/// version needs to be communicated to the macro. This can be done by using the
+<a href=#1372 id=1372 data-nosnippet>1372</a>	/// `pallet::storage_version` attribute:
+<a href=#1373 id=1373 data-nosnippet>1373</a>	///
+<a href=#1374 id=1374 data-nosnippet>1374</a>	/// ```
+<a href=#1375 id=1375 data-nosnippet>1375</a>	/// #[frame_support::pallet]
+<a href=#1376 id=1376 data-nosnippet>1376</a>	/// mod pallet {
+<a href=#1377 id=1377 data-nosnippet>1377</a>	/// # 	use frame_support::pallet_prelude::StorageVersion;
+<a href=#1378 id=1378 data-nosnippet>1378</a>	/// # 	use frame_support::traits::GetStorageVersion;
+<a href=#1379 id=1379 data-nosnippet>1379</a>	/// #
+<a href=#1380 id=1380 data-nosnippet>1380</a>	/// 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+<a href=#1381 id=1381 data-nosnippet>1381</a>	///
+<a href=#1382 id=1382 data-nosnippet>1382</a>	/// 	#[pallet::pallet]
+<a href=#1383 id=1383 data-nosnippet>1383</a>	/// 	#[pallet::storage_version(STORAGE_VERSION)]
+<a href=#1384 id=1384 data-nosnippet>1384</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1385 id=1385 data-nosnippet>1385</a>	/// #
+<a href=#1386 id=1386 data-nosnippet>1386</a>	/// # 	#[pallet::config]
+<a href=#1387 id=1387 data-nosnippet>1387</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1388 id=1388 data-nosnippet>1388</a>	/// }
+<a href=#1389 id=1389 data-nosnippet>1389</a>	/// ```
+<a href=#1390 id=1390 data-nosnippet>1390</a>	///
+<a href=#1391 id=1391 data-nosnippet>1391</a>	/// If not present, the current storage version is set to the default value.
+<a href=#1392 id=1392 data-nosnippet>1392</a>	</span><span class="kw">pub use </span>frame_support_procedural::storage_version;
+<a href=#1393 id=1393 data-nosnippet>1393</a>
+<a href=#1394 id=1394 data-nosnippet>1394</a>	<span class="doccomment">/// The `#[pallet::hooks]` attribute allows you to specify a
+<a href=#1395 id=1395 data-nosnippet>1395</a>	/// [`frame_support::traits::Hooks`] implementation for `Pallet` that specifies
+<a href=#1396 id=1396 data-nosnippet>1396</a>	/// pallet-specific logic.
 <a href=#1397 id=1397 data-nosnippet>1397</a>	///
-<a href=#1398 id=1398 data-nosnippet>1398</a>	/// ```
-<a href=#1399 id=1399 data-nosnippet>1399</a>	/// #[frame_support::pallet]
-<a href=#1400 id=1400 data-nosnippet>1400</a>	/// mod pallet {
-<a href=#1401 id=1401 data-nosnippet>1401</a>	/// # 	use frame_support::pallet_prelude::*;
-<a href=#1402 id=1402 data-nosnippet>1402</a>	/// # 	use frame_system::pallet_prelude::*;
-<a href=#1403 id=1403 data-nosnippet>1403</a>	/// #
-<a href=#1404 id=1404 data-nosnippet>1404</a>	/// 	#[pallet::pallet]
-<a href=#1405 id=1405 data-nosnippet>1405</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1406 id=1406 data-nosnippet>1406</a>	///
-<a href=#1407 id=1407 data-nosnippet>1407</a>	/// 	#[pallet::hooks]
-<a href=#1408 id=1408 data-nosnippet>1408</a>	/// 	impl&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; for Pallet&lt;T&gt; {
-<a href=#1409 id=1409 data-nosnippet>1409</a>	/// 		// Implement hooks here
-<a href=#1410 id=1410 data-nosnippet>1410</a>	/// 	}
-<a href=#1411 id=1411 data-nosnippet>1411</a>	/// #
-<a href=#1412 id=1412 data-nosnippet>1412</a>	/// # 	#[pallet::config]
-<a href=#1413 id=1413 data-nosnippet>1413</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1414 id=1414 data-nosnippet>1414</a>	/// }
-<a href=#1415 id=1415 data-nosnippet>1415</a>	/// ```
-<a href=#1416 id=1416 data-nosnippet>1416</a>	/// I.e. a regular trait implementation with generic bound: `T: Config`, for the trait
-<a href=#1417 id=1417 data-nosnippet>1417</a>	/// `Hooks&lt;BlockNumberFor&lt;T&gt;&gt;` (they are defined in preludes), for the type `Pallet&lt;T&gt;`.
-<a href=#1418 id=1418 data-nosnippet>1418</a>	///
-<a href=#1419 id=1419 data-nosnippet>1419</a>	/// Optionally, you could add a where clause.
+<a href=#1398 id=1398 data-nosnippet>1398</a>	/// The item the attribute attaches to must be defined as follows:
+<a href=#1399 id=1399 data-nosnippet>1399</a>	///
+<a href=#1400 id=1400 data-nosnippet>1400</a>	/// ```
+<a href=#1401 id=1401 data-nosnippet>1401</a>	/// #[frame_support::pallet]
+<a href=#1402 id=1402 data-nosnippet>1402</a>	/// mod pallet {
+<a href=#1403 id=1403 data-nosnippet>1403</a>	/// # 	use frame_support::pallet_prelude::*;
+<a href=#1404 id=1404 data-nosnippet>1404</a>	/// # 	use frame_system::pallet_prelude::*;
+<a href=#1405 id=1405 data-nosnippet>1405</a>	/// #
+<a href=#1406 id=1406 data-nosnippet>1406</a>	/// 	#[pallet::pallet]
+<a href=#1407 id=1407 data-nosnippet>1407</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1408 id=1408 data-nosnippet>1408</a>	///
+<a href=#1409 id=1409 data-nosnippet>1409</a>	/// 	#[pallet::hooks]
+<a href=#1410 id=1410 data-nosnippet>1410</a>	/// 	impl&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; for Pallet&lt;T&gt; {
+<a href=#1411 id=1411 data-nosnippet>1411</a>	/// 		// Implement hooks here
+<a href=#1412 id=1412 data-nosnippet>1412</a>	/// 	}
+<a href=#1413 id=1413 data-nosnippet>1413</a>	/// #
+<a href=#1414 id=1414 data-nosnippet>1414</a>	/// # 	#[pallet::config]
+<a href=#1415 id=1415 data-nosnippet>1415</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1416 id=1416 data-nosnippet>1416</a>	/// }
+<a href=#1417 id=1417 data-nosnippet>1417</a>	/// ```
+<a href=#1418 id=1418 data-nosnippet>1418</a>	/// I.e. a regular trait implementation with generic bound: `T: Config`, for the trait
+<a href=#1419 id=1419 data-nosnippet>1419</a>	/// `Hooks&lt;BlockNumberFor&lt;T&gt;&gt;` (they are defined in preludes), for the type `Pallet&lt;T&gt;`.
 <a href=#1420 id=1420 data-nosnippet>1420</a>	///
-<a href=#1421 id=1421 data-nosnippet>1421</a>	/// ## Macro expansion
+<a href=#1421 id=1421 data-nosnippet>1421</a>	/// Optionally, you could add a where clause.
 <a href=#1422 id=1422 data-nosnippet>1422</a>	///
-<a href=#1423 id=1423 data-nosnippet>1423</a>	/// The macro implements the traits
-<a href=#1424 id=1424 data-nosnippet>1424</a>	/// [`OnInitialize`](frame_support::traits::OnInitialize),
-<a href=#1425 id=1425 data-nosnippet>1425</a>	/// [`OnIdle`](frame_support::traits::OnIdle),
-<a href=#1426 id=1426 data-nosnippet>1426</a>	/// [`OnFinalize`](frame_support::traits::OnFinalize),
-<a href=#1427 id=1427 data-nosnippet>1427</a>	/// [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade),
-<a href=#1428 id=1428 data-nosnippet>1428</a>	/// [`OffchainWorker`](frame_support::traits::OffchainWorker), and
-<a href=#1429 id=1429 data-nosnippet>1429</a>	/// [`IntegrityTest`](frame_support::traits::IntegrityTest) using
-<a href=#1430 id=1430 data-nosnippet>1430</a>	/// the provided [`Hooks`](frame_support::traits::Hooks) implementation.
-<a href=#1431 id=1431 data-nosnippet>1431</a>	///
-<a href=#1432 id=1432 data-nosnippet>1432</a>	/// NOTE: `OnRuntimeUpgrade` is implemented with `Hooks::on_runtime_upgrade` and some
-<a href=#1433 id=1433 data-nosnippet>1433</a>	/// additional logic. E.g. logic to write the pallet version into storage.
-<a href=#1434 id=1434 data-nosnippet>1434</a>	///
-<a href=#1435 id=1435 data-nosnippet>1435</a>	/// NOTE: The macro also adds some tracing logic when implementing the above traits. The
-<a href=#1436 id=1436 data-nosnippet>1436</a>	/// following hooks emit traces: `on_initialize`, `on_finalize` and `on_runtime_upgrade`.
-<a href=#1437 id=1437 data-nosnippet>1437</a>	</span><span class="kw">pub use </span>frame_support_procedural::hooks;
-<a href=#1438 id=1438 data-nosnippet>1438</a>
-<a href=#1439 id=1439 data-nosnippet>1439</a>	<span class="doccomment">/// Generates a helper function on `Pallet` that handles deposit events.
-<a href=#1440 id=1440 data-nosnippet>1440</a>	///
-<a href=#1441 id=1441 data-nosnippet>1441</a>	/// NOTE: For instantiable pallets, the event must be generic over `T` and `I`.
+<a href=#1423 id=1423 data-nosnippet>1423</a>	/// ## Macro expansion
+<a href=#1424 id=1424 data-nosnippet>1424</a>	///
+<a href=#1425 id=1425 data-nosnippet>1425</a>	/// The macro implements the traits
+<a href=#1426 id=1426 data-nosnippet>1426</a>	/// [`OnInitialize`](frame_support::traits::OnInitialize),
+<a href=#1427 id=1427 data-nosnippet>1427</a>	/// [`OnIdle`](frame_support::traits::OnIdle),
+<a href=#1428 id=1428 data-nosnippet>1428</a>	/// [`OnFinalize`](frame_support::traits::OnFinalize),
+<a href=#1429 id=1429 data-nosnippet>1429</a>	/// [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade),
+<a href=#1430 id=1430 data-nosnippet>1430</a>	/// [`OffchainWorker`](frame_support::traits::OffchainWorker), and
+<a href=#1431 id=1431 data-nosnippet>1431</a>	/// [`IntegrityTest`](frame_support::traits::IntegrityTest) using
+<a href=#1432 id=1432 data-nosnippet>1432</a>	/// the provided [`Hooks`](frame_support::traits::Hooks) implementation.
+<a href=#1433 id=1433 data-nosnippet>1433</a>	///
+<a href=#1434 id=1434 data-nosnippet>1434</a>	/// NOTE: `OnRuntimeUpgrade` is implemented with `Hooks::on_runtime_upgrade` and some
+<a href=#1435 id=1435 data-nosnippet>1435</a>	/// additional logic. E.g. logic to write the pallet version into storage.
+<a href=#1436 id=1436 data-nosnippet>1436</a>	///
+<a href=#1437 id=1437 data-nosnippet>1437</a>	/// NOTE: The macro also adds some tracing logic when implementing the above traits. The
+<a href=#1438 id=1438 data-nosnippet>1438</a>	/// following hooks emit traces: `on_initialize`, `on_finalize` and `on_runtime_upgrade`.
+<a href=#1439 id=1439 data-nosnippet>1439</a>	</span><span class="kw">pub use </span>frame_support_procedural::hooks;
+<a href=#1440 id=1440 data-nosnippet>1440</a>
+<a href=#1441 id=1441 data-nosnippet>1441</a>	<span class="doccomment">/// Generates a helper function on `Pallet` that handles deposit events.
 <a href=#1442 id=1442 data-nosnippet>1442</a>	///
-<a href=#1443 id=1443 data-nosnippet>1443</a>	/// ## Macro expansion
+<a href=#1443 id=1443 data-nosnippet>1443</a>	/// NOTE: For instantiable pallets, the event must be generic over `T` and `I`.
 <a href=#1444 id=1444 data-nosnippet>1444</a>	///
-<a href=#1445 id=1445 data-nosnippet>1445</a>	/// The macro will add on enum `Event` the attributes:
-<a href=#1446 id=1446 data-nosnippet>1446</a>	/// * `#[derive(`[`frame_support::CloneNoBound`]`)]`
-<a href=#1447 id=1447 data-nosnippet>1447</a>	/// * `#[derive(`[`frame_support::EqNoBound`]`)]`
-<a href=#1448 id=1448 data-nosnippet>1448</a>	/// * `#[derive(`[`frame_support::PartialEqNoBound`]`)]`
-<a href=#1449 id=1449 data-nosnippet>1449</a>	/// * `#[derive(`[`frame_support::DebugNoBound`]`)]`
-<a href=#1450 id=1450 data-nosnippet>1450</a>	/// * `#[derive(`[`codec::Encode`]`)]`
-<a href=#1451 id=1451 data-nosnippet>1451</a>	/// * `#[derive(`[`codec::Decode`]`)]`
-<a href=#1452 id=1452 data-nosnippet>1452</a>	///
-<a href=#1453 id=1453 data-nosnippet>1453</a>	/// The macro implements `From&lt;Event&lt;..&gt;&gt;` for ().
+<a href=#1445 id=1445 data-nosnippet>1445</a>	/// ## Macro expansion
+<a href=#1446 id=1446 data-nosnippet>1446</a>	///
+<a href=#1447 id=1447 data-nosnippet>1447</a>	/// The macro will add on enum `Event` the attributes:
+<a href=#1448 id=1448 data-nosnippet>1448</a>	/// * `#[derive(`[`frame_support::CloneNoBound`]`)]`
+<a href=#1449 id=1449 data-nosnippet>1449</a>	/// * `#[derive(`[`frame_support::EqNoBound`]`)]`
+<a href=#1450 id=1450 data-nosnippet>1450</a>	/// * `#[derive(`[`frame_support::PartialEqNoBound`]`)]`
+<a href=#1451 id=1451 data-nosnippet>1451</a>	/// * `#[derive(`[`frame_support::DebugNoBound`]`)]`
+<a href=#1452 id=1452 data-nosnippet>1452</a>	/// * `#[derive(`[`codec::Encode`]`)]`
+<a href=#1453 id=1453 data-nosnippet>1453</a>	/// * `#[derive(`[`codec::Decode`]`)]`
 <a href=#1454 id=1454 data-nosnippet>1454</a>	///
-<a href=#1455 id=1455 data-nosnippet>1455</a>	/// The macro implements a metadata function on `Event` returning the `EventMetadata`.
+<a href=#1455 id=1455 data-nosnippet>1455</a>	/// The macro implements `From&lt;Event&lt;..&gt;&gt;` for ().
 <a href=#1456 id=1456 data-nosnippet>1456</a>	///
-<a href=#1457 id=1457 data-nosnippet>1457</a>	/// If `#[pallet::generate_deposit]` is present then the macro implements `fn
-<a href=#1458 id=1458 data-nosnippet>1458</a>	/// deposit_event` on `Pallet`.
-<a href=#1459 id=1459 data-nosnippet>1459</a>	</span><span class="kw">pub use </span>frame_support_procedural::generate_deposit;
-<a href=#1460 id=1460 data-nosnippet>1460</a>
-<a href=#1461 id=1461 data-nosnippet>1461</a>	<span class="doccomment">/// Allows defining logic to make an extrinsic call feeless.
-<a href=#1462 id=1462 data-nosnippet>1462</a>	///
-<a href=#1463 id=1463 data-nosnippet>1463</a>	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]`
-<a href=#1464 id=1464 data-nosnippet>1464</a>	/// attribute, which explicitly defines the condition for the dispatchable to be feeless.
-<a href=#1465 id=1465 data-nosnippet>1465</a>	///
-<a href=#1466 id=1466 data-nosnippet>1466</a>	/// The arguments for the closure must be the referenced arguments of the dispatchable
-<a href=#1467 id=1467 data-nosnippet>1467</a>	/// function.
-<a href=#1468 id=1468 data-nosnippet>1468</a>	///
-<a href=#1469 id=1469 data-nosnippet>1469</a>	/// The closure must return `bool`.
+<a href=#1457 id=1457 data-nosnippet>1457</a>	/// The macro implements a metadata function on `Event` returning the `EventMetadata`.
+<a href=#1458 id=1458 data-nosnippet>1458</a>	///
+<a href=#1459 id=1459 data-nosnippet>1459</a>	/// If `#[pallet::generate_deposit]` is present then the macro implements `fn
+<a href=#1460 id=1460 data-nosnippet>1460</a>	/// deposit_event` on `Pallet`.
+<a href=#1461 id=1461 data-nosnippet>1461</a>	</span><span class="kw">pub use </span>frame_support_procedural::generate_deposit;
+<a href=#1462 id=1462 data-nosnippet>1462</a>
+<a href=#1463 id=1463 data-nosnippet>1463</a>	<span class="doccomment">/// Allows defining logic to make an extrinsic call feeless.
+<a href=#1464 id=1464 data-nosnippet>1464</a>	///
+<a href=#1465 id=1465 data-nosnippet>1465</a>	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]`
+<a href=#1466 id=1466 data-nosnippet>1466</a>	/// attribute, which explicitly defines the condition for the dispatchable to be feeless.
+<a href=#1467 id=1467 data-nosnippet>1467</a>	///
+<a href=#1468 id=1468 data-nosnippet>1468</a>	/// The arguments for the closure must be the referenced arguments of the dispatchable
+<a href=#1469 id=1469 data-nosnippet>1469</a>	/// function.
 <a href=#1470 id=1470 data-nosnippet>1470</a>	///
-<a href=#1471 id=1471 data-nosnippet>1471</a>	/// ### Example
+<a href=#1471 id=1471 data-nosnippet>1471</a>	/// The closure must return `bool`.
 <a href=#1472 id=1472 data-nosnippet>1472</a>	///
-<a href=#1473 id=1473 data-nosnippet>1473</a>	/// ```
-<a href=#1474 id=1474 data-nosnippet>1474</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1475 id=1475 data-nosnippet>1475</a>	/// mod pallet {
-<a href=#1476 id=1476 data-nosnippet>1476</a>	/// # 	use frame_support::pallet_prelude::*;
-<a href=#1477 id=1477 data-nosnippet>1477</a>	/// # 	use frame_system::pallet_prelude::*;
-<a href=#1478 id=1478 data-nosnippet>1478</a>	/// #
-<a href=#1479 id=1479 data-nosnippet>1479</a>	/// 	#[pallet::pallet]
-<a href=#1480 id=1480 data-nosnippet>1480</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1481 id=1481 data-nosnippet>1481</a>	///
-<a href=#1482 id=1482 data-nosnippet>1482</a>	/// 	#[pallet::call]
-<a href=#1483 id=1483 data-nosnippet>1483</a>	/// 	impl&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1484 id=1484 data-nosnippet>1484</a>	/// 		#[pallet::call_index(0)]
-<a href=#1485 id=1485 data-nosnippet>1485</a>	/// 		/// Marks this call as feeless if `foo` is zero.
-<a href=#1486 id=1486 data-nosnippet>1486</a>	/// 		#[pallet::feeless_if(|_origin: &amp;OriginFor&lt;T&gt;, foo: &amp;u32| -&gt; bool {
-<a href=#1487 id=1487 data-nosnippet>1487</a>	/// 			*foo == 0
-<a href=#1488 id=1488 data-nosnippet>1488</a>	/// 		})]
-<a href=#1489 id=1489 data-nosnippet>1489</a>	/// 		pub fn something(
-<a href=#1490 id=1490 data-nosnippet>1490</a>	/// 			_: OriginFor&lt;T&gt;,
-<a href=#1491 id=1491 data-nosnippet>1491</a>	/// 			foo: u32,
-<a href=#1492 id=1492 data-nosnippet>1492</a>	/// 		) -&gt; DispatchResult {
-<a href=#1493 id=1493 data-nosnippet>1493</a>	/// 			unimplemented!()
-<a href=#1494 id=1494 data-nosnippet>1494</a>	/// 		}
-<a href=#1495 id=1495 data-nosnippet>1495</a>	/// 	}
-<a href=#1496 id=1496 data-nosnippet>1496</a>	/// #
-<a href=#1497 id=1497 data-nosnippet>1497</a>	/// # 	#[pallet::config]
-<a href=#1498 id=1498 data-nosnippet>1498</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1499 id=1499 data-nosnippet>1499</a>	/// }
-<a href=#1500 id=1500 data-nosnippet>1500</a>	/// ```
-<a href=#1501 id=1501 data-nosnippet>1501</a>	///
-<a href=#1502 id=1502 data-nosnippet>1502</a>	/// Please note that this only works for signed dispatchables and requires a transaction
-<a href=#1503 id=1503 data-nosnippet>1503</a>	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
-<a href=#1504 id=1504 data-nosnippet>1504</a>	/// existing payment extension. Else, this is completely ignored and the dispatchable is
-<a href=#1505 id=1505 data-nosnippet>1505</a>	/// still charged.
-<a href=#1506 id=1506 data-nosnippet>1506</a>	///
-<a href=#1507 id=1507 data-nosnippet>1507</a>	/// Also this will not allow accountless caller to send a transaction if some transaction
-<a href=#1508 id=1508 data-nosnippet>1508</a>	/// extension such as `frame_system::CheckNonce` is used.
-<a href=#1509 id=1509 data-nosnippet>1509</a>	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
-<a href=#1510 id=1510 data-nosnippet>1510</a>	/// the transaction.
-<a href=#1511 id=1511 data-nosnippet>1511</a>	///
-<a href=#1512 id=1512 data-nosnippet>1512</a>	/// ### Macro expansion
+<a href=#1473 id=1473 data-nosnippet>1473</a>	/// ### Example
+<a href=#1474 id=1474 data-nosnippet>1474</a>	///
+<a href=#1475 id=1475 data-nosnippet>1475</a>	/// ```
+<a href=#1476 id=1476 data-nosnippet>1476</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1477 id=1477 data-nosnippet>1477</a>	/// mod pallet {
+<a href=#1478 id=1478 data-nosnippet>1478</a>	/// # 	use frame_support::pallet_prelude::*;
+<a href=#1479 id=1479 data-nosnippet>1479</a>	/// # 	use frame_system::pallet_prelude::*;
+<a href=#1480 id=1480 data-nosnippet>1480</a>	/// #
+<a href=#1481 id=1481 data-nosnippet>1481</a>	/// 	#[pallet::pallet]
+<a href=#1482 id=1482 data-nosnippet>1482</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1483 id=1483 data-nosnippet>1483</a>	///
+<a href=#1484 id=1484 data-nosnippet>1484</a>	/// 	#[pallet::call]
+<a href=#1485 id=1485 data-nosnippet>1485</a>	/// 	impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1486 id=1486 data-nosnippet>1486</a>	/// 		#[pallet::call_index(0)]
+<a href=#1487 id=1487 data-nosnippet>1487</a>	/// 		/// Marks this call as feeless if `foo` is zero.
+<a href=#1488 id=1488 data-nosnippet>1488</a>	/// 		#[pallet::feeless_if(|_origin: &amp;OriginFor&lt;T&gt;, foo: &amp;u32| -&gt; bool {
+<a href=#1489 id=1489 data-nosnippet>1489</a>	/// 			*foo == 0
+<a href=#1490 id=1490 data-nosnippet>1490</a>	/// 		})]
+<a href=#1491 id=1491 data-nosnippet>1491</a>	/// 		pub fn something(
+<a href=#1492 id=1492 data-nosnippet>1492</a>	/// 			_: OriginFor&lt;T&gt;,
+<a href=#1493 id=1493 data-nosnippet>1493</a>	/// 			foo: u32,
+<a href=#1494 id=1494 data-nosnippet>1494</a>	/// 		) -&gt; DispatchResult {
+<a href=#1495 id=1495 data-nosnippet>1495</a>	/// 			unimplemented!()
+<a href=#1496 id=1496 data-nosnippet>1496</a>	/// 		}
+<a href=#1497 id=1497 data-nosnippet>1497</a>	/// 	}
+<a href=#1498 id=1498 data-nosnippet>1498</a>	/// #
+<a href=#1499 id=1499 data-nosnippet>1499</a>	/// # 	#[pallet::config]
+<a href=#1500 id=1500 data-nosnippet>1500</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1501 id=1501 data-nosnippet>1501</a>	/// }
+<a href=#1502 id=1502 data-nosnippet>1502</a>	/// ```
+<a href=#1503 id=1503 data-nosnippet>1503</a>	///
+<a href=#1504 id=1504 data-nosnippet>1504</a>	/// Please note that this only works for signed dispatchables and requires a transaction
+<a href=#1505 id=1505 data-nosnippet>1505</a>	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
+<a href=#1506 id=1506 data-nosnippet>1506</a>	/// existing payment extension. Else, this is completely ignored and the dispatchable is
+<a href=#1507 id=1507 data-nosnippet>1507</a>	/// still charged.
+<a href=#1508 id=1508 data-nosnippet>1508</a>	///
+<a href=#1509 id=1509 data-nosnippet>1509</a>	/// Also this will not allow accountless caller to send a transaction if some transaction
+<a href=#1510 id=1510 data-nosnippet>1510</a>	/// extension such as `frame_system::CheckNonce` is used.
+<a href=#1511 id=1511 data-nosnippet>1511</a>	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
+<a href=#1512 id=1512 data-nosnippet>1512</a>	/// the transaction.
 <a href=#1513 id=1513 data-nosnippet>1513</a>	///
-<a href=#1514 id=1514 data-nosnippet>1514</a>	/// The macro implements the [`pallet_skip_feeless_payment::CheckIfFeeless`] trait on the
-<a href=#1515 id=1515 data-nosnippet>1515</a>	/// dispatchable and calls the corresponding closure in the implementation.
-<a href=#1516 id=1516 data-nosnippet>1516</a>	///
-<a href=#1517 id=1517 data-nosnippet>1517</a>	/// [`pallet_skip_feeless_payment::SkipCheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
-<a href=#1518 id=1518 data-nosnippet>1518</a>	/// [`pallet_skip_feeless_payment::CheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
-<a href=#1519 id=1519 data-nosnippet>1519</a>	</span><span class="kw">pub use </span>frame_support_procedural::feeless_if;
-<a href=#1520 id=1520 data-nosnippet>1520</a>
-<a href=#1521 id=1521 data-nosnippet>1521</a>	<span class="doccomment">/// Allows defining an error enum that will be returned from the dispatchable when an error
-<a href=#1522 id=1522 data-nosnippet>1522</a>	/// occurs.
-<a href=#1523 id=1523 data-nosnippet>1523</a>	///
-<a href=#1524 id=1524 data-nosnippet>1524</a>	/// The information for this error type is then stored in runtime metadata.
+<a href=#1514 id=1514 data-nosnippet>1514</a>	/// ### Macro expansion
+<a href=#1515 id=1515 data-nosnippet>1515</a>	///
+<a href=#1516 id=1516 data-nosnippet>1516</a>	/// The macro implements the [`pallet_skip_feeless_payment::CheckIfFeeless`] trait on the
+<a href=#1517 id=1517 data-nosnippet>1517</a>	/// dispatchable and calls the corresponding closure in the implementation.
+<a href=#1518 id=1518 data-nosnippet>1518</a>	///
+<a href=#1519 id=1519 data-nosnippet>1519</a>	/// [`pallet_skip_feeless_payment::SkipCheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
+<a href=#1520 id=1520 data-nosnippet>1520</a>	/// [`pallet_skip_feeless_payment::CheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
+<a href=#1521 id=1521 data-nosnippet>1521</a>	</span><span class="kw">pub use </span>frame_support_procedural::feeless_if;
+<a href=#1522 id=1522 data-nosnippet>1522</a>
+<a href=#1523 id=1523 data-nosnippet>1523</a>	<span class="doccomment">/// Allows defining an error enum that will be returned from the dispatchable when an error
+<a href=#1524 id=1524 data-nosnippet>1524</a>	/// occurs.
 <a href=#1525 id=1525 data-nosnippet>1525</a>	///
-<a href=#1526 id=1526 data-nosnippet>1526</a>	/// Item must be defined as so:
+<a href=#1526 id=1526 data-nosnippet>1526</a>	/// The information for this error type is then stored in runtime metadata.
 <a href=#1527 id=1527 data-nosnippet>1527</a>	///
-<a href=#1528 id=1528 data-nosnippet>1528</a>	/// ```
-<a href=#1529 id=1529 data-nosnippet>1529</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1530 id=1530 data-nosnippet>1530</a>	/// mod pallet {
-<a href=#1531 id=1531 data-nosnippet>1531</a>	/// 	#[pallet::pallet]
-<a href=#1532 id=1532 data-nosnippet>1532</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1533 id=1533 data-nosnippet>1533</a>	///
-<a href=#1534 id=1534 data-nosnippet>1534</a>	/// 	#[pallet::error]
-<a href=#1535 id=1535 data-nosnippet>1535</a>	/// 	pub enum Error&lt;T&gt; {
-<a href=#1536 id=1536 data-nosnippet>1536</a>	/// 		/// SomeFieldLessVariant doc
-<a href=#1537 id=1537 data-nosnippet>1537</a>	/// 		SomeFieldLessVariant,
-<a href=#1538 id=1538 data-nosnippet>1538</a>	/// 		/// SomeVariantWithOneField doc
-<a href=#1539 id=1539 data-nosnippet>1539</a>	/// 		SomeVariantWithOneField(u32),
-<a href=#1540 id=1540 data-nosnippet>1540</a>	/// 	}
-<a href=#1541 id=1541 data-nosnippet>1541</a>	/// #
-<a href=#1542 id=1542 data-nosnippet>1542</a>	/// # 	#[pallet::config]
-<a href=#1543 id=1543 data-nosnippet>1543</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1544 id=1544 data-nosnippet>1544</a>	/// }
-<a href=#1545 id=1545 data-nosnippet>1545</a>	/// ```
-<a href=#1546 id=1546 data-nosnippet>1546</a>	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
-<a href=#1547 id=1547 data-nosnippet>1547</a>	/// variants.
-<a href=#1548 id=1548 data-nosnippet>1548</a>	///
-<a href=#1549 id=1549 data-nosnippet>1549</a>	/// Any field type in the enum variants must implement [`scale_info::TypeInfo`] in order to
-<a href=#1550 id=1550 data-nosnippet>1550</a>	/// be properly used in the metadata, and its encoded size should be as small as possible,
-<a href=#1551 id=1551 data-nosnippet>1551</a>	/// preferably 1 byte in size in order to reduce storage size. The error enum itself has an
-<a href=#1552 id=1552 data-nosnippet>1552</a>	/// absolute maximum encoded size specified by
-<a href=#1553 id=1553 data-nosnippet>1553</a>	/// [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
-<a href=#1554 id=1554 data-nosnippet>1554</a>	///
-<a href=#1555 id=1555 data-nosnippet>1555</a>	/// (1 byte can still be 256 different errors. The more specific the error, the easier it
-<a href=#1556 id=1556 data-nosnippet>1556</a>	/// is to diagnose problems and give a better experience to the user. Don't skimp on having
-<a href=#1557 id=1557 data-nosnippet>1557</a>	/// lots of individual error conditions.)
-<a href=#1558 id=1558 data-nosnippet>1558</a>	///
-<a href=#1559 id=1559 data-nosnippet>1559</a>	/// Field types in enum variants must also implement [`frame_support::PalletError`],
-<a href=#1560 id=1560 data-nosnippet>1560</a>	/// otherwise the pallet will fail to compile. Rust primitive types have already
-<a href=#1561 id=1561 data-nosnippet>1561</a>	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
-<a href=#1562 id=1562 data-nosnippet>1562</a>	/// stdlib types such as [`Option`] and [`core::marker::PhantomData`], and hence
-<a href=#1563 id=1563 data-nosnippet>1563</a>	/// in most use cases, a manual implementation is not necessary and is discouraged.
-<a href=#1564 id=1564 data-nosnippet>1564</a>	///
-<a href=#1565 id=1565 data-nosnippet>1565</a>	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
-<a href=#1566 id=1566 data-nosnippet>1566</a>	/// bounds and/or a where clause should not needed for any use-case.
-<a href=#1567 id=1567 data-nosnippet>1567</a>	///
-<a href=#1568 id=1568 data-nosnippet>1568</a>	/// ## Macro expansion
+<a href=#1528 id=1528 data-nosnippet>1528</a>	/// Item must be defined as so:
+<a href=#1529 id=1529 data-nosnippet>1529</a>	///
+<a href=#1530 id=1530 data-nosnippet>1530</a>	/// ```
+<a href=#1531 id=1531 data-nosnippet>1531</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1532 id=1532 data-nosnippet>1532</a>	/// mod pallet {
+<a href=#1533 id=1533 data-nosnippet>1533</a>	/// 	#[pallet::pallet]
+<a href=#1534 id=1534 data-nosnippet>1534</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1535 id=1535 data-nosnippet>1535</a>	///
+<a href=#1536 id=1536 data-nosnippet>1536</a>	/// 	#[pallet::error]
+<a href=#1537 id=1537 data-nosnippet>1537</a>	/// 	pub enum Error&lt;T&gt; {
+<a href=#1538 id=1538 data-nosnippet>1538</a>	/// 		/// SomeFieldLessVariant doc
+<a href=#1539 id=1539 data-nosnippet>1539</a>	/// 		SomeFieldLessVariant,
+<a href=#1540 id=1540 data-nosnippet>1540</a>	/// 		/// SomeVariantWithOneField doc
+<a href=#1541 id=1541 data-nosnippet>1541</a>	/// 		SomeVariantWithOneField(u32),
+<a href=#1542 id=1542 data-nosnippet>1542</a>	/// 	}
+<a href=#1543 id=1543 data-nosnippet>1543</a>	/// #
+<a href=#1544 id=1544 data-nosnippet>1544</a>	/// # 	#[pallet::config]
+<a href=#1545 id=1545 data-nosnippet>1545</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1546 id=1546 data-nosnippet>1546</a>	/// }
+<a href=#1547 id=1547 data-nosnippet>1547</a>	/// ```
+<a href=#1548 id=1548 data-nosnippet>1548</a>	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
+<a href=#1549 id=1549 data-nosnippet>1549</a>	/// variants.
+<a href=#1550 id=1550 data-nosnippet>1550</a>	///
+<a href=#1551 id=1551 data-nosnippet>1551</a>	/// Any field type in the enum variants must implement [`scale_info::TypeInfo`] in order to
+<a href=#1552 id=1552 data-nosnippet>1552</a>	/// be properly used in the metadata, and its encoded size should be as small as possible,
+<a href=#1553 id=1553 data-nosnippet>1553</a>	/// preferably 1 byte in size in order to reduce storage size. The error enum itself has an
+<a href=#1554 id=1554 data-nosnippet>1554</a>	/// absolute maximum encoded size specified by
+<a href=#1555 id=1555 data-nosnippet>1555</a>	/// [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
+<a href=#1556 id=1556 data-nosnippet>1556</a>	///
+<a href=#1557 id=1557 data-nosnippet>1557</a>	/// (1 byte can still be 256 different errors. The more specific the error, the easier it
+<a href=#1558 id=1558 data-nosnippet>1558</a>	/// is to diagnose problems and give a better experience to the user. Don't skimp on having
+<a href=#1559 id=1559 data-nosnippet>1559</a>	/// lots of individual error conditions.)
+<a href=#1560 id=1560 data-nosnippet>1560</a>	///
+<a href=#1561 id=1561 data-nosnippet>1561</a>	/// Field types in enum variants must also implement [`frame_support::PalletError`],
+<a href=#1562 id=1562 data-nosnippet>1562</a>	/// otherwise the pallet will fail to compile. Rust primitive types have already
+<a href=#1563 id=1563 data-nosnippet>1563</a>	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
+<a href=#1564 id=1564 data-nosnippet>1564</a>	/// stdlib types such as [`Option`] and [`core::marker::PhantomData`], and hence
+<a href=#1565 id=1565 data-nosnippet>1565</a>	/// in most use cases, a manual implementation is not necessary and is discouraged.
+<a href=#1566 id=1566 data-nosnippet>1566</a>	///
+<a href=#1567 id=1567 data-nosnippet>1567</a>	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
+<a href=#1568 id=1568 data-nosnippet>1568</a>	/// bounds and/or a where clause should not needed for any use-case.
 <a href=#1569 id=1569 data-nosnippet>1569</a>	///
-<a href=#1570 id=1570 data-nosnippet>1570</a>	/// The macro implements the [`Debug`] trait and functions `as_u8` using variant position,
-<a href=#1571 id=1571 data-nosnippet>1571</a>	/// and `as_str` using variant doc.
-<a href=#1572 id=1572 data-nosnippet>1572</a>	///
-<a href=#1573 id=1573 data-nosnippet>1573</a>	/// The macro also implements `From&lt;Error&lt;T&gt;&gt;` for `&amp;'static str` and `From&lt;Error&lt;T&gt;&gt;` for
-<a href=#1574 id=1574 data-nosnippet>1574</a>	/// `DispatchError`.
-<a href=#1575 id=1575 data-nosnippet>1575</a>	///
-<a href=#1576 id=1576 data-nosnippet>1576</a>	/// ## Note on deprecation of Errors
+<a href=#1570 id=1570 data-nosnippet>1570</a>	/// ## Macro expansion
+<a href=#1571 id=1571 data-nosnippet>1571</a>	///
+<a href=#1572 id=1572 data-nosnippet>1572</a>	/// The macro implements the [`Debug`] trait and functions `as_u8` using variant position,
+<a href=#1573 id=1573 data-nosnippet>1573</a>	/// and `as_str` using variant doc.
+<a href=#1574 id=1574 data-nosnippet>1574</a>	///
+<a href=#1575 id=1575 data-nosnippet>1575</a>	/// The macro also implements `From&lt;Error&lt;T&gt;&gt;` for `&amp;'static str` and `From&lt;Error&lt;T&gt;&gt;` for
+<a href=#1576 id=1576 data-nosnippet>1576</a>	/// `DispatchError`.
 <a href=#1577 id=1577 data-nosnippet>1577</a>	///
-<a href=#1578 id=1578 data-nosnippet>1578</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
-<a href=#1579 id=1579 data-nosnippet>1579</a>	///   metadata where the item was declared.
-<a href=#1580 id=1580 data-nosnippet>1580</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
-<a href=#1581 id=1581 data-nosnippet>1581</a>	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
-<a href=#1582 id=1582 data-nosnippet>1582</a>	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
-<a href=#1583 id=1583 data-nosnippet>1583</a>	///   will be returned.
-<a href=#1584 id=1584 data-nosnippet>1584</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
-<a href=#1585 id=1585 data-nosnippet>1585</a>	///   generated code.
-<a href=#1586 id=1586 data-nosnippet>1586</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
-<a href=#1587 id=1587 data-nosnippet>1587</a>	///   automatically annotated with `allow(deprecated)`
-<a href=#1588 id=1588 data-nosnippet>1588</a>	</span><span class="kw">pub use </span>frame_support_procedural::error;
-<a href=#1589 id=1589 data-nosnippet>1589</a>
-<a href=#1590 id=1590 data-nosnippet>1590</a>	<span class="doccomment">/// Allows defining pallet events.
-<a href=#1591 id=1591 data-nosnippet>1591</a>	///
-<a href=#1592 id=1592 data-nosnippet>1592</a>	/// Pallet events are stored under the `system` / `events` key when the block is applied
-<a href=#1593 id=1593 data-nosnippet>1593</a>	/// (and then replaced when the next block writes it's events).
-<a href=#1594 id=1594 data-nosnippet>1594</a>	///
-<a href=#1595 id=1595 data-nosnippet>1595</a>	/// The Event enum can be defined as follows:
+<a href=#1578 id=1578 data-nosnippet>1578</a>	/// ## Note on deprecation of Errors
+<a href=#1579 id=1579 data-nosnippet>1579</a>	///
+<a href=#1580 id=1580 data-nosnippet>1580</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+<a href=#1581 id=1581 data-nosnippet>1581</a>	///   metadata where the item was declared.
+<a href=#1582 id=1582 data-nosnippet>1582</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
+<a href=#1583 id=1583 data-nosnippet>1583</a>	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
+<a href=#1584 id=1584 data-nosnippet>1584</a>	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
+<a href=#1585 id=1585 data-nosnippet>1585</a>	///   will be returned.
+<a href=#1586 id=1586 data-nosnippet>1586</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+<a href=#1587 id=1587 data-nosnippet>1587</a>	///   generated code.
+<a href=#1588 id=1588 data-nosnippet>1588</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+<a href=#1589 id=1589 data-nosnippet>1589</a>	///   automatically annotated with `allow(deprecated)`
+<a href=#1590 id=1590 data-nosnippet>1590</a>	</span><span class="kw">pub use </span>frame_support_procedural::error;
+<a href=#1591 id=1591 data-nosnippet>1591</a>
+<a href=#1592 id=1592 data-nosnippet>1592</a>	<span class="doccomment">/// Allows defining pallet events.
+<a href=#1593 id=1593 data-nosnippet>1593</a>	///
+<a href=#1594 id=1594 data-nosnippet>1594</a>	/// Pallet events are stored under the `system` / `events` key when the block is applied
+<a href=#1595 id=1595 data-nosnippet>1595</a>	/// (and then replaced when the next block writes it's events).
 <a href=#1596 id=1596 data-nosnippet>1596</a>	///
-<a href=#1597 id=1597 data-nosnippet>1597</a>	/// ```
-<a href=#1598 id=1598 data-nosnippet>1598</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1599 id=1599 data-nosnippet>1599</a>	/// mod pallet {
-<a href=#1600 id=1600 data-nosnippet>1600</a>	/// #     use frame_support::pallet_prelude::IsType;
-<a href=#1601 id=1601 data-nosnippet>1601</a>	/// #
-<a href=#1602 id=1602 data-nosnippet>1602</a>	/// 	#[pallet::pallet]
-<a href=#1603 id=1603 data-nosnippet>1603</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1604 id=1604 data-nosnippet>1604</a>	///
-<a href=#1605 id=1605 data-nosnippet>1605</a>	/// 	#[pallet::config]
-<a href=#1606 id=1606 data-nosnippet>1606</a>	/// 	pub trait Config: frame_system::Config {}
-<a href=#1607 id=1607 data-nosnippet>1607</a>	///
-<a href=#1608 id=1608 data-nosnippet>1608</a>	/// 	#[pallet::event]
-<a href=#1609 id=1609 data-nosnippet>1609</a>	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
-<a href=#1610 id=1610 data-nosnippet>1610</a>	/// 	pub enum Event&lt;T&gt; {
-<a href=#1611 id=1611 data-nosnippet>1611</a>	/// 		/// SomeEvent doc
-<a href=#1612 id=1612 data-nosnippet>1612</a>	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
-<a href=#1613 id=1613 data-nosnippet>1613</a>	/// 	}
-<a href=#1614 id=1614 data-nosnippet>1614</a>	/// }
-<a href=#1615 id=1615 data-nosnippet>1615</a>	/// ```
-<a href=#1616 id=1616 data-nosnippet>1616</a>	///
-<a href=#1617 id=1617 data-nosnippet>1617</a>	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
-<a href=#1618 id=1618 data-nosnippet>1618</a>	/// or `T` or `T: Config`, and optional w here clause.
-<a href=#1619 id=1619 data-nosnippet>1619</a>	///
-<a href=#1620 id=1620 data-nosnippet>1620</a>	/// Macro expansion automatically appends `From&lt;Event&lt;Self&gt;&gt;` bound to
-<a href=#1621 id=1621 data-nosnippet>1621</a>	/// system supertrait's `RuntimeEvent `associated type, i.e:
-<a href=#1622 id=1622 data-nosnippet>1622</a>	///
-<a href=#1623 id=1623 data-nosnippet>1623</a>	/// ```rs
-<a href=#1624 id=1624 data-nosnippet>1624</a>	/// 	#[pallet::config]
-<a href=#1625 id=1625 data-nosnippet>1625</a>	/// 	pub trait Config: frame_system::Config&lt;RuntimeEvent: From&lt;Event&lt;Self&gt;&gt;&gt; {}
-<a href=#1626 id=1626 data-nosnippet>1626</a>	/// ```
-<a href=#1627 id=1627 data-nosnippet>1627</a>	///
-<a href=#1628 id=1628 data-nosnippet>1628</a>	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
-<a href=#1629 id=1629 data-nosnippet>1629</a>	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
-<a href=#1630 id=1630 data-nosnippet>1630</a>	/// `Member`, available in [`frame_support::pallet_prelude`].
-<a href=#1631 id=1631 data-nosnippet>1631</a>	///
-<a href=#1632 id=1632 data-nosnippet>1632</a>	/// ## Note on deprecation of Events
+<a href=#1597 id=1597 data-nosnippet>1597</a>	/// The Event enum can be defined as follows:
+<a href=#1598 id=1598 data-nosnippet>1598</a>	///
+<a href=#1599 id=1599 data-nosnippet>1599</a>	/// ```
+<a href=#1600 id=1600 data-nosnippet>1600</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1601 id=1601 data-nosnippet>1601</a>	/// mod pallet {
+<a href=#1602 id=1602 data-nosnippet>1602</a>	/// #     use frame_support::pallet_prelude::IsType;
+<a href=#1603 id=1603 data-nosnippet>1603</a>	/// #
+<a href=#1604 id=1604 data-nosnippet>1604</a>	/// 	#[pallet::pallet]
+<a href=#1605 id=1605 data-nosnippet>1605</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1606 id=1606 data-nosnippet>1606</a>	///
+<a href=#1607 id=1607 data-nosnippet>1607</a>	/// 	#[pallet::config]
+<a href=#1608 id=1608 data-nosnippet>1608</a>	/// 	pub trait Config: frame_system::Config {}
+<a href=#1609 id=1609 data-nosnippet>1609</a>	///
+<a href=#1610 id=1610 data-nosnippet>1610</a>	/// 	#[pallet::event]
+<a href=#1611 id=1611 data-nosnippet>1611</a>	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
+<a href=#1612 id=1612 data-nosnippet>1612</a>	/// 	pub enum Event&lt;T&gt; {
+<a href=#1613 id=1613 data-nosnippet>1613</a>	/// 		/// SomeEvent doc
+<a href=#1614 id=1614 data-nosnippet>1614</a>	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
+<a href=#1615 id=1615 data-nosnippet>1615</a>	/// 	}
+<a href=#1616 id=1616 data-nosnippet>1616</a>	/// }
+<a href=#1617 id=1617 data-nosnippet>1617</a>	/// ```
+<a href=#1618 id=1618 data-nosnippet>1618</a>	///
+<a href=#1619 id=1619 data-nosnippet>1619</a>	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
+<a href=#1620 id=1620 data-nosnippet>1620</a>	/// or `T` or `T: Config`, and optional w here clause.
+<a href=#1621 id=1621 data-nosnippet>1621</a>	///
+<a href=#1622 id=1622 data-nosnippet>1622</a>	/// Macro expansion automatically appends `From&lt;Event&lt;Self&gt;&gt;` bound to
+<a href=#1623 id=1623 data-nosnippet>1623</a>	/// system supertrait's `RuntimeEvent `associated type, i.e:
+<a href=#1624 id=1624 data-nosnippet>1624</a>	///
+<a href=#1625 id=1625 data-nosnippet>1625</a>	/// ```rs
+<a href=#1626 id=1626 data-nosnippet>1626</a>	/// 	#[pallet::config]
+<a href=#1627 id=1627 data-nosnippet>1627</a>	/// 	pub trait Config: frame_system::Config&lt;RuntimeEvent: From&lt;Event&lt;Self&gt;&gt;&gt; {}
+<a href=#1628 id=1628 data-nosnippet>1628</a>	/// ```
+<a href=#1629 id=1629 data-nosnippet>1629</a>	///
+<a href=#1630 id=1630 data-nosnippet>1630</a>	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
+<a href=#1631 id=1631 data-nosnippet>1631</a>	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
+<a href=#1632 id=1632 data-nosnippet>1632</a>	/// `Member`, available in [`frame_support::pallet_prelude`].
 <a href=#1633 id=1633 data-nosnippet>1633</a>	///
-<a href=#1634 id=1634 data-nosnippet>1634</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
-<a href=#1635 id=1635 data-nosnippet>1635</a>	///   metadata where the item was declared.
-<a href=#1636 id=1636 data-nosnippet>1636</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
-<a href=#1637 id=1637 data-nosnippet>1637</a>	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
-<a href=#1638 id=1638 data-nosnippet>1638</a>	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
-<a href=#1639 id=1639 data-nosnippet>1639</a>	///   will be returned.
-<a href=#1640 id=1640 data-nosnippet>1640</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
-<a href=#1641 id=1641 data-nosnippet>1641</a>	///   generated code.
-<a href=#1642 id=1642 data-nosnippet>1642</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
-<a href=#1643 id=1643 data-nosnippet>1643</a>	///   automatically annotated with `allow(deprecated)`
-<a href=#1644 id=1644 data-nosnippet>1644</a>	</span><span class="kw">pub use </span>frame_support_procedural::event;
-<a href=#1645 id=1645 data-nosnippet>1645</a>
-<a href=#1646 id=1646 data-nosnippet>1646</a>	<span class="doccomment">/// Selectively includes associated types in the metadata.
-<a href=#1647 id=1647 data-nosnippet>1647</a>	///
-<a href=#1648 id=1648 data-nosnippet>1648</a>	/// The optional attribute allows you to selectively include associated types in the
-<a href=#1649 id=1649 data-nosnippet>1649</a>	/// metadata. This can be attached to trait items that implement `TypeInfo`.
-<a href=#1650 id=1650 data-nosnippet>1650</a>	///
-<a href=#1651 id=1651 data-nosnippet>1651</a>	/// By default all collectable associated types are included in the metadata.
+<a href=#1634 id=1634 data-nosnippet>1634</a>	/// ## Note on deprecation of Events
+<a href=#1635 id=1635 data-nosnippet>1635</a>	///
+<a href=#1636 id=1636 data-nosnippet>1636</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+<a href=#1637 id=1637 data-nosnippet>1637</a>	///   metadata where the item was declared.
+<a href=#1638 id=1638 data-nosnippet>1638</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
+<a href=#1639 id=1639 data-nosnippet>1639</a>	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
+<a href=#1640 id=1640 data-nosnippet>1640</a>	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
+<a href=#1641 id=1641 data-nosnippet>1641</a>	///   will be returned.
+<a href=#1642 id=1642 data-nosnippet>1642</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+<a href=#1643 id=1643 data-nosnippet>1643</a>	///   generated code.
+<a href=#1644 id=1644 data-nosnippet>1644</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+<a href=#1645 id=1645 data-nosnippet>1645</a>	///   automatically annotated with `allow(deprecated)`
+<a href=#1646 id=1646 data-nosnippet>1646</a>	</span><span class="kw">pub use </span>frame_support_procedural::event;
+<a href=#1647 id=1647 data-nosnippet>1647</a>
+<a href=#1648 id=1648 data-nosnippet>1648</a>	<span class="doccomment">/// Selectively includes associated types in the metadata.
+<a href=#1649 id=1649 data-nosnippet>1649</a>	///
+<a href=#1650 id=1650 data-nosnippet>1650</a>	/// The optional attribute allows you to selectively include associated types in the
+<a href=#1651 id=1651 data-nosnippet>1651</a>	/// metadata. This can be attached to trait items that implement `TypeInfo`.
 <a href=#1652 id=1652 data-nosnippet>1652</a>	///
-<a href=#1653 id=1653 data-nosnippet>1653</a>	/// This attribute can be used in combination with the
-<a href=#1654 id=1654 data-nosnippet>1654</a>	/// [`#[pallet::config(without_automatic_metadata)]`](`config`).
-<a href=#1655 id=1655 data-nosnippet>1655</a>	</span><span class="kw">pub use </span>frame_support_procedural::include_metadata;
-<a href=#1656 id=1656 data-nosnippet>1656</a>
-<a href=#1657 id=1657 data-nosnippet>1657</a>	<span class="doccomment">/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
-<a href=#1658 id=1658 data-nosnippet>1658</a>	///
-<a href=#1659 id=1659 data-nosnippet>1659</a>	/// In slightly simplified terms, this macro declares the set of "transactions" of a
-<a href=#1660 id=1660 data-nosnippet>1660</a>	/// pallet.
-<a href=#1661 id=1661 data-nosnippet>1661</a>	///
-<a href=#1662 id=1662 data-nosnippet>1662</a>	/// &gt; The exact definition of **extrinsic** can be found in
-<a href=#1663 id=1663 data-nosnippet>1663</a>	/// &gt; [`sp_runtime::generic::UncheckedExtrinsic`].
-<a href=#1664 id=1664 data-nosnippet>1664</a>	///
-<a href=#1665 id=1665 data-nosnippet>1665</a>	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
-<a href=#1666 id=1666 data-nosnippet>1666</a>	/// function, and dispatching it with the correct inputs. This is commonly used with
-<a href=#1667 id=1667 data-nosnippet>1667</a>	/// extrinsics, for example "an extrinsic has been dispatched". See
-<a href=#1668 id=1668 data-nosnippet>1668</a>	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
-<a href=#1669 id=1669 data-nosnippet>1669</a>	///
-<a href=#1670 id=1670 data-nosnippet>1670</a>	/// ## Call Enum
+<a href=#1653 id=1653 data-nosnippet>1653</a>	/// By default all collectable associated types are included in the metadata.
+<a href=#1654 id=1654 data-nosnippet>1654</a>	///
+<a href=#1655 id=1655 data-nosnippet>1655</a>	/// This attribute can be used in combination with the
+<a href=#1656 id=1656 data-nosnippet>1656</a>	/// [`#[pallet::config(without_automatic_metadata)]`](`config`).
+<a href=#1657 id=1657 data-nosnippet>1657</a>	</span><span class="kw">pub use </span>frame_support_procedural::include_metadata;
+<a href=#1658 id=1658 data-nosnippet>1658</a>
+<a href=#1659 id=1659 data-nosnippet>1659</a>	<span class="doccomment">/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
+<a href=#1660 id=1660 data-nosnippet>1660</a>	///
+<a href=#1661 id=1661 data-nosnippet>1661</a>	/// In slightly simplified terms, this macro declares the set of "transactions" of a
+<a href=#1662 id=1662 data-nosnippet>1662</a>	/// pallet.
+<a href=#1663 id=1663 data-nosnippet>1663</a>	///
+<a href=#1664 id=1664 data-nosnippet>1664</a>	/// &gt; The exact definition of **extrinsic** can be found in
+<a href=#1665 id=1665 data-nosnippet>1665</a>	/// &gt; [`sp_runtime::generic::UncheckedExtrinsic`].
+<a href=#1666 id=1666 data-nosnippet>1666</a>	///
+<a href=#1667 id=1667 data-nosnippet>1667</a>	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
+<a href=#1668 id=1668 data-nosnippet>1668</a>	/// function, and dispatching it with the correct inputs. This is commonly used with
+<a href=#1669 id=1669 data-nosnippet>1669</a>	/// extrinsics, for example "an extrinsic has been dispatched". See
+<a href=#1670 id=1670 data-nosnippet>1670</a>	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
 <a href=#1671 id=1671 data-nosnippet>1671</a>	///
-<a href=#1672 id=1672 data-nosnippet>1672</a>	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the
-<a href=#1673 id=1673 data-nosnippet>1673</a>	/// generation of a `enum Call`. This enum contains only the encoding of the function
-<a href=#1674 id=1674 data-nosnippet>1674</a>	/// arguments of the dispatchable, alongside the information needed to route it to the
-<a href=#1675 id=1675 data-nosnippet>1675</a>	/// correct function.
-<a href=#1676 id=1676 data-nosnippet>1676</a>	///
-<a href=#1677 id=1677 data-nosnippet>1677</a>	/// The macro also ensures that the extrinsic when invoked will be wrapped via
-<a href=#1678 id=1678 data-nosnippet>1678</a>	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
-<a href=#1679 id=1679 data-nosnippet>1679</a>	/// extrinsic returns with an error any state changes that had already occurred will be
-<a href=#1680 id=1680 data-nosnippet>1680</a>	/// rolled back.
-<a href=#1681 id=1681 data-nosnippet>1681</a>	///
-<a href=#1682 id=1682 data-nosnippet>1682</a>	/// ```
-<a href=#1683 id=1683 data-nosnippet>1683</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1684 id=1684 data-nosnippet>1684</a>	/// pub mod custom_pallet {
-<a href=#1685 id=1685 data-nosnippet>1685</a>	/// #   use frame_support::pallet_prelude::*;
-<a href=#1686 id=1686 data-nosnippet>1686</a>	/// #   use frame_system::pallet_prelude::*;
-<a href=#1687 id=1687 data-nosnippet>1687</a>	/// #   #[pallet::config]
-<a href=#1688 id=1688 data-nosnippet>1688</a>	/// #   pub trait Config: frame_system::Config {}
-<a href=#1689 id=1689 data-nosnippet>1689</a>	/// #   #[pallet::pallet]
-<a href=#1690 id=1690 data-nosnippet>1690</a>	/// #   pub struct Pallet&lt;T&gt;(_);
-<a href=#1691 id=1691 data-nosnippet>1691</a>	/// #   use frame_support::traits::BuildGenesisConfig;
-<a href=#1692 id=1692 data-nosnippet>1692</a>	///     #[pallet::call]
-<a href=#1693 id=1693 data-nosnippet>1693</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1694 id=1694 data-nosnippet>1694</a>	///         pub fn some_dispatchable(_origin: OriginFor&lt;T&gt;, _input: u32) -&gt; DispatchResult {
-<a href=#1695 id=1695 data-nosnippet>1695</a>	///             Ok(())
-<a href=#1696 id=1696 data-nosnippet>1696</a>	///         }
-<a href=#1697 id=1697 data-nosnippet>1697</a>	///         pub fn other(_origin: OriginFor&lt;T&gt;, _input: u64) -&gt; DispatchResult {
-<a href=#1698 id=1698 data-nosnippet>1698</a>	///             Ok(())
-<a href=#1699 id=1699 data-nosnippet>1699</a>	///         }
-<a href=#1700 id=1700 data-nosnippet>1700</a>	///     }
-<a href=#1701 id=1701 data-nosnippet>1701</a>	///
-<a href=#1702 id=1702 data-nosnippet>1702</a>	///     // generates something like:
-<a href=#1703 id=1703 data-nosnippet>1703</a>	///     // enum Call&lt;T: Config&gt; {
-<a href=#1704 id=1704 data-nosnippet>1704</a>	///     //  some_dispatchable { input: u32 }
-<a href=#1705 id=1705 data-nosnippet>1705</a>	///     //  other { input: u64 }
-<a href=#1706 id=1706 data-nosnippet>1706</a>	///     // }
-<a href=#1707 id=1707 data-nosnippet>1707</a>	/// }
-<a href=#1708 id=1708 data-nosnippet>1708</a>	///
-<a href=#1709 id=1709 data-nosnippet>1709</a>	/// fn main() {
-<a href=#1710 id=1710 data-nosnippet>1710</a>	/// #   use frame_support::{derive_impl, construct_runtime};
-<a href=#1711 id=1711 data-nosnippet>1711</a>	/// #   use frame_support::__private::codec::Encode;
-<a href=#1712 id=1712 data-nosnippet>1712</a>	/// #   use frame_support::__private::TestExternalities;
-<a href=#1713 id=1713 data-nosnippet>1713</a>	/// #   use frame_support::traits::UnfilteredDispatchable;
-<a href=#1714 id=1714 data-nosnippet>1714</a>	/// #    impl custom_pallet::Config for Runtime {}
-<a href=#1715 id=1715 data-nosnippet>1715</a>	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-<a href=#1716 id=1716 data-nosnippet>1716</a>	/// #    impl frame_system::Config for Runtime {
-<a href=#1717 id=1717 data-nosnippet>1717</a>	/// #        type Block = frame_system::mocking::MockBlock&lt;Self&gt;;
-<a href=#1718 id=1718 data-nosnippet>1718</a>	/// #    }
-<a href=#1719 id=1719 data-nosnippet>1719</a>	///     construct_runtime! {
-<a href=#1720 id=1720 data-nosnippet>1720</a>	///         pub enum Runtime {
-<a href=#1721 id=1721 data-nosnippet>1721</a>	///             System: frame_system,
-<a href=#1722 id=1722 data-nosnippet>1722</a>	///             Custom: custom_pallet
-<a href=#1723 id=1723 data-nosnippet>1723</a>	///         }
-<a href=#1724 id=1724 data-nosnippet>1724</a>	///     }
-<a href=#1725 id=1725 data-nosnippet>1725</a>	///
-<a href=#1726 id=1726 data-nosnippet>1726</a>	/// #    TestExternalities::new_empty().execute_with(|| {
-<a href=#1727 id=1727 data-nosnippet>1727</a>	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
-<a href=#1728 id=1728 data-nosnippet>1728</a>	///     // calling into a dispatchable from within the runtime is simply a function call.
-<a href=#1729 id=1729 data-nosnippet>1729</a>	///         let _ = custom_pallet::Pallet::&lt;Runtime&gt;::some_dispatchable(origin.clone(), 10);
-<a href=#1730 id=1730 data-nosnippet>1730</a>	///
-<a href=#1731 id=1731 data-nosnippet>1731</a>	///     // calling into a dispatchable from the outer world involves constructing the bytes of
-<a href=#1732 id=1732 data-nosnippet>1732</a>	///     let call = custom_pallet::Call::&lt;Runtime&gt;::some_dispatchable { input: 10 };
-<a href=#1733 id=1733 data-nosnippet>1733</a>	///     let _ = call.clone().dispatch_bypass_filter(origin);
-<a href=#1734 id=1734 data-nosnippet>1734</a>	///
-<a href=#1735 id=1735 data-nosnippet>1735</a>	///     // the routing of a dispatchable is simply done through encoding of the `Call` enum,
-<a href=#1736 id=1736 data-nosnippet>1736</a>	///     // which is the index of the variant, followed by the arguments.
-<a href=#1737 id=1737 data-nosnippet>1737</a>	///     assert_eq!(call.encode(), vec![0u8, 10, 0, 0, 0]);
-<a href=#1738 id=1738 data-nosnippet>1738</a>	///
-<a href=#1739 id=1739 data-nosnippet>1739</a>	///     // notice how in the encoding of the second function, the first byte is different and
-<a href=#1740 id=1740 data-nosnippet>1740</a>	///     // referring to the second variant of `enum Call`.
-<a href=#1741 id=1741 data-nosnippet>1741</a>	///     let call = custom_pallet::Call::&lt;Runtime&gt;::other { input: 10 };
-<a href=#1742 id=1742 data-nosnippet>1742</a>	///     assert_eq!(call.encode(), vec![1u8, 10, 0, 0, 0, 0, 0, 0, 0]);
-<a href=#1743 id=1743 data-nosnippet>1743</a>	///     #    });
-<a href=#1744 id=1744 data-nosnippet>1744</a>	/// }
-<a href=#1745 id=1745 data-nosnippet>1745</a>	/// ```
-<a href=#1746 id=1746 data-nosnippet>1746</a>	///
-<a href=#1747 id=1747 data-nosnippet>1747</a>	/// Further properties of dispatchable functions are as follows:
+<a href=#1672 id=1672 data-nosnippet>1672</a>	/// ## Call Enum
+<a href=#1673 id=1673 data-nosnippet>1673</a>	///
+<a href=#1674 id=1674 data-nosnippet>1674</a>	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the
+<a href=#1675 id=1675 data-nosnippet>1675</a>	/// generation of a `enum Call`. This enum contains only the encoding of the function
+<a href=#1676 id=1676 data-nosnippet>1676</a>	/// arguments of the dispatchable, alongside the information needed to route it to the
+<a href=#1677 id=1677 data-nosnippet>1677</a>	/// correct function.
+<a href=#1678 id=1678 data-nosnippet>1678</a>	///
+<a href=#1679 id=1679 data-nosnippet>1679</a>	/// The macro also ensures that the extrinsic when invoked will be wrapped via
+<a href=#1680 id=1680 data-nosnippet>1680</a>	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
+<a href=#1681 id=1681 data-nosnippet>1681</a>	/// extrinsic returns with an error any state changes that had already occurred will be
+<a href=#1682 id=1682 data-nosnippet>1682</a>	/// rolled back.
+<a href=#1683 id=1683 data-nosnippet>1683</a>	///
+<a href=#1684 id=1684 data-nosnippet>1684</a>	/// ```
+<a href=#1685 id=1685 data-nosnippet>1685</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1686 id=1686 data-nosnippet>1686</a>	/// pub mod custom_pallet {
+<a href=#1687 id=1687 data-nosnippet>1687</a>	/// #   use frame_support::pallet_prelude::*;
+<a href=#1688 id=1688 data-nosnippet>1688</a>	/// #   use frame_system::pallet_prelude::*;
+<a href=#1689 id=1689 data-nosnippet>1689</a>	/// #   #[pallet::config]
+<a href=#1690 id=1690 data-nosnippet>1690</a>	/// #   pub trait Config: frame_system::Config {}
+<a href=#1691 id=1691 data-nosnippet>1691</a>	/// #   #[pallet::pallet]
+<a href=#1692 id=1692 data-nosnippet>1692</a>	/// #   pub struct Pallet&lt;T&gt;(_);
+<a href=#1693 id=1693 data-nosnippet>1693</a>	/// #   use frame_support::traits::BuildGenesisConfig;
+<a href=#1694 id=1694 data-nosnippet>1694</a>	///     #[pallet::call]
+<a href=#1695 id=1695 data-nosnippet>1695</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1696 id=1696 data-nosnippet>1696</a>	///         pub fn some_dispatchable(_origin: OriginFor&lt;T&gt;, _input: u32) -&gt; DispatchResult {
+<a href=#1697 id=1697 data-nosnippet>1697</a>	///             Ok(())
+<a href=#1698 id=1698 data-nosnippet>1698</a>	///         }
+<a href=#1699 id=1699 data-nosnippet>1699</a>	///         pub fn other(_origin: OriginFor&lt;T&gt;, _input: u64) -&gt; DispatchResult {
+<a href=#1700 id=1700 data-nosnippet>1700</a>	///             Ok(())
+<a href=#1701 id=1701 data-nosnippet>1701</a>	///         }
+<a href=#1702 id=1702 data-nosnippet>1702</a>	///     }
+<a href=#1703 id=1703 data-nosnippet>1703</a>	///
+<a href=#1704 id=1704 data-nosnippet>1704</a>	///     // generates something like:
+<a href=#1705 id=1705 data-nosnippet>1705</a>	///     // enum Call&lt;T: Config&gt; {
+<a href=#1706 id=1706 data-nosnippet>1706</a>	///     //  some_dispatchable { input: u32 }
+<a href=#1707 id=1707 data-nosnippet>1707</a>	///     //  other { input: u64 }
+<a href=#1708 id=1708 data-nosnippet>1708</a>	///     // }
+<a href=#1709 id=1709 data-nosnippet>1709</a>	/// }
+<a href=#1710 id=1710 data-nosnippet>1710</a>	///
+<a href=#1711 id=1711 data-nosnippet>1711</a>	/// fn main() {
+<a href=#1712 id=1712 data-nosnippet>1712</a>	/// #   use frame_support::{derive_impl, construct_runtime};
+<a href=#1713 id=1713 data-nosnippet>1713</a>	/// #   use frame_support::__private::codec::Encode;
+<a href=#1714 id=1714 data-nosnippet>1714</a>	/// #   use frame_support::__private::TestExternalities;
+<a href=#1715 id=1715 data-nosnippet>1715</a>	/// #   use frame_support::traits::UnfilteredDispatchable;
+<a href=#1716 id=1716 data-nosnippet>1716</a>	/// #    impl custom_pallet::Config for Runtime {}
+<a href=#1717 id=1717 data-nosnippet>1717</a>	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+<a href=#1718 id=1718 data-nosnippet>1718</a>	/// #    impl frame_system::Config for Runtime {
+<a href=#1719 id=1719 data-nosnippet>1719</a>	/// #        type Block = frame_system::mocking::MockBlock&lt;Self&gt;;
+<a href=#1720 id=1720 data-nosnippet>1720</a>	/// #    }
+<a href=#1721 id=1721 data-nosnippet>1721</a>	///     construct_runtime! {
+<a href=#1722 id=1722 data-nosnippet>1722</a>	///         pub enum Runtime {
+<a href=#1723 id=1723 data-nosnippet>1723</a>	///             System: frame_system,
+<a href=#1724 id=1724 data-nosnippet>1724</a>	///             Custom: custom_pallet
+<a href=#1725 id=1725 data-nosnippet>1725</a>	///         }
+<a href=#1726 id=1726 data-nosnippet>1726</a>	///     }
+<a href=#1727 id=1727 data-nosnippet>1727</a>	///
+<a href=#1728 id=1728 data-nosnippet>1728</a>	/// #    TestExternalities::new_empty().execute_with(|| {
+<a href=#1729 id=1729 data-nosnippet>1729</a>	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
+<a href=#1730 id=1730 data-nosnippet>1730</a>	///     // calling into a dispatchable from within the runtime is simply a function call.
+<a href=#1731 id=1731 data-nosnippet>1731</a>	///         let _ = custom_pallet::Pallet::&lt;Runtime&gt;::some_dispatchable(origin.clone(), 10);
+<a href=#1732 id=1732 data-nosnippet>1732</a>	///
+<a href=#1733 id=1733 data-nosnippet>1733</a>	///     // calling into a dispatchable from the outer world involves constructing the bytes of
+<a href=#1734 id=1734 data-nosnippet>1734</a>	///     let call = custom_pallet::Call::&lt;Runtime&gt;::some_dispatchable { input: 10 };
+<a href=#1735 id=1735 data-nosnippet>1735</a>	///     let _ = call.clone().dispatch_bypass_filter(origin);
+<a href=#1736 id=1736 data-nosnippet>1736</a>	///
+<a href=#1737 id=1737 data-nosnippet>1737</a>	///     // the routing of a dispatchable is simply done through encoding of the `Call` enum,
+<a href=#1738 id=1738 data-nosnippet>1738</a>	///     // which is the index of the variant, followed by the arguments.
+<a href=#1739 id=1739 data-nosnippet>1739</a>	///     assert_eq!(call.encode(), vec![0u8, 10, 0, 0, 0]);
+<a href=#1740 id=1740 data-nosnippet>1740</a>	///
+<a href=#1741 id=1741 data-nosnippet>1741</a>	///     // notice how in the encoding of the second function, the first byte is different and
+<a href=#1742 id=1742 data-nosnippet>1742</a>	///     // referring to the second variant of `enum Call`.
+<a href=#1743 id=1743 data-nosnippet>1743</a>	///     let call = custom_pallet::Call::&lt;Runtime&gt;::other { input: 10 };
+<a href=#1744 id=1744 data-nosnippet>1744</a>	///     assert_eq!(call.encode(), vec![1u8, 10, 0, 0, 0, 0, 0, 0, 0]);
+<a href=#1745 id=1745 data-nosnippet>1745</a>	///     #    });
+<a href=#1746 id=1746 data-nosnippet>1746</a>	/// }
+<a href=#1747 id=1747 data-nosnippet>1747</a>	/// ```
 <a href=#1748 id=1748 data-nosnippet>1748</a>	///
-<a href=#1749 id=1749 data-nosnippet>1749</a>	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the
-<a href=#1750 id=1750 data-nosnippet>1750</a>	///   pre-dispatch weight consumed.
-<a href=#1751 id=1751 data-nosnippet>1751</a>	/// - The dispatchable must declare its index via [`call_index`], which can override the
-<a href=#1752 id=1752 data-nosnippet>1752</a>	///   position of a function in `enum Call`.
-<a href=#1753 id=1753 data-nosnippet>1753</a>	/// - The first argument is always an `OriginFor` (or `T::RuntimeOrigin`).
-<a href=#1754 id=1754 data-nosnippet>1754</a>	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
-<a href=#1755 id=1755 data-nosnippet>1755</a>	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
-<a href=#1756 id=1756 data-nosnippet>1756</a>	///
-<a href=#1757 id=1757 data-nosnippet>1757</a>	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
-<a href=#1758 id=1758 data-nosnippet>1758</a>	/// removing some, etc., must be done with care. This will change the encoding of the call,
-<a href=#1759 id=1759 data-nosnippet>1759</a>	/// and the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration
-<a href=#1760 id=1760 data-nosnippet>1760</a>	/// might be needed. This is why the use of `call_index` is mandatory by default in FRAME.
-<a href=#1761 id=1761 data-nosnippet>1761</a>	///
-<a href=#1762 id=1762 data-nosnippet>1762</a>	/// ## Weight info
+<a href=#1749 id=1749 data-nosnippet>1749</a>	/// Further properties of dispatchable functions are as follows:
+<a href=#1750 id=1750 data-nosnippet>1750</a>	///
+<a href=#1751 id=1751 data-nosnippet>1751</a>	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the
+<a href=#1752 id=1752 data-nosnippet>1752</a>	///   pre-dispatch weight consumed.
+<a href=#1753 id=1753 data-nosnippet>1753</a>	/// - The dispatchable must declare its index via [`call_index`], which can override the
+<a href=#1754 id=1754 data-nosnippet>1754</a>	///   position of a function in `enum Call`.
+<a href=#1755 id=1755 data-nosnippet>1755</a>	/// - The first argument is always an `OriginFor` (or `T::RuntimeOrigin`).
+<a href=#1756 id=1756 data-nosnippet>1756</a>	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
+<a href=#1757 id=1757 data-nosnippet>1757</a>	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
+<a href=#1758 id=1758 data-nosnippet>1758</a>	///
+<a href=#1759 id=1759 data-nosnippet>1759</a>	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
+<a href=#1760 id=1760 data-nosnippet>1760</a>	/// removing some, etc., must be done with care. This will change the encoding of the call,
+<a href=#1761 id=1761 data-nosnippet>1761</a>	/// and the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration
+<a href=#1762 id=1762 data-nosnippet>1762</a>	/// might be needed. This is why the use of `call_index` is mandatory by default in FRAME.
 <a href=#1763 id=1763 data-nosnippet>1763</a>	///
-<a href=#1764 id=1764 data-nosnippet>1764</a>	/// Each call needs to define a weight.
-<a href=#1765 id=1765 data-nosnippet>1765</a>	/// * The weight can be defined explicitly using the attribute `#[pallet::weight($expr)]`
-<a href=#1766 id=1766 data-nosnippet>1766</a>	///   (Note that argument of the call are available inside the expression).
-<a href=#1767 id=1767 data-nosnippet>1767</a>	/// * Or it can be defined implicitly, the weight info for the calls needs to be specified
-<a href=#1768 id=1768 data-nosnippet>1768</a>	///   in the call attribute: `#[pallet::call(weight = $WeightInfo)]`, then each call that
-<a href=#1769 id=1769 data-nosnippet>1769</a>	///   doesn't have explicit weight will use `$WeightInfo::$call_name` as the weight.
-<a href=#1770 id=1770 data-nosnippet>1770</a>	///
-<a href=#1771 id=1771 data-nosnippet>1771</a>	/// * Or it can be simply ignored when the pallet is in `dev_mode`.
+<a href=#1764 id=1764 data-nosnippet>1764</a>	/// ## Weight info
+<a href=#1765 id=1765 data-nosnippet>1765</a>	///
+<a href=#1766 id=1766 data-nosnippet>1766</a>	/// Each call needs to define a weight.
+<a href=#1767 id=1767 data-nosnippet>1767</a>	/// * The weight can be defined explicitly using the attribute `#[pallet::weight($expr)]`
+<a href=#1768 id=1768 data-nosnippet>1768</a>	///   (Note that argument of the call are available inside the expression).
+<a href=#1769 id=1769 data-nosnippet>1769</a>	/// * Or it can be defined implicitly, the weight info for the calls needs to be specified
+<a href=#1770 id=1770 data-nosnippet>1770</a>	///   in the call attribute: `#[pallet::call(weight = $WeightInfo)]`, then each call that
+<a href=#1771 id=1771 data-nosnippet>1771</a>	///   doesn't have explicit weight will use `$WeightInfo::$call_name` as the weight.
 <a href=#1772 id=1772 data-nosnippet>1772</a>	///
-<a href=#1773 id=1773 data-nosnippet>1773</a>	/// ```
-<a href=#1774 id=1774 data-nosnippet>1774</a>	/// #[frame_support::pallet]
-<a href=#1775 id=1775 data-nosnippet>1775</a>	/// mod pallet {
-<a href=#1776 id=1776 data-nosnippet>1776</a>	///     use frame_support::pallet_prelude::*;
-<a href=#1777 id=1777 data-nosnippet>1777</a>	///     use frame_system::pallet_prelude::*;
-<a href=#1778 id=1778 data-nosnippet>1778</a>	///
-<a href=#1779 id=1779 data-nosnippet>1779</a>	///     #[pallet::pallet]
-<a href=#1780 id=1780 data-nosnippet>1780</a>	///     pub struct Pallet&lt;T&gt;(_);
-<a href=#1781 id=1781 data-nosnippet>1781</a>	///
-<a href=#1782 id=1782 data-nosnippet>1782</a>	///     #[pallet::config]
-<a href=#1783 id=1783 data-nosnippet>1783</a>	///     pub trait Config: frame_system::Config {
-<a href=#1784 id=1784 data-nosnippet>1784</a>	///         /// Type for specifying dispatchable weights.
-<a href=#1785 id=1785 data-nosnippet>1785</a>	///         type WeightInfo: WeightInfo;
-<a href=#1786 id=1786 data-nosnippet>1786</a>	///     }
-<a href=#1787 id=1787 data-nosnippet>1787</a>	///
-<a href=#1788 id=1788 data-nosnippet>1788</a>	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
-<a href=#1789 id=1789 data-nosnippet>1789</a>	///     pub trait WeightInfo {
-<a href=#1790 id=1790 data-nosnippet>1790</a>	///         fn do_something() -&gt; Weight;
-<a href=#1791 id=1791 data-nosnippet>1791</a>	///         fn do_something_else() -&gt; Weight;
-<a href=#1792 id=1792 data-nosnippet>1792</a>	///     }
-<a href=#1793 id=1793 data-nosnippet>1793</a>	///
-<a href=#1794 id=1794 data-nosnippet>1794</a>	///     #[pallet::call(weight = &lt;T as Config&gt;::WeightInfo)]
-<a href=#1795 id=1795 data-nosnippet>1795</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1796 id=1796 data-nosnippet>1796</a>	///         // Explicit weight definition using `#[pallet::weight(...)]`
-<a href=#1797 id=1797 data-nosnippet>1797</a>	///         #[pallet::weight(&lt;T as Config&gt;::WeightInfo::do_something())]
-<a href=#1798 id=1798 data-nosnippet>1798</a>	///         #[pallet::call_index(0)]
-<a href=#1799 id=1799 data-nosnippet>1799</a>	///         pub fn do_something(
-<a href=#1800 id=1800 data-nosnippet>1800</a>	///             origin: OriginFor&lt;T&gt;,
-<a href=#1801 id=1801 data-nosnippet>1801</a>	///             foo: u32,
-<a href=#1802 id=1802 data-nosnippet>1802</a>	///         ) -&gt; DispatchResult {
-<a href=#1803 id=1803 data-nosnippet>1803</a>	///             // Function logic here
-<a href=#1804 id=1804 data-nosnippet>1804</a>	///             Ok(())
-<a href=#1805 id=1805 data-nosnippet>1805</a>	///         }
-<a href=#1806 id=1806 data-nosnippet>1806</a>	///
-<a href=#1807 id=1807 data-nosnippet>1807</a>	///         // Implicit weight definition, the macro looks up to the weight info defined in
-<a href=#1808 id=1808 data-nosnippet>1808</a>	///         // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
-<a href=#1809 id=1809 data-nosnippet>1809</a>	///         // `$WeightInfo::do_something_else` as the weight function.
-<a href=#1810 id=1810 data-nosnippet>1810</a>	///         #[pallet::call_index(1)]
-<a href=#1811 id=1811 data-nosnippet>1811</a>	///         pub fn do_something_else(
-<a href=#1812 id=1812 data-nosnippet>1812</a>	///             origin: OriginFor&lt;T&gt;,
-<a href=#1813 id=1813 data-nosnippet>1813</a>	///             bar: u64,
-<a href=#1814 id=1814 data-nosnippet>1814</a>	///         ) -&gt; DispatchResult {
-<a href=#1815 id=1815 data-nosnippet>1815</a>	///             // Function logic here
-<a href=#1816 id=1816 data-nosnippet>1816</a>	///             Ok(())
-<a href=#1817 id=1817 data-nosnippet>1817</a>	///         }
-<a href=#1818 id=1818 data-nosnippet>1818</a>	///     }
-<a href=#1819 id=1819 data-nosnippet>1819</a>	/// }
-<a href=#1820 id=1820 data-nosnippet>1820</a>	/// ```
-<a href=#1821 id=1821 data-nosnippet>1821</a>	///
-<a href=#1822 id=1822 data-nosnippet>1822</a>	/// ## Default Behavior
+<a href=#1773 id=1773 data-nosnippet>1773</a>	/// * Or it can be simply ignored when the pallet is in `dev_mode`.
+<a href=#1774 id=1774 data-nosnippet>1774</a>	///
+<a href=#1775 id=1775 data-nosnippet>1775</a>	/// ```
+<a href=#1776 id=1776 data-nosnippet>1776</a>	/// #[frame_support::pallet]
+<a href=#1777 id=1777 data-nosnippet>1777</a>	/// mod pallet {
+<a href=#1778 id=1778 data-nosnippet>1778</a>	///     use frame_support::pallet_prelude::*;
+<a href=#1779 id=1779 data-nosnippet>1779</a>	///     use frame_system::pallet_prelude::*;
+<a href=#1780 id=1780 data-nosnippet>1780</a>	///
+<a href=#1781 id=1781 data-nosnippet>1781</a>	///     #[pallet::pallet]
+<a href=#1782 id=1782 data-nosnippet>1782</a>	///     pub struct Pallet&lt;T&gt;(_);
+<a href=#1783 id=1783 data-nosnippet>1783</a>	///
+<a href=#1784 id=1784 data-nosnippet>1784</a>	///     #[pallet::config]
+<a href=#1785 id=1785 data-nosnippet>1785</a>	///     pub trait Config: frame_system::Config {
+<a href=#1786 id=1786 data-nosnippet>1786</a>	///         /// Type for specifying dispatchable weights.
+<a href=#1787 id=1787 data-nosnippet>1787</a>	///         type WeightInfo: WeightInfo;
+<a href=#1788 id=1788 data-nosnippet>1788</a>	///     }
+<a href=#1789 id=1789 data-nosnippet>1789</a>	///
+<a href=#1790 id=1790 data-nosnippet>1790</a>	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+<a href=#1791 id=1791 data-nosnippet>1791</a>	///     pub trait WeightInfo {
+<a href=#1792 id=1792 data-nosnippet>1792</a>	///         fn do_something() -&gt; Weight;
+<a href=#1793 id=1793 data-nosnippet>1793</a>	///         fn do_something_else() -&gt; Weight;
+<a href=#1794 id=1794 data-nosnippet>1794</a>	///     }
+<a href=#1795 id=1795 data-nosnippet>1795</a>	///
+<a href=#1796 id=1796 data-nosnippet>1796</a>	///     #[pallet::call(weight = &lt;T as Config&gt;::WeightInfo)]
+<a href=#1797 id=1797 data-nosnippet>1797</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1798 id=1798 data-nosnippet>1798</a>	///         // Explicit weight definition using `#[pallet::weight(...)]`
+<a href=#1799 id=1799 data-nosnippet>1799</a>	///         #[pallet::weight(&lt;T as Config&gt;::WeightInfo::do_something())]
+<a href=#1800 id=1800 data-nosnippet>1800</a>	///         #[pallet::call_index(0)]
+<a href=#1801 id=1801 data-nosnippet>1801</a>	///         pub fn do_something(
+<a href=#1802 id=1802 data-nosnippet>1802</a>	///             origin: OriginFor&lt;T&gt;,
+<a href=#1803 id=1803 data-nosnippet>1803</a>	///             foo: u32,
+<a href=#1804 id=1804 data-nosnippet>1804</a>	///         ) -&gt; DispatchResult {
+<a href=#1805 id=1805 data-nosnippet>1805</a>	///             // Function logic here
+<a href=#1806 id=1806 data-nosnippet>1806</a>	///             Ok(())
+<a href=#1807 id=1807 data-nosnippet>1807</a>	///         }
+<a href=#1808 id=1808 data-nosnippet>1808</a>	///
+<a href=#1809 id=1809 data-nosnippet>1809</a>	///         // Implicit weight definition, the macro looks up to the weight info defined in
+<a href=#1810 id=1810 data-nosnippet>1810</a>	///         // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+<a href=#1811 id=1811 data-nosnippet>1811</a>	///         // `$WeightInfo::do_something_else` as the weight function.
+<a href=#1812 id=1812 data-nosnippet>1812</a>	///         #[pallet::call_index(1)]
+<a href=#1813 id=1813 data-nosnippet>1813</a>	///         pub fn do_something_else(
+<a href=#1814 id=1814 data-nosnippet>1814</a>	///             origin: OriginFor&lt;T&gt;,
+<a href=#1815 id=1815 data-nosnippet>1815</a>	///             bar: u64,
+<a href=#1816 id=1816 data-nosnippet>1816</a>	///         ) -&gt; DispatchResult {
+<a href=#1817 id=1817 data-nosnippet>1817</a>	///             // Function logic here
+<a href=#1818 id=1818 data-nosnippet>1818</a>	///             Ok(())
+<a href=#1819 id=1819 data-nosnippet>1819</a>	///         }
+<a href=#1820 id=1820 data-nosnippet>1820</a>	///     }
+<a href=#1821 id=1821 data-nosnippet>1821</a>	/// }
+<a href=#1822 id=1822 data-nosnippet>1822</a>	/// ```
 <a href=#1823 id=1823 data-nosnippet>1823</a>	///
-<a href=#1824 id=1824 data-nosnippet>1824</a>	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
-<a href=#1825 id=1825 data-nosnippet>1825</a>	/// following code is automatically generated:
-<a href=#1826 id=1826 data-nosnippet>1826</a>	///
-<a href=#1827 id=1827 data-nosnippet>1827</a>	/// ```
-<a href=#1828 id=1828 data-nosnippet>1828</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1829 id=1829 data-nosnippet>1829</a>	/// mod pallet {
-<a href=#1830 id=1830 data-nosnippet>1830</a>	/// 	#[pallet::pallet]
-<a href=#1831 id=1831 data-nosnippet>1831</a>	/// 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1832 id=1832 data-nosnippet>1832</a>	///
-<a href=#1833 id=1833 data-nosnippet>1833</a>	/// 	#[pallet::call] // &lt;- automatically generated
-<a href=#1834 id=1834 data-nosnippet>1834</a>	/// 	impl&lt;T: Config&gt; Pallet&lt;T&gt; {} // &lt;- automatically generated
-<a href=#1835 id=1835 data-nosnippet>1835</a>	///
-<a href=#1836 id=1836 data-nosnippet>1836</a>	/// 	#[pallet::config]
-<a href=#1837 id=1837 data-nosnippet>1837</a>	/// 	pub trait Config: frame_system::Config {}
-<a href=#1838 id=1838 data-nosnippet>1838</a>	/// }
-<a href=#1839 id=1839 data-nosnippet>1839</a>	/// ```
-<a href=#1840 id=1840 data-nosnippet>1840</a>	///
-<a href=#1841 id=1841 data-nosnippet>1841</a>	/// ## Note on deprecation of Calls
+<a href=#1824 id=1824 data-nosnippet>1824</a>	/// ## Default Behavior
+<a href=#1825 id=1825 data-nosnippet>1825</a>	///
+<a href=#1826 id=1826 data-nosnippet>1826</a>	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
+<a href=#1827 id=1827 data-nosnippet>1827</a>	/// following code is automatically generated:
+<a href=#1828 id=1828 data-nosnippet>1828</a>	///
+<a href=#1829 id=1829 data-nosnippet>1829</a>	/// ```
+<a href=#1830 id=1830 data-nosnippet>1830</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1831 id=1831 data-nosnippet>1831</a>	/// mod pallet {
+<a href=#1832 id=1832 data-nosnippet>1832</a>	/// 	#[pallet::pallet]
+<a href=#1833 id=1833 data-nosnippet>1833</a>	/// 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1834 id=1834 data-nosnippet>1834</a>	///
+<a href=#1835 id=1835 data-nosnippet>1835</a>	/// 	#[pallet::call] // &lt;- automatically generated
+<a href=#1836 id=1836 data-nosnippet>1836</a>	/// 	impl&lt;T: Config&gt; Pallet&lt;T&gt; {} // &lt;- automatically generated
+<a href=#1837 id=1837 data-nosnippet>1837</a>	///
+<a href=#1838 id=1838 data-nosnippet>1838</a>	/// 	#[pallet::config]
+<a href=#1839 id=1839 data-nosnippet>1839</a>	/// 	pub trait Config: frame_system::Config {}
+<a href=#1840 id=1840 data-nosnippet>1840</a>	/// }
+<a href=#1841 id=1841 data-nosnippet>1841</a>	/// ```
 <a href=#1842 id=1842 data-nosnippet>1842</a>	///
-<a href=#1843 id=1843 data-nosnippet>1843</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
-<a href=#1844 id=1844 data-nosnippet>1844</a>	///   metadata where the item was declared.
-<a href=#1845 id=1845 data-nosnippet>1845</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
-<a href=#1846 id=1846 data-nosnippet>1846</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
-<a href=#1847 id=1847 data-nosnippet>1847</a>	///   generated code.
-<a href=#1848 id=1848 data-nosnippet>1848</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
-<a href=#1849 id=1849 data-nosnippet>1849</a>	///   automatically annotated with `allow(deprecated)`
-<a href=#1850 id=1850 data-nosnippet>1850</a>	</span><span class="kw">pub use </span>frame_support_procedural::call;
-<a href=#1851 id=1851 data-nosnippet>1851</a>
-<a href=#1852 id=1852 data-nosnippet>1852</a>	<span class="doccomment">/// Enforce the index of a variant in the generated `enum Call`.
-<a href=#1853 id=1853 data-nosnippet>1853</a>	///
-<a href=#1854 id=1854 data-nosnippet>1854</a>	/// See [`call`] for more information.
+<a href=#1843 id=1843 data-nosnippet>1843</a>	/// ## Note on deprecation of Calls
+<a href=#1844 id=1844 data-nosnippet>1844</a>	///
+<a href=#1845 id=1845 data-nosnippet>1845</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+<a href=#1846 id=1846 data-nosnippet>1846</a>	///   metadata where the item was declared.
+<a href=#1847 id=1847 data-nosnippet>1847</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
+<a href=#1848 id=1848 data-nosnippet>1848</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+<a href=#1849 id=1849 data-nosnippet>1849</a>	///   generated code.
+<a href=#1850 id=1850 data-nosnippet>1850</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+<a href=#1851 id=1851 data-nosnippet>1851</a>	///   automatically annotated with `allow(deprecated)`
+<a href=#1852 id=1852 data-nosnippet>1852</a>	</span><span class="kw">pub use </span>frame_support_procedural::call;
+<a href=#1853 id=1853 data-nosnippet>1853</a>
+<a href=#1854 id=1854 data-nosnippet>1854</a>	<span class="doccomment">/// Enforce the index of a variant in the generated `enum Call`.
 <a href=#1855 id=1855 data-nosnippet>1855</a>	///
-<a href=#1856 id=1856 data-nosnippet>1856</a>	/// All call indexes start from 0, until it encounters a dispatchable function with a
-<a href=#1857 id=1857 data-nosnippet>1857</a>	/// defined call index. The dispatchable function that lexically follows the function with
-<a href=#1858 id=1858 data-nosnippet>1858</a>	/// a defined call index will have that call index, but incremented by 1, e.g. if there are
-<a href=#1859 id=1859 data-nosnippet>1859</a>	/// 3 dispatchable functions `fn foo`, `fn bar` and `fn qux` in that order, and only `fn
-<a href=#1860 id=1860 data-nosnippet>1860</a>	/// bar` has a call index of 10, then `fn qux` will have an index of 11, instead of 1.
-<a href=#1861 id=1861 data-nosnippet>1861</a>	</span><span class="kw">pub use </span>frame_support_procedural::call_index;
-<a href=#1862 id=1862 data-nosnippet>1862</a>
-<a href=#1863 id=1863 data-nosnippet>1863</a>	<span class="doccomment">/// Declares the arguments of a [`call`] function to be encoded using
-<a href=#1864 id=1864 data-nosnippet>1864</a>	/// [`codec::Compact`].
-<a href=#1865 id=1865 data-nosnippet>1865</a>	///
-<a href=#1866 id=1866 data-nosnippet>1866</a>	/// This will results in smaller extrinsic encoding.
+<a href=#1856 id=1856 data-nosnippet>1856</a>	/// See [`call`] for more information.
+<a href=#1857 id=1857 data-nosnippet>1857</a>	///
+<a href=#1858 id=1858 data-nosnippet>1858</a>	/// All call indexes start from 0, until it encounters a dispatchable function with a
+<a href=#1859 id=1859 data-nosnippet>1859</a>	/// defined call index. The dispatchable function that lexically follows the function with
+<a href=#1860 id=1860 data-nosnippet>1860</a>	/// a defined call index will have that call index, but incremented by 1, e.g. if there are
+<a href=#1861 id=1861 data-nosnippet>1861</a>	/// 3 dispatchable functions `fn foo`, `fn bar` and `fn qux` in that order, and only `fn
+<a href=#1862 id=1862 data-nosnippet>1862</a>	/// bar` has a call index of 10, then `fn qux` will have an index of 11, instead of 1.
+<a href=#1863 id=1863 data-nosnippet>1863</a>	</span><span class="kw">pub use </span>frame_support_procedural::call_index;
+<a href=#1864 id=1864 data-nosnippet>1864</a>
+<a href=#1865 id=1865 data-nosnippet>1865</a>	<span class="doccomment">/// Declares the arguments of a [`call`] function to be encoded using
+<a href=#1866 id=1866 data-nosnippet>1866</a>	/// [`codec::Compact`].
 <a href=#1867 id=1867 data-nosnippet>1867</a>	///
-<a href=#1868 id=1868 data-nosnippet>1868</a>	/// A common example of `compact` is for numeric values that are often times far far away
-<a href=#1869 id=1869 data-nosnippet>1869</a>	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
-<a href=#1870 id=1870 data-nosnippet>1870</a>	/// balance of an individual account is oftentimes way less than what the numeric type
-<a href=#1871 id=1871 data-nosnippet>1871</a>	/// allows. In all such cases, using `compact` is sensible.
-<a href=#1872 id=1872 data-nosnippet>1872</a>	///
-<a href=#1873 id=1873 data-nosnippet>1873</a>	/// ```
-<a href=#1874 id=1874 data-nosnippet>1874</a>	/// #[frame_support::pallet(dev_mode)]
-<a href=#1875 id=1875 data-nosnippet>1875</a>	/// pub mod custom_pallet {
-<a href=#1876 id=1876 data-nosnippet>1876</a>	/// #   use frame_support::pallet_prelude::*;
-<a href=#1877 id=1877 data-nosnippet>1877</a>	/// #   use frame_system::pallet_prelude::*;
-<a href=#1878 id=1878 data-nosnippet>1878</a>	/// #   #[pallet::config]
-<a href=#1879 id=1879 data-nosnippet>1879</a>	/// #   pub trait Config: frame_system::Config {}
-<a href=#1880 id=1880 data-nosnippet>1880</a>	/// #   #[pallet::pallet]
-<a href=#1881 id=1881 data-nosnippet>1881</a>	/// #   pub struct Pallet&lt;T&gt;(_);
-<a href=#1882 id=1882 data-nosnippet>1882</a>	/// #   use frame_support::traits::BuildGenesisConfig;
-<a href=#1883 id=1883 data-nosnippet>1883</a>	///     #[pallet::call]
-<a href=#1884 id=1884 data-nosnippet>1884</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1885 id=1885 data-nosnippet>1885</a>	///         pub fn some_dispatchable(_origin: OriginFor&lt;T&gt;, #[pallet::compact] _input: u32) -&gt; DispatchResult {
-<a href=#1886 id=1886 data-nosnippet>1886</a>	///             Ok(())
-<a href=#1887 id=1887 data-nosnippet>1887</a>	///         }
-<a href=#1888 id=1888 data-nosnippet>1888</a>	///     }
-<a href=#1889 id=1889 data-nosnippet>1889</a>	/// }
-<a href=#1890 id=1890 data-nosnippet>1890</a>	</span><span class="kw">pub use </span>frame_support_procedural::compact;
-<a href=#1891 id=1891 data-nosnippet>1891</a>
-<a href=#1892 id=1892 data-nosnippet>1892</a>	<span class="doccomment">/// Allows you to define the genesis configuration for the pallet.
-<a href=#1893 id=1893 data-nosnippet>1893</a>	///
-<a href=#1894 id=1894 data-nosnippet>1894</a>	/// Item is defined as either an enum or a struct. It needs to be public and implement the
-<a href=#1895 id=1895 data-nosnippet>1895</a>	/// trait [`frame_support::traits::BuildGenesisConfig`].
-<a href=#1896 id=1896 data-nosnippet>1896</a>	///
-<a href=#1897 id=1897 data-nosnippet>1897</a>	/// See [`genesis_build`] for an example.
-<a href=#1898 id=1898 data-nosnippet>1898</a>	</span><span class="kw">pub use </span>frame_support_procedural::genesis_config;
-<a href=#1899 id=1899 data-nosnippet>1899</a>
-<a href=#1900 id=1900 data-nosnippet>1900</a>	<span class="doccomment">/// Allows you to define how the state of your pallet at genesis is built. This
-<a href=#1901 id=1901 data-nosnippet>1901</a>	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's initial
-<a href=#1902 id=1902 data-nosnippet>1902</a>	/// state.
-<a href=#1903 id=1903 data-nosnippet>1903</a>	///
-<a href=#1904 id=1904 data-nosnippet>1904</a>	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
+<a href=#1868 id=1868 data-nosnippet>1868</a>	/// This will results in smaller extrinsic encoding.
+<a href=#1869 id=1869 data-nosnippet>1869</a>	///
+<a href=#1870 id=1870 data-nosnippet>1870</a>	/// A common example of `compact` is for numeric values that are often times far far away
+<a href=#1871 id=1871 data-nosnippet>1871</a>	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
+<a href=#1872 id=1872 data-nosnippet>1872</a>	/// balance of an individual account is oftentimes way less than what the numeric type
+<a href=#1873 id=1873 data-nosnippet>1873</a>	/// allows. In all such cases, using `compact` is sensible.
+<a href=#1874 id=1874 data-nosnippet>1874</a>	///
+<a href=#1875 id=1875 data-nosnippet>1875</a>	/// ```
+<a href=#1876 id=1876 data-nosnippet>1876</a>	/// #[frame_support::pallet(dev_mode)]
+<a href=#1877 id=1877 data-nosnippet>1877</a>	/// pub mod custom_pallet {
+<a href=#1878 id=1878 data-nosnippet>1878</a>	/// #   use frame_support::pallet_prelude::*;
+<a href=#1879 id=1879 data-nosnippet>1879</a>	/// #   use frame_system::pallet_prelude::*;
+<a href=#1880 id=1880 data-nosnippet>1880</a>	/// #   #[pallet::config]
+<a href=#1881 id=1881 data-nosnippet>1881</a>	/// #   pub trait Config: frame_system::Config {}
+<a href=#1882 id=1882 data-nosnippet>1882</a>	/// #   #[pallet::pallet]
+<a href=#1883 id=1883 data-nosnippet>1883</a>	/// #   pub struct Pallet&lt;T&gt;(_);
+<a href=#1884 id=1884 data-nosnippet>1884</a>	/// #   use frame_support::traits::BuildGenesisConfig;
+<a href=#1885 id=1885 data-nosnippet>1885</a>	///     #[pallet::call]
+<a href=#1886 id=1886 data-nosnippet>1886</a>	///     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1887 id=1887 data-nosnippet>1887</a>	///         pub fn some_dispatchable(_origin: OriginFor&lt;T&gt;, #[pallet::compact] _input: u32) -&gt; DispatchResult {
+<a href=#1888 id=1888 data-nosnippet>1888</a>	///             Ok(())
+<a href=#1889 id=1889 data-nosnippet>1889</a>	///         }
+<a href=#1890 id=1890 data-nosnippet>1890</a>	///     }
+<a href=#1891 id=1891 data-nosnippet>1891</a>	/// }
+<a href=#1892 id=1892 data-nosnippet>1892</a>	</span><span class="kw">pub use </span>frame_support_procedural::compact;
+<a href=#1893 id=1893 data-nosnippet>1893</a>
+<a href=#1894 id=1894 data-nosnippet>1894</a>	<span class="doccomment">/// Allows you to define the genesis configuration for the pallet.
+<a href=#1895 id=1895 data-nosnippet>1895</a>	///
+<a href=#1896 id=1896 data-nosnippet>1896</a>	/// Item is defined as either an enum or a struct. It needs to be public and implement the
+<a href=#1897 id=1897 data-nosnippet>1897</a>	/// trait [`frame_support::traits::BuildGenesisConfig`].
+<a href=#1898 id=1898 data-nosnippet>1898</a>	///
+<a href=#1899 id=1899 data-nosnippet>1899</a>	/// See [`genesis_build`] for an example.
+<a href=#1900 id=1900 data-nosnippet>1900</a>	</span><span class="kw">pub use </span>frame_support_procedural::genesis_config;
+<a href=#1901 id=1901 data-nosnippet>1901</a>
+<a href=#1902 id=1902 data-nosnippet>1902</a>	<span class="doccomment">/// Allows you to define how the state of your pallet at genesis is built. This
+<a href=#1903 id=1903 data-nosnippet>1903</a>	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's initial
+<a href=#1904 id=1904 data-nosnippet>1904</a>	/// state.
 <a href=#1905 id=1905 data-nosnippet>1905</a>	///
-<a href=#1906 id=1906 data-nosnippet>1906</a>	/// ## Example
+<a href=#1906 id=1906 data-nosnippet>1906</a>	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
 <a href=#1907 id=1907 data-nosnippet>1907</a>	///
-<a href=#1908 id=1908 data-nosnippet>1908</a>	/// ```
-<a href=#1909 id=1909 data-nosnippet>1909</a>	/// #[frame_support::pallet]
-<a href=#1910 id=1910 data-nosnippet>1910</a>	/// pub mod pallet {
-<a href=#1911 id=1911 data-nosnippet>1911</a>	/// # 	#[pallet::config]
-<a href=#1912 id=1912 data-nosnippet>1912</a>	/// # 	pub trait Config: frame_system::Config {}
-<a href=#1913 id=1913 data-nosnippet>1913</a>	/// # 	#[pallet::pallet]
-<a href=#1914 id=1914 data-nosnippet>1914</a>	/// # 	pub struct Pallet&lt;T&gt;(_);
-<a href=#1915 id=1915 data-nosnippet>1915</a>	/// # 	use frame_support::traits::BuildGenesisConfig;
-<a href=#1916 id=1916 data-nosnippet>1916</a>	///     #[pallet::genesis_config]
-<a href=#1917 id=1917 data-nosnippet>1917</a>	///     #[derive(frame_support::DefaultNoBound)]
-<a href=#1918 id=1918 data-nosnippet>1918</a>	///     pub struct GenesisConfig&lt;T: Config&gt; {
-<a href=#1919 id=1919 data-nosnippet>1919</a>	///         foo: Vec&lt;T::AccountId&gt;
-<a href=#1920 id=1920 data-nosnippet>1920</a>	///     }
-<a href=#1921 id=1921 data-nosnippet>1921</a>	///
-<a href=#1922 id=1922 data-nosnippet>1922</a>	///     #[pallet::genesis_build]
-<a href=#1923 id=1923 data-nosnippet>1923</a>	///     impl&lt;T: Config&gt; BuildGenesisConfig for GenesisConfig&lt;T&gt; {
-<a href=#1924 id=1924 data-nosnippet>1924</a>	///         fn build(&amp;self) {
-<a href=#1925 id=1925 data-nosnippet>1925</a>	///             // use &amp;self to access fields.
-<a href=#1926 id=1926 data-nosnippet>1926</a>	///             let foo = &amp;self.foo;
-<a href=#1927 id=1927 data-nosnippet>1927</a>	///             todo!()
-<a href=#1928 id=1928 data-nosnippet>1928</a>	///         }
-<a href=#1929 id=1929 data-nosnippet>1929</a>	///     }
-<a href=#1930 id=1930 data-nosnippet>1930</a>	/// }
-<a href=#1931 id=1931 data-nosnippet>1931</a>	/// ```
-<a href=#1932 id=1932 data-nosnippet>1932</a>	</span><span class="kw">pub use </span>frame_support_procedural::genesis_build;
-<a href=#1933 id=1933 data-nosnippet>1933</a>
-<a href=#1934 id=1934 data-nosnippet>1934</a>	<span class="doccomment">/// Allows adding an associated type trait bounded by
-<a href=#1935 id=1935 data-nosnippet>1935</a>	/// [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
-<a href=#1936 id=1936 data-nosnippet>1936</a>	/// into metadata.
-<a href=#1937 id=1937 data-nosnippet>1937</a>	///
-<a href=#1938 id=1938 data-nosnippet>1938</a>	/// ## Example
+<a href=#1908 id=1908 data-nosnippet>1908</a>	/// ## Example
+<a href=#1909 id=1909 data-nosnippet>1909</a>	///
+<a href=#1910 id=1910 data-nosnippet>1910</a>	/// ```
+<a href=#1911 id=1911 data-nosnippet>1911</a>	/// #[frame_support::pallet]
+<a href=#1912 id=1912 data-nosnippet>1912</a>	/// pub mod pallet {
+<a href=#1913 id=1913 data-nosnippet>1913</a>	/// # 	#[pallet::config]
+<a href=#1914 id=1914 data-nosnippet>1914</a>	/// # 	pub trait Config: frame_system::Config {}
+<a href=#1915 id=1915 data-nosnippet>1915</a>	/// # 	#[pallet::pallet]
+<a href=#1916 id=1916 data-nosnippet>1916</a>	/// # 	pub struct Pallet&lt;T&gt;(_);
+<a href=#1917 id=1917 data-nosnippet>1917</a>	/// # 	use frame_support::traits::BuildGenesisConfig;
+<a href=#1918 id=1918 data-nosnippet>1918</a>	///     #[pallet::genesis_config]
+<a href=#1919 id=1919 data-nosnippet>1919</a>	///     #[derive(frame_support::DefaultNoBound)]
+<a href=#1920 id=1920 data-nosnippet>1920</a>	///     pub struct GenesisConfig&lt;T: Config&gt; {
+<a href=#1921 id=1921 data-nosnippet>1921</a>	///         foo: Vec&lt;T::AccountId&gt;
+<a href=#1922 id=1922 data-nosnippet>1922</a>	///     }
+<a href=#1923 id=1923 data-nosnippet>1923</a>	///
+<a href=#1924 id=1924 data-nosnippet>1924</a>	///     #[pallet::genesis_build]
+<a href=#1925 id=1925 data-nosnippet>1925</a>	///     impl&lt;T: Config&gt; BuildGenesisConfig for GenesisConfig&lt;T&gt; {
+<a href=#1926 id=1926 data-nosnippet>1926</a>	///         fn build(&amp;self) {
+<a href=#1927 id=1927 data-nosnippet>1927</a>	///             // use &amp;self to access fields.
+<a href=#1928 id=1928 data-nosnippet>1928</a>	///             let foo = &amp;self.foo;
+<a href=#1929 id=1929 data-nosnippet>1929</a>	///             todo!()
+<a href=#1930 id=1930 data-nosnippet>1930</a>	///         }
+<a href=#1931 id=1931 data-nosnippet>1931</a>	///     }
+<a href=#1932 id=1932 data-nosnippet>1932</a>	/// }
+<a href=#1933 id=1933 data-nosnippet>1933</a>	/// ```
+<a href=#1934 id=1934 data-nosnippet>1934</a>	</span><span class="kw">pub use </span>frame_support_procedural::genesis_build;
+<a href=#1935 id=1935 data-nosnippet>1935</a>
+<a href=#1936 id=1936 data-nosnippet>1936</a>	<span class="doccomment">/// Allows adding an associated type trait bounded by
+<a href=#1937 id=1937 data-nosnippet>1937</a>	/// [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
+<a href=#1938 id=1938 data-nosnippet>1938</a>	/// into metadata.
 <a href=#1939 id=1939 data-nosnippet>1939</a>	///
-<a href=#1940 id=1940 data-nosnippet>1940</a>	/// ```
-<a href=#1941 id=1941 data-nosnippet>1941</a>	/// #[frame_support::pallet]
-<a href=#1942 id=1942 data-nosnippet>1942</a>	/// mod pallet {
-<a href=#1943 id=1943 data-nosnippet>1943</a>	///     use frame_support::pallet_prelude::*;
-<a href=#1944 id=1944 data-nosnippet>1944</a>	///     # #[pallet::pallet]
-<a href=#1945 id=1945 data-nosnippet>1945</a>	///     # pub struct Pallet&lt;T&gt;(_);
-<a href=#1946 id=1946 data-nosnippet>1946</a>	///     #[pallet::config]
-<a href=#1947 id=1947 data-nosnippet>1947</a>	///     pub trait Config: frame_system::Config {
-<a href=#1948 id=1948 data-nosnippet>1948</a>	/// 		/// This is like a normal `Get` trait, but it will be added into metadata.
-<a href=#1949 id=1949 data-nosnippet>1949</a>	/// 		#[pallet::constant]
-<a href=#1950 id=1950 data-nosnippet>1950</a>	/// 		type Foo: Get&lt;u32&gt;;
-<a href=#1951 id=1951 data-nosnippet>1951</a>	/// 	}
-<a href=#1952 id=1952 data-nosnippet>1952</a>	/// }
-<a href=#1953 id=1953 data-nosnippet>1953</a>	/// ```
-<a href=#1954 id=1954 data-nosnippet>1954</a>	///
-<a href=#1955 id=1955 data-nosnippet>1955</a>	/// ## Note on deprecation of constants
+<a href=#1940 id=1940 data-nosnippet>1940</a>	/// ## Example
+<a href=#1941 id=1941 data-nosnippet>1941</a>	///
+<a href=#1942 id=1942 data-nosnippet>1942</a>	/// ```
+<a href=#1943 id=1943 data-nosnippet>1943</a>	/// #[frame_support::pallet]
+<a href=#1944 id=1944 data-nosnippet>1944</a>	/// mod pallet {
+<a href=#1945 id=1945 data-nosnippet>1945</a>	///     use frame_support::pallet_prelude::*;
+<a href=#1946 id=1946 data-nosnippet>1946</a>	///     # #[pallet::pallet]
+<a href=#1947 id=1947 data-nosnippet>1947</a>	///     # pub struct Pallet&lt;T&gt;(_);
+<a href=#1948 id=1948 data-nosnippet>1948</a>	///     #[pallet::config]
+<a href=#1949 id=1949 data-nosnippet>1949</a>	///     pub trait Config: frame_system::Config {
+<a href=#1950 id=1950 data-nosnippet>1950</a>	/// 		/// This is like a normal `Get` trait, but it will be added into metadata.
+<a href=#1951 id=1951 data-nosnippet>1951</a>	/// 		#[pallet::constant]
+<a href=#1952 id=1952 data-nosnippet>1952</a>	/// 		type Foo: Get&lt;u32&gt;;
+<a href=#1953 id=1953 data-nosnippet>1953</a>	/// 	}
+<a href=#1954 id=1954 data-nosnippet>1954</a>	/// }
+<a href=#1955 id=1955 data-nosnippet>1955</a>	/// ```
 <a href=#1956 id=1956 data-nosnippet>1956</a>	///
-<a href=#1957 id=1957 data-nosnippet>1957</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
-<a href=#1958 id=1958 data-nosnippet>1958</a>	///   metadata where the item was declared.
-<a href=#1959 id=1959 data-nosnippet>1959</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
-<a href=#1960 id=1960 data-nosnippet>1960</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
-<a href=#1961 id=1961 data-nosnippet>1961</a>	///   generated code.
-<a href=#1962 id=1962 data-nosnippet>1962</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
-<a href=#1963 id=1963 data-nosnippet>1963</a>	///   automatically annotated with `allow(deprecated)`
-<a href=#1964 id=1964 data-nosnippet>1964</a>	</span><span class="kw">pub use </span>frame_support_procedural::constant;
-<a href=#1965 id=1965 data-nosnippet>1965</a>
-<a href=#1966 id=1966 data-nosnippet>1966</a>	<span class="doccomment">/// Declares a type alias as a storage item.
-<a href=#1967 id=1967 data-nosnippet>1967</a>	///
-<a href=#1968 id=1968 data-nosnippet>1968</a>	/// Storage items are pointers to data stored on-chain (the *blockchain state*), under a
-<a href=#1969 id=1969 data-nosnippet>1969</a>	/// specific key. The exact key is dependent on the type of the storage.
-<a href=#1970 id=1970 data-nosnippet>1970</a>	///
-<a href=#1971 id=1971 data-nosnippet>1971</a>	/// &gt; From the perspective of this pallet, the entire blockchain state is abstracted behind
-<a href=#1972 id=1972 data-nosnippet>1972</a>	/// &gt; a key-value api, namely [`sp_io::storage`].
-<a href=#1973 id=1973 data-nosnippet>1973</a>	///
-<a href=#1974 id=1974 data-nosnippet>1974</a>	/// ## Storage Types
+<a href=#1957 id=1957 data-nosnippet>1957</a>	/// ## Note on deprecation of constants
+<a href=#1958 id=1958 data-nosnippet>1958</a>	///
+<a href=#1959 id=1959 data-nosnippet>1959</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+<a href=#1960 id=1960 data-nosnippet>1960</a>	///   metadata where the item was declared.
+<a href=#1961 id=1961 data-nosnippet>1961</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
+<a href=#1962 id=1962 data-nosnippet>1962</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+<a href=#1963 id=1963 data-nosnippet>1963</a>	///   generated code.
+<a href=#1964 id=1964 data-nosnippet>1964</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+<a href=#1965 id=1965 data-nosnippet>1965</a>	///   automatically annotated with `allow(deprecated)`
+<a href=#1966 id=1966 data-nosnippet>1966</a>	</span><span class="kw">pub use </span>frame_support_procedural::constant;
+<a href=#1967 id=1967 data-nosnippet>1967</a>
+<a href=#1968 id=1968 data-nosnippet>1968</a>	<span class="doccomment">/// Declares a type alias as a storage item.
+<a href=#1969 id=1969 data-nosnippet>1969</a>	///
+<a href=#1970 id=1970 data-nosnippet>1970</a>	/// Storage items are pointers to data stored on-chain (the *blockchain state*), under a
+<a href=#1971 id=1971 data-nosnippet>1971</a>	/// specific key. The exact key is dependent on the type of the storage.
+<a href=#1972 id=1972 data-nosnippet>1972</a>	///
+<a href=#1973 id=1973 data-nosnippet>1973</a>	/// &gt; From the perspective of this pallet, the entire blockchain state is abstracted behind
+<a href=#1974 id=1974 data-nosnippet>1974</a>	/// &gt; a key-value api, namely [`sp_io::storage`].
 <a href=#1975 id=1975 data-nosnippet>1975</a>	///
-<a href=#1976 id=1976 data-nosnippet>1976</a>	/// The following storage types are supported by the `#[storage]` macro. For specific
-<a href=#1977 id=1977 data-nosnippet>1977</a>	/// information about each storage type, refer to the documentation of the respective type.
-<a href=#1978 id=1978 data-nosnippet>1978</a>	///
-<a href=#1979 id=1979 data-nosnippet>1979</a>	/// * [`StorageValue`](crate::storage::types::StorageValue)
-<a href=#1980 id=1980 data-nosnippet>1980</a>	/// * [`StorageMap`](crate::storage::types::StorageMap)
-<a href=#1981 id=1981 data-nosnippet>1981</a>	/// * [`CountedStorageMap`](crate::storage::types::CountedStorageMap)
-<a href=#1982 id=1982 data-nosnippet>1982</a>	/// * [`StorageDoubleMap`](crate::storage::types::StorageDoubleMap)
-<a href=#1983 id=1983 data-nosnippet>1983</a>	/// * [`StorageNMap`](crate::storage::types::StorageNMap)
-<a href=#1984 id=1984 data-nosnippet>1984</a>	/// * [`CountedStorageNMap`](crate::storage::types::CountedStorageNMap)
-<a href=#1985 id=1985 data-nosnippet>1985</a>	///
-<a href=#1986 id=1986 data-nosnippet>1986</a>	/// ## Storage Type Usage
+<a href=#1976 id=1976 data-nosnippet>1976</a>	/// ## Storage Types
+<a href=#1977 id=1977 data-nosnippet>1977</a>	///
+<a href=#1978 id=1978 data-nosnippet>1978</a>	/// The following storage types are supported by the `#[storage]` macro. For specific
+<a href=#1979 id=1979 data-nosnippet>1979</a>	/// information about each storage type, refer to the documentation of the respective type.
+<a href=#1980 id=1980 data-nosnippet>1980</a>	///
+<a href=#1981 id=1981 data-nosnippet>1981</a>	/// * [`StorageValue`](crate::storage::types::StorageValue)
+<a href=#1982 id=1982 data-nosnippet>1982</a>	/// * [`StorageMap`](crate::storage::types::StorageMap)
+<a href=#1983 id=1983 data-nosnippet>1983</a>	/// * [`CountedStorageMap`](crate::storage::types::CountedStorageMap)
+<a href=#1984 id=1984 data-nosnippet>1984</a>	/// * [`StorageDoubleMap`](crate::storage::types::StorageDoubleMap)
+<a href=#1985 id=1985 data-nosnippet>1985</a>	/// * [`StorageNMap`](crate::storage::types::StorageNMap)
+<a href=#1986 id=1986 data-nosnippet>1986</a>	/// * [`CountedStorageNMap`](crate::storage::types::CountedStorageNMap)
 <a href=#1987 id=1987 data-nosnippet>1987</a>	///
-<a href=#1988 id=1988 data-nosnippet>1988</a>	/// The following details are relevant to all of the aforementioned storage types.
-<a href=#1989 id=1989 data-nosnippet>1989</a>	/// Depending on the exact storage type, it may require the following generic parameters:
-<a href=#1990 id=1990 data-nosnippet>1990</a>	///
-<a href=#1991 id=1991 data-nosnippet>1991</a>	/// * [`Prefix`](#prefixes) - Used to give the storage item a unique key in the underlying
-<a href=#1992 id=1992 data-nosnippet>1992</a>	///   storage.
-<a href=#1993 id=1993 data-nosnippet>1993</a>	/// * `Key` - Type of the keys used to store the values,
-<a href=#1994 id=1994 data-nosnippet>1994</a>	/// * `Value` - Type of the value being stored,
-<a href=#1995 id=1995 data-nosnippet>1995</a>	/// * [`Hasher`](#hashers) - Used to ensure the keys of a map are uniformly distributed,
-<a href=#1996 id=1996 data-nosnippet>1996</a>	/// * [`QueryKind`](#querykind) - Used to configure how to handle queries to the underlying
-<a href=#1997 id=1997 data-nosnippet>1997</a>	///   storage,
-<a href=#1998 id=1998 data-nosnippet>1998</a>	/// * `OnEmpty` - Used to handle missing values when querying the underlying storage,
-<a href=#1999 id=1999 data-nosnippet>1999</a>	/// * `MaxValues` - _not currently used_.
-<a href=#2000 id=2000 data-nosnippet>2000</a>	///
-<a href=#2001 id=2001 data-nosnippet>2001</a>	/// Each `Key` type requires its own designated `Hasher` declaration, so that
-<a href=#2002 id=2002 data-nosnippet>2002</a>	/// [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) needs two of
-<a href=#2003 id=2003 data-nosnippet>2003</a>	/// each, and [`StorageNMap`](frame_support::storage::types::StorageNMap) needs `N` such
-<a href=#2004 id=2004 data-nosnippet>2004</a>	/// pairs. Since [`StorageValue`](frame_support::storage::types::StorageValue) only stores
-<a href=#2005 id=2005 data-nosnippet>2005</a>	/// a single element, no configuration of hashers is needed.
-<a href=#2006 id=2006 data-nosnippet>2006</a>	///
-<a href=#2007 id=2007 data-nosnippet>2007</a>	/// ### Syntax
+<a href=#1988 id=1988 data-nosnippet>1988</a>	/// ## Storage Type Usage
+<a href=#1989 id=1989 data-nosnippet>1989</a>	///
+<a href=#1990 id=1990 data-nosnippet>1990</a>	/// The following details are relevant to all of the aforementioned storage types.
+<a href=#1991 id=1991 data-nosnippet>1991</a>	/// Depending on the exact storage type, it may require the following generic parameters:
+<a href=#1992 id=1992 data-nosnippet>1992</a>	///
+<a href=#1993 id=1993 data-nosnippet>1993</a>	/// * [`Prefix`](#prefixes) - Used to give the storage item a unique key in the underlying
+<a href=#1994 id=1994 data-nosnippet>1994</a>	///   storage.
+<a href=#1995 id=1995 data-nosnippet>1995</a>	/// * `Key` - Type of the keys used to store the values,
+<a href=#1996 id=1996 data-nosnippet>1996</a>	/// * `Value` - Type of the value being stored,
+<a href=#1997 id=1997 data-nosnippet>1997</a>	/// * [`Hasher`](#hashers) - Used to ensure the keys of a map are uniformly distributed,
+<a href=#1998 id=1998 data-nosnippet>1998</a>	/// * [`QueryKind`](#querykind) - Used to configure how to handle queries to the underlying
+<a href=#1999 id=1999 data-nosnippet>1999</a>	///   storage,
+<a href=#2000 id=2000 data-nosnippet>2000</a>	/// * `OnEmpty` - Used to handle missing values when querying the underlying storage,
+<a href=#2001 id=2001 data-nosnippet>2001</a>	/// * `MaxValues` - _not currently used_.
+<a href=#2002 id=2002 data-nosnippet>2002</a>	///
+<a href=#2003 id=2003 data-nosnippet>2003</a>	/// Each `Key` type requires its own designated `Hasher` declaration, so that
+<a href=#2004 id=2004 data-nosnippet>2004</a>	/// [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) needs two of
+<a href=#2005 id=2005 data-nosnippet>2005</a>	/// each, and [`StorageNMap`](frame_support::storage::types::StorageNMap) needs `N` such
+<a href=#2006 id=2006 data-nosnippet>2006</a>	/// pairs. Since [`StorageValue`](frame_support::storage::types::StorageValue) only stores
+<a href=#2007 id=2007 data-nosnippet>2007</a>	/// a single element, no configuration of hashers is needed.
 <a href=#2008 id=2008 data-nosnippet>2008</a>	///
-<a href=#2009 id=2009 data-nosnippet>2009</a>	/// Two general syntaxes are supported, as demonstrated below:
+<a href=#2009 id=2009 data-nosnippet>2009</a>	/// ### Syntax
 <a href=#2010 id=2010 data-nosnippet>2010</a>	///
-<a href=#2011 id=2011 data-nosnippet>2011</a>	/// 1. Named type parameters, e.g., `type Foo&lt;T&gt; = StorageValue&lt;Value = u32&gt;`.
-<a href=#2012 id=2012 data-nosnippet>2012</a>	/// 2. Positional type parameters, e.g., `type Foo&lt;T&gt; = StorageValue&lt;_, u32&gt;`.
-<a href=#2013 id=2013 data-nosnippet>2013</a>	///
-<a href=#2014 id=2014 data-nosnippet>2014</a>	/// In both instances, declaring the generic parameter `&lt;T&gt;` is mandatory. Optionally, it
-<a href=#2015 id=2015 data-nosnippet>2015</a>	/// can also be explicitly declared as `&lt;T: Config&gt;`. In the compiled code, `T` will
-<a href=#2016 id=2016 data-nosnippet>2016</a>	/// automatically include the trait bound `Config`.
-<a href=#2017 id=2017 data-nosnippet>2017</a>	///
-<a href=#2018 id=2018 data-nosnippet>2018</a>	/// Note that in positional syntax, the first generic type parameter must be `_`.
+<a href=#2011 id=2011 data-nosnippet>2011</a>	/// Two general syntaxes are supported, as demonstrated below:
+<a href=#2012 id=2012 data-nosnippet>2012</a>	///
+<a href=#2013 id=2013 data-nosnippet>2013</a>	/// 1. Named type parameters, e.g., `type Foo&lt;T&gt; = StorageValue&lt;Value = u32&gt;`.
+<a href=#2014 id=2014 data-nosnippet>2014</a>	/// 2. Positional type parameters, e.g., `type Foo&lt;T&gt; = StorageValue&lt;_, u32&gt;`.
+<a href=#2015 id=2015 data-nosnippet>2015</a>	///
+<a href=#2016 id=2016 data-nosnippet>2016</a>	/// In both instances, declaring the generic parameter `&lt;T&gt;` is mandatory. Optionally, it
+<a href=#2017 id=2017 data-nosnippet>2017</a>	/// can also be explicitly declared as `&lt;T: Config&gt;`. In the compiled code, `T` will
+<a href=#2018 id=2018 data-nosnippet>2018</a>	/// automatically include the trait bound `Config`.
 <a href=#2019 id=2019 data-nosnippet>2019</a>	///
-<a href=#2020 id=2020 data-nosnippet>2020</a>	/// #### Example
+<a href=#2020 id=2020 data-nosnippet>2020</a>	/// Note that in positional syntax, the first generic type parameter must be `_`.
 <a href=#2021 id=2021 data-nosnippet>2021</a>	///
-<a href=#2022 id=2022 data-nosnippet>2022</a>	/// ```
-<a href=#2023 id=2023 data-nosnippet>2023</a>	/// #[frame_support::pallet]
-<a href=#2024 id=2024 data-nosnippet>2024</a>	/// mod pallet {
-<a href=#2025 id=2025 data-nosnippet>2025</a>	///     # use frame_support::pallet_prelude::*;
-<a href=#2026 id=2026 data-nosnippet>2026</a>	///     # #[pallet::config]
-<a href=#2027 id=2027 data-nosnippet>2027</a>	///     # pub trait Config: frame_system::Config {}
-<a href=#2028 id=2028 data-nosnippet>2028</a>	///     # #[pallet::pallet]
-<a href=#2029 id=2029 data-nosnippet>2029</a>	///     # pub struct Pallet&lt;T&gt;(_);
-<a href=#2030 id=2030 data-nosnippet>2030</a>	///     /// Positional syntax, without bounding `T`.
-<a href=#2031 id=2031 data-nosnippet>2031</a>	///     #[pallet::storage]
-<a href=#2032 id=2032 data-nosnippet>2032</a>	///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32&gt;;
-<a href=#2033 id=2033 data-nosnippet>2033</a>	///
-<a href=#2034 id=2034 data-nosnippet>2034</a>	///     /// Positional syntax, with bounding `T`.
-<a href=#2035 id=2035 data-nosnippet>2035</a>	///     #[pallet::storage]
-<a href=#2036 id=2036 data-nosnippet>2036</a>	///     pub type Bar&lt;T: Config&gt; = StorageValue&lt;_, u32&gt;;
-<a href=#2037 id=2037 data-nosnippet>2037</a>	///
-<a href=#2038 id=2038 data-nosnippet>2038</a>	///     /// Named syntax.
-<a href=#2039 id=2039 data-nosnippet>2039</a>	///     #[pallet::storage]
-<a href=#2040 id=2040 data-nosnippet>2040</a>	///     pub type Baz&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
-<a href=#2041 id=2041 data-nosnippet>2041</a>	/// }
-<a href=#2042 id=2042 data-nosnippet>2042</a>	/// ```
-<a href=#2043 id=2043 data-nosnippet>2043</a>	///
-<a href=#2044 id=2044 data-nosnippet>2044</a>	/// ### Value Trait Bounds
+<a href=#2022 id=2022 data-nosnippet>2022</a>	/// #### Example
+<a href=#2023 id=2023 data-nosnippet>2023</a>	///
+<a href=#2024 id=2024 data-nosnippet>2024</a>	/// ```
+<a href=#2025 id=2025 data-nosnippet>2025</a>	/// #[frame_support::pallet]
+<a href=#2026 id=2026 data-nosnippet>2026</a>	/// mod pallet {
+<a href=#2027 id=2027 data-nosnippet>2027</a>	///     # use frame_support::pallet_prelude::*;
+<a href=#2028 id=2028 data-nosnippet>2028</a>	///     # #[pallet::config]
+<a href=#2029 id=2029 data-nosnippet>2029</a>	///     # pub trait Config: frame_system::Config {}
+<a href=#2030 id=2030 data-nosnippet>2030</a>	///     # #[pallet::pallet]
+<a href=#2031 id=2031 data-nosnippet>2031</a>	///     # pub struct Pallet&lt;T&gt;(_);
+<a href=#2032 id=2032 data-nosnippet>2032</a>	///     /// Positional syntax, without bounding `T`.
+<a href=#2033 id=2033 data-nosnippet>2033</a>	///     #[pallet::storage]
+<a href=#2034 id=2034 data-nosnippet>2034</a>	///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32&gt;;
+<a href=#2035 id=2035 data-nosnippet>2035</a>	///
+<a href=#2036 id=2036 data-nosnippet>2036</a>	///     /// Positional syntax, with bounding `T`.
+<a href=#2037 id=2037 data-nosnippet>2037</a>	///     #[pallet::storage]
+<a href=#2038 id=2038 data-nosnippet>2038</a>	///     pub type Bar&lt;T: Config&gt; = StorageValue&lt;_, u32&gt;;
+<a href=#2039 id=2039 data-nosnippet>2039</a>	///
+<a href=#2040 id=2040 data-nosnippet>2040</a>	///     /// Named syntax.
+<a href=#2041 id=2041 data-nosnippet>2041</a>	///     #[pallet::storage]
+<a href=#2042 id=2042 data-nosnippet>2042</a>	///     pub type Baz&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
+<a href=#2043 id=2043 data-nosnippet>2043</a>	/// }
+<a href=#2044 id=2044 data-nosnippet>2044</a>	/// ```
 <a href=#2045 id=2045 data-nosnippet>2045</a>	///
-<a href=#2046 id=2046 data-nosnippet>2046</a>	/// To use a type as the value of a storage type, be it `StorageValue`, `StorageMap` or
-<a href=#2047 id=2047 data-nosnippet>2047</a>	/// anything else, you need to meet a number of trait bound constraints.
-<a href=#2048 id=2048 data-nosnippet>2048</a>	///
-<a href=#2049 id=2049 data-nosnippet>2049</a>	/// See: &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html&gt;.
+<a href=#2046 id=2046 data-nosnippet>2046</a>	/// ### Value Trait Bounds
+<a href=#2047 id=2047 data-nosnippet>2047</a>	///
+<a href=#2048 id=2048 data-nosnippet>2048</a>	/// To use a type as the value of a storage type, be it `StorageValue`, `StorageMap` or
+<a href=#2049 id=2049 data-nosnippet>2049</a>	/// anything else, you need to meet a number of trait bound constraints.
 <a href=#2050 id=2050 data-nosnippet>2050</a>	///
-<a href=#2051 id=2051 data-nosnippet>2051</a>	/// Notably, all value types need to implement `Encode`, `Decode`, `MaxEncodedLen` and
-<a href=#2052 id=2052 data-nosnippet>2052</a>	/// `TypeInfo`, and possibly `Default`, if
-<a href=#2053 id=2053 data-nosnippet>2053</a>	/// [`ValueQuery`](frame_support::storage::types::ValueQuery) is used, explained in the
-<a href=#2054 id=2054 data-nosnippet>2054</a>	/// next section.
-<a href=#2055 id=2055 data-nosnippet>2055</a>	///
-<a href=#2056 id=2056 data-nosnippet>2056</a>	/// ### QueryKind
+<a href=#2051 id=2051 data-nosnippet>2051</a>	/// See: &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html&gt;.
+<a href=#2052 id=2052 data-nosnippet>2052</a>	///
+<a href=#2053 id=2053 data-nosnippet>2053</a>	/// Notably, all value types need to implement `Encode`, `Decode`, `MaxEncodedLen` and
+<a href=#2054 id=2054 data-nosnippet>2054</a>	/// `TypeInfo`, and possibly `Default`, if
+<a href=#2055 id=2055 data-nosnippet>2055</a>	/// [`ValueQuery`](frame_support::storage::types::ValueQuery) is used, explained in the
+<a href=#2056 id=2056 data-nosnippet>2056</a>	/// next section.
 <a href=#2057 id=2057 data-nosnippet>2057</a>	///
-<a href=#2058 id=2058 data-nosnippet>2058</a>	/// Every storage type mentioned above has a generic type called
-<a href=#2059 id=2059 data-nosnippet>2059</a>	/// [`QueryKind`](frame_support::storage::types::QueryKindTrait) that determines its
-<a href=#2060 id=2060 data-nosnippet>2060</a>	/// "query" type. This refers to the kind of value returned when querying the storage, for
-<a href=#2061 id=2061 data-nosnippet>2061</a>	/// instance, through a `::get()` method.
-<a href=#2062 id=2062 data-nosnippet>2062</a>	///
-<a href=#2063 id=2063 data-nosnippet>2063</a>	/// There are three types of queries:
+<a href=#2058 id=2058 data-nosnippet>2058</a>	/// ### QueryKind
+<a href=#2059 id=2059 data-nosnippet>2059</a>	///
+<a href=#2060 id=2060 data-nosnippet>2060</a>	/// Every storage type mentioned above has a generic type called
+<a href=#2061 id=2061 data-nosnippet>2061</a>	/// [`QueryKind`](frame_support::storage::types::QueryKindTrait) that determines its
+<a href=#2062 id=2062 data-nosnippet>2062</a>	/// "query" type. This refers to the kind of value returned when querying the storage, for
+<a href=#2063 id=2063 data-nosnippet>2063</a>	/// instance, through a `::get()` method.
 <a href=#2064 id=2064 data-nosnippet>2064</a>	///
-<a href=#2065 id=2065 data-nosnippet>2065</a>	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type.
-<a href=#2066 id=2066 data-nosnippet>2066</a>	///    It returns `Some(V)` if the value is present, or `None` if it isn't, where `V` is
-<a href=#2067 id=2067 data-nosnippet>2067</a>	///    the value type.
-<a href=#2068 id=2068 data-nosnippet>2068</a>	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself
-<a href=#2069 id=2069 data-nosnippet>2069</a>	///    if present; otherwise, it returns `Default::default()`. This behavior can be
-<a href=#2070 id=2070 data-nosnippet>2070</a>	///    adjusted with the `OnEmpty` generic parameter, which defaults to `OnEmpty =
-<a href=#2071 id=2071 data-nosnippet>2071</a>	///    GetDefault`.
-<a href=#2072 id=2072 data-nosnippet>2072</a>	/// 3. [`ResultQuery`](frame_support::storage::types::ResultQuery): Returns `Result&lt;V, E&gt;`,
-<a href=#2073 id=2073 data-nosnippet>2073</a>	///    where `V` is the value type.
-<a href=#2074 id=2074 data-nosnippet>2074</a>	///
-<a href=#2075 id=2075 data-nosnippet>2075</a>	/// See [`QueryKind`](frame_support::storage::types::QueryKindTrait) for further examples.
+<a href=#2065 id=2065 data-nosnippet>2065</a>	/// There are three types of queries:
+<a href=#2066 id=2066 data-nosnippet>2066</a>	///
+<a href=#2067 id=2067 data-nosnippet>2067</a>	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type.
+<a href=#2068 id=2068 data-nosnippet>2068</a>	///    It returns `Some(V)` if the value is present, or `None` if it isn't, where `V` is
+<a href=#2069 id=2069 data-nosnippet>2069</a>	///    the value type.
+<a href=#2070 id=2070 data-nosnippet>2070</a>	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself
+<a href=#2071 id=2071 data-nosnippet>2071</a>	///    if present; otherwise, it returns `Default::default()`. This behavior can be
+<a href=#2072 id=2072 data-nosnippet>2072</a>	///    adjusted with the `OnEmpty` generic parameter, which defaults to `OnEmpty =
+<a href=#2073 id=2073 data-nosnippet>2073</a>	///    GetDefault`.
+<a href=#2074 id=2074 data-nosnippet>2074</a>	/// 3. [`ResultQuery`](frame_support::storage::types::ResultQuery): Returns `Result&lt;V, E&gt;`,
+<a href=#2075 id=2075 data-nosnippet>2075</a>	///    where `V` is the value type.
 <a href=#2076 id=2076 data-nosnippet>2076</a>	///
-<a href=#2077 id=2077 data-nosnippet>2077</a>	/// ### Optimized Appending
+<a href=#2077 id=2077 data-nosnippet>2077</a>	/// See [`QueryKind`](frame_support::storage::types::QueryKindTrait) for further examples.
 <a href=#2078 id=2078 data-nosnippet>2078</a>	///
-<a href=#2079 id=2079 data-nosnippet>2079</a>	/// All storage items — such as
-<a href=#2080 id=2080 data-nosnippet>2080</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue),
-<a href=#2081 id=2081 data-nosnippet>2081</a>	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their variants—offer an
-<a href=#2082 id=2082 data-nosnippet>2082</a>	/// `::append()` method optimized for collections. Using this method avoids the
-<a href=#2083 id=2083 data-nosnippet>2083</a>	/// inefficiency of decoding and re-encoding entire collections when adding items. For
-<a href=#2084 id=2084 data-nosnippet>2084</a>	/// instance, consider the storage declaration `type MyVal&lt;T&gt; = StorageValue&lt;_, Vec&lt;u8&gt;,
-<a href=#2085 id=2085 data-nosnippet>2085</a>	/// ValueQuery&gt;`. With `MyVal` storing a large list of bytes, `::append()` lets you
-<a href=#2086 id=2086 data-nosnippet>2086</a>	/// directly add bytes to the end in storage without processing the full list. Depending on
-<a href=#2087 id=2087 data-nosnippet>2087</a>	/// the storage type, additional key specifications may be needed.
-<a href=#2088 id=2088 data-nosnippet>2088</a>	///
-<a href=#2089 id=2089 data-nosnippet>2089</a>	/// #### Example
-<a href=#2090 id=2090 data-nosnippet>2090</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_append)]
-<a href=#2091 id=2091 data-nosnippet>2091</a>	</span><span class="doccomment">/// Similarly, there also exists a `::try_append()` method, which can be used when handling
-<a href=#2092 id=2092 data-nosnippet>2092</a>	/// types where an append operation might fail, such as a
-<a href=#2093 id=2093 data-nosnippet>2093</a>	/// [`BoundedVec`](frame_support::BoundedVec).
-<a href=#2094 id=2094 data-nosnippet>2094</a>	///
-<a href=#2095 id=2095 data-nosnippet>2095</a>	/// #### Example
-<a href=#2096 id=2096 data-nosnippet>2096</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_try_append)]
-<a href=#2097 id=2097 data-nosnippet>2097</a>	</span><span class="doccomment">/// ### Optimized Length Decoding
-<a href=#2098 id=2098 data-nosnippet>2098</a>	///
-<a href=#2099 id=2099 data-nosnippet>2099</a>	/// All storage items — such as
-<a href=#2100 id=2100 data-nosnippet>2100</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue),
-<a href=#2101 id=2101 data-nosnippet>2101</a>	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
-<a href=#2102 id=2102 data-nosnippet>2102</a>	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
-<a href=#2103 id=2103 data-nosnippet>2103</a>	/// a collection's length without the necessity of decoding the entire dataset.
-<a href=#2104 id=2104 data-nosnippet>2104</a>	/// #### Example
-<a href=#2105 id=2105 data-nosnippet>2105</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_decode_len)]
-<a href=#2106 id=2106 data-nosnippet>2106</a>	</span><span class="doccomment">/// ### Hashers
-<a href=#2107 id=2107 data-nosnippet>2107</a>	///
-<a href=#2108 id=2108 data-nosnippet>2108</a>	/// For all storage types, except
-<a href=#2109 id=2109 data-nosnippet>2109</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue), a set of hashers needs
-<a href=#2110 id=2110 data-nosnippet>2110</a>	/// to be specified. The choice of hashers is crucial, especially in production chains. The
-<a href=#2111 id=2111 data-nosnippet>2111</a>	/// purpose of storage hashers in maps is to ensure the keys of a map are
-<a href=#2112 id=2112 data-nosnippet>2112</a>	/// uniformly distributed. An unbalanced map/trie can lead to inefficient performance.
-<a href=#2113 id=2113 data-nosnippet>2113</a>	///
-<a href=#2114 id=2114 data-nosnippet>2114</a>	/// In general, hashers are categorized as either cryptographically secure or not. The
-<a href=#2115 id=2115 data-nosnippet>2115</a>	/// former is slower than the latter. `Blake2` and `Twox` serve as examples of each,
-<a href=#2116 id=2116 data-nosnippet>2116</a>	/// respectively.
-<a href=#2117 id=2117 data-nosnippet>2117</a>	///
-<a href=#2118 id=2118 data-nosnippet>2118</a>	/// As a rule of thumb:
+<a href=#2079 id=2079 data-nosnippet>2079</a>	/// ### Optimized Appending
+<a href=#2080 id=2080 data-nosnippet>2080</a>	///
+<a href=#2081 id=2081 data-nosnippet>2081</a>	/// All storage items — such as
+<a href=#2082 id=2082 data-nosnippet>2082</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue),
+<a href=#2083 id=2083 data-nosnippet>2083</a>	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their variants—offer an
+<a href=#2084 id=2084 data-nosnippet>2084</a>	/// `::append()` method optimized for collections. Using this method avoids the
+<a href=#2085 id=2085 data-nosnippet>2085</a>	/// inefficiency of decoding and re-encoding entire collections when adding items. For
+<a href=#2086 id=2086 data-nosnippet>2086</a>	/// instance, consider the storage declaration `type MyVal&lt;T&gt; = StorageValue&lt;_, Vec&lt;u8&gt;,
+<a href=#2087 id=2087 data-nosnippet>2087</a>	/// ValueQuery&gt;`. With `MyVal` storing a large list of bytes, `::append()` lets you
+<a href=#2088 id=2088 data-nosnippet>2088</a>	/// directly add bytes to the end in storage without processing the full list. Depending on
+<a href=#2089 id=2089 data-nosnippet>2089</a>	/// the storage type, additional key specifications may be needed.
+<a href=#2090 id=2090 data-nosnippet>2090</a>	///
+<a href=#2091 id=2091 data-nosnippet>2091</a>	/// #### Example
+<a href=#2092 id=2092 data-nosnippet>2092</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_append)]
+<a href=#2093 id=2093 data-nosnippet>2093</a>	</span><span class="doccomment">/// Similarly, there also exists a `::try_append()` method, which can be used when handling
+<a href=#2094 id=2094 data-nosnippet>2094</a>	/// types where an append operation might fail, such as a
+<a href=#2095 id=2095 data-nosnippet>2095</a>	/// [`BoundedVec`](frame_support::BoundedVec).
+<a href=#2096 id=2096 data-nosnippet>2096</a>	///
+<a href=#2097 id=2097 data-nosnippet>2097</a>	/// #### Example
+<a href=#2098 id=2098 data-nosnippet>2098</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_try_append)]
+<a href=#2099 id=2099 data-nosnippet>2099</a>	</span><span class="doccomment">/// ### Optimized Length Decoding
+<a href=#2100 id=2100 data-nosnippet>2100</a>	///
+<a href=#2101 id=2101 data-nosnippet>2101</a>	/// All storage items — such as
+<a href=#2102 id=2102 data-nosnippet>2102</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue),
+<a href=#2103 id=2103 data-nosnippet>2103</a>	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
+<a href=#2104 id=2104 data-nosnippet>2104</a>	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
+<a href=#2105 id=2105 data-nosnippet>2105</a>	/// a collection's length without the necessity of decoding the entire dataset.
+<a href=#2106 id=2106 data-nosnippet>2106</a>	/// #### Example
+<a href=#2107 id=2107 data-nosnippet>2107</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_decode_len)]
+<a href=#2108 id=2108 data-nosnippet>2108</a>	</span><span class="doccomment">/// ### Hashers
+<a href=#2109 id=2109 data-nosnippet>2109</a>	///
+<a href=#2110 id=2110 data-nosnippet>2110</a>	/// For all storage types, except
+<a href=#2111 id=2111 data-nosnippet>2111</a>	/// [`StorageValue`](frame_support::storage::types::StorageValue), a set of hashers needs
+<a href=#2112 id=2112 data-nosnippet>2112</a>	/// to be specified. The choice of hashers is crucial, especially in production chains. The
+<a href=#2113 id=2113 data-nosnippet>2113</a>	/// purpose of storage hashers in maps is to ensure the keys of a map are
+<a href=#2114 id=2114 data-nosnippet>2114</a>	/// uniformly distributed. An unbalanced map/trie can lead to inefficient performance.
+<a href=#2115 id=2115 data-nosnippet>2115</a>	///
+<a href=#2116 id=2116 data-nosnippet>2116</a>	/// In general, hashers are categorized as either cryptographically secure or not. The
+<a href=#2117 id=2117 data-nosnippet>2117</a>	/// former is slower than the latter. `Blake2` and `Twox` serve as examples of each,
+<a href=#2118 id=2118 data-nosnippet>2118</a>	/// respectively.
 <a href=#2119 id=2119 data-nosnippet>2119</a>	///
-<a href=#2120 id=2120 data-nosnippet>2120</a>	/// 1. If the map keys are not controlled by end users, or are cryptographically secure by
-<a href=#2121 id=2121 data-nosnippet>2121</a>	/// definition (e.g., `AccountId`), then the use of cryptographically secure hashers is NOT
-<a href=#2122 id=2122 data-nosnippet>2122</a>	/// required.
-<a href=#2123 id=2123 data-nosnippet>2123</a>	/// 2. If the map keys are controllable by the end users, cryptographically secure hashers
-<a href=#2124 id=2124 data-nosnippet>2124</a>	/// should be used.
-<a href=#2125 id=2125 data-nosnippet>2125</a>	///
-<a href=#2126 id=2126 data-nosnippet>2126</a>	/// For more information, look at the types that implement
-<a href=#2127 id=2127 data-nosnippet>2127</a>	/// [`frame_support::StorageHasher`](frame_support::StorageHasher).
-<a href=#2128 id=2128 data-nosnippet>2128</a>	///
-<a href=#2129 id=2129 data-nosnippet>2129</a>	/// Lastly, it's recommended for hashers with "concat" to have reversible hashes. Refer to
-<a href=#2130 id=2130 data-nosnippet>2130</a>	/// the implementors section of
-<a href=#2131 id=2131 data-nosnippet>2131</a>	/// [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
-<a href=#2132 id=2132 data-nosnippet>2132</a>	///
-<a href=#2133 id=2133 data-nosnippet>2133</a>	/// ### Prefixes
+<a href=#2120 id=2120 data-nosnippet>2120</a>	/// As a rule of thumb:
+<a href=#2121 id=2121 data-nosnippet>2121</a>	///
+<a href=#2122 id=2122 data-nosnippet>2122</a>	/// 1. If the map keys are not controlled by end users, or are cryptographically secure by
+<a href=#2123 id=2123 data-nosnippet>2123</a>	/// definition (e.g., `AccountId`), then the use of cryptographically secure hashers is NOT
+<a href=#2124 id=2124 data-nosnippet>2124</a>	/// required.
+<a href=#2125 id=2125 data-nosnippet>2125</a>	/// 2. If the map keys are controllable by the end users, cryptographically secure hashers
+<a href=#2126 id=2126 data-nosnippet>2126</a>	/// should be used.
+<a href=#2127 id=2127 data-nosnippet>2127</a>	///
+<a href=#2128 id=2128 data-nosnippet>2128</a>	/// For more information, look at the types that implement
+<a href=#2129 id=2129 data-nosnippet>2129</a>	/// [`frame_support::StorageHasher`](frame_support::StorageHasher).
+<a href=#2130 id=2130 data-nosnippet>2130</a>	///
+<a href=#2131 id=2131 data-nosnippet>2131</a>	/// Lastly, it's recommended for hashers with "concat" to have reversible hashes. Refer to
+<a href=#2132 id=2132 data-nosnippet>2132</a>	/// the implementors section of
+<a href=#2133 id=2133 data-nosnippet>2133</a>	/// [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
 <a href=#2134 id=2134 data-nosnippet>2134</a>	///
-<a href=#2135 id=2135 data-nosnippet>2135</a>	/// Internally, every storage type generates a "prefix". This prefix serves as the initial
-<a href=#2136 id=2136 data-nosnippet>2136</a>	/// segment of the key utilized to store values in the on-chain state (i.e., the final key
-<a href=#2137 id=2137 data-nosnippet>2137</a>	/// used in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule
-<a href=#2138 id=2138 data-nosnippet>2138</a>	/// applies:
-<a href=#2139 id=2139 data-nosnippet>2139</a>	///
-<a href=#2140 id=2140 data-nosnippet>2140</a>	/// &gt; The storage prefix begins with `twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)`,
-<a href=#2141 id=2141 data-nosnippet>2141</a>	/// &gt; where
-<a href=#2142 id=2142 data-nosnippet>2142</a>	/// &gt; `pallet_prefix` is the name assigned to the pallet instance in
-<a href=#2143 id=2143 data-nosnippet>2143</a>	/// &gt; [`frame_support::construct_runtime`](frame_support::construct_runtime), and
-<a href=#2144 id=2144 data-nosnippet>2144</a>	/// &gt; `STORAGE_PREFIX` is the name of the `type` aliased to a particular storage type, such
-<a href=#2145 id=2145 data-nosnippet>2145</a>	/// &gt; as
-<a href=#2146 id=2146 data-nosnippet>2146</a>	/// &gt; `Foo` in `type Foo&lt;T&gt; = StorageValue&lt;..&gt;`.
-<a href=#2147 id=2147 data-nosnippet>2147</a>	///
-<a href=#2148 id=2148 data-nosnippet>2148</a>	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
-<a href=#2149 id=2149 data-nosnippet>2149</a>	/// required. For map types, the prefix is extended with one or more keys defined by the
-<a href=#2150 id=2150 data-nosnippet>2150</a>	/// map.
-<a href=#2151 id=2151 data-nosnippet>2151</a>	///
-<a href=#2152 id=2152 data-nosnippet>2152</a>	/// #### Example
-<a href=#2153 id=2153 data-nosnippet>2153</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_map_prefixes)]
-<a href=#2154 id=2154 data-nosnippet>2154</a>	</span><span class="doccomment">/// ## Related Macros
-<a href=#2155 id=2155 data-nosnippet>2155</a>	///
-<a href=#2156 id=2156 data-nosnippet>2156</a>	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
+<a href=#2135 id=2135 data-nosnippet>2135</a>	/// ### Prefixes
+<a href=#2136 id=2136 data-nosnippet>2136</a>	///
+<a href=#2137 id=2137 data-nosnippet>2137</a>	/// Internally, every storage type generates a "prefix". This prefix serves as the initial
+<a href=#2138 id=2138 data-nosnippet>2138</a>	/// segment of the key utilized to store values in the on-chain state (i.e., the final key
+<a href=#2139 id=2139 data-nosnippet>2139</a>	/// used in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule
+<a href=#2140 id=2140 data-nosnippet>2140</a>	/// applies:
+<a href=#2141 id=2141 data-nosnippet>2141</a>	///
+<a href=#2142 id=2142 data-nosnippet>2142</a>	/// &gt; The storage prefix begins with `twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)`,
+<a href=#2143 id=2143 data-nosnippet>2143</a>	/// &gt; where
+<a href=#2144 id=2144 data-nosnippet>2144</a>	/// &gt; `pallet_prefix` is the name assigned to the pallet instance in
+<a href=#2145 id=2145 data-nosnippet>2145</a>	/// &gt; [`frame_support::construct_runtime`](frame_support::construct_runtime), and
+<a href=#2146 id=2146 data-nosnippet>2146</a>	/// &gt; `STORAGE_PREFIX` is the name of the `type` aliased to a particular storage type, such
+<a href=#2147 id=2147 data-nosnippet>2147</a>	/// &gt; as
+<a href=#2148 id=2148 data-nosnippet>2148</a>	/// &gt; `Foo` in `type Foo&lt;T&gt; = StorageValue&lt;..&gt;`.
+<a href=#2149 id=2149 data-nosnippet>2149</a>	///
+<a href=#2150 id=2150 data-nosnippet>2150</a>	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
+<a href=#2151 id=2151 data-nosnippet>2151</a>	/// required. For map types, the prefix is extended with one or more keys defined by the
+<a href=#2152 id=2152 data-nosnippet>2152</a>	/// map.
+<a href=#2153 id=2153 data-nosnippet>2153</a>	///
+<a href=#2154 id=2154 data-nosnippet>2154</a>	/// #### Example
+<a href=#2155 id=2155 data-nosnippet>2155</a>	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_map_prefixes)]
+<a href=#2156 id=2156 data-nosnippet>2156</a>	</span><span class="doccomment">/// ## Related Macros
 <a href=#2157 id=2157 data-nosnippet>2157</a>	///
-<a href=#2158 id=2158 data-nosnippet>2158</a>	/// * [`macro@getter`]: Creates a custom getter function.
-<a href=#2159 id=2159 data-nosnippet>2159</a>	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
-<a href=#2160 id=2160 data-nosnippet>2160</a>	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
-<a href=#2161 id=2161 data-nosnippet>2161</a>	/// * [`macro@disable_try_decode_storage`]: Declares that try-runtime checks should not
-<a href=#2162 id=2162 data-nosnippet>2162</a>	///   attempt to decode the storage item.
-<a href=#2163 id=2163 data-nosnippet>2163</a>	///
-<a href=#2164 id=2164 data-nosnippet>2164</a>	/// #### Example
-<a href=#2165 id=2165 data-nosnippet>2165</a>	/// ```
-<a href=#2166 id=2166 data-nosnippet>2166</a>	/// #[frame_support::pallet]
-<a href=#2167 id=2167 data-nosnippet>2167</a>	/// mod pallet {
-<a href=#2168 id=2168 data-nosnippet>2168</a>	///     # use frame_support::pallet_prelude::*;
-<a href=#2169 id=2169 data-nosnippet>2169</a>	///     # #[pallet::config]
-<a href=#2170 id=2170 data-nosnippet>2170</a>	///     # pub trait Config: frame_system::Config {}
-<a href=#2171 id=2171 data-nosnippet>2171</a>	///     # #[pallet::pallet]
-<a href=#2172 id=2172 data-nosnippet>2172</a>	///     # pub struct Pallet&lt;T&gt;(_);
-<a href=#2173 id=2173 data-nosnippet>2173</a>	/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
-<a href=#2174 id=2174 data-nosnippet>2174</a>	///     #[pallet::storage]
-<a href=#2175 id=2175 data-nosnippet>2175</a>	/// 	#[pallet::getter(fn foo)]
-<a href=#2176 id=2176 data-nosnippet>2176</a>	/// 	#[pallet::storage_prefix = "OtherFoo"]
-<a href=#2177 id=2177 data-nosnippet>2177</a>	/// 	#[pallet::unbounded]
-<a href=#2178 id=2178 data-nosnippet>2178</a>	/// 	#[pallet::disable_try_decode_storage]
-<a href=#2179 id=2179 data-nosnippet>2179</a>	///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32, ValueQuery&gt;;
-<a href=#2180 id=2180 data-nosnippet>2180</a>	/// }
-<a href=#2181 id=2181 data-nosnippet>2181</a>	/// ```
-<a href=#2182 id=2182 data-nosnippet>2182</a>	///
-<a href=#2183 id=2183 data-nosnippet>2183</a>	/// ## Note on deprecation of storage items
+<a href=#2158 id=2158 data-nosnippet>2158</a>	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
+<a href=#2159 id=2159 data-nosnippet>2159</a>	///
+<a href=#2160 id=2160 data-nosnippet>2160</a>	/// * [`macro@getter`]: Creates a custom getter function.
+<a href=#2161 id=2161 data-nosnippet>2161</a>	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
+<a href=#2162 id=2162 data-nosnippet>2162</a>	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
+<a href=#2163 id=2163 data-nosnippet>2163</a>	/// * [`macro@disable_try_decode_storage`]: Declares that try-runtime checks should not
+<a href=#2164 id=2164 data-nosnippet>2164</a>	///   attempt to decode the storage item.
+<a href=#2165 id=2165 data-nosnippet>2165</a>	///
+<a href=#2166 id=2166 data-nosnippet>2166</a>	/// #### Example
+<a href=#2167 id=2167 data-nosnippet>2167</a>	/// ```
+<a href=#2168 id=2168 data-nosnippet>2168</a>	/// #[frame_support::pallet]
+<a href=#2169 id=2169 data-nosnippet>2169</a>	/// mod pallet {
+<a href=#2170 id=2170 data-nosnippet>2170</a>	///     # use frame_support::pallet_prelude::*;
+<a href=#2171 id=2171 data-nosnippet>2171</a>	///     # #[pallet::config]
+<a href=#2172 id=2172 data-nosnippet>2172</a>	///     # pub trait Config: frame_system::Config {}
+<a href=#2173 id=2173 data-nosnippet>2173</a>	///     # #[pallet::pallet]
+<a href=#2174 id=2174 data-nosnippet>2174</a>	///     # pub struct Pallet&lt;T&gt;(_);
+<a href=#2175 id=2175 data-nosnippet>2175</a>	/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+<a href=#2176 id=2176 data-nosnippet>2176</a>	///     #[pallet::storage]
+<a href=#2177 id=2177 data-nosnippet>2177</a>	/// 	#[pallet::getter(fn foo)]
+<a href=#2178 id=2178 data-nosnippet>2178</a>	/// 	#[pallet::storage_prefix = "OtherFoo"]
+<a href=#2179 id=2179 data-nosnippet>2179</a>	/// 	#[pallet::unbounded]
+<a href=#2180 id=2180 data-nosnippet>2180</a>	/// 	#[pallet::disable_try_decode_storage]
+<a href=#2181 id=2181 data-nosnippet>2181</a>	///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32, ValueQuery&gt;;
+<a href=#2182 id=2182 data-nosnippet>2182</a>	/// }
+<a href=#2183 id=2183 data-nosnippet>2183</a>	/// ```
 <a href=#2184 id=2184 data-nosnippet>2184</a>	///
-<a href=#2185 id=2185 data-nosnippet>2185</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
-<a href=#2186 id=2186 data-nosnippet>2186</a>	///   metadata where the storage item was declared.
-<a href=#2187 id=2187 data-nosnippet>2187</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
-<a href=#2188 id=2188 data-nosnippet>2188</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
-<a href=#2189 id=2189 data-nosnippet>2189</a>	///   generated code.
-<a href=#2190 id=2190 data-nosnippet>2190</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
-<a href=#2191 id=2191 data-nosnippet>2191</a>	///   automatically annotated with `allow(deprecated)`
-<a href=#2192 id=2192 data-nosnippet>2192</a>	</span><span class="kw">pub use </span>frame_support_procedural::storage;
-<a href=#2193 id=2193 data-nosnippet>2193</a>
-<a href=#2194 id=2194 data-nosnippet>2194</a>	<span class="kw">pub use </span>frame_support_procedural::{
-<a href=#2195 id=2195 data-nosnippet>2195</a>		authorize, task_condition, task_index, task_list, task_weight, tasks_experimental,
-<a href=#2196 id=2196 data-nosnippet>2196</a>		weight_of_authorize,
-<a href=#2197 id=2197 data-nosnippet>2197</a>	};
-<a href=#2198 id=2198 data-nosnippet>2198</a>
-<a href=#2199 id=2199 data-nosnippet>2199</a>	<span class="doccomment">/// Allows a pallet to declare a type as an origin.
-<a href=#2200 id=2200 data-nosnippet>2200</a>	///
-<a href=#2201 id=2201 data-nosnippet>2201</a>	/// If defined as such, this type will be amalgamated at the runtime level into
-<a href=#2202 id=2202 data-nosnippet>2202</a>	/// `RuntimeOrigin`, very similar to [`call`], [`error`] and [`event`]. See
-<a href=#2203 id=2203 data-nosnippet>2203</a>	/// [`composite_enum`] for similar cases.
-<a href=#2204 id=2204 data-nosnippet>2204</a>	///
-<a href=#2205 id=2205 data-nosnippet>2205</a>	/// Origin is a complex FRAME topics and is further explained in `polkadot_sdk_docs`.
+<a href=#2185 id=2185 data-nosnippet>2185</a>	/// ## Note on deprecation of storage items
+<a href=#2186 id=2186 data-nosnippet>2186</a>	///
+<a href=#2187 id=2187 data-nosnippet>2187</a>	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+<a href=#2188 id=2188 data-nosnippet>2188</a>	///   metadata where the storage item was declared.
+<a href=#2189 id=2189 data-nosnippet>2189</a>	/// - For general usage examples of `deprecated` attribute please refer to &lt;https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute&gt;
+<a href=#2190 id=2190 data-nosnippet>2190</a>	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+<a href=#2191 id=2191 data-nosnippet>2191</a>	///   generated code.
+<a href=#2192 id=2192 data-nosnippet>2192</a>	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+<a href=#2193 id=2193 data-nosnippet>2193</a>	///   automatically annotated with `allow(deprecated)`
+<a href=#2194 id=2194 data-nosnippet>2194</a>	</span><span class="kw">pub use </span>frame_support_procedural::storage;
+<a href=#2195 id=2195 data-nosnippet>2195</a>
+<a href=#2196 id=2196 data-nosnippet>2196</a>	<span class="kw">pub use </span>frame_support_procedural::{
+<a href=#2197 id=2197 data-nosnippet>2197</a>		authorize, task_condition, task_index, task_list, task_weight, tasks_experimental,
+<a href=#2198 id=2198 data-nosnippet>2198</a>		weight_of_authorize,
+<a href=#2199 id=2199 data-nosnippet>2199</a>	};
+<a href=#2200 id=2200 data-nosnippet>2200</a>
+<a href=#2201 id=2201 data-nosnippet>2201</a>	<span class="doccomment">/// Allows a pallet to declare a type as an origin.
+<a href=#2202 id=2202 data-nosnippet>2202</a>	///
+<a href=#2203 id=2203 data-nosnippet>2203</a>	/// If defined as such, this type will be amalgamated at the runtime level into
+<a href=#2204 id=2204 data-nosnippet>2204</a>	/// `RuntimeOrigin`, very similar to [`call`], [`error`] and [`event`]. See
+<a href=#2205 id=2205 data-nosnippet>2205</a>	/// [`composite_enum`] for similar cases.
 <a href=#2206 id=2206 data-nosnippet>2206</a>	///
-<a href=#2207 id=2207 data-nosnippet>2207</a>	/// ## Syntax Variants
+<a href=#2207 id=2207 data-nosnippet>2207</a>	/// Origin is a complex FRAME topics and is further explained in `polkadot_sdk_docs`.
 <a href=#2208 id=2208 data-nosnippet>2208</a>	///
-<a href=#2209 id=2209 data-nosnippet>2209</a>	/// ```
-<a href=#2210 id=2210 data-nosnippet>2210</a>	/// #[frame_support::pallet]
-<a href=#2211 id=2211 data-nosnippet>2211</a>	/// mod pallet {
-<a href=#2212 id=2212 data-nosnippet>2212</a>	///     # use frame_support::pallet_prelude::*;
-<a href=#2213 id=2213 data-nosnippet>2213</a>	///     # #[pallet::config]
-<a href=#2214 id=2214 data-nosnippet>2214</a>	///     # pub trait Config: frame_system::Config {}
-<a href=#2215 id=2215 data-nosnippet>2215</a>	///     # #[pallet::pallet]
-<a href=#2216 id=2216 data-nosnippet>2216</a>	///     # pub struct Pallet&lt;T&gt;(_);
-<a href=#2217 id=2217 data-nosnippet>2217</a>	/// 	/// On the spot declaration.
-<a href=#2218 id=2218 data-nosnippet>2218</a>	///     #[pallet::origin]
-<a href=#2219 id=2219 data-nosnippet>2219</a>	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-<a href=#2220 id=2220 data-nosnippet>2220</a>	/// 	pub enum Origin {
-<a href=#2221 id=2221 data-nosnippet>2221</a>	/// 		Foo,
-<a href=#2222 id=2222 data-nosnippet>2222</a>	/// 		Bar,
-<a href=#2223 id=2223 data-nosnippet>2223</a>	/// 	}
-<a href=#2224 id=2224 data-nosnippet>2224</a>	/// }
-<a href=#2225 id=2225 data-nosnippet>2225</a>	/// ```
-<a href=#2226 id=2226 data-nosnippet>2226</a>	///
-<a href=#2227 id=2227 data-nosnippet>2227</a>	/// Or, more commonly used:
+<a href=#2209 id=2209 data-nosnippet>2209</a>	/// ## Syntax Variants
+<a href=#2210 id=2210 data-nosnippet>2210</a>	///
+<a href=#2211 id=2211 data-nosnippet>2211</a>	/// ```
+<a href=#2212 id=2212 data-nosnippet>2212</a>	/// #[frame_support::pallet]
+<a href=#2213 id=2213 data-nosnippet>2213</a>	/// mod pallet {
+<a href=#2214 id=2214 data-nosnippet>2214</a>	///     # use frame_support::pallet_prelude::*;
+<a href=#2215 id=2215 data-nosnippet>2215</a>	///     # #[pallet::config]
+<a href=#2216 id=2216 data-nosnippet>2216</a>	///     # pub trait Config: frame_system::Config {}
+<a href=#2217 id=2217 data-nosnippet>2217</a>	///     # #[pallet::pallet]
+<a href=#2218 id=2218 data-nosnippet>2218</a>	///     # pub struct Pallet&lt;T&gt;(_);
+<a href=#2219 id=2219 data-nosnippet>2219</a>	/// 	/// On the spot declaration.
+<a href=#2220 id=2220 data-nosnippet>2220</a>	///     #[pallet::origin]
+<a href=#2221 id=2221 data-nosnippet>2221</a>	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+<a href=#2222 id=2222 data-nosnippet>2222</a>	/// 	pub enum Origin {
+<a href=#2223 id=2223 data-nosnippet>2223</a>	/// 		Foo,
+<a href=#2224 id=2224 data-nosnippet>2224</a>	/// 		Bar,
+<a href=#2225 id=2225 data-nosnippet>2225</a>	/// 	}
+<a href=#2226 id=2226 data-nosnippet>2226</a>	/// }
+<a href=#2227 id=2227 data-nosnippet>2227</a>	/// ```
 <a href=#2228 id=2228 data-nosnippet>2228</a>	///
-<a href=#2229 id=2229 data-nosnippet>2229</a>	/// ```
-<a href=#2230 id=2230 data-nosnippet>2230</a>	/// #[frame_support::pallet]
-<a href=#2231 id=2231 data-nosnippet>2231</a>	/// mod pallet {
-<a href=#2232 id=2232 data-nosnippet>2232</a>	///     # use frame_support::pallet_prelude::*;
-<a href=#2233 id=2233 data-nosnippet>2233</a>	///     # #[pallet::config]
-<a href=#2234 id=2234 data-nosnippet>2234</a>	///     # pub trait Config: frame_system::Config {}
-<a href=#2235 id=2235 data-nosnippet>2235</a>	///     # #[pallet::pallet]
-<a href=#2236 id=2236 data-nosnippet>2236</a>	///     # pub struct Pallet&lt;T&gt;(_);
-<a href=#2237 id=2237 data-nosnippet>2237</a>	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-<a href=#2238 id=2238 data-nosnippet>2238</a>	/// 	pub enum RawOrigin {
-<a href=#2239 id=2239 data-nosnippet>2239</a>	/// 		Foo,
-<a href=#2240 id=2240 data-nosnippet>2240</a>	/// 		Bar,
-<a href=#2241 id=2241 data-nosnippet>2241</a>	/// 	}
-<a href=#2242 id=2242 data-nosnippet>2242</a>	///
-<a href=#2243 id=2243 data-nosnippet>2243</a>	/// 	#[pallet::origin]
-<a href=#2244 id=2244 data-nosnippet>2244</a>	/// 	pub type Origin = RawOrigin;
-<a href=#2245 id=2245 data-nosnippet>2245</a>	/// }
-<a href=#2246 id=2246 data-nosnippet>2246</a>	/// ```
-<a href=#2247 id=2247 data-nosnippet>2247</a>	///
-<a href=#2248 id=2248 data-nosnippet>2248</a>	/// ## Warning
+<a href=#2229 id=2229 data-nosnippet>2229</a>	/// Or, more commonly used:
+<a href=#2230 id=2230 data-nosnippet>2230</a>	///
+<a href=#2231 id=2231 data-nosnippet>2231</a>	/// ```
+<a href=#2232 id=2232 data-nosnippet>2232</a>	/// #[frame_support::pallet]
+<a href=#2233 id=2233 data-nosnippet>2233</a>	/// mod pallet {
+<a href=#2234 id=2234 data-nosnippet>2234</a>	///     # use frame_support::pallet_prelude::*;
+<a href=#2235 id=2235 data-nosnippet>2235</a>	///     # #[pallet::config]
+<a href=#2236 id=2236 data-nosnippet>2236</a>	///     # pub trait Config: frame_system::Config {}
+<a href=#2237 id=2237 data-nosnippet>2237</a>	///     # #[pallet::pallet]
+<a href=#2238 id=2238 data-nosnippet>2238</a>	///     # pub struct Pallet&lt;T&gt;(_);
+<a href=#2239 id=2239 data-nosnippet>2239</a>	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+<a href=#2240 id=2240 data-nosnippet>2240</a>	/// 	pub enum RawOrigin {
+<a href=#2241 id=2241 data-nosnippet>2241</a>	/// 		Foo,
+<a href=#2242 id=2242 data-nosnippet>2242</a>	/// 		Bar,
+<a href=#2243 id=2243 data-nosnippet>2243</a>	/// 	}
+<a href=#2244 id=2244 data-nosnippet>2244</a>	///
+<a href=#2245 id=2245 data-nosnippet>2245</a>	/// 	#[pallet::origin]
+<a href=#2246 id=2246 data-nosnippet>2246</a>	/// 	pub type Origin = RawOrigin;
+<a href=#2247 id=2247 data-nosnippet>2247</a>	/// }
+<a href=#2248 id=2248 data-nosnippet>2248</a>	/// ```
 <a href=#2249 id=2249 data-nosnippet>2249</a>	///
-<a href=#2250 id=2250 data-nosnippet>2250</a>	/// Modifying any pallet's origin type will cause the runtime level origin type to also
-<a href=#2251 id=2251 data-nosnippet>2251</a>	/// change in encoding. If stored anywhere on-chain, this will require a data migration.
-<a href=#2252 id=2252 data-nosnippet>2252</a>	///
-<a href=#2253 id=2253 data-nosnippet>2253</a>	/// Read more about origins at the [Origin Reference
-<a href=#2254 id=2254 data-nosnippet>2254</a>	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
-<a href=#2255 id=2255 data-nosnippet>2255</a>	</span><span class="kw">pub use </span>frame_support_procedural::origin;
-<a href=#2256 id=2256 data-nosnippet>2256</a>}
-<a href=#2257 id=2257 data-nosnippet>2257</a>
-<a href=#2258 id=2258 data-nosnippet>2258</a><span class="attr">#[doc(inline)]
-<a href=#2259 id=2259 data-nosnippet>2259</a></span><span class="kw">pub use </span>frame_support_procedural::register_default_impl;
-<a href=#2260 id=2260 data-nosnippet>2260</a>
-<a href=#2261 id=2261 data-nosnippet>2261</a><span class="comment">// Generate a macro that will enable/disable code based on `std` feature being active.
-<a href=#2262 id=2262 data-nosnippet>2262</a></span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(std_enabled, feature = <span class="string">"std"</span>, $);
-<a href=#2263 id=2263 data-nosnippet>2263</a><span class="comment">// Generate a macro that will enable/disable code based on `try-runtime` feature being active.
-<a href=#2264 id=2264 data-nosnippet>2264</a></span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_enabled, feature = <span class="string">"try-runtime"</span>, $);
-<a href=#2265 id=2265 data-nosnippet>2265</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_or_std_enabled, any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"std"</span>), $);
-<a href=#2266 id=2266 data-nosnippet>2266</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_and_std_not_enabled, all(not(feature = <span class="string">"try-runtime"</span>), not(feature = <span class="string">"std"</span>)), $);
-<a href=#2267 id=2267 data-nosnippet>2267</a>
-<a href=#2268 id=2268 data-nosnippet>2268</a><span class="doccomment">/// Helper for implementing GenesisBuilder runtime API
-<a href=#2269 id=2269 data-nosnippet>2269</a></span><span class="kw">pub mod </span>genesis_builder_helper;
-<a href=#2270 id=2270 data-nosnippet>2270</a>
-<a href=#2271 id=2271 data-nosnippet>2271</a><span class="doccomment">/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
-<a href=#2272 id=2272 data-nosnippet>2272</a></span><span class="kw">pub mod </span>generate_genesis_config;
-<a href=#2273 id=2273 data-nosnippet>2273</a>
-<a href=#2274 id=2274 data-nosnippet>2274</a><span class="attr">#[cfg(test)]
-<a href=#2275 id=2275 data-nosnippet>2275</a></span><span class="kw">mod </span>test {
-<a href=#2276 id=2276 data-nosnippet>2276</a>	<span class="comment">// use super::*;
-<a href=#2277 id=2277 data-nosnippet>2277</a>	</span><span class="kw">use crate</span>::{
-<a href=#2278 id=2278 data-nosnippet>2278</a>		hash::<span class="kw-2">*</span>,
-<a href=#2279 id=2279 data-nosnippet>2279</a>		storage::types::{StorageMap, StorageValue, ValueQuery},
-<a href=#2280 id=2280 data-nosnippet>2280</a>		traits::{ConstU32, StorageInstance},
-<a href=#2281 id=2281 data-nosnippet>2281</a>		BoundedVec,
-<a href=#2282 id=2282 data-nosnippet>2282</a>	};
-<a href=#2283 id=2283 data-nosnippet>2283</a>	<span class="kw">use </span>sp_io::{hashing::twox_128, TestExternalities};
-<a href=#2284 id=2284 data-nosnippet>2284</a>
-<a href=#2285 id=2285 data-nosnippet>2285</a>	<span class="kw">struct </span>Prefix;
-<a href=#2286 id=2286 data-nosnippet>2286</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix {
-<a href=#2287 id=2287 data-nosnippet>2287</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#2288 id=2288 data-nosnippet>2288</a>			<span class="string">"test"
-<a href=#2289 id=2289 data-nosnippet>2289</a>		</span>}
-<a href=#2290 id=2290 data-nosnippet>2290</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo"</span>;
-<a href=#2291 id=2291 data-nosnippet>2291</a>	}
-<a href=#2292 id=2292 data-nosnippet>2292</a>
-<a href=#2293 id=2293 data-nosnippet>2293</a>	<span class="kw">struct </span>Prefix1;
-<a href=#2294 id=2294 data-nosnippet>2294</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix1 {
-<a href=#2295 id=2295 data-nosnippet>2295</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#2296 id=2296 data-nosnippet>2296</a>			<span class="string">"test"
-<a href=#2297 id=2297 data-nosnippet>2297</a>		</span>}
-<a href=#2298 id=2298 data-nosnippet>2298</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyVal"</span>;
-<a href=#2299 id=2299 data-nosnippet>2299</a>	}
-<a href=#2300 id=2300 data-nosnippet>2300</a>	<span class="kw">struct </span>Prefix2;
-<a href=#2301 id=2301 data-nosnippet>2301</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix2 {
-<a href=#2302 id=2302 data-nosnippet>2302</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#2303 id=2303 data-nosnippet>2303</a>			<span class="string">"test"
-<a href=#2304 id=2304 data-nosnippet>2304</a>		</span>}
-<a href=#2305 id=2305 data-nosnippet>2305</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyMap"</span>;
-<a href=#2306 id=2306 data-nosnippet>2306</a>	}
-<a href=#2307 id=2307 data-nosnippet>2307</a>
-<a href=#2308 id=2308 data-nosnippet>2308</a>	<span class="attr">#[docify::export]
-<a href=#2309 id=2309 data-nosnippet>2309</a>	#[test]
-<a href=#2310 id=2310 data-nosnippet>2310</a>	</span><span class="kw">pub fn </span>example_storage_value_try_append() {
-<a href=#2311 id=2311 data-nosnippet>2311</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
-<a href=#2312 id=2312 data-nosnippet>2312</a>
-<a href=#2313 id=2313 data-nosnippet>2313</a>		TestExternalities::default().execute_with(|| {
-<a href=#2314 id=2314 data-nosnippet>2314</a>			MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
-<a href=#2315 id=2315 data-nosnippet>2315</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
-<a href=#2316 id=2316 data-nosnippet>2316</a>			<span class="comment">// Try to append a single u32 to BoundedVec stored in `MyVal`
-<a href=#2317 id=2317 data-nosnippet>2317</a>			</span><span class="macro">crate::assert_ok!</span>(MyVal::try_append(<span class="number">40</span>));
-<a href=#2318 id=2318 data-nosnippet>2318</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
-<a href=#2319 id=2319 data-nosnippet>2319</a>		});
-<a href=#2320 id=2320 data-nosnippet>2320</a>	}
-<a href=#2321 id=2321 data-nosnippet>2321</a>
-<a href=#2322 id=2322 data-nosnippet>2322</a>	<span class="attr">#[docify::export]
-<a href=#2323 id=2323 data-nosnippet>2323</a>	#[test]
-<a href=#2324 id=2324 data-nosnippet>2324</a>	</span><span class="kw">pub fn </span>example_storage_value_append() {
-<a href=#2325 id=2325 data-nosnippet>2325</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, Vec&lt;u8&gt;, ValueQuery&gt;;
-<a href=#2326 id=2326 data-nosnippet>2326</a>
-<a href=#2327 id=2327 data-nosnippet>2327</a>		TestExternalities::default().execute_with(|| {
-<a href=#2328 id=2328 data-nosnippet>2328</a>			MyVal::set(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
-<a href=#2329 id=2329 data-nosnippet>2329</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
-<a href=#2330 id=2330 data-nosnippet>2330</a>			<span class="comment">// Append a single u32 to Vec stored in `MyVal`
-<a href=#2331 id=2331 data-nosnippet>2331</a>			</span>MyVal::append(<span class="number">40</span>);
-<a href=#2332 id=2332 data-nosnippet>2332</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
-<a href=#2333 id=2333 data-nosnippet>2333</a>		});
-<a href=#2334 id=2334 data-nosnippet>2334</a>	}
-<a href=#2335 id=2335 data-nosnippet>2335</a>
-<a href=#2336 id=2336 data-nosnippet>2336</a>	<span class="attr">#[docify::export]
-<a href=#2337 id=2337 data-nosnippet>2337</a>	#[test]
-<a href=#2338 id=2338 data-nosnippet>2338</a>	</span><span class="kw">pub fn </span>example_storage_value_decode_len() {
-<a href=#2339 id=2339 data-nosnippet>2339</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
-<a href=#2340 id=2340 data-nosnippet>2340</a>
-<a href=#2341 id=2341 data-nosnippet>2341</a>		TestExternalities::default().execute_with(|| {
-<a href=#2342 id=2342 data-nosnippet>2342</a>			MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
-<a href=#2343 id=2343 data-nosnippet>2343</a>			<span class="macro">assert_eq!</span>(MyVal::decode_len().unwrap(), <span class="number">2</span>);
-<a href=#2344 id=2344 data-nosnippet>2344</a>		});
-<a href=#2345 id=2345 data-nosnippet>2345</a>	}
-<a href=#2346 id=2346 data-nosnippet>2346</a>
-<a href=#2347 id=2347 data-nosnippet>2347</a>	<span class="attr">#[docify::export]
-<a href=#2348 id=2348 data-nosnippet>2348</a>	#[test]
-<a href=#2349 id=2349 data-nosnippet>2349</a>	</span><span class="kw">pub fn </span>example_storage_value_map_prefixes() {
-<a href=#2350 id=2350 data-nosnippet>2350</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix1, u32, ValueQuery&gt;;
-<a href=#2351 id=2351 data-nosnippet>2351</a>		<span class="kw">type </span>MyMap = StorageMap&lt;Prefix2, Blake2_128Concat, u16, u32, ValueQuery&gt;;
-<a href=#2352 id=2352 data-nosnippet>2352</a>		TestExternalities::default().execute_with(|| {
-<a href=#2353 id=2353 data-nosnippet>2353</a>			<span class="comment">// This example assumes `pallet_prefix` to be "test"
-<a href=#2354 id=2354 data-nosnippet>2354</a>			// Get storage key for `MyVal` StorageValue
-<a href=#2355 id=2355 data-nosnippet>2355</a>			</span><span class="macro">assert_eq!</span>(
-<a href=#2356 id=2356 data-nosnippet>2356</a>				MyVal::hashed_key().to_vec(),
-<a href=#2357 id=2357 data-nosnippet>2357</a>				[twox_128(<span class="string">b"test"</span>), twox_128(<span class="string">b"MyVal"</span>)].concat()
-<a href=#2358 id=2358 data-nosnippet>2358</a>			);
-<a href=#2359 id=2359 data-nosnippet>2359</a>			<span class="comment">// Get storage key for `MyMap` StorageMap and `key` = 1
-<a href=#2360 id=2360 data-nosnippet>2360</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>k: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
-<a href=#2361 id=2361 data-nosnippet>2361</a>			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"test"</span>));
-<a href=#2362 id=2362 data-nosnippet>2362</a>			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"MyMap"</span>));
-<a href=#2363 id=2363 data-nosnippet>2363</a>			k.extend(<span class="kw-2">&amp;</span><span class="number">1u16</span>.blake2_128_concat());
-<a href=#2364 id=2364 data-nosnippet>2364</a>			<span class="macro">assert_eq!</span>(MyMap::hashed_key_for(<span class="number">1</span>).to_vec(), k);
-<a href=#2365 id=2365 data-nosnippet>2365</a>		});
-<a href=#2366 id=2366 data-nosnippet>2366</a>	}
-<a href=#2367 id=2367 data-nosnippet>2367</a>}
+<a href=#2250 id=2250 data-nosnippet>2250</a>	/// ## Warning
+<a href=#2251 id=2251 data-nosnippet>2251</a>	///
+<a href=#2252 id=2252 data-nosnippet>2252</a>	/// Modifying any pallet's origin type will cause the runtime level origin type to also
+<a href=#2253 id=2253 data-nosnippet>2253</a>	/// change in encoding. If stored anywhere on-chain, this will require a data migration.
+<a href=#2254 id=2254 data-nosnippet>2254</a>	///
+<a href=#2255 id=2255 data-nosnippet>2255</a>	/// Read more about origins at the [Origin Reference
+<a href=#2256 id=2256 data-nosnippet>2256</a>	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
+<a href=#2257 id=2257 data-nosnippet>2257</a>	</span><span class="kw">pub use </span>frame_support_procedural::origin;
+<a href=#2258 id=2258 data-nosnippet>2258</a>}
+<a href=#2259 id=2259 data-nosnippet>2259</a>
+<a href=#2260 id=2260 data-nosnippet>2260</a><span class="attr">#[doc(inline)]
+<a href=#2261 id=2261 data-nosnippet>2261</a></span><span class="kw">pub use </span>frame_support_procedural::register_default_impl;
+<a href=#2262 id=2262 data-nosnippet>2262</a>
+<a href=#2263 id=2263 data-nosnippet>2263</a><span class="comment">// Generate a macro that will enable/disable code based on `std` feature being active.
+<a href=#2264 id=2264 data-nosnippet>2264</a></span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(std_enabled, feature = <span class="string">"std"</span>, $);
+<a href=#2265 id=2265 data-nosnippet>2265</a><span class="comment">// Generate a macro that will enable/disable code based on `try-runtime` feature being active.
+<a href=#2266 id=2266 data-nosnippet>2266</a></span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_enabled, feature = <span class="string">"try-runtime"</span>, $);
+<a href=#2267 id=2267 data-nosnippet>2267</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_or_std_enabled, any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"std"</span>), $);
+<a href=#2268 id=2268 data-nosnippet>2268</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_and_std_not_enabled, all(not(feature = <span class="string">"try-runtime"</span>), not(feature = <span class="string">"std"</span>)), $);
+<a href=#2269 id=2269 data-nosnippet>2269</a>
+<a href=#2270 id=2270 data-nosnippet>2270</a><span class="doccomment">/// Helper for implementing GenesisBuilder runtime API
+<a href=#2271 id=2271 data-nosnippet>2271</a></span><span class="kw">pub mod </span>genesis_builder_helper;
+<a href=#2272 id=2272 data-nosnippet>2272</a>
+<a href=#2273 id=2273 data-nosnippet>2273</a><span class="doccomment">/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
+<a href=#2274 id=2274 data-nosnippet>2274</a></span><span class="kw">pub mod </span>generate_genesis_config;
+<a href=#2275 id=2275 data-nosnippet>2275</a>
+<a href=#2276 id=2276 data-nosnippet>2276</a><span class="attr">#[cfg(test)]
+<a href=#2277 id=2277 data-nosnippet>2277</a></span><span class="kw">mod </span>test {
+<a href=#2278 id=2278 data-nosnippet>2278</a>	<span class="comment">// use super::*;
+<a href=#2279 id=2279 data-nosnippet>2279</a>	</span><span class="kw">use crate</span>::{
+<a href=#2280 id=2280 data-nosnippet>2280</a>		hash::<span class="kw-2">*</span>,
+<a href=#2281 id=2281 data-nosnippet>2281</a>		storage::types::{StorageMap, StorageValue, ValueQuery},
+<a href=#2282 id=2282 data-nosnippet>2282</a>		traits::{ConstU32, StorageInstance},
+<a href=#2283 id=2283 data-nosnippet>2283</a>		BoundedVec,
+<a href=#2284 id=2284 data-nosnippet>2284</a>	};
+<a href=#2285 id=2285 data-nosnippet>2285</a>	<span class="kw">use </span>sp_io::{hashing::twox_128, TestExternalities};
+<a href=#2286 id=2286 data-nosnippet>2286</a>
+<a href=#2287 id=2287 data-nosnippet>2287</a>	<span class="kw">struct </span>Prefix;
+<a href=#2288 id=2288 data-nosnippet>2288</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix {
+<a href=#2289 id=2289 data-nosnippet>2289</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#2290 id=2290 data-nosnippet>2290</a>			<span class="string">"test"
+<a href=#2291 id=2291 data-nosnippet>2291</a>		</span>}
+<a href=#2292 id=2292 data-nosnippet>2292</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo"</span>;
+<a href=#2293 id=2293 data-nosnippet>2293</a>	}
+<a href=#2294 id=2294 data-nosnippet>2294</a>
+<a href=#2295 id=2295 data-nosnippet>2295</a>	<span class="kw">struct </span>Prefix1;
+<a href=#2296 id=2296 data-nosnippet>2296</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix1 {
+<a href=#2297 id=2297 data-nosnippet>2297</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#2298 id=2298 data-nosnippet>2298</a>			<span class="string">"test"
+<a href=#2299 id=2299 data-nosnippet>2299</a>		</span>}
+<a href=#2300 id=2300 data-nosnippet>2300</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyVal"</span>;
+<a href=#2301 id=2301 data-nosnippet>2301</a>	}
+<a href=#2302 id=2302 data-nosnippet>2302</a>	<span class="kw">struct </span>Prefix2;
+<a href=#2303 id=2303 data-nosnippet>2303</a>	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix2 {
+<a href=#2304 id=2304 data-nosnippet>2304</a>		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#2305 id=2305 data-nosnippet>2305</a>			<span class="string">"test"
+<a href=#2306 id=2306 data-nosnippet>2306</a>		</span>}
+<a href=#2307 id=2307 data-nosnippet>2307</a>		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyMap"</span>;
+<a href=#2308 id=2308 data-nosnippet>2308</a>	}
+<a href=#2309 id=2309 data-nosnippet>2309</a>
+<a href=#2310 id=2310 data-nosnippet>2310</a>	<span class="attr">#[docify::export]
+<a href=#2311 id=2311 data-nosnippet>2311</a>	#[test]
+<a href=#2312 id=2312 data-nosnippet>2312</a>	</span><span class="kw">pub fn </span>example_storage_value_try_append() {
+<a href=#2313 id=2313 data-nosnippet>2313</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
+<a href=#2314 id=2314 data-nosnippet>2314</a>
+<a href=#2315 id=2315 data-nosnippet>2315</a>		TestExternalities::default().execute_with(|| {
+<a href=#2316 id=2316 data-nosnippet>2316</a>			MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
+<a href=#2317 id=2317 data-nosnippet>2317</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+<a href=#2318 id=2318 data-nosnippet>2318</a>			<span class="comment">// Try to append a single u32 to BoundedVec stored in `MyVal`
+<a href=#2319 id=2319 data-nosnippet>2319</a>			</span><span class="macro">crate::assert_ok!</span>(MyVal::try_append(<span class="number">40</span>));
+<a href=#2320 id=2320 data-nosnippet>2320</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
+<a href=#2321 id=2321 data-nosnippet>2321</a>		});
+<a href=#2322 id=2322 data-nosnippet>2322</a>	}
+<a href=#2323 id=2323 data-nosnippet>2323</a>
+<a href=#2324 id=2324 data-nosnippet>2324</a>	<span class="attr">#[docify::export]
+<a href=#2325 id=2325 data-nosnippet>2325</a>	#[test]
+<a href=#2326 id=2326 data-nosnippet>2326</a>	</span><span class="kw">pub fn </span>example_storage_value_append() {
+<a href=#2327 id=2327 data-nosnippet>2327</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, Vec&lt;u8&gt;, ValueQuery&gt;;
+<a href=#2328 id=2328 data-nosnippet>2328</a>
+<a href=#2329 id=2329 data-nosnippet>2329</a>		TestExternalities::default().execute_with(|| {
+<a href=#2330 id=2330 data-nosnippet>2330</a>			MyVal::set(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+<a href=#2331 id=2331 data-nosnippet>2331</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+<a href=#2332 id=2332 data-nosnippet>2332</a>			<span class="comment">// Append a single u32 to Vec stored in `MyVal`
+<a href=#2333 id=2333 data-nosnippet>2333</a>			</span>MyVal::append(<span class="number">40</span>);
+<a href=#2334 id=2334 data-nosnippet>2334</a>			<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
+<a href=#2335 id=2335 data-nosnippet>2335</a>		});
+<a href=#2336 id=2336 data-nosnippet>2336</a>	}
+<a href=#2337 id=2337 data-nosnippet>2337</a>
+<a href=#2338 id=2338 data-nosnippet>2338</a>	<span class="attr">#[docify::export]
+<a href=#2339 id=2339 data-nosnippet>2339</a>	#[test]
+<a href=#2340 id=2340 data-nosnippet>2340</a>	</span><span class="kw">pub fn </span>example_storage_value_decode_len() {
+<a href=#2341 id=2341 data-nosnippet>2341</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
+<a href=#2342 id=2342 data-nosnippet>2342</a>
+<a href=#2343 id=2343 data-nosnippet>2343</a>		TestExternalities::default().execute_with(|| {
+<a href=#2344 id=2344 data-nosnippet>2344</a>			MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
+<a href=#2345 id=2345 data-nosnippet>2345</a>			<span class="macro">assert_eq!</span>(MyVal::decode_len().unwrap(), <span class="number">2</span>);
+<a href=#2346 id=2346 data-nosnippet>2346</a>		});
+<a href=#2347 id=2347 data-nosnippet>2347</a>	}
+<a href=#2348 id=2348 data-nosnippet>2348</a>
+<a href=#2349 id=2349 data-nosnippet>2349</a>	<span class="attr">#[docify::export]
+<a href=#2350 id=2350 data-nosnippet>2350</a>	#[test]
+<a href=#2351 id=2351 data-nosnippet>2351</a>	</span><span class="kw">pub fn </span>example_storage_value_map_prefixes() {
+<a href=#2352 id=2352 data-nosnippet>2352</a>		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix1, u32, ValueQuery&gt;;
+<a href=#2353 id=2353 data-nosnippet>2353</a>		<span class="kw">type </span>MyMap = StorageMap&lt;Prefix2, Blake2_128Concat, u16, u32, ValueQuery&gt;;
+<a href=#2354 id=2354 data-nosnippet>2354</a>		TestExternalities::default().execute_with(|| {
+<a href=#2355 id=2355 data-nosnippet>2355</a>			<span class="comment">// This example assumes `pallet_prefix` to be "test"
+<a href=#2356 id=2356 data-nosnippet>2356</a>			// Get storage key for `MyVal` StorageValue
+<a href=#2357 id=2357 data-nosnippet>2357</a>			</span><span class="macro">assert_eq!</span>(
+<a href=#2358 id=2358 data-nosnippet>2358</a>				MyVal::hashed_key().to_vec(),
+<a href=#2359 id=2359 data-nosnippet>2359</a>				[twox_128(<span class="string">b"test"</span>), twox_128(<span class="string">b"MyVal"</span>)].concat()
+<a href=#2360 id=2360 data-nosnippet>2360</a>			);
+<a href=#2361 id=2361 data-nosnippet>2361</a>			<span class="comment">// Get storage key for `MyMap` StorageMap and `key` = 1
+<a href=#2362 id=2362 data-nosnippet>2362</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>k: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
+<a href=#2363 id=2363 data-nosnippet>2363</a>			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"test"</span>));
+<a href=#2364 id=2364 data-nosnippet>2364</a>			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"MyMap"</span>));
+<a href=#2365 id=2365 data-nosnippet>2365</a>			k.extend(<span class="kw-2">&amp;</span><span class="number">1u16</span>.blake2_128_concat());
+<a href=#2366 id=2366 data-nosnippet>2366</a>			<span class="macro">assert_eq!</span>(MyMap::hashed_key_for(<span class="number">1</span>).to_vec(), k);
+<a href=#2367 id=2367 data-nosnippet>2367</a>		});
+<a href=#2368 id=2368 data-nosnippet>2368</a>	}
+<a href=#2369 id=2369 data-nosnippet>2369</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

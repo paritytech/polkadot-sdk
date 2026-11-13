@@ -156,7 +156,9 @@ along with the runtime.</p>
 <h3 id="syntax"><a class="doc-anchor" href="#syntax">§</a>Syntax</h3>
 <p>View functions methods must be read-only and always return some output. A
 <code>view_functions</code> impl block only allows methods to be defined inside of
-it.</p>
+it.
+Only one <code>#[pallet::view_functions]</code> block is allowed per pallet. Define all view
+functions in that block.</p>
 <h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
