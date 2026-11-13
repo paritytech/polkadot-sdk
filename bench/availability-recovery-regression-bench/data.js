@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794557253862,
+  "lastUpdate": 1794568427041,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "173b52cc0f84f2926a015ae9ac75af6c12a53a7f",
-          "message": "Update merkle mountain lib (#11922)\n\nUpdates the merkle mountain crate to its latest version.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T11:39:17Z",
-          "tree_id": "4af8466aa41db0fe0a6a4424bcbbcb8a77678af8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/173b52cc0f84f2926a015ae9ac75af6c12a53a7f"
-        },
-        "date": 1777467858657,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.845114287433335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13829114386666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.118838707199998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "880e1f7ff2e009541c36bf981c902f93554d7c26",
+          "message": "cumulus: wire resubmission of segments per core (#13391)\n\n# Description\n\nFInal wiring for the resubmission pipeline, forwarding the resubmittable\nsegment as headers to the collation task whenever the block builder can\nhand over something (e.g. it just built a block, or it can not build due\nto unincluded segment being full, but it can still signal to resubmit a\nresubmittable segment).\n\nCollation-task takes a freshly built bundle (if built) and the\nresubmittable segment, generates all collation data that must be sent to\nthe collation-generation subsystem, and then submits it to the\ncollation-generation subsystem.\n\nAdded two tests with one and three collators parachain.. throughput\nlooks like on the prototype.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12313\n\n# Known issues\n\nWill be fixed in follow up PRs.\n\n- #13658 \n- #13631\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T09:34:37Z",
+          "tree_id": "ea72dabd772cc3ce8bc3b73e7650ecffe3d66e84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/880e1f7ff2e009541c36bf981c902f93554d7c26"
+        },
+        "date": 1794568392728,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.713214234433336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13329594546666662,
             "unit": "seconds"
           }
         ]
