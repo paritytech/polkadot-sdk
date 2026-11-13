@@ -120,8 +120,7 @@ pub enum Cursor<AccountId, Balance> {
 	///
 	/// `None` is the transition sentinel from phase 2 to phase 3.
 	DeletionQueue(Option<u32>),
-	/// Clearing the pallet account's existing [`NativeDepositOf`] rows before phase 1. A fresh
-	/// run starts here.
+	/// Clearing the pallet account's existing [`NativeDepositOf`] rows before phase 1.
 	///
 	/// Holds the owner of the last row removed. Resuming after it, rather than from the start of
 	/// the prefix, keeps each step from walking over the rows already removed in the same block.
@@ -153,16 +152,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let code_step = <T as Config>::WeightInfo::v4_code_upload_step();
-		// A clearing step removes one row or, once none are left, runs the first phase 1 step.
 		let clear_step =
 			<T as Config>::WeightInfo::v4_clear_code_credit_step().saturating_add(code_step);
-		// A swap step reads at least one `NativeDepositOf` row, which the benchmark does not
-		// include, and as many more as the meter still has room for.
 		let row = Self::native_row_reads(1);
 		let swap_step = <T as Config>::WeightInfo::v4_contract_step().saturating_add(row);
 		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
-		// The first step reads the pallet account's two code-deposit holds to pick between
-		// rebuilding its rows and swapping its unrecorded native, which costs a swap step.
 		let first_step = clear_step.max(swap_step).saturating_add(T::DbWeight::get().reads(2));
 		let required = first_step.max(deletion_queue_step);
 		if !meter.can_consume(required) {
@@ -488,12 +482,6 @@ impl<T: Config> Migration<T> {
 	/// `refund_on_hold` refunds them from the native hold with `Precision::Exact`; swapping that
 	/// native would leave those payers unable to be refunded. A failed swap rolls back and is
 	/// logged, leaving `who` on native; `post_upgrade` reports it.
-	///
-	/// `who` can have a row per payer, so at most `max_rows` rows are read per call. `sum` is the
-	/// progress of the previous calls, and `rows_read` is increased by the number of rows read.
-	/// Returns the progress to resume from if more rows may remain, or `None` once the swap is
-	/// done. Nothing is written until the last row is read, so the hold does not change between
-	/// calls. `max_rows` must not be zero, or no call makes progress.
 	fn swap_unrecorded_native(
 		reason: HoldReason,
 		who: &T::AccountId,

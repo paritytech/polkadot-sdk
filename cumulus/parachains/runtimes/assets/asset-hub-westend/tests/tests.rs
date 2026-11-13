@@ -3361,6 +3361,308 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 mod remote_test {
 	use super::*;
 
+	/// Runs the revive v4 multi-block migration on live Westend Asset Hub state the way
+	/// `pallet-migrations` does: in transactional steps of at most `MbmServiceWeight` each,
+	/// between the migration's own `pre_upgrade` and `post_upgrade` checks. Prints the state the
+	/// migration finds and leaves, then removes one code blob uploaded before `PGasDeposit` was
+	/// enabled and reports how its owner is refunded.
+	///
+	/// Only the pallets v4 touches are scraped, without child tries. `SNAP` names a snapshot
+	/// file: it is written on the first run and read on later ones.
+	///
+	/// ```bash
+	/// SNAP=<PATH> cargo test -r -p asset-hub-westend-runtime --features try-runtime \
+	///   --test tests revive_v4_on_live_state -- --ignored --nocapture
+	/// ```
+	#[tokio::test]
+	#[ignore]
+	async fn revive_v4_on_live_state() {
+		use asset_hub_westend_runtime::{
+			AssetsHolder, MbmServiceWeight, PGASAssetId, RuntimeHoldReason,
+		};
+		use frame_support::{
+			migrations::SteppedMigration,
+			pallet_prelude::ValueQuery,
+			storage::{storage_prefix, PrefixIterator},
+			storage_alias,
+			traits::{
+				fungible::{Inspect as _, InspectHold as _},
+				fungibles,
+			},
+			weights::{Weight, WeightMeter},
+			Identity,
+		};
+		use pallet_revive::{AddressMapper, HoldReason};
+		use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+		use std::collections::{BTreeMap, BTreeSet};
+
+		/// Leading fields of `pallet_revive::CodeInfo`, which is not exported.
+		#[derive(Encode, Decode)]
+		struct CodeInfoHead {
+			owner: AccountId,
+			#[codec(compact)]
+			deposit: Balance,
+			#[codec(compact)]
+			refcount: u64,
+		}
+		#[storage_alias]
+		type CodeInfoOf = StorageMap<Revive, Identity, H256, CodeInfoHead>;
+		#[storage_alias]
+		type NativeDepositOf = StorageDoubleMap<
+			Revive,
+			Identity,
+			AccountId,
+			Identity,
+			AccountId,
+			Balance,
+			ValueQuery,
+		>;
+
+		/// Every `(key suffix, value)` of a Revive storage map, undecoded.
+		fn raw_map(item: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+			let prefix = storage_prefix(b"Revive", item).to_vec();
+			PrefixIterator::<(Vec<u8>, Vec<u8>)>::new(prefix.clone(), prefix, |k, v| {
+				Ok((k.to_vec(), v.to_vec()))
+			})
+			.collect()
+		}
+		fn native(reason: HoldReason, who: &AccountId) -> Balance {
+			Balances::balance_on_hold(&RuntimeHoldReason::from(reason), who)
+		}
+		fn pgas(reason: HoldReason, who: &AccountId) -> Balance {
+			<AssetsHolder as fungibles::InspectHold<AccountId>>::balance_on_hold(
+				PGASAssetId::get(),
+				&RuntimeHoldReason::from(reason),
+				who,
+			)
+		}
+		/// `(address, account, AccountType variant)` of every revive account: 0 is a contract,
+		/// 1 a plain EOA and 2 an EIP-7702 delegated EOA.
+		fn revive_accounts() -> Vec<(H160, AccountId, u8)> {
+			raw_map(b"AccountInfoOf")
+				.into_iter()
+				.map(|(k, v)| {
+					let addr = H160::from_slice(&k[..20]);
+					(addr, <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&addr), v[0])
+				})
+				.collect()
+		}
+		/// `(legacy, new)` counts of `DeletionQueue` slots: a legacy slot is a bare `TrieId`, a
+		/// new one is followed by a 32 byte account.
+		fn deletion_queue() -> (usize, usize) {
+			let mut counts = (0, 0);
+			for (_, v) in raw_map(b"DeletionQueue") {
+				let len = codec::Compact::<u32>::decode(&mut &v[..]).expect("trie id length").0;
+				let prefix = codec::Compact(len).encode().len();
+				match v.len() - prefix - len as usize {
+					0 => counts.0 += 1,
+					32 => counts.1 += 1,
+					other => panic!("DeletionQueue slot with {other} trailing bytes"),
+				}
+			}
+			counts
+		}
+		/// Holders whose native hold under `reason` differs from the sum of their rows, with
+		/// `(native held, rows)`.
+		fn mismatches(
+			reason: HoldReason,
+			holders: &[AccountId],
+			rows: &BTreeMap<AccountId, (u32, Balance)>,
+		) -> Vec<(AccountId, Balance, Balance)> {
+			holders
+				.iter()
+				.filter_map(|h| {
+					let held = native(reason, h);
+					let owed = rows.get(h).map_or(0, |r| r.1);
+					(held != owed).then(|| (h.clone(), held, owed))
+				})
+				.collect()
+		}
+		fn rows_by_holder() -> BTreeMap<AccountId, (u32, Balance)> {
+			let mut rows: BTreeMap<AccountId, (u32, Balance)> = BTreeMap::new();
+			for (holder, _payer, amount) in NativeDepositOf::iter() {
+				let entry = rows.entry(holder).or_default();
+				entry.0 += 1;
+				entry.1 += amount;
+			}
+			rows
+		}
+
+		sp_tracing::try_init_simple();
+		let snap = std::env::var("SNAP").expect("SNAP env var not set");
+		let mode = if std::path::Path::new(&snap).exists() {
+			Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap) })
+		} else {
+			Mode::Online(OnlineConfig {
+				transport_uris: vec![std::env::var("WS").unwrap_or_else(|_| {
+					"wss://westend-asset-hub-rpc.polkadot.io:443".into()
+				})],
+				pallets: ["System", "Balances", "Revive", "Assets", "AssetsHolder", "AssetsFreezer"]
+					.map(String::from)
+					.to_vec(),
+				child_trie: false,
+				disable_root_check: true,
+				state_snapshot: Some(SnapshotConfig::new(snap)),
+				..Default::default()
+			})
+		};
+		let mut ext = Builder::<Block>::new().mode(mode).build().await.expect("state");
+
+		ext.execute_with(|| {
+			type V4 = pallet_revive::migrations::v4::Migration<Runtime>;
+			let code = HoldReason::CodeUploadDepositReserve;
+			let storage = HoldReason::StorageDepositReserve;
+			let pallet_account = Revive::account_id();
+			let accounts = revive_accounts();
+			let of_kind = |kind: u8| -> Vec<AccountId> {
+				accounts.iter().filter(|a| a.2 == kind).map(|a| a.1.clone()).collect()
+			};
+			let (contracts, delegated) = (of_kind(0), of_kind(2));
+			let sum = |reason: HoldReason, f: fn(HoldReason, &AccountId) -> Balance, who: &[AccountId]| -> Balance {
+				who.iter().map(|w| f(reason, w)).sum()
+			};
+
+			// The state v4 starts from.
+			let rows = rows_by_holder();
+			let code_infos: Vec<(H256, CodeInfoHead)> = CodeInfoOf::iter().collect();
+			let issuance_before = Balances::total_issuance();
+			let pgas_issuance_before =
+				<Assets as fungibles::Inspect<AccountId>>::total_issuance(PGASAssetId::get());
+			let code_native_before = native(code, &pallet_account);
+			let code_pgas_before = pgas(code, &pallet_account);
+			println!("== before v4");
+			println!("PGAS asset registered: {}", <Assets as fungibles::Inspect<AccountId>>::asset_exists(PGASAssetId::get()));
+			println!(
+				"pallet account: code native {code_native_before}, code PGAS {code_pgas_before}, \
+				 rows {:?}; CodeInfoOf {} entries, deposits {}",
+				rows.get(&pallet_account),
+				code_infos.len(),
+				code_infos.iter().map(|c| c.1.deposit).sum::<Balance>(),
+			);
+			println!(
+				"accounts: {} contracts, {} plain EOAs, {} delegated EOAs",
+				contracts.len(),
+				of_kind(1).len(),
+				delegated.len(),
+			);
+			println!(
+				"contracts: native {} PGAS {}; {} with rows",
+				sum(storage, native, &contracts),
+				sum(storage, pgas, &contracts),
+				contracts.iter().filter(|c| rows.contains_key(*c)).count(),
+			);
+			println!(
+				"delegated EOAs: native {} PGAS {}; {} with a native hold, {} with rows",
+				sum(storage, native, &delegated),
+				sum(storage, pgas, &delegated),
+				delegated.iter().filter(|d| native(storage, d) > 0).count(),
+				delegated.iter().filter(|d| rows.contains_key(*d)).count(),
+			);
+			let max_rows = rows.iter().max_by_key(|r| r.1 .0);
+			println!(
+				"NativeDepositOf: {} rows over {} holders; most rows on one holder: {:?}",
+				rows.values().map(|r| r.0).sum::<u32>(),
+				rows.len(),
+				max_rows.map(|r| r.1 .0),
+			);
+			let over = mismatches(storage, &contracts, &rows)
+				.into_iter()
+				.filter(|m| m.2 > m.1)
+				.count();
+			println!("contracts whose rows already exceed their native hold: {over}");
+			println!("DeletionQueue (legacy, new): {:?}", deletion_queue());
+
+			// An unused, deposit-backed code blob whose owner has no native row yet.
+			let legacy = code_infos
+				.iter()
+				.find(|(_, info)| {
+					info.refcount == 0 &&
+						info.deposit > 0 && NativeDepositOf::get(&pallet_account, &info.owner) == 0
+				})
+				.map(|(hash, info)| (*hash, info.owner.clone(), info.deposit));
+
+			// The migration, block by block.
+			let state = V4::pre_upgrade();
+			println!("== v4\npre_upgrade: {:?}", state.as_ref().map(|_| ()));
+			let state = state.expect("pre_upgrade");
+			let limit = MbmServiceWeight::get();
+			let mut cursor = None;
+			let mut blocks = 0u32;
+			let mut heaviest = Weight::zero();
+			let mut phases = BTreeSet::new();
+			loop {
+				blocks += 1;
+				let mut meter = WeightMeter::with_limit(limit);
+				let next = V4::transactional_step(cursor, &mut meter).expect("step");
+				heaviest = heaviest.max(meter.consumed());
+				match next {
+					Some(next) => {
+						let name = format!("{next:?}");
+						phases.insert(name.split('(').next().unwrap_or_default().to_string());
+						cursor = Some(next);
+					},
+					None => break,
+				}
+			}
+			println!("{blocks} blocks; cursor phases {phases:?}");
+			println!("heaviest block {heaviest:?} of limit {limit:?}");
+			let post = V4::post_upgrade(state);
+			println!("post_upgrade: {post:?}");
+
+			// The state v4 leaves.
+			let rows_after = rows_by_holder();
+			println!("== after v4");
+			println!(
+				"native issuance {issuance_before} -> {} (burned {}); PGAS issuance {} -> {}",
+				Balances::total_issuance(),
+				issuance_before - Balances::total_issuance(),
+				pgas_issuance_before,
+				<Assets as fungibles::Inspect<AccountId>>::total_issuance(PGASAssetId::get()),
+			);
+			println!(
+				"pallet account: code native {code_native_before} -> {}, code PGAS \
+				 {code_pgas_before} -> {}, rows {:?} -> {:?}",
+				native(code, &pallet_account),
+				pgas(code, &pallet_account),
+				rows.get(&pallet_account),
+				rows_after.get(&pallet_account),
+			);
+			println!(
+				"contracts: native {} PGAS {}; native hold != rows on {}",
+				sum(storage, native, &contracts),
+				sum(storage, pgas, &contracts),
+				mismatches(storage, &contracts, &rows_after).len(),
+			);
+			let stranded = mismatches(storage, &delegated, &rows_after);
+			println!(
+				"delegated EOAs: native {} PGAS {}; native hold != rows on {} (unrecorded native {})",
+				sum(storage, native, &delegated),
+				sum(storage, pgas, &delegated),
+				stranded.len(),
+				stranded.iter().map(|m| m.1.saturating_sub(m.2)).sum::<Balance>(),
+			);
+			println!("DeletionQueue (legacy, new): {:?}", deletion_queue());
+
+			// Remove code uploaded before the switch and see how its owner is refunded.
+			let Some((hash, owner, deposit)) = legacy else {
+				println!("no unused code without a native row to remove");
+				post.expect("post_upgrade");
+				return;
+			};
+			let pgas_free = || <Assets as fungibles::Inspect<AccountId>>::balance(PGASAssetId::get(), &owner);
+			let (native_before, pgas_before) = (Balances::balance(&owner), pgas_free());
+			let removed = Revive::remove_code(RuntimeOrigin::signed(owner.clone()), hash);
+			println!(
+				"remove_code {hash:?} (deposit {deposit}): {removed:?}; owner refunded native {} \
+				 PGAS {}",
+				Balances::balance(&owner) - native_before,
+				pgas_free() - pgas_before,
+			);
+			post.expect("post_upgrade");
+			assert_ok!(removed);
+		});
+	}
+
 	/// Test claim_trapped_balance for all pool members using a state snapshot.
 	///
 	/// The test iterates through all pool members, computes trapped amounts, and calls
