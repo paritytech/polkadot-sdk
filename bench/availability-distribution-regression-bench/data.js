@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794605950371,
+  "lastUpdate": 1794610855726,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf159da7637c65927c3cf41e3c041e4bee4c5957",
-          "message": "statement-store: add --seed flag for single-account latency probe (#11931)\n\n## Summary \n\nAdds an opt-in `--seed <SURI>` flag to `statement-latency-bench` so the\nbench can run as a latency probe against networks where: \n- statement allowances can't be provisioned through Sudo, and\n- only a single, externally pre-allowanced account is available\n\n## Motivation\nGoal is a daily latency telemetry signal on Paseo People against a real\naccount with a fixed 50-statement / 50 KiB allowance, scheduled hourly\n(1 statement × 1 KiB per run, 24 datapoints/day)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T19:14:14Z",
-          "tree_id": "c8a90d9296c210a0eac523e1ad2e295f880a7e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf159da7637c65927c3cf41e3c041e4bee4c5957"
-        },
-        "date": 1777496001396,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14422942140000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009698328453333306,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0069712878400000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023784057339999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024015932853333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faaef02073cfb5857cc25a88ca8f457172e16f62",
+          "message": "FRAME: reject duplicate view-function blocks and pallet indices (#13752)\n\n# Description\n\nReject duplicate FRAME macro attributes instead of silently overwriting\nearlier declarations:\n\n- A second `#[pallet::view_functions]` block now fails at the duplicate\nattribute. A pallet defines all view functions in one block, matching\nthe existing single-block pattern for calls and other pallet sections.\n- Repeated `#[runtime::pallet_index]` attributes on one pallet now fail\nat the second index, including when the values are identical.\n\nRelated to the separate `extra_constants` fix in #13750. That fix\ncontinues to support multiple extra-constant blocks.\n\n## Integration\n\nMove methods from multiple `#[pallet::view_functions]` blocks into one\nblock, preserving any bounds those methods require. Previously, only the\nlast block contributed functions to metadata and runtime view dispatch.\n\nKeep exactly one `#[runtime::pallet_index]` attribute per pallet. Retain\nthe last previously specified index to preserve existing call/event\nencoding:\n\n```diff\n-#[runtime::pallet_index(3)]\n #[runtime::pallet_index(7)]\n pub type Example = pallet_example;\n```\n\nNo storage migration is required. The release note records major bumps\nfor `frame-support-procedural` and `frame-support` because previously\naccepted declarations now fail to compile.\n\n## Review Notes\n\nThe pallet parser stores one view-function block and uses the existing\nduplicate-attribute diagnostic for a second block. View-function\nexpansion retains its existing single-block implementation. A\ncompiler-output regression test checks that the second attribute is\nhighlighted, and an integration test verifies metadata and runtime\ndispatch for a valid block.\n\nRuntime parser tests cover duplicate index attributes with both\nidentical and conflicting values, for implicit and explicit pallet\ndeclarations.\n\nValidation:\n- Runtime parser tests: 10 passed.\n- Pallet integration tests: 34 passed.\n- View-function UI tests, including duplicate-block rejection and a\nvalid block.\n- Nightly rustfmt, `prdoc check -n 13752`, and `git diff --check`.",
+          "timestamp": "2026-11-13T21:11:19Z",
+          "tree_id": "71c61f67644c67e4c6aa1dfdf0f3276ecaeca533",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/faaef02073cfb5857cc25a88ca8f457172e16f62"
+        },
+        "date": 1794610814555,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024117472059999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007795967766666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009813812979999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14545025265999995,
             "unit": "seconds"
           }
         ]
