@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794557395559,
+  "lastUpdate": 1794568545395,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29b07cd379f927f0194f721148c403f63d0674d3",
-          "message": "Refactor asset-conversion tx payment fee correction (#11823)\n\nFixes a bug where the `AssetTxFeePaid` event reported an incorrect\n`actual_fee` when paying in the native asset via the asset-conversion\nextension (`asset_id == A::get()`). The returned fee amount was\ndouble-subtracting the refund, under-reporting the fee in the event.\n\nRefactors `SwapAssetAdapter::correct_and_deposit_fee` in\n`pallet-asset-conversion-tx-payment` to handle all edge cases gracefully\nduring post-dispatch fee correction. Adds test coverage for fee\ncorrection paths including account killed, account blocked, pool\ndrained, and native account with no free balance scenarios.",
-          "timestamp": "2026-04-29T00:30:45Z",
-          "tree_id": "ecb619753a8991b7d22a84bffa4e1f9eebde53aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/29b07cd379f927f0194f721148c403f63d0674d3"
-        },
-        "date": 1777427642097,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63625.27,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7809828227299986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4885573886299963,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.786386521709999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002442638,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8759069246899993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7738294479499783,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.326354450412792,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021423980000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.56981530603997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002442638,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8586057904199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005546409910000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021423980000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.537298802702894,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "880e1f7ff2e009541c36bf981c902f93554d7c26",
+          "message": "cumulus: wire resubmission of segments per core (#13391)\n\n# Description\n\nFInal wiring for the resubmission pipeline, forwarding the resubmittable\nsegment as headers to the collation task whenever the block builder can\nhand over something (e.g. it just built a block, or it can not build due\nto unincluded segment being full, but it can still signal to resubmit a\nresubmittable segment).\n\nCollation-task takes a freshly built bundle (if built) and the\nresubmittable segment, generates all collation data that must be sent to\nthe collation-generation subsystem, and then submits it to the\ncollation-generation subsystem.\n\nAdded two tests with one and three collators parachain.. throughput\nlooks like on the prototype.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12313\n\n# Known issues\n\nWill be fixed in follow up PRs.\n\n- #13658 \n- #13631\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T09:34:37Z",
+          "tree_id": "ea72dabd772cc3ce8bc3b73e7650ecffe3d66e84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/880e1f7ff2e009541c36bf981c902f93554d7c26"
+        },
+        "date": 1794568510825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63564.31,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.432004452552787,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005247976450000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.66563141627,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8122627669499451,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002117194,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.70627066508,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002117194,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.634170335619998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018328559999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018328559999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.822822311359937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.316531397199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.682707753789999,
             "unit": "seconds"
           }
         ]
