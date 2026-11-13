@@ -3511,6 +3511,45 @@ fn force_reserve_works() {
 }
 
 #[test]
+fn force_reserve_fails_when_no_core_available() {
+	let system_workload = Schedule::truncate_from(vec![ScheduleItem {
+		mask: CoreMask::complete(),
+		assignment: Task(1004),
+	}]);
+
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// One core only.
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Purchase the only core, so the forced reservation has nowhere to go at rotation.
+		let region = Broker::do_purchase(1, u64::MAX).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Final));
+
+		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0));
+		assert_eq!(ForceReservations::<Test>::get(), vec![system_workload.clone()]);
+
+		// At the next rotation `force_core` = `first_core` + `cores_sold` = 1 >= `core_count`.
+		advance_sale_period();
+
+		System::assert_has_event(
+			Event::ForceReservationFailed { schedule: system_workload.clone() }.into(),
+		);
+		assert!(ForceReservations::<Test>::get().is_empty());
+		// The workload is assigned exactly once: `force_reserve` also reserved it, so it lands
+		// on the first core via the reservation path, but the failed forced assignment adds
+		// nothing.
+		assert_eq!(
+			CoretimeTrace::get()
+				.iter()
+				.filter(|(_, item)| matches!(item, AssignCore { assignment, .. } if assignment.iter().any(|i| i.0 == Task(1004))))
+				.count(),
+			1
+		);
+	});
+}
+
+#[test]
 fn remove_potential_renewal_rejects_non_admin_origin() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(
