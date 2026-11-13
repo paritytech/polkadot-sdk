@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794580611275,
+  "lastUpdate": 1794589045339,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -145799,6 +145799,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2779472033,
             "range": "± 92056664",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5983c93547f33715dbf1d44d5d52161448059cf2",
+          "message": "pallet-revive: derive child trie ids from the deletion queue counter (#13620)\n\nChild trie ids came from the address and the deployer's nonce, and a\ndeployer reaped on termination restarts at the same nonce. A contract\nre-created at the address of a terminated contract could therefore get\nthe old trie id while that trie was still queued for deletion: it saw\nthe old storage, and the queued deletion later removed its own. New trie\nids mix in `DeletionQueueCounter`, which every termination increments.\n\n## Changes\n- Trie id preimage: `(\"bcontract_trie_v2\", address, nonce,\ninsert_counter)`. Existing contracts and queued entries keep theirs; no\nmigration; `ContractInfo::new` signature unchanged.\n- Precompiles with contract info use the new\n`ContractInfo::new_for_precompile`, which keeps the\n`(\"bcontract_trie_v1\", address, 0)` id and reads no storage.\n- `DeletionQueueCounter` docs: must never decrease or reset, apart from\nwrapping.\n- Instantiation reads `DeletionQueueCounter` once more (`instantiate`,\n`instantiate_with_code`, `eth_instantiate_with_code`,\n`seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`); `dev` and `asset-hub-westend` weights\nregenerated.\n- Off-chain tools that compute trie ids must read `trie_id` from\n`ContractInfo`.\n- Keeping `NativeDepositOf` rows of a re-created contract is #13613.\n\n## Tests\n`tests/sol/terminate.rs` with `RedeployFactory.sol`, Solc and Resolc.\nEach fails without the change.\n- Active:\n`child_recreated_after_same_tx_selfdestruct_does_not_share_storage`\n(child created and destroyed in one call, re-created later with the same\nsalt) and `precompile_trie_id_does_not_depend_on_terminations`.\n- `#[ignore]` until the termination restriction from #13689 is lifted:\nredeploy after termination in an earlier transaction (CREATE1, CREATE2,\ninside one `batch_all`), covering the queued drain and the deposit\ncharge and refund of the new child.\n\n`cargo nextest run -p pallet-revive`: 1063 passed, 0 failed. Clippy and\nrustdoc clean.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-13T15:39:27Z",
+          "tree_id": "32947fe201f6a281b10cc174429267b687961dbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5983c93547f33715dbf1d44d5d52161448059cf2"
+        },
+        "date": 1794589014290,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19780070,
+            "range": "± 162178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20055252,
+            "range": "± 187013",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21775156,
+            "range": "± 97462",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25883320,
+            "range": "± 153387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57673111,
+            "range": "± 571653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 351940789,
+            "range": "± 10696438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2728433193,
+            "range": "± 85935351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17114312,
+            "range": "± 158522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17081283,
+            "range": "± 158348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17683992,
+            "range": "± 117301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22147873,
+            "range": "± 106510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59407596,
+            "range": "± 506817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 339710320,
+            "range": "± 2198151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2677926389,
+            "range": "± 29520520",
             "unit": "ns/iter"
           }
         ]
