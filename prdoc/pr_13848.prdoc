@@ -1,0 +1,27 @@
+title: 'fix(grandpa): prevent finality sync stalls on restart when headers are synced
+  past best'
+doc:
+- audience:
+  - Node Operator
+  - Node Dev
+  description: |-
+    # Description
+
+    Node finality sync can stall after restart when an authority change takes effect in headers stored past the recorded best block. GRANDPA skips the required justification request because the effective block number exceeds best, leaving finality sync waiting for the authority handoff.
+
+    This fix restores startup requests for those stored blocks without waiting for best to catch up.
+
+    ## Integration
+
+    Update `sc-consensus-grandpa` in the node. No runtime upgrade or storage migration is required.
+
+    Backport requested for stable2603; the same failure and fix were verified on `polkadot-stable2603-8`.
+
+    ## Review Notes
+
+    Delayed changes still use the configured finality-target selector, and requests still require a stored header at the exact effective height.
+
+    The regression covers immediate and delayed changes. It recreates GRANDPA import components from persisted pending changes and imports a valid signed justification to verify that finality and the authority set advance.
+crates:
+- name: sc-consensus-grandpa
+  bump: patch
