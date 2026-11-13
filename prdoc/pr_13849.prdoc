@@ -7,4 +7,4 @@ doc:
     their signatures, so no changes are needed downstream.
 crates:
 - name: pallet-node-authorization
-  bump: patch
+  bump: minor
