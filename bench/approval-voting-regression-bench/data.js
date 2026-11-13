@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794606009887,
+  "lastUpdate": 1794610913747,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "173b52cc0f84f2926a015ae9ac75af6c12a53a7f",
-          "message": "Update merkle mountain lib (#11922)\n\nUpdates the merkle mountain crate to its latest version.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T11:39:17Z",
-          "tree_id": "4af8466aa41db0fe0a6a4424bcbbcb8a77678af8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/173b52cc0f84f2926a015ae9ac75af6c12a53a7f"
-        },
-        "date": 1777467921949,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.94,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.370442894612951,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.92770083655,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8350397887300005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.5232981423899945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7859076663499743,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000027928270000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005922409290000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8857336768899993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.78080311439997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000026855659999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000026855659999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000027928270000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8172005941999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.867522736739968,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faaef02073cfb5857cc25a88ca8f457172e16f62",
+          "message": "FRAME: reject duplicate view-function blocks and pallet indices (#13752)\n\n# Description\n\nReject duplicate FRAME macro attributes instead of silently overwriting\nearlier declarations:\n\n- A second `#[pallet::view_functions]` block now fails at the duplicate\nattribute. A pallet defines all view functions in one block, matching\nthe existing single-block pattern for calls and other pallet sections.\n- Repeated `#[runtime::pallet_index]` attributes on one pallet now fail\nat the second index, including when the values are identical.\n\nRelated to the separate `extra_constants` fix in #13750. That fix\ncontinues to support multiple extra-constant blocks.\n\n## Integration\n\nMove methods from multiple `#[pallet::view_functions]` blocks into one\nblock, preserving any bounds those methods require. Previously, only the\nlast block contributed functions to metadata and runtime view dispatch.\n\nKeep exactly one `#[runtime::pallet_index]` attribute per pallet. Retain\nthe last previously specified index to preserve existing call/event\nencoding:\n\n```diff\n-#[runtime::pallet_index(3)]\n #[runtime::pallet_index(7)]\n pub type Example = pallet_example;\n```\n\nNo storage migration is required. The release note records major bumps\nfor `frame-support-procedural` and `frame-support` because previously\naccepted declarations now fail to compile.\n\n## Review Notes\n\nThe pallet parser stores one view-function block and uses the existing\nduplicate-attribute diagnostic for a second block. View-function\nexpansion retains its existing single-block implementation. A\ncompiler-output regression test checks that the second attribute is\nhighlighted, and an integration test verifies metadata and runtime\ndispatch for a valid block.\n\nRuntime parser tests cover duplicate index attributes with both\nidentical and conflicting values, for implicit and explicit pallet\ndeclarations.\n\nValidation:\n- Runtime parser tests: 10 passed.\n- Pallet integration tests: 34 passed.\n- View-function UI tests, including duplicate-block rejection and a\nvalid block.\n- Nightly rustfmt, `prdoc check -n 13752`, and `git diff --check`.",
+          "timestamp": "2026-11-13T21:11:19Z",
+          "tree_id": "71c61f67644c67e4c6aa1dfdf0f3276ecaeca533",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/faaef02073cfb5857cc25a88ca8f457172e16f62"
+        },
+        "date": 1794610872762,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63564.44999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018508260000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.723980959640001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00532495734,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7514915862000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002154232,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.690896559049999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.71204592526,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3580702185100044,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8344935732899806,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002154232,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.589497032412701,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018508260000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.076303779289987,
             "unit": "seconds"
           }
         ]
