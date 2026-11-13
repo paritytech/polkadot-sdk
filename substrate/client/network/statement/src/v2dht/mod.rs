@@ -280,7 +280,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		self.peers_topology.on_substream_closed(peer);
+		if self.peers_topology.on_substream_closed(peer) {
+			self.publish_dht_affinity();
+		}
 		self.peer_steering.on_substream_closed(peer);
 		// The filter arrived over this substream, so it lives exactly as long.
 		self.explicit_affinity.on_substream_closed(peer);
@@ -369,15 +371,31 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers the node needs connected, those covering its topics and its routing
-	/// peers, and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
+	/// and the reserved peers without the DHT path, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
+		self.on_pending_affinities_at(Instant::now());
+	}
+
+	fn on_pending_affinities_at(&mut self, now: Instant) {
+		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
 		let mut desired = self.peers_topology.peers_for_topics(&topics);
-		desired.extend(self.peers_topology.peers_for_routing());
+		desired.extend(
+			self.peers_topology
+				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
+		);
+		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
+		// closes its substream, which returns the peer to the index and gets it dialed again.
+		desired.extend(
+			self.peer_steering
+				.reserved_peers()
+				.filter(|peer| self.peers_topology.is_without_dht(peer)),
+		);
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+			metrics.set_unreachable_peers(self.peer_steering.unreachable_count());
 		}
 	}
 
@@ -385,6 +403,15 @@ impl V2DhtOrchestrator {
 	/// protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	/// Release `peer` if steering holds it reserved as a peer without the DHT path, so that a
+	/// disconnect sent next closes its substream. The litep2p peerset ignores a disconnect of a
+	/// reserved peer, and it takes both commands from one queue, in order.
+	pub(crate) fn release_peer_without_dht<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		if self.peer_steering.is_reserved(&peer) && self.peers_topology.is_without_dht(&peer) {
+			self.peer_steering.release_peer(network, peer);
+		}
 	}
 
 	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
@@ -425,6 +452,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
+	use peer_steering::{UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
 	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
@@ -747,6 +775,42 @@ mod tests {
 	}
 
 	#[test]
+	fn a_peer_without_dht_returns_to_the_index_when_its_substream_closes() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_peer_without_dht(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn a_reserved_peer_without_dht_stays_reserved() {
+		let mut orchestrator = orchestrator();
+		let dialed = peer(2);
+		let dialed_in = peer(3);
+		let no_longer_needed = peer(4);
+		for remote in [dialed, dialed_in] {
+			orchestrator.on_substream_opened(remote);
+			orchestrator.on_peer_without_dht(remote);
+		}
+		orchestrator.peer_steering.reserve([dialed, no_longer_needed]);
+
+		orchestrator.on_pending_affinities();
+
+		assert_eq!(orchestrator.peer_steering.peers_to_release(), vec![no_longer_needed]);
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+	}
+
+	#[test]
 	fn substream_close_drops_the_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
@@ -793,7 +857,7 @@ mod tests {
 		// The tick turns the configured topic into a coverage target. With k=1 the routing peers
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let routing = orchestrator.peers_topology.peers_for_routing();
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
 		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
@@ -812,12 +876,56 @@ mod tests {
 
 		// Without topics the desired set is the routing peers alone, none connected yet.
 		orchestrator.on_pending_affinities();
-		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut routing = orchestrator.peers_topology.peers_for_routing(|_| false);
 		let mut connect = orchestrator.peer_steering.peers_to_connect();
 		routing.sort();
 		connect.sort();
 		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
 		assert_eq!(connect, routing);
+	}
+
+	#[test]
+	fn affinity_tick_replaces_routing_peers_that_never_connect() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 3));
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		// An open substream keeps the marks, which the first substream after none would clear.
+		orchestrator.on_substream_opened(peer(2));
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
+		let unreachable = orchestrator.peer_steering.peers_to_connect();
+		assert!(!unreachable.is_empty());
+		orchestrator.peer_steering.reserve(unreachable.iter().copied());
+
+		orchestrator.on_pending_affinities_at(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		orchestrator.on_pending_affinities_at(marked_at);
+
+		let replacements = orchestrator.peer_steering.peers_to_connect();
+		assert!(!replacements.is_empty());
+		assert!(replacements.iter().all(|peer| !unreachable.contains(peer)));
+		let mut release = orchestrator.peer_steering.peers_to_release();
+		let mut sorted_unreachable = unreachable.clone();
+		release.sort();
+		sorted_unreachable.sort();
+		assert_eq!(release, sorted_unreachable);
+
+		orchestrator.peer_steering.reserve(replacements.iter().copied());
+		for replacement in replacements {
+			orchestrator.on_substream_opened(replacement);
+		}
+
+		// The retry dials the unreachable peers again, and the replacements serve meanwhile.
+		let retried_at = marked_at + UNREACHABLE_RETRY_AFTER;
+		orchestrator.on_pending_affinities_at(retried_at);
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		connect.sort();
+		assert_eq!(connect, sorted_unreachable);
+
+		orchestrator.on_pending_affinities_at(retried_at + UNREACHABLE_AFTER);
+		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
 	}
 
 	#[test]
@@ -893,7 +1001,7 @@ mod tests {
 		// The first tick selects the coverage peers and queues them for connection. With k=1 the
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let routing = orchestrator.peers_topology.peers_for_routing();
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
 		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 

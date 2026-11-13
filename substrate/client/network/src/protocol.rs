@@ -50,8 +50,6 @@ pub use notifications::{notification_service, NotificationsSink, ProtocolHandleP
 
 mod notifications;
 
-pub mod message;
-
 // Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p";
 

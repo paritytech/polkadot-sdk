@@ -512,6 +512,12 @@ where
 			};
 
 		let best_parent_header = parent_search_result.best_parent_header;
+		// The whole resubmittable prefix is adopted here and later resubmitted under the tip's
+		// claimed author, except for bundles built before an aura authority-set change.
+		// TODO(https://github.com/paritytech/polkadot-sdk/issues/13660): across a parachain runtime
+		// upgrade, a delayed upgrade block resubmitted in the new format is rejected by the old
+		// code, and blocks built on the upgrade block in the old format are rejected by the new
+		// code.
 		let resubmittable_headers = parent_search_result.resubmittable_segment;
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
