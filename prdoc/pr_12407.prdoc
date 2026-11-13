@@ -1,0 +1,16 @@
+title: Add AutoXcmWeight and weight-info provider macros to pallet-xcm-benchmarks
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the `xcm_weights` module to `pallet-xcm-benchmarks` (`AutoXcmWeight`, `AutoXcmWeightConfig`, and
+      relay-style and count-based asset weighers) together with the
+      `impl_xcm_generic_weight_info_provider!` and `impl_xcm_fungible_weight_info_provider!` macros.
+      Runtimes can use them to derive their `XcmWeightInfo` from the generated `pallet_xcm_benchmarks`
+      weights instead of maintaining hand-written implementations, overriding only the instructions that
+      differ from the defaults. No runtime is migrated by this change.
+
+crates:
+  - name: xcm-procedural
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
