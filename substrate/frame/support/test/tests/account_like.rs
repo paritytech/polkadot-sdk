@@ -693,6 +693,52 @@ pub mod pallet18 {
 	}
 }
 
+/// Pallet 19: Non-generic type alias origin, with a manual `AccountLike` impl on the aliased type.
+#[frame_support::pallet(dev_mode)]
+pub mod pallet19 {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn noop(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	/// A custom origin type which is not generic over anything, in particular not over the
+	/// account id: it carries its account in encoded form.
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
+	pub enum CustomOrigin {
+		Encoded([u8; 8]),
+		Nobody,
+	}
+
+	impl<AccountId: Decode> frame_support::traits::AccountLike<AccountId> for CustomOrigin {
+		fn as_account(&self) -> Option<AccountId> {
+			match self {
+				CustomOrigin::Encoded(bytes) => AccountId::decode(&mut &bytes[..]).ok(),
+				CustomOrigin::Nobody => None,
+			}
+		}
+
+		fn nonce_provider(&self) -> Option<AccountId> {
+			self.as_account()
+		}
+	}
+
+	#[pallet::origin]
+	pub type Origin = CustomOrigin;
+}
+
 pub type AccountId = u64;
 pub type Header = generic::Header<u32, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
@@ -721,6 +767,7 @@ frame_support::construct_runtime!(
 		Pallet16: pallet16,
 		Pallet17: pallet17,
 		Pallet18: pallet18,
+		Pallet19: pallet19,
 	}
 );
 
@@ -749,6 +796,7 @@ impl pallet15::Config for Runtime {}
 impl pallet16::Config for Runtime {}
 impl pallet17::Config for Runtime {}
 impl pallet18::Config for Runtime {}
+impl pallet19::Config for Runtime {}
 
 // =============================================================================
 // Tests for as_account
@@ -1088,4 +1136,23 @@ fn test_awkward_variant_names() {
 	assert_eq!(raw.as_account(), Some(7u64));
 	assert_eq!(raw.nonce_provider(), None);
 	assert_eq!(raw.fee_payer(), Some(7u64));
+}
+
+// =============================================================================
+// Test: non-generic type alias origin (pallet19)
+// =============================================================================
+
+#[test]
+fn test_non_generic_type_alias_origin_delegates_to_account_like() {
+	use pallet19::CustomOrigin;
+
+	let encoded = OriginCaller::Pallet19(CustomOrigin::Encoded(42u64.to_le_bytes()));
+	assert_eq!(encoded.as_account(), Some(42u64));
+	assert_eq!(encoded.nonce_provider(), Some(42u64));
+	assert_eq!(encoded.fee_payer(), None);
+
+	let nobody = OriginCaller::Pallet19(CustomOrigin::Nobody);
+	assert_eq!(nobody.as_account(), None);
+	assert_eq!(nobody.nonce_provider(), None);
+	assert_eq!(nobody.fee_payer(), None);
 }

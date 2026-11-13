@@ -89,14 +89,21 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 	let type_use_gen = &def.type_use_generics(span);
 	let where_clause = &def.config.where_clause;
 
+	// The origin type as it is named inside the pallet, which may or may not be generic.
+	let origin_type = if origin_def.is_generic {
+		quote! { Origin<#type_use_gen> }
+	} else {
+		quote! { Origin }
+	};
+
 	if is_type_alias {
 		return quote! {
 			impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
 				#[doc(hidden)]
 				pub fn __as_account_for_origin(
-					origin: &Origin<#type_use_gen>,
+					origin: &#origin_type,
 				) -> Option<<T as #frame_system::Config>::AccountId> {
-					<Origin<#type_use_gen> as
+					<#origin_type as
 						#frame_support::traits::AccountLike<
 							<T as #frame_system::Config>::AccountId
 						>
@@ -105,9 +112,9 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 
 				#[doc(hidden)]
 				pub fn __nonce_provider_for_origin(
-					origin: &Origin<#type_use_gen>,
+					origin: &#origin_type,
 				) -> Option<<T as #frame_system::Config>::AccountId> {
-					<Origin<#type_use_gen> as
+					<#origin_type as
 						#frame_support::traits::AccountLike<
 							<T as #frame_system::Config>::AccountId
 						>
@@ -116,9 +123,9 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 
 				#[doc(hidden)]
 				pub fn __fee_payer_for_origin(
-					origin: &Origin<#type_use_gen>,
+					origin: &#origin_type,
 				) -> Option<<T as #frame_system::Config>::AccountId> {
-					<Origin<#type_use_gen> as
+					<#origin_type as
 						#frame_support::traits::AccountLike<
 							<T as #frame_system::Config>::AccountId
 						>
@@ -129,11 +136,7 @@ fn generate_account_like_impl(def: &Def) -> TokenStream {
 	}
 
 	// The origin type reference for method parameters.
-	let origin_type_ref = if origin_def.is_generic {
-		quote! { &Origin<#type_use_gen> }
-	} else {
-		quote! { &Origin }
-	};
+	let origin_type_ref = quote! { &#origin_type };
 
 	// Generate getter functions and match arms for account_like_defs.
 	let mut getter_fns = TokenStream::new();
