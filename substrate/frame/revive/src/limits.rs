@@ -71,7 +71,9 @@ pub const EVENT_BYTES: u32 = 64 * 1024;
 /// that emits it with [`crate::Error::ReceiptTooLarge`], and the frame's state changes roll back
 /// as for any other error. This includes a log the runtime mirrors on behalf of a contract inside
 /// a frame. A mirrored log emitted outside any frame, such as while storage deposits are paid,
-/// fails the whole transaction instead.
+/// fails the whole transaction instead. If a storage layer inside the frame or the transaction
+/// records the overflow and is then rolled back, the overflow flag rolls back with that layer's
+/// other changes and fails nothing outside it.
 ///
 /// The block's synthetic transaction, which collects logs emitted outside any ethereum
 /// transaction, has the same limit. Nothing fails there: a log that does not fit stays a
@@ -87,10 +89,10 @@ pub const EVENT_BYTES: u32 = 64 * 1024;
 /// block builder's memory and storage budget (`BLOCK_BUILDER_BYTES`) is derived from it.
 pub const MAX_RECEIPT_LOGS_BYTES: u32 = 2 * 1024 * 1024;
 
-/// The extra ref time charged per byte of event data.
+/// The extra ref time charged per byte of an event's topics (32 bytes each) and data.
 ///
-/// It bounds the event data a block can deposit; `integrity_test` checks that this fits the
-/// storage available to the runtime. The Ethereum block builder is sized from
+/// It bounds the event bytes (topics and data) a block can deposit; `integrity_test` checks that
+/// this fits the storage available to the runtime. The Ethereum block builder is sized from
 /// [`MAX_TRANSACTION_PAYLOAD_SIZE`] and [`MAX_RECEIPT_LOGS_BYTES`] instead.
 pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 

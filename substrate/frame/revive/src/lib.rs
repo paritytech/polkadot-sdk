@@ -67,7 +67,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, evm::EvmDispatch, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1063,8 +1063,10 @@ pub mod pallet {
 		/// The receipt the log goes to is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that
 		/// would take an ethereum transaction's receipt past it fails the contract frame it was
 		/// emitted in with [`Error::ReceiptTooLarge`] when that frame returns, or the transaction
-		/// when it was emitted outside any frame. A log that would take the synthetic
-		/// transaction's receipt past it is not buffered and stays a substrate-only event.
+		/// when it was emitted outside any frame, unless a storage layer inside that frame or
+		/// transaction is rolled back and takes the overflow with it. A log that would take the
+		/// synthetic transaction's receipt past it is not buffered and stays a substrate-only
+		/// event.
 		///
 		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
@@ -1189,7 +1191,11 @@ pub mod pallet {
 			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
 			// bytes per entry without a per-producer weight.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
+				T::WeightInfo::per_outside_frame_log(
+					topics.len().saturated_into(),
+					data.len().saturated_into(),
+				)
+				.max(entry_bytes),
 				DispatchClass::Normal,
 			);
 
@@ -1255,6 +1261,8 @@ pub mod pallet {
 
 			T::FeeInfo::integrity_test();
 
+			EvmDispatch::integrity_test::<T>();
+
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
@@ -1295,12 +1303,16 @@ pub mod pallet {
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
 
 			// We can use storage to store events using the available block ref_time with the
-			// `deposit_event` host function. The overhead of stored events, which is around 100B,
-			// is not taken into account to simplify calculations, as it does not change much.
+			// `deposit_event` host function. Each event stores its topics (32 bytes each) and its
+			// data. The overhead of stored events, which is around 100B, is not taken into account
+			// to simplify calculations, as it does not change much.
+			let max_event_bytes = u64::from(limits::NUM_EVENT_TOPICS)
+				.saturating_mul(H256::len_bytes() as u64)
+				.saturating_add(limits::EVENT_BYTES.into());
 			let max_events_size = max_block_weight
 				.checked_div_per_component(
 					&(<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::DepositEvent {
-						num_topic: 0,
+						num_topic: limits::NUM_EVENT_TOPICS,
 						len: limits::EVENT_BYTES,
 					})
 					.saturating_add(<RuntimeCosts as WeightToken<T>>::weight(
@@ -1308,7 +1320,7 @@ pub mod pallet {
 					))),
 				)
 				.unwrap()
-				.saturating_mul(limits::EVENT_BYTES.into());
+				.saturating_mul(max_event_bytes);
 
 			assert!(
 				max_events_size <= storage_size_limit,
