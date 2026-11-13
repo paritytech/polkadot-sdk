@@ -261,6 +261,13 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
+	async fn session_executor_params_for_next_session(
+		&self,
+		_: Hash,
+	) -> Result<Option<ExecutorParams>, ApiError> {
+		todo!("Not required for tests")
+	}
+
 	/// Approval voting configuration parameters
 	async fn approval_voting_params(
 		&self,
