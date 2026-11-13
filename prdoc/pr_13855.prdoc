@@ -7,4 +7,4 @@ doc:
     `signed_migration_max_limits()` keep their signatures, so no changes are needed downstream.
 crates:
 - name: pallet-state-trie-migration
-  bump: patch
+  bump: minor
