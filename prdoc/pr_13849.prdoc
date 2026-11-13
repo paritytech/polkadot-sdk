@@ -1,0 +1,10 @@
+title: Remove pallet::getter usage from pallet-node-authorization
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces the `#[pallet::getter]` attributes of `pallet-node-authorization` with explicit public
+    functions on `Pallet<T>`. `well_known_nodes()`, `owners()` and `additional_connection()` keep
+    their signatures, so no changes are needed downstream.
+crates:
+- name: pallet-node-authorization
+  bump: patch
