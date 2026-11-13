@@ -1,0 +1,23 @@
+title: '`pallet-accumulate-and-forward`: benchmark a successful forward in `send_native`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `send_native` benchmark measured a failed, rolled-back forward, so its weight counted reads
+    only. It now asserts success, and the new `BenchmarkHelper` config item makes the destination
+    reachable. Use `xcm_builder::TeleportForwarderBenchmarkHelper` for
+    `TeleportForwarderForAccountId32`.
+crates:
+- name: pallet-accumulate-and-forward
+  bump: major
+- name: staging-xcm-builder
+  bump: minor
+- name: westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
