@@ -7,7 +7,8 @@ doc:
     only after its affinity filter is applied. A statement propagated in that gap was skipped for
     the peer and left without a hold, so the retention sweep could remove it before the peer's
     initial sync read it. Now the statement stays in the store until the initial sync of a routing
-    target passes it.
+    target passes it. A routing target that is ready, but whose sync ended before the statement
+    arrived, gets the statement directly.
 crates:
 - name: sc-network-statement
   bump: patch
