@@ -649,3 +649,167 @@ fn no_fee_and_no_weight_for_other_origins() {
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
 }
+
+/// A refund smaller than the asset's `min_balance` cannot be credited back to the reaped caller
+/// account: it is dropped and burned, and `AssetTxFeePaid` reports the corrected fee even though
+/// the caller effectively paid the full initial fee.
+#[test]
+fn post_dispatch_refund_below_asset_min_balance_is_dropped() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   // owner
+				true, // is_sufficient
+				min_balance
+			));
+
+			let caller = 2;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 1000;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+
+			let weight = 100;
+			let len = 10;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id));
+			let ext_weight = ext.weight(CALL);
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext_weight;
+			let fee = (base_weight + weight + ext_weight.ref_time() + len as u64) * min_balance /
+				ExistentialDeposit::get();
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
+
+			// Reap the caller's asset account so the refund would have to recreate it.
+			assert_ok!(<Assets as Mutate<u64>>::burn_from(
+				asset_id,
+				&caller,
+				balance - fee,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Precision::Exact,
+				frame_support::traits::tokens::Fortitude::Polite,
+			));
+			assert_eq!(Assets::balance(asset_id, caller), 0);
+			let issuance_after_burn =
+				<Assets as frame_support::traits::tokens::fungibles::Inspect<u64>>::total_issuance(
+					asset_id,
+				);
+
+			// Final call weight 95 gives a native refund of 5, converted to 1 < min_balance.
+			let final_weight = 95;
+			let mut post_info = post_info_from_weight(Weight::from_parts(final_weight, 0));
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_accrue(MockWeights::charge_asset_tx_payment_asset()));
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(()),
+			));
+
+			let corrected_fee = (base_weight + final_weight + ext_weight.ref_time() + len as u64) *
+				min_balance / ExistentialDeposit::get();
+			assert_eq!(corrected_fee, fee - 1);
+			assert_eq!(Assets::balance(asset_id, caller), 0);
+			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), corrected_fee);
+			// Only the unreturned refund is burned by post-dispatch.
+			assert_eq!(
+				<Assets as frame_support::traits::tokens::fungibles::Inspect<u64>>::total_issuance(
+					asset_id
+				),
+				issuance_after_burn - 1
+			);
+			System::assert_has_event(RuntimeEvent::AssetTxPayment(crate::Event::AssetTxFeePaid {
+				who: caller,
+				actual_fee: corrected_fee,
+				tip: 0,
+				asset_id: Some(asset_id),
+			}));
+		});
+}
+
+/// Same on the native path: a refund below the ED cannot be returned to an account kept alive
+/// only by its reserved balance, so it is subsumed into the fee instead. `TransactionFeePaid`
+/// still reports the corrected fee.
+#[test]
+fn post_dispatch_native_refund_below_ed_goes_to_fee() {
+	use frame_support::traits::ReservableCurrency;
+
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			let caller = 1;
+			let caller_balance = 10 * balance_factor;
+			let weight = 100;
+			let len = 10;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			let ext_weight = ext.weight(CALL);
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext_weight;
+			let initial_fee = base_weight + weight + ext_weight.ref_time() + len as u64;
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+			let free_after_withdraw = caller_balance - initial_fee;
+			assert_eq!(Balances::free_balance(caller), free_after_withdraw);
+
+			// Keep the account alive on its reserved balance: `free = 0` makes any deposit below
+			// the ED fail. `inc_providers` because the tx lifecycle holds a consumer reference.
+			let _ = frame_system::Pallet::<Runtime>::inc_providers(&caller);
+			assert_ok!(<Balances as ReservableCurrency<u64>>::reserve(
+				&caller,
+				free_after_withdraw
+			));
+			assert_eq!(Balances::free_balance(caller), 0);
+
+			// Final call weight 95 gives a refund of 5 < ED (10).
+			let final_weight = 95;
+			let mut post_info = post_info_from_weight(Weight::from_parts(final_weight, 0));
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_accrue(MockWeights::charge_asset_tx_payment_native()));
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(()),
+			));
+
+			let corrected_fee = base_weight + final_weight + ext_weight.ref_time() + len as u64;
+			assert_eq!(Balances::free_balance(caller), 0);
+			assert_eq!(Balances::reserved_balance(caller), free_after_withdraw);
+			// The fee handler is `()` in this mock: the fee and the unreturned refund are
+			// dropped, i.e. burned.
+			assert_eq!(
+				<Balances as frame_support::traits::Currency<u64>>::total_issuance(),
+				210 * balance_factor - initial_fee
+			);
+			System::assert_has_event(RuntimeEvent::TransactionPayment(
+				pallet_transaction_payment::Event::TransactionFeePaid {
+					who: caller,
+					actual_fee: corrected_fee,
+					tip: 0,
+				},
+			));
+		});
+}
