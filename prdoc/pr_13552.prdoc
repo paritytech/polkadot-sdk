@@ -1,0 +1,37 @@
+title: 'xcm-executor: price the end-of-message refund and stop buying back a refund holding cannot take'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The surplus refund the executor runs at the end of every message was never charged. It is
+    now charged the weigher's weight of a `RefundSurplus`, kept out of the refund and counted in
+    the weight used, but only when the trader refunds something. The charge is taken per weight
+    dimension: a dimension whose surplus does not cover it is not refunded, and a surplus that
+    covers it in no dimension is left as it was.
+
+    The `refund_surplus` benchmark now pays with the asset of the new
+    `pallet_xcm_benchmarks::generic::Config::worst_case_for_refund`, which defaults to the asset of
+    `worst_case_for_trader`. A runtime whose trader swaps, such as one with
+    `SwapFirstAssetTrader`, should return an asset the trader swaps, so the weight of
+    `RefundSurplus` includes the swap back on refund. Asset Hub Westend does.
+
+    A refund is no longer bought back from the trader when holding is at capacity. `RefundSurplus`
+    now fails with `HoldingWouldOverflow` before asking the trader when holding is at capacity for
+    the refund, if execution was paid for, or the leftover `fees`, even when their assets are in
+    holding, and leaves both to the end of the message. There, holding takes the refund and any leftover `fees` regardless of
+    its capacity and is trapped for the claimer as usual. Before, the trader bought the refund back,
+    or dropped it when the buy-back failed, as it always did for `TakeFirstAssetTrader`, and the
+    leftover `fees` were dropped with the executor; both are now claimable.
+- audience: Runtime User
+  description: |-
+    A message that still has unrefunded surplus weight when it ends is charged the weight of one
+    `RefundSurplus` for the refund the executor makes on its behalf, so the refund is that much
+    smaller, and no refund is made when the surplus does not cover it. This applies after an
+    explicit `RefundSurplus` too when surplus accrues later, for example from an error handler
+    that never ran.
+crates:
+- name: staging-xcm-executor
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

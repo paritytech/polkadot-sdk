@@ -229,13 +229,18 @@ mod benchmarks {
 	#[benchmark]
 	fn refund_surplus() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
-		let holding_assets = T::worst_case_holding(1);
-		// We can already buy execution since we'll load the holding register manually
-		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
+		let mut holding_assets = T::worst_case_holding(1);
+		let asset_for_fees = T::worst_case_for_refund()?;
+		if !holding_assets.fungible.contains_key(&asset_for_fees.id) {
+			let minted = assets_to_holding::<T>(&asset_for_fees.clone().into())
+				.map_err(|_| BenchmarkError::Stop("failed to mint the asset for fees"))?;
+			holding_assets.subsume_assets(minted);
+		}
 
+		// Buying more than is refunded, as a swapping trader refunds only less than it was paid.
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
-			weight_limit: Limited(Weight::from_parts(1337, 1337)),
+			weight_limit: Limited(Weight::from_parts(2 * 1337, 2 * 1337)),
 		}]);
 		executor.set_holding(holding_assets);
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));

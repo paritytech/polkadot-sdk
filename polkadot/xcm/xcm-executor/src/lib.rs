@@ -66,6 +66,15 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
+/// Where the surplus is refunded.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum RefundPoint {
+	/// The `RefundSurplus` instruction, which the message was weighed for.
+	Instruction,
+	/// The end of the message, which was not weighed for the refund and is charged `charge`.
+	End { charge: Weight },
+}
+
 environmental::environmental!(recursion_count: u8);
 
 /// The XCM executor.
@@ -405,8 +414,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// errors during execution.
 	pub fn post_process(mut self, xcm_weight: Weight) -> Outcome {
 		// We silently drop any error from our attempt to refund the surplus as it's a charitable
-		// thing so best-effort is all we will do.
-		let _ = self.refund_surplus();
+		// thing so best-effort is all we will do. The message was not weighed for this refund, so
+		// it is charged the weight of a `RefundSurplus`.
+		let charge = Config::Weigher::instr_weight(&mut RefundSurplus).unwrap_or_default();
+		let _ = self.refund_surplus(RefundPoint::End { charge });
 		drop(self.trader);
 
 		let mut weight_used = xcm_weight.saturating_sub(self.total_surplus);
@@ -549,45 +560,37 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	/// Refund any unused weight.
-	fn refund_surplus(&mut self) -> Result<(), XcmError> {
+	/// Refund any unused weight. At the end of the message, `charge` is kept out of the refund and
+	/// counted as used, but only when the trader refunds something.
+	fn refund_surplus(&mut self, point: RefundPoint) -> Result<(), XcmError> {
 		let current_surplus = self.total_surplus.saturating_sub(self.total_refunded);
+		let charge = match point {
+			RefundPoint::Instruction => Weight::zero(),
+			RefundPoint::End { charge } => charge,
+		};
+		let charged = charge.min(current_surplus);
+		let refundable = current_surplus.saturating_sub(charged);
 		tracing::trace!(
 			target: "xcm::refund_surplus",
 			total_surplus = ?self.total_surplus,
 			total_refunded = ?self.total_refunded,
 			?current_surplus,
+			?refundable,
 			"Refunding surplus",
 		);
-		if current_surplus.any_gt(Weight::zero()) {
-			if let Some(refund) = self.trader.refund_weight(current_surplus, &self.context) {
-				// Check if adding the refund would overflow holding. This can happen if the
-				// refund asset is not already in holding and holding is at max capacity.
-				if refund
-					.fungible
-					.first_key_value()
-					.map(|(id, _)| {
-						!self.holding.fungible.contains_key(id) &&
-							self.ensure_can_subsume_assets(1).is_err()
-					})
-					.unwrap_or(false)
-				{
-					// Can't add refund to holding - undo by buying back the weight.
-					// This returns the refund credit to the trader where it will be
-					// handled by OnUnbalanced when the trader is dropped.
-					let _ = self
-						.trader
-						.buy_weight(current_surplus, refund, &self.context)
-						.defensive_proof(
-							"refund_weight returned an asset capable of buying weight; qed",
-						);
-					tracing::error!(
-						target: "xcm::refund_surplus",
-						"error: HoldingWouldOverflow",
-					);
-					return Err(XcmError::HoldingWouldOverflow);
-				}
-				self.total_refunded.saturating_accrue(current_surplus);
+		// Mid-message, holding at capacity might not take the refund or the leftover `fees`, and a
+		// refund would then have to be bought back or trapped, so both are left to the end of the
+		// message. There holding takes them regardless, as holding is trapped right after.
+		if point == RefundPoint::Instruction {
+			// A trader that was never paid has nothing to refund.
+			let trader_paid = self.already_paid_fees || self.asset_used_in_buy_execution.is_some();
+			let refund_len = usize::from(trader_paid && refundable.any_gt(Weight::zero()));
+			self.ensure_can_subsume_assets(refund_len + self.fees.len())?;
+		}
+		if refundable.any_gt(Weight::zero()) {
+			if let Some(refund) = self.trader.refund_weight(refundable, &self.context) {
+				self.total_refunded.saturating_accrue(refundable);
+				self.total_surplus.saturating_reduce(charged);
 				self.holding.subsume_assets(refund);
 			}
 		}
@@ -1553,7 +1556,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					},
 				)
 			},
-			RefundSurplus => self.refund_surplus(),
+			RefundSurplus => self.refund_surplus(RefundPoint::Instruction),
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler, Weight::MAX)
 					.map_err(|error| {
