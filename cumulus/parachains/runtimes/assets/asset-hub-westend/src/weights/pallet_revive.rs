@@ -202,6 +202,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:3 w:2)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -218,6 +220,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `i` is `[0, 131072]`.
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `6535`
 		//  Estimated: `15032`
 		// Minimum execution time: 874_142_000 picoseconds.
@@ -228,6 +231,18 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 37
 			.saturating_add(Weight::from_parts(4_993, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads(16))
+=======
+		//  Measured:  `6256`
+		//  Estimated: `14753`
+		// Minimum execution time: 899_291_000 picoseconds.
+		Weight::from_parts(352_963_643, 0)
+			.saturating_add(Weight::from_parts(0, 14753))
+			// Standard Error: 103
+			.saturating_add(Weight::from_parts(21_137, 0).saturating_mul(c.into()))
+			// Standard Error: 80
+			.saturating_add(Weight::from_parts(4_698, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(17))
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 			.saturating_add(T::DbWeight::get().writes(12))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:2)
@@ -244,6 +259,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:3 w:2)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -263,6 +280,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `d` is `[0, 1]`.
 	fn eth_instantiate_with_code(c: u32, i: u32, d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `8470`
 		//  Estimated: `16885`
 		// Minimum execution time: 562_407_000 picoseconds.
@@ -275,6 +293,18 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 3_764_229
 			.saturating_add(Weight::from_parts(11_446_675, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(19))
+=======
+		//  Measured:  `8192`
+		//  Estimated: `16607`
+		// Minimum execution time: 572_706_000 picoseconds.
+		Weight::from_parts(500_894_441, 0)
+			.saturating_add(Weight::from_parts(0, 16607))
+			// Standard Error: 49
+			.saturating_add(Weight::from_parts(17_665, 0).saturating_mul(c.into()))
+			// Standard Error: 38
+			.saturating_add(Weight::from_parts(1_332, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(20))
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 			.saturating_add(T::DbWeight::get().writes(17))
 	}
 	fn deposit_eth_extrinsic_revert_event() -> Weight {
@@ -295,6 +325,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -318,8 +350,13 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(275_507_182, 0)
 			.saturating_add(Weight::from_parts(0, 12131))
 			// Standard Error: 5
+<<<<<<< HEAD
 			.saturating_add(Weight::from_parts(4_261, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads(15))
+=======
+			.saturating_add(Weight::from_parts(4_342, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(16))
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
@@ -1324,8 +1361,13 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+<<<<<<< HEAD
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+=======
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:1 w:1)
@@ -1339,6 +1381,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `i` is `[0, 131072]`.
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `2537`
 		//  Estimated: `6215`
 		// Minimum execution time: 215_483_000 picoseconds.
@@ -1352,6 +1395,17 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(4_045, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(7))
+=======
+		//  Measured:  `3828`
+		//  Estimated: `9681`
+		// Minimum execution time: 170_992_000 picoseconds.
+		Weight::from_parts(183_122_967, 0)
+			.saturating_add(Weight::from_parts(0, 9681))
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(4_183, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(8))
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1359,6 +1413,81 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+<<<<<<< HEAD
+=======
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `Measured`)
+	/// Storage: `AssetsFreezer::Freezes` (r:1 w:1)
+	/// Proof: `AssetsFreezer::Freezes` (`max_values`: None, `max_size`: Some(123), added: 2598, mode: `Measured`)
+	/// Storage: `AssetsFreezer::FrozenBalances` (r:1 w:1)
+	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_instantiate_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3294`
+		//  Estimated: `9234`
+		// Minimum execution time: 206_918_000 picoseconds.
+		Weight::from_parts(218_033_807, 0)
+			.saturating_add(Weight::from_parts(0, 9234))
+			// Standard Error: 413_638
+			.saturating_add(Weight::from_parts(38_283_558, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
+	/// Storage: `System::Account` (r:3 w:3)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
+	/// Storage: `Assets::Account` (r:2 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `Measured`)
+	/// Storage: `AssetsFreezer::Freezes` (r:1 w:1)
+	/// Proof: `AssetsFreezer::Freezes` (`max_values`: None, `max_size`: Some(123), added: 2598, mode: `Measured`)
+	/// Storage: `AssetsFreezer::FrozenBalances` (r:2 w:1)
+	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `AssetsHolder::BalancesOnHold` (r:1 w:0)
+	/// Proof: `AssetsHolder::BalancesOnHold` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:1)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `i` is `[1, 49152]`.
+	fn evm_instantiate(i: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5840`
+		//  Estimated: `14057`
+		// Minimum execution time: 346_428_000 picoseconds.
+		Weight::from_parts(360_469_660, 0)
+			.saturating_add(Weight::from_parts(0, 14057))
+			// Standard Error: 18
+			.saturating_add(Weight::from_parts(7_554, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().writes(12))
+	}
+	/// Storage: `System::Account` (r:3 w:3)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
+	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
 	/// Storage: `Assets::Account` (r:2 w:1)
@@ -1380,6 +1509,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `i` is `[10240, 49152]`.
 	fn evm_instantiate(t: u32, d: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `4102`
 		//  Estimated: `9574 + d * (405 ±35) + t * (405 ±35)`
 		// Minimum execution time: 453_364_000 picoseconds.
@@ -1395,6 +1525,17 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(11))
 			.saturating_add(Weight::from_parts(0, 405).saturating_mul(d.into()))
 			.saturating_add(Weight::from_parts(0, 405).saturating_mul(t.into()))
+=======
+		//  Measured:  `5517`
+		//  Estimated: `13932`
+		// Minimum execution time: 382_577_000 picoseconds.
+		Weight::from_parts(413_849_926, 0)
+			.saturating_add(Weight::from_parts(0, 13932))
+			// Standard Error: 689_756
+			.saturating_add(Weight::from_parts(43_325_556, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().writes(12))
+>>>>>>> 5983c935 (pallet-revive: derive child trie ids from the deletion queue counter (#13620))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
 	fn sha2_256(n: u32, ) -> Weight {
