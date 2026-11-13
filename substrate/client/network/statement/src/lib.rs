@@ -42,9 +42,10 @@
 //!
 //! There is no per-peer record of delivered statements. A statement is propagated once, on the
 //! tick after its import: the propagation pass drains the store's recent set, so no later pass
-//! can pick it up again. A statement with no routing target is the exception: it takes a detour
-//! through the farthest full peer, or stays held until a routing target syncs it. The only
-//! duplicates worth preventing are statements sent back to the peers they came from.
+//! can pick it up again. A statement with no routing target ready to receive it is the exception:
+//! it stays held until a routing target syncs it, or takes a detour through the farthest full
+//! peer when it has no routing target at all. The only duplicates worth preventing are statements
+//! sent back to the peers they came from.
 //!
 //! While a statement waits for validation, the peers it came from are recorded in
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
@@ -2292,7 +2293,7 @@ where
 		}
 	}
 
-	/// Hold the statements that have no routing target, so the retention sweep keeps them
+	/// Hold the statements that no routing target can receive, so the retention sweep keeps them
 	/// until [`Self::resolve_dead_ends`] finds them a peer.
 	fn hold_dead_ends(&mut self, statements: &[(u64, Hash, Statement)], dead_ends: Vec<usize>) {
 		for index in dead_ends {
@@ -2313,7 +2314,7 @@ where
 		}
 	}
 
-	/// Release or detour each held dead end. The farthest peer takes the detour because its
+	/// Release, send or detour each held dead end. The farthest peer takes the detour because its
 	/// routing peers lie elsewhere in the key space.
 	fn resolve_dead_ends(&mut self) {
 		if self.propagation_outboxes.dead_ends().is_empty() {
@@ -2327,7 +2328,7 @@ where
 			.collect();
 		let now = unix_timestamp_secs();
 		let mut resolved = HashSet::new();
-		let mut detours = Vec::new();
+		let mut sends = Vec::new();
 		for dead_end in self.propagation_outboxes.dead_ends() {
 			if now >= dead_end.expires_at {
 				resolved.insert(dead_end.hash);
@@ -2337,17 +2338,33 @@ where
 				!self.pending_initial_syncs.contains_key(peer) &&
 					self.peers.get(peer).is_some_and(|peer| peer.sync_watermark > dead_end.seq)
 			};
+			// No sync of such a target will reach the statement, so it has to be sent.
+			let missed_by_sync = |peer: &&PeerId| {
+				!dead_end.senders.contains(peer) &&
+					self.peers.get(peer).is_some_and(|peer| {
+						peer.can_receive() && peer.sync_watermark <= dead_end.seq
+					})
+			};
 			let targets = self.v2dht.routing_targets(&dead_end.topics);
 			if self.v2dht.is_replica_for(&dead_end.topics) || targets.iter().any(synced) {
 				resolved.insert(dead_end.hash);
 			} else if targets.is_empty() {
 				let detour = detour_peers.iter().find(|peer| !dead_end.senders.contains(peer));
-				detours.extend(detour.map(|peer| (*peer, dead_end.hash)));
+				if let Some(peer) = detour {
+					log::debug!(
+						target: LOG_TARGET,
+						"No routing target for {:?}, detour via {peer}",
+						dead_end.hash,
+					);
+					sends.push((*peer, dead_end.hash));
+				}
+			} else {
+				let missed = targets.iter().filter(missed_by_sync);
+				sends.extend(missed.map(|peer| (*peer, dead_end.hash)));
 			}
 		}
 		// The outbox takes its own hold on a hash before the dead end gives up its one.
-		for (peer, hash) in detours {
-			log::debug!(target: LOG_TARGET, "No routing target for {hash:?}, detour via {peer}");
+		for (peer, hash) in sends {
 			self.push_outbox_hashes(&peer, vec![hash]);
 			resolved.insert(hash);
 		}
@@ -2649,7 +2666,9 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				let plan = self.v2dht.propagation_plan(&statements);
+				let plan = self.v2dht.propagation_plan(&statements, |peer| {
+					self.peers.get(peer).is_some_and(Peer::can_receive)
+				});
 				self.queue_statements_for_targets(&statements, plan.targets);
 				self.hold_dead_ends(&statements, plan.dead_ends);
 			} else {
@@ -4556,23 +4575,22 @@ mod tests {
 		statement.set_topic(0, Topic(sp_crypto_hashing::blake2_256(&target.to_bytes())));
 		let hash = statement.hash();
 		statement_store.insert(statement.clone());
-		let statements = vec![(5, hash, statement)];
+		let mut late = statement.clone();
+		late.set_plain_data(b"admitted after the sync started".to_vec());
+		let late_hash = late.hash();
+		statement_store.insert(late.clone());
+		let statements = vec![(5, hash, statement), (6, late_hash, late)];
 		let held = || statement_store.held.lock().unwrap().get(&hash).copied();
 
-		let plan = handler.v2dht.propagation_plan(&statements);
-		assert_eq!(plan.dead_ends, vec![0]);
+		let plan = handler.v2dht.propagation_plan(&statements, |_| true);
+		assert_eq!(plan.dead_ends, vec![0, 1]);
 		handler.hold_dead_ends(&statements, plan.dead_ends);
 		handler.resolve_dead_ends();
 		assert_eq!(held(), Some(1), "no routing target is connected");
 
 		handler.v2dht.on_substream_opened(target);
-		handler.resolve_dead_ends();
-		assert_eq!(held(), Some(1), "the target has no initial sync yet");
-
-		handler.peers.get_mut(&target).unwrap().sync_watermark = 5;
-		handler.resolve_dead_ends();
-		assert_eq!(held(), Some(1), "a sync up to the statement's sequence leaves it out");
-
+		// A busy send slot keeps the queued hash in the outbox.
+		handler.in_flight_chunks.insert(target, 0);
 		handler.peers.get_mut(&target).unwrap().sync_watermark = 6;
 		handler.pending_initial_syncs.insert(
 			target,
@@ -4586,10 +4604,16 @@ mod tests {
 		);
 		handler.resolve_dead_ends();
 		assert_eq!(held(), Some(1), "the initial sync is still running");
+		assert_eq!(
+			handler.propagation_outboxes.get(&target).unwrap(),
+			&VecDeque::from([late_hash]),
+			"a sync up to the statement's sequence leaves it out, so the target gets it directly"
+		);
 
 		handler.pending_initial_syncs.remove(&target);
 		handler.resolve_dead_ends();
 		assert_eq!(held(), None);
+		assert!(handler.propagation_outboxes.dead_ends().is_empty());
 	}
 
 	#[tokio::test]
@@ -4683,7 +4707,7 @@ mod tests {
 			.or_default()
 			.insert(farthest);
 
-		let plan = handler.v2dht.propagation_plan(&statements);
+		let plan = handler.v2dht.propagation_plan(&statements, |_| true);
 		assert_eq!(plan.dead_ends, vec![0, 1]);
 		handler.hold_dead_ends(&statements, plan.dead_ends);
 		handler.resolve_dead_ends();

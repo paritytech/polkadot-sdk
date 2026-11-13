@@ -39,7 +39,7 @@ pub(crate) struct PropagationOutboxes {
 	dead_ends: Vec<DeadEnd>,
 }
 
-/// A statement that had no routing target when it was propagated.
+/// A statement that no routing target could receive when it was propagated.
 pub(crate) struct DeadEnd {
 	/// Admission sequence of the statement.
 	pub(crate) seq: u64,

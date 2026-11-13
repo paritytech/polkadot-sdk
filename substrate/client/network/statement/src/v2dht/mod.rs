@@ -157,7 +157,7 @@ pub(crate) struct PropagationPlan {
 	/// For each connected peer, the indices of the statements it should receive.
 	pub(crate) targets: Vec<(PeerId, Vec<usize>)>,
 	/// Indices of the statements at a dead end: the node is no replica for their topics and has
-	/// no routing target for them.
+	/// no routing target ready to receive them.
 	pub(crate) dead_ends: Vec<usize>,
 }
 
@@ -354,7 +354,8 @@ impl V2DhtOrchestrator {
 	// === Periodic ticks & post-iteration hooks ===
 
 	/// Plan where each of `statements` goes. A statement with topics is also a dead end when the
-	/// node has no routing target for it and is no replica for it, even if a filter matches it.
+	/// node is no replica for it and none of its routing targets `can_receive`, even if a filter
+	/// matches it.
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
@@ -362,6 +363,7 @@ impl V2DhtOrchestrator {
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
+		can_receive: impl Fn(&PeerId) -> bool,
 	) -> PropagationPlan {
 		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
 		let mut dead_ends = Vec::new();
@@ -369,7 +371,10 @@ impl V2DhtOrchestrator {
 		for (index, (_seq, _hash, statement)) in statements.iter().enumerate() {
 			let topics = statement.topics();
 			let mut targets = self.routing_targets(topics);
-			if targets.is_empty() && !topics.is_empty() && !self.is_replica_for(topics) {
+			if !topics.is_empty() &&
+				!targets.iter().any(&can_receive) &&
+				!self.is_replica_for(topics)
+			{
 				dead_ends.push(index);
 			}
 			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
@@ -534,7 +539,7 @@ mod tests {
 		let expected = routing_targets(&orchestrator, &topics);
 		assert!(!expected.is_empty(), "fixture must yield routing targets");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]).targets;
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)], |_| true).targets;
 
 		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
 		planned.sort();
@@ -560,7 +565,7 @@ mod tests {
 			.expect("fixture must yield a routing target");
 
 		let plan = orchestrator
-			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])])
+			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])], |_| true)
 			.targets;
 
 		let batch = plan
@@ -775,7 +780,7 @@ mod tests {
 		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
 		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
 
-		let plan = orchestrator.propagation_plan(&statements).targets;
+		let plan = orchestrator.propagation_plan(&statements, |_| true).targets;
 
 		assert_eq!(plan, vec![(light_peer, vec![0])]);
 	}
@@ -793,10 +798,11 @@ mod tests {
 			statement(3, &[]),
 		];
 
-		assert_eq!(orchestrator.propagation_plan(&statements).dead_ends, vec![0]);
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| true).dead_ends, vec![0]);
 
 		orchestrator.on_substream_opened(remote);
-		assert!(orchestrator.propagation_plan(&statements).dead_ends.is_empty());
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| false).dead_ends, vec![0]);
+		assert!(orchestrator.propagation_plan(&statements, |_| true).dead_ends.is_empty());
 	}
 
 	#[test]
@@ -811,7 +817,10 @@ mod tests {
 
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
-		assert_eq!(orchestrator.propagation_plan(&statements).targets, vec![(peer, vec![0])]);
+		assert_eq!(
+			orchestrator.propagation_plan(&statements, |_| true).targets,
+			vec![(peer, vec![0])]
+		);
 	}
 
 	#[test]
