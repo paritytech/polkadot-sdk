@@ -452,12 +452,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The owner of the given node, if any.
-	pub fn owners(node: impl EncodeLike<PeerId>) -> Option<T::AccountId> {
+	pub fn owners<KArg: EncodeLike<PeerId>>(node: KArg) -> Option<T::AccountId> {
 		Owners::<T>::get(node)
 	}
 
 	/// The additional adaptive connections of the given node.
-	pub fn additional_connection(node: impl EncodeLike<PeerId>) -> BTreeSet<PeerId> {
+	pub fn additional_connection<KArg: EncodeLike<PeerId>>(node: KArg) -> BTreeSet<PeerId> {
 		AdditionalConnections::<T>::get(node)
 	}
 
