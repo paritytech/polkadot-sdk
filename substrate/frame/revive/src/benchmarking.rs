@@ -74,7 +74,7 @@ use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{generic::DigestItem, traits::Zero};
+use sp_runtime::{SaturatedConversion, generic::DigestItem, traits::Zero};
 
 /// How many runs we do per API benchmark.
 ///
@@ -142,6 +142,23 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
 		.map_err(|_| "set_delegation failed")?;
 	Ok(account_id)
+}
+
+/// Queues `contract` for deletion as a terminated contract that left dust on its account.
+///
+/// With no contract live at the address, the deletion queue reads the `AccountInfoOf` entry and
+/// runs a `clear_prefix` on `NativeDepositOf`, even when there are no rows. In ref time this
+/// branch is the worst case per entry. With a live contract the entry is 125 bytes larger (the
+/// encoded `ContractInfo` with a 32-byte trie id and `u128` balances, against `EOA` and its
+/// dust), but the `clear_prefix` is skipped. `deletion_queue_per_entry` charges the
+/// `AccountInfoOf` read at its max encoded length, so its proof size covers either branch. The
+/// branch is also taken when the address has no entry at all; `dust: 1` keeps a stored entry so
+/// that the measured read decodes a value.
+fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
+	let info = contract.info()?;
+	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
+	ContractInfo::<T>::queue_for_deletion(info.trie_id, contract.account_id.clone());
+	Ok(())
 }
 
 /// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
@@ -773,15 +790,20 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
-	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
-	#[benchmark(pov_mode = Measured)]
+	/// Measures the per-entry cost of `process_deletion_queue_batch`.
+	///
+	/// This is one `DeletionQueue` read, the `AccountInfoOf` read that checks for a live contract
+	/// at the address, plus the `DeletionQueue` + `DeletionQueueCounter` writes done by
+	/// `entry.remove()`.
+	///
+	/// The `AccountInfoOf` read is charged at its max encoded length, so the proof covers a
+	/// live contract's entry as well as the plain account entry this benchmark reads.
+	#[benchmark(pov_mode = Measured {
+		Revive::AccountInfoOf: MaxEncodedLen,
+	})]
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -796,10 +818,7 @@ mod benchmarks {
 	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -811,9 +830,10 @@ mod benchmarks {
 	}
 
 	/// Measures the cost of clearing one [`NativeDepositOf`] row during
-	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
-	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
-	/// an empty trie. The deletion queue then drains all rows in one go.
+	/// [`ContractInfo::process_deletion_queue_batch`].
+	///
+	/// Pre-populates the contract with `k` per-payer rows and queues it for deletion as a
+	/// terminated contract with an empty trie. The deletion queue then drains all rows in one go.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -824,10 +844,7 @@ mod benchmarks {
 			let payer: T::AccountId = account("payer", i, 0);
 			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
 		}
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -835,6 +852,10 @@ mod benchmarks {
 		}
 
 		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		assert!(
+			NativeDepositOf::<T>::iter_prefix(&instance.account_id).next().is_none(),
+			"native deposit rows should be cleared",
+		);
 		Ok(())
 	}
 
@@ -7578,7 +7599,8 @@ mod benchmarks {
 
 	/// ## Test Setup:
 	/// - Creates 1 transaction with 1 ContractEmitted event
-	/// - Event contains `d` total bytes of data across data field and topics
+	/// - Event contains `d` total bytes of data across data field and topics, topics first: up to
+	///   `limits::NUM_EVENT_TOPICS` full 32-byte topics, the remaining bytes in the data field
 	///
 	/// ## Usage:
 	/// Measures the per-byte event data processing overhead during finalization
@@ -7603,28 +7625,13 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Create one event with d bytes of data distributed across topics and data field
-		let (event_data, topics) = if d < 32 {
-			// If total data is less than 32 bytes, put all in data field
-			(vec![0x42u8; d as usize], vec![])
-		} else {
-			// Fill topics first, then put remaining bytes in data field
-			let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
-			let topic_bytes_used = num_topics * 32;
-			let data_bytes_remaining = d - topic_bytes_used;
-
-			// Create topics filled with sequential data
-			let mut topics = Vec::new();
-			for topic_index in 0..num_topics {
-				let topic_data = [topic_index as u8; 32];
-				topics.push(H256::from(topic_data));
-			}
-
-			// Remaining bytes go to data field
-			let event_data = vec![0x42u8; data_bytes_remaining as usize];
-
-			(event_data, topics)
-		};
+		let d: usize = d.saturated_into();
+		let max_topics: usize = limits::NUM_EVENT_TOPICS.saturated_into();
+		let num_topics = max_topics.min(d / H256::len_bytes());
+		let topics: Vec<H256> = (0..num_topics)
+			.map(|index| H256::from_low_u64_be(index.saturated_into()))
+			.collect();
+		let event_data = vec![0x42u8; d - num_topics * H256::len_bytes()];
 
 		// Store transaction
 		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
@@ -7676,8 +7683,9 @@ mod benchmarks {
 	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
 	/// `buffer_outside_frame_log`.
 	///
-	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
-	/// data word.
+	/// Each log is empty (no topics, no data), so the slope is the per-log cost alone, as in
+	/// `on_finalize_per_event`. The per-topic cost is `outside_frame_log_topics`'s and the per-byte
+	/// cost `outside_frame_log_data`'s.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7686,19 +7694,10 @@ mod benchmarks {
 		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
-		let topics =
-			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
-		let data = vec![0x44u8; 32];
-
 		// Appended straight into the buffer, past the cap: the drain is what is measured, and a
 		// runtime that keeps the buffer off still needs its weight.
 		for _ in 0..n {
-			Pallet::<T>::bench_buffer_outside_frame_log(
-				instance.address,
-				topics.clone(),
-				data.clone(),
-			);
+			Pallet::<T>::bench_buffer_outside_frame_log(instance.address, vec![], vec![]);
 		}
 
 		#[block]
@@ -7712,14 +7711,42 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
-	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
-	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with `t` topics and
+	/// no data: the `OutsideFrameLogs::take` reads the topics back, the RLP encoding folds them
+	/// into the synthetic transaction's receipt, and the bloom accrual hashes each of them once.
 	///
-	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
-	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
-	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
-	/// benchmark's 32-byte word alone would under-charge it.
+	/// Topics and data are measured in separate benchmarks because a benchmark with both components
+	/// varies one while holding the other at its maximum: the per-topic cost would be measured on
+	/// top of the full data and fitted away. Pairs with `outside_frame_log` and
+	/// `outside_frame_log_data`; together they give `OnFinalizeBlockParts::per_outside_frame_log`
+	/// its per-log, per-topic and per-byte marginals.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_topics(
+		t: Linear<0, { limits::NUM_EVENT_TOPICS }>,
+	) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		let topics = (0..t).map(|index| H256::from_low_u64_be(index.into())).collect();
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, vec![]);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log with no topics and
+	/// `d` bytes of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so
+	/// does the RLP encoding that folds it into the synthetic transaction's receipt.
+	///
+	/// `d` goes up to what a contract can emit. The per-topic cost is `outside_frame_log_topics`'s.
 	#[benchmark(pov_mode = Measured)]
 	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
 		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
@@ -7727,11 +7754,8 @@ mod benchmarks {
 
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		let topics =
-			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
-		let data = vec![0x44u8; d as usize];
-
-		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
+		let data = vec![0x42u8; d.saturated_into()];
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, vec![], data);
 
 		#[block]
 		{
