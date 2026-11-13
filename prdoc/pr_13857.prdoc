@@ -1,0 +1,46 @@
+title: Implement multi-origin batches
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds an extension pallet `pallet-utility-ext` to `pallet-utility` which allows for
+    batching calls with different origins in a single signed transaction. The origins can be
+    custom, they don't have to be `RawOrigin::Signed(AccountId)`. This is done by supplying a
+    number of batch items consisting of a call, its wrapping inner `TransactionExtension` and the
+    origin the call is expected to run with, along with the submitter's nonce, to
+    `pallet_utility_ext::batch_multi_origin` or `force_batch_multi_origin`. The multi origin
+    batches behave like `batch` and `force_batch` respectively.
+
+    Each item runs its inner pipeline in full before the next item starts, as if it were a
+    transaction of its own included right after the previous item. Items are signed over an
+    `ItemImplication` binding them to the batch, so they cannot be applied anywhere else. Items
+    are not validated in the transaction pool, only the submitter's transaction is. The submitter
+    pays for the whole batch up front like for any transaction, each item then pays for itself
+    through its inner pipeline and the pallet's `MultiOriginBatch` extension, wrapping the
+    runtime's fee payment extension, refunds the submitter the weight and bytes of every item
+    whose pipeline ran to completion.
+
+    Enabling this feature means configuring `pallet-utility-ext` in your runtime. Importantly, the
+    pallet requires:
+
+    - A maximum number of calls allowed in a single batch. This should generally be a low figure
+      (e.g. 8 calls).
+    - A call filter for which calls are allowed to be part of multi origin batches.
+    - The inner `TransactionExtension` type which will wrap each of the calls inside the batch.
+      This is meant to be a subset of the runtime's overarching `TransactionExtension`, with the
+      one verifying signatures first and the fee payment extension included, but without the
+      extensions which are supposed to run only once per transaction (e.g. `CheckWeight`,
+      `WeightReclaim`).
+    - A `FeeCredit` which sets the submitter's withdrawn fee aside while the items run,
+      `pallet_transaction_payment::Pallet` for the fee payment extensions built on it.
+    - The pallet's `MultiOriginBatch` extension wrapping the runtime's fee payment extension in
+      its slot of the overarching `TransactionExtension`.
+
+    `TransactionValidityError` and its variants now derive `DecodeWithMemTracking` in
+    `sp-runtime`.
+crates:
+- name: pallet-utility-ext
+  bump: major
+- name: sp-runtime
+  bump: minor
+- name: polkadot-sdk
+  bump: minor

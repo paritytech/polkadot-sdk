@@ -810,6 +810,11 @@ pub use pallet_validator_collators;
 #[cfg(feature = "pallet-validator-set-announcer")]
 pub use pallet_validator_set_announcer;
 
+/// FRAME pallet for batches of calls, each with its own origin, in the spirit of
+/// pallet-utility.
+#[cfg(feature = "pallet-utility-ext")]
+pub use pallet_utility_ext;
+
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
 pub use pallet_verify_signature;
