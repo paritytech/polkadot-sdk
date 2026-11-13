@@ -412,6 +412,11 @@ fn run_out_of_fuel_host() {
 	});
 }
 
+/// The contract calls `gas_price` in a loop.
+///
+/// The interpreter charges for compiling the loop on its first iteration, so the comparison
+/// starts from one iteration: every further iteration runs the same compiled instructions and
+/// must cost the same.
 #[test]
 fn gas_syncs_work() {
 	let (code, _code_hash) = compile_module("gas_price_n").unwrap();
@@ -419,27 +424,259 @@ fn gas_syncs_work() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let contract = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(contract.addr).data(0u32.encode()).build();
-		assert_ok!(result.result);
-		let engine_consumed_noop = result.weight_consumed.ref_time();
+		let engine_consumed = |n: u32| {
+			let result = builder::bare_call(contract.addr).data(n.encode()).build();
+			assert_ok!(result.result);
+			let host_consumed =
+				<Test as Config>::WeightInfo::seal_gas_price().ref_time() * u64::from(n);
+			result.weight_consumed.ref_time() - host_consumed
+		};
+		let engine_consumed_once = engine_consumed(1);
+		let one_more = engine_consumed(2) - engine_consumed_once;
+		let two_more = engine_consumed(3) - engine_consumed_once;
 
-		let result = builder::bare_call(contract.addr).data(1u32.encode()).build();
-		assert_ok!(result.result);
-		let weight_consumed_once = result.weight_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::WeightInfo::seal_gas_price().ref_time();
-		let engine_consumed_once = weight_consumed_once - host_consumed_once - engine_consumed_noop;
-
-		let result = builder::bare_call(contract.addr).data(2u32.encode()).build();
-		assert_ok!(result.result);
-		let weight_consumed_twice = result.weight_consumed.ref_time();
-		let host_consumed_twice = host_consumed_once * 2;
-		let engine_consumed_twice =
-			weight_consumed_twice - host_consumed_twice - engine_consumed_noop;
-
-		// Second contract just repeats first contract's instructions twice.
 		// If runtime syncs gas with the engine properly, this should pass.
-		assert_eq!(engine_consumed_twice, engine_consumed_once * 2);
+		assert!(one_more > 0);
+		assert_eq!(two_more, one_more * 2);
 	});
+}
+
+/// The interpreter charges the compilation of the blocks a call enters as gas.
+///
+/// The contracts are built from assembly because the tests need exact block shapes: the length
+/// of the entry block, blocks of one instruction, and the length of the code section at a fixed
+/// number of instructions. Solidity output does not give that control. The Solidity test
+/// `sub_call_charges_caller_code_map` in `tests/sol/contract.rs` covers the code map charge
+/// with both the EVM and the PVM backend.
+///
+/// The contracts stop at the sentinel syscall that only the benchmarks accept. The CI job with
+/// that feature selects tests whose path contains `benchmark`, hence the module name.
+#[cfg(feature = "runtime-benchmarks")]
+mod compilation_cost_benchmark {
+	use super::*;
+	use crate::{
+		call_builder::VmBinaryModule,
+		metering::{EngineMeter, slope},
+	};
+	use alloy_core::sol_types::SolCall;
+	use limits::code::BASIC_BLOCK_SIZE;
+	use pallet_revive_fixtures::{Caller, FixtureType, compile_module_with_type};
+	use pretty_assertions::assert_eq;
+	use test_case::test_case;
+
+	/// Deploys contracts whose entry blocks have 2 and `BASIC_BLOCK_SIZE` instructions.
+	fn deploy_entry_blocks() -> (H160, H160) {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let deploy = |n| {
+			let code = VmBinaryModule::with_entry_block(n).code;
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr
+		};
+		(deploy(2), deploy(BASIC_BLOCK_SIZE))
+	}
+
+	/// The two contracts have code of the same size and stop at the first instruction of their
+	/// entry block.
+	///
+	/// They differ only in the gas of the entry block: one gas per instruction to run it and the
+	/// compilation per instruction.
+	///
+	/// The compilation of the `dn = BASIC_BLOCK_SIZE - 2` further instructions stays within the
+	/// rounding of the `interpreter_compile_per_instruction` slope `I`. With `r` the ref time per
+	/// gas, `millis = ceil(1000 * I / r)` exceeds `1000 * I / r` by less than 1, which adds less
+	/// than `dn * r / 1000` to the `dn` instructions. Each entry block's compilation is rounded
+	/// up to whole gas once, so the difference of the two moves by less than one gas either way.
+	/// The compilation part is thus within `(dn * I - r, dn * I + dn * r / 1000 + r)`.
+	#[test]
+	fn entry_block_compilation_is_charged_per_instruction() {
+		ExtBuilder::default().build().execute_with(|| {
+			let (small, large) = deploy_entry_blocks();
+			let weight = |addr| {
+				let result = builder::bare_call(addr).build();
+				assert_ok!(result.result);
+				result.weight_consumed.ref_time()
+			};
+
+			let r = EngineMeter::<Test>::ref_time_per_fuel();
+			let millis = EngineMeter::<Test>::interpreter_compilation_cost().per_instruction_millis;
+			assert!(millis > 0);
+			let compile = |n: u32| (u64::from(n) * u64::from(millis)).div_ceil(1000);
+			let dn = BASIC_BLOCK_SIZE - 2;
+			let gas = u64::from(dn) + compile(BASIC_BLOCK_SIZE) - compile(2);
+			let measured = weight(large) - weight(small);
+			assert_eq!(measured, gas * r);
+
+			let compilation = measured - u64::from(dn) * r;
+			let benchmark =
+				slope(<Test as Config>::WeightInfo::interpreter_compile_per_instruction, dn)
+					.ref_time();
+			let rounding = (u64::from(dn + 1000) * r).div_ceil(1000);
+			assert!(compilation + r > benchmark, "{compilation} <= {benchmark} - {r}");
+			assert!(
+				compilation < benchmark + rounding,
+				"{compilation} >= {benchmark} + {rounding}"
+			);
+		});
+	}
+
+	/// Every basic block a call enters is charged `per_block` on top of its instructions.
+	///
+	/// The contracts of [`VmBinaryModule::with_branch_blocks`] have code of the same size and
+	/// enter `b` blocks of one `branch_eq` before the block of the `ecalli SENTINEL` and the
+	/// instruction after it, which is the same for every `b`. Each further block is compiled
+	/// once, for `per_block` and one instruction of `per_instruction_millis` rounded up, and runs
+	/// its `branch_eq` once, for the gas the cost model assigns to it. The pallet does not set a
+	/// cost model, so the interpreter uses the default one of PolkaVM, the naive model.
+	///
+	/// Every further block stays within the rounding of the `interpreter_compile_per_block`
+	/// slope `B`. With `I` the `interpreter_compile_per_instruction` slope and `r` the ref time
+	/// per gas, a block costs `ceil(P / r) + ceil(millis / 1000) + 1` gas with
+	/// `P = B - I - r` and `millis = ceil(1000 * I / r)`. `ceil(millis / 1000)` is `ceil(I / r)`,
+	/// so a block is charged `B` rounded up in two places, each by less than `r`.
+	#[test]
+	fn branch_block_compilation_is_charged_per_block() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+			let weight = |b| {
+				let code = VmBinaryModule::with_branch_blocks(b).code;
+				let addr =
+					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+				let result = builder::bare_call(addr).build();
+				assert_ok!(result.result);
+				result.weight_consumed.ref_time()
+			};
+
+			let cost = EngineMeter::<Test>::interpreter_compilation_cost();
+			assert!(cost.per_block > 0);
+			let compile =
+				u64::from(cost.per_block) + u64::from(cost.per_instruction_millis).div_ceil(1000);
+			let run = u64::from(polkavm::CostModel::naive().branch_eq);
+			let r = EngineMeter::<Test>::ref_time_per_fuel();
+			let (b1, b2) = (1, VmBinaryModule::BRANCH_BLOCKS / 2);
+			let measured = weight(b2) - weight(b1);
+			assert_eq!(measured, u64::from(b2 - b1) * (compile + run) * r);
+
+			let benchmark =
+				slope(<Test as Config>::WeightInfo::interpreter_compile_per_block, b2 - b1)
+					.ref_time();
+			let rounding = 2 * r * u64::from(b2 - b1);
+			assert!(measured >= benchmark, "{measured} < {benchmark}");
+			assert!(measured < benchmark + rounding, "{measured} >= {benchmark} + {rounding}");
+		});
+	}
+
+	/// Deploys contracts with code sections of about 1 KiB and of the maximum size.
+	///
+	/// Both are contracts of [`VmBinaryModule::with_code_bytes`], the larger one of
+	/// [`VmBinaryModule::MAX_CODE_BYTES`]. Returns the address and the blob length of each.
+	fn deploy_code_sizes() -> ((H160, u32), (H160, u32)) {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let deploy = |code_bytes| {
+			let code = VmBinaryModule::with_code_bytes(code_bytes).code;
+			let blob_len = u32::try_from(code.len()).unwrap();
+			let addr =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+			(addr, blob_len)
+		};
+		(deploy(1024), deploy(VmBinaryModule::MAX_CODE_BYTES))
+	}
+
+	/// A call's ref time grows with its code at the `call_with_pvm_code_per_byte` slope.
+	///
+	/// The slope applies per byte of the code blob. The contracts of
+	/// [`VmBinaryModule::with_code_bytes`] enter the same block and stop, so they differ only in
+	/// the code load. The caller pays the whole slope, and the callee consumes the same gas for
+	/// both: the interpreter's first allocation of the map of compiled blocks is paid from the
+	/// credit the callee's instance starts with.
+	#[test]
+	fn code_load_is_charged_per_code_byte() {
+		ExtBuilder::default().build().execute_with(|| {
+			let ((small, small_blob), (large, large_blob)) = deploy_code_sizes();
+			let weight = |addr| {
+				let result = builder::bare_call(addr).build();
+				assert_ok!(result.result);
+				result.weight_consumed.ref_time()
+			};
+			let measured = weight(large) - weight(small);
+
+			let code_load = <Test as Config>::WeightInfo::call_with_pvm_code_per_byte;
+			let expected =
+				slope(code_load, large_blob).ref_time() - slope(code_load, small_blob).ref_time();
+			assert_eq!(measured, expected);
+		});
+	}
+
+	/// A callee started with no gas runs out of gas, and its caller pays for loading its code.
+	///
+	/// `Caller` calls a contract of [`VmBinaryModule::with_code_bytes`] with a gas limit of 0.
+	/// The callee's instance starts with only the credit for the map of compiled blocks, which
+	/// the map allocation takes, so the callee cannot pay for its entry block and fails with
+	/// `OutOfGas`. The caller runs the same code for both callees, so its weight differs by the
+	/// code load of the callees alone.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn code_map_credit_is_not_spendable(caller_type: FixtureType) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let ((small, small_blob), (large, large_blob)) = deploy_code_sizes();
+			let caller =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+			let weight = |callee: H160| {
+				let mut tracer = CallTracer::new(Default::default());
+				let result = trace(&mut tracer, || {
+					builder::bare_call(caller.addr)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Default::default(),
+								_gas: 0,
+							}
+							.abi_encode(),
+						)
+						.build()
+				});
+				let output = result.result.unwrap();
+				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
+				assert!(!call.success, "a callee without gas must fail");
+				let callee_trace = &tracer.collect_trace().unwrap().calls[0];
+				assert_eq!(callee_trace.to, callee);
+				assert_eq!(callee_trace.error.as_deref(), Some("OutOfGas"));
+				result.weight_consumed.ref_time()
+			};
+			let measured = weight(large) - weight(small);
+
+			let code_load = <Test as Config>::WeightInfo::call_with_pvm_code_per_byte;
+			let expected =
+				slope(code_load, large_blob).ref_time() - slope(code_load, small_blob).ref_time();
+			assert_eq!(measured, expected);
+		});
+	}
+
+	/// A call that hands the interpreter less gas than compiling its entry block costs fails
+	/// with `OutOfGas` and consumes all of that gas.
+	///
+	/// The limit is the weight of the small contract plus the gas of running the
+	/// `BASIC_BLOCK_SIZE - 2` further instructions of the large entry block. That is enough to
+	/// run the large entry block, so the call runs out of gas only because of the compilation.
+	#[test]
+	fn entry_block_compilation_beyond_gas_left_consumes_all_gas() {
+		ExtBuilder::default().build().execute_with(|| {
+			let (small, large) = deploy_entry_blocks();
+			let small_weight = builder::bare_call(small).build().weight_consumed.ref_time();
+			let run = u64::from(BASIC_BLOCK_SIZE - 2) * EngineMeter::<Test>::ref_time_per_fuel();
+			let limit = Weight::from_parts(small_weight + run, WEIGHT_LIMIT.proof_size());
+
+			let result = builder::bare_call(large)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: limit,
+					deposit_limit: deposit_limit::<Test>(),
+				})
+				.build();
+			assert_err!(result.result, <Error<Test>>::OutOfGas);
+			let unused = limit.ref_time() - result.weight_consumed.ref_time();
+			assert!(unused < EngineMeter::<Test>::ref_time_per_fuel(), "{unused} ref time unused");
+		});
+	}
 }
 
 /// Check that contracts with the same account id have different trie ids.
