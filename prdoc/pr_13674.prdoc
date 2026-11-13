@@ -27,6 +27,12 @@ doc:
     `NativeDepositOf` rows, and its address could not be instantiated again
     (`PendingDepositCleanup`).
 
+    A contract, or the pallet account for code deposits, has one `NativeDepositOf` row per payer,
+    and nothing bounds how many. Each swap now reads those rows in chunks across steps, keeping the
+    last payer and the native summed so far in the cursor, and is charged for the rows it reads
+    before reading them. A step can no longer exceed the migration's weight or proof size limit
+    because one account has many payers.
+
     Runtimes that already ran v4 are unaffected. Runtimes that have not:
     - Register the PGAS asset before scheduling v4, and run the `try-runtime` migration checks.
       v4 never fails on chain, since a failed migration is handled by `FailedMigrationHandler`,
@@ -35,10 +41,10 @@ doc:
       `post_upgrade` rejects any account left on native, so the checks catch this before release.
     - If you implement `pallet_revive::WeightInfo` yourself, add `v4_clear_code_credit_step`, or
       regenerate your weights.
-    - `pallet_revive::migrations::v4::Cursor` is now generic over the account id, with
-      `CursorOf<T>` as the runtime's alias, and has a new `ClearCodeCredits(Option<AccountId>)`
-      variant. Code that names the type should use `CursorOf<T>`; code that matches on it must
-      handle the new variant.
+    - `pallet_revive::migrations::v4::Cursor` is now generic over the account id and balance, with
+      `CursorOf<T>` as the runtime's alias, and has new `ClearCodeCredits(Option<AccountId>)`,
+      `CodeRows` and `ContractRows` variants. Code that names the type should use `CursorOf<T>`;
+      code that matches on it must handle the new variants.
 crates:
 - name: pallet-revive
   bump: major
