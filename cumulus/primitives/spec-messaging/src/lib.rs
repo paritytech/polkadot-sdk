@@ -28,10 +28,9 @@
 extern crate alloc;
 
 pub mod channel;
-pub mod flow_control;
+pub mod fetch;
 pub mod inherent;
 pub mod lift;
-pub mod message;
 pub mod mmr;
 pub mod stream;
 pub mod streams_root;
@@ -39,26 +38,34 @@ pub mod streams_root;
 #[cfg(test)]
 mod adversarial_tests;
 #[cfg(test)]
+mod conformance_vectors;
+#[cfg(test)]
 mod test_utils;
 
-pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState, RegisterRead};
-pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
+pub use channel::{
+	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, InChannelState, OpenSession,
+	OutChannelId, OutChannelState, Register, RegisterStatus, SessionParams,
+};
+pub use fetch::{
+	verify_channel_messages, verify_messages, FetchError, FetchResponse, MessagesRequest,
+	MessagesResponse, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
+};
 pub use inherent::{
-	ConsumeItem, ConsumedStream, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
+	ConsumedStreams, LossyRead, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
 };
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
-	LiftsBySource, MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, SourceStreams,
-	TreeInclusionProof,
+	LiftsBySource, RequiresLift, SourceStreams,
 };
-pub use message::{
-	leaf_hash, verify_event, verify_exchange, verify_messages, EventRequest, EventResponse,
-	ExchangeRequest, ExchangeResponse, ExchangeVerified, MessagesRequest, MessagesResponse,
-	VerifiedEvent, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
+pub use mmr::{
+	leaf_hash, leaf_hash_with_version, FrontierFull, MessagePosition, MmrExtensionProof,
+	MmrFrontier, MmrRoot, ProofError,
 };
-pub use mmr::{FrontierFull, MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
-pub use streams_root::{StreamProof, StreamsRoot};
+pub use streams_root::{
+	InnerNode, NodeKey, NodeLookup, NodeStore, StreamProof, StreamsRoot, StreamsTree, TreeChild,
+	TreeError, TreeRootEntry,
+};
 
 /// The hash function for all of speculative messaging: leaves, MMR merges, stream and
 /// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
@@ -77,15 +84,13 @@ pub const INNER_TAG: u8 = 0x2;
 /// MMR peak bagging.
 pub const PEAK_TAG: u8 = 0x3;
 
-/// Stream root: `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])` ([`mmr::MmrRoot::from_bag`]).
-/// Binding the count stops a peer from presenting the same peaks at a forged position. The empty
-/// MMR has no peaks to bag; its root is the count-0 case, with a zero bag ([`mmr::empty_root`]).
+/// Stream root ([`mmr::MmrRoot::from_bag`]).
 pub const ROOT_TAG: u8 = 0x4;
 
-/// Commitment-tree leaf: `H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`.
+/// Commitment-tree leaf. It binds the full `StreamId` key.
 pub const TREE_LEAF_TAG: u8 = 0x5;
 
-/// Commitment-tree inner node: `H(TREE_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
+/// Commitment-tree inner node. It binds its split bit.
 pub const TREE_INNER_TAG: u8 = 0x6;
 
 /// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
