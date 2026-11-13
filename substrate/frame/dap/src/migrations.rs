@@ -21,6 +21,54 @@ use super::*;
 use crate::weights::WeightInfo;
 use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 
+/// V2 to V3 migration: Sets the value to the newly introduced `TotalDeactivatedAmount` equal to the
+/// reducible balance of the buffer account.
+pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	InnerMigrateV2ToV3<T>,
+	pallet::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Inner (unversioned) migration logic. Use [`MigrateV2ToV3`] instead.
+pub struct InnerMigrateV2ToV3<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> UncheckedOnRuntimeUpgrade for InnerMigrateV2ToV3<T> {
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let buffer_balance = T::IssuedCurrency::reducible_balance(
+			&Pallet::<T>::buffer_account(),
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+
+		TotalDeactivatedAmount::<T>::put(buffer_balance);
+
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(vec![])
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let buffer_balance = T::IssuedCurrency::reducible_balance(
+			&Pallet::<T>::buffer_account(),
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+
+		frame_support::ensure!(
+			TotalDeactivatedAmount::<T>::get() == buffer_balance,
+			"TotalDeactivatedAmount should be equal to the buffer account balance after migration"
+		);
+
+		Ok(())
+	}
+}
+
 /// V1 to V2 migration: seeds `BudgetAllocation`, credits a one-shot catch-up drip
 /// for the window `[P::get(), now]`, and initializes `LastIssuanceTimestamp` to
 /// `now` so regular drips start a fresh cadence from here.

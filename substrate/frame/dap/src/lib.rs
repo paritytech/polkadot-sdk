@@ -129,7 +129,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -139,6 +139,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>>
 	where
 		AssetKindOf<Self>: FullCodec + Ord,
+		AssetsBalanceOf<Self>: Into<IssuedCurrencyBalanceOf<Self>>,
 	{
 		/// The currency type (new fungible traits).
 		type IssuedCurrency: FungibleInspect<Self::AccountId>
@@ -310,6 +311,10 @@ pub mod pallet {
 	/// [`migrations::MigrateV1ToV2`] to prevent incorrect minting on the first drip.
 	#[pallet::storage]
 	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
+
+	/// Total amount of [`IssuedCurrency`] deactivated on behalf of the current pallet.
+	#[pallet::storage]
+	pub type TotalDeactivatedAmount<T> = StorageValue<_, IssuedCurrencyBalanceOf<T>, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -506,7 +511,25 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: IssuedCurrencyBalanceOf<T>) {
+			TotalDeactivatedAmount::<T>::mutate(|deactivated| {
+				deactivated.saturating_accrue(amount);
+			});
+
 			T::IssuedCurrency::deactivate(amount);
+		}
+
+		/// Try to reactivate funds on buffer withdrawal.
+		pub(crate) fn try_reactivate_buffer_funds(amount: IssuedCurrencyBalanceOf<T>) -> bool {
+			let deactivated = TotalDeactivatedAmount::<T>::get();
+			if deactivated < amount {
+				return false;
+			}
+
+			TotalDeactivatedAmount::<T>::put(deactivated.saturating_sub(amount));
+
+			T::IssuedCurrency::reactivate(amount);
+
+			true
 		}
 
 		/// Set the budget allocation map.
@@ -692,6 +715,20 @@ pub mod pallet {
 
 					let amount = allocation.amount_per_ms.saturating_mul(elapsed_as_balance);
 
+					if Some(&asset) == native_currency_asset_kind.as_ref() && account != &buffer {
+						if !Self::try_reactivate_buffer_funds(amount.into()) {
+							Self::deposit_event(Event::Unexpected(
+								UnexpectedKind::DistributionTransferFailed {
+									asset: asset.clone(),
+									destination: key.clone(),
+									amount,
+								},
+							));
+
+							continue;
+						}
+					}
+
 					let result = T::Assets::transfer(
 						asset.clone(),
 						&buffer,
@@ -701,6 +738,11 @@ pub mod pallet {
 					);
 
 					if result.is_err() {
+						if Some(&asset) == native_currency_asset_kind.as_ref() && account != &buffer
+						{
+							Self::deactivate_buffer_funds(amount.into());
+						}
+
 						Self::deposit_event(Event::Unexpected(
 							UnexpectedKind::DistributionTransferFailed {
 								asset: asset.clone(),
@@ -710,10 +752,6 @@ pub mod pallet {
 						));
 					} else {
 						total_distributed.saturating_accrue(amount);
-
-						if Some(&asset) == native_currency_asset_kind.as_ref() {
-							// TODO: Reactivate the funds
-						}
 					}
 				}
 

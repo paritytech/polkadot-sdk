@@ -24,16 +24,17 @@ use crate::{
 		NativeAndAssets, RuntimeOrigin, System, Test,
 	},
 	tests::key,
-	Event,
+	Event, TotalDeactivatedAmount,
 };
 use frame_support::{
 	assert_ok,
 	traits::{
 		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate, NativeOrWithId},
 		fungibles::Mutate,
+		Hooks,
 	},
 };
-use sp_runtime::BuildStorage;
+use sp_runtime::{BuildStorage, Weight};
 
 fn advance_time_and_drip(elapsed_ms: u64) {
 	let now = MockTime::get();
@@ -95,9 +96,11 @@ fn assets_are_distributed_on_drip() {
 		let incentive_pot = account_id(501); // TestValidatorIncentiveRecipient pot account
 		let buffer = Dap::buffer_account();
 
+		assert_ok!(Balances::mint_into(&Dap::staging_account(), 100_000_000));
+		Dap::on_idle(0, Weight::MAX);
+
 		// Check the Native asset.
 
-		assert_ok!(Balances::mint_into(&buffer, 100_000_000));
 		assert_ok!(Balances::mint_into(&staker_pot, 10));
 		assert_ok!(Balances::mint_into(&incentive_pot, 10));
 
@@ -144,6 +147,70 @@ fn assets_are_distributed_on_drip() {
 			Event::<Test>::AssetDistributed {
 				asset: NativeOrWithId::WithId(10),
 				amount: 60_000 * (20 + 10),
+				elapsed_millis: 60_000,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn native_currency_reactivated_when_distributed() {
+	build_and_execute(true, || {
+		System::set_block_number(1);
+
+		let budget_allocations = budget_map(&[(b"buffer", 40), (b"staker_rewards", 60)]);
+		let asset_allocations = asset_allocations(&[(
+			NativeOrWithId::Native,
+			&[(b"buffer", 10), (b"staker_rewards", 60)],
+		)]);
+		assert_ok!(Dap::set_allocations(
+			RuntimeOrigin::root(),
+			Some(budget_allocations),
+			Some(asset_allocations.clone())
+		));
+
+		let staker_pot = account_id(500);
+		let buffer = Dap::buffer_account();
+
+		assert_ok!(Balances::mint_into(&Dap::staging_account(), 100_000_000));
+		Dap::on_idle(0, Weight::MAX);
+
+		assert_ok!(Balances::mint_into(&staker_pot, 10));
+
+		let staker_before = Balances::balance(&staker_pot);
+		let buffer_before = Balances::balance(&buffer);
+
+		let active_issuance_before = Balances::active_issuance();
+		let total_deactivated_before = TotalDeactivatedAmount::<Test>::get();
+
+		advance_time_and_drip(60_000);
+
+		assert_eq!(staker_before + 60_000 * 60 + 60, Balances::balance(&staker_pot));
+		// Distribute 60_000 * 60 to staker pot, distribute 60_000 * 10 to itself, receive 40 from
+		// budget
+		assert_eq!(
+			buffer_before - 60_000 * 60 - 60_000 * 10 + 60_000 * 10 + 40,
+			Balances::balance(&buffer)
+		);
+
+		// Mint 60 and withdraw 60 * 60_000 to the staker pot.
+		// Everything else goes to the buffer, so doesn't change the active issuance.
+		assert_eq!(active_issuance_before + 60 + 60 * 60_000, Balances::active_issuance());
+
+		// Total issuance increased because 100 was minted.
+		assert_eq!(
+			total_deactivated_before + active_issuance_before + 100,
+			TotalDeactivatedAmount::<Test>::get() + Balances::active_issuance()
+		);
+		System::assert_has_event(
+			Event::<Test>::IssuanceMinted { total_minted: 100, elapsed_millis: 60_000 }.into(),
+		);
+
+		System::assert_has_event(
+			Event::<Test>::AssetDistributed {
+				asset: NativeOrWithId::Native,
+				amount: 60_000 * (60 + 10),
 				elapsed_millis: 60_000,
 			}
 			.into(),
