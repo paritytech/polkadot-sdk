@@ -3493,3 +3493,186 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		);
 	}
 }
+
+/// Backend whose executions wait until the test releases them, to hold the main loop at
+/// `TASK_LIMIT`.
+#[derive(Clone, Default)]
+struct MockGatedBackend {
+	gates: Arc<Mutex<Vec<oneshot::Sender<()>>>>,
+}
+
+#[async_trait]
+impl ValidationBackend for MockGatedBackend {
+	async fn validate_candidate(
+		&mut self,
+		_pvf: PvfPrepData,
+		_validation_context: ValidationContext,
+		_exec_kind: PvfExecKind,
+	) -> Result<WasmValidationResult, ValidationError> {
+		let (tx, rx) = oneshot::channel();
+		self.gates.lock().unwrap().push(tx);
+		let _ = rx.await;
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout))
+	}
+
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
+		unreachable!()
+	}
+
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
+	}
+
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+}
+
+/// Answers the requests made to activate a leaf of `session` until the session params of a
+/// candidate are fetched. Returns the block and the session of that executor params request.
+async fn answer_until_session_params_fetch(
+	ctx_handle: &mut TestSubsystemContextHandle<CandidateValidationMessage>,
+	session: SessionIndex,
+) -> (Hash, SessionIndex) {
+	loop {
+		match ctx_handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				leaf,
+				RuntimeApiRequest::SessionExecutorParams(requested_session, tx),
+			)) => {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+				assert_matches!(
+					ctx_handle.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::ValidationCodeBombLimit(_, tx),
+					)) => {
+						let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+					}
+				);
+				return (leaf, requested_session);
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				let _ = tx.send(Ok(session));
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SchedulingLookahead(_, tx),
+			)) => {
+				let _ = tx.send(Ok(DEFAULT_SCHEDULING_LOOKAHEAD));
+			},
+			AllMessages::ChainApi(ChainApiMessage::Ancestors { response_channel, .. }) => {
+				let _ = response_channel.send(Ok(Vec::new()));
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx),
+			)) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			},
+			// No authorities, so no PVF preparation.
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Authorities(tx),
+			)) => {
+				let _ = tx.send(Ok(Vec::new()));
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionInfo(_, tx),
+			)) => {
+				let _ = tx.send(Ok(Some(dummy_session_info(Vec::new()))));
+			},
+			msg => panic!("Unexpected message: {msg:?}"),
+		}
+	}
+}
+
+/// A leaf activated while the main loop is at `TASK_LIMIT` must still be applied. Otherwise the
+/// session params of the next candidate are fetched at the previous leaf, which has no executor
+/// params for a candidate of a newer session.
+#[test]
+fn leaf_activated_at_task_limit_is_applied() {
+	let pool = TaskExecutor::new();
+	let (ctx, mut ctx_handle) = make_subsystem_context::<CandidateValidationMessage, _>(pool);
+	let backend = MockGatedBackend::default();
+	let gates = backend.gates.clone();
+	let subsystem = run_loop(ctx, alice_keystore(), Metrics::default(), backend);
+
+	let session: SessionIndex = 1;
+	let leaf_a = Hash::repeat_byte(0xAA);
+	let leaf_b = Hash::repeat_byte(0xBB);
+	let activate = |leaf| {
+		FromOrchestra::Signal(OverseerSignal::ActiveLeaves(dummy_active_leaves_update(leaf)))
+	};
+
+	// Approval of a candidate of `session`. It passes pre-validation, so it waits in the backend.
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = Arc::new(PoV { block_data: BlockData(vec![1; 32]) });
+	let validation_code = ValidationCode(vec![2; 16]);
+	let approve = |session| {
+		let descriptor = make_valid_candidate_descriptor_v2(
+			ParaId::from(1_u32),
+			dummy_hash(),
+			CoreIndex(0),
+			session,
+			validation_data.hash(),
+			pov.hash(),
+			validation_code.hash(),
+			dummy_hash(),
+			dummy_hash(),
+		);
+		FromOrchestra::Communication {
+			msg: CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: CandidateReceipt { descriptor, commitments_hash: dummy_hash() },
+				pov: pov.clone(),
+				scheduling_session_index: session,
+				exec_kind: PvfExecKind::Approval,
+				response_sender: oneshot::channel().0,
+			},
+		}
+	};
+
+	let test_fut = async move {
+		ctx_handle.send(activate(leaf_a)).await;
+		// `try_send` doesn't wait for the subsystem to read the request, which it only does once
+		// the leaf's runtime requests are answered.
+		ctx_handle.tx.try_send(approve(session)).unwrap();
+		assert_eq!(
+			answer_until_session_params_fetch(&mut ctx_handle, session).await,
+			(leaf_a, session),
+		);
+
+		// The session params are cached now, so these make no requests.
+		for _ in 1..TASK_LIMIT {
+			ctx_handle.send(approve(session)).await;
+		}
+		assert_eq!(gates.lock().unwrap().len(), TASK_LIMIT);
+
+		// The loop is at `TASK_LIMIT` and only reads signals. Leaf B starts the next session.
+		ctx_handle.send(activate(leaf_b)).await;
+
+		// Free a slot and send a candidate of the new session.
+		let _ = gates.lock().unwrap().pop().unwrap().send(());
+		ctx_handle.tx.try_send(approve(session + 1)).unwrap();
+		assert_eq!(
+			answer_until_session_params_fetch(&mut ctx_handle, session + 1).await,
+			(leaf_b, session + 1),
+			"session params must be fetched at the leaf activated at TASK_LIMIT",
+		);
+
+		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+	};
+
+	let (_, result) = executor::block_on(future::join(test_fut, subsystem));
+	assert!(result.is_ok());
+}
