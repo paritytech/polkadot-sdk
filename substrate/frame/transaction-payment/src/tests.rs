@@ -30,7 +30,7 @@ use sp_runtime::{
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::{Currency, OriginTrait},
+	traits::{Currency, Hooks, OriginTrait},
 	weights::Weight,
 };
 use frame_system as system;
@@ -913,5 +913,87 @@ fn fungible_adapter_no_zero_refund_action() {
 			.any(|record| matches!(record.event, RuntimeEvent::Balances(pallet_balances::Event::Deposit { amount, .. }) if amount.is_zero())),
     		"No zero amount deposit amount event should be emitted.",
 		);
+	});
+}
+
+/// Issue a credit for the native currency, as stored by the pallet in `TxPaymentCredit`.
+fn issue_credit(amount: u64) -> CreditOf<Runtime> {
+	<Balances as frame_support::traits::fungible::Balanced<u64>>::issue(amount)
+}
+
+#[test]
+fn withdraw_txfee_works() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		TransactionPayment::deposit_txfee(issue_credit(100));
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), 100);
+
+		let credit = TransactionPayment::withdraw_txfee(30u64).unwrap();
+		assert_eq!(credit.peek(), 30);
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), 70);
+	});
+}
+
+#[test]
+fn withdraw_txfee_fails_when_amount_exceeds_credit() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		TransactionPayment::deposit_txfee(issue_credit(50));
+
+		assert!(TransactionPayment::withdraw_txfee(51u64).is_none());
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), 50);
+	});
+}
+
+#[test]
+fn withdraw_txfee_fails_when_no_credit_stored() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		assert!(TransactionPayment::withdraw_txfee(1u64).is_none());
+	});
+}
+
+#[test]
+fn deposit_txfee_subsumes_into_existing_credit() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		TransactionPayment::deposit_txfee(issue_credit(40));
+		TransactionPayment::deposit_txfee(issue_credit(60));
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), 100);
+	});
+}
+
+#[test]
+fn remaining_txfee_returns_zero_when_no_credit() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), 0);
+	});
+}
+
+#[test]
+fn remaining_txfee_excludes_tip() {
+	type FungibleAdapterT = payment::FungibleAdapter<Balances, DealWithFees>;
+
+	ExtBuilder::default().balance_factor(10).build().execute_with(|| {
+		let (fee, tip) = (10, 3);
+		let liquidity = <FungibleAdapterT as OnChargeTransaction<Runtime>>::withdraw_fee(
+			&1,
+			CALL,
+			&CALL.get_dispatch_info(),
+			fee + tip,
+			tip,
+		)
+		.expect("Account must have enough funds.");
+
+		assert_eq!(liquidity.unwrap().peek(), tip);
+		assert_eq!(TransactionPayment::remaining_txfee::<u64>(), fee);
+	});
+}
+
+#[test]
+fn on_finalize_cleans_up_stray_credit() {
+	ExtBuilder::default().balance_factor(0).build().execute_with(|| {
+		TransactionPayment::deposit_txfee(issue_credit(100));
+		assert!(TxPaymentCredit::<Runtime>::get().is_some());
+
+		TransactionPayment::on_finalize(1);
+
+		assert!(TxPaymentCredit::<Runtime>::get().is_none());
 	});
 }
