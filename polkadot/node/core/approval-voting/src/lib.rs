@@ -2842,39 +2842,73 @@ where
 		approval.candidate_indices.count_ones()
 	);
 
+	// Per-candidate failures must not discard actions already produced for earlier (or
+	// later) valid candidates in the same coalesced vote.
 	let mut actions = Vec::new();
+	let mut first_error = None;
 	for (approval_candidate_index, approved_candidate_hash) in approved_candidates_info {
 		let block_entry = match db.load_block_entry(&approval.block_hash)? {
 			Some(b) => b,
 			None => {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::UnknownBlock(
-					approval.block_hash
-				),))
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_hash = ?approved_candidate_hash,
+					"Skipping coalesced approval candidate: unknown block",
+				);
+				first_error.get_or_insert(ApprovalCheckResult::Bad(
+					ApprovalCheckError::UnknownBlock(approval.block_hash),
+				));
+				continue;
 			},
 		};
 
 		let candidate_entry = match db.load_candidate_entry(&approved_candidate_hash)? {
 			Some(c) => c,
 			None => {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidCandidate(
-					approval_candidate_index,
-					approved_candidate_hash
-				),))
+				gum::debug!(
+					target: LOG_TARGET,
+					candidate_index = approval_candidate_index,
+					candidate_hash = ?approved_candidate_hash,
+					"Skipping coalesced approval candidate: missing candidate entry",
+				);
+				first_error.get_or_insert(ApprovalCheckResult::Bad(
+					ApprovalCheckError::InvalidCandidate(
+						approval_candidate_index,
+						approved_candidate_hash,
+					),
+				));
+				continue;
 			},
 		};
 
 		// Don't accept approvals until assignment.
 		match candidate_entry.approval_entry(&approval.block_hash) {
 			None => {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::Internal(
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_hash = ?approved_candidate_hash,
+					"Skipping coalesced approval candidate: missing approval entry",
+				);
+				first_error.get_or_insert(ApprovalCheckResult::Bad(ApprovalCheckError::Internal(
 					approval.block_hash,
-					approved_candidate_hash
-				),))
+					approved_candidate_hash,
+				)));
+				continue;
 			},
 			Some(e) if !e.is_assigned(approval.validator) => {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::NoAssignment(
-					approval.validator
-				),))
+				gum::debug!(
+					target: LOG_TARGET,
+					validator_index = approval.validator.0,
+					block_hash = ?approval.block_hash,
+					candidate_hash = ?approved_candidate_hash,
+					"Skipping coalesced approval candidate: no assignment",
+				);
+				first_error.get_or_insert(ApprovalCheckResult::Bad(
+					ApprovalCheckError::NoAssignment(approval.validator),
+				));
+				continue;
 			},
 			_ => {},
 		}
@@ -2904,7 +2938,7 @@ where
 	}
 
 	// importing the approval can be heavy as it may trigger acceptance for a series of blocks.
-	Ok((actions, ApprovalCheckResult::Accepted))
+	Ok((actions, first_error.unwrap_or(ApprovalCheckResult::Accepted)))
 }
 
 #[derive(Debug)]
