@@ -398,8 +398,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			assert!(
-				(1..=T::MaxQueuedRequests::get()).contains(&T::MaxQueuedPerPara::get()),
-				"MaxQueuedPerPara must be at least 1 and at most MaxQueuedRequests",
+				(1..T::MaxQueuedRequests::get()).contains(&T::MaxQueuedPerPara::get()),
+				"MaxQueuedPerPara must be at least 1 and below MaxQueuedRequests",
 			);
 			assert!(T::MaxForwardedPerBlock::get() > 0, "MaxForwardedPerBlock must be at least 1");
 		}
