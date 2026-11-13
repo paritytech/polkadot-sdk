@@ -26,6 +26,7 @@ use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_core_health::HealthReceiver;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
@@ -74,6 +75,7 @@ pub use polkadot_node_core_candidate_validation::CandidateValidationSubsystem;
 pub use polkadot_node_core_chain_api::ChainApiSubsystem;
 pub use polkadot_node_core_chain_selection::ChainSelectionSubsystem;
 pub use polkadot_node_core_dispute_coordinator::DisputeCoordinatorSubsystem;
+pub use polkadot_node_core_health::HealthSubsystem;
 pub use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
@@ -153,6 +155,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub experimental_collator_protocol: bool,
 	/// Reputation DB config used by experimental collator protocol,
 	pub reputation_config: ReputationConfig,
+	/// The receiving end of the health channel, for the health subsystem.
+	pub health_receiver: HealthReceiver,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -191,6 +195,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		collator_protocol_hold_off,
 		experimental_collator_protocol,
 		reputation_config,
+		health_receiver,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -226,6 +231,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
 		ChainSelectionSubsystem,
 		ProspectiveParachainsSubsystem,
+		HealthSubsystem,
 	>,
 	Error,
 >
@@ -372,6 +378,7 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.health(HealthSubsystem::new(health_receiver))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
@@ -430,6 +437,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		ChainApiSubsystem<RuntimeClient>,
 		CollationGenerationSubsystem,
 		CollatorProtocolSubsystem,
+		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -520,6 +528,7 @@ where
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
 		.prospective_parachains(DummySubsystem)
+		.health(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)

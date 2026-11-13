@@ -1346,6 +1346,13 @@ pub enum ApprovalDistributionMessage {
 	ApprovalCheckingLagUpdate(BlockNumber),
 }
 
+/// Message to the health subsystem.
+///
+/// Currently non-instantiable: the subsystem gets its input through its own report channel, not
+/// through overseer messages.
+#[derive(Debug)]
+pub enum HealthMessage {}
+
 /// Message to the Gossip Support subsystem.
 #[derive(Debug, derive_more::From)]
 pub enum GossipSupportMessage {

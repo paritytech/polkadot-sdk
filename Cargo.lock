@@ -17356,6 +17356,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-core-health"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "futures",
+ "futures-timer",
+ "polkadot-node-subsystem",
+ "sc-network-types 0.10.0",
+ "tracing-gum",
+]
+
+[[package]]
 name = "polkadot-node-core-parachains-inherent"
 version = "7.0.0"
 dependencies = [
@@ -18350,6 +18362,7 @@ dependencies = [
  "polkadot-node-core-chain-api",
  "polkadot-node-core-chain-selection",
  "polkadot-node-core-dispute-coordinator",
+ "polkadot-node-core-health",
  "polkadot-node-core-parachains-inherent",
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-core-provisioner",
@@ -18719,6 +18732,7 @@ dependencies = [
  "polkadot-node-core-chain-api",
  "polkadot-node-core-chain-selection",
  "polkadot-node-core-dispute-coordinator",
+ "polkadot-node-core-health",
  "polkadot-node-core-parachains-inherent",
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-core-provisioner",

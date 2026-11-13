@@ -1214,6 +1214,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 				event = self.litep2p.next_event() => match event {
 					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
+						self.event_streams.send(Event::ConnectionEstablished {
+							peer: peer.into(),
+							inbound: endpoint.is_listener(),
+							address: endpoint.address().clone().into(),
+						});
+
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
 							Endpoint::Listener { .. } => {
