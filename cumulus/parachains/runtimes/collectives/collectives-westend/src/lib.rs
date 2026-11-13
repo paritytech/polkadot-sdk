@@ -774,39 +774,19 @@ pub mod xcm_migration {
 	>;
 
 	/// The migration, running every stage above.
-	pub type Migration = MigrateXcmToLatest<Runtime, (AssetRate, FellowshipSpends)>;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl
-	polkadot_runtime_common::xcm_migration::benchmarking::Config<
-		frame_support::instances::Instance1,
-	> for Runtime
-{
-	type Stage = xcm_migration::AssetRate;
+	pub type Migration = MigrateXcmToLatest<(AssetRate, FellowshipSpends)>;
 }
 
 /// Benchmarks of [`xcm_migration::AssetRate`].
 #[cfg(feature = "runtime-benchmarks")]
-pub type AssetRateStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
-	Runtime,
-	frame_support::instances::Instance1,
->;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl
-	polkadot_runtime_common::xcm_migration::benchmarking::Config<
-		frame_support::instances::Instance2,
-	> for Runtime
-{
-	type Stage = xcm_migration::FellowshipSpends;
-}
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
 
 /// Benchmarks of [`xcm_migration::FellowshipSpends`].
 #[cfg(feature = "runtime-benchmarks")]
 pub type FellowshipSpendsStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
 	Runtime,
-	frame_support::instances::Instance2,
+	xcm_migration::FellowshipSpends,
 >;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

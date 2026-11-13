@@ -204,22 +204,6 @@ impl pallet_multi_asset_bounties::Config for Test {
 	type BenchmarkHelper = BountiesArguments;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmark_config {
-	use super::*;
-	use frame_support::instances::{Instance1, Instance2};
-
-	impl benchmarking::Config for Test {
-		type Stage = AssetRateMigration;
-	}
-	impl benchmarking::Config<Instance1> for Test {
-		type Stage = TreasuryMigration;
-	}
-	impl benchmarking::Config<Instance2> for Test {
-		type Stage = BountiesMigration;
-	}
-}
-
 /// Weights that make the number of entries upgraded per step easy to control.
 pub struct TestWeights;
 impl WeightInfo for TestWeights {
@@ -231,7 +215,8 @@ impl WeightInfo for TestWeights {
 	}
 }
 
-type AssetRateMigration = AssetRateStage<Test, VersionedLocatableAssetToLatest, TestWeights>;
+pub(crate) type AssetRateMigration =
+	AssetRateStage<Test, VersionedLocatableAssetToLatest, TestWeights>;
 type TreasuryMigration = TreasurySpendsStage<
 	Test,
 	(),
@@ -240,8 +225,7 @@ type TreasuryMigration = TreasurySpendsStage<
 	TestWeights,
 >;
 type BountiesMigration = BountiesStage<Test, (), VersionedLocatableAssetToLatest, TestWeights>;
-type Migration =
-	MigrateXcmToLatest<Test, (AssetRateMigration, TreasuryMigration, BountiesMigration)>;
+type Migration = MigrateXcmToLatest<(AssetRateMigration, TreasuryMigration, BountiesMigration)>;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -466,35 +450,31 @@ fn empty_storage_finishes_right_away() {
 #[test]
 fn identity_leaves_values_as_they_are() {
 	assert_eq!(
-		<sp_runtime::traits::Identity as UpgradeToLatest<_>>::upgrade(v3_beneficiary(1)),
-		Ok(v3_beneficiary(1))
+		<sp_runtime::traits::Identity as UpgradeToLatest<_>>::upgrade(&v3_beneficiary(1)),
+		Ok(None)
 	);
 }
 
 #[test]
 fn converters_upgrade_v3_values() {
 	assert_eq!(
-		VersionedLocatableAssetToLatest::upgrade(v3_asset(1000, 1)),
-		Ok(latest_asset(1000, 1))
+		VersionedLocatableAssetToLatest::upgrade(&v3_asset(1000, 1)),
+		Ok(Some(latest_asset(1000, 1)))
 	);
-	assert_eq!(
-		VersionedLocatableAssetToLatest::upgrade(latest_asset(1000, 1)),
-		Ok(latest_asset(1000, 1))
-	);
-	assert_eq!(VersionedLocatableAssetToLatest::upgrade(abstract_asset()), Err(abstract_asset()));
+	assert_eq!(VersionedLocatableAssetToLatest::upgrade(&latest_asset(1000, 1)), Ok(None));
+	assert_eq!(VersionedLocatableAssetToLatest::upgrade(&abstract_asset()), Err(()));
 
-	assert_eq!(VersionedLocationToLatest::upgrade(v3_beneficiary(1)), Ok(latest_beneficiary(1)));
 	assert_eq!(
-		VersionedLocationToLatest::upgrade(latest_beneficiary(1)),
-		Ok(latest_beneficiary(1))
+		VersionedLocationToLatest::upgrade(&v3_beneficiary(1)),
+		Ok(Some(latest_beneficiary(1)))
 	);
+	assert_eq!(VersionedLocationToLatest::upgrade(&latest_beneficiary(1)), Ok(None));
 }
 
 #[test]
 fn worst_case_v3_location_can_be_upgraded() {
 	let location = VersionedLocation::V3(worst_case_v3_location());
-	let upgraded = VersionedLocationToLatest::upgrade(location.clone()).unwrap();
-	assert_ne!(upgraded.encode(), location.encode());
+	assert!(matches!(VersionedLocationToLatest::upgrade(&location), Ok(Some(_))));
 }
 
 #[test]

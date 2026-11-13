@@ -1388,21 +1388,10 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl
-	polkadot_runtime_common::xcm_migration::benchmarking::Config<
-		frame_support::instances::Instance1,
-	> for Runtime
-{
-	type Stage = xcm_migration::AssetRate;
-}
-
 /// Benchmarks of [`xcm_migration::AssetRate`].
 #[cfg(feature = "runtime-benchmarks")]
-pub type AssetRateStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
-	Runtime,
-	frame_support::instances::Instance1,
->;
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
 
 parameter_types! {
 	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
@@ -1896,11 +1885,11 @@ pub mod xcm_migration {
 	pub type AssetRate = AssetRateStage<
 		Runtime,
 		VersionedLocatableAssetToLatest,
-		weights::polkadot_runtime_common_xcm_migration::WeightInfo<Runtime>,
+		weights::polkadot_runtime_common_xcm_migration_asset_rate_stage::WeightInfo<Runtime>,
 	>;
 
 	/// The migration, running every stage above.
-	pub type Migration = MigrateXcmToLatest<Runtime, (AssetRate,)>;
+	pub type Migration = MigrateXcmToLatest<(AssetRate,)>;
 }
 
 /// Unchecked extrinsic type as expected by this runtime.

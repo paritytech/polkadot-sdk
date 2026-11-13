@@ -27,7 +27,6 @@
 //! ```ignore
 //! type Migrations = (
 //! 	polkadot_runtime_common::xcm_migration::MigrateXcmToLatest<
-//! 		Runtime,
 //! 		(
 //! 			AssetRateStage<Runtime, VersionedLocatableAssetToLatest, AssetRateWeights>,
 //! 			TreasurySpendsStage<
@@ -58,7 +57,7 @@ use frame_support::{
 	BoundedVec,
 };
 use scale_info::TypeInfo;
-use xcm::{IntoVersion, VersionedLocation};
+use xcm::{IdentifyVersion, IntoVersion, VersionedLocation};
 
 use crate::impls::{LocatableAssetConverter, VersionedLocatableAsset};
 use sp_runtime::traits::TryConvert;
@@ -87,11 +86,10 @@ pub type RawKey = BoundedVec<u8, ConstU32<MAX_RAW_KEY_LEN>>;
 
 /// Upgrades a stored value to the latest XCM version.
 pub trait UpgradeToLatest<T> {
-	/// Returns the upgraded value.
+	/// Returns the upgraded value, or `None` if `value` is already in the latest version.
 	///
-	/// That's equal to `value` if it's already in the latest version. If `value` can't be
-	/// represented in the latest version, it's handed back as the error.
-	fn upgrade(value: T) -> Result<T, T>;
+	/// Fails if `value` can't be represented in the latest version.
+	fn upgrade(value: &T) -> Result<Option<T>, ()>;
 
 	/// Returns a value of the largest size that `upgrade` changes, used as the worst case in
 	/// benchmarks.
@@ -106,20 +104,21 @@ pub trait UpgradeToLatest<T> {
 
 /// Leaves values as they are, for stored values that hold no outdated XCM data.
 impl<T> UpgradeToLatest<T> for sp_runtime::traits::Identity {
-	fn upgrade(value: T) -> Result<T, T> {
-		Ok(value)
+	fn upgrade(_: &T) -> Result<Option<T>, ()> {
+		Ok(None)
 	}
 }
 
 /// Upgrades a [`VersionedLocatableAsset`] to the latest XCM version.
 pub struct VersionedLocatableAssetToLatest;
 impl UpgradeToLatest<VersionedLocatableAsset> for VersionedLocatableAssetToLatest {
-	fn upgrade(
-		asset: VersionedLocatableAsset,
-	) -> Result<VersionedLocatableAsset, VersionedLocatableAsset> {
+	fn upgrade(asset: &VersionedLocatableAsset) -> Result<Option<VersionedLocatableAsset>, ()> {
+		if matches!(asset, VersionedLocatableAsset::V5 { .. }) {
+			return Ok(None);
+		}
 		let xcm_builder::LocatableAssetId { location, asset_id } =
-			LocatableAssetConverter::try_convert(asset)?;
-		Ok((location, asset_id).into())
+			LocatableAssetConverter::try_convert(asset.clone()).map_err(|_| ())?;
+		Ok(Some((location, asset_id).into()))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -134,8 +133,11 @@ impl UpgradeToLatest<VersionedLocatableAsset> for VersionedLocatableAssetToLates
 /// Upgrades a [`VersionedLocation`] to the latest XCM version.
 pub struct VersionedLocationToLatest;
 impl UpgradeToLatest<VersionedLocation> for VersionedLocationToLatest {
-	fn upgrade(location: VersionedLocation) -> Result<VersionedLocation, VersionedLocation> {
-		location.clone().into_latest().map_err(|()| location)
+	fn upgrade(location: &VersionedLocation) -> Result<Option<VersionedLocation>, ()> {
+		if location.identify_version() == xcm::latest::VERSION {
+			return Ok(None);
+		}
+		location.clone().into_latest().map(Some)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -257,11 +259,9 @@ pub struct MigrationCursor {
 /// the other.
 ///
 /// See the [module docs](self) for how to use it.
-pub struct MigrateXcmToLatest<T, Stages>(PhantomData<(T, Stages)>);
+pub struct MigrateXcmToLatest<Stages>(PhantomData<Stages>);
 
-impl<T: frame_system::Config, Stages: MigrationStages> SteppedMigration
-	for MigrateXcmToLatest<T, Stages>
-{
+impl<Stages: MigrationStages> SteppedMigration for MigrateXcmToLatest<Stages> {
 	type Cursor = MigrationCursor;
 	type Identifier = MigrationId<13>;
 
@@ -326,42 +326,29 @@ where
 	}
 	meter.consume(base);
 
-	let mut cursor = last_key.map(BoundedVec::into_inner);
+	// `PrefixIterator` reads the key following its last one on every call, so it sees the entries
+	// that `upgrade` inserts or removes.
+	let mut entries = match last_key {
+		Some(last_key) => Map::iter_from(last_key.into_inner()),
+		None => Map::iter(),
+	};
 	while meter.try_consume(item).is_ok() {
-		let mut entries = match cursor.take() {
-			Some(last_key) => Map::iter_from(last_key),
-			None => Map::iter(),
-		};
 		let Some((key, value)) = entries.next() else { return Ok(None) };
-		cursor = Some(entries.last_raw_key().to_vec());
 		upgrade(key, value);
 	}
 
 	// At least one entry was upgraded, as `meter` was checked to fit one.
-	let Some(cursor) = cursor else {
-		return Err(SteppedMigrationError::InsufficientWeight { required });
-	};
-	RawKey::try_from(cursor).map(Some).map_err(|_| {
+	RawKey::try_from(entries.last_raw_key().to_vec()).map(Some).map_err(|_| {
 		log::error!(target: LOG_TARGET, "Storage key exceeds MAX_RAW_KEY_LEN");
 		SteppedMigrationError::Failed
 	})
 }
 
-/// Returns the number of raw entries of `Map`, including those that can't be decoded, as the state
-/// passed to [`check_upgraded`].
-#[cfg(feature = "try-runtime")]
-pub(crate) fn count_entries<Map, V>() -> Vec<u8>
-where
-	Map: frame_support::storage::StoragePrefixedMap<V>,
-	V: FullCodec,
-{
-	count_raw_entries::<Map, V>().encode()
-}
-
 /// Checks that every entry of `Map` is decoded and upgraded.
 ///
 /// `outdated` returns whether an entry still needs upgrading, or `None` if it can't be upgraded.
-/// Returns the number of entries before (from `state`, see [`count_entries`]) and after.
+/// Returns the number of entries before (from `state`, the encoded [`count_entries`] of
+/// `pre_upgrade`) and after.
 #[cfg(feature = "try-runtime")]
 pub(crate) fn check_upgraded<Map, K, V>(
 	state: Vec<u8>,
@@ -374,7 +361,7 @@ where
 	V: FullCodec,
 {
 	let count_before = u64::decode(&mut &state[..]).map_err(|_| "invalid state")?;
-	let raw_count = count_raw_entries::<Map, V>();
+	let raw_count = count_entries::<Map, V>();
 	let mut decoded_count = 0u64;
 	for (key, value) in Map::iter() {
 		decoded_count += 1;
@@ -394,9 +381,9 @@ where
 	Ok((count_before, raw_count))
 }
 
-/// Counts the raw entries of `Map`, including those that can't be decoded.
+/// Counts the raw entries of `Map`, including those whose key or value can't be decoded.
 #[cfg(feature = "try-runtime")]
-fn count_raw_entries<Map, V>() -> u64
+pub(crate) fn count_entries<Map, V>() -> u64
 where
 	Map: frame_support::storage::StoragePrefixedMap<V>,
 	V: FullCodec,

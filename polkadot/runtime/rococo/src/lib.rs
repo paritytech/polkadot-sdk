@@ -1468,36 +1468,16 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl
-	polkadot_runtime_common::xcm_migration::benchmarking::Config<
-		frame_support::instances::Instance1,
-	> for Runtime
-{
-	type Stage = xcm_migration::AssetRate;
-}
-
 /// Benchmarks of [`xcm_migration::AssetRate`].
 #[cfg(feature = "runtime-benchmarks")]
-pub type AssetRateStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
-	Runtime,
-	frame_support::instances::Instance1,
->;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl
-	polkadot_runtime_common::xcm_migration::benchmarking::Config<
-		frame_support::instances::Instance2,
-	> for Runtime
-{
-	type Stage = xcm_migration::TreasurySpends;
-}
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
 
 /// Benchmarks of [`xcm_migration::TreasurySpends`].
 #[cfg(feature = "runtime-benchmarks")]
 pub type TreasurySpendsStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
 	Runtime,
-	frame_support::instances::Instance2,
+	xcm_migration::TreasurySpends,
 >;
 
 impl pallet_sudo::Config for Runtime {
@@ -1834,7 +1814,7 @@ pub mod xcm_migration {
 	>;
 
 	/// The migration, running every stage above.
-	pub type Migration = MigrateXcmToLatest<Runtime, (AssetRate, TreasurySpends)>;
+	pub type Migration = MigrateXcmToLatest<(AssetRate, TreasurySpends)>;
 }
 
 /// Executive: handles dispatch to the various modules.

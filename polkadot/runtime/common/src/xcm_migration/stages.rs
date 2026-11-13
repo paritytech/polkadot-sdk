@@ -21,6 +21,7 @@ use super::{check_upgraded, count_entries};
 use super::{step_over_map, MigrationStage, RawKey, UpgradeToLatest, WeightInfo, LOG_TARGET};
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{migrations::SteppedMigrationError, weights::WeightMeter};
@@ -45,12 +46,10 @@ where
 		use pallet_asset_rate::ConversionRateToNative as Rates;
 
 		step_over_map::<Rates<T>, _, _, W>(last_key, meter, |old_asset_kind, rate| {
-			let new_asset_kind = match Upgrade::upgrade(old_asset_kind.clone()) {
-				Ok(new_asset_kind) if new_asset_kind.encode() != old_asset_kind.encode() => {
-					new_asset_kind
-				},
-				Ok(_) => return,
-				Err(_) => {
+			let new_asset_kind = match Upgrade::upgrade(&old_asset_kind) {
+				Ok(Some(new_asset_kind)) => new_asset_kind,
+				Ok(None) => return,
+				Err(()) => {
 					log::error!(
 						target: LOG_TARGET,
 						"Cannot upgrade asset kind {:?}, leaving its conversion rate untouched",
@@ -89,7 +88,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok(count_entries::<pallet_asset_rate::ConversionRateToNative<T>, _>())
+		Ok(count_entries::<pallet_asset_rate::ConversionRateToNative<T>, _>().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -131,16 +130,18 @@ where
 
 		step_over_map::<Spends<T, I>, _, _, W>(last_key, meter, |index, spend| {
 			match (
-				AssetKindUpgrade::upgrade(spend.asset_kind.clone()),
-				BeneficiaryUpgrade::upgrade(spend.beneficiary.clone()),
+				AssetKindUpgrade::upgrade(&spend.asset_kind),
+				BeneficiaryUpgrade::upgrade(&spend.beneficiary),
 			) {
-				(Ok(asset_kind), Ok(beneficiary)) => {
-					let upgraded =
-						pallet_treasury::SpendStatus { asset_kind, beneficiary, ..spend.clone() };
-					if upgraded.encode() != spend.encode() {
-						Spends::<T, I>::insert(index, upgraded);
-					}
-				},
+				(Ok(None), Ok(None)) => {},
+				(Ok(asset_kind), Ok(beneficiary)) => Spends::<T, I>::insert(
+					index,
+					pallet_treasury::SpendStatus {
+						asset_kind: asset_kind.unwrap_or(spend.asset_kind),
+						beneficiary: beneficiary.unwrap_or(spend.beneficiary),
+						..spend
+					},
+				),
 				_ => log::error!(
 					target: LOG_TARGET,
 					"Cannot upgrade treasury spend {}, leaving it untouched: {:?}",
@@ -172,7 +173,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok(count_entries::<pallet_treasury::Spends<T, I>, _>())
+		Ok(count_entries::<pallet_treasury::Spends<T, I>, _>().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -210,15 +211,13 @@ where
 		use pallet_multi_asset_bounties::Bounties;
 
 		step_over_map::<Bounties<T, I>, _, _, W>(last_key, meter, |index, bounty| {
-			match AssetKindUpgrade::upgrade(bounty.asset_kind.clone()) {
-				Ok(asset_kind) if asset_kind.encode() != bounty.asset_kind.encode() => {
-					Bounties::<T, I>::insert(
-						index,
-						pallet_multi_asset_bounties::Bounty { asset_kind, ..bounty },
-					)
-				},
-				Ok(_) => {},
-				Err(_) => log::error!(
+			match AssetKindUpgrade::upgrade(&bounty.asset_kind) {
+				Ok(Some(asset_kind)) => Bounties::<T, I>::insert(
+					index,
+					pallet_multi_asset_bounties::Bounty { asset_kind, ..bounty },
+				),
+				Ok(None) => {},
+				Err(()) => log::error!(
 					target: LOG_TARGET,
 					"Cannot upgrade the asset kind of bounty {}, leaving it untouched: {:?}",
 					index,
@@ -251,7 +250,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok(count_entries::<pallet_multi_asset_bounties::Bounties<T, I>, _>())
+		Ok(count_entries::<pallet_multi_asset_bounties::Bounties<T, I>, _>().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -268,8 +267,6 @@ where
 
 /// Whether `value` still needs upgrading, or `None` if it can't be upgraded.
 #[cfg(feature = "try-runtime")]
-fn outdated<Upgrade: UpgradeToLatest<T>, T: Encode + Clone>(value: &T) -> Option<bool> {
-	Upgrade::upgrade(value.clone())
-		.ok()
-		.map(|upgraded| upgraded.encode() != value.encode())
+fn outdated<Upgrade: UpgradeToLatest<T>, T>(value: &T) -> Option<bool> {
+	Upgrade::upgrade(value).ok().map(|upgraded| upgraded.is_some())
 }
