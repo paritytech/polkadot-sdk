@@ -73,10 +73,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 
 use serde::{Deserialize, Serialize};
 
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	dispatch::Pays,
 	ensure,
@@ -91,7 +94,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Member},
 	Debug, DispatchResult,
 };
-use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -99,6 +101,12 @@ mod benchmarking;
 mod default_combine_data;
 pub use default_combine_data::DefaultCombineData;
 pub mod traits;
+
+/// Items used by the exported macros, so callers don't need to depend on them.
+#[doc(hidden)]
+pub mod __private {
+	pub use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+}
 pub use traits::{CombineData, DataFeeder, DataProvider, DataProviderExtended, OnNewData};
 #[cfg(test)]
 mod mock;
