@@ -36,6 +36,76 @@ contract ComplexReceiver {
 }
 
 /**
+ * @title BalanceReader
+ * @dev Receiver contract 4: reads `address(this).balance`, which solc compiles to SELFBALANCE
+ * and unoptimized resolc to BALANCE on its own address
+ */
+contract BalanceReader {
+    receive() external payable {
+        require(address(this).balance >= msg.value);
+    }
+}
+
+/**
+ * @title BalanceOfReader
+ * @dev Receiver contract 5: reads its own balance with the BALANCE opcode, which solc never
+ * emits for `address(this).balance`, so the read is written in assembly
+ */
+contract BalanceOfReader {
+    receive() external payable {
+        uint256 ownBalance;
+        assembly { ownBalance := balance(address()) }
+        require(ownBalance >= msg.value);
+    }
+}
+
+/**
+ * @title SenderBalanceReader
+ * @dev Receiver contract 6: reads the sender's balance
+ */
+contract SenderBalanceReader {
+    receive() external payable {
+        require(msg.sender.balance > 0);
+    }
+}
+
+/**
+ * @title TwoEventsReceiver
+ * @dev Receiver contract 7: emits two LOG4 events with 64 data bytes each. The call stipend
+ * reserves room for one such event plus 2300 gas, so the second event exceeds it in both ref
+ * time and proof size.
+ */
+contract TwoEventsReceiver {
+    event Received(
+        address indexed from,
+        uint256 indexed amount,
+        uint256 indexed index,
+        uint256 first,
+        uint256 second
+    );
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value, 0, msg.value, 1);
+        emit Received(msg.sender, msg.value, 1, msg.value, 2);
+    }
+}
+
+/**
+ * @title ReentrancyAttacker
+ * @dev On receiving ETH, attempts to call back into the sender
+ */
+contract ReentrancyAttacker {
+    receive() external payable {
+        // Classic reentrancy: try to drain more ETH from the sender.
+        // We intentionally don't revert on failure so the outer transfer
+        // succeeds and the test can check the balance invariant.
+        msg.sender.call(
+            abi.encodeWithSignature("attemptTransfer(address,uint256)", address(this), msg.value)
+        );
+    }
+}
+
+/**
  * @title StipendTest
  * @dev Test contract that verifies stipend behavior for different receiver types
  */
@@ -43,12 +113,14 @@ contract StipendTest {
     DoNothingReceiver doNothingReceiver;
     SimpleReceiver simpleReceiver;
     ComplexReceiver complexReceiver;
+    ReentrancyAttacker reentrancyAttacker;
     address payable eoa;
 
     constructor() {
         doNothingReceiver = new DoNothingReceiver();
         simpleReceiver = new SimpleReceiver();
         complexReceiver = new ComplexReceiver();
+        reentrancyAttacker = new ReentrancyAttacker();
         eoa = payable(address(0x1234567890123456789012345678901234567890));
     }
 
@@ -118,6 +190,33 @@ contract StipendTest {
         require(address(complexReceiver).balance == balanceBefore, "ComplexReceiver balance changed on failed send");
     }
 
+    // Test transfer with zero value (solc injects gas=2300 explicitly)
+    function testTransferZero() public {
+        // EOA should succeed
+        eoa.transfer(0);
+
+        // DoNothingReceiver should succeed (empty receive)
+        payable(address(doNothingReceiver)).transfer(0);
+
+        // SimpleReceiver should succeed
+        payable(address(simpleReceiver)).transfer(0);
+    }
+
+    // Test send with zero value (solc injects gas=2300 explicitly)
+    function testSendZero() public {
+        // EOA should succeed
+        bool success = eoa.send(0);
+        require(success, "EOA send zero failed");
+
+        // DoNothingReceiver should succeed
+        success = payable(address(doNothingReceiver)).send(0);
+        require(success, "DoNothingReceiver send zero failed");
+
+        // SimpleReceiver should succeed
+        success = payable(address(simpleReceiver)).send(0);
+        require(success, "SimpleReceiver send zero failed");
+    }
+
     // Test call method (forwards all gas)
     function testCall() public payable {
         uint256 amount = msg.value / 4;
@@ -149,5 +248,54 @@ contract StipendTest {
         require(complexReceiver.counter() == counterBefore + 1, "ComplexReceiver counter not incremented");
     }
 
+    // Test that the transfer stipend prevents reentrancy. The attacker's receive()
+    // tries to call back into attemptTransfer() to drain more ETH, but the 2300
+    // gas stipend is not enough for an external call.
+    function testTransferReentrancy() public payable {
+        uint256 amount = msg.value / 4;
+        uint256 balanceBefore = address(reentrancyAttacker).balance;
+
+        // The attacker's receive() attempts an external call which exhausts
+        // the stipend, causing receive() to revert with out-of-gas.
+        bool failed = false;
+        try this.attemptTransfer(payable(address(reentrancyAttacker)), amount) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        require(failed, "Transfer to reentrancy attacker should have failed");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
+    }
+
+    // Test that the send stipend prevents reentrancy.
+    function testSendReentrancy() public payable {
+        uint256 amount = msg.value / 4;
+        uint256 balanceBefore = address(reentrancyAttacker).balance;
+
+        bool success = payable(address(reentrancyAttacker)).send(amount);
+        require(!success, "Send to reentrancy attacker should have failed");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
+    }
+
     receive() external payable {}
+}
+
+/**
+ * @title SendAndTransferTest
+ * @dev Calls `send` and `transfer` on the given receiver and checks that the balances moved
+ */
+contract SendAndTransferTest {
+    function testSendAndTransfer(address payable to) public payable {
+        require(to.send(0), "send zero failed");
+        to.transfer(0);
+
+        uint256 amount = msg.value / 2;
+        uint256 balanceBefore = to.balance;
+        uint256 ownBalanceBefore = address(this).balance;
+        require(to.send(amount), "send failed");
+        require(to.balance == balanceBefore + amount, "balance not updated after send");
+        to.transfer(amount);
+        require(to.balance == balanceBefore + 2 * amount, "balance not updated after transfer");
+        require(address(this).balance == ownBalanceBefore - 2 * amount, "sender balance not updated");
+    }
 }

@@ -29,9 +29,10 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating, Weight,
 };
 
+pub mod budget;
 pub mod offence;
 
 pub mod currency_to_vote;
@@ -44,6 +45,52 @@ pub type EraIndex = u32;
 
 /// Type for identifying a page.
 pub type Page = u32;
+
+/// The service for which validators earn reward points.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ServiceKind {
+	/// Relay chain consensus: validating and authoring on the relay chain.
+	#[codec(index = 0)]
+	RelayConsensus,
+	/// Authoring blocks on system chains.
+	#[codec(index = 1)]
+	Collation,
+}
+
+/// Credits era points to validators.
+pub trait RewardPoints<AccountId> {
+	/// Credit `points` earned for `service` to the active era.
+	fn reward(service: ServiceKind, points: Vec<(AccountId, u32)>);
+
+	/// Weight of [`Self::reward`] for `entries` entries.
+	fn weight(entries: u32) -> Weight;
+}
+
+/// Trait for reporting additional validator reward points.
+///
+/// Note: This is interface is similar to [`RewardPoints`], but is a legacy version thereof which
+/// doesn't support service-specific points.
+pub trait RewardsReporter<ValidatorId> {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
+}
+
+impl RewardsReporter<sp_runtime::AccountId32> for () {
+	fn reward_by_ids(_validators_points: impl IntoIterator<Item = (sp_runtime::AccountId32, u32)>) {
+	}
+}
+
 /// Representation of a staking account, which may be a stash or controller account.
 ///
 /// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of
@@ -329,8 +376,9 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	/// Benchmark and test helper to set both active and current era.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(era: EraIndex);
 }
 
 /// Set of low level apis to manipulate staking ledger.
@@ -725,7 +773,87 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
+/// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// [`budget::IssuanceCurve`] is the successor to this trait, decoupling issuance computation
+/// from staking state.
+pub trait EraPayout<Balance> {
+	/// Determine the payout for this era.
+	///
+	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
+	/// paid out ("the rest").
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance);
+}
+
+impl<Balance: Default> EraPayout<Balance> for () {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(Default::default(), Default::default())
+	}
+}
+
+/// Result of splitting a validator's staking reward between the validator and their nominators.
+///
+/// Produced by [`StakerRewardCalculator::calculate_staker_reward`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StakerRewardResult<Balance> {
+	/// Total payout for the validator (commission + proportional stake reward).
+	pub validator_payout: Balance,
+	/// Total payout for all nominators, to be split proportionally by the caller.
+	pub nominator_payout: Balance,
+}
+
+/// Handles two independent reward calculations:
+///
+/// 1. **Staker reward split** ([`Self::calculate_staker_reward`]) — determines how a validator's
+///    staking reward is divided between the validator and their nominators.
+///
+/// 2. **Validator incentive weight** ([`Self::calculate_validator_incentive_weight`]) — determines
+///    a validator's relative share of a separate validator incentive pot, based on self-stake. This
+///    incentive pot is validator-only; nominators do not receive from it.
+pub trait StakerRewardCalculator<Balance> {
+	/// Compute a weight for this validator's share of the validator incentive pot.
+	///
+	/// Called once per validator during era planning. All validators' weights are summed, and
+	/// each validator's incentive payout is proportional to `their_weight / total_weight`.
+	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
+
+	/// Split a validator's staking reward into validator and nominator portions.
+	fn calculate_staker_reward(
+		validator_total_reward: Balance,
+		validator_commission: Perbill,
+		validator_own_stake: Balance,
+		total_exposure: Balance,
+	) -> StakerRewardResult<Balance>;
+}
+
+impl<Balance: Default> StakerRewardCalculator<Balance> for () {
+	fn calculate_validator_incentive_weight(_self_stake: Balance) -> Balance {
+		Default::default()
+	}
+
+	fn calculate_staker_reward(
+		_validator_total_reward: Balance,
+		_validator_commission: Perbill,
+		_validator_own_stake: Balance,
+		_total_exposure: Balance,
+	) -> StakerRewardResult<Balance> {
+		StakerRewardResult {
+			validator_payout: Default::default(),
+			nominator_payout: Default::default(),
+		}
+	}
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+sp_core::generate_feature_enabled_macro!(std_or_benchmarks_enabled, any(feature = "std", feature = "runtime-benchmarks"), $);
 
 #[cfg(test)]
 mod tests {

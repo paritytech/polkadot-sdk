@@ -1,0 +1,14 @@
+title: Decrease the log level for claim queue inconsistency in `ClaimQueueState`
+doc:
+- audience: Node Dev
+  description: |-
+    Decrease the log level of "Inconsistency while adding a leaf to the `ClaimQueueState`..." log
+    message from WARN to DEBUG.
+
+    On group rotations the backing groups are assigned to different cores. In this case we start
+    fetching the claim queue for the newly assigned core and the future assignments in
+    `ClaimQueueState` are no longer valid so overwriting them is the right
+    thing to do.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

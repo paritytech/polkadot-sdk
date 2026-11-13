@@ -27,32 +27,37 @@ use testnet_parachains_constants::westend::{
 };
 
 const PEOPLE_WESTEND_ED: Balance = ExistentialDeposit::get();
+
 const PEOPLE_PARA_ID: ParaId = ParaId::new(1004);
 
 fn people_westend_genesis(
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<(AccountId, AuraId, AuthorityDiscoveryId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, endowment))
+				.chain(core::iter::once((
+					AccumulateForward::accumulation_account(),
+					PEOPLE_WESTEND_ED
+				)))
+				.collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _, _)| acc).collect(),
 			candidacy_bond: PEOPLE_WESTEND_ED * 16,
 		},
 		session: SessionConfig {
 			keys: invulnerables
 				.into_iter()
-				.map(|(acc, aura)| {
-					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
-					)
+				.map(|(acc, aura, authority_discovery)| {
+					(acc.clone(), acc, SessionKeys { aura, authority_discovery })
 				})
 				.collect(),
 		},
@@ -66,8 +71,16 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => people_westend_genesis(
 			// initial collators.
 			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+				(
+					Sr25519Keyring::Alice.to_account_id(),
+					Sr25519Keyring::Alice.public().into(),
+					Sr25519Keyring::Alice.public().into(),
+				),
+				(
+					Sr25519Keyring::Bob.to_account_id(),
+					Sr25519Keyring::Bob.public().into(),
+					Sr25519Keyring::Bob.public().into(),
+				),
 			],
 			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
 			WND * 1_000_000,
@@ -75,7 +88,11 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => people_westend_genesis(
 			// initial collators.
-			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
+			vec![(
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Alice.public().into(),
+				Sr25519Keyring::Alice.public().into(),
+			)],
 			vec![
 				Sr25519Keyring::Alice.to_account_id(),
 				Sr25519Keyring::Bob.to_account_id(),

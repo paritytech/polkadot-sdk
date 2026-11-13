@@ -28,13 +28,15 @@ use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser, ValueEnum};
 use log::info;
-use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
-use super::template::TemplateData;
-use crate::shared::{new_rng, HostInfoParams, WeightParams};
+use super::{
+	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
+	template::TemplateData,
+};
+use crate::shared::{HostInfoParams, WeightParams};
 
 /// The mode in which to run the storage benchmark.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
@@ -159,6 +161,29 @@ pub struct StorageParams {
 	/// This is only used when `mode` is `validate-block`.
 	#[arg(long, default_value_t = 20)]
 	pub validate_block_rounds: u32,
+
+	/// Maximum number of keys to read.
+	///
+	/// Declares the number of random keys to read. Note that this limits the count of keys,
+	/// not the total memory usage. Since key sizes can vary significantly (some keys can be
+	/// much longer than others), this does not guarantee worst-case performance in terms of
+	/// memory consumption.
+	///
+	/// Default: Read all keys.
+	#[arg(long)]
+	pub keys_limit: Option<usize>,
+
+	/// Maximum number of child storage keys to read per child tree.
+	///
+	/// When `--include-child-trees` is set, this limits how many keys are sampled from each
+	/// child tree (same semantics as `--keys-limit` for the main trie). Omitted means no limit.
+	#[arg(long)]
+	pub child_keys_limit: Option<usize>,
+
+	/// Seed to use for benchs randomness, the same seed allow to replay
+	/// benchmarks under the same conditions.
+	#[arg(long)]
+	pub random_seed: Option<u64>,
 }
 
 impl StorageParams {
@@ -248,9 +273,16 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		let mut keys: Vec<_> = client.storage_keys(hash, None, None)?.collect();
-		let (mut rng, _) = new_rng(None);
-		keys.shuffle(&mut rng);
+		let (keys, _) = select_entries(
+			self.params.keys_limit,
+			self.params.random_seed,
+			|first_key_ref| {
+				let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+				Ok(client.storage_keys(hash, None, fk.as_ref())?)
+			},
+			|| Ok(client.storage_keys(hash, None, None)?),
+			|k: &sp_storage::StorageKey| k.0.as_slice(),
+		)?;
 
 		for i in 0..self.params.warmups {
 			info!("Warmup round {}/{}", i + 1, self.params.warmups);
@@ -268,9 +300,26 @@ impl StorageCmd {
 					.then(|| self.is_child_key(key.clone().0))
 					.flatten()
 				{
-					// child tree key
-					for ck in client.child_storage_keys(hash, info.clone(), None, None)? {
-						child_nodes.push((ck.clone(), info.clone()));
+					// child tree key: sample with select_entries when child_keys_limit is set
+					match select_entries(
+						self.params.child_keys_limit,
+						self.params.random_seed,
+						|first_key_ref| {
+							let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+							Ok(client
+								.child_storage_keys(hash, info.clone(), None, fk.as_ref())?
+								.map(|ck| (ck, info.clone())))
+						},
+						|| {
+							Ok(client
+								.child_storage_keys(hash, info.clone(), None, None)?
+								.map(|ck| (ck, info.clone())))
+						},
+						|(k, _): &(sp_storage::StorageKey, sp_storage::ChildInfo)| k.0.as_slice(),
+					) {
+						Ok((entries, _)) => child_nodes.extend(entries),
+						Err(SelectEntriesEmptyStorage::Input(_)) => {},
+						Err(e) => return Err(e),
 					}
 				}
 			}

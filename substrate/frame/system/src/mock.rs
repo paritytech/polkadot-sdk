@@ -33,7 +33,7 @@ const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024, u64::MAX);
 const MAX_BLOCK_LENGTH: u32 = 2048;
 
 parameter_types! {
-	pub Version: RuntimeVersion = RuntimeVersion {
+	pub static Version: RuntimeVersion = RuntimeVersion {
 		spec_name: alloc::borrow::Cow::Borrowed("test"),
 		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,

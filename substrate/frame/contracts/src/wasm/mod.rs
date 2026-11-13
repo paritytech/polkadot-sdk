@@ -362,11 +362,11 @@ impl<T: Config> WasmBlob<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub fn bench_prepare_call<E: Ext<T = T>>(
+	pub fn bench_prepare_call<'a, E: Ext<T = T>>(
 		self,
-		ext: &mut E,
+		ext: &'a mut E,
 		input_data: Vec<u8>,
-	) -> (Func, Store<Runtime<E>>) {
+	) -> (Func, Store<Runtime<'a, E>>) {
 		use InstanceOrExecReturn::*;
 		match Self::prepare_execute(
 			self,

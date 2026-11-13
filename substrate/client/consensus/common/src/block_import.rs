@@ -25,6 +25,7 @@ use sp_runtime::{
 };
 use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
 
+use sc_client_api::PrefetchedIndexedTransactions;
 use sp_consensus::{BlockOrigin, Error};
 
 /// Block import result.
@@ -153,6 +154,17 @@ pub enum StateAction<Block: BlockT> {
 	Skip,
 }
 
+impl<Block: BlockT> std::fmt::Debug for StateAction<Block> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::ApplyChanges(_) => fmt.write_str("ApplyChanges(..)"),
+			Self::Execute => fmt.write_str("Execute"),
+			Self::ExecuteIfPossible => fmt.write_str("ExecuteIfPossible"),
+			Self::Skip => fmt.write_str("Skip"),
+		}
+	}
+}
+
 impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
@@ -161,6 +173,16 @@ impl<Block: BlockT> StateAction<Block> {
 			StateAction::Execute |
 			StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
+		}
+	}
+
+	/// Returns as storage changes.
+	pub fn as_storage_changes(
+		&self,
+	) -> Option<&sp_state_machine::StorageChanges<HashingFor<Block>>> {
+		match self {
+			StateAction::ApplyChanges(StorageChanges::Changes(changes)) => Some(&changes),
+			_ => None,
 		}
 	}
 }
@@ -203,8 +225,6 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub post_digests: Vec<DigestItem>,
 	/// The body of the block.
 	pub body: Option<Vec<Block::Extrinsic>>,
-	/// Indexed transaction body of the block.
-	pub indexed_body: Option<Vec<Vec<u8>>>,
 	/// Specify how the new state is computed.
 	pub state_action: StateAction<Block>,
 	/// Is this block finalized already?
@@ -232,6 +252,9 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
+	/// Indexed-transaction data attached by upstream block-import wrappers.
+	/// See [`PrefetchedIndexedTransactions`].
+	pub prefetched_indexed_transactions: PrefetchedIndexedTransactions,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -243,7 +266,6 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			justifications: None,
 			post_digests: Vec::new(),
 			body: None,
-			indexed_body: None,
 			// Warp sync blocks are already verified, skip execution.
 			state_action: if origin == BlockOrigin::WarpSync {
 				StateAction::Skip
@@ -263,6 +285,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			// block with state is imported.
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
+			prefetched_indexed_transactions: PrefetchedIndexedTransactions::default(),
 		}
 	}
 

@@ -19,7 +19,7 @@
 //! Tests and test helpers for BEEFY.
 
 use crate::{
-	aux_schema::{load_persistent, tests::verify_persisted_version},
+	aux_schema::{load_and_migrate_persistent, tests::verify_persisted_version},
 	beefy_block_import_and_links,
 	communication::{
 		gossip::{
@@ -54,7 +54,6 @@ use sc_network_test::{
 	PeersFullClient, TestNetFactory,
 };
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
@@ -74,7 +73,7 @@ use sp_mmr_primitives::{Error as MmrError, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
-	BuildStorage, DigestItem, EncodedJustification, Justifications, Storage,
+	DigestItem, EncodedJustification, Justifications,
 };
 use std::{marker::PhantomData, sync::Arc, task::Poll};
 use substrate_test_runtime_client::{BlockBuilderExt, ClientExt};
@@ -99,17 +98,6 @@ type BeefyBlockImport = crate::BeefyBlockImport<
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Genesis(std::collections::BTreeMap<String, String>);
-impl BuildStorage for Genesis {
-	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-		storage
-			.top
-			.extend(self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())));
-		Ok(())
-	}
-}
 
 #[derive(Default)]
 pub(crate) struct PeerData {
@@ -190,7 +178,7 @@ impl BeefyTestNet {
 				add_mmr_digest(&mut builder, mmr_root);
 			}
 
-			if block_num % session_length == 0 {
+			if block_num.is_multiple_of(session_length) {
 				add_auth_change_digest(&mut builder, validator_set.clone());
 			}
 
@@ -1062,7 +1050,7 @@ async fn should_initialize_voter_at_genesis() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 }
 
@@ -1107,7 +1095,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 
 	// now re-init after genesis changes
@@ -1137,7 +1125,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, new_persisted_state);
 }
 
@@ -1194,7 +1182,7 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 }
 
@@ -1249,7 +1237,7 @@ async fn should_initialize_voter_at_latest_finalized() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 }
 
@@ -1300,7 +1288,7 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 }
 
@@ -1343,7 +1331,7 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 
 	// verify state also saved to db
 	assert!(verify_persisted_version(&*backend));
-	let state = load_persistent(&*backend).unwrap().unwrap();
+	let state = load_and_migrate_persistent(&*backend).unwrap().unwrap();
 	assert_eq!(state, persisted_state);
 
 	// now let's consider that the node goes offline, and then it restarts after a while

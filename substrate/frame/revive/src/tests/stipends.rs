@@ -22,7 +22,10 @@ use crate::{
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, StipendTest, compile_module_with_type};
+use pallet_revive_fixtures::{
+	FixtureType, SendAndTransferTest, StipendTest, compile_module_with_type,
+};
+use test_case::test_case;
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -65,6 +68,86 @@ fn evm_call_stipends_work_for_sends() {
 }
 
 #[test]
+fn evm_call_stipends_work_for_transfer_zero() {
+	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(StipendTest::testTransferZeroCall {}.abi_encode())
+			.build();
+
+		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test]
+fn evm_call_stipends_work_for_send_zero() {
+	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(StipendTest::testSendZeroCall {}.abi_encode())
+			.build();
+
+		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test_case(FixtureType::Solc, "BalanceReader", false)]
+#[test_case(FixtureType::Resolc, "BalanceReader", false)]
+#[test_case(FixtureType::Solc, "BalanceOfReader", false)]
+#[test_case(FixtureType::Resolc, "BalanceOfReader", false)]
+#[test_case(FixtureType::Solc, "SenderBalanceReader", true)]
+#[test_case(FixtureType::Resolc, "SenderBalanceReader", true)]
+#[test_case(FixtureType::Solc, "SimpleReceiver", false)]
+#[test_case(FixtureType::Solc, "TwoEventsReceiver", true)]
+#[test_case(FixtureType::Resolc, "TwoEventsReceiver", true)]
+fn call_stipends_cover_own_balance_reads_and_evm_events(
+	fixture_type: FixtureType,
+	receiver_name: &str,
+	reverts: bool,
+) {
+	let (receiver_code, _) = compile_module_with_type(receiver_name, fixture_type).unwrap();
+	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
+	// Half of it moves one native unit plus dust.
+	let value = 2_000_002_u128;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(test_code)).build_and_unwrap_contract();
+		// Keeps the sender's balance above 0, so `SenderBalanceReader` fails only because of the
+		// cost of the balance read.
+		<Test as Config>::Currency::mint_into(&account_id, 10_000_000_000_000).unwrap();
+
+		let result = builder::bare_call(addr)
+			.data(
+				SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }.abi_encode(),
+			)
+			.evm_value(value.into())
+			.build_and_unwrap_result();
+
+		assert_eq!(result.did_revert(), reverts);
+	});
+}
+
+#[test]
 fn evm_call_stipends_work_for_calls() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
@@ -77,6 +160,46 @@ fn evm_call_stipends_work_for_calls() {
 
 		let result = builder::bare_call(addr)
 			.data(StipendTest::testCallCall {}.abi_encode())
+			.evm_value(1_000_000_u128.into())
+			.build();
+
+		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test]
+fn evm_call_stipend_prevents_transfer_reentrancy() {
+	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(StipendTest::testTransferReentrancyCall {}.abi_encode())
+			.evm_value(1_000_000_u128.into())
+			.build();
+
+		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test]
+fn evm_call_stipend_prevents_send_reentrancy() {
+	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(StipendTest::testSendReentrancyCall {}.abi_encode())
 			.evm_value(1_000_000_u128.into())
 			.build();
 

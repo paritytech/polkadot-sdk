@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::*;
+use core::ops::Add;
 use frame_support::traits::tokens::fungible::Inspect;
 use mock::*;
 use sp_io::hashing::blake2_256;
@@ -25,7 +26,6 @@ use sp_runtime::{
 	traits::{Applyable, Checkable, Hash, IdentityLookup},
 	DispatchErrorWithPostInfo, MultiSignature,
 };
-
 type VerifySignatureExt = pallet_verify_signature::VerifySignature<Runtime>;
 
 fn create_tx_bare_ext(account: AccountId) -> TxBareExtension {
@@ -126,7 +126,10 @@ fn sign_and_execute_meta_tx() {
 		// Bob acts as meta transaction relayer.
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
-		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
+		let call = RuntimeCall::MetaTx(Call::dispatch {
+			meta_tx: Box::new(meta_tx.clone()),
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
 		let tx_ext = (
@@ -142,7 +145,8 @@ fn sign_and_execute_meta_tx() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		let tx_weight = tx_ext.weight(&call) + <Runtime as Config>::WeightInfo::bare_dispatch();
+		let tx_weight = tx_ext.weight(&call) +
+			<Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
 		let meta_tx_weight = remark_call
 			.get_dispatch_info()
 			.call_weight
@@ -218,7 +222,10 @@ fn invalid_signature() {
 		// Bob acts as meta transaction relayer.
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
-		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
+		let call = RuntimeCall::MetaTx(Call::dispatch {
+			meta_tx: Box::new(meta_tx.clone()),
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
 		let tx_ext = (
@@ -280,7 +287,10 @@ fn meta_tx_extension_work() {
 		// Bob acts as meta transaction relayer.
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
-		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
+		let call = RuntimeCall::MetaTx(Call::dispatch {
+			meta_tx: Box::new(meta_tx.clone()),
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
 		let tx_ext = (
@@ -351,7 +361,10 @@ fn meta_tx_call_fails() {
 		// Bob acts as meta transaction relayer.
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
-		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
+		let call = RuntimeCall::MetaTx(Call::dispatch {
+			meta_tx: Box::new(meta_tx.clone()),
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
+		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
 		let tx_ext = (
@@ -367,7 +380,8 @@ fn meta_tx_call_fails() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		let tx_weight = tx_ext.weight(&call) + <Runtime as Config>::WeightInfo::bare_dispatch();
+		let tx_weight = tx_ext.weight(&call) +
+			<Runtime as Config>::WeightInfo::bare_dispatch(meta_tx.encoded_size() as u32);
 		let meta_tx_weight = transfer_call
 			.get_dispatch_info()
 			.call_weight

@@ -32,7 +32,6 @@ use codec::{
 };
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
-use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_application_crypto::AppCrypto;
@@ -56,9 +55,14 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 pub mod transaction_extension;
+pub mod vers_tx_ext;
 pub use transaction_extension::{
 	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
+};
+pub use vers_tx_ext::{
+	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
+	MultiVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder, PipelineVersion,
 };
 
 /// A lazy value.
@@ -146,6 +150,9 @@ impl Verify for sp_core::sr25519::Signature {
 impl Verify for sp_core::ecdsa::Signature {
 	type Signer = sp_core::ecdsa::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa::Public) -> bool {
+		if !sp_core::ecdsa::is_signature_normalized(self.as_ref()) {
+			return false;
+		}
 		match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
@@ -1131,9 +1138,7 @@ impl CheckEqual for sp_core::H256 {
 	#[cfg(not(feature = "std"))]
 	fn check_equal(&self, other: &Self) {
 		if self != other {
-			"Hash not equal".print();
-			self.as_bytes().print();
-			other.as_bytes().print();
+			log::error!("Hash not equal: given={:?}, expected={:?}", self, other);
 		}
 	}
 }
@@ -1149,9 +1154,7 @@ impl CheckEqual for super::generic::DigestItem {
 	#[cfg(not(feature = "std"))]
 	fn check_equal(&self, other: &Self) {
 		if self != other {
-			"DigestItem not equal".print();
-			(&Encode::encode(self)[..]).print();
-			(&Encode::encode(other)[..]).print();
+			log::error!("DigestItem not equal: given={:?}, expected={:?}", self, other);
 		}
 	}
 }
@@ -1496,8 +1499,13 @@ pub trait ExtrinsicMetadata {
 	/// By format we mean the encoded representation of the `Extrinsic`.
 	const VERSIONS: &'static [u8];
 
-	/// Transaction extensions attached to this `Extrinsic`.
-	type TransactionExtensions;
+	/// All version of transaction extensions attached to this `Extrinsic`.
+	///
+	/// For extrinsic version 4, extrinsics don't specify any version, the pipeline version 0 is
+	/// used.
+	/// For extrinsic version 5, bare extrinsics don't specify any version, the pipeline version 0
+	/// is used.
+	type TransactionExtensionPipelines;
 }
 
 /// Extract the hashing type for a block.
@@ -1603,7 +1611,6 @@ pub trait Dispatchable {
 		+ Copy
 		+ Encode
 		+ Decode
-		+ Printable
 		+ ExtensionPostDispatchWeightHandler<Self::Info>;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
@@ -1851,6 +1858,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
 	/// If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1863,6 +1871,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
 	/// transaction. If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
@@ -1889,6 +1898,16 @@ pub trait GetNodeBlockType {
 /// function is called right before dispatching the call wrapped by an unsigned extrinsic. The
 /// [`validate_unsigned`](Self::validate_unsigned) function is mainly being used in the context of
 /// the transaction pool to check the validity of the call wrapped by an unsigned extrinsic.
+///
+/// # Deprecation Notice
+///
+/// This trait is deprecated and will be removed after April 2027. Use
+/// `#[pallet::authorize]` with `frame_system::AuthorizeCall` transaction extension instead.
+///
+/// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
+#[deprecated(
+	note = "`ValidateUnsigned` will be removed after April 2027. Use `#[pallet::authorize]` with `frame_system::AuthorizeCall` instead. See https://github.com/paritytech/polkadot-sdk/issues/2415"
+)]
 pub trait ValidateUnsigned {
 	/// The call to validate
 	type Call;
@@ -2436,89 +2455,6 @@ macro_rules! impl_opaque_keys {
 	}
 }
 
-/// Trait for things which can be printed from the runtime.
-pub trait Printable {
-	/// Print the object.
-	fn print(&self);
-}
-
-impl<T: Printable> Printable for &T {
-	fn print(&self) {
-		(*self).print()
-	}
-}
-
-impl Printable for u8 {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for u32 {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for usize {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for u64 {
-	fn print(&self) {
-		sp_io::misc::print_num(*self);
-	}
-}
-
-impl Printable for &[u8] {
-	fn print(&self) {
-		sp_io::misc::print_hex(self);
-	}
-}
-
-impl<const N: usize> Printable for [u8; N] {
-	fn print(&self) {
-		sp_io::misc::print_hex(&self[..]);
-	}
-}
-
-impl Printable for &str {
-	fn print(&self) {
-		sp_io::misc::print_utf8(self.as_bytes());
-	}
-}
-
-impl Printable for bool {
-	fn print(&self) {
-		if *self {
-			"true".print()
-		} else {
-			"false".print()
-		}
-	}
-}
-
-impl Printable for sp_weights::Weight {
-	fn print(&self) {
-		self.ref_time().print()
-	}
-}
-
-impl Printable for () {
-	fn print(&self) {
-		"()".print()
-	}
-}
-
-#[impl_for_tuples(1, 12)]
-impl Printable for Tuple {
-	fn print(&self) {
-		for_tuples!( #( Tuple.print(); )* )
-	}
-}
-
 /// Something that can convert a [`BlockId`](crate::generic::BlockId) to a number or a hash.
 #[cfg(feature = "std")]
 pub trait BlockIdTo<Block: self::Block> {
@@ -2737,6 +2673,13 @@ mod tests {
 	#[test]
 	fn ecdsa_verify_works() {
 		signature_verify_test!(ecdsa);
+
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+		let signature = pair.sign(msg);
+		let high_s_signature =
+			ecdsa::Signature::from_raw(crate::tests::make_high_s_signature(signature.as_ref()));
+		assert!(!high_s_signature.verify(msg, &pair.public()));
 	}
 
 	#[test]

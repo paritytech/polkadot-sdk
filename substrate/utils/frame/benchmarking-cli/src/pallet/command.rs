@@ -43,13 +43,14 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
+	storage::StateVersion,
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 	Hasher,
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
-use sp_state_machine::StateMachine;
+use sp_state_machine::{backend::TryPendingCode, StateMachine};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 use std::{
@@ -327,6 +328,8 @@ impl PalletCmd {
 				&mut Self::build_extensions(executor.clone(), state.recorder()),
 				&runtime_code,
 				CallContext::Offchain,
+				// `Core_version` doesn't compute storage roots.
+				StateVersion::default(),
 			),
 			"Could not find `Core::version` runtime api.",
 		)?;
@@ -355,6 +358,7 @@ impl PalletCmd {
 					&mut Self::build_extensions(executor.clone(), state.recorder()),
 					&runtime_code,
 					CallContext::Offchain,
+					runtime_version.state_version(),
 				),
 				ERROR_API_NOT_FOUND,
 			)?;
@@ -479,6 +483,7 @@ impl PalletCmd {
 								&mut Self::build_extensions(executor.clone(), state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
+								runtime_version.state_version(),
 							),
 							"dispatch a benchmark",
 						) {
@@ -512,6 +517,7 @@ impl PalletCmd {
 								&mut Self::build_extensions(executor.clone(), state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
+								runtime_version.state_version(),
 							),
 							"dispatch a benchmark",
 						) {
@@ -547,6 +553,7 @@ impl PalletCmd {
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
+							runtime_version.state_version(),
 						),
 						"dispatch a benchmark",
 					) {
@@ -735,6 +742,9 @@ impl PalletCmd {
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
 		extensions.register(ReadRuntimeVersionExt::new(exe));
+		extensions.register(sp_virtualization::VirtManagerExt::new(
+			sc_virtualization::VirtManager::default(),
+		));
 		if let Some(recorder) = maybe_recorder {
 			extensions.register(ProofSizeExt::new(recorder));
 		}
@@ -758,13 +768,14 @@ impl PalletCmd {
 					e
 				)
 			})?;
-			let hash = sp_core::blake2_256(&code).to_vec();
+			let hash = sp_crypto_hashing::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
 		} else {
 			log::info!(target: LOG_TARGET, "Loading WASM from state");
-			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+			let state =
+				sp_state_machine::backend::BackendRuntimeCode::new(state, TryPendingCode::No);
 
 			Ok(FetchedCode::FromGenesis { state })
 		}
@@ -892,7 +903,8 @@ impl PalletCmd {
 
 			if !self.no_storage_info {
 				let mut storage_per_prefix = HashMap::<Vec<u8>, Vec<BenchmarkResult>>::new();
-				let pov_mode = pov_modes.get(&(pallet, benchmark)).cloned().unwrap_or_default();
+				let pov_mode =
+					pov_modes.get(&(pallet, benchmark.clone())).cloned().unwrap_or_default();
 
 				let comments = writer::process_storage_results(
 					&mut storage_per_prefix,
@@ -913,49 +925,45 @@ impl PalletCmd {
 			// Conduct analysis.
 			if !self.no_median_slopes {
 				println!("Median Slopes Analysis\n========");
-				if let Some(analysis) =
-					Analysis::median_slopes(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
+				match Analysis::median_slopes(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
 				{
-					println!("-- Extrinsic Time --\n{}", analysis);
+					Ok(analysis) => println!("-- Extrinsic Time --\n{}", analysis),
+					Err(err) => println!("-- Extrinsic Time --\nError: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Reads)
-				{
-					println!("Reads = {:?}", analysis);
+				match Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Reads) {
+					Ok(analysis) => println!("Reads = {:?}", analysis),
+					Err(err) => println!("Reads: Error: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Writes)
-				{
-					println!("Writes = {:?}", analysis);
+				match Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Writes) {
+					Ok(analysis) => println!("Writes = {:?}", analysis),
+					Err(err) => println!("Writes: Error: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::ProofSize)
-				{
-					println!("Recorded proof Size = {:?}", analysis);
+				match Analysis::median_slopes(&batch.db_results, BenchmarkSelector::ProofSize) {
+					Ok(analysis) => println!("Recorded proof Size = {:?}", analysis),
+					Err(err) => println!("Recorded proof Size: Error: {:?}", err),
 				}
 				println!();
 			}
 			if !self.no_min_squares {
 				println!("Min Squares Analysis\n========");
-				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
-				{
-					println!("-- Extrinsic Time --\n{}", analysis);
+				match Analysis::min_squares_iqr(
+					&batch.time_results,
+					BenchmarkSelector::ExtrinsicTime,
+				) {
+					Ok(analysis) => println!("-- Extrinsic Time --\n{}", analysis),
+					Err(err) => println!("-- Extrinsic Time --\nError: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Reads)
-				{
-					println!("Reads = {:?}", analysis);
+				match Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Reads) {
+					Ok(analysis) => println!("Reads = {:?}", analysis),
+					Err(err) => println!("Reads: Error: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Writes)
-				{
-					println!("Writes = {:?}", analysis);
+				match Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Writes) {
+					Ok(analysis) => println!("Writes = {:?}", analysis),
+					Err(err) => println!("Writes: Error: {:?}", err),
 				}
-				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::ProofSize)
-				{
-					println!("Recorded proof Size = {:?}", analysis);
+				match Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::ProofSize) {
+					Ok(analysis) => println!("Recorded proof Size = {:?}", analysis),
+					Err(err) => println!("Recorded proof Size: Error: {:?}", err),
 				}
 				println!();
 			}

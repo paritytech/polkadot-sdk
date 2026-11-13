@@ -118,6 +118,13 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 				])
 				.with_collator(|n| n.with_name("collator-2"))
 		})
+		.with_global_settings(|global_settings| {
+			let global_settings = match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+				Ok(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			};
+			global_settings.with_tear_down_on_failure(false)
+		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -138,6 +145,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 		&validator0_client,
 		10,
 		[(ParaId::from(PARA_ID_1), 8..11), (ParaId::from(PARA_ID_2), 8..11)],
+		[],
 	)
 	.await?;
 
@@ -187,6 +195,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 		&relay_client,
 		5,
 		[(ParaId::from(PARA_ID_1), 3..7), (ParaId::from(PARA_ID_2), 3..7)],
+		[],
 	)
 	.await?;
 
@@ -319,7 +328,8 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 
 	// Verify para 2000 continues normal operation
 	log::info!("Verifying para {} continues normal operation", PARA_ID_1);
-	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 3..7)]).await?;
+	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 3..7)], [])
+		.await?;
 
 	log::info!("Phase 3 passed: Pruning successfully removed deregistered parachain");
 	Ok(())

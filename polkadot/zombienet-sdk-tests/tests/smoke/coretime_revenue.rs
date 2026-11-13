@@ -12,11 +12,15 @@
 use anyhow::anyhow;
 
 #[zombienet_sdk::subxt::subxt(
-	runtime_metadata_path = "metadata-files/coretime-westend-local.scale"
+	runtime_metadata_path = "metadata-files/coretime-westend-local.scale",
+	crate = "::zombienet_sdk::subxt::ext::subxt_core"
 )]
 mod coretime_westend {}
 
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/westend-local.scale")]
+#[zombienet_sdk::subxt::subxt(
+	runtime_metadata_path = "metadata-files/westend-local.scale",
+	crate = "::zombienet_sdk::subxt::ext::subxt_core"
+)]
 mod westend {}
 
 use westend::runtime_types::{
@@ -47,6 +51,7 @@ use coretime_westend::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
+
 use westend::on_demand_assignment_provider::events as on_demand_events;
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_westend_runtime::RuntimeCall;

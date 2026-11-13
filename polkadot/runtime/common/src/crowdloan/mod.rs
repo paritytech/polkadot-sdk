@@ -55,7 +55,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -2032,6 +2032,7 @@ mod benchmarking {
 	)]
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn create() -> Result<(), BenchmarkError> {

@@ -1,0 +1,13 @@
+title: "statement-store: drop a peer's affinity filter when its substream closes"
+
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT statement path, a peer's affinity filter is dropped when its statement substream
+    closes instead of when block sync reports the peer gone. Filters of peers dialed outside the
+    sync set no longer accumulate, and a peer that block sync drops while its substream stays open
+    keeps receiving statements on its advertised topics.
+
+crates:
+- name: sc-network-statement
+  bump: patch

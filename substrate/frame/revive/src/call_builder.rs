@@ -55,6 +55,8 @@ pub struct CallSetup<T: Config> {
 	data: Vec<u8>,
 	transient_storage_size: u32,
 	exec_config: ExecConfig<T>,
+	read_only: bool,
+	delegate_call: bool,
 }
 
 impl<T> Default for CallSetup<T>
@@ -76,22 +78,14 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
+		// The call that creates the frame already pays for the info.
 		#[cfg(feature = "runtime-benchmarks")]
-		{
-			// Whitelist contract account, as it is already accounted for in the call benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
-			);
-
-			// Whitelist the contract's contractInfo as it is already accounted for in the call
-			// benchmark
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
-					&contract.account_id,
-				))
-				.into(),
-			);
-		}
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				&contract.account_id,
+			))
+			.into(),
+		);
 
 		Self {
 			contract,
@@ -106,6 +100,8 @@ where
 			data: vec![],
 			transient_storage_size: 0,
 			exec_config: ExecConfig::new_substrate_tx(),
+			read_only: false,
+			delegate_call: false,
 		}
 	}
 
@@ -138,6 +134,16 @@ where
 		self.transient_storage_size = size;
 	}
 
+	/// Set the read-only flag on the call stack frame.
+	pub fn set_read_only(&mut self, read_only: bool) {
+		self.read_only = read_only;
+	}
+
+	/// Mark the call as a delegate call.
+	pub fn set_delegate_call(&mut self, delegate: bool) {
+		self.delegate_call = delegate;
+	}
+
 	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
@@ -156,6 +162,8 @@ where
 			&mut self.transaction_meter,
 			self.value,
 			&self.exec_config,
+			self.read_only,
+			self.delegate_call,
 		);
 		if self.transient_storage_size > 0 {
 			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
@@ -399,10 +407,26 @@ impl VmBinaryModule {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl VmBinaryModule {
-	// Same as [`Self::sized`] but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::STOP;
-		let code = vec![STOP; size as usize];
+	// Creates EVM init code that deploys `size` bytes of runtime code (all STOP opcodes).
+	// EVM memory is zero-initialized, so RETURN(0, size) produces `size` bytes of 0x00.
+	// The runtime code is what gets stored in PristineCode and loaded on every call.
+	pub fn evm_init_code_for_runtime_size(size: u32) -> Self {
+		use revm::bytecode::opcode::{PUSH1, PUSH3, RETURN};
+		assert!(size <= 0x00FF_FFFF, "size {size} exceeds PUSH3 max (16MiB - 1)");
+		let [_, b1, b2, b3] = size.to_be_bytes();
+		let code = vec![
+			PUSH3, b1, b2, b3, // push runtime code size
+			PUSH1, 0,      // push memory offset 0
+			RETURN, // return `size` bytes from memory as runtime code
+		];
+		Self::new(code)
+	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
 }
@@ -492,14 +516,6 @@ impl VmBinaryModule {
 			&text,
 		)
 		.unwrap();
-		Self::new(code)
-	}
-
-	/// An evm contract that executes `size` JUMPDEST instructions.
-	pub fn evm_noop(size: u32) -> Self {
-		use revm::bytecode::opcode::JUMPDEST;
-
-		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
 }

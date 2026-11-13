@@ -286,6 +286,7 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
+				sale_index: 1u32,
 			}
 			.into(),
 		);
@@ -567,9 +568,11 @@ mod benches {
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
+		let payout_per_timeslice: BalanceOf<T> = 200_000_000u32.into();
+		let total_payout = payout_per_timeslice.saturating_mul(m.into());
 		T::Currency::set_balance(
 			&Broker::<T>::account_id(),
-			T::Currency::minimum_balance().saturating_add(200_000_000u32.into()),
+			T::Currency::minimum_balance().saturating_add(total_payout),
 		);
 
 		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
@@ -582,23 +585,28 @@ mod benches {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let revenue = 10_000_000u32.into();
-		InstaPoolHistory::<T>::insert(
-			region.begin,
-			InstaPoolHistoryRecord {
-				private_contributions: 4u32.into(),
-				system_contributions: 3u32.into(),
-				maybe_payout: Some(revenue),
-			},
-		);
+		let claimed = region.begin..region.begin.saturating_add(m);
+		for timeslice in claimed.clone() {
+			InstaPoolHistory::<T>::insert(
+				timeslice,
+				InstaPoolHistoryRecord {
+					private_contributions: 4u32.into(),
+					system_contributions: 3u32.into(),
+					maybe_payout: Some(revenue),
+				},
+			);
+		}
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, m);
 
-		assert!(InstaPoolHistory::<T>::get(region.begin).is_none());
+		for timeslice in claimed {
+			assert!(InstaPoolHistory::<T>::get(timeslice).is_none());
+		}
 		assert_last_event::<T>(
 			Event::RevenueClaimPaid {
 				who: recipient,
-				amount: 200_000_000u32.into(),
+				amount: total_payout,
 				next: if m < new_config_record::<T>().region_length {
 					Some(RegionId {
 						begin: region.begin.saturating_add(m),
@@ -849,7 +857,9 @@ mod benches {
 
 		#[block]
 		{
-			Broker::<T>::process_revenue();
+			let (when, revenue) =
+				Broker::<T>::take_revenue_report().expect("a revenue report was put in; qed");
+			Broker::<T>::process_revenue_amount(when, revenue);
 		}
 
 		assert_last_event::<T>(
@@ -937,7 +947,6 @@ mod benches {
 		let mut status = Status::<T>::get().expect("Sale has started.");
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 		Broker::<T>::process_core_count(&mut status);
-		Broker::<T>::process_revenue();
 		status.last_committed_timeslice = config.region_length;
 
 		#[block]
@@ -965,6 +974,7 @@ mod benches {
 					.saturating_sub(n_leases)
 					.try_into()
 					.unwrap(),
+				sale_index: sale.sale_index.saturating_add(1),
 			}
 			.into(),
 		);
@@ -1338,6 +1348,41 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_transfer() -> Result<(), BenchmarkError> {
+		let sale_data = setup_and_start_sale::<T>()?;
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
+		);
+
+		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+			.expect("Offer not high enough for configuration.");
+
+		let recipient: T::AccountId = account("recipient", 0, SEED);
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin, region, recipient.clone());
+
+		assert_last_event::<T>(
+			Event::Transferred {
+				region_id: region,
+				old_owner: Some(caller),
+				owner: Some(recipient),
+				duration: 3u32.into(),
+			}
+			.into(),
 		);
 
 		Ok(())

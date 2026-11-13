@@ -14,18 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use float_json_value::FloatJsonValueMetric;
 pub use global::GlobalMetrics;
 pub use prometheus_endpoint::{
 	prometheus::core::{Atomic, Collector},
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, I64, U64,
 };
 
-use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
-mod float_json_value;
 mod global;
 
 /// Shared reference to `f64` value that is updated by the metric.
@@ -82,11 +80,11 @@ pub trait StandaloneMetric: Metric {
 
 	/// Spawn the self update task that will keep update metric value at given intervals.
 	fn spawn(self) {
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			let update_interval = self.update_interval();
 			loop {
 				self.update().await;
-				async_std::task::sleep(update_interval).await;
+				tokio::time::sleep(update_interval).await;
 			}
 		});
 	}

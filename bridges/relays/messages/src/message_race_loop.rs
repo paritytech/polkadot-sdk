@@ -415,7 +415,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						strategy.source_nonces_updated(at_block, nonces);
 					},
 					&mut source_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving nonces from {}", P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)?;
 
@@ -441,7 +441,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						strategy.best_target_nonces_updated(nonces, &mut race_state);
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving best nonces from {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -462,7 +462,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						strategy.finalized_target_nonces_updated(nonces, &mut race_state);
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving finalized nonces from {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -489,7 +489,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						target_batch_transaction = maybe_batch_transaction;
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error asking for source headers at {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -509,7 +509,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						race_state.nonces_to_submit_batch = batch_transaction;
 					},
 					&mut source_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error generating proof at {}", P::source_name()),
 				).fail_if_error(FailedClient::Source).map(|_| true)?;
 			},
@@ -529,7 +529,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						target_tx_tracker.set(artifacts.tx_tracker.wait().fuse());
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error submitting proof {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 
@@ -772,7 +772,7 @@ mod tests {
 	use crate::message_race_strategy::BasicStrategy;
 	use relay_utils::HeaderId;
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn proof_is_generated_at_best_block_known_to_target_node() {
 		const GENERATED_AT: u64 = 6;
 		const BEST_AT_SOURCE: u64 = 10;

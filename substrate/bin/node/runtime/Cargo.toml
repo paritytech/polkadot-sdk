@@ -31,7 +31,7 @@ static_assertions = { workspace = true, default-features = true }
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
-polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
+polkadot-sdk = { features = ["runtime-full", "tuples-128"], workspace = true }
 
 # shared code between runtime and node
 node-primitives = { workspace = true }
@@ -39,6 +39,15 @@ node-primitives = { workspace = true }
 # Example pallets that are not published:
 pallet-example-mbm = { workspace = true }
 pallet-example-tasks = { workspace = true }
+pallet-transaction-storage = { workspace = true }
+
+# Pallets that are not part of the umbrella crate:
+hrmp-primitives = { workspace = true }
+pallet-hrmp-para = { workspace = true }
+pallet-hrmp-relay = { workspace = true }
+pallet-registrar-para = { workspace = true }
+pallet-registrar-relay = { workspace = true }
+registrar-primitives = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -48,13 +57,20 @@ default = ["std"]
 with-tracing = ["polkadot-sdk/with-tracing"]
 std = [
 	"codec/std",
+	"hrmp-primitives/std",
 	"log/std",
 	"node-primitives/std",
 	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
+	"pallet-hrmp-para/std",
+	"pallet-hrmp-relay/std",
+	"pallet-registrar-para/std",
+	"pallet-registrar-relay/std",
+	"pallet-transaction-storage/std",
 	"polkadot-sdk/std",
 	"primitive-types/std",
 	"rand?/std",
+	"registrar-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
@@ -63,13 +79,24 @@ std = [
 runtime-benchmarks = [
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
+	"pallet-hrmp-para/runtime-benchmarks",
+	"pallet-hrmp-relay/runtime-benchmarks",
+	"pallet-registrar-para/runtime-benchmarks",
+	"pallet-registrar-relay/runtime-benchmarks",
+	"pallet-transaction-storage/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
+	"registrar-primitives/runtime-benchmarks",
 ]
 try-runtime = [
 	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
+	"pallet-hrmp-para/try-runtime",
+	"pallet-hrmp-relay/try-runtime",
+	"pallet-registrar-para/try-runtime",
+	"pallet-registrar-relay/try-runtime",
+	"pallet-transaction-storage/try-runtime",
 	"polkadot-sdk/try-runtime",
 ]
 experimental = [

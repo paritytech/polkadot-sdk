@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT block_number, block_hash\n\t\t\tFROM sync_state\n\t\t\tWHERE label = $1\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "block_number",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "block_hash",
+        "ordinal": 1,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "481e21860552d88454b30e7e5cb31748994229fa131fa9b608c987cbd97b3b6c"
+}

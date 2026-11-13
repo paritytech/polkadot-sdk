@@ -44,14 +44,14 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, EraPayout, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
+	BalanceOf, EraInfo, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
 	RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
 				.unwrap_or_else(|| {
-					frame_support::print("Error: start_session_index must be set for current_era");
+					log!(error, "start_session_index must be set for current_era");
 					0
 				});
 
@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 			} else if next_active_era_start_session_index < start_session {
 				// This arm should never happen, but better handle it than to stall the staking
 				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
+				log!(warn, "A session appears to have been skipped.");
 				Self::start_era(start_session);
 			}
 		}
@@ -1815,7 +1815,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire validators in a sorted order take
-/// a look at [`pallet-bags-list`].
+/// a look at `pallet-bags-list`.
 pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	type Score = BalanceOf<T>;
@@ -1885,7 +1885,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provide nominators in sorted order. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list].
+/// a look at `pallet-bags-list`.
 pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
 	type Error = ();
@@ -2145,12 +2145,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			EraInfo::<T>::set_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
-			CurrentEra::<T>::put(era);
-		}
-
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
+		}
+	}
+
+	sp_staking::std_or_benchmarks_enabled! {
+		fn set_era(era: EraIndex) {
+			ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
+			CurrentEra::<T>::put(era);
 		}
 	}
 }

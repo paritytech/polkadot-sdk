@@ -59,6 +59,23 @@ pub type Trader = SwapFirstAssetTrader<
 >;
 
 #[test]
+fn buy_weight_with_exact_amount_returns_empty_holding() {
+	let fee = 5;
+
+	setup_pool(CLIENT_ASSET, 1000, TARGET_ASSET, 1000);
+
+	// Payment is exactly the fee — zero change expected.
+	let holding_asset = create_holding_asset(CLIENT_ASSET, fee);
+
+	let mut trader = Trader::new();
+	let change = trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+
+	// No 0-amount ghost entry in returned holding.
+	assert!(change.is_empty());
+	assert_eq!(trader.total_fee.peek(), fee);
+}
+
+#[test]
 fn holding_asset_swap_for_target() {
 	let client_asset_total = 15;
 	let fee = 5;

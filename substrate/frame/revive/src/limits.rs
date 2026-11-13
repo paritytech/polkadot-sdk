@@ -18,8 +18,9 @@
 //! Limits that are observeable by contract code.
 //!
 //! It is important to never change this limits without supporting the old limits
-//! for already deployed contracts. This is what the [`crate::Contract::behaviour_version`]
-//! is meant for. This is true for either increasing or decreasing the limit.
+//! for already deployed contracts. This is what the behaviour version stored with a contract's
+//! code (`CodeInfo::behaviour_version`) is meant for. This is true for either increasing or
+//! decreasing the limit.
 //!
 //! Limits in this file are different from the limits configured on the [`Config`] trait which are
 //! generally only affect actions that cannot be performed by a contract: For example things related
@@ -31,6 +32,8 @@
 //! applied **once** at code upload time. Since this action cannot be performed by contracts we
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
+//!
+//! Exception: [`MAX_RECEIPT_LOGS_BYTES`], see its documentation.
 
 /// The amount of total memory we require to safely operate.
 ///
@@ -48,10 +51,12 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// Maximum size of of the transaction payload
+/// Maximum size of an ethereum transaction's RLP encoded payload.
 ///
-/// Maximum code size during instantiation taken into account plus some overhead.
-pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
+/// Room for the largest code blob and call data the pallet accepts, plus 64 KiB for the rest of
+/// the transaction: its other fields, signature, access list and authorization list. An
+/// `eth_transact` with a larger payload is rejected as an invalid transaction.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES + 64 * 1024;
 
 /// Maximum size of storage items.
 pub const STORAGE_BYTES: u32 = 416;
@@ -59,10 +64,36 @@ pub const STORAGE_BYTES: u32 = 416;
 /// Maximum payload size of events.
 pub const EVENT_BYTES: u32 = 64 * 1024;
 
-/// The extra ref time charge of deposit event per byte.
+/// Maximum number of bytes the logs of one ethereum transaction's receipt may take up.
 ///
-/// This ensure the block builder has enough memory and pallet storage
-/// to operate under worst case scenarios.
+/// Counted over the RLP encoding of every log the transaction keeps: address, topics and data,
+/// each with its RLP headers. A log that would take the receipt past this limit fails the frame
+/// that emits it with [`crate::Error::ReceiptTooLarge`], and the frame's state changes roll back
+/// as for any other error. This includes a log the runtime mirrors on behalf of a contract inside
+/// a frame. A mirrored log emitted outside any frame, such as while storage deposits are paid,
+/// fails the whole transaction instead. If a storage layer inside the frame or the transaction
+/// records the overflow and is then rolled back, the overflow flag rolls back with that layer's
+/// other changes and fails nothing outside it.
+///
+/// The block's synthetic transaction, which collects logs emitted outside any ethereum
+/// transaction, has the same limit. Nothing fails there: a log that does not fit stays a
+/// substrate-only `ContractEmitted` event.
+///
+/// An Ethereum transaction stays below this limit: at the EIP-7825 cap of 2^24 gas it can log at
+/// most about 2,092,700 bytes, by repeating `LOG0` over the same zeroed memory at 375 gas plus 8
+/// gas per byte. This chain enforces neither that cap nor that `LOG` price, so a transaction here
+/// can reach the limit.
+///
+/// The limit applies to all contracts, including those deployed before it, and is not selected by
+/// a behaviour version. It counts the logs of every contract a transaction calls, and the Ethereum
+/// block builder's memory and storage budget (`BLOCK_BUILDER_BYTES`) is derived from it.
+pub const MAX_RECEIPT_LOGS_BYTES: u32 = 2 * 1024 * 1024;
+
+/// The extra ref time charged per byte of an event's topics (32 bytes each) and data.
+///
+/// It bounds the event bytes (topics and data) a block can deposit; `integrity_test` checks that
+/// this fits the storage available to the runtime. The Ethereum block builder is sized from
+/// [`MAX_TRANSACTION_PAYLOAD_SIZE`] and [`MAX_RECEIPT_LOGS_BYTES`] instead.
 pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 
 /// The maximum size for calldata and return data.
@@ -104,7 +135,7 @@ pub mod code {
 	use super::PAGE_SIZE;
 	use crate::{Config, Error, LOG_TARGET};
 	use alloc::vec::Vec;
-	use sp_runtime::DispatchError;
+	use sp_runtime::{DispatchError, SaturatedConversion};
 
 	/// The maximum length of a code blob in bytes.
 	///
@@ -133,40 +164,76 @@ pub mod code {
 	/// This means tuning this number affects the call stack depth.
 	pub const BASELINE_MEMORY_LIMIT: u32 = BLOB_BYTES + 512 * 1024;
 
+	/// Why [`check_pvm_code`] rejected a code blob.
+	///
+	/// The limits that were exceeded are reported alongside the measured value. They are not
+	/// meant to be hard-coded by tooling since they may be raised in future releases.
+	#[derive(Debug, PartialEq)]
+	#[non_exhaustive]
+	pub enum CodeRejection {
+		/// The blob is larger than allowed. Sizes are in bytes.
+		BlobTooLarge { size: u32, limit: u32 },
+		/// A basic block is larger than allowed. Sizes are in number of instructions.
+		BasicBlockTooLarge { size: u32, limit: u32 },
+		/// The program needs more purgeable memory than allowed. Sizes are in bytes.
+		PurgeableMemoryTooLarge { size: u32, limit: u32 },
+		/// The program needs more baseline memory than allowed. Sizes are in bytes.
+		BaselineMemoryTooLarge { size: u32, limit: u32 },
+		/// The program contains an instruction that contracts are not allowed to use.
+		InvalidInstruction,
+		/// The blob failed to parse, is a 32 bit program, uses the wrong instruction set, or
+		/// contains a malformed or unknown import.
+		Malformed,
+	}
+
+	impl CodeRejection {
+		/// The error the pallet returns on code upload for this rejection.
+		fn into_error<T: Config>(self) -> Error<T> {
+			match self {
+				Self::BlobTooLarge { .. } => Error::<T>::BlobTooLarge,
+				Self::BasicBlockTooLarge { .. } => Error::<T>::BasicBlockTooLarge,
+				Self::PurgeableMemoryTooLarge { .. } | Self::BaselineMemoryTooLarge { .. } => {
+					Error::<T>::StaticMemoryTooLarge
+				},
+				Self::InvalidInstruction => Error::<T>::InvalidInstruction,
+				Self::Malformed => Error::<T>::CodeRejected,
+			}
+		}
+	}
+
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(
-		pvm_blob: Vec<u8>,
-		available_syscalls: &[&[u8]],
-	) -> Result<Vec<u8>, DispatchError> {
+	///
+	/// This is the check the pallet runs on code upload. It is not generic over the runtime so
+	/// that tooling can find out ahead of deployment whether a blob would be accepted.
+	///
+	/// The verdict only matches a production runtime when `pallet-revive` is built without the
+	/// `runtime-benchmarks` feature. With it, a blob that uses the reserved `SENTINEL` ecalli
+	/// passes here but is rejected with [`CodeRejection::InvalidInstruction`] on upload, and a
+	/// blob that imports the benchmark-only `noop` syscall passes here but is rejected with
+	/// [`CodeRejection::Malformed`]. Features unify across the build, so a dependency can
+	/// enable it unasked.
+	pub fn check_pvm_code(pvm_blob: &[u8]) -> Result<(), CodeRejection> {
 		use polkavm_common::program::{
 			EstimateInterpreterMemoryUsageArgs, ISA_ReviveV1, InstructionSetKind,
 		};
 
-		let len: u64 = pvm_blob.len() as u64;
-		if len > crate::limits::code::BLOB_BYTES.into() {
-			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {BLOB_BYTES}");
-			return Err(<Error<T>>::BlobTooLarge.into());
-		}
+		check_blob_size(pvm_blob)?;
 
-		#[cfg(feature = "std")]
-		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
-			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
-			return Ok(pvm_blob);
-		}
+		let available_syscalls = crate::vm::pvm::env::list_syscalls();
 
-		let program = polkavm::ProgramBlob::parse(pvm_blob.as_slice().into()).map_err(|err| {
+		let program = polkavm::ProgramBlob::parse(pvm_blob.into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
-			Error::<T>::CodeRejected
+			CodeRejection::Malformed
 		})?;
 
 		if !program.is_64_bit() {
 			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
-			Err(Error::<T>::CodeRejected)?;
+			Err(CodeRejection::Malformed)?;
 		}
 
 		if program.isa() != InstructionSetKind::ReviveV1 {
 			log::debug!(target: LOG_TARGET, "Program instruction set '{}' is not '{}'", program.isa().name(), InstructionSetKind::ReviveV1.name());
-			Err(Error::<T>::CodeRejected)?;
+			Err(CodeRejection::Malformed)?;
 		}
 
 		// Need to check that no non-existent syscalls are used. This allows us to add
@@ -177,15 +244,15 @@ pub mod code {
 			// functions for every import.
 			if idx == available_syscalls.len() {
 				log::debug!(target: LOG_TARGET, "Program contains too many imports.");
-				Err(Error::<T>::CodeRejected)?;
+				Err(CodeRejection::Malformed)?;
 			}
 			let Some(import) = import else {
 				log::debug!(target: LOG_TARGET, "Program contains malformed import.");
-				return Err(Error::<T>::CodeRejected.into());
+				return Err(CodeRejection::Malformed);
 			};
 			if !available_syscalls.contains(&import.as_bytes()) {
 				log::debug!(target: LOG_TARGET, "Program references unknown syscall: {}", import);
-				Err(Error::<T>::CodeRejected)?;
+				Err(CodeRejection::Malformed)?;
 			}
 		}
 
@@ -208,21 +275,28 @@ pub mod code {
 			match inst.kind {
 				Instruction::invalid => {
 					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into());
+					return Err(CodeRejection::InvalidInstruction);
 				},
 				// Since polkavm `0.30.0` linker will fail if it detects sbrk instruction.
 				// So this branch is never reached for programs built with polkavm >= 0.30.0.
+				//
+				// # Note
+				//
+				// The decoder might decode sbrk to `invalid` under our Revive isa. In this case,
+				// this branch is _not_ hit for sbrk but the one above instead.
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into());
+					return Err(CodeRejection::InvalidInstruction);
 				},
 				// Only benchmarking code is allowed to circumvent the import table. We might want
 				// to remove this magic syscall number later. Hence we need to prevent contracts
 				// from using it.
+				//
+				// The `as` conversion is fine here because we are just testing equality.
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				Instruction::ecalli(idx) if idx == crate::SENTINEL => {
+				Instruction::ecalli(idx) if idx as u32 == crate::SENTINEL => {
 					log::debug!(target: LOG_TARGET, "reserved syscall idx {idx}. offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into());
+					return Err(CodeRejection::InvalidInstruction);
 				},
 				_ => (),
 			}
@@ -231,7 +305,10 @@ pub mod code {
 
 		if max_block_size > BASIC_BLOCK_SIZE {
 			log::debug!(target: LOG_TARGET, "basic block too large: {max_block_size} limit: {BASIC_BLOCK_SIZE}");
-			return Err(Error::<T>::BasicBlockTooLarge.into());
+			return Err(CodeRejection::BasicBlockTooLarge {
+				size: max_block_size,
+				limit: BASIC_BLOCK_SIZE,
+			});
 		}
 
 		let usage_args = EstimateInterpreterMemoryUsageArgs::BoundedCache {
@@ -245,7 +322,7 @@ pub mod code {
 		let program_info =
 			program.estimate_interpreter_memory_usage(usage_args).map_err(|err| {
 				log::debug!(target: LOG_TARGET, "failed to estimate memory usage of program: {err:?}");
-				Error::<T>::CodeRejected
+				CodeRejection::Malformed
 			})?;
 
 		log::trace!(
@@ -259,7 +336,10 @@ pub mod code {
 				program_info.purgeable_ram_consumption,
 				PURGABLE_MEMORY_LIMIT,
 			);
-			return Err(Error::<T>::StaticMemoryTooLarge.into());
+			return Err(CodeRejection::PurgeableMemoryTooLarge {
+				size: program_info.purgeable_ram_consumption,
+				limit: PURGABLE_MEMORY_LIMIT,
+			});
 		}
 
 		if program_info.baseline_ram_consumption > BASELINE_MEMORY_LIMIT {
@@ -267,10 +347,86 @@ pub mod code {
 				program_info.baseline_ram_consumption,
 				BASELINE_MEMORY_LIMIT,
 			);
-			return Err(Error::<T>::StaticMemoryTooLarge.into());
+			return Err(CodeRejection::BaselineMemoryTooLarge {
+				size: program_info.baseline_ram_consumption,
+				limit: BASELINE_MEMORY_LIMIT,
+			});
 		}
 
+		Ok(())
+	}
+
+	/// Runs [`check_pvm_code`] and turns a rejection into the pallet's dispatch error.
+	pub fn enforce<T: Config>(pvm_blob: Vec<u8>) -> Result<Vec<u8>, DispatchError> {
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
+			check_blob_size(&pvm_blob).map_err(CodeRejection::into_error::<T>)?;
+			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
+			return Ok(pvm_blob);
+		}
+
+		check_pvm_code(&pvm_blob).map_err(CodeRejection::into_error::<T>)?;
 		Ok(pvm_blob)
+	}
+
+	fn check_blob_size(pvm_blob: &[u8]) -> Result<(), CodeRejection> {
+		let len: u64 = pvm_blob.len() as u64;
+		if len > BLOB_BYTES.into() {
+			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {BLOB_BYTES}");
+			return Err(CodeRejection::BlobTooLarge {
+				size: len.saturated_into(),
+				limit: BLOB_BYTES,
+			});
+		}
+		Ok(())
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::CodeRejection;
+		use crate::{Error, tests::Test};
+		use sp_runtime::DispatchError;
+
+		fn to_error(rejection: CodeRejection) -> DispatchError {
+			rejection.into_error::<Test>().into()
+		}
+
+		#[test]
+		fn blob_too_large_maps_to_blob_too_large() {
+			let rejection = CodeRejection::BlobTooLarge { size: 2, limit: 1 };
+			assert_eq!(to_error(rejection), Error::<Test>::BlobTooLarge.into());
+		}
+
+		#[test]
+		fn basic_block_too_large_maps_to_basic_block_too_large() {
+			let rejection = CodeRejection::BasicBlockTooLarge { size: 2, limit: 1 };
+			assert_eq!(to_error(rejection), Error::<Test>::BasicBlockTooLarge.into());
+		}
+
+		#[test]
+		fn purgeable_memory_too_large_maps_to_static_memory_too_large() {
+			let rejection = CodeRejection::PurgeableMemoryTooLarge { size: 2, limit: 1 };
+			assert_eq!(to_error(rejection), Error::<Test>::StaticMemoryTooLarge.into());
+		}
+
+		#[test]
+		fn baseline_memory_too_large_maps_to_static_memory_too_large() {
+			let rejection = CodeRejection::BaselineMemoryTooLarge { size: 2, limit: 1 };
+			assert_eq!(to_error(rejection), Error::<Test>::StaticMemoryTooLarge.into());
+		}
+
+		#[test]
+		fn invalid_instruction_maps_to_invalid_instruction() {
+			assert_eq!(
+				to_error(CodeRejection::InvalidInstruction),
+				Error::<Test>::InvalidInstruction.into()
+			);
+		}
+
+		#[test]
+		fn malformed_maps_to_code_rejected() {
+			assert_eq!(to_error(CodeRejection::Malformed), Error::<Test>::CodeRejected.into());
+		}
 	}
 }
 
@@ -281,7 +437,9 @@ const fn memory_required() -> u32 {
 	// The root frame is not accounted for in CALL_STACK_DEPTH
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
-	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
+	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT +
+		TRANSIENT_STORAGE_BYTES * 2 +
+		crate::access_list::MAX_ACCESS_LIST_BYTES;
 
 	let evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
 	let evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * 32;

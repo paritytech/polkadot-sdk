@@ -558,6 +558,43 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn kick_member() -> Result<(), BenchmarkError> {
+		// Add member
+		let founder = setup_funded_society::<T, I>()?;
+		let member: T::AccountId = account("member", 0, 0);
+		let member_lookup: <T::Lookup as StaticLookup>::Source =
+			T::Lookup::unlookup(member.clone());
+
+		let _ = Society::<T, I>::insert_member(&member, 0u32.into());
+		let mut record = Members::<T, I>::get(&member).ok_or("Member not found")?;
+		record.vouching = Some(VouchingStatus::Vouching);
+		Members::<T, I>::insert(&member, &record);
+
+		// Populate payouts to max to cover worst-case slashing scenario
+		for i in 0..T::MaxPayouts::get() {
+			Society::<T, I>::bump_payout(&member, i.into(), 1u32.into());
+		}
+
+		// Add vouch to cover worst-case scenario
+		let vouched: T::AccountId = account("vouched", 0, 0);
+		let mut bids = Bids::<T, I>::get();
+		Society::<T, I>::insert_bid(
+			&mut bids,
+			&vouched,
+			10u32.into(),
+			BidKind::Vouch(member.clone(), 0u32.into()),
+		);
+		Bids::<T, I>::put(bids);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(founder), member_lookup);
+
+		assert!(!Members::<T, I>::contains_key(&member));
+		assert!(!SuspendedMembers::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Society,
 		sp_io::TestExternalities::from(

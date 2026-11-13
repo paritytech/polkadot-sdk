@@ -15,6 +15,10 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+alloy-consensus = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-trie = { workspace = true }
 codec = { workspace = true }
 frame-support = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -22,9 +26,16 @@ snowbridge-beacon-primitives = { workspace = true }
 sp-core = { workspace = true }
 sp-std = { workspace = true }
 
+[dev-dependencies]
+hex-literal = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
+	"alloy-consensus/std",
+	"alloy-primitives/std",
+	"alloy-rlp/std",
+	"alloy-trie/std",
 	"codec/std",
 	"frame-support/std",
 	"scale-info/std",

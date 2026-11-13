@@ -18,7 +18,7 @@ use fatality::thiserror::Error;
 use futures::channel::oneshot;
 
 use polkadot_node_subsystem::RuntimeApiError;
-use polkadot_node_subsystem_util::backing_implicit_view;
+use polkadot_node_subsystem_util::{backing_implicit_view, runtime};
 use polkadot_primitives::{CandidateDescriptorVersion, Hash};
 
 /// General result.
@@ -39,17 +39,14 @@ pub enum Error {
 	#[error("Response receiver for session index request cancelled")]
 	CancelledSessionIndex(oneshot::Canceled),
 
-	#[error("Response receiver for claim queue request cancelled")]
-	CancelledClaimQueue(oneshot::Canceled),
-
-	#[error("Response receiver for node features request cancelled")]
-	CancelledNodeFeatures(oneshot::Canceled),
-
 	#[error("No state for the relay parent")]
 	RelayParentStateNotFound,
 
 	#[error("Error while accessing Runtime API")]
 	RuntimeApi(#[from] RuntimeApiError),
+
+	#[error("Failed to fetch the leaf claim queues / scheduling lookahead from the runtime")]
+	FetchLeafClaimQueues(runtime::Error),
 }
 
 /// An error occurred when attempting to start seconding a candidate.
@@ -73,6 +70,12 @@ pub enum SecondingError {
 	#[error("Candidate hash doesn't match the advertisement")]
 	CandidateHashMismatch,
 
+	#[error("Candidate's output head hash doesn't match the advertisement")]
+	OutputHeadHashMismatch,
+
+	#[error("Scheduling parent hash doesn't match the advertisement")]
+	SchedulingParentMismatch,
+
 	#[error("Relay parent hash doesn't match the advertisement")]
 	RelayParentMismatch,
 
@@ -91,6 +94,9 @@ pub enum SecondingError {
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
 
+	#[error("Descriptor version mismatch: advertised {0:?}, fetched {1:?}")]
+	DescriptorVersionMismatch(CandidateDescriptorVersion, CandidateDescriptorVersion),
+
 	#[error("ParaId doesn't match the advertisement")]
 	ParaIdMismatch,
 
@@ -105,12 +111,15 @@ impl SecondingError {
 		match self {
 			PersistedValidationDataMismatch |
 			CandidateHashMismatch |
+			SchedulingParentMismatch |
 			RelayParentMismatch |
 			ParentHeadDataMismatch |
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |
-			InvalidReceiptVersion(_) => true,
-			ParaIdMismatch => true,
+			InvalidReceiptVersion(_) |
+			DescriptorVersionMismatch(_, _) |
+			ParaIdMismatch |
+			OutputHeadHashMismatch => true,
 			_ => false,
 		}
 	}
@@ -142,6 +151,8 @@ pub enum HoldOffError {
 	InvalidStateNotStarted,
 	#[error("`on_hold_off_complete` called in `Done`")]
 	InvalidStateDone,
-	#[error("`on_hold_off_complete` called in the right state but there are no advertisements in the queue")]
+	#[error(
+		"`on_hold_off_complete` called in the right state but there are no advertisements in the queue"
+	)]
 	QueueEmpty,
 }

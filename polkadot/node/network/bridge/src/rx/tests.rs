@@ -23,6 +23,7 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use polkadot_overseer::TimeoutExt;
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::{
 	collections::HashSet,
 	sync::atomic::{AtomicBool, Ordering},
@@ -51,7 +52,7 @@ use polkadot_node_subsystem_test_helpers::{
 	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateDescriptorVersion, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -83,6 +84,7 @@ struct TestNetworkHandle {
 	action_rx: metered::UnboundedMeteredReceiver<NetworkAction>,
 	validation_tx: SingleItemSink<NotificationEvent>,
 	collation_tx: SingleItemSink<NotificationEvent>,
+	protocol_names: PeerSetProtocolNames,
 }
 
 fn new_test_network(
@@ -104,7 +106,7 @@ fn new_test_network(
 			action_tx: action_tx.clone(),
 			protocol_names: Arc::new(protocol_names.clone()),
 		},
-		TestNetworkHandle { action_rx, validation_tx, collation_tx },
+		TestNetworkHandle { action_rx, validation_tx, collation_tx, protocol_names },
 		TestAuthorityDiscovery,
 		Box::new(TestNotificationService::new(
 			PeerSet::Validation,
@@ -159,7 +161,7 @@ impl Network for TestNetwork {
 
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
 		let (peer_set, version) = self.protocol_names.try_get_protocol(&protocol).unwrap();
-		assert_eq!(version, peer_set.get_main_version());
+		assert_eq!(version, self.protocol_names.get_main_version(peer_set));
 
 		self.action_tx
 			.lock()
@@ -222,17 +224,32 @@ impl TestNetworkHandle {
 			}
 		}
 
-		// because of how protocol negotiation works, if two peers support at least one common
-		// protocol, the protocol is negotiated over the main protocol (`ValidationVersion::V3`) but
-		// if either one of the peers used a fallback protocol for the negotiation (meaning they
-		// don't support the main protocol but some older version of it ), `negotiated_fallback` is
-		// set to that protocol.
-		let negotiated_fallback = match (protocol_version.into(), peer_set) {
-			(1, PeerSet::Collation) => Some(ProtocolName::from("/polkadot/collation/1")),
-			(2, PeerSet::Collation) => None,
-			(3, PeerSet::Validation) => None,
-			_ => unreachable!(),
-		};
+		// Simulate protocol negotiation: if this version is the main version for the
+		// peer set, negotiated_fallback is None. Otherwise, look up the matching
+		// fallback name, just like real negotiation would produce.
+		let negotiated_fallback =
+			if protocol_version == self.protocol_names.get_main_version(peer_set) {
+				None
+			} else {
+				let fallback_names = self.protocol_names.get_fallback_names(peer_set);
+
+				Some(
+					fallback_names
+						.into_iter()
+						.find(|name| {
+							self.protocol_names
+								.try_get_protocol(name)
+								.map_or(false, |(_, v)| v == protocol_version)
+						})
+						.unwrap_or_else(|| {
+							panic!(
+								"No fallback name for {:?} version {}. \
+							 Add it to get_fallback_names().",
+								peer_set, protocol_version,
+							)
+						}),
+				)
+			};
 
 		match peer_set {
 			PeerSet::Validation => {
@@ -1665,7 +1682,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V4.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 		await_peer_connections(&shared, 0, 1).await;
 
@@ -1675,7 +1692,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V4.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1691,18 +1708,52 @@ fn network_protocol_versioning_subsystem_msg() {
 			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+		// V4 has no `Declare`, so the Declare round-trip is exercised on a V3 peer.
+		// Incoming messages are decoded according to the peer's negotiated version,
+		// so sending V3-encoded bytes from the V4 peer would fail to decode.
+		let peer_v3 = PeerId::random();
+
+		network_handle
+			.connect_peer(
+				peer_v3,
+				CollationVersion::V3.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
+			.await;
+		await_peer_connections(&shared, 0, 2).await;
+
+		{
+			assert_sends_collation_event_to_all(
+				NetworkBridgeEvent::PeerConnected(
+					peer_v3,
+					ObservedRole::Full,
+					CollationVersion::V3.into(),
+					None,
+				),
+				&mut virtual_overseer,
+			)
+			.await;
+
+			assert_sends_collation_event_to_all(
+				NetworkBridgeEvent::PeerViewChange(peer_v3, View::default()),
+				&mut virtual_overseer,
+			)
+			.await;
+		}
+
+		let collator_protocol_message = v3_collation::CollatorProtocolMessage::Declare(
 			Sr25519Keyring::Alice.public().into(),
 			Default::default(),
 			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
 
 		let msg =
-			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+			v3_collation::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
-				peer,
+				peer_v3,
 				PeerSet::Collation,
 				WireMessage::ProtocolMessage(msg.clone()).encode(),
 			)
@@ -1712,16 +1763,140 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V3(m))
 				)
 			) => {
-				assert_eq!(p, peer);
+				assert_eq!(p, peer_v3);
 				assert_eq!(m, collator_protocol_message);
 			}
 		);
 
 		// No more messages.
 		assert_matches!(futures::poll!(virtual_overseer.recv().boxed()), Poll::Pending);
+
+		let advertise_segment_message = v4_collation::AdvertiseSegment {
+			scheduling_parent: Hash::random(),
+			para_id: 100.into(),
+			candidates_descriptor_version: CandidateDescriptorVersion::V3,
+			candidates: BoundedVec::<_, ConstU32<{ v4_collation::MAX_SEGMENT_LEN }>>::try_from(
+				vec![v4_collation::CandidateFingerprint {
+					output_head_data_hash: Hash::random(),
+					parent_head_data_hash: Hash::random(),
+					claim_queue_offset: 0,
+				}],
+			)
+			.unwrap(),
+		};
+
+		let msg = advertise_segment_message.clone();
+		network_handle
+			.peer_message(
+				peer,
+				PeerSet::Collation,
+				WireMessage::ProtocolMessage(msg.clone()).encode(),
+			)
+			.await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V4(m))
+			)) => {
+				assert_eq!(p, peer);
+				assert_eq!(m, advertise_segment_message)
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// Ensures that every `CollationVersion` gets view updates on new leaves.
+/// The on-connection path uses a match (compiler-enforced), but the view-update
+/// broadcast path uses separate calls per version which can silently miss one.
+#[test]
+fn all_collation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = CollationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Collation, &versions);
+}
+
+/// Same as above but for `ValidationVersion`.
+#[test]
+fn all_validation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = ValidationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Validation, &versions);
+}
+
+fn assert_all_peer_set_versions_receive_view_updates(
+	peer_set: PeerSet,
+	versions: &[ProtocolVersion],
+) {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peers: Vec<_> = versions.iter().map(|v| (PeerId::random(), *v)).collect();
+
+		let (num_validation, num_collation) = match peer_set {
+			PeerSet::Validation => (peers.len(), 0),
+			PeerSet::Collation => (0, peers.len()),
+		};
+
+		// Activate an initial leaf so peers get a view on connection.
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		for &(peer, version) in &peers {
+			network_handle.connect_peer(peer, version, peer_set, ObservedRole::Full).await;
+		}
+
+		await_peer_connections(&shared, num_validation, num_collation).await;
+
+		// Drain the initial on-connection view updates.
+		let _ = network_handle.next_network_actions(peers.len()).await;
+
+		// Activate a NEW leaf — this triggers the broadcast code path which is
+		// NOT compiler-enforced (separate send calls per version, easy to miss one).
+		let head2 = Hash::repeat_byte(2);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head2, 2)),
+			)))
+			.await;
+
+		// Collect actions with a timeout so the test fails fast instead of hanging
+		// if a version is missing its view update send.
+		let mut actions = Vec::with_capacity(peers.len());
+		for _ in 0..peers.len() {
+			match network_handle.next_network_action().timeout(Duration::from_secs(5)).await {
+				Some(action) => actions.push(action),
+				None => break,
+			}
+		}
+
+		for &(peer, version) in &peers {
+			assert!(
+				actions.iter().any(|action| matches!(
+					action,
+					NetworkAction::WriteNotification(p, ps, _)
+						if *p == peer && *ps == peer_set
+				)),
+				"Peer {:?} ({:?} version {}) did not receive a view update on new leaf. \
+				 Did you forget to send ViewUpdate for a new version in update_our_view()?",
+				peer,
+				peer_set,
+				version,
+			);
+		}
 
 		virtual_overseer
 	});

@@ -48,6 +48,8 @@ pub mod pallet {
 		/// A DMP message couldn't be sent because it exceeds the maximum size allowed for a
 		/// downward message.
 		ExceedsMaxMessageSize,
+		/// A DMP message couldn't be sent because the destination's queue is full.
+		ExceedsMaxQueueSize,
 		/// A DMP message couldn't be sent because the destination is unreachable.
 		Unroutable,
 		/// Could not schedule para cleanup.
@@ -160,14 +162,17 @@ pub mod pallet {
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize => {
 					Error::<T>::ExceedsMaxMessageSize.into()
 				},
+				dmp::QueueDownwardMessageError::ExceedsMaxQueueSize => {
+					Error::<T>::ExceedsMaxQueueSize.into()
+				},
 				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}
 
 		/// Forcefully establish a channel from the sender to the recipient.
 		///
-		/// This is equivalent to sending an `Hrmp::hrmp_init_open_channel` extrinsic followed by
-		/// `Hrmp::hrmp_accept_open_channel`.
+		/// This is similar to sending an `Hrmp::hrmp_init_open_channel` extrinsic followed by
+		/// `Hrmp::hrmp_accept_open_channel` but in one go.
 		#[pallet::call_index(5)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_establish_hrmp_channel(
@@ -179,14 +184,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			hrmp::Pallet::<T>::init_open_channel(
+			hrmp::Pallet::<T>::init_and_accept_open_channel(
 				sender,
 				recipient,
 				max_capacity,
 				max_message_size,
-			)?;
-			hrmp::Pallet::<T>::accept_open_channel(recipient, sender)?;
-			Ok(())
+			)
 		}
 	}
 }

@@ -1,0 +1,25 @@
+title: 'cumulus: submit V2/V3 collations as segments'
+doc:
+- audience: Node Dev
+  description: |
+    The slot-based collator now submits every collation through
+    `CollationGenerationMessage::SubmitSegment`: a V2 collation as a one-element segment
+    and a V3 collation as a segment carrying its scheduling proof. This is groundwork for
+    candidate resubmission, where a segment carries resubmitted entries ahead of the
+    freshly built bundle.
+
+    `SchedulingSignals` moves from `cumulus-pallet-parachain-system` to
+    `cumulus-primitives-core` so the collator and the PVF share one implementation. This
+    is a breaking change for `cumulus-pallet-parachain-system`: the type is no longer
+    reachable under `validate_block::scheduling`. On a resubmission the collator rebuilds the
+    candidate's UMP scheduling tail from the signed scheduling info with the same code the
+    PVF applies, so receipt commitments cannot drift from the PVF's output.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-primitives-core
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-client-collator
+  bump: patch

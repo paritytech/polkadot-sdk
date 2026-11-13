@@ -1,0 +1,12 @@
+title: Kanas/migrating async std to tokio
+doc:
+- audience: Node Dev
+  description: |-
+    Migrates bridge relay crates from the deprecated `async-std` to `tokio`. This includes updating sync primitives, task spawning, and channels across several bridge-related crates to ensure compatibility with modern tokio-based runtimes.
+crates:
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: bridge-hub-test-utils
+  bump: major

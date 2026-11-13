@@ -72,11 +72,8 @@ fn main() {
 			if check_digit_lengths(&u, &v, 4) {
 				let expected = ue.unwrap().checked_sub(ve.unwrap());
 				let t = u.clone().sub(&v);
-				if expected.is_none() {
-					assert!(t.is_err())
-				} else {
+				if let Some(expected) = expected {
 					let t = t.unwrap();
-					let expected = expected.unwrap();
 					assert_eq!(
 						u128::try_from(t.clone()).unwrap(),
 						expected,
@@ -86,6 +83,8 @@ fn main() {
 						t,
 						expected,
 					);
+				} else {
+					assert!(t.is_err())
 				}
 			}
 

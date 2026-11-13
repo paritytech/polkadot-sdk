@@ -95,7 +95,7 @@ impl Metric {
 		}
 	}
 
-	/// The name of the metric. It is always prefixed by the [`self.category()`].
+	/// The name of the metric. It is always prefixed by the `self.category()`.
 	pub fn name(&self) -> Cow<'static, str> {
 		match self {
 			Self::Sr25519Verify => Cow::Borrowed("SR25519-Verify"),

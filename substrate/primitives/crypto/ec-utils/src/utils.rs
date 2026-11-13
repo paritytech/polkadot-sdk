@@ -22,16 +22,17 @@
 // suppress the expected warning.
 #![allow(unused)]
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
 	short_weierstrass::{Affine as SWAffine, SWCurveConfig},
-	twisted_edwards::{Affine as TEAffine, TECurveConfig},
+	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
 	CurveGroup,
 };
+use ark_ff::{AdditiveGroup, Field, Zero};
 use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
-	scale::{Decode, Encode},
+	scale::{Decode, Encode, Output},
 	ArkScaleMaxEncodedLen, MaxEncodedLen,
 };
 use sp_runtime_interface::RIType;
@@ -46,6 +47,24 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
 
+/// `Output` adapter for `&mut [u8]`, which doesn't natively implement it in `no_std`.
+struct SliceOutput<'a> {
+	buf: &'a mut [u8],
+	offset: usize,
+}
+
+impl<'a> Output for SliceOutput<'a> {
+	fn write(&mut self, bytes: &[u8]) {
+		self.buf[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+		self.offset += bytes.len();
+	}
+
+	fn push_byte(&mut self, byte: u8) {
+		self.buf[self.offset] = byte;
+		self.offset += 1;
+	}
+}
+
 /// Error type for host call operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -56,6 +75,13 @@ pub enum Error {
 	/// Input sequences have different lengths.
 	/// Applies to `msm` operations.
 	LengthMismatch = 3,
+	/// The projective result of a twisted Edwards operation has `z = 0`
+	/// and therefore no affine representative. Reachable on *incomplete*
+	/// TE curves like Bandersnatch when the inputs are not in the
+	/// prime-order subgroup. The runtime-side hook decides whether to
+	/// recover (e.g. by substituting [`invalid_projective_fallback`])
+	/// or to surface the error.
+	DegeneratePoint = 4,
 	/// Unknown error.
 	Unknown = 255,
 }
@@ -99,6 +125,7 @@ impl sp_runtime_interface::wasm::FromFFIValue for HostcallResult {
 			1 => Err(Error::Encode),
 			2 => Err(Error::Decode),
 			3 => Err(Error::LengthMismatch),
+			4 => Err(Error::DegeneratePoint),
 			_ => Err(Error::Unknown),
 		}
 	}
@@ -115,19 +142,46 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
+pub fn encode_into<T: CanonicalSerialize>(val: T, buf: &mut [u8]) -> Result<(), Error> {
 	let val = ArkScale::from(val);
 	// Size hint uses arkworks `serialized_size`, which is accurate
 	if val.size_hint() > buf.len() {
 		return Err(Error::Encode);
 	}
-	val.encode_to(&mut buf);
+	val.encode_to(&mut SliceOutput { buf, offset: 0 });
 	Ok(())
 }
 
 #[inline(always)]
 pub fn decode<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
 	ArkScale::<T>::decode(&mut buf).map_err(|_| Error::Decode).map(|v| v.0)
+}
+
+/// Fallible projective-to-affine conversion for *twisted Edwards* projectives.
+///
+/// Arkworks' standard `From<Projective> for Affine` for TE branches on
+/// `is_zero()` (i.e. `x == 0 && y == z`) and otherwise calls
+/// `z.inverse().unwrap()`. On *incomplete* twisted Edwards curves such as
+/// Bandersnatch, HWCD arithmetic fed non-subgroup inputs can land in
+/// `(0, Y, T, 0)` or `(X, 0, T, 0)` states with `z = 0` that miss the
+/// `is_zero()` short-circuit, hitting the panicking inverse. This trait
+/// returns `None` in that case so callers can choose what to ship over
+/// the FFI boundary instead of crashing.
+///
+/// Not defined for short Weierstrass: SW `into_affine()` is total.
+/// `z = 0` there is just the point at infinity (the identity), with a
+/// valid affine representation through arkworks' `infinity` flag.
+pub trait IntoAffineSafe {
+	type Affine;
+	fn into_affine_safe(self) -> Option<Self::Affine>;
+}
+
+impl<P: TECurveConfig> IntoAffineSafe for TEProjective<P> {
+	type Affine = TEAffine<P>;
+	#[inline]
+	fn into_affine_safe(self) -> Option<TEAffine<P>> {
+		(!self.z.is_zero()).then(|| self.into_affine())
+	}
 }
 
 /// Pairing multi Miller loop.
@@ -179,17 +233,38 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 	encode_into::<SWAffine<T>>(res, out)
 }
 
+/// Invalid projective point with all-zero coordinates.
+///
+/// This is not a valid curve point - it represents an undefined/degenerate
+/// result in projective coordinates. Useful as a sentinel value when
+/// operations produce a `z = 0` projective that has no affine representative.
+/// Any downstream validity or subgroup check will reject it.
+pub const fn invalid_projective_fallback<T: TECurveConfig>() -> TEProjective<T> {
+	TEProjective::<T>::new_unchecked(
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+	)
+}
+
 /// Twisted Edwards multi scalar multiplication.
 ///
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. Returns
+/// [`Error::DegeneratePoint`] if the projective result has `z = 0` and
+/// therefore no affine representative (reachable on incomplete TE forms
+/// like Bandersnatch when fed non-subgroup bases). The runtime-side hook
+/// decides the policy for that case (e.g. substitute
+/// [`invalid_projective_fallback`]).
 pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
-	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?.into_affine();
-	encode_into::<TEAffine<T>>(res, out)
+	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?;
+	let aff = res.into_affine_safe().ok_or(Error::DegeneratePoint)?;
+	encode_into::<TEAffine<T>>(aff, out)
 }
 
 /// Twisted Edwards affine multiplication.
@@ -197,12 +272,15 @@ pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) ->
 /// Expects encoded:
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. Returns
+/// [`Error::DegeneratePoint`] if the projective result has `z = 0`,
+/// under the same conditions and contract as [`msm_te`].
 pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
-	let base = decode::<TEAffine<T>>(base)?;
+	let base_aff = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
-	let res = T::mul_affine(&base, &scalar).into_affine();
-	encode_into::<TEAffine<T>>(res, out)
+	let res = T::mul_affine(&base_aff, &scalar);
+	let aff = res.into_affine_safe().ok_or(Error::DegeneratePoint)?;
+	encode_into::<TEAffine<T>>(aff, out)
 }
 
 #[cfg(test)]

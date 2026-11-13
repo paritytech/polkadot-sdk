@@ -22,7 +22,7 @@
 //! ## Overview
 //!
 //! It does this by wrapping an existing [`TransactionExtension`] implementation (e.g.
-//! [`pallet-transaction-payment`]) and checking if the dispatchable is feeless before applying the
+//! `pallet-transaction-payment`) and checking if the dispatchable is feeless before applying the
 //! wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
 //! event is emitted instead. Otherwise, the extension is applied as usual.
 //!

@@ -29,7 +29,6 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
@@ -55,7 +54,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::ops::RangeInclusive;
+use std::{ops::RangeInclusive, sync::Arc};
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and

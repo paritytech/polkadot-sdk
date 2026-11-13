@@ -16,6 +16,10 @@
 
 use std::{
 	pin::Pin,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -44,6 +48,7 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
+use polkadot_primitives::ValidDisputeStatementKind;
 
 use crate::{
 	metrics::{FAILED, SUCCEEDED},
@@ -71,6 +76,10 @@ const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a valid
 /// Invalid imports can be caused by flooding, e.g. by a disabled validator.
 const COST_INVALID_IMPORT: Rep =
 	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
+
+/// A dispute vote coalesced more candidates than the runtime's `max_approval_coalesce_count`.
+const COST_EXCESSIVE_COALESCED_VOTES: Rep =
+	Rep::CostMajor("Dispute vote coalesces more candidates than the runtime allows.");
 
 /// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
@@ -113,6 +122,11 @@ pub struct DisputesReceiver<Sender, AD> {
 
 	/// Log received requests.
 	metrics: Metrics,
+
+	/// Shared monotonic flag for V3 candidate descriptor detection.
+	/// Updated by the main subsystem task on active leaf updates.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: Arc<AtomicBool>,
 }
 
 /// Messages as handled by this receiver internally.
@@ -154,6 +168,7 @@ where
 		receiver: IncomingRequestReceiver<DisputeRequest>,
 		authority_discovery: AD,
 		metrics: Metrics,
+		v3_ever_seen: Arc<AtomicBool>,
 	) -> Self {
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: None,
@@ -168,6 +183,7 @@ where
 			authority_discovery,
 			pending_imports: FuturesUnordered::new(),
 			metrics,
+			v3_ever_seen,
 		}
 	}
 
@@ -324,14 +340,59 @@ where
 	) -> Result<()> {
 		let IncomingRequest { peer, payload, pending_response } = incoming;
 
+		// For disputes, we need session info from the scheduling context.
+		// Use the transition-safe method to match old backer semantics before V3 is confirmed.
+		let v3_ever_seen = self.v3_ever_seen.load(Ordering::Relaxed);
+		let scheduling_parent = payload
+			.0
+			.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(v3_ever_seen);
+
+		// The scheduling parent may not be a block we have ever seen (e.g. disputes
+		// about candidates on forks we never imported), so we cannot rely on its state
+		// being available for runtime API queries.
+		//
+		// This is fine because `get_session_info_by_index` has two cache layers:
+		//
+		// 1. A local LRU cache in this subsystem's `RuntimeInfo`, keyed by session index. Once
+		//    populated by a prior call from this receiver, the scheduling parent hash is
+		//    irrelevant. Thus on a dispute storm, the cache will be warm (the actual threat
+		//    scenario).
+		//
+		// 2. More importantly, the runtime API subsystem itself caches session info by session
+		//    index. The dispute coordinator and dispute distribution sender both query session info
+		//    on every active leaf, warming that global cache for all sessions within the dispute
+		//    window. When our local cache misses, the runtime API subsystem can still serve the
+		//    response from its cache even if the scheduling parent block's state is unavailable.
 		let info = self
 			.runtime
-			.get_session_info_by_index(
-				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent(),
-				payload.0.session_index,
-			)
+			.get_session_info_by_index(&mut self.sender, scheduling_parent, payload.0.session_index)
 			.await?;
+
+		if let ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidates) =
+			&payload.0.valid_vote.kind
+		{
+			let max_approval_coalesce_count =
+				info.approval_voting_params.max_approval_coalesce_count as usize;
+			if candidates.len() > max_approval_coalesce_count {
+				gum::debug!(
+					target: LOG_TARGET,
+					?peer,
+					num_candidates = candidates.len(),
+					max_approval_coalesce_count,
+					"Dropping dispute request: valid vote coalesces too many candidates",
+				);
+				pending_response
+					.send_outgoing_response(OutgoingResponse {
+						result: Err(()),
+						reputation_changes: vec![COST_EXCESSIVE_COALESCED_VOTES],
+						sent_feedback: None,
+					})
+					.map_err(|_| JfyiError::SetPeerReputation(peer))?;
+				return Err(From::from(JfyiError::ExcessiveCoalescedVotes(peer)));
+			}
+		}
 
 		let votes_result = payload.0.try_into_signed_votes(&info.session_info);
 

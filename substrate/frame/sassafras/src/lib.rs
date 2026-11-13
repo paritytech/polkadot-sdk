@@ -463,6 +463,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -494,7 +495,7 @@ pub mod pallet {
 			let tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
 
 			ValidTransaction::with_tag_prefix("Sassafras")
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				.longevity(tickets_longevity as u64)
 				.and_provides(tickets_tag)
 				.propagate(true)

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migrations to version [`3.0.0`], as denoted by the changelog.
+//! Migrations to version `3.0.0`, as denoted by the changelog.
 
 use super::super::LOG_TARGET;
 use crate::{Config, Pallet};

@@ -16,18 +16,33 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
-	TransactionMeter, WeightToken,
+	AddressMapper, BalanceOf, CallResources, Code, Config, Deposit, Error, EthTxInfo, ExecConfig,
+	H160, HoldReason, NativeDepositOf, Pallet, StorageDeposit, TransactionLimits, TransactionMeter,
+	WeightToken,
+	evm::fees::InfoT,
 	storage::AccountInfo,
-	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
+	test_utils::{
+		ALICE, ALICE_ADDR, BOB, BOB_ADDR, CHARLIE, WEIGHT_LIMIT,
+		builder::{BareCallBuilder, Contract},
+		deposit_limit,
+	},
+	tests::{
+		Assets, Balances, ExtBuilder, PGAS_ASSET_ID, PGasRefundPercent, RuntimeOrigin, Test,
+		builder,
+	},
 };
-use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use alloy_core::{primitives::U256, sol_types::SolCall};
+use frame_support::{
+	assert_ok,
+	storage::{TransactionOutcome, with_storage_layer, with_transaction},
+	traits::fungible::{Balanced, Mutate},
+};
+use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
-	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
+	CallThenWrite, CatchConstructorTest, DepositPrecompile, FixtureType, ReentryStorage,
+	StorageSlots, StorageSlotsFactory, compile_module_with_type,
 };
-use sp_runtime::{FixedU128, Weight};
+use sp_runtime::{DispatchError, FixedU128, StateVersion, Weight};
 use test_case::test_case;
 
 /// A trivial token that charges the specified number of weight units.
@@ -41,7 +56,7 @@ impl WeightToken<Test> for TestToken {
 
 enum Charge {
 	W(u64, u64),
-	D(i64),
+	D(i128),
 }
 
 #[test]
@@ -159,16 +174,1012 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 	});
 }
 
+/// Instantiates `StorageSlots`, paid by ALICE or, with `root_created`, from a call by
+/// `Origin::Root` through `StorageSlotsFactory`.
+///
+/// `Origin::Root` pays no storage deposit, so a contract it instantiates records a base deposit of
+/// zero.
+fn instantiate_storage_slots(fixture_type: FixtureType, root_created: bool) -> Contract<Test> {
+	let (code, _) = compile_module_with_type("StorageSlots", fixture_type).unwrap();
+	if !root_created {
+		return builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+	}
+
+	// A PolkaVM factory can only instantiate code that was uploaded before.
+	if fixture_type == FixtureType::Resolc {
+		assert_ok!(Pallet::<Test>::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+			deposit_limit::<Test>(),
+		));
+	}
+	let (factory_code, _) = compile_module_with_type("StorageSlotsFactory", fixture_type).unwrap();
+	let Contract { addr: factory, .. } =
+		builder::bare_instantiate(Code::Upload(factory_code)).build_and_unwrap_contract();
+	let result = builder::bare_call(factory)
+		.origin(RuntimeOrigin::root())
+		.data(StorageSlotsFactory::deployCall {}.abi_encode())
+		.build_and_unwrap_result();
+	assert!(!result.did_revert());
+	let addr = StorageSlotsFactory::deployCall::abi_decode_returns(&result.data).unwrap();
+	let addr = H160::from_slice(addr.as_slice());
+	Contract { addr, account_id: <Test as Config>::AddressMapper::to_account_id(&addr) }
+}
+
+/// Writes slots of the `StorageSlots` at `addr`, the first half by ALICE and the second half by
+/// `Origin::Root`.
+///
+/// `Origin::Root` pays no storage deposit, so the deposit of its slots is recorded in the contract
+/// info but not held. Clearing all slots therefore requests a refund larger than the deposit held
+/// above the base deposit. ALICE writes enough slots for their deposit to exceed the base deposit.
+/// `held` returns the storage deposit held by the contract. Returns the number of slots written,
+/// the deposit held and the part of it held above the base deposit, which is the deposit of
+/// ALICE's slots.
+fn write_slots_partly_held(
+	addr: H160,
+	held: impl Fn() -> BalanceOf<Test>,
+) -> (BalanceOf<Test>, BalanceOf<Test>, BalanceOf<Test>) {
+	let write = |origin: RuntimeOrigin, from: BalanceOf<Test>, to: BalanceOf<Test>| {
+		let result = BareCallBuilder::<Test>::bare_call(origin, addr)
+			.data(
+				StorageSlots::writeCall { from: U256::from(from), to: U256::from(to) }.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+	};
+
+	let base_deposit = AccountInfo::<Test>::load_contract(&addr).unwrap().storage_base_deposit();
+	assert_eq!(held(), base_deposit, "only the base deposit is held");
+
+	// Write one slot to learn the deposit of a slot, then the rest.
+	write(RuntimeOrigin::signed(ALICE), 0, 1);
+	let slot_deposit = AccountInfo::<Test>::load_contract(&addr).unwrap().extra_deposit();
+	let half = base_deposit / slot_deposit + 1;
+	write(RuntimeOrigin::signed(ALICE), 1, half);
+	let held_by_alice = held();
+	write(RuntimeOrigin::root(), half, 2 * half);
+	assert_eq!(held(), held_by_alice, "the deposit of the slots written by root is not held");
+
+	let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+	let refundable = held_by_alice - base_deposit;
+	assert_eq!(refundable, half * slot_deposit);
+	assert!(refundable > base_deposit);
+	assert_eq!(info.extra_deposit(), 2 * refundable, "the slots of root are recorded");
+	(2 * half, held_by_alice, refundable)
+}
+
+/// Call data for `CallThenWrite` that calls `data` on `target` and then writes `count` slots of
+/// `CallThenWrite`.
+fn call_then_write(target: H160, data: Vec<u8>, count: BalanceOf<Test>) -> Vec<u8> {
+	CallThenWrite::callThenWriteCall {
+		target: target.0.into(),
+		data: data.into(),
+		count: U256::from(count),
+	}
+	.abi_encode()
+}
+
+/// Call data for `CallThenWrite` that clears the first `slots` slots of the `StorageSlots` at
+/// `target` and then writes as many slots of `CallThenWrite`.
+fn clear_slots_then_write(target: H160, slots: BalanceOf<Test>) -> Vec<u8> {
+	let clear = StorageSlots::clearCall { from: U256::from(0), to: U256::from(slots) };
+	call_then_write(target, clear.abi_encode(), slots)
+}
+
+/// Storage deposit refunds are bounded by the deposit the contract holds above its base deposit.
+///
+/// ALICE writes storage slots of `StorageSlots` and then clears them in two calls. With
+/// `root_created`, the contract is instantiated from a call by `Origin::Root`, so its base deposit
+/// is zero and ALICE's whole deposit is refunded. Otherwise enough slots are written for their
+/// deposit to exceed twice the base deposit. The refunds released add up to the held deposit above
+/// the base deposit, the hold does not drop below the base deposit, the reported storage deposit
+/// equals the deposit released from the hold, and ALICE is credited with it. `pgas` selects
+/// whether the deposit is paid in PGAS or, through the native fallback of `PGasDeposit`, in the
+/// native currency.
+#[test_case(FixtureType::Solc  , false, false ; "solc native-funded")]
+#[test_case(FixtureType::Solc  , false, true  ; "solc native-funded root-created")]
+#[test_case(FixtureType::Solc  , true , false ; "solc pgas")]
+#[test_case(FixtureType::Solc  , true , true  ; "solc pgas root-created")]
+#[test_case(FixtureType::Resolc, false, false ; "resolc native-funded")]
+#[test_case(FixtureType::Resolc, false, true  ; "resolc native-funded root-created")]
+#[test_case(FixtureType::Resolc, true , false ; "resolc pgas")]
+#[test_case(FixtureType::Resolc, true , true  ; "resolc pgas root-created")]
+fn storage_refund_bounded_by_held_deposit(
+	fixture_type: FixtureType,
+	pgas: bool,
+	root_created: bool,
+) {
+	let pgas_balances = if pgas { vec![(ALICE, 100_000_000_000)] } else { vec![] };
+
+	ExtBuilder::default()
+		.with_pgas_balances(pgas_balances)
+		.build()
+		.execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, account_id } =
+				instantiate_storage_slots(fixture_type, root_created);
+			let held = || {
+				<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+					HoldReason::StorageDepositReserve,
+					&account_id,
+				)
+			};
+			let alice_balance = || {
+				if pgas {
+					Assets::balance(PGAS_ASSET_ID, ALICE)
+				} else {
+					Balances::free_balance(ALICE)
+				}
+			};
+
+			let call = |data: Vec<u8>| {
+				let result = builder::bare_call(addr).data(data).build();
+				assert!(!result.result.as_ref().unwrap().did_revert());
+				result
+			};
+
+			// Write one slot to learn the deposit of a slot, then the rest.
+			call(StorageSlots::writeCall { from: U256::from(0), to: U256::from(1) }.abi_encode());
+			let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+			let base_deposit = info.storage_base_deposit();
+			let slots = 2 * (base_deposit / info.extra_deposit() + 1);
+			call(
+				StorageSlots::writeCall { from: U256::from(1), to: U256::from(slots) }.abi_encode(),
+			);
+
+			let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+			let held_before = held();
+			if root_created {
+				assert_eq!(base_deposit, 0, "root pays no base deposit");
+			}
+			assert_eq!(held_before, info.total_deposit(), "the recorded deposit is held");
+			assert!(held_before > 2 * base_deposit);
+
+			// Clear one half of the slots, then the other.
+			let mut refunds = Vec::new();
+			for (from, to) in [(0, slots / 2), (slots / 2, slots)] {
+				let (held_pre, balance_pre) = (held(), alice_balance());
+				let result = call(
+					StorageSlots::clearCall { from: U256::from(from), to: U256::from(to) }
+						.abi_encode(),
+				);
+				let refund = match result.storage_deposit {
+					StorageDeposit::Refund(amount) => amount,
+					StorageDeposit::Charge(amount) => {
+						assert_eq!(amount, 0, "clearing storage must not charge");
+						0
+					},
+				};
+				assert_eq!(held_pre - held(), refund, "reported refund differs from released hold");
+				assert!(
+					held() >= base_deposit,
+					"base deposit released: {} < {base_deposit}",
+					held()
+				);
+				let credited =
+					if pgas { PGasRefundPercent::get().mul_floor(refund) } else { refund };
+				assert_eq!(
+					alice_balance() - balance_pre,
+					credited,
+					"origin credit differs from refund"
+				);
+				refunds.push(refund);
+			}
+
+			assert_eq!(held(), base_deposit, "only the base deposit stays on hold");
+			assert_eq!(refunds.iter().sum::<BalanceOf<Test>>(), held_before - base_deposit);
+			if root_created {
+				assert_eq!(held(), 0, "ALICE's whole deposit is refunded");
+			}
+			assert_eq!(refunds[0], refunds[1], "each half refunds the same share");
+			let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+			assert_eq!(info.storage_base_deposit(), base_deposit);
+			assert_eq!(info.storage_items, 0);
+			assert_eq!(info.storage_bytes, 0);
+			assert_eq!(info.storage_item_deposit, 0, "item deposit counter converges to zero");
+			assert_eq!(info.storage_byte_deposit, 0, "byte deposit counter converges to zero");
+		});
+}
+
+/// The reported refund is the deposit that was released from the contract's hold.
+///
+/// BOB pays for the storage of a contract in the native currency. CHARLIE then clears it, but
+/// CHARLIE is not entitled to BOB's native deposit, so the deposit backend releases nothing. The
+/// storage deposit reported to CHARLIE must say so, and BOB's deposit must stay on hold.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn storage_refund_reports_released_hold(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("DepositDirect", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		for account in [&ALICE, &BOB, &CHARLIE] {
+			let _ = <Test as Config>::Currency::set_balance(account, 100_000_000_000);
+		}
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let held = || {
+			<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+				HoldReason::StorageDepositReserve,
+				&account_id,
+			)
+		};
+
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(BOB), addr)
+				.data(DepositPrecompile::setVarsCall {}.abi_encode())
+				.build()
+				.result
+		);
+		let bob_entitlement = NativeDepositOf::<Test>::get(&account_id, &BOB);
+		assert!(bob_entitlement > 0, "BOB paid for the storage in the native currency");
+
+		let (held_before, charlie_before) = (held(), Balances::free_balance(CHARLIE));
+		let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+			.data(DepositPrecompile::clearAllCall {}.abi_encode())
+			.build();
+		assert_ok!(result.result);
+
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0), "nothing was released");
+		assert_eq!(held(), held_before);
+		assert_eq!(Balances::free_balance(CHARLIE), charlie_before);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_entitlement);
+	});
+}
+
+/// The deposit limit is enforced against the refund the deposit backend releases.
+///
+/// BOB pays for the storage of `DepositDirect` in the native currency. CHARLIE then calls
+/// `CallThenWrite`, which clears that storage and writes a slot of its own. CHARLIE is not entitled
+/// to BOB's native deposit, so nothing is released and CHARLIE pays the full charge. The limit is
+/// checked at the boundary: one unit below the charge, the call fails and changes nothing. At
+/// exactly the charge, it succeeds and reports it as the storage deposit.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn unreleased_refund_counts_against_deposit_limit(fixture_type: FixtureType) {
+	let (refunding_code, _) = compile_module_with_type("DepositDirect", fixture_type).unwrap();
+	let (charging_code, _) = compile_module_with_type("CallThenWrite", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		for account in [&ALICE, &BOB, &CHARLIE] {
+			let _ = <Test as Config>::Currency::set_balance(account, 100_000_000_000);
+		}
+
+		let Contract { addr: refunding_addr, account_id: refunding_account } =
+			builder::bare_instantiate(Code::Upload(refunding_code)).build_and_unwrap_contract();
+		let Contract { addr: charging_addr, .. } =
+			builder::bare_instantiate(Code::Upload(charging_code)).build_and_unwrap_contract();
+
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(BOB), refunding_addr)
+				.data(DepositPrecompile::setVarsCall {}.abi_encode())
+				.build()
+				.result
+		);
+		let held = || {
+			<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+				HoldReason::StorageDepositReserve,
+				&refunding_account,
+			)
+		};
+		let held_before = held();
+
+		let call = |deposit_limit| {
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), charging_addr)
+				.data(
+					CallThenWrite::callThenWriteCall {
+						target: refunding_addr.0.into(),
+						data: DepositPrecompile::clearAllCall {}.abi_encode().into(),
+						count: 1u32.try_into().unwrap(),
+					}
+					.abi_encode(),
+				)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: WEIGHT_LIMIT,
+					deposit_limit,
+				})
+				.build()
+		};
+
+		// The deposit `CallThenWrite` is charged for its slot, measured in a rolled back call.
+		let charged = with_transaction(|| {
+			let result = call(deposit_limit::<Test>());
+			assert!(!result.result.unwrap().did_revert());
+			let charged =
+				AccountInfo::<Test>::load_contract(&charging_addr).unwrap().extra_deposit();
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(charged))
+		})
+		.unwrap();
+		assert!(charged > 0);
+
+		// Roll back on error as the dispatch of an extrinsic does.
+		let storage_root = sp_io::storage::root(StateVersion::V1);
+		let tight = with_storage_layer(|| call(charged - 1).result);
+		assert_eq!(tight.unwrap_err(), Error::<Test>::StorageDepositNotEnoughFunds.into());
+		assert_eq!(sp_io::storage::root(StateVersion::V1), storage_root, "state changed");
+
+		let charlie_before = Balances::free_balance(CHARLIE);
+		let result = call(charged);
+		assert!(!result.result.unwrap().did_revert());
+
+		assert_eq!(held(), held_before, "nothing was released");
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(charged));
+		assert_eq!(charlie_before - Balances::free_balance(CHARLIE), charged);
+	});
+}
+
+/// A refund that is released only in part counts against the deposit limit.
+///
+/// ALICE instantiates `StorageSlots`, and ALICE and `Origin::Root` each write half of its slots.
+/// Only the deposit of ALICE's slots is held above the base deposit. `CallThenWrite` then calls
+/// `StorageSlots::clear` for all of them, a refund from a nested frame bounded by the deposit held
+/// above the base deposit, and writes as many slots of its own, a charge on another contract.
+/// The limit is checked at the boundary: one unit below the deposit that is paid, the call fails
+/// and changes nothing. At exactly that deposit, it succeeds and the reported storage deposit and
+/// maximum storage deposit equal it. `tx_fee` routes the deposits through the transaction fee
+/// pool, as an Ethereum transaction does.
+#[test_case(FixtureType::Solc  , false ; "solc balance")]
+#[test_case(FixtureType::Solc  , true  ; "solc tx fee")]
+#[test_case(FixtureType::Resolc, false ; "resolc balance")]
+#[test_case(FixtureType::Resolc, true  ; "resolc tx fee")]
+fn bounded_refund_counts_against_deposit_limit(fixture_type: FixtureType, tx_fee: bool) {
+	let (charging_code, _) = compile_module_with_type("CallThenWrite", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		if tx_fee {
+			exec_config.collect_deposit_from_hold = Some(Default::default());
+			<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(1_000_000));
+		}
+		let origin_funds = || {
+			if tx_fee {
+				<Test as Config>::FeeInfo::remaining_txfee()
+			} else {
+				Balances::free_balance(ALICE)
+			}
+		};
+
+		let Contract { addr: refunding_addr, account_id: refunding_account } =
+			instantiate_storage_slots(fixture_type, false);
+		let Contract { addr: charging_addr, .. } =
+			builder::bare_instantiate(Code::Upload(charging_code)).build_and_unwrap_contract();
+		let held = || {
+			<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+				HoldReason::StorageDepositReserve,
+				&refunding_account,
+			)
+		};
+
+		let (slots, held_before, refundable) = write_slots_partly_held(refunding_addr, held);
+
+		let call = |deposit_limit| {
+			builder::bare_call(charging_addr)
+				.data(clear_slots_then_write(refunding_addr, slots))
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: WEIGHT_LIMIT,
+					deposit_limit,
+				})
+				.exec_config(exec_config.clone())
+				.build()
+		};
+
+		// The deposit `CallThenWrite` is charged for its slots, measured in a rolled back call.
+		let charged = with_transaction(|| {
+			let result = call(deposit_limit::<Test>());
+			assert!(!result.result.unwrap().did_revert());
+			let charged =
+				AccountInfo::<Test>::load_contract(&charging_addr).unwrap().extra_deposit();
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(charged))
+		})
+		.unwrap();
+		assert!(charged > refundable);
+		let paid = charged - refundable;
+
+		// The requested refund would cover the charge within this limit, the released one does
+		// not. Roll back on error as the dispatch of an extrinsic does.
+		let storage_root = sp_io::storage::root(StateVersion::V1);
+		let tight = with_storage_layer(|| call(paid - 1).result);
+		assert_eq!(tight.unwrap_err(), Error::<Test>::StorageDepositNotEnoughFunds.into());
+		assert_eq!(sp_io::storage::root(StateVersion::V1), storage_root, "state changed");
+
+		let funds_before = origin_funds();
+		let result = call(paid);
+		assert!(!result.result.unwrap().did_revert());
+
+		assert_eq!(held(), held_before - refundable, "the base deposit stays held");
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(paid));
+		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(paid));
+		assert_eq!(funds_before - origin_funds(), paid);
+	});
+}
+
+/// A refund that is released only in part counts against the Ethereum gas limit.
+///
+/// The scenario of [`bounded_refund_counts_against_deposit_limit`] with an Ethereum gas limit
+/// instead of a deposit limit. The gas consumed by the call includes the deposit that is paid,
+/// not the requested refund. One unit of gas below it, the call fails with
+/// `StorageDepositNotEnoughFunds`, reports the same gas consumed and changes nothing. At exactly
+/// that gas, it succeeds and reports the deposit that is paid.
+///
+/// The low fee multiplier makes the deposit outweigh the weight in the gas consumed. Otherwise the
+/// weight charged ahead of an operation and refunded after it would exceed the limit during
+/// execution, before the deposits are settled.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn bounded_refund_counts_against_eth_gas_limit(fixture_type: FixtureType) {
+	let (charging_code, _) = compile_module_with_type("CallThenWrite", fixture_type).unwrap();
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 1_000_000_000))
+		.build()
+		.execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr: refunding_addr, account_id: refunding_account } =
+				instantiate_storage_slots(fixture_type, false);
+			let Contract { addr: charging_addr, .. } =
+				builder::bare_instantiate(Code::Upload(charging_code)).build_and_unwrap_contract();
+			let held = || {
+				<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+					HoldReason::StorageDepositReserve,
+					&refunding_account,
+				)
+			};
+
+			let (slots, held_before, refundable) = write_slots_partly_held(refunding_addr, held);
+
+			let call = |eth_gas_limit| {
+				builder::bare_call(charging_addr)
+					.data(clear_slots_then_write(refunding_addr, slots))
+					.transaction_limits(TransactionLimits::EthereumGas {
+						eth_gas_limit,
+						weight_limit: WEIGHT_LIMIT,
+						eth_tx_info: EthTxInfo::new(0, Default::default()),
+						authorization_deposit: Default::default(),
+					})
+					.build()
+			};
+
+			// The gas consumed and the deposit `CallThenWrite` is charged for its slots, measured
+			// in a rolled back call.
+			let (gas_consumed, charged) = with_transaction(|| {
+				let result = call(u64::MAX.into());
+				assert!(!result.result.unwrap().did_revert());
+				let charged =
+					AccountInfo::<Test>::load_contract(&charging_addr).unwrap().extra_deposit();
+				TransactionOutcome::Rollback(Ok::<_, DispatchError>((result.gas_consumed, charged)))
+			})
+			.unwrap();
+			assert!(charged > refundable);
+			let paid = charged - refundable;
+
+			// Roll back on error as the dispatch of an extrinsic does.
+			let storage_root = sp_io::storage::root(StateVersion::V1);
+			let tight = with_storage_layer(|| {
+				let result = call(gas_consumed - 1);
+				assert_eq!(result.gas_consumed, gas_consumed);
+				result.result
+			});
+			assert_eq!(tight.unwrap_err(), Error::<Test>::StorageDepositNotEnoughFunds.into());
+			assert_eq!(sp_io::storage::root(StateVersion::V1), storage_root, "state changed");
+
+			let balance_before = Balances::free_balance(ALICE);
+			let result = call(gas_consumed);
+			assert!(!result.result.unwrap().did_revert());
+
+			assert_eq!(result.gas_consumed, gas_consumed);
+			assert_eq!(held(), held_before - refundable, "the base deposit stays held");
+			assert_eq!(result.storage_deposit, StorageDeposit::Charge(paid));
+			assert_eq!(balance_before - Balances::free_balance(ALICE), paid);
+		});
+}
+
+/// The storage deposit `contract` holds under `StorageDepositReserve`, native and PGAS.
+fn held_deposit(contract: &<Test as frame_system::Config>::AccountId) -> BalanceOf<Test> {
+	<<Test as Config>::Deposit as Deposit<Test>>::total_on_hold(
+		HoldReason::StorageDepositReserve,
+		contract,
+	)
+}
+
+/// Instantiates `StorageSlots` and `CallThenWrite` for a clear-then-terminate scenario, paid by
+/// ALICE.
+///
+/// With `unheld_slots`, ALICE and `Origin::Root` each write half of the slots of `StorageSlots`
+/// (see [`write_slots_partly_held`]), so the deposit recorded for the slots exceeds the deposit
+/// held. Otherwise ALICE writes all of them, enough for their deposit to exceed the base deposit.
+/// A second `StorageSlots` instance keeps the code alive, so that the termination does not refund
+/// the code deposit to ALICE. Returns the `StorageSlots` that is terminated, the address of
+/// `CallThenWrite` and the number of slots written.
+fn setup_cleared_then_terminated(
+	fixture_type: FixtureType,
+	unheld_slots: bool,
+) -> (Contract<Test>, H160, BalanceOf<Test>) {
+	let (code, _) = compile_module_with_type("StorageSlots", fixture_type).unwrap();
+	let (charging_code, _) = compile_module_with_type("CallThenWrite", fixture_type).unwrap();
+
+	let terminating = instantiate_storage_slots(fixture_type, false);
+	let Contract { addr: second_addr, .. } = builder::bare_instantiate(Code::Upload(code))
+		.salt(Some([1u8; 32]))
+		.build_and_unwrap_contract();
+	assert_eq!(
+		AccountInfo::<Test>::load_contract(&second_addr).unwrap().code_hash,
+		AccountInfo::<Test>::load_contract(&terminating.addr).unwrap().code_hash,
+	);
+	let Contract { addr: charging_addr, .. } =
+		builder::bare_instantiate(Code::Upload(charging_code)).build_and_unwrap_contract();
+
+	let slots = if unheld_slots {
+		let (slots, ..) =
+			write_slots_partly_held(terminating.addr, || held_deposit(&terminating.account_id));
+		slots
+	} else {
+		let write = |from: BalanceOf<Test>, to: BalanceOf<Test>| {
+			let data =
+				StorageSlots::writeCall { from: U256::from(from), to: U256::from(to) }.abi_encode();
+			let result = builder::bare_call(terminating.addr).data(data).build_and_unwrap_result();
+			assert!(!result.did_revert());
+		};
+		write(0, 1);
+		let info = AccountInfo::<Test>::load_contract(&terminating.addr).unwrap();
+		let slots = 2 * (info.storage_base_deposit() / info.extra_deposit() + 1);
+		write(1, slots);
+		let info = AccountInfo::<Test>::load_contract(&terminating.addr).unwrap();
+		assert_eq!(held_deposit(&terminating.account_id), info.total_deposit(), "all held");
+		slots
+	};
+	(terminating, charging_addr, slots)
+}
+
+/// Call data for `CallThenWrite` that makes the `StorageSlots` at `target` clear its first `slots`
+/// slots and terminate, with BOB as the beneficiary, and then writes `2 * slots` slots of
+/// `CallThenWrite`.
+///
+/// BOB receives the balance of the terminated contract, so that ALICE's balance only changes by
+/// the deposit.
+fn clear_and_terminate_then_write(target: H160, slots: BalanceOf<Test>) -> Vec<u8> {
+	let clear_and_terminate = StorageSlots::clearAndTerminateCall {
+		from: U256::from(0),
+		to: U256::from(slots),
+		beneficiary: BOB_ADDR.0.into(),
+	};
+	call_then_write(target, clear_and_terminate.abi_encode(), 2 * slots)
+}
+
+/// A contract that clears storage and then terminates counts the deposit released by the
+/// termination against the deposit limit.
+///
+/// `CallThenWrite` calls `StorageSlots::clearAndTerminate`, which clears all slots and terminates
+/// the contract, and then writes slots of its own. The termination releases the whole hold, and
+/// the refund recorded for clearing the slots is dropped. The deposit consumed at the end is the
+/// charge for the slots of `CallThenWrite` minus the hold. During execution it peaks at the charge
+/// minus the recorded refund.
+///
+/// With `unheld_slots`, half of the slots were written by `Origin::Root` and are not held, so the
+/// recorded refund exceeds the hold and the deposit consumed at the end is the binding one: one
+/// unit below it, the call fails with `StorageDepositNotEnoughFunds` after the refunds are paid
+/// and changes nothing. Otherwise ALICE pays all slots in PGAS. The termination releases the whole
+/// PGAS hold, burning all but `PGasRefundPercent` of it, and that release is what counts against
+/// the limit. The peak during execution is the binding one: one unit below it, the call fails
+/// during execution and changes nothing. At exactly the binding deposit, the call succeeds and
+/// reports the deposit consumed at the end as the storage deposit and the binding one as the
+/// maximum storage deposit.
+#[test_case(FixtureType::Solc  , true  ; "solc unheld slots")]
+#[test_case(FixtureType::Solc  , false ; "solc pgas")]
+#[test_case(FixtureType::Resolc, true  ; "resolc unheld slots")]
+#[test_case(FixtureType::Resolc, false ; "resolc pgas")]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+fn cleared_then_terminated_counts_against_deposit_limit(
+	fixture_type: FixtureType,
+	unheld_slots: bool,
+) {
+	let pgas_balances = if unheld_slots { vec![] } else { vec![(ALICE, 100_000_000_000)] };
+
+	ExtBuilder::default()
+		.with_pgas_balances(pgas_balances)
+		.build()
+		.execute_with(|| {
+			for account in [&ALICE, &BOB] {
+				let _ = <Test as Config>::Currency::set_balance(account, 100_000_000_000);
+			}
+			let alice_balance = || {
+				if unheld_slots {
+					Balances::free_balance(ALICE)
+				} else {
+					Assets::balance(PGAS_ASSET_ID, ALICE)
+				}
+			};
+
+			let (
+				Contract { addr: terminating_addr, account_id: terminating_account },
+				charging,
+				slots,
+			) = setup_cleared_then_terminated(fixture_type, unheld_slots);
+			let recorded =
+				AccountInfo::<Test>::load_contract(&terminating_addr).unwrap().extra_deposit();
+			let held_before = held_deposit(&terminating_account);
+			assert_eq!(recorded > held_before, unheld_slots);
+
+			let call = |deposit_limit| {
+				builder::bare_call(charging)
+					.data(clear_and_terminate_then_write(terminating_addr, slots))
+					.transaction_limits(TransactionLimits::WeightAndDeposit {
+						weight_limit: WEIGHT_LIMIT,
+						deposit_limit,
+					})
+					.build()
+			};
+
+			// The deposit `CallThenWrite` is charged for its slots, measured in a rolled back call.
+			let charged = with_transaction(|| {
+				let result = call(deposit_limit::<Test>());
+				assert!(!result.result.unwrap().did_revert());
+				let charged =
+					AccountInfo::<Test>::load_contract(&charging).unwrap().extra_deposit();
+				TransactionOutcome::Rollback(Ok::<_, DispatchError>(charged))
+			})
+			.unwrap();
+			assert!(charged > recorded && charged > held_before);
+			let paid = charged - held_before;
+			let (limit, error) = if unheld_slots {
+				(paid, Error::<Test>::StorageDepositNotEnoughFunds)
+			} else {
+				(charged - recorded, Error::<Test>::StorageDepositLimitExhausted)
+			};
+
+			// Roll back on error as the dispatch of an extrinsic does.
+			let storage_root = sp_io::storage::root(StateVersion::V1);
+			let tight = with_storage_layer(|| call(limit - 1).result);
+			assert_eq!(tight.unwrap_err(), error.into());
+			assert_eq!(sp_io::storage::root(StateVersion::V1), storage_root, "state changed");
+
+			let balance_before = alice_balance();
+			let result = call(limit);
+			assert!(!result.result.unwrap().did_revert());
+
+			assert!(AccountInfo::<Test>::load_contract(&terminating_addr).is_none(), "terminated");
+			assert_eq!(held_deposit(&terminating_account), 0, "the whole hold is released");
+			assert_eq!(result.storage_deposit, StorageDeposit::Charge(paid));
+			assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(limit));
+			let credited = if unheld_slots {
+				held_before
+			} else {
+				PGasRefundPercent::get().mul_floor(held_before)
+			};
+			assert_eq!(alice_balance() + charged, balance_before + credited);
+		});
+}
+
+/// A contract that clears storage and then terminates counts the deposit released by the
+/// termination against the Ethereum gas limit.
+///
+/// The `unheld_slots` scenario of [`cleared_then_terminated_counts_against_deposit_limit`] with an
+/// Ethereum gas limit instead of a deposit limit. The gas consumed by the call includes the charge
+/// minus the hold, not the dropped refund. One unit of gas below it, the call fails with
+/// `StorageDepositNotEnoughFunds`, reports the same gas consumed and changes nothing. At exactly
+/// that gas, it succeeds and reports the deposit that is paid.
+///
+/// The low fee multiplier makes the deposit outweigh the weight in the gas consumed, as in
+/// [`bounded_refund_counts_against_eth_gas_limit`].
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+fn cleared_then_terminated_counts_against_eth_gas_limit(fixture_type: FixtureType) {
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 1_000_000_000))
+		.build()
+		.execute_with(|| {
+			for account in [&ALICE, &BOB] {
+				let _ = <Test as Config>::Currency::set_balance(account, 100_000_000_000);
+			}
+
+			let (
+				Contract { addr: terminating_addr, account_id: terminating_account },
+				charging,
+				slots,
+			) = setup_cleared_then_terminated(fixture_type, true);
+			let held_before = held_deposit(&terminating_account);
+
+			let call = |eth_gas_limit| {
+				builder::bare_call(charging)
+					.data(clear_and_terminate_then_write(terminating_addr, slots))
+					.transaction_limits(TransactionLimits::EthereumGas {
+						eth_gas_limit,
+						weight_limit: WEIGHT_LIMIT,
+						eth_tx_info: EthTxInfo::new(0, Default::default()),
+						authorization_deposit: Default::default(),
+					})
+					.build()
+			};
+
+			// The gas consumed and the deposit `CallThenWrite` is charged for its slots, measured
+			// in a rolled back call.
+			let (gas_consumed, charged) = with_transaction(|| {
+				let result = call(u64::MAX.into());
+				assert!(!result.result.unwrap().did_revert());
+				let charged =
+					AccountInfo::<Test>::load_contract(&charging).unwrap().extra_deposit();
+				TransactionOutcome::Rollback(Ok::<_, DispatchError>((result.gas_consumed, charged)))
+			})
+			.unwrap();
+			assert!(charged > held_before);
+			let paid = charged - held_before;
+
+			// Roll back on error as the dispatch of an extrinsic does.
+			let storage_root = sp_io::storage::root(StateVersion::V1);
+			let tight = with_storage_layer(|| {
+				let result = call(gas_consumed - 1);
+				assert_eq!(result.gas_consumed, gas_consumed);
+				result.result
+			});
+			assert_eq!(tight.unwrap_err(), Error::<Test>::StorageDepositNotEnoughFunds.into());
+			assert_eq!(sp_io::storage::root(StateVersion::V1), storage_root, "state changed");
+
+			let balance_before = Balances::free_balance(ALICE);
+			let result = call(gas_consumed);
+			assert!(!result.result.unwrap().did_revert());
+
+			assert_eq!(result.gas_consumed, gas_consumed);
+			assert!(AccountInfo::<Test>::load_contract(&terminating_addr).is_none(), "terminated");
+			assert_eq!(result.storage_deposit, StorageDeposit::Charge(paid));
+			assert_eq!(Balances::free_balance(ALICE) + paid, balance_before);
+		});
+}
+
+/// A contract instantiated by `Origin::Root` on an older runtime keeps back its recorded base
+/// deposit from the refunds.
+///
+/// Such a contract records a base deposit that is not held. The setup writes one into the contract
+/// info of a contract instantiated by `Origin::Root`. ALICE then writes slots whose deposit exceeds
+/// that base deposit and clears all of them. The refund is bounded by the deposit held above the
+/// recorded base deposit, so that amount of ALICE's deposit stays on hold.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn unheld_base_deposit_is_kept_back_from_refunds(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, account_id } = instantiate_storage_slots(fixture_type, true);
+		let call = |data: Vec<u8>| {
+			let result = builder::bare_call(addr).data(data).build();
+			assert!(!result.result.as_ref().unwrap().did_revert());
+			result
+		};
+		let write = |to: u32| StorageSlots::writeCall { from: U256::from(0), to: U256::from(to) };
+
+		// Write one slot to learn the deposit of a slot, then record a base deposit of three slots.
+		call(write(1).abi_encode());
+		let mut info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+		let slot_deposit = info.extra_deposit();
+		assert_eq!(info.storage_base_deposit(), 0);
+		info.storage_base_deposit = 3 * slot_deposit;
+		AccountInfo::<Test>::insert_contract(&addr, info);
+
+		call(write(6).abi_encode());
+		assert_eq!(held_deposit(&account_id), 6 * slot_deposit, "the base deposit is not held");
+
+		let balance_before = Balances::free_balance(ALICE);
+		let clear = StorageSlots::clearCall { from: U256::from(0), to: U256::from(6) };
+		let result = call(clear.abi_encode());
+
+		assert_eq!(result.storage_deposit, StorageDeposit::Refund(3 * slot_deposit));
+		assert_eq!(held_deposit(&account_id), 3 * slot_deposit, "the base deposit is kept back");
+		assert_eq!(Balances::free_balance(ALICE), balance_before + 3 * slot_deposit);
+		let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+		assert_eq!(info.storage_items, 0);
+		assert_eq!(info.extra_deposit(), 0);
+	});
+}
+
+/// Direct same-contract reentry (X -> X): a write, a self-reenter, then another write
+/// must not double-count the pre-reentry write in the persisted `ContractInfo`. The
+/// reentrant run must match a non-reentrant baseline exactly (both persisted accounting
+/// and the net deposit charged to the origin). Regression repro for contract-issues#213.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn same_contract_reentry_does_not_double_count_storage(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("ReentryStorage", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Baseline: two writes, no reentry.
+		let Contract { addr: baseline_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(Some([1; 32]))
+				.build_and_unwrap_contract();
+		let baseline = builder::bare_call(baseline_addr)
+			.data(ReentryStorage::writeTwiceCall {}.abi_encode())
+			.build();
+		let baseline_info = AccountInfo::<Test>::load_contract(&baseline_addr).unwrap();
+
+		// Reentrant: write, reenter self (an empty frame), write. Same end state.
+		let Contract { addr: reentrant_addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.salt(Some([2; 32]))
+			.build_and_unwrap_contract();
+		let reentrant = builder::bare_call(reentrant_addr)
+			.data(ReentryStorage::writeReenterWriteCall {}.abi_encode())
+			.build();
+		let reentrant_info = AccountInfo::<Test>::load_contract(&reentrant_addr).unwrap();
+
+		assert!(baseline.result.is_ok(), "baseline call failed: {:?}", baseline.result);
+		assert!(reentrant.result.is_ok(), "reentrant call failed: {:?}", reentrant.result);
+
+		// Without the bank-pending-changes fix the pre-reentry write is applied to the
+		// persisted ContractInfo twice, inflating every storage field and over-charging
+		// the origin. Assert the full set so a partial regression still fails.
+		assert_eq!(
+			reentrant_info.storage_items, baseline_info.storage_items,
+			"storage_items inflated by double-applied pending diff under same-contract reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_bytes, baseline_info.storage_bytes,
+			"storage_bytes inflated under same-contract reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_item_deposit, baseline_info.storage_item_deposit,
+			"storage_item_deposit inflated under same-contract reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_byte_deposit, baseline_info.storage_byte_deposit,
+			"storage_byte_deposit inflated under same-contract reentry",
+		);
+		assert_eq!(
+			reentrant.storage_deposit, baseline.storage_deposit,
+			"net storage deposit charged to origin inflated under same-contract reentry",
+		);
+	});
+}
+
+/// Transitive same-contract reentry (X -> Y -> X): the invalidation matcher keys on
+/// `account_id`, so an ancestor reentered through an intermediary is affected too. Full
+/// solc/resolc matrix over (`ReentryStorage`, `ReentryProxy`) -> 4 cases. As above, the
+/// reentrant run must match a non-reentrant baseline exactly.
+#[test_case(FixtureType::Solc  , FixtureType::Solc   ; "solc storage, solc proxy")]
+#[test_case(FixtureType::Solc  , FixtureType::Resolc ; "solc storage, resolc proxy")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc   ; "resolc storage, solc proxy")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc ; "resolc storage, resolc proxy")]
+fn transitive_reentry_does_not_double_count_storage(
+	storage_type: FixtureType,
+	proxy_type: FixtureType,
+) {
+	let (storage_code, _) = compile_module_with_type("ReentryStorage", storage_type).unwrap();
+	let (proxy_code, _) = compile_module_with_type("ReentryProxy", proxy_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: proxy_addr, .. } = builder::bare_instantiate(Code::Upload(proxy_code))
+			.salt(Some([3; 32]))
+			.build_and_unwrap_contract();
+
+		// Baseline: two writes, no reentry.
+		let Contract { addr: baseline_addr, .. } =
+			builder::bare_instantiate(Code::Upload(storage_code.clone()))
+				.salt(Some([1; 32]))
+				.build_and_unwrap_contract();
+		let baseline = builder::bare_call(baseline_addr)
+			.data(ReentryStorage::writeTwiceCall {}.abi_encode())
+			.build();
+		let baseline_info = AccountInfo::<Test>::load_contract(&baseline_addr).unwrap();
+
+		// Reentrant: write, reenter self via the proxy (X -> Y -> X), write.
+		let Contract { addr: reentrant_addr, .. } =
+			builder::bare_instantiate(Code::Upload(storage_code))
+				.salt(Some([2; 32]))
+				.build_and_unwrap_contract();
+		let reentrant = builder::bare_call(reentrant_addr)
+			.data(
+				ReentryStorage::writeReenterWriteViaCall { proxy: proxy_addr.0.into() }
+					.abi_encode(),
+			)
+			.build();
+		let reentrant_info = AccountInfo::<Test>::load_contract(&reentrant_addr).unwrap();
+
+		assert!(baseline.result.is_ok(), "baseline call failed: {:?}", baseline.result);
+		assert!(reentrant.result.is_ok(), "reentrant call failed: {:?}", reentrant.result);
+
+		assert_eq!(
+			reentrant_info.storage_items, baseline_info.storage_items,
+			"storage_items inflated by double-applied diff under transitive reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_bytes, baseline_info.storage_bytes,
+			"storage_bytes inflated under transitive reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_item_deposit, baseline_info.storage_item_deposit,
+			"storage_item_deposit inflated under transitive reentry",
+		);
+		assert_eq!(
+			reentrant_info.storage_byte_deposit, baseline_info.storage_byte_deposit,
+			"storage_byte_deposit inflated under transitive reentry",
+		);
+		assert_eq!(
+			reentrant.storage_deposit, baseline.storage_deposit,
+			"net storage deposit charged to origin inflated under transitive reentry",
+		);
+	});
+}
+
+/// A dry-run from an unfunded account should still report the `max_storage_deposit`
+/// that a successful run would need, so that the caller can size the allowance
+/// required to cover the storage deposit before submitting the real transaction.
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn max_storage_deposit_reported_for_unfunded_dry_run(
+	fixture_type: FixtureType,
+	fixture_name: &str,
+) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Wrap each call in a rolled-back storage layer so state doesn't leak
+		// between them. Mirrors how a runtime API dispatches the dry-run.
+		let run_in_rollback = |build: &dyn Fn() -> _| {
+			with_transaction(|| {
+				TransactionOutcome::Rollback(Ok::<_, sp_runtime::DispatchError>(build()))
+			})
+			.unwrap()
+		};
+
+		// Reference run from a funded account.
+		let funded = run_in_rollback(&|| {
+			builder::bare_call(caller_addr)
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.build()
+		});
+		assert!(funded.result.is_ok(), "reference run must succeed, got {:?}", funded.result);
+		assert!(
+			funded.max_storage_deposit.charge_or_zero() > 0,
+			"expected the funded reference run to require some storage deposit, got {:?}",
+			funded.max_storage_deposit,
+		);
+
+		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
+		// `ExecConfig`. Collecting the deposit fails because CHARLIE cannot fund it, but
+		// the reported `max_storage_deposit` must still match the funded run so the
+		// caller can size the allowance needed to cover the deposit.
+		let unfunded = run_in_rollback(&|| {
+			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE);
+			builder::bare_call(caller_addr)
+				.origin(RawOrigin::Signed(CHARLIE).into())
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: <Test as frame_system::Config>::BlockWeights::get().max_block,
+					deposit_limit: u128::MAX,
+				})
+				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
+				.build()
+		});
+
+		assert_eq!(
+			unfunded.result.unwrap_err(),
+			Error::<Test>::StorageDepositNotEnoughFunds.into()
+		);
+		assert_eq!(unfunded.max_storage_deposit, funded.max_storage_deposit);
+	});
+}
+
 #[test]
 fn substrate_metering_initialization_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 
 	let tests = vec![
 		(
-			5_000_000_000u64,
+			5_000_000_000u128,
 			1_000_000_000,
 			2_000,
-			Some((2999999500u64, 1499999750, 11107, 599999900)),
+			Some((2999999500u128, 1499999750, 11107, 599999900)),
 		),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
 		(6_000_000_000, 1_000_000_000, 10_000, Some((2185302235, 1999999750, 5728, 437060447))),
@@ -192,6 +1203,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					});
 
 				if let Some((gas_left, ref_time_left, proof_size_left, deposit_left)) = remaining {
@@ -230,6 +1242,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: 5_000_000_000 / gas_scale,
 						weight_limit: Weight::from_parts(ref_time_limit, proof_size_limit),
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -248,10 +1261,10 @@ fn substrate_metering_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000),
+			(5_000_000_000u128, 1_000_000_000, 2_000),
 			vec![(
 				W(1000, 100),
-				Some((2999997500u64, 1499998750, 11007, 599999500, 2000002500u64)),
+				Some((2999997500u128, 1499998750, 11007, 599999500, 2000002500u128)),
 			)],
 		),
 		(
@@ -322,6 +1335,7 @@ fn substrate_metering_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -333,9 +1347,9 @@ fn substrate_metering_charges_works() {
 						D(deposit_charge) => transaction_meter
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -378,8 +1392,8 @@ fn substrate_nesting_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
+			((5_000_000_000u128, 1_000_000_000, 2_000, 1000, 1000, 1000i128), NoLimits),
+			Some((2999992500u128, 1499996250, 10107, 599998500, 2000007500u128)),
 		),
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
@@ -549,15 +1563,16 @@ fn substrate_nesting_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info: eth_tx_info.clone(),
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund(-deposit_charge as u64)
+							StorageDeposit::Refund(-deposit_charge as u128)
 						}),
 					)
 					.unwrap();
@@ -604,9 +1619,9 @@ fn substrate_nesting_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
+			(5_000_000_000u128, 1_000_000_000, 2_000, 1000, 100, 1000i128, 1000u128),
 			vec![
-				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
+				(W(100, 100), Some((800u128, 400, 3042, 160, 2000007700u128))),
 				(D(100), Some((300, 150, 3042, 60, 2000008200))),
 			],
 		),
@@ -653,15 +1668,16 @@ fn substrate_nesting_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund((-deposit_charge) as u64)
+							StorageDeposit::Refund((-deposit_charge) as u128)
 						}),
 					)
 					.unwrap();
@@ -685,9 +1701,9 @@ fn substrate_nesting_charges_works() {
 						D(deposit_charge) => nested
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -739,7 +1755,9 @@ fn catch_constructor_test() {
 					.into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		assert_ok!(first_estimate.as_ref());
@@ -754,12 +1772,14 @@ fn catch_constructor_test() {
 					.into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		assert_ok!(second_estimate);
 
-		let make_call = |eth_gas_limit: u64| {
+		let make_call = |eth_gas_limit: u128| {
 			builder::bare_call(test_address)
 				.data(
 					CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
@@ -769,11 +1789,12 @@ fn catch_constructor_test() {
 					eth_gas_limit: eth_gas_limit.into(),
 					weight_limit: Weight::MAX,
 					eth_tx_info: crate::EthTxInfo::new(0, Default::default()),
+					authorization_deposit: Default::default(),
 				})
 				.build()
 		};
 
-		let results = make_call(u64::MAX);
+		let results = make_call(u128::MAX);
 
 		let mut tracer =
 			CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
@@ -811,7 +1832,9 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 				input: Fibonacci::fibCall { n: 100u64 }.abi_encode().into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		let err = result.expect_err("fib(100) should run out of gas");
@@ -820,4 +1843,77 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 			"expected OutOfGas error, got: {err:?}"
 		);
 	});
+}
+
+/// Regression test for proxy contract delegatecall with large deposit limits.
+///
+/// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
+/// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
+/// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
+#[test]
+fn substrate_nesting_with_large_deposit_and_max_gas_request() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit: u128 = u64::MAX as _;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+			assert!(nested_weight_left.eq(&weight_left_before));
+		});
+}
+
+/// Regression test: a net-refund `authorization_deposit` (pure-revoke EIP-7702 tx) must increase
+/// the available deposit budget, not be silently clamped to zero.
+#[test]
+fn authorization_deposit_refund_increases_budget() {
+	let gas_scale: u128 = <Test as Config>::GasScale::get().into();
+	let eth_gas_limit: BalanceOf<Test> = 5_000_000_000u128 / gas_scale;
+	let eth_tx_info = EthTxInfo::<Test>::new(0, Weight::from_parts(1_000_000_000, 2_000));
+
+	let mk = |auth: StorageDeposit<BalanceOf<Test>>| {
+		ExtBuilder::default()
+			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+			.build()
+			.execute_with(|| {
+				TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+					eth_gas_limit,
+					weight_limit: Weight::MAX,
+					eth_tx_info: eth_tx_info.clone(),
+					authorization_deposit: auth,
+				})
+				.unwrap()
+				.deposit_left()
+				.unwrap()
+			})
+	};
+
+	let baseline = mk(StorageDeposit::Charge(0));
+	let charged = mk(StorageDeposit::Charge(1_000));
+	let refunded = mk(StorageDeposit::Refund(1_000));
+
+	assert_eq!(
+		baseline.saturating_sub(charged),
+		1_000,
+		"charge must reduce budget by exactly the amount"
+	);
+	assert_eq!(
+		refunded.saturating_sub(baseline),
+		1_000,
+		"refund must increase budget by exactly the amount"
+	);
 }

@@ -49,7 +49,7 @@ pub trait Client: 'static + Clone + Send + Sync {
 						"Failed to reconnect to client. Going to retry"
 					);
 
-					async_std::task::sleep(delay).await;
+					tokio::time::sleep(delay).await;
 				},
 			}
 		}
@@ -165,7 +165,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 			Ok(())
 		};
 
-		async_std::task::spawn(run_loop_task).await
+		tokio::spawn(run_loop_task).await.unwrap()
 	}
 }
 
@@ -205,34 +205,19 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 				address.port,
 			);
 
-			let registry = self.registry;
-			async_std::task::spawn(async move {
-				let runtime =
-					match tokio::runtime::Builder::new_current_thread().enable_all().build() {
-						Ok(runtime) => runtime,
-						Err(err) => {
-							tracing::trace!(
-								target: "bridge-metrics",
-								error=?err,
-								"Failed to create tokio runtime. Prometheus metrics are not available"
-							);
-							return;
-						},
-					};
-
-				runtime.block_on(async move {
-					tracing::trace!(
-						target: "bridge-metrics",
-						at=?socket_addr,
-						"Starting prometheus endpoint"
-					);
-					let result = init_prometheus(socket_addr, registry).await;
-					tracing::trace!(
-						target: "bridge-metrics",
-						?result,
-						"Prometheus endpoint has exited"
-					);
-				});
+			let registry = self.registry.clone();
+			tokio::spawn(async move {
+				tracing::trace!(
+					target: "bridge-metrics",
+					at=?socket_addr,
+					"Starting prometheus endpoint"
+				);
+				let result = init_prometheus(socket_addr, registry).await;
+				tracing::trace!(
+					target: "bridge-metrics",
+					?result,
+					"Prometheus endpoint has exited"
+				);
 			});
 		}
 

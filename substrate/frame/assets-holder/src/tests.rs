@@ -420,6 +420,23 @@ mod impl_hold_mutate {
 	}
 
 	#[test]
+	fn best_effort_release_of_max_releases_all_held() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(
+				AssetsHolder::release(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					Balance::MAX,
+					Precision::BestEffort,
+				),
+				Ok(30)
+			);
+			assert_eq!(Assets::balance(ASSET_ID, WHO), 80);
+		});
+	}
+
+	#[test]
 	fn burn_held_works() {
 		// Burning works, reducing total issuance and `total_balance`.
 		new_test_ext().execute_with(|| {
@@ -553,6 +570,25 @@ mod impl_hold_mutate {
 				}
 				.into(),
 			);
+		});
+	}
+}
+
+mod impl_inspect {
+	use super::*;
+
+	#[test]
+	fn is_sufficient_delegates_to_pallet_assets() {
+		new_test_ext(|| {
+			// The genesis asset is sufficient; the wrapper must report the same answer as
+			// the wrapped pallet rather than the trait's `false` default.
+			assert!(AssetsHolder::is_sufficient(ASSET_ID));
+			assert_eq!(
+				AssetsHolder::is_sufficient(ASSET_ID),
+				<Assets as Inspect<AccountId>>::is_sufficient(ASSET_ID),
+			);
+			// An unknown asset is not sufficient.
+			assert!(!AssetsHolder::is_sufficient(ASSET_ID + 1));
 		});
 	}
 }
