@@ -55,6 +55,29 @@ pub trait SendValidatorSet<AccountId> {
 		validators: &[AccountId],
 	) -> Result<(), ()>;
 
+	/// The encoded size of what [`Self::send`] sends to `destination`.
+	///
+	/// By default the encoded `era` and `validators`, as if the transport added nothing: an XCM
+	/// envelope adds a few bytes. Checked against [`Self::max_message_size`] in the pallet's
+	/// `integrity_test`.
+	#[cfg(feature = "std")]
+	fn message_size(
+		_destination: &Self::Destination,
+		era: EraIndex,
+		validators: &[AccountId],
+	) -> usize
+	where
+		AccountId: codec::Encode,
+	{
+		codec::Encode::encoded_size(&(era, validators))
+	}
+
+	/// The largest message the transport accepts for `destination`, `None` without a limit.
+	#[cfg(feature = "std")]
+	fn max_message_size(_destination: &Self::Destination) -> Option<usize> {
+		None
+	}
+
 	/// Prepare `destination` so that [`Self::send`] succeeds in benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_send(_destination: &Self::Destination) {}
@@ -123,6 +146,40 @@ pub mod pallet {
 		AnnouncementFailed { destination: DestinationOf<T>, era: EraIndex },
 		/// The set of `era` was not announced because it was rejected with `error`.
 		AnnouncementRejected { era: EraIndex, error: DispatchError },
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			let validators = <T as pallet_validator_collators::Config>::MaxValidators::get();
+			let announce = Self::announce_weight(validators);
+			let max_block = <T as frame_system::Config>::BlockWeights::get().max_block;
+			assert!(
+				announce.all_lte(max_block),
+				"announcing {validators} validators weighs {announce:?}, above the block {max_block:?}"
+			);
+
+			#[cfg(feature = "std")]
+			{
+				let accounts = (0..validators)
+					.map(|i| {
+						T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::new(
+							&i.encode(),
+						))
+						.expect("infinite input decodes into an account; qed")
+					})
+					.collect::<Vec<_>>();
+				for destination in T::Destinations::get() {
+					let Some(max) = T::Sender::max_message_size(&destination) else { continue };
+					let size = T::Sender::message_size(&destination, EraIndex::MAX, &accounts);
+					assert!(
+						size <= max,
+						"announcing {validators} validators to {destination:?} is {size} bytes, above \
+						 the limit of {max}"
+					);
+				}
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {

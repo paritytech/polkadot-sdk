@@ -23,10 +23,7 @@ use crate::Error;
 use sc_client_api::{AuxStore, UsageProvider};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{
-	sr25519::{AuthorityId, AuthoritySignature},
-	AuraApi,
-};
+use sp_consensus_aura::{sr25519::AuthorityId, AuraApi};
 use sp_consensus_babe::BabeApi;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
@@ -82,7 +79,7 @@ impl SlotTimestampProvider {
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
 		let time = Self::with_header(&client, slot_duration, |header| {
-			let slot_number = *sc_consensus_aura::find_pre_digest::<B, AuthoritySignature>(&header)
+			let slot_number = *sc_consensus_aura::find_pre_digest::<B>(&header)
 				.map_err(|err| format!("{}", err))?;
 			Ok(slot_number)
 		})?;

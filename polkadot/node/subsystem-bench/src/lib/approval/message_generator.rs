@@ -26,7 +26,7 @@ use crate::{
 	NODE_UNDER_TEST,
 };
 use codec::Encode;
-use futures::SinkExt;
+use futures::{channel::mpsc::TryRecvError, SinkExt};
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
 
@@ -209,8 +209,8 @@ impl PeerMessagesGenerator {
 		let mut all_messages: BTreeMap<u64, Vec<MessagesBundle>> = BTreeMap::new();
 		// Receive all messages and sort them by Tick they have to be sent.
 		loop {
-			match rx.try_next() {
-				Ok(Some((block_hash, messages))) => {
+			match rx.try_recv() {
+				Ok((block_hash, messages)) => {
 					for message in messages {
 						let block_info = blocks
 							.iter()
@@ -225,8 +225,8 @@ impl PeerMessagesGenerator {
 						to_add.push(message);
 					}
 				},
-				Ok(None) => break,
-				Err(_) => {
+				Err(TryRecvError::Closed) => break,
+				Err(TryRecvError::Empty) => {
 					std::thread::sleep(Duration::from_millis(50));
 				},
 			}

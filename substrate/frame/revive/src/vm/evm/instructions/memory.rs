@@ -16,23 +16,23 @@
 // limitations under the License.
 
 use crate::{
-	Error, U256,
+	U256,
 	vm::{
 		Ext,
-		evm::{EVMGas, Interpreter, interpreter::Halt, util::as_usize_or_halt},
+		evm::{EvmOpcodeCosts, Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
 use core::{cmp::max, ops::ControlFlow};
-use revm::interpreter::gas::{BASE, VERYLOW, copy_cost_verylow};
+use sp_runtime::traits::SaturatedConversion;
 
 /// Implements the MLOAD instruction.
 ///
 /// Loads a 32-byte word from memory.
 pub fn mload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MLoad)?;
 	let ([], top) = interpreter.stack.popn_top()?;
 	let offset = as_usize_or_halt::<E::T>(*top)?;
-	interpreter.memory.resize(offset, 32)?;
+	interpreter.memory.resize(offset, 32, interpreter.ext)?;
 	*top = U256::from_big_endian(interpreter.memory.slice_len(offset, 32));
 	ControlFlow::Continue(())
 }
@@ -41,10 +41,10 @@ pub fn mload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Stores a 32-byte word to memory.
 pub fn mstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MStore)?;
 	let [offset, value] = interpreter.stack.popn()?;
 	let offset = as_usize_or_halt::<E::T>(offset)?;
-	interpreter.memory.resize(offset, 32)?;
+	interpreter.memory.resize(offset, 32, interpreter.ext)?;
 	interpreter.memory.set(offset, &value.to_big_endian());
 	ControlFlow::Continue(())
 }
@@ -53,10 +53,10 @@ pub fn mstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Stores a single byte to memory.
 pub fn mstore8<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MStore8)?;
 	let [offset, value] = interpreter.stack.popn()?;
 	let offset = as_usize_or_halt::<E::T>(offset)?;
-	interpreter.memory.resize(offset, 1)?;
+	interpreter.memory.resize(offset, 1, interpreter.ext)?;
 	interpreter.memory.set(offset, &[value.byte(0)]);
 	ControlFlow::Continue(())
 }
@@ -65,7 +65,7 @@ pub fn mstore8<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Gets the size of active memory in bytes.
 pub fn msize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MSize)?;
 	interpreter.stack.push(U256::from(interpreter.memory.size()))
 }
 
@@ -77,11 +77,9 @@ pub fn mcopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 	// Into usize or fail
 	let len = as_usize_or_halt::<E::T>(len)?;
-	// Deduce gas
-	let Some(gas_cost) = copy_cost_verylow(len) else {
-		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
-	};
-	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
+	interpreter
+		.ext
+		.charge_or_halt(EvmOpcodeCosts::MCopy { len: len.saturated_into() })?;
 	if len == 0 {
 		return ControlFlow::Continue(());
 	}
@@ -89,7 +87,7 @@ pub fn mcopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let dst = as_usize_or_halt::<E::T>(dst)?;
 	let src = as_usize_or_halt::<E::T>(src)?;
 	// Resize memory
-	interpreter.memory.resize(max(dst, src), len)?;
+	interpreter.memory.resize(max(dst, src), len, interpreter.ext)?;
 	// Copy memory in place
 	interpreter.memory.copy(dst, src, len);
 	ControlFlow::Continue(())

@@ -1863,8 +1863,7 @@ where
 		let worst_case_deposit = {
 			let max_queue_size = T::MaxSubmissions::get() as usize;
 			let base = T::DepositBase::calculate_base_deposit(max_queue_size);
-			let pages =
-				T::DepositPerPage::calculate_page_deposit(max_queue_size, T::Pages::get() as usize);
+			let pages = T::DepositPerPage::calculate_page_deposit(T::Pages::get() as usize);
 			base.saturating_add(pages)
 		};
 

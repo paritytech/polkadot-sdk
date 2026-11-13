@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating, Weight,
 };
 
 pub mod budget;
@@ -45,6 +45,52 @@ pub type EraIndex = u32;
 
 /// Type for identifying a page.
 pub type Page = u32;
+
+/// The service for which validators earn reward points.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ServiceKind {
+	/// Relay chain consensus: validating and authoring on the relay chain.
+	#[codec(index = 0)]
+	RelayConsensus,
+	/// Authoring blocks on system chains.
+	#[codec(index = 1)]
+	Collation,
+}
+
+/// Credits era points to validators.
+pub trait RewardPoints<AccountId> {
+	/// Credit `points` earned for `service` to the active era.
+	fn reward(service: ServiceKind, points: Vec<(AccountId, u32)>);
+
+	/// Weight of [`Self::reward`] for `entries` entries.
+	fn weight(entries: u32) -> Weight;
+}
+
+/// Trait for reporting additional validator reward points.
+///
+/// Note: This is interface is similar to [`RewardPoints`], but is a legacy version thereof which
+/// doesn't support service-specific points.
+pub trait RewardsReporter<ValidatorId> {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
+}
+
+impl RewardsReporter<sp_runtime::AccountId32> for () {
+	fn reward_by_ids(_validators_points: impl IntoIterator<Item = (sp_runtime::AccountId32, u32)>) {
+	}
+}
+
 /// Representation of a staking account, which may be a stash or controller account.
 ///
 /// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of
