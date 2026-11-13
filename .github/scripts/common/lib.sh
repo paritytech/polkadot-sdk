@@ -382,21 +382,91 @@ function check_sha256() {
     shasum -qc $1.sha256
 }
 
+# Fetch a single GPG key from the given keyserver.
+# Succeeds only if the key ends up in the local keyring: some keyservers (e.g. keys.openpgp.org)
+# serve keys without user IDs unless the owner verified the email there, and gpg skips those.
+function receive_gpg_key() {
+  local keyserver=$1
+  local key=$2
+  local timeout_secs=${GPG_KEYSERVER_TIMEOUT:-30}
+  local cmd=(gpg --no-tty --quiet --keyserver "$keyserver" --recv-keys "$key")
+
+  # Without a timeout gpg can hang for several minutes on an unreachable keyserver
+  if command -v timeout > /dev/null; then
+    cmd=(timeout "$timeout_secs" "${cmd[@]}")
+  fi
+
+  if "${cmd[@]}" && gpg --no-tty --quiet --list-keys "$key" > /dev/null 2>&1; then
+    return 0
+  fi
+
+  # Drop a possibly stuck connection, so that the next attempt starts clean
+  gpgconf --kill dirmngr > /dev/null 2>&1 || true
+  return 1
+}
+
+# Import a single GPG key from the public key files (*.pub) committed to the repo.
+# Used as the last resort, when no keyserver delivers the key.
+function import_gpg_key_from_file() {
+  local key=$1
+  local keys_dir=${GPG_KEYS_DIR:-"$(dirname "${BASH_SOURCE[0]}")/../release"}
+  local file
+
+  for file in "$keys_dir"/*.pub; do
+    [ -f "$file" ] || continue
+    if gpg --no-tty --quiet --show-keys --with-colons "$file" 2> /dev/null | grep -q "^fpr:.*:$key:"; then
+      echo "Importing GPG key $key from $file"
+      gpg --no-tty --quiet --import "$file" || return 1
+      gpg --no-tty --quiet --list-keys "$key" > /dev/null 2>&1
+      return
+    fi
+  done
+  return 1
+}
+
 # Import GPG keys of the release team members
+# The keyservers are tried in order until one of them delivers the key. The one that worked is
+# tried first for the following keys. GPG_KEYSERVER can be used to set a preferred keyserver.
+# If no keyserver delivers the key, it is imported from the key files committed to the repo.
 function import_gpg_keys() {
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
+  local keyservers=()
+  local keyserver
+  for keyserver in ${GPG_KEYSERVER:-} "hkps://keyserver.ubuntu.com" "hkps://keys.openpgp.org"; do
+    if [[ " ${keyservers[*]} " != *" $keyserver "* ]]; then
+      keyservers+=("$keyserver")
+    fi
+  done
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
   PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
-  echo "Importing GPG keys from $GPG_KEYSERVER"
+  local key
   for key in $SEC $EGOR $MORGAN $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
-    (
-      echo "Importing GPG key $key"
-      gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
-      echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
-    )
+    local imported_from=""
+    for keyserver in "${keyservers[@]}"; do
+      echo "Importing GPG key $key from $keyserver"
+      if receive_gpg_key "$keyserver" "$key"; then
+        imported_from=$keyserver
+        break
+      fi
+      echo "::warning::Failed to import GPG key $key from $keyserver"
+    done
+
+    if [ -n "$imported_from" ]; then
+      # Prefer the keyserver that worked for the remaining keys
+      local reordered=("$imported_from")
+      for keyserver in "${keyservers[@]}"; do
+        if [ "$keyserver" != "$imported_from" ]; then
+          reordered+=("$keyserver")
+        fi
+      done
+      keyservers=("${reordered[@]}")
+    elif ! import_gpg_key_from_file "$key"; then
+      echo "::error::Failed to import GPG key $key from any of: ${keyservers[*]} or a local key file"
+      return 1
+    fi
+
+    echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
   done
-  wait
   gpg -k
 }
 

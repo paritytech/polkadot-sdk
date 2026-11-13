@@ -6,7 +6,7 @@
 // - v2: lookahead collator, para holds both cores and only ever fills one.
 // - v3: slot-based collator, para holds one of the two configured cores.
 
-use crate::utils::{assert_candidates_version, maybe_enable_experimental_collator_protocol};
+use crate::utils::{assert_candidates_version, maybe_enable_legacy_collator_protocol};
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
@@ -67,7 +67,7 @@ async fn parachain_doesnt_break_with_unused_cores(
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				.with_default_args(maybe_enable_legacy_collator_protocol(vec![
 					("-lparachain=debug").into(),
 				]))
 				.with_genesis_overrides(genesis_overrides)
