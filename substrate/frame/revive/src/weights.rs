@@ -514,7 +514,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:2 w:2)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
@@ -534,14 +534,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `730`
 		//  Estimated: `6670`
-		// Minimum execution time: 404_475_000 picoseconds.
-		Weight::from_parts(267_961_847, 6670)
-			// Standard Error: 55
-			.saturating_add(Weight::from_parts(19_027, 0).saturating_mul(c.into()))
-			// Standard Error: 43
-			.saturating_add(Weight::from_parts(937, 0).saturating_mul(i.into()))
-			// Standard Error: 3_629_728
-			.saturating_add(Weight::from_parts(4_511_518, 0).saturating_mul(d.into()))
+		// Minimum execution time: 414_923_000 picoseconds.
+		Weight::from_parts(270_535_512, 6670)
+			// Standard Error: 42
+			.saturating_add(Weight::from_parts(16_395, 0).saturating_mul(c.into()))
+			// Standard Error: 33
+			.saturating_add(Weight::from_parts(856, 0).saturating_mul(i.into()))
+			// Standard Error: 2_764_689
+			.saturating_add(Weight::from_parts(11_722_923, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(10_u64))
 	}
@@ -3000,7 +3000,7 @@ impl WeightInfo for () {
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:2 w:2)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
@@ -3020,14 +3020,14 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `730`
 		//  Estimated: `6670`
-		// Minimum execution time: 404_475_000 picoseconds.
-		Weight::from_parts(267_961_847, 6670)
-			// Standard Error: 55
-			.saturating_add(Weight::from_parts(19_027, 0).saturating_mul(c.into()))
-			// Standard Error: 43
-			.saturating_add(Weight::from_parts(937, 0).saturating_mul(i.into()))
-			// Standard Error: 3_629_728
-			.saturating_add(Weight::from_parts(4_511_518, 0).saturating_mul(d.into()))
+		// Minimum execution time: 414_923_000 picoseconds.
+		Weight::from_parts(270_535_512, 6670)
+			// Standard Error: 42
+			.saturating_add(Weight::from_parts(16_395, 0).saturating_mul(c.into()))
+			// Standard Error: 33
+			.saturating_add(Weight::from_parts(856, 0).saturating_mul(i.into()))
+			// Standard Error: 2_764_689
+			.saturating_add(Weight::from_parts(11_722_923, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(10_u64))
 	}

@@ -347,15 +347,15 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `8192`
 		//  Estimated: `16607`
-		// Minimum execution time: 562_102_000 picoseconds.
-		Weight::from_parts(404_043_269, 0)
+		// Minimum execution time: 561_527_000 picoseconds.
+		Weight::from_parts(473_510_234, 0)
 			.saturating_add(Weight::from_parts(0, 16607))
-			// Standard Error: 66
-			.saturating_add(Weight::from_parts(17_251, 0).saturating_mul(c.into()))
-			// Standard Error: 51
-			.saturating_add(Weight::from_parts(739, 0).saturating_mul(i.into()))
-			// Standard Error: 4_332_010
-			.saturating_add(Weight::from_parts(21_361_875, 0).saturating_mul(d.into()))
+			// Standard Error: 21
+			.saturating_add(Weight::from_parts(15_165, 0).saturating_mul(c.into()))
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(548, 0).saturating_mul(i.into()))
+			// Standard Error: 1_379_495
+			.saturating_add(Weight::from_parts(10_360_258, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(19))
 			.saturating_add(T::DbWeight::get().writes(17))
 	}
