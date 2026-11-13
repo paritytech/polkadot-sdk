@@ -1,0 +1,16 @@
+title: 'pallet-child-bounties: use saturating_add for unlock_at'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes an arithmetic overflow in `award_child_bounty`. The pending payout
+    `unlock_at` block number was computed with a plain `+`, which can overflow
+    (and in release builds silently wrap) when the treasury block number is
+    large or when `BountyDepositPayoutDelay` is configured to a large value.
+    The addition now uses `saturating_add`, so `unlock_at` saturates at the
+    maximum block number instead of wrapping, keeping the payout lock far in
+    the future rather than unlocking immediately.
+
+crates:
+- name: pallet-child-bounties
+  bump: patch
