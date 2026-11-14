@@ -1,0 +1,37 @@
+title: Migrate pallet-conviction-voting to using fungible traits
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrate `pallet-conviction-voting` from the deprecated `Currency`/`LockableCurrency` traits to
+    the `fungible` traits, replacing the `pyconvot` balance lock with a
+    `FreezeReason::ConvictionVoting` freeze.
+
+    Runtime changes required:
+    - Replace `type Currency` with `type Fungible` and add
+      `type RuntimeFreezeReason = RuntimeFreezeReason`.
+    - Register `pallet_conviction_voting::migrations::v1::LazyMigrationV0ToV1<Runtime, (), Balances>`
+      (once per instance) in `pallet_migrations::Config::Migrations`.
+
+    The multi-block migration walks `ClassLocksFor` and, for each account, sets a freeze equal to
+    the largest class lock and only then removes the old lock, so the voting balance stays
+    restricted throughout. If the freeze cannot be set for an account, its old lock is kept, an
+    error is logged and the migration continues with the next account. The on-chain storage
+    version is set to 1 when the migration completes.
+
+    The old lock used `WithdrawReasons::except(RESERVE)`. In `pallet-balances`, locks and freezes
+    feed the same `frozen` amount, which `free + reserved` may not drop below, so the effective
+    restriction is unchanged: the funds still cannot be transferred or used to pay fees, and can
+    still be placed on hold.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-conviction-voting
+  bump: major
