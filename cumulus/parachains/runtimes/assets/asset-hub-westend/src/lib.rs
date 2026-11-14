@@ -26,6 +26,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod bridge_to_ethereum_config;
 mod genesis_config_presets;
+mod price_oracle;
 mod weights;
 pub mod xcm_config;
 
@@ -176,7 +177,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_004,
+	spec_version: 1_025_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1830,6 +1831,7 @@ construct_runtime!(
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
 		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
 		Psm: pallet_psm = 65,
+		PriceOracle: pallet_price_oracle = 67,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -3195,6 +3197,41 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl sp_price_oracle::runtime_api::PriceOracleApi<Block, AuraId> for Runtime {
+		fn settings() -> sp_price_oracle::Settings<AuraId> {
+			PriceOracle::settings()
+		}
+
+		fn latest_anchors() -> Vec<(AuraId, sp_price_oracle::Anchor)> {
+			PriceOracle::latest_anchors()
+		}
+
+		fn markets() -> Vec<sp_price_oracle::market::Market> {
+			PriceOracle::active_markets()
+		}
+
+		fn parse(
+			market: sp_price_oracle::market::MarketId,
+			responses: Vec<(sp_price_oracle::market::QueryTag, Vec<u8>)>,
+			now_ms: u64,
+		) -> Result<
+			sp_price_oracle::runtime_api::MarketOutput,
+			sp_price_oracle::runtime_api::ParseError,
+		> {
+			PriceOracle::parse_market(market, responses, now_ms)
+		}
+
+		fn aggregate(
+			outputs: Vec<(
+				sp_price_oracle::market::MarketId,
+				sp_price_oracle::runtime_api::MarketOutput,
+			)>,
+			state: sp_price_oracle::runtime_api::PricingState,
+		) -> (Vec<sp_price_oracle::PairAggregate>, sp_price_oracle::runtime_api::PricingState) {
+			PriceOracle::aggregate_markets(outputs, state)
 		}
 	}
 );

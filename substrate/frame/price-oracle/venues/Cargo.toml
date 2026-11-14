@@ -1,0 +1,41 @@
+[package]
+name = "pallet-price-oracle-venues"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Market definitions of well-known exchanges for pallet-price-oracle"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+pallet-price-oracle = { workspace = true }
+sp-price-oracle = { workspace = true }
+sp-runtime = { workspace = true }
+
+[dev-dependencies]
+futures = { workspace = true }
+sc-price-oracle = { workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread", "time"], workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"pallet-price-oracle/std",
+	"sp-price-oracle/std",
+	"sp-runtime/std",
+]
+try-runtime = [
+	"pallet-price-oracle/try-runtime",
+	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"pallet-price-oracle/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

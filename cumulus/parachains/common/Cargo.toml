@@ -44,6 +44,8 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
@@ -58,6 +60,8 @@ sp-version = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-parachain-system/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
@@ -87,6 +91,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -107,6 +112,8 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",

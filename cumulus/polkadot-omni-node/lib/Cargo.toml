@@ -59,6 +59,7 @@ sc-network = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
+sc-price-oracle = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-spec-v2 = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
@@ -83,6 +84,7 @@ sp-hop = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
+sp-price-oracle = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }

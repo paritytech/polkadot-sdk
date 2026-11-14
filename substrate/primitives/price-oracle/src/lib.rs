@@ -1,0 +1,304 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#![doc = include_str!("../README.md")]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+pub mod inherents;
+pub mod market;
+pub mod runtime_api;
+
+use alloc::{format, string::String, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
+use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_runtime::RuntimeAppPublic;
+
+/// When a price report was made.
+///
+/// Reports carry the height of the best block known to the signer and the signer's clock at
+/// signing time. The runtime orders the reports of a signer by both, block first, rejects reports
+/// anchored to a block ahead of its own, and expires votes once either the block or the time is
+/// too old.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct Anchor {
+	/// Height of the signer's best block.
+	pub block: u32,
+	/// The signer's clock, in milliseconds since the Unix epoch.
+	pub timestamp_ms: u64,
+}
+
+impl Anchor {
+	/// An anchor at `block` and `timestamp_ms`.
+	pub const fn new(block: u32, timestamp_ms: u64) -> Self {
+		Self { block, timestamp_ms }
+	}
+}
+
+/// Identifier of a pair of assets, such as DOT/USD.
+///
+/// The set of pairs and the meaning of each identifier is defined by the runtime.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct PairId(pub u16);
+
+/// A price with 18 decimal places, in quote asset units per one base asset unit.
+pub type Price = FixedU128;
+
+/// `price` in decimal with the trailing zeros dropped, e.g. `4.01`, for logs and messages.
+/// `Debug` of a fixed point number prints nothing in a runtime.
+pub fn decimal(price: Price) -> String {
+	// The inner value of one, and its number of decimal places.
+	let unit = Price::DIV;
+	let places = unit.ilog10() as usize;
+	let inner = price.into_inner();
+	let fraction = format!("{:0places$}", inner % unit);
+	format!("{}.{}", inner / unit, fraction.trim_end_matches('0'))
+		.trim_end_matches('.')
+		.into()
+}
+
+/// A price for a pair.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct Quote {
+	/// The pair being priced.
+	pub pair: PairId,
+	/// The price of the pair.
+	pub price: Price,
+}
+
+/// The outcome of aggregating one pair: its inputs against its quorum, and its price if it has
+/// one this tick.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct PairAggregate {
+	/// The pair being priced.
+	pub pair: PairId,
+	/// The inputs the pair got, such as the markets it is priced from.
+	pub inputs: u32,
+	/// The inputs the pair needs to be priced.
+	pub quorum: u32,
+	/// The price to report, `None` if the pair has none this tick.
+	pub price: Option<Price>,
+	/// Why the pair has no price, or other detail for the logs, as text.
+	pub note: Vec<u8>,
+}
+
+impl PairAggregate {
+	/// The note as text.
+	pub fn note(&self) -> String {
+		String::from_utf8_lossy(&self.note).into_owned()
+	}
+}
+
+/// The rules a node follows for a tick: who may sign, how old a report may be, how often to
+/// tick.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct Settings<Id> {
+	/// Keys whose reports are accepted.
+	pub signers: Vec<Id>,
+	/// Reports anchored more than this many blocks ago are ignored.
+	pub report_window: u32,
+	/// Reports signed more than this many milliseconds ago are ignored.
+	pub report_window_ms: u64,
+	/// Time between two ticks, in milliseconds.
+	pub tick_interval_ms: u32,
+}
+
+/// Context prefixed to a report before signing.
+///
+/// Keeps report signatures distinct from any other signature made with the same key.
+pub const SIGNING_CONTEXT: &[u8; 12] = b"price-report";
+
+/// A set of prices published by an oracle node, anchored to one block height.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct PriceReport {
+	/// When the report was made.
+	pub anchor: Anchor,
+	/// Prices for the pairs the node was able to price. Any subset of the pairs known to the
+	/// runtime, at most one quote per pair.
+	pub quotes: Vec<Quote>,
+}
+
+impl PriceReport {
+	/// The bytes a signer signs: [`SIGNING_CONTEXT`] followed by the encoded report.
+	pub fn signing_payload(&self) -> Vec<u8> {
+		let mut payload = SIGNING_CONTEXT.to_vec();
+		self.encode_to(&mut payload);
+		payload
+	}
+}
+
+/// A price report together with the key that signed it and the signature.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct SignedPriceReport<Id, Signature> {
+	/// The report.
+	pub report: PriceReport,
+	/// The public key of the signer.
+	pub signer: Id,
+	/// Signature of `signer` over [`PriceReport::signing_payload`].
+	pub signature: Signature,
+}
+
+impl<Id: RuntimeAppPublic<Signature = Signature>, Signature> SignedPriceReport<Id, Signature> {
+	/// Check that `signature` is a valid signature of `signer` over the report.
+	///
+	/// Does not check whether the signer is an accepted oracle signer.
+	pub fn verify_signature(&self) -> bool {
+		self.signer.verify(&self.report.signing_payload(), &self.signature)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_consensus_aura::sr25519::{AuthorityId, AuthorityPair, AuthoritySignature};
+	use sp_core::{crypto::Pair as _, sr25519, ByteArray};
+
+	type Signed = SignedPriceReport<AuthorityId, AuthoritySignature>;
+
+	#[test]
+	fn decimal_prints_the_price() {
+		assert_eq!(decimal(Price::from_rational(401, 100)), "4.01");
+		assert_eq!(decimal(Price::from_rational(1, 2)), "0.5");
+		assert_eq!(decimal(Price::from_rational(123_456_789, 1_000_000)), "123.456789");
+		assert_eq!(decimal(Price::from_u32(4)), "4");
+		assert_eq!(decimal(Price::from_u32(0)), "0");
+		assert_eq!(decimal(Price::from_u32(1_000_000)), "1000000");
+		// Every decimal place.
+		assert_eq!(decimal(Price::from_inner(1)), "0.000000000000000001");
+		assert_eq!(decimal(Price::from_inner(10)), "0.00000000000000001");
+		assert_eq!(decimal(Price::from_inner(123_456_789_012_345_678)), "0.123456789012345678");
+		assert_eq!(decimal(Price::from_inner(1_000_000_000_000_000_001)), "1.000000000000000001");
+		// Trailing zeros are dropped, leading ones are kept.
+		assert_eq!(decimal(Price::from_rational(105, 100)), "1.05");
+		assert_eq!(decimal(Price::from_rational(1_000_500, 1_000_000)), "1.0005");
+		// The largest value.
+		assert_eq!(
+			decimal(Price::from_inner(u128::MAX)),
+			"340282366920938463463.374607431768211455"
+		);
+	}
+
+	fn report() -> PriceReport {
+		PriceReport {
+			anchor: Anchor::new(1_000, 1_800_000_000_000),
+			quotes: vec![
+				Quote { pair: PairId(1), price: Price::from_rational(4_206, 1_000) },
+				Quote { pair: PairId(3), price: Price::from_rational(9_998, 10_000) },
+			],
+		}
+	}
+
+	fn sign(pair: &sr25519::Pair, report: PriceReport) -> Signed {
+		let signature = pair.sign(&report.signing_payload());
+		SignedPriceReport {
+			report,
+			signer: AuthorityId::from(pair.public()),
+			signature: AuthoritySignature::from(signature),
+		}
+	}
+
+	#[test]
+	fn signing_payload_is_context_then_encoded_report() {
+		let report = report();
+		let payload = report.signing_payload();
+		assert_eq!(&payload[..SIGNING_CONTEXT.len()], SIGNING_CONTEXT);
+		assert_eq!(&payload[SIGNING_CONTEXT.len()..], report.encode());
+	}
+
+	#[test]
+	fn valid_signature_verifies() {
+		let pair = sr25519::Pair::from_seed(&[1; 32]);
+		assert!(sign(&pair, report()).verify_signature());
+	}
+
+	#[test]
+	fn tampered_report_does_not_verify() {
+		let pair = sr25519::Pair::from_seed(&[1; 32]);
+		let mut signed = sign(&pair, report());
+		signed.report.quotes[0].price = Price::from_rational(4_207, 1_000);
+		assert!(!signed.verify_signature());
+
+		let mut signed = sign(&pair, report());
+		signed.report.anchor = Anchor::new(1_001, 1_800_000_000_000);
+		assert!(!signed.verify_signature());
+	}
+
+	#[test]
+	fn signature_of_another_key_does_not_verify() {
+		let pair = sr25519::Pair::from_seed(&[1; 32]);
+		let other = sr25519::Pair::from_seed(&[2; 32]);
+		let mut signed = sign(&pair, report());
+		signed.signer = AuthorityId::from(other.public());
+		assert!(!signed.verify_signature());
+	}
+
+	#[test]
+	fn signed_report_codec_round_trip() {
+		let pair = sr25519::Pair::from_seed(&[1; 32]);
+		let signed = sign(&pair, report());
+		let decoded = Signed::decode(&mut &signed.encode()[..]).unwrap();
+		assert_eq!(decoded, signed);
+		assert!(decoded.verify_signature());
+	}
+
+	#[test]
+	fn app_key_types_match_raw_sr25519() {
+		// The Aura key wraps a raw sr25519 key without changing its bytes.
+		let pair = AuthorityPair::from_seed(&[1; 32]);
+		let raw = sr25519::Pair::from_seed(&[1; 32]);
+		assert_eq!(ByteArray::to_raw_vec(&pair.public()), raw.public().to_raw_vec());
+	}
+}

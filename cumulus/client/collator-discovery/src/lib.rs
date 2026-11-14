@@ -99,9 +99,12 @@ pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStrea
 /// Spawn the authority-discovery worker and the parachain reserved-peer refresh task.
 ///
 /// Only call this on collators with `max_reserved > 0`.
+///
+/// Returns the authority discovery service, which resolves the addresses of an authority and
+/// the authorities behind a peer, for other node components to use.
 pub fn start_collator_discovery<Block, Client, AD, NetEventStream>(
 	params: StartCollatorDiscoveryParams<Block, Client, AD, NetEventStream>,
-) -> Result<(), prometheus_endpoint::PrometheusError>
+) -> Result<sc_authority_discovery::Service, prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
 	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
@@ -153,7 +156,8 @@ where
 	)
 }
 
-/// Spawn the authority-discovery worker and refresh task; returns immediately.
+/// Spawn the authority-discovery worker and refresh task; returns the authority discovery
+/// service immediately.
 fn spawn_collator_discovery_tasks<Block, Client, AD, DhtStream>(
 	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
@@ -167,7 +171,7 @@ fn spawn_collator_discovery_tasks<Block, Client, AD, DhtStream>(
 	persisted_cache_directory: Option<PathBuf>,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
 	spawn_handle: SpawnTaskHandle,
-) -> Result<(), prometheus_endpoint::PrometheusError>
+) -> Result<sc_authority_discovery::Service, prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
 	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
@@ -213,13 +217,13 @@ where
 			authority_discovery,
 			network,
 			sync_service,
-			authority_discovery_service,
+			authority_discovery_service.clone(),
 			keystore,
 			metrics,
 		),
 	);
 
-	Ok(())
+	Ok(authority_discovery_service)
 }
 
 /// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
