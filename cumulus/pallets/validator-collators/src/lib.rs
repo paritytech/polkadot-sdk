@@ -29,25 +29,25 @@
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
-//! [`Config::ValidatorRegistration`], and records the returned list in [`DrawnCollators`]. The
-//! runtime may combine this pallet with `pallet-collator-selection` through
-//! [`pallet_session::UnionSessionManager`], so invulnerables and candidates keep collating next to
-//! the validators.
+//! [`Config::ValidatorRegistration`], except those dropped for authoring no blocks, and records the
+//! returned list in [`DrawnCollators`]. The runtime may combine this pallet with
+//! `pallet-collator-selection` through [`pallet_session::UnionSessionManager`], so invulnerables
+//! and candidates keep collating next to the validators.
 //!
 //! [`MaxCollators`] optionally caps how many validators are returned. Governance can start with a
-//! low cap and raise it in steps, or lower it again, to roll out validator collators gradually.
-//! The pallet draws the validators at random at the first forced rotation after a set
-//! arrives or the cap changes, and returns them until the next draw. The draw shuffles the whole
-//! set with a seed made of the genesis hash, the era and the relay chain epoch randomness cached in
-//! [`EpochRandomness`], then keeps the first validators with registered keys up to the cap. Every
-//! validator with keys has the same chance to be drawn in each era. A cap change draws again from
-//! the stored set, so the drawn validators can change. Every draw takes its seed from the
-//! randomness cached at the time of the draw. The seed includes the genesis hash, so each chain
-//! draws independently from the same set. A drawn validator that removes its keys is dropped at
-//! the next rotation and its place stays empty, and a validator that registers keys after the draw
-//! waits, until the next set or cap change. Each set, so each era, gets a new draw, which is
-//! enacted at the second forced rotation with no notice, so a validator with keys must already
-//! run a synced collator node to collate when drawn.
+//! low cap and raise it in steps, or lower it again, to roll out validator collators gradually. The
+//! pallet draws the validators at random at the first forced rotation after a set arrives or the
+//! cap changes, and returns them until the next draw. The draw shuffles the whole set with a seed
+//! made of the genesis hash, the era and the relay chain epoch randomness cached in
+//! [`EpochRandomness`], then keeps the first validators with registered keys up to the cap,
+//! skipping the dropped ones. Every validator with keys that is not dropped has the same chance to
+//! be drawn in each era. A cap change draws again from the stored set, so the drawn validators can
+//! change. Every draw takes its seed from the randomness cached at the time of the draw. The seed
+//! includes the genesis hash, so each chain draws independently from the same set. A drawn
+//! validator that removes its keys is dropped at the next rotation and its place stays empty, and a
+//! validator that registers keys after the draw waits, until the next set or cap change. Each set,
+//! so each era, gets a new draw, which is enacted at the second forced rotation with no notice, so
+//! a validator with keys must already run a synced collator node to collate when drawn.
 //!
 //! Until governance sets it, the cap is [`Config::DefaultMaxCollators`].
 //!
@@ -100,6 +100,44 @@
 //! or later than expected, a set that never arrives, and the time before the first set arrives. If
 //! both reports fall in the same block, the pallet reports once.
 //!
+//! ### Dropping validators that author no blocks
+//!
+//! Governance can set a [`DropRule`] in [`CurrentDropRule`] to stop returning validators that do
+//! not run a collator node. There is no rule by default, so nobody is dropped.
+//!
+//! The pallet checks the drawn validators at a judgement: the first of the two forced rotations
+//! after a new set or a cap change, before it draws again.
+//!
+//! For each returned validator, [`LastActivity`] records whether it authored a block and the block
+//! from which it has been idle:
+//! - A validator checked for the first time is idle from that judgement.
+//! - A validator that authored since the last judgement is idle from the current one.
+//! - A validator that did not author stays idle from the same block.
+//!
+//! A validator is dropped once it has been idle for at least `min_missed_turns × n ×`
+//! [`Config::MaxBlocksPerSlot`] blocks, `n` the number of session validators at the judgement.
+//! At most [`Config::MaxBlocksPerSlot`] blocks fit in an Aura slot, so those blocks span at least
+//! `min_missed_turns × n` slots, which hold at least `min_missed_turns` of the validator's turns.
+//! The count is in blocks, so time when the chain is halted does not count. The threshold follows
+//! the list length at each judgement, so a list change during the idle time shifts the count by a
+//! few turns. The record is reset only at a judgement, so a validator is dropped after as many
+//! whole judgement periods without a block as hold the threshold.
+//!
+//! A dropped validator is not returned for one era. Each further drop doubles that time, up to
+//! `max_drop_eras` eras. The count of drops restarts once the validator authors again. A drop ends
+//! when the set of a later era is stored, so a drop made at a cap change also ends at the next set.
+//! The draw skips dropped validators.
+//!
+//! A judgement never drops below `min_collators` of the stored validators that have registered
+//! keys and are not dropped. Among the idle validators it keeps those with the fewest drops first,
+//! then the lowest accounts.
+//!
+//! The activity is recorded even without a rule, so a rule set later counts the idle time before
+//! it.
+//!
+//! A partial outage that lasts at least `min_missed_turns` of a validator's turns can drop it even
+//! if it runs a node. That drop lasts one era and is limited by `min_collators`.
+//!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
 //! the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
@@ -108,8 +146,6 @@
 //!
 //! ## TODO
 //!
-//! - Dropping validators that author no blocks for a session, judged among the drawn validators
-//!   under a cap.
 //! - (Only if a need is established) Propagating relay-chain offences to the collator set.
 //! - Under a cap, revisit the redraw period and notice once operators have run collators. A draw
 //!   per era without notice is the first step, with operators expected to run a synced collator
@@ -182,7 +218,11 @@ impl<AccountId> ReportAuthoredBlocks<AccountId> for () {
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
 	use crate::ReportAuthoredBlocks;
-	use alloc::{collections::BTreeSet, vec, vec::Vec};
+	use alloc::{
+		collections::{BTreeMap, BTreeSet},
+		vec,
+		vec::Vec,
+	};
 	use cumulus_pallet_parachain_system::{
 		relay_state_snapshot::{Error as RelayProofError, ReadEntryErr},
 		OnSystemEvent, RelayChainStateProof,
@@ -196,7 +236,7 @@ pub mod pallet {
 		storage::with_storage_layer,
 		traits::{EnsureOrigin, UnixTime, ValidatorRegistration},
 		weights::WeightMeter,
-		BoundedBTreeSet,
+		BoundedBTreeMap, BoundedBTreeSet,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{SessionManager, ShouldEndSession};
@@ -269,18 +309,80 @@ pub mod pallet {
 		AwaitingEnactment,
 	}
 
+	/// The rule that drops validators which author no blocks.
+	#[derive(
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Debug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
+	pub struct DropRule {
+		/// Turns of its own a validator misses before a judgement drops it. At least one.
+		///
+		/// A list change can shift a validator's turns by one, so a value of at least two is
+		/// advised.
+		///
+		/// Counted as `min_missed_turns × n ×` [`Config::MaxBlocksPerSlot`] blocks, `n` the number
+		/// of session validators at the judgement.
+		pub min_missed_turns: u32,
+		/// Number of validators a judgement never drops below, among the stored validators with
+		/// registered keys that are not dropped. The idle validators with the fewest drops are
+		/// kept, and among equal counts the lowest accounts.
+		///
+		/// When this pallet is the only session manager that returns collators, the floor keeps
+		/// the session list from becoming empty. Aura ignores an empty list, so the previous
+		/// authorities, dropped ones included, would keep their slots.
+		pub min_collators: u32,
+		/// Longest drop, in eras. At least one.
+		pub max_drop_eras: u32,
+	}
+
+	/// Activity of a validator this pallet returns as a collator.
+	#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+	pub struct Activity<BlockNumber> {
+		/// Whether the validator authored a block since the last judgement.
+		pub authored: bool,
+		/// The judgement from which the validator authored no block.
+		pub idle_since: BlockNumber,
+	}
+
+	/// The drop of a validator that a judgement found without a block.
+	#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+	pub struct DropRecord {
+		/// The validator is not returned while the stored set belongs to an earlier era.
+		pub until: EraIndex,
+		/// Drops since a judgement last found the validator authoring.
+		pub drops: u32,
+	}
+
+	/// Drop records of the stored validators.
+	pub type DropRecords<T> = BoundedBTreeMap<
+		<T as frame_system::Config>::AccountId,
+		DropRecord,
+		<T as Config>::MaxValidators,
+	>;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(crate::migrations::STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Configuration trait of this pallet.
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+	pub trait Config:
+		frame_system::Config<RuntimeEvent: From<Event<Self>>>
+		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
+	{
 		/// Origin allowed to submit a validator set.
 		type SetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to change [`MaxCollators`], [`ReportPeriod`], [`ExpectedEraDuration`]
-		/// and [`ReportMargin`].
+		/// Origin allowed to change [`MaxCollators`], [`ReportPeriod`], [`ExpectedEraDuration`],
+		/// [`ReportMargin`] and [`CurrentDropRule`].
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Lookup of registered session keys.
@@ -321,6 +423,14 @@ pub mod pallet {
 
 		/// Wall clock time, to time the report before the expected end of an era.
 		type UnixTime: UnixTime;
+
+		/// Most blocks the chain can build in one Aura slot.
+		///
+		/// It must not be below the real maximum: a judgement drops a validator only after
+		/// `min_missed_turns × n` times this many idle blocks, for `n` session validators, so that
+		/// at least `min_missed_turns × n` Aura slots passed.
+		#[pallet::constant]
+		type MaxBlocksPerSlot: Get<u32>;
 
 		/// Value of [`ExpectedEraDuration`] until governance sets it, in milliseconds.
 		#[pallet::constant]
@@ -365,9 +475,10 @@ pub mod pallet {
 	///
 	/// The validators are drawn at random, see [`DrawnCollators`].
 	///
-	/// A change with a stored set forces two rotations. The first draws [`DrawnCollators`] again
-	/// from the stored set, so the drawn validators can change. The change is in force two blocks
-	/// later. Removing the cap returns every validator of the stored set with registered keys.
+	/// A change with a stored set forces two rotations. The first judges the drawn validators under
+	/// a [`DropRule`] and draws [`DrawnCollators`] again from the stored set, so the drawn
+	/// validators can change. The change is in force two blocks later. Removing the cap returns
+	/// every validator of the stored set with registered keys.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> =
 		StorageValue<_, CollatorDraw, ValueQuery, <T as Config>::DefaultMaxCollators>;
@@ -376,9 +487,9 @@ pub mod pallet {
 	///
 	/// Written at every session rotation, and holds only validators that had registered keys at
 	/// that rotation. It is the draw made at the first rotation after a set arrives or
-	/// the cap changes, and each later rotation returns it again without the validators that have
-	/// removed their keys since. `None` when the last rotation returned no list, as before the
-	/// first set arrives.
+	/// the cap changes, which skips dropped validators, and each later rotation returns it again
+	/// without the validators that have removed their keys since. `None` when the last rotation
+	/// returned no list, as before the first set arrives.
 	///
 	/// Pallet-session queues the returned list at one rotation and enacts it at the next, so this
 	/// is ahead of the session validators while [`PendingRotation`] is
@@ -422,6 +533,29 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ReportMargin<T: Config> = StorageValue<_, u64, ValueQuery, T::DefaultReportMargin>;
 
+	/// The rule in force. Absent, no validator is dropped.
+	#[pallet::storage]
+	pub type CurrentDropRule<T: Config> = StorageValue<_, DropRule, OptionQuery>;
+
+	/// Activity of each validator returned at the last judgement.
+	///
+	/// Written at a judgement for each validator it returns, except one that authored nothing
+	/// since an earlier judgement. `authored` is set at the validator's first block after a
+	/// judgement. Removed at the first rotation that does not return the validator. Kept with or
+	/// without a [`CurrentDropRule`], so a rule set later counts the idle time before it.
+	#[pallet::storage]
+	pub type LastActivity<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, Activity<BlockNumberFor<T>>, OptionQuery>;
+
+	/// Drop records of validators of the stored set.
+	///
+	/// A record is created or extended when a judgement drops the validator, and removed when a
+	/// judgement finds the validator authoring, when it leaves the stored set, and with every
+	/// other record when the rule is removed. A record whose drop has ended is kept, so that a
+	/// further judgement without a block doubles the next drop.
+	#[pallet::storage]
+	pub type Dropped<T: Config> = StorageValue<_, DropRecords<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -452,6 +586,14 @@ pub mod pallet {
 		/// The time before the expected end of an era at which the counts are reported was
 		/// changed.
 		ReportMarginSet { margin: u64 },
+		/// The rule that drops validators which author no blocks was set or removed.
+		DropRuleSet { rule: Option<DropRule> },
+		/// `validators` missed at least `min_missed_turns` turns and are not returned while the
+		/// stored set belongs to an era before the one paired with each. `kept_by_floor` idle
+		/// validators are still returned because of the floor.
+		///
+		/// Emitted with an empty `validators` when the floor keeps every idle validator.
+		CollatorsDropped { validators: Vec<(T::AccountId, EraIndex)>, kept_by_floor: u32 },
 		/// Something that should never happen happened. See [`UnexpectedKind`].
 		Unexpected(UnexpectedKind),
 	}
@@ -480,6 +622,8 @@ pub mod pallet {
 		ZeroReportMargin,
 		/// The report margin is above [`Config::MaxReportMargin`].
 		ReportMarginTooHigh,
+		/// A drop rule needs at least one missed turn and a longest drop of at least one era.
+		InvalidDropRule,
 	}
 
 	#[pallet::hooks]
@@ -504,7 +648,7 @@ pub mod pallet {
 		/// a multi-block migration no report is made, and the counts are kept.
 		fn on_poll(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
 			// the base-weight, as per the benchmarks, is everything minus the report.
-			let base_weight = T::WeightInfo::on_poll();
+			let base_weight = <T as Config>::WeightInfo::on_poll();
 			if !meter.can_consume(base_weight) {
 				return;
 			}
@@ -571,7 +715,8 @@ pub mod pallet {
 			);
 			// `on_poll` postpones a report that does not fit, so one that does not fit an empty
 			// block is never made.
-			let report = T::WeightInfo::on_poll().saturating_add(Self::report_weight(max_items));
+			let report =
+				<T as Config>::WeightInfo::on_poll().saturating_add(Self::report_weight(max_items));
 			let max_block = T::BlockWeights::get().max_block;
 			assert!(
 				report.all_lte(max_block),
@@ -609,7 +754,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Store the validator set of `era`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_validators(validators.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_validators(validators.len() as u32))]
 		pub fn set_validators(
 			origin: OriginFor<T>,
 			era: EraIndex,
@@ -621,10 +766,11 @@ pub mod pallet {
 
 		/// Set the maximum number of validators returned as collators.
 		///
-		/// With a stored set, the change forces two rotations and the first draws
-		/// [`DrawnCollators`] again, so the drawn validators can change.
+		/// With a stored set, the change forces two rotations. The first judges the drawn
+		/// validators under a [`DropRule`] and draws [`DrawnCollators`] again, so the drawn
+		/// validators can change.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_max_collators())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: CollatorDraw) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			MaxCollators::<T>::set(max);
@@ -639,7 +785,7 @@ pub mod pallet {
 		///
 		/// The next report is made at the next multiple of `period`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_report_period())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_report_period())]
 		pub fn set_report_period(
 			origin: OriginFor<T>,
 			period: BlockNumberFor<T>,
@@ -656,7 +802,7 @@ pub mod pallet {
 		///
 		/// It applies to the stored set too, whose arrival time is kept.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::set_expected_era_duration())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_expected_era_duration())]
 		pub fn set_expected_era_duration(origin: OriginFor<T>, duration: u64) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			ensure!(duration > 0, Error::<T>::ZeroExpectedEraDuration);
@@ -670,13 +816,34 @@ pub mod pallet {
 		///
 		/// It applies to the stored set too, whose arrival time is kept.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::set_report_margin())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_report_margin())]
 		pub fn set_report_margin(origin: OriginFor<T>, margin: u64) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			ensure!(margin > 0, Error::<T>::ZeroReportMargin);
 			ensure!(margin <= T::MaxReportMargin::get(), Error::<T>::ReportMarginTooHigh);
 			ReportMargin::<T>::put(margin);
 			Self::deposit_event(Event::ReportMarginSet { margin });
+			Ok(())
+		}
+
+		/// Set the rule that drops validators which author no blocks, or remove it.
+		///
+		/// The rule applies from the next judgement, which counts the idle blocks before it.
+		/// Changing the rule keeps the drops already started. Removing it also removes every drop
+		/// record, so the dropped validators can be drawn again at the next draw.
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_drop_rule())]
+		pub fn set_drop_rule(origin: OriginFor<T>, rule: Option<DropRule>) -> DispatchResult {
+			T::UpdateOrigin::ensure_origin(origin)?;
+			match rule {
+				Some(rule) => ensure!(
+					rule.min_missed_turns > 0 && rule.max_drop_eras > 0,
+					Error::<T>::InvalidDropRule
+				),
+				None => Dropped::<T>::kill(),
+			}
+			CurrentDropRule::<T>::set(rule);
+			Self::deposit_event(Event::DropRuleSet { rule });
 			Ok(())
 		}
 	}
@@ -735,20 +902,24 @@ pub mod pallet {
 			BlakeTwo256::hash_of(&(b"validator-collators", genesis, era, randomness)).into()
 		}
 
-		/// Draw up to `cap` validators with registered keys from `set`, in drawn order.
+		/// Draw up to `cap` validators with registered keys and not dropped from `set`, in drawn
+		/// order.
 		///
-		/// The whole set is shuffled before the key filter, so the order depends only on the seed
-		/// and the set.
+		/// The whole set is shuffled before the filter, so the order depends only on the seed and
+		/// the set.
 		fn draw_collators(
 			set: EraValidatorSet<T::AccountId, T::MaxValidators>,
 			cap: u32,
+			dropped: &DropRecords<T>,
 		) -> Vec<T::AccountId> {
 			let EraValidatorSet { era, validators } = set;
 			let mut order: Vec<_> = validators.into_iter().collect();
 			order.shuffle(&mut ChaCha20Rng::from_seed(Self::draw_seed(era)));
 			order
 				.into_iter()
-				.filter(T::ValidatorRegistration::is_registered)
+				.filter(|v| {
+					T::ValidatorRegistration::is_registered(v) && !Self::is_dropped(dropped, v, era)
+				})
 				.take(cap as usize)
 				.collect()
 		}
@@ -760,7 +931,7 @@ pub mod pallet {
 		/// many validators as the set holds, and the other authors beyond them.
 		pub(crate) fn report_weight(authors: u32) -> Weight {
 			let validators = authors.min(T::MaxValidators::get());
-			T::WeightInfo::report_blocks(validators, authors.saturating_sub(validators))
+			<T as Config>::WeightInfo::report_blocks(validators, authors.saturating_sub(validators))
 		}
 
 		/// Hand the counted blocks of the stored validators to [`Config::BlockReporter`].
@@ -820,6 +991,78 @@ pub mod pallet {
 			Self::deposit_event(event);
 		}
 
+		/// Whether `validator` is dropped while the stored set belongs to `era`.
+		fn is_dropped(dropped: &DropRecords<T>, validator: &T::AccountId, era: EraIndex) -> bool {
+			dropped.get(validator).is_some_and(|record| record.until > era)
+		}
+
+		/// Drop, within the floor, the validators of `set` with a record in `activity` that are
+		/// idle for at least the threshold of `rule` at block `now`, and remove the drop records
+		/// of those that authored.
+		fn drop_idle(
+			set: &EraValidatorSet<T::AccountId, T::MaxValidators>,
+			rule: DropRule,
+			activity: &BTreeMap<T::AccountId, Activity<BlockNumberFor<T>>>,
+			dropped: &mut DropRecords<T>,
+			now: BlockNumberFor<T>,
+		) {
+			let authorities = pallet_session::Validators::<T>::decode_len().unwrap_or_default();
+			let threshold = u64::from(rule.min_missed_turns)
+				.saturating_mul(authorities as u64)
+				.saturating_mul(T::MaxBlocksPerSlot::get().into());
+			let mut idle = Vec::new();
+			for (v, activity) in activity.iter().filter(|(v, _)| set.validators.contains(v)) {
+				let idle_blocks: u64 = now.saturating_sub(activity.idle_since).saturated_into();
+				if activity.authored {
+					dropped.remove(v);
+				} else if idle_blocks >= threshold {
+					idle.push((dropped.get(v).map_or(0, |record| record.drops), v.clone()));
+				}
+			}
+			let eligible = set
+				.validators
+				.iter()
+				.filter(|v| {
+					!Self::is_dropped(dropped, v, set.era) &&
+						T::ValidatorRegistration::is_registered(v)
+				})
+				.count();
+			// The floor keeps the fewest drops first, then the lowest accounts.
+			idle.sort();
+			let droppable = eligible.saturating_sub(rule.min_collators as usize);
+			let kept_by_floor = idle.len().saturating_sub(droppable);
+			let newly_dropped: Vec<_> = idle
+				.into_iter()
+				.skip(kept_by_floor)
+				.filter_map(|(drops, v)| {
+					let length =
+						1u32.checked_shl(drops).unwrap_or(u32::MAX).min(rule.max_drop_eras);
+					let record = DropRecord {
+						until: set.era.saturating_add(length),
+						drops: drops.saturating_add(1),
+					};
+					match dropped.try_insert(v.clone(), record) {
+						Ok(_) => Some((v, record.until)),
+						// Unreachable: the records hold only validators of the stored set, at most
+						// `MaxValidators`.
+						Err(_) => {
+							log::error!(
+								target: crate::LOG_TARGET,
+								"the drop records are full, returning {v:?} instead of dropping it"
+							);
+							None
+						},
+					}
+				})
+				.collect();
+			if !newly_dropped.is_empty() || kept_by_floor > 0 {
+				Self::deposit_event(Event::CollatorsDropped {
+					validators: newly_dropped,
+					kept_by_floor: kept_by_floor as u32,
+				});
+			}
+		}
+
 		/// Check the pallet invariants.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
@@ -854,11 +1097,30 @@ pub mod pallet {
 			);
 			ensure!(ExpectedEraDuration::<T>::get() > 0, "the expected era duration is zero");
 			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
+			ensure!(
+				!Dropped::<T>::exists() || Dropped::<T>::try_get().is_ok(),
+				"the drop records do not decode"
+			);
+			let dropped = Dropped::<T>::get();
+			let era = ExternalValidatorSet::<T>::get().map(|set| set.era);
+			ensure!(
+				era.is_none_or(|era| {
+					dropped.iter().all(|(v, record)| {
+						record.until <= era || !LastActivity::<T>::contains_key(v)
+					})
+				}),
+				"a dropped validator has an activity record"
+			);
+			ensure!(
+				CurrentDropRule::<T>::exists() || dropped.is_empty(),
+				"validators are dropped without a drop rule"
+			);
 
 			if PendingRotation::<T>::get() == RotationState::AwaitingQueue {
 				// Until the next rotation draws, the drawn collators still belong to the previous
 				// set or cap: of an older era after a new set, possibly by more than one era, or of
-				// the same era after a cap change. Only their era is checked.
+				// the same era after a cap change. Only their era is checked, and the records may
+				// belong to validators the new set left out.
 				if let (Some(set), Some(drawn)) =
 					(ExternalValidatorSet::<T>::get(), DrawnCollators::<T>::get())
 				{
@@ -870,9 +1132,21 @@ pub mod pallet {
 				return Ok(());
 			}
 
+			let set = ExternalValidatorSet::<T>::get();
+			let in_set =
+				|v: &T::AccountId| set.as_ref().is_some_and(|set| set.validators.contains(v));
+			ensure!(
+				LastActivity::<T>::iter_keys().all(|v| in_set(&v)),
+				"an activity record belongs to a validator outside the stored set"
+			);
+			ensure!(
+				dropped.keys().all(in_set),
+				"a drop record belongs to a validator outside the stored set"
+			);
+
 			// Keys can change between rotations, so the key filter of the last rotation is not
 			// checked.
-			let Some(set) = ExternalValidatorSet::<T>::get() else { return Ok(()) };
+			let Some(set) = set else { return Ok(()) };
 			let drawn = DrawnCollators::<T>::get().ok_or("no collators are drawn for the set")?;
 			ensure!(drawn.era == set.era, "the drawn collators belong to another era");
 			let mut seen = BTreeSet::new();
@@ -895,7 +1169,83 @@ pub mod pallet {
 				EpochRandomness::<T>::exists(),
 				"collators are drawn without a cached relay chain epoch randomness"
 			);
+			ensure!(
+				LastActivity::<T>::iter_keys().all(|v| drawn.collators.contains(&v)),
+				"an activity record belongs to a validator that is not drawn"
+			);
 			Ok(())
+		}
+
+		/// The collators for a session: the drawn validators of the stored set, drawn again after
+		/// judging them when `new_external`, or `None` without a stored set or a previous draw.
+		///
+		/// `activity` is [`LastActivity`] before the rotation. `dropped` holds the drop records,
+		/// which this updates and the caller stores.
+		fn session_collators(
+			new_external: bool,
+			activity: &BTreeMap<T::AccountId, Activity<BlockNumberFor<T>>>,
+			dropped: &mut DropRecords<T>,
+		) -> Option<Vec<T::AccountId>> {
+			let Some(external_set) = Self::external_validator_set() else {
+				// Nothing is returned, so nothing is recorded. Without a stored set there is
+				// nothing to remove, but a set that no longer decodes leaves its collators behind.
+				DrawnCollators::<T>::kill();
+				dropped.retain(|_, _| false);
+				Self::deposit_event(Event::NothingToDraw);
+				return None;
+			};
+			let (era, external_len) = (external_set.era, external_set.validators.len() as u32);
+			dropped.retain(|v, _| external_set.validators.contains(v));
+			let now = frame_system::Pallet::<T>::block_number();
+			// The first rotation of a pair judges, before it draws again.
+			if new_external {
+				if let Some(rule) = CurrentDropRule::<T>::get() {
+					Self::drop_idle(&external_set, rule, activity, dropped, now);
+				}
+			}
+
+			// Drawn and filtered at the rotation, which pallet-session weighs as the whole block,
+			// since the key reads may not fit the weight of the message or report that delivers
+			// the set.
+			let collators: Vec<_> = match new_external {
+				// a new set or cap: draw again, from the validators with keys.
+				true => {
+					Self::draw_collators(external_set, MaxCollators::<T>::get().limit(), dropped)
+				},
+				// nothing new: the last draw, without those that removed their keys since.
+				false => match DrawnCollators::<T>::get() {
+					Some(prev) => prev
+						.collators
+						.into_iter()
+						.filter(T::ValidatorRegistration::is_registered)
+						.collect(),
+					None => {
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::NoPreviousDrawSet));
+						return None;
+					},
+				},
+			};
+			// At most the length of the set, which is bounded by `MaxValidators`.
+			let collators = BoundedVec::truncate_from(collators);
+			if new_external {
+				for v in &collators {
+					// A validator that authored nothing stays idle from the same block.
+					let idle_since = match activity.get(v) {
+						Some(Activity { authored: false, .. }) => continue,
+						_ => now,
+					};
+					LastActivity::<T>::insert(v, Activity { authored: false, idle_since });
+				}
+			}
+
+			Self::deposit_event(Event::CollatorsDrawn {
+				era,
+				external_len,
+				drawn_len: collators.len() as u32,
+				new_external,
+			});
+			DrawnCollators::<T>::put(EraCollators { era, collators: collators.clone() });
+			Some(collators.into_inner())
 		}
 
 		/// The stored set, or `None` without one. A stored set that does not decode is `None` too,
@@ -930,45 +1280,25 @@ pub mod pallet {
 				RotationState::Idle => false,
 			};
 
-			let Some(external_set) = Self::external_validator_set() else {
-				// Nothing is returned, so nothing is recorded. Without a stored set there is
-				// nothing to remove, but a set that no longer decodes leaves its collators behind.
-				DrawnCollators::<T>::kill();
-				Self::deposit_event(Event::NothingToDraw);
-				return None;
-			};
-			let (era, external_len) = (external_set.era, external_set.validators.len() as u32);
+			let activity: BTreeMap<_, _> = LastActivity::<T>::iter().collect();
+			let stored_dropped = Dropped::<T>::get();
+			let mut dropped = stored_dropped.clone();
+			let collators = Self::session_collators(new_external, &activity, &mut dropped);
 
-			// Drawn and filtered at the rotation, which pallet-session weighs as the whole block,
-			// since the key reads may not fit the weight of the message or report that delivers
-			// the set.
-			let collators: Vec<_> = match new_external {
-				// a new set or cap: draw again, from the validators with keys.
-				true => Self::draw_collators(external_set, MaxCollators::<T>::get().limit()),
-				// nothing new: the last draw, without those that removed their keys since.
-				false => match DrawnCollators::<T>::get() {
-					Some(prev) => prev
-						.collators
-						.into_iter()
-						.filter(T::ValidatorRegistration::is_registered)
-						.collect(),
-					None => {
-						Self::deposit_event(Event::Unexpected(UnexpectedKind::NoPreviousDrawSet));
-						return None;
-					},
-				},
-			};
-			// At most the length of the set, which is bounded by `MaxValidators`.
-			let collators = BoundedVec::truncate_from(collators);
-
-			Self::deposit_event(Event::CollatorsDrawn {
-				era,
-				external_len,
-				drawn_len: collators.len() as u32,
-				new_external,
-			});
-			DrawnCollators::<T>::put(EraCollators { era, collators: collators.clone() });
-			Some(collators.into_inner())
+			// Only the returned validators keep an activity record.
+			let returned: BTreeSet<_> = collators.iter().flatten().collect();
+			activity
+				.keys()
+				.filter(|v| !returned.contains(v))
+				.for_each(LastActivity::<T>::remove);
+			if dropped != stored_dropped {
+				if dropped.is_empty() {
+					Dropped::<T>::kill();
+				} else {
+					Dropped::<T>::put(dropped);
+				}
+			}
+			collators
 		}
 
 		fn start_session(_: SessionIndex) {}
@@ -984,13 +1314,22 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
-		/// Counts the block for `author` in [`AuthoredBlocks`].
+		/// Counts the block for `author` in [`AuthoredBlocks`] and, if it is an active collator of
+		/// this pallet, marks its [`LastActivity`] record as authored.
+		///
+		/// Never creates a record, so a block of a validator that is no longer returned does not
+		/// count as activity when it is returned again.
 		fn note_author(author: T::AccountId) {
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::note_author(),
+				<T as Config>::WeightInfo::note_author(),
 				DispatchClass::Mandatory,
 			);
-			AuthoredBlocks::<T>::mutate(author, |blocks| blocks.saturating_inc());
+			AuthoredBlocks::<T>::mutate(&author, |blocks| blocks.saturating_inc());
+			if let Some(activity @ Activity { authored: false, .. }) =
+				LastActivity::<T>::get(&author)
+			{
+				LastActivity::<T>::insert(author, Activity { authored: true, ..activity });
+			}
 		}
 	}
 
@@ -1029,7 +1368,7 @@ pub mod pallet {
 			if EpochRandomness::<T>::get() != Some(randomness) {
 				EpochRandomness::<T>::put(randomness);
 			}
-			T::WeightInfo::on_relay_state_proof()
+			<T as Config>::WeightInfo::on_relay_state_proof()
 		}
 	}
 }
