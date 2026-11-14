@@ -5908,6 +5908,95 @@ mod sorted_list_provider {
 	}
 }
 
+mod score_provider {
+	use super::*;
+	use frame_election_provider_support::ScoreProvider;
+	use pallet_bags_list::{Error as BagsListError, ListError, NextNodeAutoRebagged};
+
+	type VoterBagsListInstance = pallet_bags_list::Instance1;
+
+	#[test]
+	fn score_only_for_nominators_and_validators() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given validator 11, nominator 101, chilled staker 41 and unbonded account 777.
+			assert!(Validators::<Test>::contains_key(11));
+			assert!(Nominators::<Test>::contains_key(101));
+			assert!(
+				Ledger::<Test>::get(41).is_some() &&
+					!Validators::<Test>::contains_key(41) &&
+					!Nominators::<Test>::contains_key(41)
+			);
+			assert!(Ledger::<Test>::get(777).is_none());
+
+			// then only nominators and validators have a score.
+			for (who, score) in [(11, Some(1000)), (101, Some(500)), (41, None), (777, None)] {
+				assert_eq!(<Staking as ScoreProvider<_>>::score(&who), score, "account {who}");
+			}
+		});
+	}
+
+	#[test]
+	fn rebag_removes_stale_chilled_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given chilled staker 41 left in the voter list.
+			assert_ok!(<Test as Config>::VoterList::on_insert(41, 1000));
+
+			// when anyone rebags them
+			assert_ok!(VoterBagsList::rebag(RuntimeOrigin::signed(1), 41));
+
+			// then they are removed from the voter list.
+			assert!(!<Test as Config>::VoterList::contains(&41));
+		});
+	}
+
+	#[test]
+	fn rebag_cannot_reinsert_chilled_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given 21 chilling, which removes them from the voter list.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+			assert!(!<Test as Config>::VoterList::contains(&21));
+
+			// when anyone tries to `rebag` them back in, it fails
+			assert_noop!(
+				VoterBagsList::rebag(RuntimeOrigin::signed(1), 21),
+				BagsListError::<Test, VoterBagsListInstance>::List(ListError::NodeNotFound)
+			);
+
+			// then 21 is still out of the voter list.
+			assert!(!<Test as Config>::VoterList::contains(&21));
+		});
+	}
+
+	#[test]
+	fn auto_rebag_cannot_reinsert_chilled_staker_at_cursor() {
+		// The auto-rebag cursor yields its account first even if it has since left the list. A
+		// staker that chills while the cursor points at them must not be put back.
+		ExtBuilder::default().build_and_execute(|| {
+			MaxAutoRebagPerBlock::set(1);
+			let on_idle = || {
+				<VoterBagsList as Hooks<BlockNumber>>::on_idle(System::block_number(), Weight::MAX)
+			};
+
+			// given the cursor pointing at validator 21.
+			for _ in 0..<Test as Config>::VoterList::count() {
+				if NextNodeAutoRebagged::<Test, VoterBagsListInstance>::get() == Some(21) {
+					break;
+				}
+				on_idle();
+			}
+			assert_eq!(NextNodeAutoRebagged::<Test, VoterBagsListInstance>::get(), Some(21));
+
+			// when 21 chills, and the auto-rebag runs in the same block.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+			assert!(!<Test as Config>::VoterList::contains(&21));
+			on_idle();
+
+			// then 21 is still out of the voter list.
+			assert!(!<Test as Config>::VoterList::contains(&21));
+		});
+	}
+}
+
 #[test]
 fn force_apply_min_commission_works() {
 	let prefs = |c| ValidatorPrefs { commission: Perbill::from_percent(c), blocked: false };
