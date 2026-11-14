@@ -204,7 +204,8 @@ enum AllowanceBlock {
 
 // Period between enforcing limits (checking for expired statements and making sure statements stay
 // within allowances). Different from maintenance period to avoid keeping the lock for too long for
-// maintenance tasks.
+// maintenance tasks. If expired statements are still due after a pass, the background task runs the
+// next pass at once instead of waiting for the next tick.
 const ENFORCE_LIMITS_PERIOD: std::time::Duration = std::time::Duration::from_secs(31);
 
 mod col {
@@ -1496,7 +1497,11 @@ impl Store {
 				loop {
 					futures::select! {
 						_ = maintenance_interval.tick().fuse() => {worker_store.maintain();}
-						_ = enforce_limits_interval.tick().fuse() => {worker_store.enforce_limits();}
+						_ = enforce_limits_interval.tick().fuse() => {
+							if worker_store.enforce_limits() {
+								enforce_limits_interval.reset_immediately();
+							}
+						}
 					}
 				}
 			}),
@@ -2326,8 +2331,9 @@ impl Store {
 	// timestamp in the upper 32 bits) is less than the current timestamp.
 	/// Reap expired statements and enforce per-account allowances (one bounded pass); runs
 	/// periodically from the background task. Hidden: exposed only for the benchmarks.
+	/// Returns `true` if expired statements are still due after the pass.
 	#[doc(hidden)]
-	pub fn enforce_limits(&self) {
+	pub fn enforce_limits(&self) -> bool {
 		self.enforce_limits_bounded(
 			MAX_EXPIRY_STATEMENTS_PER_ITERATION,
 			MAX_EXPIRY_ACCOUNTS_PER_ITERATION,
@@ -2343,7 +2349,7 @@ impl Store {
 		statement_budget: usize,
 		account_budget: usize,
 		time_budget: Duration,
-	) {
+	) -> bool {
 		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 		let start = Instant::now();
@@ -2394,6 +2400,8 @@ impl Store {
 				},
 			}
 		}
+		// If due statements remain, the background task runs the next pass at once.
+		let more_due = expired > 0 && self.has_due_expiry(current_time).unwrap_or(false);
 
 		// Phase 2: enforce allowances account by account, resuming from the cursor. The phase
 		// runs on its own statement and time budgets: with shared ones, a sustained expiry
@@ -2452,6 +2460,19 @@ impl Store {
 		self.metrics.report(|metrics| {
 			metrics.statements_expired_total.inc_by(expired);
 		});
+
+		more_due
+	}
+
+	/// Returns `true` if the expiry index still holds a statement due at `current_time`.
+	fn has_due_expiry(&self, current_time: u64) -> Result<bool> {
+		let db_err = |e: parity_db::Error| Error::Db(e.to_string());
+		let mut iter = self.db.iter(col::INDEX_BY_EXPIRY).map_err(db_err)?;
+		iter.seek_to_first().map_err(db_err)?;
+		let first = iter.next().map_err(db_err)?;
+		Ok(first
+			.and_then(|(key, _)| parse_time_index_key(&key))
+			.is_some_and(|(expiry, _)| expiry < (current_time << 32)))
 	}
 
 	/// Drains the on-disk evicted journal of entries whose purge deadline has passed. Returns how
@@ -6357,6 +6378,28 @@ mod tests {
 	}
 
 	#[test]
+	fn expiry_sweep_reports_the_remaining_backlog() {
+		use std::time::Duration;
+
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+		for seed in 1u64..=3 {
+			let mut stmt = unsigned_statement(seed, 1, None, 100);
+			stmt.set_expiry_from_parts(200, 1);
+			sign_with(&mut stmt, seed);
+			assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
+		}
+		store.set_time(300);
+
+		// A budget of 2 leaves one statement, so the pass returns `true`.
+		assert!(store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600)));
+		assert_eq!(store.statement_count(), 1);
+		// The next pass removes the last statement and returns `false`.
+		assert!(!store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600)));
+		assert_eq!(store.statement_count(), 0);
+	}
+
+	#[test]
 	fn expiry_sweep_leaves_inconsistent_data_in_place() {
 		let (mut store, _temp) = test_store();
 		store.set_time(100);
@@ -6373,10 +6416,11 @@ mod tests {
 			.unwrap();
 
 		// The sweep cannot remove the statement; the corruption is logged as an error and
-		// everything is left exactly as it is, on every pass.
+		// everything is left exactly as it is, on every pass. Nothing was removed, so the sweep
+		// reports no backlog instead of asking to be rerun forever.
 		store.set_time(300);
-		store.enforce_limits();
-		store.enforce_limits();
+		assert!(!store.enforce_limits());
+		assert!(!store.enforce_limits());
 		assert!(store.has_statement(&undecodable_hash));
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &undecodable_key).unwrap().is_some());
 
@@ -6388,7 +6432,7 @@ mod tests {
 			.db
 			.commit([(col::INDEX_BY_EXPIRY, orphan_key.clone(), Some(Vec::new()))])
 			.unwrap();
-		store.enforce_limits();
+		assert!(!store.enforce_limits());
 		assert!(!store.has_statement(&orphan_hash));
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &orphan_key).unwrap().is_some());
 	}
