@@ -262,6 +262,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
+		/// How the reporter reward of a slash decays with the delay of the report.
+		///
+		/// See the implementors of [`crate::SlashRewardDecay`] for the available options.
+		type SlashRewardDecay: crate::SlashRewardDecay;
+
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
@@ -483,6 +488,7 @@ pub mod pallet {
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
+			type SlashRewardDecay = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
@@ -969,9 +975,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
-	/// The percentage of the slash that is distributed to reporters.
+	/// The maximum percentage of the slash that is distributed to reporters.
 	///
-	/// The rest of the slashed value is handled by the `Slash`.
+	/// The percentage actually paid is this value scaled by [`Config::SlashRewardDecay`], based on
+	/// how late the offence was reported. The rest of the slashed value is handled by
+	/// [`Config::Slash`].
 	#[pallet::storage]
 	pub type SlashRewardFraction<T> = StorageValue<_, Perbill, ValueQuery>;
 
