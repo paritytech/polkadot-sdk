@@ -26,8 +26,11 @@ The goal of an election algorithm is to provide an `ElectionResult`. A data comp
   support given to that particular target.
 
 ```rust
-// the winners.
-let winners = vec![(1, 100), (2, 50)];
+// the winners, with their backed stake and election round.
+let winners = vec![
+    Winner { who: 1, backed_stake: 100, round: 0 },
+    Winner { who: 2, backed_stake: 50, round: 1 },
+];
 let assignments = vec![
     // A voter, giving equal backing to both 1 and 2.
     Assignment {

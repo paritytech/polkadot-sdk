@@ -221,7 +221,7 @@ use scale_info::TypeInfo;
 pub use sp_arithmetic::PerThing;
 pub use sp_npos_elections::{
 	Assignment, BalancingConfig, ElectionResult, Error, ExtendedBalance, IdentifierT, PerThing128,
-	Support, Supports, VoteWeight,
+	Support, Supports, VoteWeight, Winner,
 };
 pub use traits::NposSolution;
 
@@ -842,7 +842,16 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 			assignments.push(assignment);
 		}
 
-		let winners = final_winners.into_iter().collect::<Vec<_>>();
+		let winners = final_winners
+			.into_iter()
+			.enumerate()
+			.map(|(round, (who, backed_stake))| Winner {
+				who,
+				backed_stake,
+				round: u32::try_from(round)
+					.expect("round is bounded by to_elect which fits in u32; qed"),
+			})
+			.collect::<Vec<_>>();
 		Ok(ElectionResult { winners, assignments })
 	}
 
