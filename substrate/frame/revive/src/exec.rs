@@ -1025,6 +1025,9 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
+		if matches!(origin, Origin::Root) {
+			transaction_meter.waive_storage_deposits();
+		}
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,

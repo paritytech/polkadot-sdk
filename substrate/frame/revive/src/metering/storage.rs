@@ -103,6 +103,12 @@ pub struct RawMeter<T: Config, E, S: State> {
 	///
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
+	/// True if nobody pays or receives storage deposit in this call stack.
+	///
+	/// Set once on the root meter and copied into every nested meter. A waived meter settles
+	/// nothing whatever origin it is settled with; a meter that was never waived still settles
+	/// nothing for `Origin::Root`, which has no account to charge.
+	deposits_waived: bool,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -154,30 +160,19 @@ impl Diff {
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
 		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
 		let items_removed = self.items_removed.saturating_sub(self.items_added);
-		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(
-			info.storage_byte_deposit
-				.multiply_rational(
-					bytes_removed.min(info.storage_bytes).into(),
-					info.storage_bytes.into(),
-					Rounding::Down,
-				)
-				.unwrap_or_default(),
-		));
-		items_deposit = items_deposit.saturating_add(&Deposit::Refund(
-			info.storage_item_deposit
-				.multiply_rational(
-					items_removed.min(info.storage_items).into(),
-					info.storage_items.into(),
-					Rounding::Down,
-				)
-				.unwrap_or_default(),
-		));
+		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(pro_rata_refund::<T>(
+			bytes_removed,
+			info.storage_bytes,
+			info.storage_byte_deposit,
+		)));
+		items_deposit = items_deposit.saturating_add(&Deposit::Refund(pro_rata_refund::<T>(
+			items_removed,
+			info.storage_items,
+			info.storage_item_deposit,
+		)));
 
 		// We need to update the contract info structure with the new deposits
-		info.storage_bytes =
-			info.storage_bytes.saturating_add(bytes_added).saturating_sub(bytes_removed);
-		info.storage_items =
-			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
+		self.update_counts(info);
 		match &bytes_deposit {
 			Deposit::Charge(amount) => {
 				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
@@ -208,6 +203,94 @@ impl Diff {
 			items_removed: self.items_removed.saturating_add(rhs.items_removed),
 		}
 	}
+
+	/// Apply the net change in bytes and items to the counters of `info`.
+	fn update_counts<T: Config>(&self, info: &mut ContractInfo<T>) {
+		let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
+		let items_added = self.items_added.saturating_sub(self.items_removed);
+		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
+		let items_removed = self.items_removed.saturating_sub(self.items_added);
+		info.storage_bytes =
+			info.storage_bytes.saturating_add(bytes_added).saturating_sub(bytes_removed);
+		info.storage_items =
+			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
+	}
+
+	/// Apply this diff to `info` in a call stack whose deposits are waived.
+	///
+	/// Nothing is paid or refunded for a waived stack, so additions leave the deposit pools
+	/// unchanged and removals shrink them as described in [`pool_after_waived_removal`].
+	///
+	/// Returns the change priced at the list price. This notional amount only feeds the deposit
+	/// limit and `max_charged`. It is never settled.
+	fn update_contract_waived<T: Config>(
+		&self,
+		info: Option<&mut ContractInfo<T>>,
+	) -> DepositOf<T> {
+		let per_byte = T::DepositPerByte::get();
+		let per_item = T::DepositPerChildTrieItem::get();
+		let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
+		let items_added = self.items_added.saturating_sub(self.items_removed);
+		let charge = Deposit::Charge(
+			per_byte
+				.saturating_mul(bytes_added.into())
+				.saturating_add(per_item.saturating_mul(items_added.into())),
+		);
+
+		// As in `Diff::update_contract`, without any contract info only additions are priced.
+		let Some(info) = info else { return charge };
+
+		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
+		let items_removed = self.items_removed.saturating_sub(self.items_added);
+		info.storage_byte_deposit = pool_after_waived_removal::<T>(
+			bytes_removed,
+			info.storage_bytes,
+			info.storage_byte_deposit,
+			per_byte,
+		);
+		info.storage_item_deposit = pool_after_waived_removal::<T>(
+			items_removed,
+			info.storage_items,
+			info.storage_item_deposit,
+			per_item,
+		);
+		self.update_counts(info);
+
+		charge.saturating_add(&Deposit::Refund(
+			per_byte
+				.saturating_mul(bytes_removed.into())
+				.saturating_add(per_item.saturating_mul(items_removed.into())),
+		))
+	}
+}
+
+/// The share of `pool` that belongs to `removed` out of `count` units, rounded down.
+fn pro_rata_refund<T: Config>(removed: u32, count: u32, pool: BalanceOf<T>) -> BalanceOf<T> {
+	pool.multiply_rational(removed.min(count).into(), count.into(), Rounding::Down)
+		.unwrap_or_default()
+}
+
+/// The deposit pool that remains after a waived removal of `removed` out of `count` units.
+///
+/// The pool shrinks by at most its pro rata share of the removed units, so deposit paid by
+/// others stays pro rata even after a price decrease. It shrinks by less when it would
+/// otherwise fall below `price` times the remaining units.
+///
+/// That lower bound makes a waived round trip neutral only while the pool is at or below
+/// `price` times `count`. A decrease of the deposit price can leave a pool above that. A round
+/// trip then shrinks the pool, and the difference strands deposit a signed origin paid.
+fn pool_after_waived_removal<T: Config>(
+	removed: u32,
+	count: u32,
+	pool: BalanceOf<T>,
+	price: BalanceOf<T>,
+) -> BalanceOf<T> {
+	if removed == 0 {
+		return pool;
+	}
+	let pro_rata_remainder = pool.saturating_sub(pro_rata_refund::<T>(removed, count, pool));
+	let list_price_remainder = price.saturating_mul(count.saturating_sub(removed).into());
+	pro_rata_remainder.max(pool.min(list_price_remainder))
 }
 
 /// The state of a contract.
@@ -237,15 +320,19 @@ struct Charge<T: Config> {
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),
-	/// The meter was checked against its limit using [`RawMeter::enforce_limit`] at the end of
-	/// its execution. In this process the [`Diff`] was converted into a [`Deposit`].
+	/// The [`Diff`] was converted into a [`Deposit`] by
+	/// [`RawMeter::finalize_own_contributions`] at the end of the meter's execution.
 	Checked(DepositOf<T>),
 }
 
 impl<T: Config> Contribution<T> {
-	/// See [`Diff::update_contract`].
-	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
+	/// See [`Diff::update_contract`], or [`Diff::update_contract_waived`] when `waived`.
+	///
+	/// A `Checked` contribution was already priced with the flag when it was converted, so there
+	/// is nothing left for `waived` to change.
+	fn update_contract(&self, info: Option<&mut ContractInfo<T>>, waived: bool) -> DepositOf<T> {
 		match self {
+			Self::Alive(diff) if waived => diff.update_contract_waived::<T>(info),
 			Self::Alive(diff) => diff.update_contract::<T>(info),
 			Self::Checked(deposit) => deposit.clone(),
 		}
@@ -275,7 +362,7 @@ where
 			limit = Some(new_limit.min(old_limit));
 		}
 
-		RawMeter { limit, ..Default::default() }
+		RawMeter { limit, deposits_waived: self.deposits_waived, ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -310,7 +397,7 @@ where
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
 
-		let own_deposit = absorbed.own_contribution.update_contract(info);
+		let own_deposit = absorbed.own_contribution.update_contract(info, absorbed.deposits_waived);
 		self.total_deposit = self
 			.total_deposit
 			.saturating_add(&absorbed.total_deposit)
@@ -354,7 +441,8 @@ where
 	/// This disregards any refunds pending in the current frame. This
 	/// is because we can calculate refunds only at the end of each frame.
 	pub fn consumed(&self) -> DepositOf<T> {
-		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
+		self.total_deposit
+			.saturating_add(&self.own_contribution.update_contract(None, self.deposits_waived))
 	}
 
 	/// Return the maximum consumed deposit at any point in the previous execution
@@ -397,6 +485,16 @@ where
 		}
 	}
 
+	/// Waive storage deposits for the call stack this meter belongs to.
+	///
+	/// Must be called before the first frame is created, so that every nested meter inherits it.
+	pub fn waive_deposits(&mut self) {
+		// `total_deposit` may already hold an EIP-7702 authorization deposit recorded by
+		// `TransactionMeter::new`, so only the per-contract charges are checked.
+		debug_assert!(self.charges.is_empty(), "deposits are waived before any frame runs; qed");
+		self.deposits_waived = true;
+	}
+
 	/// Pay the refunds accumulated in the whole contract stack.
 	///
 	/// This is the first half of settling the deposits and must be followed by
@@ -415,6 +513,9 @@ where
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<(), DispatchError> {
+		if self.deposits_waived {
+			return Ok(());
+		}
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
 			Origin::Root => return Ok(()),
@@ -481,6 +582,9 @@ where
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
+		if self.deposits_waived {
+			return Ok(Deposit::Charge(Zero::zero()));
+		}
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
 			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
@@ -539,7 +643,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 
 	/// Determine the actual final charge from the own contributions
 	pub fn finalize_own_contributions(&mut self, info: Option<&mut ContractInfo<T>>) {
-		let deposit = self.own_contribution.update_contract(info);
+		let deposit = self.own_contribution.update_contract(info, self.deposits_waived);
 		self.own_contribution = Contribution::Checked(deposit);
 
 		// no need to recalculate max_charged here as the consumed amount cannot increase
@@ -554,19 +658,18 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Unlike [`Self::finalize_own_contributions`], this does not consume the pending diff,
 	/// allowing the meter to continue tracking changes after the nested call returns.
 	pub fn apply_pending_changes_to_contract(&self, info: &mut ContractInfo<T>) {
-		if let Contribution::Alive(diff) = &self.own_contribution {
-			// Apply the diff to update the ContractInfo's storage deposit fields.
-			// We don't care about the return value (the deposit amount) here,
-			// we just want to update the ContractInfo so child frames can see it.
-			let _ = diff.update_contract::<T>(Some(info));
-		}
+		// Apply the diff to update the ContractInfo's storage deposit fields.
+		// We don't care about the return value (the deposit amount) here,
+		// we just want to update the ContractInfo so child frames can see it.
+		// A `Checked` contribution returns its stored deposit without touching `info`.
+		let _ = self.own_contribution.update_contract(Some(info), self.deposits_waived);
 	}
 
 	/// Apply the pending diff to `info` and push its deposit as a final charge, then reset
 	/// `own_contribution` so finalize does not apply it a second time.
 	pub fn bank_pending_changes(&mut self, contract: T::AccountId, info: &mut ContractInfo<T>) {
 		if let Contribution::Alive(_) = &self.own_contribution {
-			let deposit = self.own_contribution.update_contract(Some(info));
+			let deposit = self.own_contribution.update_contract(Some(info), self.deposits_waived);
 			self.own_contribution = Contribution::Alive(Default::default());
 			if !deposit.is_zero() {
 				self.charge_deposit(contract, deposit);

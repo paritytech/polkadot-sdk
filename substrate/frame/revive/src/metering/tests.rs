@@ -209,12 +209,13 @@ fn instantiate_storage_slots(fixture_type: FixtureType, root_created: bool) -> C
 /// Writes slots of the `StorageSlots` at `addr`, the first half by ALICE and the second half by
 /// `Origin::Root`.
 ///
-/// `Origin::Root` pays no storage deposit, so the deposit of its slots is recorded in the contract
-/// info but not held. Clearing all slots therefore requests a refund larger than the deposit held
-/// above the base deposit. ALICE writes enough slots for their deposit to exceed the base deposit.
-/// `held` returns the storage deposit held by the contract. Returns the number of slots written,
-/// the deposit held and the part of it held above the base deposit, which is the deposit of
-/// ALICE's slots.
+/// `Origin::Root` pays nothing for its slots and, since deposits are waived for a Root stack,
+/// records nothing either. This helper writes the record by hand instead, so the contract info
+/// carries a deposit that was never held, as on a contract Root wrote to before the waiver.
+/// Clearing all slots therefore requests a refund larger than the deposit held above the base
+/// deposit. ALICE writes enough slots for their deposit to exceed the base deposit. `held` returns
+/// the storage deposit held by the contract. Returns the number of slots written, the deposit held
+/// and the part of it held above the base deposit, which is the deposit of ALICE's slots.
 fn write_slots_partly_held(
 	addr: H160,
 	held: impl Fn() -> BalanceOf<Test>,
@@ -239,6 +240,17 @@ fn write_slots_partly_held(
 	let held_by_alice = held();
 	write(RuntimeOrigin::root(), half, 2 * half);
 	assert_eq!(held(), held_by_alice, "the deposit of the slots written by root is not held");
+
+	// A Root write records no deposit, so the record still covers ALICE's slots alone.
+	let mut info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+	assert_eq!(info.extra_deposit(), held_by_alice - base_deposit, "root recorded nothing");
+
+	// Write a record larger than the hold by hand, as on a contract Root wrote to before the
+	// deposit was waived. Root wrote as many slots as ALICE and they are the same size, so that
+	// record is twice hers.
+	info.storage_byte_deposit *= 2;
+	info.storage_item_deposit *= 2;
+	AccountInfo::<Test>::insert_contract(&addr, info);
 
 	let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
 	let refundable = held_by_alice - base_deposit;

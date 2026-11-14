@@ -626,6 +626,11 @@ impl<T: Config> TransactionMeter<T> {
 		self.deposit.execute_postponed_charges(origin, exec_config)
 	}
 
+	/// Waive storage deposits for this transaction because its origin has no account.
+	pub fn waive_storage_deposits(&mut self) {
+		self.deposit.waive_deposits();
+	}
+
 	/// Mark a contract as terminated
 	///
 	/// This will signal to the meter to discard all charged and refunds incured by this
