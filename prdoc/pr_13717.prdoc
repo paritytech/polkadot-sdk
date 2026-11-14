@@ -1,0 +1,20 @@
+title: 'pallet-balances: scope `ReservableCurrency` operations to their own reserves'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-balances` tracks holds and named reserves in their own storage, while the unnamed
+    reserves are whatever remains of an account's reserved balance. The unnamed
+    `ReservableCurrency` operations (`unreserve`, `slash_reserved` and `repatriate_reserved`) and
+    the `force_unreserve` call now act on that remainder only, and the `NamedReservableCurrency`
+    operations act on their own named reserve only.
+
+    Callers that only release, slash or move what they have reserved themselves see no change.
+
+    A new Root-only `force_unreserve_named` call is the named counterpart of `force_unreserve`.
+
+crates:
+- name: pallet-balances
+  bump: major
+- name: pallet-preimage
+  bump: none

@@ -91,7 +91,7 @@ pub fn hashed(data: impl AsRef<[u8]>) -> H256 {
 	BlakeTwo256::hash(data.as_ref())
 }
 
-/// Insert an un-migrated preimage.
+/// Insert an un-migrated preimage, reserving its deposit from `acc`.
 pub fn insert_old_unrequested<T: Config>(
 	s: u32,
 	acc: T::AccountId,
@@ -99,11 +99,13 @@ pub fn insert_old_unrequested<T: Config>(
 	// The preimage size does not matter here as it is not touched.
 	let preimage = s.to_le_bytes();
 	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
+	let deposit = 123u32.into();
+	frame_support::assert_ok!(T::Currency::reserve(&acc, deposit));
 
 	#[allow(deprecated)]
 	StatusFor::<T>::insert(
 		&hash,
-		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
+		OldRequestStatus::Unrequested { deposit: (acc, deposit), len: preimage.len() as u32 },
 	);
 	hash
 }
