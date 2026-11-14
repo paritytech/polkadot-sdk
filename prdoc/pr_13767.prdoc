@@ -1,0 +1,10 @@
+title: 'cumulus-collator: drop extra UMP separators when building signal tail'
+doc:
+- audience: Node Dev
+  description: |-
+    Drop any extra `UMP_SEPARATOR` entries after the first separator when splitting a block's
+    upward messages, matching `validate_block`. Forward the remaining raw signal bytes unchanged
+    unless a `SignedSchedulingInfo` overrides them.
+crates:
+- name: cumulus-client-collator
+  bump: patch

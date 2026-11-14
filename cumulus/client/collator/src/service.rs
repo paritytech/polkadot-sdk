@@ -20,9 +20,10 @@
 
 use cumulus_primitives_core::{
 	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
+	SignedSchedulingInfo,
 };
-
 use polkadot_primitives::UMP_SEPARATOR;
+
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
@@ -99,6 +100,30 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 	}
 }
 
+/// Split a block's upward messages at the first `UMP_SEPARATOR`, dropping any further separators
+/// from the signal tail, as `validate_block` does.
+fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+	let mut iter = messages.into_iter();
+	let messages = iter.by_ref().take_while(|m| !m.is_empty()).collect();
+	let signals = iter.filter(|m| !m.is_empty()).collect();
+	(messages, signals)
+}
+
+/// Build the candidate's UMP signal tail. A signed scheduling info replaces the blocks' signals
+/// wholesale; otherwise the raw signals pass through unchanged after `UMP_SEPARATOR`.
+fn signal_tail(
+	signed_scheduling_info: Option<&SignedSchedulingInfo>,
+	signals: Vec<Vec<u8>>,
+) -> Vec<Vec<u8>> {
+	if let Some(signed_info) = signed_scheduling_info {
+		return SchedulingSignals::from_scheduling_info(signed_info).into_ump_messages();
+	}
+	if signals.is_empty() {
+		return Vec::new();
+	}
+	core::iter::once(UMP_SEPARATOR).chain(signals).collect()
+}
+
 impl<Block, BS, RA> CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
@@ -106,11 +131,6 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
-	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-		let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
-		(parts.next().unwrap_or(&[]).to_vec(), parts.next().unwrap_or(&[]).to_vec())
-	}
-
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
@@ -268,7 +288,7 @@ where
 				.ok()
 				.flatten()?;
 
-			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
+			let (messages, signals) = split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
 			upward_message_signals.extend(signals);
@@ -315,20 +335,8 @@ where
 			}),
 		});
 
-		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
-		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
-		// PVF applies, so the two can't drift; otherwise the block's signals pass through
-		// unchanged.
-		match signed_scheduling_info {
-			Some(signed_info) => upward_messages
-				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
-			None => {
-				if !upward_message_signals.is_empty() {
-					upward_messages.push(UMP_SEPARATOR);
-					upward_messages.extend(upward_message_signals.into_iter());
-				}
-			},
-		}
+		upward_messages
+			.extend(signal_tail(signed_scheduling_info.as_ref(), upward_message_signals));
 
 		let upward_messages = upward_messages
 			.try_into()
@@ -411,5 +419,82 @@ where
 			proof,
 			scheduling_proof,
 		)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{signal_tail, split_at_separator};
+	use codec::Encode;
+	use cumulus_primitives_core::{SchedulingInfoPayload, SchedulingSignals, SignedSchedulingInfo};
+	use polkadot_primitives::{
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, StreamsRoot, UMPSignal, UMP_SEPARATOR,
+	};
+
+	fn select_core() -> Vec<u8> {
+		UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(1)).encode()
+	}
+
+	fn approved_peer() -> Vec<u8> {
+		let peer = ApprovedPeerId::try_from(vec![0xAA; 4]).expect("4 bytes fit; qed");
+		UMPSignal::ApprovedPeer(peer).encode()
+	}
+
+	fn with_separator(signals: &[Vec<u8>]) -> Vec<Vec<u8>> {
+		core::iter::once(UMP_SEPARATOR).chain(signals.iter().cloned()).collect()
+	}
+
+	#[test]
+	fn signals_pass_through_in_the_blocks_order() {
+		let older = vec![approved_peer(), select_core()];
+		assert_eq!(signal_tail(None, older.clone()), with_separator(&older));
+
+		let current = vec![select_core(), approved_peer()];
+		assert_eq!(signal_tail(None, current.clone()), with_separator(&current));
+
+		// Unrecognized or newer runtime signals (such as `Provides`) also pass through unchanged.
+		let with_provides = vec![
+			select_core(),
+			UMPSignal::Provides(StreamsRoot(Default::default())).encode(),
+			vec![0xFF],
+		];
+		assert_eq!(signal_tail(None, with_provides.clone()), with_separator(&with_provides));
+
+		assert_eq!(signal_tail(None, Vec::new()), Vec::<Vec<u8>>::new());
+	}
+
+	#[test]
+	fn a_signed_scheduling_info_replaces_the_blocks_signals() {
+		let peer = ApprovedPeerId::try_from(vec![0xCC; 4]).expect("4 bytes fit; qed");
+		let signed = SignedSchedulingInfo {
+			payload: SchedulingInfoPayload::new(CoreSelector(5), 1, peer, Default::default()),
+			signature: [0u8; 64],
+		};
+		let expected = SchedulingSignals::from_scheduling_info(&signed).into_ump_messages();
+		for signals in [vec![], vec![approved_peer(), select_core()], vec![vec![0xFF]]] {
+			assert_eq!(signal_tail(Some(&signed), signals), expected);
+		}
+	}
+
+	#[test]
+	fn split_at_separator_matches_validate_block() {
+		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
+		// No separator: everything is a message.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), b.clone()]),
+			(vec![a.clone(), b.clone()], vec![])
+		);
+		// Messages before the first separator, signals after it.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
+			(vec![a.clone()], vec![b.clone(), c.clone()]),
+		);
+		// Every further separator is dropped, as `validate_block` drops it, not kept as a signal.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), vec![], vec![], c.clone()]),
+			(vec![a], vec![b, c]),
+		);
+		// A separator with nothing after it yields no signals.
+		assert_eq!(split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 }
