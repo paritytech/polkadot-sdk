@@ -1259,6 +1259,68 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 }
 
 #[test]
+fn opaque_notification_respects_channel_capacity() {
+	use cumulus_primitives_core::AbridgedHrmpChannel;
+
+	let notification = ConcatenatedOpaqueVersionedXcm.encode();
+	for (free_bytes, msg_count, can_export) in
+		[(0, 1, false), (notification.len() as u32, 1, true), (24, 8, false)]
+	{
+		new_test_ext().execute_with(|| {
+			let peer = ParaId::from(1000);
+			let open_channel = |free_bytes: u32, msg_count: u32| {
+				ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+					peer,
+					AbridgedHrmpChannel {
+						max_capacity: 8,
+						max_total_size: 32,
+						max_message_size: 32,
+						msg_count,
+						total_size: 32 - free_bytes,
+						mqc_head: None,
+					},
+				);
+			};
+			open_channel(free_bytes, msg_count);
+			let channel_status = <Test as Config>::ChannelInfo::get_channel_status(peer);
+			if msg_count < 8 {
+				assert!(matches!(channel_status, ChannelStatus::Ready(now, 32)
+					if now == free_bytes as usize));
+			} else {
+				assert!(matches!(channel_status, ChannelStatus::Full));
+			}
+			OutboundXcmpStatus::<Test>::mutate(|statuses| {
+				statuses.try_push(OutboundChannelDetails::new(peer)).expect("one channel fits");
+			});
+			let output = XcmpQueue::take_outbound_messages(1, &[]);
+			let after = get_outbound_status(peer).expect("open channel remains");
+			let sent = after.flags.contains(
+				OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT,
+			);
+			assert_eq!(
+				(output, sent),
+				(if can_export { vec![(peer, notification.clone())] } else { vec![] }, can_export),
+			);
+			assert_eq!(
+				after.flags.should_send_concatenated_opaque_versioned_xcm_notification(),
+				!can_export,
+			);
+
+			open_channel(32, 0);
+			assert_eq!(
+				XcmpQueue::take_outbound_messages(1, &[]),
+				if can_export { vec![] } else { vec![(peer, notification.clone())] },
+			);
+			let after = get_outbound_status(peer).expect("open channel remains");
+			assert!(after.flags.contains(
+				OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT,
+			));
+			assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+		});
+	}
+}
+
+#[test]
 fn concatenated_opaque_version_xcm_negotiation_works() {
 	new_test_ext().execute_with(|| {
 		let sibling_para_id = ParaId::from(1000);
