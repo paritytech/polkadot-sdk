@@ -546,7 +546,7 @@ where
 						block_hash = ?hash,
 						"Could not recover. Block was never announced as candidate"
 					);
-					return;
+					break;
 				},
 			};
 
