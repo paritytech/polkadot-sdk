@@ -44,6 +44,10 @@ use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, pin::Pin, time::Duration};
 
+mod siblings;
+
+pub(crate) use siblings::{sibling_deadline, SiblingParams, SiblingResolver};
+
 fn get_current_relay_slot_at(
 	now: Duration,
 	slot_offset: Duration,
