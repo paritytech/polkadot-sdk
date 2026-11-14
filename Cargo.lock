@@ -1029,7 +1029,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "itertools 0.13.0",
  "num-bigint",
  "num-integer",
@@ -1352,7 +1352,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "rayon",
 ]
 
@@ -4641,7 +4641,7 @@ dependencies = [
  "cranelift-entity",
  "cranelift-isle",
  "gimli 0.32.3",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "log",
  "pulley-interpreter",
  "regalloc2 0.12.2",
@@ -5349,7 +5349,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
- "hashbrown 0.15.3",
+ "hashbrown 0.17.1",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -6722,7 +6722,7 @@ checksum = "0017d969298eec91e3db7a2985a8cab4df6341d86e6f3a6f5878b13fb7846bc9"
 dependencies = [
  "curve25519-dalek 4.1.3",
  "ed25519",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "pkcs8",
  "rand_core 0.6.4",
  "sha2 0.10.9",
@@ -8716,9 +8716,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.3"
+version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
+checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -8746,6 +8746,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
  "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
 ]
 
 [[package]]
@@ -8763,7 +8765,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
 dependencies = [
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -11617,7 +11619,7 @@ checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
 dependencies = [
  "foldhash 0.1.5",
  "hash-db",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -12529,7 +12531,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "crc32fast",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "indexmap 2.14.2",
  "memchr",
 ]
@@ -16572,7 +16574,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8701b58ea97060d5e5b155d383a69952a60943f0e6dfe30b04c287beb0b27455"
 dependencies = [
  "fixedbitset 0.5.9",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "indexmap 2.14.2",
 ]
 
@@ -20334,7 +20336,7 @@ checksum = "5216b1837de2149f8bc8e6d5f88a9326b63b8c836ed58ce4a0a29ec736a59734"
 dependencies = [
  "allocator-api2",
  "bumpalo",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "log",
  "rustc-hash 2.1.1",
  "smallvec",
@@ -24477,7 +24479,7 @@ dependencies = [
  "fnv",
  "futures-lite",
  "futures-util",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "hex",
  "hmac 0.12.1",
  "itertools 0.14.0",
@@ -24624,7 +24626,7 @@ dependencies = [
  "futures-channel",
  "futures-lite",
  "futures-util",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "hex",
  "itertools 0.14.0",
  "log",
@@ -26697,7 +26699,7 @@ dependencies = [
  "criterion",
  "foldhash 0.1.5",
  "hash-db",
- "hashbrown 0.15.3",
+ "hashbrown 0.17.1",
  "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
@@ -26726,7 +26728,7 @@ dependencies = [
  "ahash 0.8.11",
  "foldhash 0.1.5",
  "hash-db",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
@@ -26943,7 +26945,7 @@ dependencies = [
  "futures-intrusive",
  "futures-io",
  "futures-util",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "hashlink 0.10.0",
  "indexmap 2.14.2",
  "log",
@@ -30594,7 +30596,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9b1e81f3eb254cf7404a82cee6926a4a3ccc5aad80cc3d43608a070c67aa1d7"
 dependencies = [
  "bitflags 2.13.2",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "indexmap 2.14.2",
  "semver 1.0.18",
  "serde",
@@ -30634,7 +30636,7 @@ dependencies = [
  "cfg-if",
  "fxprof-processed-profile",
  "gimli 0.32.3",
- "hashbrown 0.15.3",
+ "hashbrown 0.15.5",
  "indexmap 2.14.2",
  "ittapi",
  "libc",
