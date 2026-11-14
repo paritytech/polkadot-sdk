@@ -554,6 +554,70 @@ pub mod v5 {
 	}
 }
 
+pub mod v6 {
+	use super::*;
+	use frame_support::{
+		traits::fungible::{Inspect, Mutate},
+		weights::Weight,
+	};
+	use sp_runtime::traits::Zero;
+
+	/// The balance the pot must hold: the existential deposit, which is never paid out, and the
+	/// revenue still owed to the private contributors to the Instantaneous Coretime Pool. Returns
+	/// it along with the number of history records read.
+	pub(crate) fn required_pot_balance<T: Config>() -> (BalanceOf<T>, u64) {
+		let mut read = 0u64;
+		let owed = InstaPoolHistory::<T>::iter_values()
+			.inspect(|_| read.saturating_inc())
+			.filter_map(|record| record.maybe_payout)
+			.fold(BalanceOf::<T>::zero(), |owed, payout| owed.saturating_add(payout));
+		(T::Currency::minimum_balance().saturating_add(owed), read)
+	}
+
+	/// Mints into the pot whatever it lacks of the existential deposit and of the revenue owed to
+	/// the private contributors, so that paying out of it never dusts it.
+	///
+	/// Before v6, the pot was only endowed with a provider reference at genesis, so paying out of
+	/// it could leave less than the existential deposit in it, which got dusted along with the
+	/// revenue still owed.
+	pub struct MigrateToV6Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6Impl<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let pot = Pallet::<T>::account_id();
+			let (required, read) = required_pot_balance::<T>();
+			let shortfall = required.saturating_sub(T::Currency::balance(&pot));
+			let reads = read.saturating_add(2);
+			if shortfall.is_zero() {
+				log::info!(target: LOG_TARGET, "Storage migration v6: the pot is endowed already");
+				return T::DbWeight::get().reads(reads);
+			}
+
+			match T::Currency::mint_into(&pot, shortfall) {
+				Ok(_) => log::info!(
+					target: LOG_TARGET,
+					"Storage migration v6: endowed the pot with {shortfall:?}",
+				),
+				Err(e) => log::error!(
+					target: LOG_TARGET,
+					"Storage migration v6: endowing the pot with {shortfall:?} failed: {e:?}",
+				),
+			}
+			T::DbWeight::get().reads_writes(reads, 2)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (required, _) = required_pot_balance::<T>();
+			ensure!(
+				T::Currency::balance(&Pallet::<T>::account_id()) >= required,
+				"The pot must hold the existential deposit and the revenue owed"
+			);
+			Ok(())
+		}
+	}
+}
+
 /// Migrate the pallet storage from `0` to `1`.
 pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 	0,
@@ -591,6 +655,15 @@ pub type MigrateV4ToV5<T, FirstSaleRegion> = frame_support::migrations::Versione
 	4,
 	5,
 	v5::MigrateToV5Impl<T, FirstSaleRegion>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Endow the pot with the existential deposit and the revenue owed out of it.
+pub type MigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
+	5,
+	6,
+	v6::MigrateToV6Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

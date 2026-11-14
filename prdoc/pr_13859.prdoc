@@ -1,0 +1,21 @@
+title: "pallet-broker: keep the existential deposit in the pot"
+doc:
+  - audience: Runtime Dev
+    description: |
+      The broker pot is now endowed with the existential deposit at genesis, and everything paid
+      out of it preserves it. Before, the pot only got a provider reference, so paying out the
+      system share of the on-demand revenue could leave less than the existential deposit in it,
+      and the private contributors' share was dusted while still recorded as claimable.
+
+      Runtimes using `pallet-broker` must add `pallet_broker::migration::MigrateV5ToV6<Runtime>`
+      to their migrations. It mints into the pot whatever it lacks of the existential deposit and
+      of the revenue still owed to the private contributors to the Instantaneous Coretime Pool.
+  - audience: Runtime User
+    description: |
+      Private contributors to the Instantaneous Coretime Pool can claim their share of the
+      on-demand revenue even when it is below the existential deposit.
+crates:
+  - name: pallet-broker
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: patch

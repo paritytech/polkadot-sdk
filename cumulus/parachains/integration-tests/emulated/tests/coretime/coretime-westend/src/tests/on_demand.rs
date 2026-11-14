@@ -17,11 +17,11 @@ use crate::imports::*;
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use frame_support::assert_noop;
 use pallet_broker::{
-	ConfigRecord, CoreAssignment, CoreMask, ScheduleItem, Timeslice, CORE_MASK_BITS,
+	ConfigRecord, CoreAssignment, CoreMask, Finality, ScheduleItem, Timeslice, CORE_MASK_BITS,
 };
 use pallet_on_demand_para::{PendingBatch, PriceConfig, PriceParameters};
 use polkadot_runtime_parachains::on_demand;
-use sp_runtime::{traits::BlockNumberProvider, Perbill};
+use sp_runtime::{traits::BlockNumberProvider, AccountId32 as AccountId, Perbill};
 use westend_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::{
 	Dmp, OnDemandAssignmentProvider, Runtime as WestendRuntime,
@@ -64,9 +64,10 @@ fn price_config() -> PriceParameters<Balance> {
 	}
 }
 
-/// Reserve a whole core for the Instantaneous Coretime Pool, start sales, and configure and enable
-/// the on-demand pallet, so that the broker claims the on-demand revenue from it.
-fn configure_pool_and_on_demand(price_config: PriceParameters<Balance>) {
+/// Reserve a whole core for the Instantaneous Coretime Pool, start sales offering `cores_for_sale`
+/// cores, and configure and enable the on-demand pallet, so that the broker claims the on-demand
+/// revenue from it.
+fn configure_pool_and_on_demand(price_config: PriceParameters<Balance>, cores_for_sale: u16) {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
@@ -104,7 +105,7 @@ fn configure_pool_and_on_demand(price_config: PriceParameters<Balance>) {
 			contribution_timeout: 1,
 		};
 		assert_ok!(Broker::configure(root.clone(), config));
-		assert_ok!(Broker::start_sales(root.clone(), 100, 0));
+		assert_ok!(Broker::start_sales(root.clone(), 100, cores_for_sale));
 
 		assert_ok!(OnDemand::configure(root.clone(), price_config.clone()));
 		assert_eq!(PriceConfig::<CoretimeRuntime>::get(), price_config);
@@ -222,7 +223,7 @@ fn on_demand_orders_reach_relay() {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
-	configure_pool_and_on_demand(price_config);
+	configure_pool_and_on_demand(price_config, 0);
 
 	// The pool only gets its core once the reserved schedule becomes active.
 	CoretimeWestend::execute_with(|| {
@@ -343,7 +344,7 @@ fn on_demand_orders_reach_relay() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config());
+	configure_pool_and_on_demand(price_config(), 0);
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -366,7 +367,7 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_boundary() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config());
+	configure_pool_and_on_demand(price_config(), 0);
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -386,4 +387,83 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_b
 
 	// Each order's revenue is attributed to the timeslice it was placed in.
 	assert_eq!(claims, vec![(first_ts, first), (second_ts, second), (third_ts, third)]);
+}
+
+#[test]
+fn private_pool_payout_below_ed_can_be_claimed() {
+	type CoretimeEvent = <CoretimeWestend as Chain>::RuntimeEvent;
+	let signed = |who: &AccountId| <CoretimeWestend as Chain>::RuntimeOrigin::signed(who.clone());
+
+	let para_id = 2000;
+	let buyer = CoretimeWestendSender::get();
+	let payee = CoretimeWestendReceiver::get();
+	let broker_pot = CoretimeWestend::ext_wrapper(Broker::account_id);
+	// The system and the private contribution are equal, so each share of the revenue is below the
+	// existential deposit, while the revenue paid into the broker pot is above it.
+	let base_fee = CORETIME_WESTEND_ED * 3 / 2;
+
+	configure_pool_and_on_demand(PriceParameters { base_fee, ..price_config() }, 1);
+	wait_for_pool();
+	// The broker pot only holds the existential deposit it was endowed with at genesis.
+	let pot_balance = || CoretimeWestend::ext_wrapper(|| Balances::free_balance(&broker_pot));
+	assert_eq!(pot_balance(), CORETIME_WESTEND_ED);
+
+	// Buy the core on sale and put it into the pool, next to the reserved system core.
+	let mut region_id = None;
+	let mut blocks = 0;
+	while region_id.is_none() {
+		assert!(blocks < TIMESLICE_PERIOD * 4, "no core could be bought");
+		CoretimeWestend::execute_with(|| {
+			if Broker::purchase(signed(&buyer), Balance::MAX).is_ok() {
+				region_id =
+					<CoretimeWestend as Chain>::System::events().into_iter().find_map(|r| match r
+						.event
+					{
+						CoretimeEvent::Broker(pallet_broker::Event::Purchased {
+							region_id,
+							..
+						}) => Some(region_id),
+						_ => None,
+					});
+			}
+		});
+		Westend::execute_with(|| {});
+		blocks += 1;
+	}
+	let region_id = region_id.expect("loop exits only once a region is bought; qed");
+	CoretimeWestend::execute_with(|| {
+		assert_ok!(Broker::pool(signed(&buyer), region_id, payee.clone(), Finality::Final));
+	});
+
+	// Place an order in the timeslice of the pooled region.
+	let mut claims = Claims::new();
+	let mut ordered = false;
+	while !ordered {
+		build_block(&mut claims, || {
+			let now = RelaychainDataProvider::<CoretimeRuntime>::current_block_number();
+			assert!(now / TIMESLICE_PERIOD <= region_id.begin, "missed the pooled region");
+			if now / TIMESLICE_PERIOD == region_id.begin {
+				assert_ok!(OnDemand::place_order(signed(&buyer), para_id, base_fee));
+				ordered = true;
+			}
+		});
+	}
+	run_until_broker_ends(&mut claims, region_id.begin);
+	assert_eq!(claims, vec![(region_id.begin, base_fee)]);
+
+	CoretimeWestend::execute_with(|| {
+		let private_payout =
+			pallet_broker::InstaPoolHistory::<CoretimeRuntime>::get(region_id.begin)
+				.and_then(|record| record.maybe_payout)
+				.expect("the private contributors' share is ready to be claimed");
+		assert!(private_payout < CORETIME_WESTEND_ED);
+
+		// The broker pot still holds the private contributors' share, which they can claim.
+		assert_eq!(Balances::free_balance(&broker_pot), CORETIME_WESTEND_ED + private_payout);
+		let before = Balances::free_balance(&payee);
+		assert_ok!(Broker::claim_revenue(signed(&payee), region_id, 1));
+		assert_eq!(Balances::free_balance(&payee), before + private_payout);
+	});
+
+	assert_eq!(pot_balance(), CORETIME_WESTEND_ED);
 }
