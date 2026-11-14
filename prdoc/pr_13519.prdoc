@@ -1,0 +1,11 @@
+title: "pov-recovery: allow retrying descendants after parent recovery fails"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Clear the recovery flags of deferred descendants when their parent's recovery
+      is abandoned. This allows subsequent recovery requests to schedule those
+      blocks again instead of leaving them stuck waiting for discarded data.
+      No API changes or migration are required.
+crates:
+  - name: cumulus-client-pov-recovery
+    bump: patch

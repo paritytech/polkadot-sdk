@@ -344,11 +344,11 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
+			self.clear_waiting_recovery(&delete);
 			if let Some(children) = self.waiting_for_parent.remove(&delete) {
 				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
-		self.clear_waiting_recovery(&hash);
 	}
 
 	/// Try to decode [`ParachainBlockData`] from `data`.
