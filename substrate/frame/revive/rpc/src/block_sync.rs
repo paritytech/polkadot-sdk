@@ -21,7 +21,9 @@ use crate::{
 	BlockInfoProvider,
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use pallet_revive::evm::H256;
+use std::num::NonZeroU32;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -78,8 +80,13 @@ impl SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
 
+/// Returns a limiter that lets through at most `max_blocks_per_sec` blocks per second on average.
+fn new_historical_sync_rate_limiter(max_blocks_per_sec: NonZeroU32) -> DefaultDirectRateLimiter {
+	RateLimiter::direct(Quota::per_second(max_blocks_per_sec).allow_burst(NonZeroU32::MIN))
+}
+
 /// Options for [`Client::sync_backward_range`].
-struct BackwardSyncRange {
+struct BackwardSyncRange<'a> {
 	from: SubstrateBlockNumber,
 	to: SubstrateBlockNumber,
 	/// Set `Head` label after syncing the first block.
@@ -88,6 +95,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
+	/// Limits how many blocks per second the range syncs; `None` means no limit.
+	rate_limiter: Option<&'a DefaultDirectRateLimiter>,
 }
 
 impl Client {
@@ -152,11 +161,16 @@ impl Client {
 	/// Resumes from the last checkpoint if a previous sync was interrupted.
 	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are swallowed
 	/// to avoid taking down the RPC server.
-	pub async fn sync_backward(&self) -> Result<(), ClientError> {
+	/// `max_blocks_per_sec` caps the number of blocks synced per second; `None` means no limit.
+	pub async fn sync_backward(
+		&self,
+		max_blocks_per_sec: Option<NonZeroU32>,
+	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET,
 			"🔄 Historical block sync enabled. \
 			 For a complete sync, the connected node should be an archive node.");
-		match self.sync_backward_inner().await {
+		let rate_limiter = max_blocks_per_sec.map(new_historical_sync_rate_limiter);
+		match self.sync_backward_inner(rate_limiter.as_ref()).await {
 			Ok(()) => Ok(()),
 			Err(err) if err.is_chain_validation_error() => Err(err),
 			Err(err) => {
@@ -166,7 +180,10 @@ impl Client {
 		}
 	}
 
-	async fn sync_backward_inner(&self) -> Result<(), ClientError> {
+	async fn sync_backward_inner(
+		&self,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
+	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
 		let latest_finalized_block = self.latest_finalized_block().await;
 		let latest_finalized = SyncCheckpoint::new(
@@ -183,23 +200,33 @@ impl Client {
 			self.receipt_provider().get_sync_label(SyncLabel::Head),
 			self.receipt_provider().get_sync_label(SyncLabel::Tail),
 		)?;
+		let first_evm_block = self
+			.receipt_provider()
+			.first_evm_block()
+			.map_or_else(|| "not stored".to_string(), |number| format!("#{number}"));
 
 		match (tail, head) {
 			(Some(tail), Some(head)) => {
 				// Verify boundary hashes still match the finalized chain.
 				tokio::try_join!(self.verify_boundary(&tail), self.verify_boundary(&head),)?;
-				self.sync_backward_resume(tail, head, latest_finalized).await?;
+				log::info!(target: LOG_TARGET,
+					"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}, \
+					 first EVM block {first_evm_block}",
+					tail.block_number, head.block_number, latest_finalized.block_number);
+				self.sync_backward_resume(tail, head, latest_finalized, rate_limiter).await?;
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
 					"🗄️ Tail exists without Head — possible partial corruption, \
-					 starting fresh sync from #{}", latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number).await?;
+					 starting fresh sync from #{}, first EVM block {first_evm_block}",
+					latest_finalized.block_number);
+				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{}", latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number).await?;
+					"🗄️ Fresh sync: syncing backward from #{}, first EVM block {first_evm_block}",
+					latest_finalized.block_number);
+				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
 			},
 		}
 
@@ -213,6 +240,7 @@ impl Client {
 	async fn sync_backward_fresh(
 		&self,
 		latest_finalized: SubstrateBlockNumber,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
 		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
 		self.sync_backward_range(BackwardSyncRange {
@@ -221,60 +249,50 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
+			rate_limiter,
 		})
 		.await
 	}
 
-	/// Resume backward sync by filling the top gap (new blocks) and bottom gap (backfill).
+	/// Resumes backward sync by filling the top gap (new blocks), then the bottom gap (backfill).
 	async fn sync_backward_resume(
 		&self,
 		tail: SyncCheckpoint,
 		head: SyncCheckpoint,
 		latest_finalized: SyncCheckpoint,
+		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}",
-			tail.block_number, head.block_number, latest_finalized.block_number);
+		// Top gap: sync from latest_finalized down to head + 1.
+		if head.block_number < latest_finalized.block_number {
+			self.sync_backward_range(BackwardSyncRange {
+				from: latest_finalized.block_number,
+				to: head.block_number.saturating_add(1),
+				set_head: false,
+				checkpoint_tail: false,
+				persist_first_evm_block: false,
+				rate_limiter,
+			})
+			.await?;
 
-		let top_gap = async {
-			// Top gap: sync from latest_finalized down to head + 1.
-			if head.block_number < latest_finalized.block_number {
-				self.sync_backward_range(BackwardSyncRange {
-					from: latest_finalized.block_number,
-					to: head.block_number.saturating_add(1),
-					set_head: false,
-					checkpoint_tail: false,
-					persist_first_evm_block: false,
-				})
+			// Mark top gap complete so a restart won't redo it.
+			self.receipt_provider()
+				.advance_sync_label(SyncLabel::Head, latest_finalized)
 				.await?;
+		}
 
-				// Mark top gap complete so a restart won't redo it.
-				self.receipt_provider()
-					.advance_sync_label(SyncLabel::Head, latest_finalized)
-					.await?;
-			}
-			Ok::<_, ClientError>(())
-		};
-
-		let bottom_gap = async {
-			// Bottom gap: sync from tail - 1 down to the first EVM block.
-			let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
-			if tail.block_number > first_evm {
-				self.sync_backward_range(BackwardSyncRange {
-					from: tail.block_number.saturating_sub(1),
-					to: first_evm,
-					set_head: false,
-					checkpoint_tail: true,
-					persist_first_evm_block: true,
-				})
-				.await?;
-			} else {
-				log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
-			}
-			Ok::<_, ClientError>(())
-		};
-
-		tokio::try_join!(top_gap, bottom_gap)?;
+		// Bottom gap: sync from tail - 1 down to the first EVM block.
+		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
+		if tail.block_number > first_evm {
+			self.sync_backward_range(BackwardSyncRange {
+				from: tail.block_number.saturating_sub(1),
+				to: first_evm,
+				set_head: false,
+				checkpoint_tail: true,
+				persist_first_evm_block: true,
+				rate_limiter,
+			})
+			.await?;
+		}
 
 		Ok(())
 	}
@@ -289,7 +307,8 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
-		}: BackwardSyncRange,
+			rate_limiter,
+		}: BackwardSyncRange<'_>,
 	) -> Result<(), ClientError> {
 		if from < to {
 			log::debug!(target: LOG_TARGET,	"⬇️ Backward sync: nothing to sync (#{from}..#{to})");
@@ -310,6 +329,10 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
+			if let Some(limiter) = rate_limiter {
+				limiter.until_ready().await;
+			}
+
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
@@ -428,6 +451,9 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					// Not rate-limited: the gap is expected to be small, and it covers blocks
+					// just below the chain head that cannot be queried until it is filled.
+					rate_limiter: None,
 				})
 				.await
 			{

@@ -37,7 +37,7 @@ use sqlx::{
 	SqlitePool,
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
-use std::path::PathBuf;
+use std::{num::NonZeroU32, path::PathBuf};
 
 /// Query the maximum number of bound parameters SQLite allows per query
 async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
@@ -128,6 +128,9 @@ const DEFAULT_RPC_PORT: u16 = 8545;
 
 const DEFAULT_DATABASE_NAME: &str = "eth-rpc.db";
 
+const HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE: &str =
+	"--historical-sync-max-blocks-per-sec requires --eth-pruning archive";
+
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
@@ -142,6 +145,11 @@ pub struct CliCommand {
 	/// - N (>= 1): In-memory database keeping only the latest N blocks.
 	#[clap(long, default_value = "archive")]
 	pub eth_pruning: EthPruningMode,
+
+	/// Max blocks synced per second during historical block sync. No limit by default.
+	/// Requires --eth-pruning archive.
+	#[clap(long)]
+	pub historical_sync_max_blocks_per_sec: Option<NonZeroU32>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -193,6 +201,15 @@ impl CliCommand {
 		}
 
 		Ok(Self::from_arg_matches(&matches).expect("already validated by clap"))
+	}
+
+	/// Returns an error for option combinations that clap cannot reject.
+	fn validate(&self) -> anyhow::Result<()> {
+		anyhow::ensure!(
+			self.historical_sync_max_blocks_per_sec.is_none() || self.eth_pruning.is_archive(),
+			HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE,
+		);
+		Ok(())
 	}
 }
 
@@ -329,6 +346,7 @@ fn build_client(
 
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
+	cmd.validate()?;
 	let CliCommand {
 		rpc_params,
 		prometheus_params,
@@ -336,6 +354,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		eth_pruning,
 		shared_params,
 		allow_unprotected_txs,
+		historical_sync_max_blocks_per_sec,
 		..
 	} = cmd;
 
@@ -429,7 +448,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			];
 
 			if eth_pruning.is_archive() {
-				futures.push(Box::pin(client.sync_backward()));
+				futures.push(Box::pin(client.sync_backward(historical_sync_max_blocks_per_sec)));
 			}
 
 			// Backfill gaps caused by subscription reconnects.
@@ -536,5 +555,20 @@ mod tests {
 		// Default is archive
 		let cmd = CliCommand::try_parse_from(["eth-rpc"]).unwrap();
 		assert_eq!(cmd.eth_pruning, EthPruningMode::Archive);
+	}
+
+	#[test]
+	fn historical_sync_limit_requires_archive_mode() {
+		let parse = |args: &[&str]| CliCommand::try_parse_from(args).unwrap();
+
+		assert_eq!(
+			parse(&["eth-rpc", "--eth-pruning=256", "--historical-sync-max-blocks-per-sec=5"])
+				.validate()
+				.unwrap_err()
+				.to_string(),
+			HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE,
+		);
+		assert!(parse(&["eth-rpc", "--eth-pruning=256"]).validate().is_ok());
+		assert!(parse(&["eth-rpc", "--historical-sync-max-blocks-per-sec=5"]).validate().is_ok());
 	}
 }
