@@ -3778,3 +3778,29 @@ fn claim_revenue_reverts_when_pot_cannot_pay() {
 		assert_eq!(pot(), 0);
 	});
 }
+
+#[test]
+fn migration_v6_endows_the_pot_with_the_revenue_owed() {
+	use crate::migration::v6::MigrateToV6Impl;
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+	TestExt::new().execute_with(|| {
+		let record = |maybe_payout| InstaPoolHistoryRecord {
+			private_contributions: 1,
+			system_contributions: 0,
+			maybe_payout,
+		};
+		InstaPoolHistory::<Test>::insert(1, record(Some(30)));
+		InstaPoolHistory::<Test>::insert(2, record(Some(20)));
+		InstaPoolHistory::<Test>::insert(3, record(None));
+		mint_to_pot(10);
+
+		let migrate = || <MigrateToV6Impl<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+		migrate();
+		assert_eq!(pot(), 50);
+
+		// A pot holding enough already is left as it is.
+		migrate();
+		assert_eq!(pot(), 50);
+	});
+}
