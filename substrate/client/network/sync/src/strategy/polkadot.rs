@@ -501,7 +501,7 @@ where
 						res.target_justifications,
 						peers,
 						self.config.state_request_protocol_name.clone(),
-					)?;
+					);
 
 					self.warp = None;
 					self.state = Some(state_sync);

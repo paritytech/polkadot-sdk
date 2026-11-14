@@ -88,7 +88,9 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Strategy key used by state sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
 
-	/// Create a new instance. Fails if the client cannot record the target, see [`StateSync::new`].
+	/// Create a new instance. The client records the target on a thread of its own, see
+	/// [`StateSync::new`]: no state request goes out before it has, and the strategy aborts if it
+	/// cannot.
 	pub fn new<Client>(
 		client: Arc<Client>,
 		target_header: B::Header,
@@ -96,12 +98,12 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
-	) -> sp_blockchain::Result<Self>
+	) -> Self
 	where
 		Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 	{
-		let state_sync = StateSync::new(client, target_header, target_body, target_justifications)?;
-		Ok(Self::new_with_provider(Box::new(state_sync), initial_peers, protocol_name))
+		let state_sync = StateSync::new(client, target_header, target_body, target_justifications);
+		Self::new_with_provider(Box::new(state_sync), initial_peers, protocol_name)
 	}
 
 	/// Create a new instance with a custom state sync provider.
@@ -291,7 +293,8 @@ impl<B: BlockT> StateStrategy<B> {
 			return None;
 		}
 
-		// Nothing to ask while a chunk waits to be written: its retry decides what is next.
+		// Nothing to ask while the target is being recorded or a chunk waits to be written: the
+		// retry decides what is next.
 		if self.state_sync.is_complete() || self.state_sync.has_pending_write() {
 			return None;
 		}
@@ -367,7 +370,7 @@ impl<B: BlockT> StateStrategy<B> {
 		if let Some(block) = self.state_sync.take_target_import() {
 			self.queue_target_import(block);
 		}
-		// Retry a pending chunk write.
+		// Finish a pending write.
 		match self.state_sync.retry_pending_write() {
 			Some(ImportResult::Import(block)) => self.queue_target_import(block),
 			Some(ImportResult::Abort) => self.abort(),
@@ -449,6 +452,15 @@ mod test {
 		}
 	}
 
+	/// Waits until the client has recorded the target of a strategy made by `StateStrategy::new`.
+	/// No state request goes out before.
+	fn wait_for_begin(state_strategy: &mut StateStrategy<Block>) {
+		while state_strategy.state_sync.has_pending_write() {
+			let _ = state_strategy.state_sync.retry_pending_write();
+			std::thread::yield_now();
+		}
+	}
+
 	#[test]
 	fn no_peer_is_scheduled_if_no_peers_connected() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
@@ -469,8 +481,7 @@ mod test {
 			None,
 			std::iter::empty(),
 			ProtocolName::Static(""),
-		)
-		.unwrap();
+		);
 
 		assert!(state_strategy
 			.schedule_next_peer(PeerState::DownloadingState, Zero::zero())
@@ -502,8 +513,7 @@ mod test {
 				None,
 				initial_peers,
 				ProtocolName::Static(""),
-			)
-			.unwrap();
+			);
 
 			let peer_id =
 				state_strategy.schedule_next_peer(PeerState::DownloadingState, Zero::zero());
@@ -536,8 +546,7 @@ mod test {
 				None,
 				initial_peers,
 				ProtocolName::Static(""),
-			)
-			.unwrap();
+			);
 
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
 			assert!(*peers.get(&peer_id.unwrap()).unwrap() == 10);
@@ -570,8 +579,7 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		)
-		.unwrap();
+		);
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		state_strategy.remove_peer(&tenth_peer);
@@ -620,8 +628,8 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		)
-		.unwrap();
+		);
+		wait_for_begin(&mut state_strategy);
 
 		let (_peer_id, request) = state_strategy.state_request().unwrap();
 		let hash = Hash::decode(&mut &*request.block).unwrap();
@@ -650,8 +658,8 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		)
-		.unwrap();
+		);
+		wait_for_begin(&mut state_strategy);
 
 		// First request is sent.
 		assert!(state_strategy.state_request().is_some());

@@ -37,6 +37,7 @@ use sp_runtime::{
 use std::{
 	fmt,
 	sync::Arc,
+	thread::JoinHandle,
 	time::{Duration, Instant},
 };
 
@@ -91,10 +92,12 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// only the import is left. Handed out once. A download in progress returns `None`: its
 	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
-	/// Retry a chunk whose write failed, once its delay has passed, without downloading it again.
-	/// `None` if nothing is pending or it is too early, else what the response would have returned.
+	/// Finish the work that waits on the database, if it is ready. 
+	// `None` means there is no result: nothing is pending, the thread still runs, 
+	// or the delay has not passed.
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
-	/// A verified chunk waits to be written. No state request goes out meanwhile.
+	/// The target is still being recorded, or a verified chunk waits to be written. No state
+	/// request goes out meanwhile.
 	fn has_pending_write(&self) -> bool;
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool;
@@ -230,6 +233,9 @@ impl<B: BlockT> StateSyncMetadata<B> {
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	client: Arc<Client>,
+	/// The thread on which the client records the target, see [`StateSync::new`]. `None` once it
+	/// has ended and `retry_pending_write` has taken its result.
+	begin: Option<JoinHandle<sp_blockchain::Result<()>>>,
 	pending_write: Option<PendingWrite<B>>,
 }
 
@@ -239,26 +245,36 @@ where
 	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
 	/// Create a new instance. The client records the target so a restart can resume the download,
-	/// and drops any earlier attempt that never completed. On `Err` nothing was recorded and the
-	/// state sync must not start.
+	/// and first drops any earlier attempt that never completed. Dropping one removes its nodes
+	/// one by one, tens of seconds on a large state, so the client does all of this on a thread
+	/// of its own and `new` returns at once. Until that thread has ended the sync reports a
+	/// pending write: no state request goes out and a response is ignored. Then
+	/// [`StateSyncProvider::retry_pending_write`] lets the download start, or aborts the sync if
+	/// the target could not be recorded.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
-	) -> sp_blockchain::Result<Self> {
-		client.begin_partial_state(PartialStateTarget {
+	) -> Self {
+		let target = PartialStateTarget {
 			header: target_header.clone(),
 			body: target_body.clone(),
 			justifications: target_justifications.clone(),
-		})?;
-		Ok(Self::with_cursor(
+		};
+		let begin = std::thread::spawn({
+			let client = client.clone();
+			move || client.begin_partial_state(target)
+		});
+		let mut sync = Self::with_cursor(
 			client,
 			target_header,
 			target_body,
 			target_justifications,
 			SmallVec::default(),
-		))
+		);
+		sync.begin = Some(begin);
+		sync
 	}
 
 	/// Continue the attempt an earlier run recorded, from its cursor. If every chunk was already
@@ -296,6 +312,7 @@ where
 				import_pending: false,
 				imported_bytes: 0,
 			},
+			begin: None,
 			pending_write: None,
 		}
 	}
@@ -351,6 +368,16 @@ where
 			pending.next_attempt = Instant::now();
 		}
 	}
+
+	/// Waits for the thread of `new` and returns what `retry_pending_write` makes of its result,
+	/// so tests need not poll.
+	#[cfg(test)]
+	pub(crate) fn wait_for_begin(&mut self) -> Option<ImportResult<B>> {
+		while self.begin.as_ref().is_some_and(|begin| !begin.is_finished()) {
+			std::thread::yield_now();
+		}
+		self.retry_pending_write()
+	}
 }
 
 impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
@@ -366,9 +393,10 @@ where
 			debug!(target: LOG_TARGET, "Ignoring a state response after the download completed");
 			return ImportResult::Continue;
 		}
-		if self.pending_write.is_some() {
-			// No request is out while a chunk waits to be written: this answers a cancelled one.
-			debug!(target: LOG_TARGET, "Ignoring a state response while a chunk waits to be written");
+		if self.has_pending_write() {
+			// No request is out while the target is being recorded or a chunk waits to be written:
+			// this answers a cancelled one, or one of an earlier state sync.
+			debug!(target: LOG_TARGET, "Ignoring a state response while a write is pending");
 			return ImportResult::Continue;
 		}
 		if response.proof.is_empty() {
@@ -431,6 +459,25 @@ where
 	}
 
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>> {
+		if let Some(begin) = self.begin.take_if(|begin| begin.is_finished()) {
+			let recorded = begin.join().unwrap_or_else(|_| {
+				Err(sp_blockchain::Error::Backend("the thread recording it panicked".into()))
+			});
+			return Some(match recorded {
+				Ok(()) => ImportResult::Continue,
+				Err(e) => {
+					error!(
+						target: LOG_TARGET,
+						"Failed to record the state sync target #{} ({}), giving up on the state \
+						 sync: {e}",
+						self.metadata.target_number(),
+						self.metadata.target_hash(),
+					);
+					ImportResult::Abort
+				},
+			});
+		}
+		// No chunk is pending while the target is still being recorded: responses are ignored.
 		if Instant::now() < self.pending_write.as_ref()?.next_attempt {
 			return None;
 		}
@@ -439,7 +486,7 @@ where
 	}
 
 	fn has_pending_write(&self) -> bool {
-		self.pending_write.is_some()
+		self.begin.is_some() || self.pending_write.is_some()
 	}
 
 	/// Produce next state request.
@@ -476,6 +523,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sc_client_api::Backend as _;
 	use sp_blockchain::HeaderBackend;
 	use sp_runtime::traits::Header as HeaderT;
 	use substrate_test_runtime_client::{
@@ -494,8 +542,11 @@ mod tests {
 	/// A node without state, as one that state-syncs starts, with a sync of `header` begun.
 	fn syncing(header: &Header) -> (Arc<TestClient>, StateSync<Block, TestClient>) {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-		let sync = StateSync::new(client.clone(), header.clone(), None, None)
-			.expect("an empty database records any target");
+		let mut sync = StateSync::new(client.clone(), header.clone(), None, None);
+		assert!(
+			matches!(sync.wait_for_begin(), Some(ImportResult::Continue)),
+			"an empty database records any target"
+		);
 		(client, sync)
 	}
 
@@ -645,6 +696,39 @@ mod tests {
 			complete: false,
 		};
 		assert_eq!(record(&client), untouched, "nothing was written");
+	}
+
+	/// `new` returns before the target is recorded: the client records it on another thread, after
+	/// dropping the attempt an earlier run left. Until that thread has ended the sync reports a
+	/// pending write and ignores responses. A target that cannot be recorded aborts the sync.
+	#[test]
+	fn target_is_recorded_on_another_thread() {
+		let (remote, header) = remote();
+		let (client, backend) = TestClientBuilder::new().set_no_genesis().build_with_backend();
+		let client = Arc::new(client);
+		client.begin_partial_state(other_target(&header)).unwrap();
+
+		// The thread waits for the import lock, as it would be busy removing a large attempt.
+		let import_lock = backend.get_import_lock().write();
+		let mut sync = StateSync::new(client.clone(), header.clone(), None, None);
+		assert!(sync.has_pending_write());
+		assert!(sync.retry_pending_write().is_none(), "the thread has not ended");
+		// Not even decoded: with nothing pending a missing proof is a bad response.
+		let no_proof = StateResponse { entries: vec![], proof: vec![] };
+		assert!(matches!(sync.import(no_proof), ImportResult::Continue), "ignored while pending");
+		assert_eq!(record(&client).target, other_target(&header), "nothing is recorded yet");
+
+		drop(import_lock);
+		assert!(matches!(sync.wait_for_begin(), Some(ImportResult::Continue)));
+		assert!(!sync.has_pending_write());
+		assert_eq!(record(&client).target, target(&header), "the earlier attempt is replaced");
+		let whole_state = response(&remote, &header, &[], usize::MAX);
+		assert!(matches!(sync.import(whole_state), ImportResult::Import(_)));
+
+		// A database that holds block state refuses any target.
+		let mut sync = StateSync::new(Arc::new(remote), header, None, None);
+		assert!(matches!(sync.wait_for_begin(), Some(ImportResult::Abort)));
+		assert!(!sync.has_pending_write());
 	}
 
 	/// `new` records the target, `resume` never records again: it continues from the cursor the

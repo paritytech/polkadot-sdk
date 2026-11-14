@@ -1026,7 +1026,7 @@ where
 				self.attempt_state_sync(hash, number);
 			}
 		}
-		// Retry a pending chunk write.
+		// Finish a pending write.
 		match self.state_sync.as_mut().and_then(|sync| sync.retry_pending_write()) {
 			Some(ImportResult::Import(block)) => self.queue_target_import(block),
 			Some(ImportResult::Abort) => self.abort_state_sync(),
@@ -2237,7 +2237,8 @@ where
 			return None;
 		}
 		if let Some(sync) = &self.state_sync {
-			// Nothing to ask while a chunk waits to be written: its retry decides what is next.
+			// Nothing to ask while the target is being recorded or a chunk waits to be written:
+			// the retry decides what is next.
 			if sync.is_complete() || sync.has_pending_write() {
 				return None;
 			}
@@ -2343,8 +2344,8 @@ where
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
 				// Pick up where an earlier run stopped.
 				let state_sync =
-					resumable_state_sync(&*self.client).and_then(|resumable| match resumable {
-						Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
+					resumable_state_sync(&*self.client).map(|resumable| match resumable {
+						Some(resumable) => StateSync::resume(self.client.clone(), resumable),
 						None => {
 							log::debug!(
 								target: LOG_TARGET,

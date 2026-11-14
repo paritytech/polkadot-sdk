@@ -1847,6 +1847,7 @@ fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
 		sync.add_peer(PeerId::random(), header.hash(), 1);
 	}
 	sync.attempt_state_sync(header.hash(), 1);
+	sync.state_sync.as_mut().expect("the state sync started").wait_for_begin();
 	let (peer, request) = sync.state_request().expect("the download starts");
 	assert!(request.start.is_empty());
 
@@ -1982,6 +1983,7 @@ fn ancestry_search_allows_state_request_to_move_to_another_peer() {
 		sync.add_peer(peer, block.hash(), 1);
 	}
 	sync.attempt_state_sync(block.hash(), 1);
+	sync.state_sync.as_mut().expect("the state sync started").wait_for_begin();
 	let (busy, original) = sync.state_request().unwrap();
 	assert!(sync.allowed_requests.is_empty());
 
