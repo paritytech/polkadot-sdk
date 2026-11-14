@@ -194,3 +194,28 @@ fn redundant_votes_ancestries_are_removed_by_optimizer() {
 
 	assert_eq!(num_votes_ancestries_before - 1, num_votes_ancestries_after);
 }
+
+#[test]
+fn outdated_authority_signatures_are_removed_by_optimizer() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	justification.commit.precommits.insert(
+		0,
+		signed_precommit::<TestHeader>(
+			&ALICE,
+			header_id::<TestHeader>(1),
+			justification.round,
+			TEST_GRANDPA_SET_ID - 1,
+		),
+	);
+
+	let num_precommits_before = justification.commit.precommits.len();
+	verify_and_optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		&verification_context(TEST_GRANDPA_SET_ID),
+		&mut justification,
+	)
+	.unwrap();
+	let num_precommits_after = justification.commit.precommits.len();
+
+	assert_eq!(num_precommits_before - 1, num_precommits_after);
+}
