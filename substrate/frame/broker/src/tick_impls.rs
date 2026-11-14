@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			Self::charge(&Self::account_id(), system_payout).defensive_ok();
+			Self::charge_pot(system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout

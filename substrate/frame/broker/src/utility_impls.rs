@@ -20,7 +20,11 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Balanced,
-		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
+		tokens::{
+			Fortitude::Polite,
+			Precision::Exact,
+			Preservation::{Expendable, Preserve},
+		},
 		OnUnbalanced,
 	},
 };
@@ -67,6 +71,15 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn charge(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		let credit = T::Currency::withdraw(&who, amount, Exact, Expendable, Polite)?;
+		T::OnRevenue::on_unbalanced(credit);
+		Ok(())
+	}
+
+	/// Pay `amount` out of the pot as revenue. The pot keeps its existential deposit, so that the
+	/// funds left in it for the private contributors to the Instantaneous Coretime Pool are never
+	/// dusted.
+	pub(crate) fn charge_pot(amount: BalanceOf<T>) -> DispatchResult {
+		let credit = T::Currency::withdraw(&Self::account_id(), amount, Exact, Preserve, Polite)?;
 		T::OnRevenue::on_unbalanced(credit);
 		Ok(())
 	}
