@@ -1,0 +1,13 @@
+title: 'pallet-scheduler: place retries with a zero period into the next block'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A retry configured with a `period` of zero is now placed into the next block instead of the
+    agenda of the current block, where it was overwritten when that agenda was written back.
+- audience: Runtime User
+  description: |-
+    A retry configuration set with `set_retry` or `set_retry_named` and a `period` of zero now
+    retries the task in the next block. Before, such a retry never ran.
+crates:
+- name: pallet-scheduler
+  bump: patch
