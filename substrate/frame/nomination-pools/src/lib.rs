@@ -3856,7 +3856,9 @@ impl<T: Config> Pallet<T> {
 		let pool_account = Pallet::<T>::generate_bonded_account(pool_member.pool_id);
 		// if the pool doesn't have any pending slash, it implies the member also does not have any
 		// pending slash.
-		if T::StakeAdapter::pending_slash(Pool::from(pool_account.clone())).is_zero() {
+		let pool_pending_slash =
+			T::StakeAdapter::pending_slash(Pool::from(pool_account.clone()));
+		if pool_pending_slash.is_zero() {
 			return Ok(Zero::zero());
 		}
 
@@ -3868,8 +3870,8 @@ impl<T: Config> Pallet<T> {
 		// this is their balance in the pool
 		let expected_balance = pool_member.total_balance();
 
-		// return the amount to be slashed.
-		Ok(actual_balance.saturating_sub(expected_balance))
+		// Cap the per-member slash to the pool's outstanding `pending_slash`.
+		Ok(actual_balance.saturating_sub(expected_balance).min(pool_pending_slash))
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
