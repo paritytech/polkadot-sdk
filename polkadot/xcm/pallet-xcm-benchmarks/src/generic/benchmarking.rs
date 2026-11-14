@@ -164,6 +164,50 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn buy_execution_native() -> Result<(), BenchmarkError> {
+		let holding = T::worst_case_holding(0);
+
+		let mut executor = new_executor::<T>(Default::default());
+		executor.set_holding(holding);
+
+		let (fee_asset, weight_limit) =
+			T::worst_case_for_native_trader().map_err(|_| BenchmarkError::Skip)?;
+
+		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
+			fees: fee_asset,
+			weight_limit: weight_limit.into(),
+		};
+
+		let xcm = Xcm(vec![instruction]);
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn pay_fees_native() -> Result<(), BenchmarkError> {
+		let holding = T::worst_case_holding(0);
+
+		let mut executor = new_executor::<T>(Default::default());
+		executor.set_holding(holding);
+		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
+
+		let (fee_asset, _) = T::worst_case_for_native_trader().map_err(|_| BenchmarkError::Skip)?;
+
+		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
+
+		let xcm = Xcm(vec![instruction]);
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+		Ok(())
+	}
+
+	#[benchmark]
 	fn asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
