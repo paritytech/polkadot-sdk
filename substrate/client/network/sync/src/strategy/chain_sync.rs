@@ -393,10 +393,10 @@ pub(crate) enum PeerSyncState<B: BlockT> {
 	},
 	/// Actively downloading new blocks, starting from the given Number.
 	DownloadingNew(NumberFor<B>),
-	/// Downloading a stale block with given Hash. Stale means that it is a
-	/// block with a number that is lower than our best number. It might be
-	/// from a fork and not necessarily already imported.
-	DownloadingStale(B::Hash),
+	/// Downloading a stale block with the given hash and number. Stale means that it is a block
+	/// with a number that is lower than our best number. It might be from a fork and not
+	/// necessarily already imported.
+	DownloadingStale { hash: B::Hash, number: NumberFor<B> },
 	/// Downloading justification for given block hash.
 	DownloadingJustification(B::Hash),
 	/// Downloading state.
@@ -432,6 +432,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// A set of hashes of blocks that are being downloaded or have been
 	/// downloaded and are queued for import.
 	queue_blocks: HashSet<B::Hash>,
+	/// Hashes in `queue_blocks` when an `UnknownParent`/`Other` error restarted chain sync.
+	/// Their later `UnknownParent`/`Other` results must not restart sync again.
+	queue_blocks_at_error_restart: HashSet<B::Hash>,
 	/// A pending attempt to start the state sync.
 	///
 	/// The initiation of state sync may be deferred in cases where other conditions
@@ -822,8 +825,9 @@ where
 			}
 		}
 		for (result, hash) in results {
+			let was_queued_at_error_restart = self.queue_blocks_at_error_restart.remove(&hash);
 			if has_error {
-				break;
+				continue;
 			}
 
 			has_error |= result.is_err();
@@ -875,7 +879,7 @@ where
 						);
 						self.state_sync = None;
 						self.mode = ChainSyncMode::Full;
-						self.restart();
+						self.restart(false);
 					}
 
 					self.complete_gap_if_target(number);
@@ -888,7 +892,7 @@ where
 						);
 						self.actions
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
-						self.restart();
+						self.restart(false);
 					}
 				},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
@@ -905,7 +909,7 @@ where
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::VERIFICATION_FAIL)));
 					}
 
-					self.restart();
+					self.restart(false);
 				},
 				Err(BlockImportError::BadBlock(peer_id)) => {
 					if let Some(peer) = peer_id {
@@ -922,10 +926,14 @@ where
 					// Don't mark it as bad as it still may be synced if explicitly requested.
 					trace!(target: LOG_TARGET, "Obsolete block {hash:?}");
 				},
-				e @ Err(BlockImportError::UnknownParent) | e @ Err(BlockImportError::Other(_)) => {
-					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {}", e.unwrap_err());
+				Err(error @ (BlockImportError::UnknownParent | BlockImportError::Other(_))) => {
+					if was_queued_at_error_restart {
+						trace!(target: LOG_TARGET, "Ignoring pre-restart import error for {hash:?}: {error}");
+						continue;
+					}
+					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {error}");
 					self.state_sync = None;
-					self.restart();
+					self.restart(true);
 				},
 				Err(BlockImportError::Cancelled) => {},
 			};
@@ -1123,6 +1131,7 @@ where
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
+			queue_blocks_at_error_restart: Default::default(),
 			pending_state_sync_attempt: None,
 			fork_targets: Default::default(),
 			allowed_requests: Default::default(),
@@ -1303,7 +1312,7 @@ where
 			// State requests are regenerated from the last imported cursor; fork targets
 			// remain pending. Neither has a separate in-flight range reservation.
 			PeerSyncState::DownloadingState |
-			PeerSyncState::DownloadingStale(_) |
+			PeerSyncState::DownloadingStale { .. } |
 			PeerSyncState::AncestorSearch { .. } => {},
 		}
 		self.actions
@@ -1464,7 +1473,7 @@ where
 							return Err(BadPeer(*peer_id, rep::NO_BLOCK));
 						}
 					},
-					PeerSyncState::DownloadingStale(_) => {
+					PeerSyncState::DownloadingStale { .. } => {
 						peer.state = PeerSyncState::Available;
 						if blocks.is_empty() {
 							debug!(target: LOG_TARGET, "Empty block response from {peer_id}");
@@ -1867,11 +1876,22 @@ where
 	/// Restart the sync process. This will reset all pending block requests and return an iterator
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
-	fn restart(&mut self) {
-		self.blocks.clear();
-		if let Err(e) = self.reset_sync_start_point() {
-			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
+	/// During import-error recovery, stale-fork downloads can also stay in flight when still valid
+	/// after a successful reset that preserves the sync mode.
+	fn restart(&mut self, after_import_error: bool) {
+		if after_import_error {
+			self.queue_blocks_at_error_restart.clone_from(&self.queue_blocks);
 		}
+
+		self.blocks.clear();
+		let previous_mode = self.mode;
+		let preserve_stale_downloads = match self.reset_sync_start_point() {
+			Ok(()) => after_import_error && self.mode == previous_mode,
+			Err(e) => {
+				warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
+				false
+			},
+		};
 		self.allowed_requests.set_all();
 		debug!(
 			target: LOG_TARGET,
@@ -1880,9 +1900,23 @@ where
 			self.best_queued_hash,
 		);
 		let old_peers = std::mem::take(&mut self.peers);
+		let finalized_number = self.client.info().finalized_number;
 
 		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
 			match peer_sync.state {
+				// A queued target may still need the ancestry in this outstanding response.
+				PeerSyncState::DownloadingStale { hash, number }
+					if preserve_stale_downloads &&
+						number > finalized_number &&
+						self.client
+							.block_status(hash)
+							.map_or(true, |status| status == BlockStatus::Unknown) =>
+				{
+					// Preserve the state used to handle the outstanding fork response.
+					// `add_peer` resets it and may start a replacement request.
+					peer_sync.common_number = peer_sync.common_number.min(self.best_queued_number);
+					self.peers.insert(peer_id, peer_sync);
+				},
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
 					// should be kept in that state.
@@ -1987,7 +2021,7 @@ where
 	fn is_already_downloading(&self, hash: &B::Hash) -> bool {
 		self.peers
 			.iter()
-			.any(|(_, p)| p.state == PeerSyncState::DownloadingStale(*hash))
+			.any(|(_, p)| matches!(p.state, PeerSyncState::DownloadingStale { hash: pending, .. } if pending == *hash))
 	}
 
 	/// Get the set of downloaded blocks that are ready to be queued for import.
@@ -2158,7 +2192,7 @@ where
 						req,
 					);
 					Some((id, req))
-				} else if let Some((hash, req)) = fork_sync_request(
+				} else if let Some((hash, number, req)) = fork_sync_request(
 					&id,
 					fork_targets,
 					best_queued,
@@ -2175,7 +2209,7 @@ where
 					metrics,
 				) {
 					trace!(target: LOG_TARGET, "Downloading fork {hash:?} from {id}");
-					peer.state = PeerSyncState::DownloadingStale(hash);
+					peer.state = PeerSyncState::DownloadingStale { hash, number };
 					Some((id, req))
 				} else if let Some((range, req)) = gap_sync.as_mut().and_then(|sync| {
 					peer_gap_block_request(
@@ -2553,7 +2587,7 @@ fn fork_sync_request<B: BlockT>(
 	check_block: impl Fn(&B::Hash) -> BlockStatus,
 	max_blocks_per_request: u32,
 	metrics: Option<&Metrics>,
-) -> Option<(B::Hash, BlockRequest<B>)> {
+) -> Option<(B::Hash, NumberFor<B>, BlockRequest<B>)> {
 	fork_targets.retain(|hash, r| {
 		if r.number <= finalized {
 			trace!(
@@ -2600,6 +2634,7 @@ fn fork_sync_request<B: BlockT>(
 			);
 			return Some((
 				*hash,
+				r.number,
 				BlockRequest::<B> {
 					id: 0,
 					fields: attributes,

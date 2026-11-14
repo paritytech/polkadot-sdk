@@ -36,6 +36,19 @@ use substrate_test_runtime_client::{
 	TestClientBuilder, TestClientBuilderExt,
 };
 
+struct LongestChainVerifier;
+
+#[async_trait::async_trait]
+impl sc_consensus::import_queue::Verifier<Block> for LongestChainVerifier {
+	async fn verify(
+		&self,
+		mut block: sc_consensus::BlockImportParams<Block>,
+	) -> Result<sc_consensus::BlockImportParams<Block>, String> {
+		block.fork_choice = Some(sc_consensus::ForkChoiceStrategy::LongestChain);
+		Ok(block)
+	}
+}
+
 #[derive(Debug)]
 struct ProxyBlockDownloader {
 	protocol_name: ProtocolName,
@@ -231,7 +244,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize
 
 	// Restart without draining actions between calls to exercise queued replacements.
 	for _ in 0..restarts {
-		sync.restart();
+		sync.restart(false);
 	}
 
 	// which should make us cancel and send out again block requests to the first two peers
@@ -258,8 +271,271 @@ fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize
 
 	// Set common block to something that we don't have (e.g. failed import)
 	sync.peers.get_mut(&peer_id3).unwrap().common_number = 100;
-	sync.restart();
+	sync.restart(false);
 	assert_eq!(sync.peers.get(&peer_id3).unwrap().common_number, 50);
+}
+
+#[rstest]
+#[case::fork_target_removed(false, false, false)]
+#[case::mode_change(true, false, false)]
+#[case::target_finalized(false, true, false)]
+#[case::target_imported(false, false, true)]
+fn import_error_restart_preserves_only_valid_stale_requests(
+	#[case] change_mode: bool,
+	#[case] finalize_target: bool,
+	#[case] import_target: bool,
+) {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	let source = TestClientBuilder::new().build();
+	for block in &canonical {
+		block_on(source.import(BlockOrigin::Own, block.clone()))
+			.expect("canonical blocks have their parents");
+	}
+	let target = build_block(&source, Some(canonical[1].hash()), true);
+	let best = canonical.last().expect("three canonical blocks were built");
+	let best_number = *best.header().number();
+	let peer = PeerId::random();
+	let mut sync = new_test_sync(client);
+	sync.add_peer(peer, best.hash(), best_number);
+	let announce = BlockAnnounce {
+		header: target.header().clone(),
+		state: Some(BlockState::Normal),
+		data: Some(Vec::new()),
+	};
+	let _ = sync.on_validated_block_announce(false, peer, &announce);
+	assert_eq!(sync.block_requests().len(), 1);
+	sync.peers.get_mut(&peer).expect("peer was added").common_number = 10;
+	sync.on_block_queued(&target.hash(), best_number);
+	assert!(!sync.fork_targets.contains_key(&target.hash()));
+
+	if change_mode {
+		assert!(sync.client.info().finalized_state.is_some());
+		sync.mode = ChainSyncMode::LightState { skip_proofs: false };
+	}
+	if finalize_target {
+		let best_hash = sync.client.info().best_hash;
+		sync.client.finalize_block(best_hash, None).expect("best block is imported");
+		assert_eq!(sync.client.info().finalized_number, best_number);
+	}
+	if import_target {
+		block_on(sync.client.import(BlockOrigin::Own, target.clone()))
+			.expect("target's parent is already imported");
+	}
+
+	sync.restart(true);
+
+	assert_eq!(sync.mode, ChainSyncMode::Full);
+	if change_mode || finalize_target || import_target {
+		assert!(matches!(
+			sync.take_actions().next(),
+			Some(SyncingAction::CancelRequest { peer_id, .. }) if peer_id == peer
+		));
+		assert_eq!(sync.peers[&peer].state, PeerSyncState::Available);
+	} else {
+		assert!(sync.take_actions().next().is_none());
+		assert_eq!(
+			sync.peers[&peer].state,
+			PeerSyncState::DownloadingStale { hash: target.hash(), number: best_number }
+		);
+		assert_eq!(sync.peers[&peer].common_number, best_number);
+	}
+}
+
+#[test]
+fn queued_fork_response_survives_import_errors_without_duplicate_penalties() {
+	use crate::{
+		block_request_handler::BlockRequestHandler, pending_responses::PendingResponses,
+		service::network::ToServiceCommand,
+	};
+	use futures::StreamExt;
+	use sc_network::{
+		config::ProtocolId, request_responses::IncomingRequest, Litep2pNetworkBackend,
+	};
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	let source = Arc::new(TestClientBuilder::new().build());
+	for block in &canonical {
+		block_on(source.import(BlockOrigin::Own, block.clone()))
+			.expect("canonical blocks have their parents");
+	}
+	let parent = build_block(&source, Some(canonical[0].hash()), true);
+	let target = build_block(&source, Some(parent.hash()), false);
+	let unrelated = (0..4).map(|_| build_block(&source, None, false)).collect::<Vec<_>>();
+	let best = canonical.last().expect("three canonical blocks were built");
+	let peer = PeerId::random();
+	let other_peer = PeerId::random();
+	let requester = PeerId::random();
+
+	let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("queued-fork-test", 16);
+	let network = NetworkServiceHandle::new(tx);
+	let relay = BlockRequestHandler::<Block, TestClient>::new::<Litep2pNetworkBackend>(
+		network.clone(),
+		&ProtocolId::from("queued-fork-test"),
+		None,
+		source,
+		8,
+	);
+	let inbound = relay
+		.request_response_config
+		.inbound_queue
+		.expect("inbound queue is configured");
+	let mut server = relay.server;
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		1,
+		64,
+		ProtocolName::Static(""),
+		relay.downloader,
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.expect("full sync starts at genesis");
+	sync.add_peer(peer, best.hash(), *best.header().number());
+	sync.add_peer(other_peer, best.hash(), *best.header().number());
+	let announce = BlockAnnounce {
+		header: target.header().clone(),
+		state: Some(BlockState::Normal),
+		data: Some(Vec::new()),
+	};
+	let _ = sync.on_validated_block_announce(false, peer, &announce);
+
+	let import = |action| {
+		let SyncingAction::ImportBlocks { origin, mut blocks } = action else {
+			panic!("expected one queued import");
+		};
+		assert_eq!(blocks.len(), 1);
+		let block = blocks.pop().expect("one import was queued");
+		let hash = block.hash;
+		let result = block_on(sc_consensus::import_queue::import_single_block(
+			&mut &*client,
+			origin,
+			block,
+			&LongestChainVerifier,
+		));
+		assert!(matches!(result, Err(BlockImportError::UnknownParent)), "{result:?}");
+		(result, hash)
+	};
+	let mut pending = PendingResponses::new();
+	let mut identities = Vec::new();
+	let mut held_responses = Vec::new();
+	let mut penalties = Vec::new();
+	let mut cancellations = 0;
+	let mut process_actions = |actions: Vec<SyncingAction<Block>>| {
+		for action in actions {
+			match action {
+				SyncingAction::StartRequest { peer_id, key, request } => {
+					assert_eq!(peer_id, peer);
+					pending.insert(peer_id, key, request);
+					assert!(pending.next().now_or_never().is_none());
+					let ToServiceCommand::StartRequest(remote, protocol, payload, response_tx, _) =
+						rx.next().now_or_never().flatten().expect("downloader sent its request")
+					else {
+						panic!("expected a block request");
+					};
+					// Compare the peer, protocol and entire wire request, not just its start hash.
+					let identity = (remote, requester, protocol.clone(), payload.clone());
+					if let Some(first) = identities.first() {
+						assert_eq!(&identity, first);
+					}
+					identities.push(identity);
+					let request = crate::schema::v1::BlockRequest::decode(payload.as_slice())
+						.expect("downloader encodes a valid request");
+					assert!(BlockAttributes::from_be_u32(request.fields)
+						.expect("request attributes are valid")
+						.contains(BlockAttributes::BODY));
+					let (tx, mut response) = futures::channel::oneshot::channel();
+					inbound
+						.try_send(IncomingRequest {
+							peer: requester,
+							payload,
+							pending_response: tx,
+						})
+						.expect("server has request capacity");
+					assert!(server.run().now_or_never().is_none());
+					let response = response
+						.try_recv()
+						.expect("server is running")
+						.expect("server answered the request");
+					penalties.extend(response.reputation_changes.iter().map(|change| change.value));
+					held_responses.push((response_tx, response.result, protocol));
+				},
+				SyncingAction::CancelRequest { peer_id, key } => {
+					assert!(pending.remove(peer_id, key));
+					cancellations += 1;
+				},
+				_ => panic!("unexpected recovery action"),
+			}
+		}
+	};
+	process_actions(sync.actions(&network).expect("fork request is scheduled"));
+
+	for block in &unrelated[1..] {
+		sync.on_block_data(&other_peer, None, create_block_response(vec![block.clone()]))
+			.expect("unrelated block is valid");
+		let failed = import(sync.take_actions().next().expect("unrelated import was queued"));
+		sync.on_block_data(&other_peer, None, create_block_response(vec![target.clone()]))
+			.expect("target block is valid");
+		let queued_target = sync.take_actions().next().expect("target import was queued");
+		assert!(sync.queue_blocks.contains(&target.hash()));
+		assert!(!sync.fork_targets.contains_key(&target.hash()));
+
+		sync.on_blocks_processed(0, 1, vec![failed]);
+		process_actions(sync.actions(&network).expect("import error restarts sync"));
+		let failed_target = import(queued_target);
+		sync.on_blocks_processed(0, 1, vec![failed_target]);
+		process_actions(sync.actions(&network).expect("late target result is processed"));
+		let _ = sync.on_validated_block_announce(false, peer, &announce);
+		process_actions(sync.actions(&network).expect("target was announced again"));
+	}
+	drop(process_actions);
+	assert!(penalties.is_empty(), "{} identical requests caused {penalties:?}", identities.len());
+	assert_eq!(cancellations, 0);
+	assert_eq!(identities.len(), 1);
+	let (response_tx, response, protocol) =
+		held_responses.pop().expect("fork response is retained");
+	assert!(!response_tx.is_canceled());
+	response_tx
+		.send(Ok((response.expect("ancestry request was served"), protocol)))
+		.expect("original request is still pending");
+	let event = block_on(pending.next()).expect("retained response completes");
+	let (response, protocol) = event
+		.response
+		.expect("request was not cancelled")
+		.expect("ancestry response is valid");
+	sync.on_generic_response(&event.peer_id, event.key, protocol, response);
+	let SyncingAction::ImportBlocks { origin, blocks } =
+		sync.take_actions().next().expect("ancestry is accepted for import")
+	else {
+		panic!("expected the retained ancestry");
+	};
+	assert_eq!(blocks.len(), 3);
+	let mut results = Vec::new();
+	for block in blocks {
+		let hash = block.hash;
+		let result = block_on(sc_consensus::import_queue::import_single_block(
+			&mut &*client,
+			origin,
+			block,
+			&LongestChainVerifier,
+		));
+		assert!(result.is_ok(), "{result:?}");
+		results.push((result, hash));
+	}
+	sync.on_blocks_processed(results.len(), results.len(), results);
+	assert!(client.header(parent.hash()).expect("parent can be read").is_some());
+	assert!(client.header(target.hash()).expect("target can be read").is_some());
+
+	let fresh = unrelated.last().expect("unrelated blocks were built");
+	sync.on_block_data(&other_peer, None, create_block_response(vec![fresh.clone()]))
+		.expect("fresh attempt is valid");
+	assert_eq!(sync.best_queued_number, *fresh.header().number());
+	let failed = import(sync.take_actions().next().expect("fresh attempt was queued"));
+	sync.on_blocks_processed(0, 1, vec![failed]);
+	assert_eq!(sync.best_queued_number, client.info().best_number);
 }
 
 /// Send a block announcement for the given `header`.
@@ -1006,7 +1282,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let _ = sync.take_actions();
 
 	// restart sync
-	sync.restart();
+	sync.restart(false);
 	let actions = sync.take_actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
@@ -1172,6 +1448,253 @@ fn request_across_forks() {
 		));
 		assert!(sync.is_known(&block.header.parent_hash()));
 	}
+}
+
+#[test]
+fn unknown_parent_does_not_discard_another_peers_import() {
+	let source = TestClientBuilder::new().build();
+	let common = (0..3).map(|_| build_block(&source, None, false)).collect::<Vec<_>>();
+	let client = Arc::new(TestClientBuilder::new().build());
+	for block in &common {
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	}
+	let best = common.last().unwrap();
+	let fork_parent = build_block(&source, Some(common[0].hash()), true);
+	let fork_tip = build_block(&source, Some(fork_parent.hash()), false);
+	let next = build_block(&source, Some(best.hash()), false);
+	let mut sync = new_test_sync(client.clone());
+	let fork_peer = PeerId::random();
+	let next_peer = PeerId::random();
+
+	sync.add_peer(fork_peer, best.hash(), *best.header().number());
+	sync.set_sync_fork_request(vec![fork_peer], &fork_tip.hash(), *fork_tip.header().number());
+	let request = get_block_request(
+		&mut sync,
+		FromBlock::Hash(fork_tip.hash()),
+		*fork_tip.header().number() as u32,
+		&fork_peer,
+	);
+	sync.on_block_data(&fork_peer, Some(request), create_block_response(vec![fork_tip]))
+		.unwrap();
+	let SyncingAction::ImportBlocks { origin, mut blocks } = sync.take_actions().next().unwrap()
+	else {
+		panic!("expected the fork import");
+	};
+	let block = blocks.pop().unwrap();
+	let failed_hash = block.hash;
+	let failed = block_on(sc_consensus::import_queue::import_single_block(
+		&mut &*client,
+		origin,
+		block,
+		&LongestChainVerifier,
+	));
+	assert!(matches!(failed, Err(BlockImportError::UnknownParent)));
+
+	sync.add_peer(next_peer, next.hash(), *next.header().number());
+	sync.on_block_data(&next_peer, None, create_block_response(vec![next.clone()]))
+		.unwrap();
+	let (origin, mut blocks) = sync
+		.take_actions()
+		.find_map(|action| match action {
+			SyncingAction::ImportBlocks { origin, blocks } => Some((origin, blocks)),
+			_ => None,
+		})
+		.unwrap();
+
+	sync.on_blocks_processed(0, 1, vec![(failed, failed_hash)]);
+	let block = blocks.pop().unwrap();
+	let hash = block.hash;
+	let imported = block_on(sc_consensus::import_queue::import_single_block(
+		&mut &*client,
+		origin,
+		block,
+		&LongestChainVerifier,
+	));
+	assert!(matches!(imported, Ok(BlockImportStatus::ImportedUnknown(..))));
+	sync.on_blocks_processed(1, 1, vec![(imported, hash)]);
+
+	assert_eq!(client.info().best_hash, next.hash());
+	assert_eq!(sync.peers[&next_peer].common_number, *next.header().number());
+}
+
+#[test]
+fn queued_import_results_do_not_replace_active_recovery() {
+	let source = Arc::new(TestClientBuilder::new().build());
+	let common = (0..6).map(|_| build_block(&source, None, false)).collect::<Vec<_>>();
+	let client = Arc::new(TestClientBuilder::new().build());
+	for block in &common {
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	}
+
+	let source_branch = (0..5).map(|_| build_block(&source, None, false)).collect::<Vec<_>>();
+	let local_sibling = build_block(&client, None, true);
+	assert_eq!(source_branch[0].header().number(), local_sibling.header().number());
+	assert_ne!(source_branch[0].hash(), local_sibling.hash());
+
+	let downloader = Arc::new(ProxyBlockDownloader::new(ProtocolName::Static("")));
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		downloader.clone(),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+	let peer = PeerId::random();
+	let remote_best = source_branch.last().unwrap();
+	sync.add_peer(peer, remote_best.hash(), *remote_best.header().number());
+	let _ = sync.take_actions();
+
+	for block in &source_branch[1..4] {
+		sync.on_block_data(&peer, None, create_block_response(vec![block.clone()]))
+			.expect("announced block is valid");
+	}
+	sync.on_block_data(&peer, None, create_block_response(vec![local_sibling.clone()]))
+		.expect("known sibling is valid");
+
+	let mut queued = sync.take_actions().collect::<std::collections::VecDeque<_>>();
+	let delayed_success = queued.pop_back().unwrap();
+	let network_service = NetworkServiceProvider::new().handle();
+	let import = |action| {
+		let SyncingAction::ImportBlocks { origin, mut blocks } = action else {
+			panic!("expected an import batch");
+		};
+		let block = blocks.pop().unwrap();
+		let hash = block.hash;
+		let result = block_on(sc_consensus::import_queue::import_single_block(
+			&mut &*client,
+			origin,
+			block,
+			&LongestChainVerifier,
+		));
+		(result, hash)
+	};
+	let (result, hash) = import(queued.pop_front().unwrap());
+	assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+	sync.on_blocks_processed(0, 1, vec![(result, hash)]);
+
+	let recovery = sync.actions(&network_service).unwrap();
+	assert!(recovery
+		.iter()
+		.any(|action| matches!(action, SyncingAction::StartRequest { .. })));
+	for action in recovery {
+		if let SyncingAction::StartRequest { request, .. } = action {
+			block_on(request).unwrap().unwrap();
+			let _ = downloader.next_request();
+		}
+	}
+
+	let (result, hash) = import(delayed_success);
+	assert!(matches!(result, Ok(BlockImportStatus::ImportedKnown(..))));
+	sync.on_blocks_processed(1, 1, vec![(result, hash)]);
+	assert_eq!(sync.peers[&peer].common_number, *local_sibling.header().number());
+	assert!(
+		sync.actions(&network_service).unwrap().is_empty(),
+		"a queued success replaced the active recovery request",
+	);
+
+	let (result, hash) = import(queued.pop_front().unwrap());
+	assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+	sync.on_blocks_processed(0, 1, vec![(result, hash)]);
+	assert!(
+		sync.actions(&network_service).unwrap().is_empty(),
+		"a queued error replaced the active recovery request",
+	);
+
+	let fresh = source_branch.last().unwrap();
+	sync.on_block_data(&peer, None, create_block_response(vec![fresh.clone()]))
+		.expect("fresh block is valid");
+	let (result, hash) = import(sync.take_actions().next().unwrap());
+	assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+	sync.on_blocks_processed(0, 1, vec![(result, hash)]);
+	assert!(
+		sync.actions(&network_service)
+			.unwrap()
+			.iter()
+			.any(|action| matches!(action, SyncingAction::CancelRequest { .. })),
+		"a fresh import error did not restart recovery",
+	);
+
+	for action in queued {
+		let (result, hash) = import(action);
+		assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+		sync.on_blocks_processed(0, 1, vec![(result, hash)]);
+		assert!(
+			sync.actions(&network_service).unwrap().is_empty(),
+			"a queued result replaced the active recovery request",
+		);
+	}
+
+	for block in &source_branch[..2] {
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	}
+	let retry = &source_branch[2];
+	sync.on_block_data(&peer, None, create_block_response(vec![retry.clone()]))
+		.expect("retried block is valid");
+	let (result, hash) = import(sync.take_actions().next().unwrap());
+	assert!(matches!(result, Ok(BlockImportStatus::ImportedUnknown(..))), "{result:?}");
+	sync.on_blocks_processed(1, 1, vec![(result, hash)]);
+	assert_eq!(client.info().best_hash, retry.hash());
+}
+
+#[test]
+fn completed_import_batch_releases_restart_snapshot_after_error() {
+	let source = TestClientBuilder::new().build();
+	let _parent = build_block(&source, None, false);
+	let first = build_block(&source, None, false);
+	let last = build_block(&source, None, false);
+	let client = Arc::new(TestClientBuilder::new().build());
+	let mut sync = new_test_sync(client.clone());
+	let peer = PeerId::random();
+
+	sync.add_peer(peer, last.hash(), *last.header().number());
+	sync.on_block_data(&peer, None, create_block_response(vec![first, last.clone()]))
+		.unwrap();
+	let SyncingAction::ImportBlocks { origin, mut blocks } = sync.take_actions().next().unwrap()
+	else {
+		panic!("expected the queued import batch");
+	};
+	sync.restart(true);
+	let block = blocks.remove(0);
+	let hash = block.hash;
+	let result = block_on(sc_consensus::import_queue::import_single_block(
+		&mut &*client,
+		origin,
+		block,
+		&LongestChainVerifier,
+	));
+	assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+	let cancelled_hash = blocks.pop().unwrap().hash;
+	sync.on_blocks_processed(
+		0,
+		2,
+		vec![(result, hash), (Err(BlockImportError::Cancelled), cancelled_hash)],
+	);
+
+	sync.on_block_data(&peer, None, create_block_response(vec![last.clone()]))
+		.unwrap();
+	assert_eq!(sync.best_queued_number, *last.header().number());
+	let SyncingAction::ImportBlocks { origin, mut blocks } = sync.take_actions().next().unwrap()
+	else {
+		panic!("expected a fresh import attempt");
+	};
+	let block = blocks.pop().unwrap();
+	let hash = block.hash;
+	let result = block_on(sc_consensus::import_queue::import_single_block(
+		&mut &*client,
+		origin,
+		block,
+		&LongestChainVerifier,
+	));
+	assert!(matches!(result, Err(BlockImportError::UnknownParent)));
+	sync.on_blocks_processed(0, 1, vec![(result, hash)]);
+
+	assert_eq!(sync.best_queued_number, client.info().best_number);
+	assert!(sync.queue_blocks.is_empty());
 }
 
 /// This test simulates a scenario where we get a `VerificationFailed` error
@@ -1832,7 +2355,10 @@ fn ancestry_search_preserves_pending_fork_download() {
 	let fork_hash = Hash::random();
 	sync.set_sync_fork_request(vec![peer], &fork_hash, 2);
 	get_block_request(&mut sync, FromBlock::Hash(fork_hash), 2, &peer);
-	assert_eq!(sync.peers[&peer].state, PeerSyncState::DownloadingStale(fork_hash));
+	assert_eq!(
+		sync.peers[&peer].state,
+		PeerSyncState::DownloadingStale { hash: fork_hash, number: 2 }
+	);
 
 	let mut header = blocks[2].header().clone();
 	header.set_parent_hash(Hash::random());
@@ -1869,7 +2395,7 @@ fn restart_drops_gap_sync_when_database_reports_no_gap() {
 	sync.peers.get_mut(&peer).unwrap().state = PeerSyncState::DownloadingGap(7);
 	assert!(sync.status().warp_sync.is_some());
 
-	sync.restart();
+	sync.restart(false);
 
 	assert!(sync.gap_sync.is_none());
 	assert!(sync.status().warp_sync.is_none());

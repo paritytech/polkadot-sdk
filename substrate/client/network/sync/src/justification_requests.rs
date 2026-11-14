@@ -640,7 +640,10 @@ mod tests {
 				0 => PeerSyncState::Available,
 				// TODO: 1 => PeerSyncState::AncestorSearch(g.gen(), AncestorSearchState<B>),
 				1 => PeerSyncState::DownloadingNew(BlockNumber::arbitrary(g)),
-				2 => PeerSyncState::DownloadingStale(Hash::random()),
+				2 => PeerSyncState::DownloadingStale {
+					hash: Hash::random(),
+					number: BlockNumber::arbitrary(g),
+				},
 				_ => PeerSyncState::DownloadingJustification(Hash::random()),
 			};
 			ArbitraryPeerSyncState(s)
