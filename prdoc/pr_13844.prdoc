@@ -1,0 +1,26 @@
+title: 'fix(grandpa): do not serve warp proofs from an incomplete list of authority set changes'
+doc:
+  - audience: Node Dev
+    description: |
+      Two fixes for nodes that warp synced and then serve warp proofs.
+
+      Warp proof generation now fails with `MissingData` when the node has a header gap and the
+      requested proof starts below the end of that gap. The authority set changes of the blocks
+      in the gap are only recorded when gap sync imports them. Until then the node answered with
+      an empty proof, with a proof that ended early but was marked as finished and verified, or
+      with a proof that failed verification at the client.
+
+      GRANDPA block import now records the authority set change enacted by a block that is
+      imported with state. When the target of a warp sync was itself an authority set change
+      block, that change was never recorded, the list kept a hole after gap sync, and the node
+      served warp proofs that clients rejected with `bad justification`.
+
+      No API change.
+  - audience: Node Operator
+    description: |
+      A node that is still downloading block history after warp sync now refuses warp proof
+      requests that depend on that history, with `Missing required data`, until the download is
+      complete.
+crates:
+  - name: sc-consensus-grandpa
+    bump: patch
