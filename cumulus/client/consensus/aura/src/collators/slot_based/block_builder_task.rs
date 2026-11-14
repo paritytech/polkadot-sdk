@@ -36,7 +36,7 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
-	ParachainBlockImportMarker, ParentSearchParams,
+	has_runtime_upgrade_digest, ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -165,13 +165,28 @@ impl SchedulingParams {
 		Client: ProvideRuntimeApi<Block>,
 		Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
 	{
-		let api = onchain_runtime_api(para_client);
-
 		Self {
-			v3_enabled: api.scheduling_v3_enabled(at).unwrap_or(false),
-			relay_parent_offset: api.relay_parent_offset(at).unwrap_or_default(),
+			v3_enabled: v3_enabled_at(para_client, at),
+			relay_parent_offset: onchain_runtime_api(para_client)
+				.relay_parent_offset(at)
+				.unwrap_or_default(),
 		}
 	}
+}
+
+/// Whether the runtime at `at` has scheduling V3 enabled, i.e. whether its children run under V3.
+fn v3_enabled_at<Block: BlockT, Client>(para_client: &Client, at: Block::Hash) -> bool
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block> + ApiExt<Block>,
+{
+	onchain_runtime_api(para_client)
+		.scheduling_v3_enabled(at)
+		.unwrap_or_else(|error| {
+			tracing::debug!(target: LOG_TARGET, ?error, ?at, "Failed to read V3 status.");
+			// V2 is the conservative reading: the parent search never resubmits such blocks.
+			false
+		})
 }
 
 /// Everything the builder needs for one slot, all derived from a single [`SchedulingParams`].
@@ -451,6 +466,8 @@ where
 			&*self.para_backend,
 			self.para_id,
 			search_params,
+			// Per block from the para runtime: the relay enables the V3 node feature earlier.
+			|hash| v3_enabled_at(&*self.para_client, hash),
 			|parent| {
 				// Never build on a "middle block" that isn't the last block in a core. Without the
 				// digest we run in compatibility mode and all parents are valid.
@@ -500,15 +517,10 @@ where
 
 		let best_parent_header = parent_search_result.best_parent_header;
 		// The whole resubmittable prefix is adopted here and later resubmitted under the tip's
-		// claimed author, with no awareness of a boundary inside it. This is not yet correct in two
-		// cases.
+		// claimed author.
 		// TODO(https://github.com/paritytech/polkadot-sdk/issues/13631): across an aura authority-set
 		// change, a block built by the old set cannot be resubmitted by the new set, because its
 		// PVF checks the scheduling signature against the old authorities and the current slot.
-		// TODO(https://github.com/paritytech/polkadot-sdk/issues/13660): across a parachain runtime
-		// upgrade, a delayed upgrade block resubmitted in the new format is rejected by the old
-		// code, and blocks built on the upgrade block in the old format are rejected by the new
-		// code.
 		let resubmittable_headers = parent_search_result.resubmittable_segment;
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
@@ -891,6 +903,7 @@ where
 			} = plan;
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
+			let mut scheduling_changed = false;
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -907,35 +920,41 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				let maybe_parts = match build_collation_parts_for_core(BuildCollationParams {
-					pov_parent_header: pov_parent_header.clone(),
-					relay_parent_header: cx.relay_parent(),
-					max_pov_size: cx.max_pov_size,
-					para_id,
-					relay_client: &env.relay_client,
-					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
-					collator: &mut collator,
-					allowed_pov_size: cx.allowed_pov_size,
-					core_info: core_info.clone(),
-					core_index: this_core_index,
-					block_time,
-					blocks_per_core,
-					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
-					collator_peer_id,
-					relay_parent_data: rp_data,
-					total_number_of_blocks: number_of_blocks,
-					included_hash_at_execution: cx.included_header_at_execution.hash(),
-					relay_slot: cx.relay_slot,
-					para_slot: cx.para_slot.slot,
-					para_client: &*env.para_client,
-				})
-				.await
-				{
-					Ok(maybe_parts) => maybe_parts,
-					Err(()) => return,
+				// `cx` predates a scheduling-params change, so later cores only resubmit.
+				let maybe_parts = if scheduling_changed {
+					None
+				} else {
+					match build_collation_parts_for_core(BuildCollationParams {
+						pov_parent_header: pov_parent_header.clone(),
+						relay_parent_header: cx.relay_parent(),
+						max_pov_size: cx.max_pov_size,
+						para_id,
+						relay_client: &env.relay_client,
+						code_hash_provider: &code_hash_provider,
+						slot_claim: &cx.slot_claim,
+						collator: &mut collator,
+						allowed_pov_size: cx.allowed_pov_size,
+						core_info: core_info.clone(),
+						core_index: this_core_index,
+						block_time,
+						blocks_per_core,
+						time_for_core,
+						is_last_core_in_parachain_slot: cores.is_last_core() &&
+							slot_time
+								.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
+						collator_peer_id,
+						relay_parent_data: rp_data,
+						total_number_of_blocks: number_of_blocks,
+						included_hash_at_execution: cx.included_header_at_execution.hash(),
+						relay_slot: cx.relay_slot,
+						para_slot: cx.para_slot.slot,
+						para_client: &*env.para_client,
+					})
+					.await
+					{
+						Ok(maybe_parts) => maybe_parts,
+						Err(()) => return,
+					}
 				};
 
 				let has_fresh = maybe_parts.is_some();
@@ -953,6 +972,14 @@ where
 						break;
 					};
 					pov_parent_header = tip_header.clone();
+					// Bundle building stops after an upgrade, so only the tip can carry it. Only a
+					// change to the scheduling params invalidates `cx` for later cores.
+					scheduling_changed = has_runtime_upgrade_digest(tip_header) &&
+						SchedulingParams::at(&*env.para_client, tip_header.hash()) !=
+							SchedulingParams {
+								v3_enabled: cx.v3_enabled,
+								relay_parent_offset: cx.relay_parent_offset,
+							};
 				}
 
 				// Breaking here assumes the next cores will not be able to build a new block
@@ -1387,11 +1414,7 @@ where
 		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
-		let runtime_upgrade_digest = parent_header
-			.digest()
-			.logs
-			.iter()
-			.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated));
+		let runtime_upgrade_digest = has_runtime_upgrade_digest(&parent_header);
 
 		if full_core_digest || runtime_upgrade_digest {
 			tracing::trace!(

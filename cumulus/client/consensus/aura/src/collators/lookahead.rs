@@ -341,6 +341,7 @@ where
 				&*params.para_backend,
 				params.para_id,
 				ParentSearchParams::V2 { scheduling_parent: relay_parent },
+				|_| false,
 				|_| true,
 			)
 			.await
