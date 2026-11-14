@@ -18,6 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::traits::UnfilteredDispatchable;
 use sp_runtime::impl_tx_ext_default;
