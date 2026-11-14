@@ -1,0 +1,18 @@
+title: 'fork-tree: do not overflow the stack on deep trees'
+doc:
+- audience: Node Dev
+  description: |
+    Issue: a `ForkTree` gains one level for every node imported on top of another, until an
+    ancestor is finalized. Cloning, comparing, printing, encoding, decoding and dropping the
+    tree were derived, so each used one stack frame per level. When finality stalled on Paseo
+    the BABE epoch tree grew by one level per epoch, and the clone that BABE takes at every
+    epoch boundary overflowed the 2 MiB worker stack, crashing the node (#12062).
+
+    Solution: the roots and the children of a node are now held in a private `Nodes` wrapper,
+    which implements these operations over the pre-order listing of the nodes with a
+    heap-allocated stack. Their stack usage no longer depends on the depth of the tree. The
+    encoding and the public API are unchanged.
+
+crates:
+- name: fork-tree
+  bump: patch
