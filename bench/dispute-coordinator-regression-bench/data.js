@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794611031333,
+  "lastUpdate": 1794751815391,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29b07cd379f927f0194f721148c403f63d0674d3",
-          "message": "Refactor asset-conversion tx payment fee correction (#11823)\n\nFixes a bug where the `AssetTxFeePaid` event reported an incorrect\n`actual_fee` when paying in the native asset via the asset-conversion\nextension (`asset_id == A::get()`). The returned fee amount was\ndouble-subtracting the refund, under-reporting the fee in the event.\n\nRefactors `SwapAssetAdapter::correct_and_deposit_fee` in\n`pallet-asset-conversion-tx-payment` to handle all edge cases gracefully\nduring post-dispatch fee correction. Adds test coverage for fee\ncorrection paths including account killed, account blocked, pool\ndrained, and native account with no free balance scenarios.",
-          "timestamp": "2026-04-29T00:30:45Z",
-          "tree_id": "ecb619753a8991b7d22a84bffa4e1f9eebde53aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/29b07cd379f927f0194f721148c403f63d0674d3"
-        },
-        "date": 1777427705673,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009458537709999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026980383599999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009861789780000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009826573669999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2d02bad0e93bc220f9865fc486082c4b331ea71",
+          "message": "statement-store: send a statement that has no routing target on a detour (#13828)\n\n# Description\n\nOn the v2 DHT path a node no longer loses a statement that it cannot\nroute. When the node is no replica for the statement's topics and has no\nconnected peer closer to them, it sends the statement on a detour, to\nits farthest connected full peer that did not send it. While no peer can\ntake the statement, it stays held in the store, and the initial sync of\nthe next routing target delivers it. The hold ends when the statement\nexpires or the node becomes a replica for it.\n\nBefore this change the node dropped such a statement and banned its\nhash, so the statement never reached its subscribers. One node restart\nwas enough to cause it. While the only peer closer to a topic was down,\nthe node lost every statement for that topic that arrived in that time.\nTwo test runs on an 8-node network lost 5 of 2,372 statements this way.\n\nOne loss window remains: a statement on a detour is lost when the detour\npeer disconnects or replays its filter before the send goes out.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13515,\nindependent of https://github.com/paritytech/polkadot-sdk/pull/13826.\n\n## Testing\n\nThe mixed soak ran in CI on the branch with 40 nodes, 4 of them with the\nDHT path off, for 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43384413283.\nThis shape lost every statement through `soak-15` in two of three runs\nof the issue. Here `soak-15` sent 900 statements on a detour, and the\nrun delivered 14,050 of 14,050 ring statements and 40 of 40 probes, with\nno statement errors in the node logs.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-15T12:34:07Z",
+          "tree_id": "a53cb03481586769d5929160a1b20549032a934b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2d02bad0e93bc220f9865fc486082c4b331ea71"
+        },
+        "date": 1794751778444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009422514619999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009697740550000009,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00256939789,
             "unit": "seconds"
           }
         ]
