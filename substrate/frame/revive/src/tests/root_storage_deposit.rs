@@ -95,6 +95,10 @@ fn write_then_clear(from: u64, n: u64) -> Vec<u8> {
 	RootStorage::writeThenClearCall { from, n }.abi_encode()
 }
 
+fn destroy(beneficiary: H160) -> Vec<u8> {
+	RootStorage::destroyCall { beneficiary: beneficiary.0.into() }.abi_encode()
+}
+
 fn root<T: Runtime>() -> OriginFor<T> {
 	RawOrigin::Root.into()
 }
@@ -357,6 +361,50 @@ fn root_created_child_records_zero_base<T: Runtime>(fixture_type: FixtureType) {
 	assert_eq!(alice_clear.snap.held, 45);
 }
 
+/// Termination releases what is held, not what is recorded. After Root clears storage ALICE
+/// paid for, the contract records only its base deposit while the hold still covers her
+/// stranded deposit, and the terminating origin receives all of it.
+///
+/// A record below the hold stays recoverable only because `refund_all` reads the hold and
+/// never `ContractInfo`.
+fn termination_releases_the_hold_not_the_record<T: Runtime>(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
+	T::Currency::set_balance(&ALICE, 100_000_000_000);
+	T::Currency::set_balance(&BOB, 100_000_000_000);
+
+	let Contract { addr, .. } = instantiate::<T>(&ALICE, code);
+	let base = snap::<T>(&addr).base_deposit;
+
+	let alice_write = call::<T>(Some(&ALICE), addr, write(0, 50));
+	assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(FIFTY_SLOTS));
+
+	let root_clear = call::<T>(None, addr, clear(0, 50));
+	assert_eq!(root_clear.snap.recorded, base);
+	assert_eq!(root_clear.snap.held, base + FIFTY_SLOTS);
+
+	// BOB terminates and CHARLIE takes the free balance, so BOB's delta is the released
+	// deposit alone. The contract is gone afterwards, so this cannot go through `call`.
+	let charlie = <T as Config>::AddressMapper::to_address(&CHARLIE);
+	let account = <T as Config>::AddressMapper::to_account_id(&addr);
+	let before = T::Currency::balance(&BOB);
+	let res = BareCallBuilder::<T>::bare_call(signed::<T>(&BOB), addr)
+		.data(destroy(charlie))
+		.transaction_limits(TransactionLimits::WeightAndDeposit {
+			weight_limit: WEIGHT_LIMIT,
+			deposit_limit: crate::test_utils::deposit_limit::<T>(),
+		})
+		.build();
+	assert!(!res.result.expect("terminate succeeds").did_revert());
+
+	let released = T::Currency::balance(&BOB) as i128 - before as i128;
+	assert_eq!(released, (base + FIFTY_SLOTS) as i128);
+	assert!(AccountInfo::<T>::load_contract(&addr).is_none(), "contract is gone");
+	assert_eq!(
+		<T::Deposit as Deposit<T>>::total_on_hold(HoldReason::StorageDepositReserve, &account),
+		0,
+	);
+}
+
 /// A Root round trip is neutral only while a pool is at or below the list price of the units it
 /// covers. After the price per byte drops, ALICE's byte pool sits above that bound, so Root
 /// writing and clearing its own slots halves it and strands what ALICE paid. The item price does
@@ -425,6 +473,50 @@ fn root_clear_after_price_decrease_stays_pro_rata<T: Runtime>(
 	assert_eq!(alice_clear.snap.held, base + 130);
 
 	(contract, alice_clear.snap.held)
+}
+
+/// Root terminates a contract whose record is below its hold. Root has no account, so
+/// `termination_origin` pays the released deposit to the pallet account. That payment includes
+/// the deposit ALICE paid and never got back.
+fn root_termination_pays_the_pallet_account<T: Runtime>(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("RootStorage", fixture_type).unwrap();
+	T::Currency::set_balance(&ALICE, 100_000_000_000);
+
+	let Contract { addr, .. } = instantiate::<T>(&ALICE, code);
+	let base = snap::<T>(&addr).base_deposit;
+
+	let alice_write = call::<T>(Some(&ALICE), addr, write(0, 50));
+	assert_eq!(alice_write.storage_deposit, StorageDeposit::Charge(FIFTY_SLOTS));
+
+	// Root clears what ALICE paid for. The record drops to the base and the hold does not move.
+	let root_clear = call::<T>(None, addr, clear(0, 50));
+	assert_eq!(root_clear.storage_deposit, StorageDeposit::Charge(0));
+	assert_eq!(root_clear.snap.recorded, base);
+	assert_eq!(root_clear.snap.held, base + FIFTY_SLOTS);
+
+	// CHARLIE takes the free balance, so the pallet account's delta is the released deposit
+	// alone. The contract is gone afterwards, so this cannot go through `call`.
+	let charlie = <T as Config>::AddressMapper::to_address(&CHARLIE);
+	let account = <T as Config>::AddressMapper::to_account_id(&addr);
+	let pallet_account = crate::Pallet::<T>::account_id();
+	let before = T::Currency::balance(&pallet_account);
+	let res = BareCallBuilder::<T>::bare_call(root::<T>(), addr)
+		.data(destroy(charlie))
+		.transaction_limits(TransactionLimits::WeightAndDeposit {
+			weight_limit: WEIGHT_LIMIT,
+			deposit_limit: crate::test_utils::deposit_limit::<T>(),
+		})
+		.build();
+	assert!(!res.result.expect("terminate succeeds").did_revert());
+	assert_eq!(res.storage_deposit, StorageDeposit::Charge(0));
+
+	let released = T::Currency::balance(&pallet_account) as i128 - before as i128;
+	assert_eq!(released, (base + FIFTY_SLOTS) as i128);
+	assert!(AccountInfo::<T>::load_contract(&addr).is_none(), "contract is gone");
+	assert_eq!(
+		<T::Deposit as Deposit<T>>::total_on_hold(HoldReason::StorageDepositReserve, &account),
+		0,
+	);
 }
 
 mod pgas {
@@ -515,6 +607,24 @@ mod pgas {
 	fn root_limit_is_enforced(fixture_type: FixtureType) {
 		ExtBuilder::default().build().execute_with(|| {
 			super::root_limit_is_enforced::<Test>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+	fn termination_releases_the_hold_not_the_record(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			super::termination_releases_the_hold_not_the_record::<Test>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+	fn root_termination_pays_the_pallet_account(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			super::root_termination_pays_the_pallet_account::<Test>(fixture_type);
 		});
 	}
 
@@ -663,6 +773,24 @@ mod native {
 	fn root_created_child_records_zero_base(fixture_type: FixtureType) {
 		new_test_ext().execute_with(|| {
 			super::root_created_child_records_zero_base::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+	fn termination_releases_the_hold_not_the_record(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::termination_releases_the_hold_not_the_record::<TestNative>(fixture_type);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
+	fn root_termination_pays_the_pallet_account(fixture_type: FixtureType) {
+		new_test_ext().execute_with(|| {
+			super::root_termination_pays_the_pallet_account::<TestNative>(fixture_type);
 		});
 	}
 
