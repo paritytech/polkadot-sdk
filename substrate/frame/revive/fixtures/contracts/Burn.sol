@@ -4,24 +4,14 @@ pragma solidity ^0.8.30;
 import "@revive/ISystem.sol";
 
 contract Burn {
-	/// Written before and after a burn, so that the burn happens between two storage writes.
-	uint256 public sold = 1;
-
-	/// Burn `amount` of the value sent along with the deployment.
+	/// Burn `amount` while being deployed.
 	constructor(uint256 amount) payable {
 		if (amount != 0) {
 			ISystem(SYSTEM_ADDR).burn(amount);
 		}
 	}
 
-	/// Burn exactly the value sent along with this call.
-	function buy() external payable {
-		sold += 1;
-		ISystem(SYSTEM_ADDR).burn(msg.value);
-		sold += 1;
-	}
-
-	function burn(uint256 amount) external {
+	function burn(uint256 amount) external payable {
 		ISystem(SYSTEM_ADDR).burn(amount);
 	}
 
@@ -39,19 +29,6 @@ contract Burn {
 
 	function burnAll() external {
 		ISystem(SYSTEM_ADDR).burn(address(this).balance);
-	}
-
-	/// Call `burn` of `other`, which burns from `other`.
-	function burnVia(address other, uint256 amount) external {
-		Burn(other).burn(amount);
-	}
-
-	/// Static call `burn` of this contract. The nested frame makes a regular call to the
-	/// pre-compile while being read-only.
-	function tryBurnNestedStatic(
-		uint256 amount
-	) external view returns (bool success, bytes memory output) {
-		(success, output) = address(this).staticcall(abi.encodeCall(this.burn, (amount)));
 	}
 
 	function tryBurn(uint256 amount) external returns (bool success, bytes memory output) {

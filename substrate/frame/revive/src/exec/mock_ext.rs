@@ -17,8 +17,8 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, BalanceWithDust, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue,
+	ImmutableData, ReentrancyProtection,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -229,6 +229,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
 		panic!("MockExt::terminate_caller")
+	}
+
+	fn burn_caller(&mut self, _value: BalanceWithDust<BalanceOf<T>>) -> Result<(), DispatchError> {
+		panic!("MockExt::burn_caller")
 	}
 
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {

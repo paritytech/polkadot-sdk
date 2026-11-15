@@ -1696,7 +1696,7 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert!(!result.unwrap().did_revert());
 		assert_eq!(Pallet::<T>::evm_balance(&burner.address), balance_before - evm_amount);
 		Ok(())
 	}

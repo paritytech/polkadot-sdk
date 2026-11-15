@@ -89,8 +89,8 @@ interface ISystem {
 	/// That unit has to be spendable as well.
 	/// This will revert if:
 	/// - the spendable balance of the caller is lower than `amount`
-	/// - `amount` does not fit the balance type of the chain
-	/// - value is sent along with the call
+	/// - `amount` is larger than the balance type of the chain can hold
+	/// - `msg.value` is not zero
 	/// - called from static context
 	/// - called from delegate context
 	function burn(uint256 amount) external;
