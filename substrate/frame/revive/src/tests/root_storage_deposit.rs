@@ -324,9 +324,9 @@ fn root_created_child_records_zero_base<T: Runtime>(fixture_type: FixtureType) {
 		.data(RootStorageDeployer::deployCall { n: 2 }.abi_encode())
 		.build();
 	assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
-	// Nothing is settled, but the two slots the constructor writes are metered at the list
-	// price. The child's base deposit and the code it runs are not: Root pays no fixed cost
-	// for creating a contract, so neither reaches the deposit limit.
+	// Nothing is settled, but the two slots `deploy` writes into the child are metered at the
+	// list price. The child's base deposit and the code it runs are not: Root pays no fixed
+	// cost for creating a contract, so neither reaches the deposit limit.
 	assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(TWO_SLOTS));
 	let output = result.result.unwrap();
 	assert!(!output.did_revert());
