@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794610973358,
+  "lastUpdate": 1794751755679,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11fc5f040aedeec686e92c301eee75714f9f09a6",
-          "message": "pallet_revive:  Fix dispatch_as_fallback_account (#11839)\n\nWithout this fix we stripped any call filters existing on the origin.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T06:30:47Z",
-          "tree_id": "6934922e1dd0b72620fe1d5f0a068419ac491bd7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/11fc5f040aedeec686e92c301eee75714f9f09a6"
-        },
-        "date": 1777449257619,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.10999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03925491366599997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08042943840199984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08912504084399993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2d02bad0e93bc220f9865fc486082c4b331ea71",
+          "message": "statement-store: send a statement that has no routing target on a detour (#13828)\n\n# Description\n\nOn the v2 DHT path a node no longer loses a statement that it cannot\nroute. When the node is no replica for the statement's topics and has no\nconnected peer closer to them, it sends the statement on a detour, to\nits farthest connected full peer that did not send it. While no peer can\ntake the statement, it stays held in the store, and the initial sync of\nthe next routing target delivers it. The hold ends when the statement\nexpires or the node becomes a replica for it.\n\nBefore this change the node dropped such a statement and banned its\nhash, so the statement never reached its subscribers. One node restart\nwas enough to cause it. While the only peer closer to a topic was down,\nthe node lost every statement for that topic that arrived in that time.\nTwo test runs on an 8-node network lost 5 of 2,372 statements this way.\n\nOne loss window remains: a statement on a detour is lost when the detour\npeer disconnects or replays its filter before the send goes out.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13515,\nindependent of https://github.com/paritytech/polkadot-sdk/pull/13826.\n\n## Testing\n\nThe mixed soak ran in CI on the branch with 40 nodes, 4 of them with the\nDHT path off, for 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43384413283.\nThis shape lost every statement through `soak-15` in two of three runs\nof the issue. Here `soak-15` sent 900 statements on a detour, and the\nrun delivered 14,050 of 14,050 ring statements and 40 of 40 probes, with\nno statement errors in the node logs.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-15T12:34:07Z",
+          "tree_id": "a53cb03481586769d5929160a1b20549032a934b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2d02bad0e93bc220f9865fc486082c4b331ea71"
+        },
+        "date": 1794751719258,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12600000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08670079761199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03848131289400001,
             "unit": "seconds"
           }
         ]
