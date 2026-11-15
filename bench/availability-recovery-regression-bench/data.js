@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794610797946,
+  "lastUpdate": 1794751576858,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d323e41aeb295d7528b0d89e277359380ed5e8eb",
-          "message": "UncheckedExtrinsic: Improve memory usage (#11908)\n\nImproves the memory usage of the unchecked extrinsic by pre-allocating\nsome buffers and preventing e.g. printing huge calls.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-30T12:49:34Z",
-          "tree_id": "f3c456da97206c9ef25d5b8bed0845e01a849b0e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d323e41aeb295d7528b0d89e277359380ed5e8eb"
-        },
-        "date": 1777558547924,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13096233293333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.143514551333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.679197069366666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2d02bad0e93bc220f9865fc486082c4b331ea71",
+          "message": "statement-store: send a statement that has no routing target on a detour (#13828)\n\n# Description\n\nOn the v2 DHT path a node no longer loses a statement that it cannot\nroute. When the node is no replica for the statement's topics and has no\nconnected peer closer to them, it sends the statement on a detour, to\nits farthest connected full peer that did not send it. While no peer can\ntake the statement, it stays held in the store, and the initial sync of\nthe next routing target delivers it. The hold ends when the statement\nexpires or the node becomes a replica for it.\n\nBefore this change the node dropped such a statement and banned its\nhash, so the statement never reached its subscribers. One node restart\nwas enough to cause it. While the only peer closer to a topic was down,\nthe node lost every statement for that topic that arrived in that time.\nTwo test runs on an 8-node network lost 5 of 2,372 statements this way.\n\nOne loss window remains: a statement on a detour is lost when the detour\npeer disconnects or replays its filter before the send goes out.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13515,\nindependent of https://github.com/paritytech/polkadot-sdk/pull/13826.\n\n## Testing\n\nThe mixed soak ran in CI on the branch with 40 nodes, 4 of them with the\nDHT path off, for 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43384413283.\nThis shape lost every statement through `soak-15` in two of three runs\nof the issue. Here `soak-15` sent 900 statements on a detour, and the\nrun delivered 14,050 of 14,050 ring statements and 40 of 40 probes, with\nno statement errors in the node logs.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-15T12:34:07Z",
+          "tree_id": "a53cb03481586769d5929160a1b20549032a934b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2d02bad0e93bc220f9865fc486082c4b331ea71"
+        },
+        "date": 1794751539580,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.85003447606667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1282020895666667,
             "unit": "seconds"
           }
         ]
