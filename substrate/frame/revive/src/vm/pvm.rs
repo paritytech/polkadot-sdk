@@ -35,6 +35,7 @@ use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
 #[cfg(doc)]
 pub use env::SyscallDoc;
+use environmental::environmental;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
@@ -79,12 +80,13 @@ pub trait Memory<T: Config> {
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
 
-	/// This will reset all compilation artifacts of the currently executing instance.
+	/// Runs `f` with this instance registered as the cache to reset when a PVM frame starts.
 	///
-	/// This is used before we call into a new contract to free up some memory. Doing
-	/// so we make sure that we only ever have to hold one compilation cache at a time
-	/// independtently of of our call stack depth.
-	fn reset_interpreter_cache(&mut self);
+	/// The contract's calls, delegate calls and instantiations run inside it. A PVM frame that
+	/// starts while `f` runs resets the interpreter cache of the innermost registered instance
+	/// (see [`reset_caller_cache`]), so only one PVM frame of a call stack holds a cache. Memory
+	/// that is not a PVM instance registers nothing.
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R;
 
 	/// Read designated chunk from the sandbox memory.
 	///
@@ -178,7 +180,9 @@ impl<T: Config> Memory<T> for [u8] {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
 
-	fn reset_interpreter_cache(&mut self) {}
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R {
+		f()
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -200,9 +204,22 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
-	fn reset_interpreter_cache(&mut self) {
-		self.reset_interpreter_cache();
+	fn with_caller_cache<R>(&mut self, f: impl FnOnce() -> R) -> R {
+		caller_cache::using(self, f)
 	}
+}
+
+environmental!(caller_cache: polkavm::RawInstance);
+
+/// Resets the interpreter cache of the innermost PVM frame that waits on a sub-call.
+///
+/// The call stack calls it when a PVM frame starts. The frames that wait on a sub-call are
+/// the ones inside [`Memory::with_caller_cache`]; EVM frames register no cache. Does nothing
+/// when no PVM frame waits on a sub-call. The interpreter compiles the code of the reset frame
+/// again, and charges for it, when the frame resumes. Fails only when the module has gas
+/// metering but no compilation cost, which `ContractBlob::prepare_call` always sets.
+pub fn reset_caller_cache() -> Result<(), polkavm::Error> {
+	caller_cache::with(|instance| instance.reset_interpreter_cache()).unwrap_or(Ok(()))
 }
 
 impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
@@ -691,8 +708,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
-		memory.reset_interpreter_cache();
-
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
@@ -715,13 +730,15 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				memory.with_caller_cache(|| {
+					self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				})
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(resources, callee, input_data)
+				memory.with_caller_cache(|| self.ext.delegate_call(resources, callee, input_data))
 			},
 		};
 
@@ -802,15 +819,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(salt)
 		};
 
-		memory.reset_interpreter_cache();
-
-		match self.ext.instantiate(
-			&CallResources::from_weight_and_deposit(weight, deposit_limit),
-			Code::Existing(code_hash),
-			value,
-			input_data,
-			salt.as_ref(),
-		) {
+		let instantiate_outcome = memory.with_caller_cache(|| {
+			self.ext.instantiate(
+				&CallResources::from_weight_and_deposit(weight, deposit_limit),
+				Code::Existing(code_hash),
+				value,
+				input_data,
+				salt.as_ref(),
+			)
+		});
+		match instantiate_outcome {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
 					self.write_fixed_sandbox_output(
@@ -879,34 +897,42 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		sync_result?;
 		exec_result
 	}
+}
 
-	/// The guest memory address at which the aux data is located.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
+/// Access to the instance for the benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+impl<'a, E: Ext> PreparedCall<'a, E> {
+	/// The memory map of the contract.
+	pub fn memory_map(&self) -> &polkavm::MemoryMap {
+		self.instance.module().memory_map()
 	}
 
-	/// Copies `data` to the aux data at address `offset`.
-	///
-	/// It sets `a0` to the beginning of data inside the aux data.
-	/// It sets `a1` to the value passed.
-	///
-	/// Only used in benchmarking so far.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn setup_aux_data(
+	/// Writes `data` to the contract's memory at `address`.
+	pub fn write_memory(
 		&mut self,
+		address: u32,
 		data: &[u8],
-		offset: u32,
-		a1: u64,
 	) -> frame_support::dispatch::DispatchResult {
-		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
-			Error::<E::T>::CodeRejected
-		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
-		Ok(())
+		self.instance.write_memory(address, data).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to write memory: {err:?}");
+			Error::<E::T>::CodeRejected.into()
+		})
+	}
+
+	/// Sets the register `reg` to `value`.
+	pub fn set_reg(&mut self, reg: polkavm::Reg, value: u64) {
+		self.instance.set_reg(reg, value);
+	}
+
+	/// Drops the compiled code of the contract, as a PVM frame started by its sub-call does.
+	///
+	/// Fails with `ExecutionFailed` only when the module has gas metering but no compilation
+	/// cost, which `ContractBlob::prepare_call` always sets.
+	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		self.instance.reset_interpreter_cache().map_err(|err| {
+			log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+			Error::<E::T>::ExecutionFailed.into()
+		})
 	}
 }
 
@@ -934,7 +960,9 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn reset_interpreter_cache(&mut self) {}
+		fn with_caller_cache<R>(&mut self, _f: impl FnOnce() -> R) -> R {
+			unimplemented!()
+		}
 	}
 
 	#[test]
