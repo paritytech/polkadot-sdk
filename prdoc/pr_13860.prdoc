@@ -1,0 +1,12 @@
+title: Remove sp-std from election-provider-multi-block and election-provider-support
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the `sp-std` dependency from `pallet-election-provider-multi-block` and
+    `frame-election-provider-support` in favour of `core` and `alloc`. The public API of these
+    crates is unchanged.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
