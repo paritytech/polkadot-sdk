@@ -41,11 +41,9 @@ doc:
     the pool smaller than it was before. The difference stays held on the contract without being
     recorded.
 
-    Deposit that leaves the record without being paid out stays held on the contract, and Root
-    clearing storage a signed origin paid for strands it the same way. The record drops and the
-    hold does not. Nothing releases it afterwards. A contract is deleted only by the call stack
-    that created it, so one that has outlived that stack cannot be terminated, and its hold
-    stays on it.
+    Root clearing storage a signed origin paid for strands deposit the same way, whenever the
+    pool sits above that floor. Deposit that leaves the record without being paid out stays on
+    hold until the contract is terminated.
 - audience: Runtime Dev
   description: |-
     There is no `Config` change and no storage migration. `ContractInfo` keeps its layout and
@@ -54,8 +52,7 @@ doc:
     This release does not repair contracts that already record more deposit than they hold. A
     chain that has executed Root-originated storage writes keeps those records. The pallet
     bounds a refund from such a contract by the deposit it holds above its base deposit. A
-    depositor removing storage is credited less than the record implies, rather than drawing on
-    deposit somebody else put down.
+    depositor removing storage is credited less than the record implies.
 crates:
 - name: pallet-revive
   bump: minor
