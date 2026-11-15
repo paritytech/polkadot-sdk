@@ -244,6 +244,20 @@ impl PeersTopology {
 		targets
 	}
 
+	/// The connected peers, farthest from the local node first.
+	pub fn connected_farthest_first(&self) -> Vec<PeerId> {
+		// The peer farthest from a key is the one closest to the key's complement.
+		let opposite = self.local_key.map(|byte| !byte);
+		self.connected.closest(opposite).map(|(peer, _)| peer).collect()
+	}
+
+	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
+	pub fn is_replica_for(&self, topic: Topic) -> bool {
+		let local = (self.local_key, self.local_peer);
+		let k = self.config.replication_factor.get();
+		is_peer_topic_affine(&self.discovered_index, local, local, k, topic)
+	}
+
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
@@ -659,6 +673,21 @@ mod tests {
 		};
 
 		assert_eq!(topology.routing_targets(topic), expected);
+	}
+
+	#[test]
+	fn connected_peers_are_listed_farthest_from_the_local_node_first() {
+		let local = peer(1);
+		let mut topology = topology(1);
+		let mut peers: Vec<PeerId> = (2..=6).map(peer).collect();
+		for peer in &peers {
+			topology.on_substream_opened(*peer);
+		}
+
+		let local_key = Topic(peer_key(&local));
+		peers.sort_by(|a, b| cmp_distance_then_peer(local_key, b, a));
+
+		assert_eq!(topology.connected_farthest_first(), peers);
 	}
 
 	#[test]
