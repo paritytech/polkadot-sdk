@@ -196,9 +196,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
 use crate::verifier::{AsynchronousVerifier, Verifier};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -222,7 +225,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating},
 	SaturatedConversion,
 };
-use sp_std::{borrow::ToOwned, boxed::Box, prelude::*};
 
 #[cfg(test)]
 mod mock;
@@ -257,7 +259,7 @@ pub use types::*;
 pub use weights::traits::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
-pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
+pub struct InitiateEmergencyPhase<T>(core::marker::PhantomData<T>);
 impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
@@ -303,7 +305,7 @@ impl<T: Config> InstantElectionProvider for InitiateEmergencyPhase<T> {
 /// A fallback implementation that silently continues into the next page.
 ///
 /// This is suitable for onchain usage.
-pub struct Continue<T>(sp_std::marker::PhantomData<T>);
+pub struct Continue<T>(core::marker::PhantomData<T>);
 impl<T: Config> ElectionProvider for Continue<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
@@ -353,11 +355,11 @@ impl<T: Config> InstantElectionProvider for Continue<T> {
 /// * [`ProceedRegardlessOf`]
 /// * [`RevertToSignedIfNotQueuedOf`]
 pub struct IfSolutionQueuedElse<T, Queued, NotQueued>(
-	sp_std::marker::PhantomData<(T, Queued, NotQueued)>,
+	core::marker::PhantomData<(T, Queued, NotQueued)>,
 );
 
 /// A `Get` impl for `Phase::Done`
-pub struct GetDone<T>(sp_std::marker::PhantomData<T>);
+pub struct GetDone<T>(core::marker::PhantomData<T>);
 impl<T: Config> Get<Phase<T>> for GetDone<T> {
 	fn get() -> Phase<T> {
 		Phase::Done
@@ -365,7 +367,7 @@ impl<T: Config> Get<Phase<T>> for GetDone<T> {
 }
 
 /// A `Get` impl for `Phase::Signed(T::SignedPhase::get())`
-pub struct GetSigned<T>(sp_std::marker::PhantomData<T>);
+pub struct GetSigned<T>(core::marker::PhantomData<T>);
 impl<T: Config> Get<Phase<T>> for GetSigned<T> {
 	fn get() -> Phase<T> {
 		Phase::Signed(T::SignedPhase::get().saturating_sub(1u32.into()))
@@ -779,7 +781,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use sp_std::mem::size_of;
+			use core::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow).
 			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<usize>());
@@ -950,7 +952,7 @@ pub mod pallet {
 	///     `lsp` based on the inner value.
 	///   - If `Phase` IS `Off`, then, no snapshot must exist.
 	///   - In all other phases, the snapshot must FULLY exist.
-	pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
+	pub(crate) struct Snapshot<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Snapshot<T> {
 		// ----------- mutable methods
 		pub(crate) fn set_desired_targets(d: u32) {
@@ -1419,7 +1421,7 @@ impl<T: Config> Pallet<T> {
 		if from == to {
 			return;
 		}
-		use sp_std::mem::discriminant;
+		use core::mem::discriminant;
 		if discriminant(&from) != discriminant(&to) {
 			log!(debug, "transitioning phase from {:?} to {:?}", from, to);
 			Self::deposit_event(Event::PhaseTransitioned { from, to });
@@ -1822,8 +1824,8 @@ where
 	pub(crate) fn submit_full_solution(
 		PagedRawSolution { score, solution_pages, .. }: PagedRawSolution<T::MinerConfig>,
 	) -> DispatchResultWithPostInfo {
+		use alloc::boxed::Box;
 		use frame_system::RawOrigin;
-		use sp_std::boxed::Box;
 		use types::Pagify;
 
 		// register alice

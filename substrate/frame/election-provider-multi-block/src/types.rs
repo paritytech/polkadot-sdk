@@ -36,7 +36,9 @@
 //! to manage the election process and its various phases.
 
 use crate::{unsigned::miner::MinerConfig, verifier};
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_election_provider_support::ElectionProvider;
 pub use frame_election_provider_support::{NposSolution, PageIndex};
 use frame_support::{
@@ -51,7 +53,6 @@ use sp_runtime::{
 	traits::{CheckedSub, One, Zero},
 	SaturatedConversion, Saturating,
 };
-use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
@@ -174,7 +175,7 @@ impl<T: Default + Clone + Debug> PadSolutionPages for Vec<T> {
 
 		// we basically need to prepend the list with this many items.
 		let empty_slots = desired_pages_usize.saturating_sub(self.len());
-		sp_std::iter::repeat(Default::default())
+		core::iter::repeat(Default::default())
 			.take(empty_slots)
 			.chain(self.into_iter())
 			.collect::<Vec<_>>()
@@ -193,7 +194,7 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 
 		// we basically need to prepend the list with this many items.
 		let empty_slots = desired_pages_usize.saturating_sub(self.len());
-		let self_as_vec = sp_std::iter::repeat(Default::default())
+		let self_as_vec = core::iter::repeat(Default::default())
 			.take(empty_slots)
 			.chain(self.into_iter())
 			.collect::<Vec<_>>();
@@ -214,7 +215,7 @@ pub type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapsh
 pub type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
 
 /// Maximum number of items that [`AllVoterPagesOf`] can contain, when flattened.
-pub struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct MaxFlattenedVoters<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 	fn get() -> u32 {
 		T::VoterSnapshotPerBlock::get().saturating_mul(T::Pages::get())

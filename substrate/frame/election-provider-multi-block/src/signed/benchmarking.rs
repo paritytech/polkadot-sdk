@@ -21,6 +21,7 @@ use crate::{
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
 };
+use alloc::boxed::Box;
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -30,7 +31,6 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::{One, Saturating};
-use sp_std::boxed::Box;
 
 #[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
 mod benchmarks {
@@ -180,7 +180,7 @@ mod benchmarks {
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
 
 		// worst case: an invulnerable is also refunded their tx-fee upon clearing.
-		Invulnerables::<T>::put(BoundedVec::truncate_from(sp_std::vec![alice.clone()]));
+		Invulnerables::<T>::put(BoundedVec::truncate_from(alloc::vec![alice.clone()]));
 
 		// register alice
 		let score = ElectionScore::default();
