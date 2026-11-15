@@ -1,0 +1,12 @@
+title: 'fix(state-trie-migration-rpc): reject wrong-length child roots without panicking'
+doc:
+- audience: Node Dev
+  description: |-
+    `migration_status` treated values under child-storage-prefixed keys as child trie root hashes and copied them into an `H::Out` buffer with `copy_from_slice`. That call does no length check and panics when the stored value is not exactly the hasher output length (e.g. 32 bytes for Blake2b256).
+    The RPC path loads state with `TrieCacheContext::Untrusted`, so adversarial or corrupted chain state with a wrong-length value under a child-storage key could crash the node instead of returning an RPC error.
+
+    A length check against `H::LENGTH` now runs before the copy. Mismatched roots return `Err`, which the RPC handler maps to a normal error response.
+
+crates:
+- name: substrate-state-trie-migration-rpc
+  bump: patch
