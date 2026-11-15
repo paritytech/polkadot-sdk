@@ -171,8 +171,9 @@ fetched from the store, filtered and encoded up to the maximum notification size
 <h3 id="tracking-received-statements"><a class="doc-anchor" href="#tracking-received-statements">§</a>Tracking received statements</h3>
 <p>There is no per-peer record of delivered statements. A statement is propagated once, on the
 tick after its import: the propagation pass drains the store’s recent set, so no later pass
-can pick it up again. The only duplicates worth preventing are statements sent back to the
-peers they came from.</p>
+can pick it up again. A statement with no routing target is the exception: it takes a detour
+through the farthest full peer, or stays held until a routing target syncs it. The only
+duplicates worth preventing are statements sent back to the peers they came from.</p>
 <p>While a statement waits for validation, the peers it came from are recorded in
 <code>pending_statements_peers</code>. On import they move to <code>recently_received_statements</code>, and a
 peer that resends the statement before its tick is added there too. Propagation and
