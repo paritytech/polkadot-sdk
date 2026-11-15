@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794610855726,
+  "lastUpdate": 1794751636790,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41dd688074605dcc0e104f2250473324ab59ec3",
-          "message": "pallet-psm: switch Westend Asset Hub to Location AssetId backed by LocalAndForeignAssets (#11921)\n\nOn Asset Hub Westend, `pallet-psm` is switched from `u32` (trust-backed\nasset id) to `xcm::v5::Location` as its `AssetId`, and from `Assets` to\n`LocalAndForeignAssets` as its `Fungibles`. PSM can now mint and redeem\nagainst both trust-backed and foreign-registered external stablecoins,\naddressed uniformly by `Location`.\n\nStorage migration: every `AssetId`-keyed PSM storage item is encoded\nunder the old `u32` key. The runtime wipes the existing PSM storage with\n`frame_support::migrations::RemovePallet` and re-seeds the pallet from\n`PsmInitialConfig` via `InitializePsm`. USDT (trust-backed asset `1984`)\nis reseeded under its `Location` representation as the first external\nasset.\n\n`pallet-psm`'s `BenchmarkHelper` trait gains a `get_asset_id(index:\nu32)` method so benchmark scenarios can derive a runtime-specific\n`AssetId` (e.g. a `Location`) from a `u32` index. Existing impls need to\nadd this method.",
-          "timestamp": "2026-04-30T09:51:00Z",
-          "tree_id": "eb4a04010530c93b8ba1d6a85bd134c3e8c49815",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d41dd688074605dcc0e104f2250473324ab59ec3"
-        },
-        "date": 1777548025526,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006885127146666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009960149866666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02411989636,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14612200474666673,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14545025265999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2d02bad0e93bc220f9865fc486082c4b331ea71",
+          "message": "statement-store: send a statement that has no routing target on a detour (#13828)\n\n# Description\n\nOn the v2 DHT path a node no longer loses a statement that it cannot\nroute. When the node is no replica for the statement's topics and has no\nconnected peer closer to them, it sends the statement on a detour, to\nits farthest connected full peer that did not send it. While no peer can\ntake the statement, it stays held in the store, and the initial sync of\nthe next routing target delivers it. The hold ends when the statement\nexpires or the node becomes a replica for it.\n\nBefore this change the node dropped such a statement and banned its\nhash, so the statement never reached its subscribers. One node restart\nwas enough to cause it. While the only peer closer to a topic was down,\nthe node lost every statement for that topic that arrived in that time.\nTwo test runs on an 8-node network lost 5 of 2,372 statements this way.\n\nOne loss window remains: a statement on a detour is lost when the detour\npeer disconnects or replays its filter before the send goes out.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13515,\nindependent of https://github.com/paritytech/polkadot-sdk/pull/13826.\n\n## Testing\n\nThe mixed soak ran in CI on the branch with 40 nodes, 4 of them with the\nDHT path off, for 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43384413283.\nThis shape lost every statement through `soak-15` in two of three runs\nof the issue. Here `soak-15` sent 900 statements on a detour, and the\nrun delivered 14,050 of 14,050 ring statements and 40 of 40 probes, with\nno statement errors in the node logs.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-15T12:34:07Z",
+          "tree_id": "a53cb03481586769d5929160a1b20549032a934b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2d02bad0e93bc220f9865fc486082c4b331ea71"
+        },
+        "date": 1794751600266,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009674022986666652,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007999407599999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024166905193333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1420519975866667,
             "unit": "seconds"
           }
         ]
