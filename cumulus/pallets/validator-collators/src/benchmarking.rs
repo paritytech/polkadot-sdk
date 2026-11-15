@@ -137,7 +137,7 @@ mod benchmarks {
 	}
 
 	/// The first block of an author, which inserts its entry and bumps the counter, by an active
-	/// collator of this pallet, whose activity record is marked as authored.
+	/// collator of this pallet, whose activity entry is marked as authored.
 	#[benchmark]
 	fn note_author() -> Result<(), BenchmarkError> {
 		let author: T::AccountId = account("author", 0, 0);

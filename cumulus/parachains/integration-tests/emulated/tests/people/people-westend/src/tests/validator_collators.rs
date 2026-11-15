@@ -510,8 +510,8 @@ fn validator_without_blocks_is_dropped_on_people_at_the_next_set() {
 		(alice_slot + 1..).find(|slot| author_on_people(*slot) != bob).unwrap()
 	});
 	// WHEN Alice authors her block, where the set of era 2 arrives, and the next block is
-	// `min_missed_turns × n × MaxBlocksPerSlot` blocks, for `n` authorities, after the
-	// judgement from which Bob is idle
+	// `min_missed_turns × n × MaxBlocksPerSlot` blocks, for `n` authorities, after the draw
+	// from which Bob is idle
 	PeopleWestend::execute_with(|| {
 		type System = <PeopleWestend as Chain>::System;
 		let activity = |who| pallet_validator_collators::LastActivity::<Runtime>::get(who).unwrap();
@@ -526,7 +526,7 @@ fn validator_without_blocks_is_dropped_on_people_at_the_next_set() {
 			idle_since + rule.min_missed_turns * authorities * max_blocks_per_slot - 1,
 		);
 	});
-	// THEN the next block judges the period: only Bob is dropped, for one era
+	// THEN the next block draws again: only Bob is dropped, for one era
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(

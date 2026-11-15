@@ -17,7 +17,7 @@ doc:
     New storage items: `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
 
     `pallet_validator_collators::Config` changes:
-    - It now requires `pallet_session::Config` with `ValidatorId = AccountId`.
+    - It now requires `pallet_session::Config`.
     - New item `MaxBlocksPerSlot`: the most blocks the chain can build in one Aura slot. Asset
       Hub Westend and People Westend set it.
 crates:
@@ -30,6 +30,4 @@ crates:
 - name: pallet-validator-set-announcer
   bump: none
 - name: people-westend-integration-tests
-  bump: none
-- name: cumulus-zombienet-sdk-tests
   bump: none
