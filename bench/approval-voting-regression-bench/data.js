@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794610913747,
+  "lastUpdate": 1794751696608,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9af960b35810a3bcdaa220d69431533995dd88a7",
-          "message": "Fix overlay storage root cache bleed (#11918)\n\nCloses #11833\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-29T18:35:22Z",
-          "tree_id": "7f6bbd045bb81ee1f9ef615ce9945efea207a9fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9af960b35810a3bcdaa220d69431533995dd88a7"
-        },
-        "date": 1777492749334,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63625.48,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.435895175449975,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.754211016289971,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.477333463620003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7665432755700006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002293831,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005532699739999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002293831,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.76842643966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8224327736500014,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.356981706732959,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002641103,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002641103,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.84141550692,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.076303779289987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2d02bad0e93bc220f9865fc486082c4b331ea71",
+          "message": "statement-store: send a statement that has no routing target on a detour (#13828)\n\n# Description\n\nOn the v2 DHT path a node no longer loses a statement that it cannot\nroute. When the node is no replica for the statement's topics and has no\nconnected peer closer to them, it sends the statement on a detour, to\nits farthest connected full peer that did not send it. While no peer can\ntake the statement, it stays held in the store, and the initial sync of\nthe next routing target delivers it. The hold ends when the statement\nexpires or the node becomes a replica for it.\n\nBefore this change the node dropped such a statement and banned its\nhash, so the statement never reached its subscribers. One node restart\nwas enough to cause it. While the only peer closer to a topic was down,\nthe node lost every statement for that topic that arrived in that time.\nTwo test runs on an 8-node network lost 5 of 2,372 statements this way.\n\nOne loss window remains: a statement on a detour is lost when the detour\npeer disconnects or replays its filter before the send goes out.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13515,\nindependent of https://github.com/paritytech/polkadot-sdk/pull/13826.\n\n## Testing\n\nThe mixed soak ran in CI on the branch with 40 nodes, 4 of them with the\nDHT path off, for 900 seconds:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43384413283.\nThis shape lost every statement through `soak-15` in two of three runs\nof the issue. Here `soak-15` sent 900 statements on a detour, and the\nrun delivered 14,050 of 14,050 ring statements and 40 of 40 probes, with\nno statement errors in the node logs.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-15T12:34:07Z",
+          "tree_id": "a53cb03481586769d5929160a1b20549032a934b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2d02bad0e93bc220f9865fc486082c4b331ea71"
+        },
+        "date": 1794751659610,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63569.56000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.677660514063012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005424988890000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019809649999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7176263255300004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.733890464750001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023086989999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023086989999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.194153686989953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76468158149,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7242195201999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.378255560749994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019809649999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8700552453799585,
             "unit": "seconds"
           }
         ]
