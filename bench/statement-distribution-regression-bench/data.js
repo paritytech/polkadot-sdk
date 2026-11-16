@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794751755679,
+  "lastUpdate": 1794826773641,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "604a8e8c2f9b0df285eec01b307d0e9ddfc28575",
-          "message": "statement-store: reduce sync burst interval (#11892)\n\n... with a lot of light clients connected the sync interval impacts how\nfast a light client syncs and see the statements of interest, so let's\nreduce the period we check to 10 ms, this shouldn't be affecting other\nflows because the polling is already in a select biased at the end.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-04-29T08:55:48Z",
-          "tree_id": "e78237f2e0955ea3ba1411db5c1b924cf2ab5d4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/604a8e8c2f9b0df285eec01b307d0e9ddfc28575"
-        },
-        "date": 1777458003644,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.10599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08647327384599991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.039002813824000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03848131289400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a99e45f49a573d3528d941d090501b39ce274d1",
+          "message": "docs/spec-msg: Bootnode discovery for parachains on JAM (#12809)\n\nOn polkadot, parachain nodes find each other with DHT on bootnodes\nfeature (rfc-0008).\nOn JAM, each parachain publishes up to 8 bootnode addresses to its own\nKV store under `bootnodes/v1`.\n\n### Write \n\n1. Governance decides using `BootnodesOrigin` who can alter the\nbootnodes and calls `set_bootnodes` with addresses as UTF-8 text\n2. Pallet minimally validates every provided address \n3. Writes a SCALE encoded record:\n\n```rust\npub struct BootnodeRecord {\n    genesis: [u8; 32],\n    fork_id: ForkId,\n    addresses: BoundedVec<BoundedVec<u8, ConstU32<512>>, ConstU32<8>>,\n}\n```\n\n### Read\n\n1. Nodes subscribe to KV changes and reads the `BootnodeRecord`\n2. Spawn a runtime Kademlia instance on `/<genesis>/<fork_id>/kad` and\nseed the routing table with the addresses\n3. Track discovered peers in their own list (since they get evicted from\nthe routing table) to know where to send req-resp for offchain messages.\n\nThis PR adds speculative messaging on JAM needed features and backports.\n\nThis PR represents the implementation scope of SpecMSG for the parachain\nservice / JAM specific.\n- includes a minimal set of `Provides` and `Requires`\n- the settlement is done via a ring since that functionality is\nidentical for higher speculation tiers\n- an alternative would be an EnactmentProof, however that adds\ncomplexity for a race condition that is mitigated via ring sizing of 64\nentries (https://github.com/paritytech/polkadot-sdk/pull/13087 for more\ndetails)\n- bootnode address record needed for p2p fetching of messages\n\nNeeds Parachain Service context:\n- https://github.com/paritytech/polkadot-sdk/pull/11883\n\n\nPart of speculative messaging serires:\n- https://github.com/paritytech/polkadot-sdk/pull/13000 - Minimal PS\nrequirements with qnt testing\n- https://github.com/paritytech/polkadot-sdk/pull/13087 - Post MVP work\nfor higher speculation tiers\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-11-16T09:30:37Z",
+          "tree_id": "248e8d05d6c3b96b69d74ce6683ea45a6ff810e3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a99e45f49a573d3528d941d090501b39ce274d1"
+        },
+        "date": 1794826733684,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11800000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038562413671999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08399822968199995,
             "unit": "seconds"
           }
         ]
