@@ -228,6 +228,50 @@ impl<S: Get<u32>> From<QueuedRequest<S>> for ParaRequestV1 {
 	}
 }
 
+/// A report to the parachain.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
+pub struct Report {
+	pub para_id: ParaId,
+	pub message_id: u64,
+	pub kind: ReportKind,
+}
+
+/// Which [`MessageToParaV1`] response a [`Report`] becomes, with its outcome.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
+pub enum ReportKind {
+	Register(Outcome),
+	Cancel(Outcome),
+	Deregister(Outcome),
+	CodeUpgrade(Result<u32, FailureReason>),
+	CodeUpgradeScheduled,
+	SetHead(Outcome),
+}
+
+impl From<Report> for MessageToPara {
+	fn from(Report { para_id, message_id, kind }: Report) -> Self {
+		MessageToPara::V1(match kind {
+			ReportKind::Register(outcome) => {
+				MessageToParaV1::RegisterResponse { para_id, message_id, outcome }
+			},
+			ReportKind::Cancel(outcome) => {
+				MessageToParaV1::CancelResponse { para_id, message_id, outcome }
+			},
+			ReportKind::Deregister(outcome) => {
+				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome }
+			},
+			ReportKind::CodeUpgrade(outcome) => {
+				MessageToParaV1::CodeUpgradeResponse { para_id, message_id, outcome }
+			},
+			ReportKind::CodeUpgradeScheduled => {
+				MessageToParaV1::CodeUpgradeScheduled { para_id, message_id }
+			},
+			ReportKind::SetHead(outcome) => {
+				MessageToParaV1::SetHeadResponse { para_id, message_id, outcome }
+			},
+		})
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -852,20 +896,12 @@ pub mod pallet {
 
 		/// Tell the parachain how a registration ended.
 		fn report_registration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::RegisterResponse { para_id, message_id, outcome },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::Register(outcome) });
 		}
 
 		/// Tell the parachain what became of its cancellation.
 		fn report_cancellation(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CancelResponse { para_id, message_id, outcome },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::Cancel(outcome) });
 		}
 
 		/// Drop `para_id` at the parachain's request.
@@ -963,11 +999,7 @@ pub mod pallet {
 
 		/// Tell the parachain how a deregistration ended.
 		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::Deregister(outcome) });
 		}
 
 		/// Tell the parachain whether the upgrade was authorized, and until when.
@@ -976,37 +1008,26 @@ pub mod pallet {
 			message_id: u64,
 			outcome: Result<u32, FailureReason>,
 		) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CodeUpgradeResponse { para_id, message_id, outcome },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::CodeUpgrade(outcome) });
 		}
 
 		/// Tell the parachain that the uploaded code is now scheduled.
 		fn report_code_upgrade_scheduled(para_id: ParaId, message_id: u64) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CodeUpgradeScheduled { para_id, message_id },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::CodeUpgradeScheduled });
 		}
 
 		/// Tell the parachain whether the head was set.
 		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::SetHeadResponse { para_id, message_id, outcome },
-			);
+			Self::report(Report { para_id, message_id, kind: ReportKind::SetHead(outcome) });
 		}
 
 		/// Hand a report to the transport.
 		///
 		/// A failure is only logged and evented: callers have committed relay-chain state that must
 		/// not unwind because a report bounced.
-		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
-			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
+		fn report(report: Report) {
+			let (para_id, message_id) = (report.para_id, report.message_id);
+			if T::SendToPara::send(report.into()).is_err() {
 				log::error!(
 					target: LOG_TARGET,
 					"failed to report the outcome for para {para_id} back to the parachain",
