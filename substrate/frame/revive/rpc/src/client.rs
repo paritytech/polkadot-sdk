@@ -121,9 +121,6 @@ impl From<TransactionStatus<SubstrateBlockHash>> for SubmitError {
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
-	/// A [`jsonrpsee::core::ClientError`] wrapper error.
-	#[error(transparent)]
-	Jsonrpsee(#[from] jsonrpsee::core::ClientError),
 	/// A [`subxt::Error`] wrapper error.
 	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
@@ -452,7 +449,8 @@ pub async fn connect(
 		.max_request_size(max_request_size)
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
-		.await?;
+		.await
+		.map_err(subxt::rpcs::Error::from)?;
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 

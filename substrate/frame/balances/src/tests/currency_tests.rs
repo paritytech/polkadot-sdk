@@ -1393,6 +1393,7 @@ fn repatriate_reserved_named_reserved_status_does_not_leak_empty_beneficiary_ent
 			Balances::reserves(&2).is_empty(),
 			"no balance moved, so the beneficiary must not gain a named-reserve entry",
 		);
+		assert!(!crate::Reserves::<Test>::contains_key(&2));
 
 		// No `MaxReserves` (= 2) slot was leaked, so two real reserves still fit.
 		assert_ok!(Balances::reserve_named(&TestId::Bar, &2, 5));

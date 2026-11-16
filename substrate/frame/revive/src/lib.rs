@@ -67,7 +67,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, evm::EvmDispatch, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -775,8 +775,12 @@ pub mod pallet {
 	pub(crate) type DeletionQueue<T: Config> =
 		StorageMap<_, Twox64Concat, u32, crate::storage::DeletionQueueItem<T>>;
 
-	/// A pair of monotonic counters used to track the latest contract marked for deletion
+	/// A pair of counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
+	///
+	/// Both counters only ever increment, wrapping on overflow. `ContractInfo::new` mixes the
+	/// insert counter into the child trie id of every contract it creates, so it must never
+	/// decrease or be reset, apart from wrapping.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
@@ -1063,8 +1067,10 @@ pub mod pallet {
 		/// The receipt the log goes to is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that
 		/// would take an ethereum transaction's receipt past it fails the contract frame it was
 		/// emitted in with [`Error::ReceiptTooLarge`] when that frame returns, or the transaction
-		/// when it was emitted outside any frame. A log that would take the synthetic
-		/// transaction's receipt past it is not buffered and stays a substrate-only event.
+		/// when it was emitted outside any frame, unless a storage layer inside that frame or
+		/// transaction is rolled back and takes the overflow with it. A log that would take the
+		/// synthetic transaction's receipt past it is not buffered and stays a substrate-only
+		/// event.
 		///
 		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
@@ -1189,7 +1195,11 @@ pub mod pallet {
 			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
 			// bytes per entry without a per-producer weight.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
+				T::WeightInfo::per_outside_frame_log(
+					topics.len().saturated_into(),
+					data.len().saturated_into(),
+				)
+				.max(entry_bytes),
 				DispatchClass::Normal,
 			);
 
@@ -1253,7 +1263,36 @@ pub mod pallet {
 
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
+			assert!(
+				crate::metering::EngineMeter::<T>::ref_time_per_fuel() > 0,
+				"The ref time per PolkaVM gas derived from the weights must not be 0"
+			);
+
+			let compilation_cost =
+				crate::metering::EngineMeter::<T>::interpreter_compilation_cost();
+			assert!(
+				compilation_cost.per_block > 0,
+				"The interpreter compile weight per block must exceed per instruction plus one gas"
+			);
+			assert!(
+				compilation_cost.per_instruction_millis > 0,
+				"The interpreter compile weight per instruction must not be 0"
+			);
+			assert!(
+				compilation_cost.per_code_byte_millis > 0,
+				"The interpreter code map weight per byte must not be 0"
+			);
+			let ref_time_slope =
+				|weight: fn(u32) -> Weight| crate::metering::slope(weight, 1).ref_time();
+			assert!(
+				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte) >=
+					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
+				"The PVM code load weight per byte must be at least the code map weight per byte"
+			);
+
 			T::FeeInfo::integrity_test();
+
+			EvmDispatch::integrity_test::<T>();
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
@@ -1295,12 +1334,16 @@ pub mod pallet {
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
 
 			// We can use storage to store events using the available block ref_time with the
-			// `deposit_event` host function. The overhead of stored events, which is around 100B,
-			// is not taken into account to simplify calculations, as it does not change much.
+			// `deposit_event` host function. Each event stores its topics (32 bytes each) and its
+			// data. The overhead of stored events, which is around 100B, is not taken into account
+			// to simplify calculations, as it does not change much.
+			let max_event_bytes = u64::from(limits::NUM_EVENT_TOPICS)
+				.saturating_mul(H256::len_bytes() as u64)
+				.saturating_add(limits::EVENT_BYTES.into());
 			let max_events_size = max_block_weight
 				.checked_div_per_component(
 					&(<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::DepositEvent {
-						num_topic: 0,
+						num_topic: limits::NUM_EVENT_TOPICS,
 						len: limits::EVENT_BYTES,
 					})
 					.saturating_add(<RuntimeCosts as WeightToken<T>>::weight(
@@ -1308,7 +1351,7 @@ pub mod pallet {
 					))),
 				)
 				.unwrap()
-				.saturating_mul(limits::EVENT_BYTES.into());
+				.saturating_mul(max_event_bytes);
 
 			assert!(
 				max_events_size <= storage_size_limit,
@@ -2567,14 +2610,20 @@ impl<T: Config> Pallet<T> {
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-			weight_limit: Self::evm_max_extrinsic_weight(),
+			// The weight the dry run reports as required can reach this limit, and the transaction
+			// adds its base weight on top, so the limit leaves room for it.
+			weight_limit: Self::evm_max_extrinsic_weight()
+				.saturating_sub(base_info.total_weight())
+				// The transaction sets the call's weight limit before its authorizations run, so
+				// their refund does not give the call more weight. The dry run uses the same limit.
+				.min(call_info.weight_limit),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call with a receipt open, so that its logs count against the receipt size
 		// limit as they do when the transaction is included.
-		let mut dry_run = block_storage::with_receipt_scope::<T, _>(|| {
+		let (mut dry_run, weight_consumed) = block_storage::with_receipt_scope::<T, _>(|| {
 			let dry_run = match to {
 				// A contract call.
 				Some(dest) => {
@@ -2624,13 +2673,16 @@ impl<T: Config> Pallet<T> {
 							},
 						};
 
-						EthTransactInfo {
-							weight_required: result.weight_required,
-							storage_deposit: result.storage_deposit.charge_or_zero(),
-							max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-							data,
-							eth_gas: Default::default(),
-						}
+						(
+							EthTransactInfo {
+								weight_required: result.weight_required,
+								storage_deposit: result.storage_deposit.charge_or_zero(),
+								max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
+								data,
+								eth_gas: Default::default(),
+							},
+							result.weight_consumed,
+						)
 					}
 				},
 				// A contract deployment
@@ -2666,13 +2718,16 @@ impl<T: Config> Pallet<T> {
 						},
 					};
 
-					EthTransactInfo {
-						weight_required: result.weight_required,
-						storage_deposit: result.storage_deposit.charge_or_zero(),
-						max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-						data: returned_data,
-						eth_gas: Default::default(),
-					}
+					(
+						EthTransactInfo {
+							weight_required: result.weight_required,
+							storage_deposit: result.storage_deposit.charge_or_zero(),
+							max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
+							data: returned_data,
+							eth_gas: Default::default(),
+						},
+						result.weight_consumed,
+					)
 				},
 			};
 			Ok(dry_run)
@@ -2707,15 +2762,23 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// not enough gas supplied to pay for both the tx fees and the storage deposit
-		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
+		// A transaction pays for the weight it consumed. `weight_required` also includes the part
+		// callers keep under the 63/64 rule, so deposits paid from that part would count twice.
+		let actual_fee = T::FeeInfo::tx_fee_from_weight(
+			call_info.encoded_len,
+			&weight_consumed.saturating_add(base_weight),
+		);
 		let available_fee = T::FeeInfo::remaining_txfee();
-		if transaction_fee > available_fee {
+		if actual_fee > available_fee {
 			Err(EthTransactError::Message(format!(
 				"Not enough gas supplied: Off by: {:?}",
-				transaction_fee.saturating_sub(available_fee),
+				actual_fee.saturating_sub(available_fee),
 			)))?;
 		}
 
+		// The estimated gas must cover `weight_required`, including the part callers keep. Deposits
+		// paid from that part count twice, which only raises the estimate; unused gas is refunded.
+		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let total_cost = transaction_fee.saturating_add(dry_run.max_storage_deposit);
 		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
 		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
@@ -2726,6 +2789,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact finished: \
 			weight_limit={}, \
+			weight_consumed={weight_consumed}, \
 			total_weight={total_weight}, \
 			max_weight={max_weight}, \
 			weight_left={}, \

@@ -125,11 +125,21 @@ async fn v3_dynamic_enablement_test(
 						}
 					}
 				}))
-				// Standard collator protocol validators (groups 0, 1).
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators (groups 0, 1).
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						("-lparachain=debug,runtime=debug").into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..4).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain=debug,runtime=debug").into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 			(4..10).fold(r, |acc, i| {
 				acc.with_validator(|node| {

@@ -181,6 +181,20 @@ impl OutChannels {
 		self.event_streams.push(sender);
 	}
 
+	/// Sends `events` to a new [`Sender`] and then adds it to the collection, so that a subscriber
+	/// that arrives late still learns the state these events describe.
+	pub fn push_with(&mut self, sender: Sender, events: impl IntoIterator<Item = Event>) {
+		for event in events {
+			if let Some(metrics) = &self.metrics {
+				metrics.event_in(&event, sender.name);
+			}
+			if sender.inner.try_send(event).is_err() {
+				return;
+			}
+		}
+		self.push(sender);
+	}
+
 	/// Sends an event.
 	pub fn send(&mut self, event: Event) {
 		self.event_streams.retain_mut(|sender| {
@@ -294,10 +308,8 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "sent", name]).inc();
 			},
-			Event::PeerRoutingTableUpdate(_) => {
-				self.events_total
-					.with_label_values(&["peer-routing-table-update", "sent", name])
-					.inc();
+			Event::PeersDiscovered(_) => {
+				self.events_total.with_label_values(&["peers-discovered", "sent", name]).inc();
 			},
 			Event::PeerIdentified { .. } => {
 				self.events_total.with_label_values(&["peer-identified", "sent", name]).inc();
@@ -330,9 +342,9 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "received", name]).inc();
 			},
-			Event::PeerRoutingTableUpdate(_) => {
+			Event::PeersDiscovered(_) => {
 				self.events_total
-					.with_label_values(&["peer-routing-table-update", "received", name])
+					.with_label_values(&["peers-discovered", "received", name])
 					.inc();
 			},
 			Event::PeerIdentified { .. } => {
