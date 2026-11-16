@@ -34,8 +34,8 @@ use crate::{
 		pallet_dummy,
 		precompiles::{IWithInfo, WithInfo},
 		test_utils::{
-			get_balance, get_balance_on_hold, get_contract, get_contract_checked,
-			set_balance_with_dust,
+			decode_error, evm_value, get_balance, get_balance_on_hold, get_contract,
+			get_contract_checked, set_balance_with_dust,
 		},
 	},
 };
@@ -59,13 +59,6 @@ use sp_runtime::{
 	traits::{Hash, Zero},
 };
 use test_case::{test_case, test_matrix};
-
-/// Decode a contract return value into an error string.
-fn decode_error(output: &[u8]) -> String {
-	use alloy_core::sol_types::SolError;
-	alloy_core::sol! { error Error(string); }
-	Error::abi_decode_validate(output).unwrap().0
-}
 
 const METHOD_PRECOMPILE: u8 = 0;
 const METHOD_DELEGATE_CALL: u8 = 1;
@@ -744,11 +737,6 @@ const SPENDABLE: u128 = 1_000;
 
 /// An amount below one native unit, which only the dust of an account can hold.
 const DUST: u32 = 123_456;
-
-/// The EVM value of `value` in the native currency plus `dust`.
-fn evm_value(value: u128, dust: u32) -> U256 {
-	Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(value, dust))
-}
 
 /// The account entry a terminated contract leaves behind: a plain account if `dust` is left on
 /// it, otherwise none.

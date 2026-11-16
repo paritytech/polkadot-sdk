@@ -1,0 +1,35 @@
+title: 'pallet-revive: add `burn` to the System precompile'
+doc:
+- audience: Runtime User
+  description: |-
+    The System precompile gains `burn(uint256 amount)`. It removes `amount`, in the unit of
+    `msg.value`, from the spendable balance of the calling contract or account and from the total
+    issuance. Held and frozen funds and the existential deposit are not spendable. When `amount`
+    has a dust part the caller does not hold, one more spendable unit is converted into dust
+    first.
+
+    The call reverts when the spendable balance of the caller is lower than `amount`, when
+    `amount` is larger than the balance type of the chain can hold, when `msg.value` is not
+    zero, or when the precompile is reached through a delegate call. In a static context it
+    fails without revert data.
+
+    The whole units of `amount` are reported as `Balances::Burned`, as zero for a burn of only
+    dust. A dust conversion reports its own `Burned` of one unit first. No EVM log is emitted.
+- audience: Runtime Dev
+  description: |-
+    Contracts can now reduce the total issuance. `System.burn` bypasses `Config::OnBurn`, which
+    keeps receiving the gas rounding only, and a runtime cannot disable the function. No
+    migration is needed.
+
+    `WeightInfo` gains the required method `burn`. A runtime with its own `pallet_revive`
+    weights has to re-run the benchmarks. `ISystemCalls` in `pallet-revive-uapi` gains a `burn`
+    variant.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

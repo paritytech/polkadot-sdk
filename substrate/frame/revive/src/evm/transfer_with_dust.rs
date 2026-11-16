@@ -130,10 +130,58 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	Ok(())
 }
 
-/// Withdraw a balance with dust from an account and forward it to [`Config::OnBurn`].
+/// What happens to the whole units removed by [`burn_with_dust`].
+#[derive(Clone, Copy)]
+pub enum BurnKind {
+	/// The units are withdrawn and forwarded to [`Config::OnBurn`].
+	Forward,
+	/// The units are removed from the total issuance.
+	Issuance,
+}
+
+/// Remove `value` from the balance of `from` as `kind` says.
+fn burn<T: Config>(from: &AccountIdOf<T>, value: BalanceOf<T>, kind: BurnKind) -> DispatchResult {
+	match kind {
+		BurnKind::Forward => {
+			let credit = T::Currency::withdraw(
+				from,
+				value,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
+				Error::<T>::TransferFailed
+			})?;
+			T::OnBurn::on_unbalanced(credit);
+		},
+		BurnKind::Issuance => {
+			T::Currency::burn_from(
+				from,
+				value,
+				Preservation::Preserve,
+				Precision::Exact,
+				Fortitude::Polite,
+			)
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
+				Error::<T>::TransferFailed
+			})?;
+		},
+	}
+	Ok(())
+}
+
+/// Burn a balance with dust from an account.
+///
+/// The dust part is taken from the dust balance of the account. The whole units go where `kind`
+/// says. Converting missing dust burns one unit through the currency first. The balance check at
+/// the top guarantees that the burn does not fail after that.
 pub(crate) fn burn_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
+	kind: BurnKind,
 ) -> DispatchResult {
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
 	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
@@ -147,35 +195,11 @@ pub(crate) fn burn_with_dust<T: Config>(
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		// No dust to handle, just withdraw the balance.
-		let credit = T::Currency::withdraw(
-			from,
-			value,
-			Precision::Exact,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-		T::OnBurn::on_unbalanced(credit);
-		return Ok(());
+		return burn::<T>(from, value, kind);
 	}
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
-	let credit = T::Currency::withdraw(
-		from,
-		value,
-		Precision::Exact,
-		Preservation::Preserve,
-		Fortitude::Polite,
-	)
-	.map_err(|err| {
-		log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
-		Error::<T>::TransferFailed
-	})?;
-	T::OnBurn::on_unbalanced(credit);
+	burn::<T>(from, value, kind)?;
 
 	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
@@ -470,7 +494,7 @@ mod tests {
 				let issuance_before = <Test as Config>::Currency::total_issuance();
 				let dest_before = <Test as Config>::Currency::balance(&burn_dest);
 
-				assert_ok!(burn_with_dust::<Test>(&ALICE, amount));
+				assert_ok!(burn_with_dust::<Test>(&ALICE, amount, BurnKind::Forward));
 
 				assert_eq!(
 					Pallet::<Test>::evm_balance(&ALICE_ADDR),
@@ -506,7 +530,11 @@ mod tests {
 			// WHEN trying to burn more than available.
 			// THEN it fails.
 			assert_err!(
-				burn_with_dust::<Test>(&ALICE, BalanceWithDust::new_unchecked::<Test>(20, 0),),
+				burn_with_dust::<Test>(
+					&ALICE,
+					BalanceWithDust::new_unchecked::<Test>(20, 0),
+					BurnKind::Forward
+				),
 				Error::<Test>::TransferFailed,
 			);
 

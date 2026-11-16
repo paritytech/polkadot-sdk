@@ -22,7 +22,7 @@ use crate::{
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
-	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
+	evm::{BurnKind, block_storage, burn_with_dust, fees::InfoT as _, transfer_with_dust},
 	limits,
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -521,6 +521,16 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// This function will fail if called from constructor.
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError>;
+
+	/// Burn `value` from the balance of the caller of the current contract.
+	/// The amount is removed from the total issuance.
+	/// This is supposed to be used by the burn precompile.
+	///
+	/// This function will fail if called via delegate call.
+	fn burn_caller(
+		&mut self,
+		value: BalanceWithDust<BalanceOf<Self::T>>,
+	) -> Result<(), DispatchError>;
 
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
@@ -2790,6 +2800,13 @@ where
 			.insert(parent_account_id, beneficiary);
 
 		Ok(())
+	}
+
+	fn burn_caller(&mut self, value: BalanceWithDust<BalanceOf<T>>) -> Result<(), DispatchError> {
+		// under a delegate call the caller is the caller of the delegating contract
+		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		let caller = self.caller();
+		burn_with_dust::<T>(caller.account_id()?, value, BurnKind::Issuance)
 	}
 
 	fn effective_gas_price(&self) -> U256 {

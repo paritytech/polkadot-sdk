@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config, H160,
+	BalanceOf, BalanceWithDust, Config, H160, U256,
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
@@ -44,7 +44,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() => {
+			ISystemCalls::terminate(_) | ISystemCalls::burn(_) if env.is_read_only() => {
 				Err(crate::Error::<T>::StateChangeDenied.into())
 			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -121,6 +121,28 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let address =
 					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
 				Ok(address.abi_encode())
+			},
+			ISystemCalls::burn(ISystem::burnCall { amount }) => {
+				let amount = U256::from_big_endian(&amount.to_be_bytes::<32>());
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Burn {
+					dust: crate::Pallet::<T>::has_dust(amount),
+				})?;
+				let amount = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(amount)
+					.map_err(|_| Error::Revert("burn: amount out of range".into()))?;
+
+				// a value transferred to this pre-compile has no destination; reverting returns it
+				// to the caller
+				if !env.value_transferred().is_zero() {
+					return Err(Error::Revert("burn: msg.value must be zero".into()));
+				}
+				env.burn_caller(amount).map_err(|err| {
+					if err == crate::Error::<T>::TransferFailed.into() {
+						Error::Revert("burn: insufficient balance".into())
+					} else {
+						Error::try_to_revert::<T>(err)
+					}
+				})?;
+				Ok(Vec::new())
 			},
 		}
 	}

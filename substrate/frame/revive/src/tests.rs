@@ -153,7 +153,7 @@ macro_rules! assert_refcount {
 pub mod test_utils {
 	use super::{
 		BalanceWithDust, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		Test,
+		Test, U256,
 	};
 	use crate::{
 		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -173,6 +173,16 @@ pub mod test_utils {
 	}
 	pub fn set_balance(who: &AccountIdOf<Test>, amount: u128) {
 		let _ = <Test as Config>::Currency::set_balance(who, amount);
+	}
+	/// The EVM value of `value` in the native currency plus `dust`.
+	pub fn evm_value(value: u128, dust: u32) -> U256 {
+		Contracts::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(value, dust))
+	}
+	/// Decode a contract return value into an error string.
+	pub fn decode_error(output: &[u8]) -> String {
+		use alloy_core::sol_types::SolError;
+		alloy_core::sol! { error Error(string); }
+		Error::abi_decode_validate(output).unwrap().0
 	}
 	pub fn get_balance(who: &AccountIdOf<Test>) -> u128 {
 		<Test as Config>::Currency::free_balance(who)
