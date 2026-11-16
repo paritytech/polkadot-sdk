@@ -1,0 +1,14 @@
+title: 'transaction-storage-proof: read only the selected transaction'
+doc:
+- audience: Node Dev
+  description: |-
+    The storage-proof prover now picks the chunk from the transaction sizes returned by
+    `TransactionStorageApi::indexed_transactions` (v2) and loads only the transaction that holds it,
+    instead of reading the target block's whole indexed body. Runtimes with API v1 keep the old path.
+crates:
+- name: sp-transaction-storage-proof
+  bump: minor
+- name: sc-service
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
