@@ -2513,7 +2513,8 @@ impl Store {
 	}
 
 	/// Re-check the retention of the tracked statements once they are propagated: the
-	/// resolver's verdict becomes their track, and a statement no affinity covers is removed.
+	/// resolver's verdict becomes their track while that track has room, and a statement no
+	/// affinity covers is removed.
 	fn sweep_retention(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let candidates: Vec<(Hash, RetentionTrack)> = {
@@ -5759,6 +5760,7 @@ mod tests {
 			let statement = statement(5, data_len as u32, None, data_len);
 			assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
 		}
+		let transient_seq = store.query_index.read().recent[&transient];
 		propagate(&store);
 		let tracks = store.query_index.read().retention_tracks.clone();
 		assert_eq!(tracks.len(), 2);
@@ -5773,9 +5775,9 @@ mod tests {
 			.take_recent_statements()
 			.unwrap()
 			.into_iter()
-			.map(|(_, hash, _)| hash)
+			.map(|(seq, hash, _)| (seq, hash))
 			.collect();
-		assert_eq!(recent, vec![transient]);
+		assert_eq!(recent, vec![(transient_seq, transient)]);
 
 		// Without the v2 config nothing is tracked.
 		let store = reopen(store, &temp);
