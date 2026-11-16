@@ -1302,7 +1302,7 @@ fn bond_extra_works() {
 		);
 
 		// Call the bond_extra function with a large number, should handle it
-		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::max_value()));
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::MAX));
 		// The full amount of the funds should now be in the total and active
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
@@ -2358,19 +2358,19 @@ fn phragmen_should_not_overflow() {
 		let _ = Staking::chill(RuntimeOrigin::signed(10));
 		let _ = Staking::chill(RuntimeOrigin::signed(20));
 
-		bond_validator(3, Votes::max_value() as Balance);
-		bond_validator(5, Votes::max_value() as Balance);
+		bond_validator(3, Votes::MAX as Balance);
+		bond_validator(5, Votes::MAX as Balance);
 
-		bond_nominator(7, Votes::max_value() as Balance, vec![3, 5]);
-		bond_nominator(9, Votes::max_value() as Balance, vec![3, 5]);
+		bond_nominator(7, Votes::MAX as Balance, vec![3, 5]);
+		bond_nominator(9, Votes::MAX as Balance, vec![3, 5]);
 
 		mock::start_active_era(1);
 
 		assert_eq_uvec!(validator_controllers(), vec![3, 5]);
 
 		// We can safely convert back to values within [u64, u128].
-		assert!(Staking::eras_stakers(active_era(), &3).total > Votes::max_value() as Balance);
-		assert!(Staking::eras_stakers(active_era(), &5).total > Votes::max_value() as Balance);
+		assert!(Staking::eras_stakers(active_era(), &3).total > Votes::MAX as Balance);
+		assert!(Staking::eras_stakers(active_era(), &5).total > Votes::MAX as Balance);
 	})
 }
 

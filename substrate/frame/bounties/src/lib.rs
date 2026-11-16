@@ -96,7 +96,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	fungible::Mutate as FungibleMutate,
+	fungible::{self, Mutate as FungibleMutate},
 	fungibles::{
 		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
@@ -327,7 +327,13 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config
+		+ pallet_treasury::Config<
+			I,
+			Currency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self, I>>,
+		>
+	{
 		/// The amount held on deposit for placing a bounty proposal.
 		#[pallet::constant]
 		type BountyDepositBase: Get<BalanceOf<Self, I>>;
@@ -806,7 +812,7 @@ pub mod pallet {
 				{
 					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
 					let bounty_account = Self::bounty_account_id(bounty_id);
-					let balance = T::Currency::free_balance(&bounty_account);
+					let balance = Self::spendable_balance(&bounty_account);
 					let fee = bounty.fee.min(balance); // just to be safe
 					let payout = balance.saturating_sub(fee);
 					let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
@@ -818,12 +824,8 @@ pub mod pallet {
 					debug_assert!(children_fee <= fee);
 
 					let final_fee = fee.saturating_sub(children_fee);
-					let res =
-						T::Currency::transfer(&bounty_account, &curator, final_fee, AllowDeath); // should not fail
-					debug_assert!(res.is_ok());
-					let res =
-						T::Currency::transfer(&bounty_account, &beneficiary, payout, AllowDeath); // should not fail
-					debug_assert!(res.is_ok());
+					T::Currency::transfer(&bounty_account, &curator, final_fee, AllowDeath)?;
+					T::Currency::transfer(&bounty_account, &beneficiary, payout, AllowDeath)?;
 
 					*maybe_bounty = None;
 
@@ -1175,6 +1177,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// only use two byte prefix to support 16 byte account id (used by test)
 		// "modl" ++ "py/trsry" ++ "bt" is 14 bytes, and two bytes remaining for bounty index
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
+	}
+
+	/// The balance `who` can transfer. Anyone can lock funds in a bounty account with a vested
+	/// transfer, so payouts must not count them.
+	pub fn spendable_balance(who: &T::AccountId) -> BalanceOf<T, I> {
+		<T::Currency as fungible::Inspect<_>>::reducible_balance(
+			who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)
 	}
 
 	fn create_bounty(

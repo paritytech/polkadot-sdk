@@ -21,18 +21,18 @@ mod modular;
 use modular::Modular;
 
 use crate::{
-	Error, U256,
+	U256,
 	vm::{
 		Ext,
-		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt},
+		evm::{EvmOpcodeCosts, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::{EXP, LOW, VERYLOW};
+use sp_runtime::traits::SaturatedConversion;
 
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Add)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_add(*op2).0;
 	ControlFlow::Continue(())
@@ -40,7 +40,7 @@ pub fn add<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the MUL instruction - multiplies two values from stack.
 pub fn mul<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Mul)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_mul(*op2).0;
 	ControlFlow::Continue(())
@@ -48,7 +48,7 @@ pub fn mul<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the SUB instruction - subtracts two values from stack.
 pub fn sub<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Sub)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_sub(*op2).0;
 	ControlFlow::Continue(())
@@ -118,10 +118,9 @@ pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Implements the EXP instruction - exponentiates two values from stack.
 pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	let Some(gas_cost) = exp_cost(*op2) else {
-		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
-	};
-	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
+	interpreter
+		.ext
+		.charge_or_halt(EvmOpcodeCosts::Exp { exponent_bits: op2.bits().saturated_into() })?;
 	*op2 = op1.overflowing_pow(*op2).0;
 	ControlFlow::Continue(())
 }
@@ -156,7 +155,7 @@ pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
 pub fn signextend<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(LOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SignExtend)?;
 	let ([ext], x) = interpreter.stack.popn_top()?;
 	// For 31 we also don't need to do anything.
 	if ext < U256::from(31) {
@@ -167,40 +166,4 @@ pub fn signextend<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt>
 		*x = if bit { *x | !mask } else { *x & mask };
 	}
 	ControlFlow::Continue(())
-}
-
-/// `EXP` opcode cost calculation.
-fn exp_cost(power: U256) -> Option<u64> {
-	if power.is_zero() {
-		Some(EXP)
-	} else {
-		// EIP-160: EXP cost increase
-		let gas_byte = U256::from(50);
-		let gas = U256::from(EXP)
-			.checked_add(gas_byte.checked_mul(U256::from(log2floor(power) / 8 + 1))?)?;
-
-		u64::try_from(gas).ok()
-	}
-}
-
-const fn log2floor(value: U256) -> u64 {
-	let mut l: u64 = 256;
-	let mut i = 3;
-	loop {
-		if value.0[i] == 0u64 {
-			l -= 64;
-		} else {
-			l -= value.0[i].leading_zeros() as u64;
-			if l == 0 {
-				return l;
-			} else {
-				return l - 1;
-			}
-		}
-		if i == 0 {
-			break;
-		}
-		i -= 1;
-	}
-	l
 }

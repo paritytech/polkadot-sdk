@@ -16,7 +16,7 @@
 use crate::{mock::*, weights::WeightInfo, Event};
 use frame_support::{assert_err, assert_ok};
 use pallet_validator_collators::{
-	Error as ReceiverError, PendingRotation, RotationState, ValidatorSet,
+	Error as ReceiverError, ExternalValidatorSet, PendingRotation, RotationState,
 };
 
 fn announcement_events() -> Vec<Event<Test>> {
@@ -38,7 +38,7 @@ fn run_block(n: u64) {
 }
 
 fn stored() -> Option<(u32, Vec<u64>)> {
-	ValidatorSet::<Test>::get().map(|set| (set.era, set.validators.into_iter().collect()))
+	ExternalValidatorSet::<Test>::get().map(|set| (set.era, set.validators.into_iter().collect()))
 }
 
 #[test]

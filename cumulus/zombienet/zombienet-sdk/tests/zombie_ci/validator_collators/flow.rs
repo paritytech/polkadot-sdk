@@ -10,6 +10,8 @@
 //! * `asset-hub-westend-local` electing two validators from its genesis stakers AliceStash and
 //!   BobStash, with the signed election phases skipped and a short unsigned phase.
 //! * `people-westend-local`.
+//! * Both parachains report authored blocks every 10 blocks and expect a 12-minute era, in place of
+//!   the runtime defaults, so the report before the expected era end comes within the test.
 //! * On each parachain one invulnerable collator, plus one collator per validator that is not a
 //!   collator at genesis.
 //!
@@ -19,9 +21,12 @@
 //!    on Asset Hub. Asset Hub stores the set and announces it to People.
 //! 3. Both parachains rotate AliceStash and BobStash in as collators, and their collator nodes
 //!    author blocks.
+//! 4. Both parachains report the blocks of AliceStash and BobStash, and Asset Hub credits them as
+//!    era points of the active era.
+//! 5. Both parachains report once before the expected end of era 1.
 
 use super::common::{
-	account, build_network_config, fetch, fetch_raw, hex_accounts, init_logging,
+	account, build_network_config, fetch, fetch_raw, fetch_raw_at, hex_accounts, init_logging,
 	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, session_validators,
 	wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
 	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
@@ -70,6 +75,21 @@ const SESSION_ROTATION_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 /// From the rotations to both validator collators having authored a block on both parachains.
 const AUTHORSHIP_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
+/// `ValidatorCollators::ReportPeriod` of both parachains, in blocks.
+const REPORT_PERIOD: u32 = 10;
+
+/// From the authorship check to Asset Hub crediting the blocks of each parachain: one report
+/// period plus a margin for the XCM delivery.
+const CREDIT_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+
+/// `ValidatorCollators::ExpectedEraDuration` of both parachains, in milliseconds: the CI era of
+/// six relay chain sessions of 2 minutes.
+const EXPECTED_ERA_DURATION_MILLIS: u64 = 720_000;
+
+/// From a parachain receiving the set of era 1 to its report before the expected end of the era:
+/// one CI era plus a margin for finality.
+const EARLY_REPORT_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
 /// Response of `author_rotateKeysWithOwner`.
 #[derive(Deserialize)]
 struct GeneratedSessionKeys {
@@ -79,7 +99,7 @@ struct GeneratedSessionKeys {
 
 /// The whole test, below the 60-minute CI step so that the step ends with this error and the log
 /// collection steps run.
-const TEST_TIMEOUT: Duration = Duration::from_secs(50 * 60);
+const TEST_TIMEOUT: Duration = Duration::from_secs(55 * 60);
 
 #[tokio::test(flavor = "multi_thread")]
 async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Error> {
@@ -97,6 +117,8 @@ async fn run() -> Result<(), anyhow::Error> {
 		election: true,
 		hrmp_channel_max_total_size: None,
 		sudo_balance: None,
+		report_period: Some(REPORT_PERIOD),
+		expected_era_duration: Some(EXPECTED_ERA_DURATION_MILLIS),
 	})
 	.await?;
 	let network = initialize_network(config).await?;
@@ -173,12 +195,15 @@ async fn run() -> Result<(), anyhow::Error> {
 	// WHEN Asset Hub starts era 1 with AliceStash and BobStash
 	log::info!("Waiting for era 1 to start on Asset Hub");
 	let asset_hub_received_at = asset_hub_received.await??;
+	let asset_hub_early_report =
+		tokio::spawn(wait_for_early_report(asset_hub_client.clone(), "Asset Hub"));
 	asset_hub_announced.await??;
 	log::info!("Waiting for People to receive the set of era 1");
 	let people_received_at =
 		tokio::time::timeout(PEOPLE_RECEIVE_TIMEOUT, people_received).await.map_err(
 			|_| anyhow!("People did not receive the set within {PEOPLE_RECEIVE_TIMEOUT:?}"),
 		)???;
+	let people_early_report = tokio::spawn(wait_for_early_report(people_client.clone(), "People"));
 
 	// THEN both parachains collate with their invulnerable, AliceStash and BobStash
 	let stashes = VALIDATORS
@@ -210,6 +235,15 @@ async fn run() -> Result<(), anyhow::Error> {
 			.map(move |stash| wait_for_authored_block(client, chain, stash, received_at, deadline))
 	});
 	futures::future::try_join_all(authorship).await?;
+
+	// AND Asset Hub credits the blocks authored on both parachains to exposed validators
+	log::info!("Waiting for Asset Hub to credit the blocks of both parachains");
+	wait_for_credits_from_both_chains(&asset_hub_client).await?;
+
+	// AND both parachains report once before the expected end of era 1
+	log::info!("Waiting for both parachains to report before the expected end of era 1");
+	asset_hub_early_report.await??;
+	people_early_report.await??;
 
 	// AND the relay chain kept its validators, since the elected set is the running one
 	let relay_validators = session_validators(&relay_client).await?;
@@ -266,20 +300,22 @@ async fn register_keys(
 	let proof = generated
 		.proof
 		.ok_or_else(|| anyhow!("`{collator}` returned keys without an ownership proof"))?;
-	// The session keys of both parachains are one sr25519 Aura key.
-	let aura: [u8; 32] = generated.keys.0.as_slice().try_into().map_err(|_| {
-		anyhow!("`{collator}` returned {} bytes of keys, expected 32", generated.keys.0.len())
+	// The session keys of both parachains are one sr25519 Aura key
+	// + one sr25519 authority discovery key.
+	let keys: [u8; 64] = generated.keys.0.as_slice().try_into().map_err(|_| {
+		anyhow!("`{collator}` returned {} bytes of keys, expected 64", generated.keys.0.len())
 	})?;
+	let (aura, authority_discovery) = keys.split_at(32);
 	log::info!(
 		"`{collator}` generated Aura key 0x{} for 0x{}",
 		hex::encode(aura),
 		hex::encode(owner)
 	);
 
-	let keys = Value::named_composite([(
-		"aura",
-		Value::unnamed_composite([Value::from_bytes(aura.as_slice())]),
-	)]);
+	let keys = Value::named_composite([
+		("aura", Value::unnamed_composite([Value::from_bytes(aura)])),
+		("authority_discovery", Value::unnamed_composite([Value::from_bytes(authority_discovery)])),
+	]);
 	let call = subxt::dynamic::tx(
 		"Session",
 		"set_keys",
@@ -301,6 +337,108 @@ async fn register_keys(
 fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
 	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
 		fields.at("count").and_then(|count| count.as_u128()) == Some(VALIDATORS.len() as u128)
+}
+
+/// Waits until Asset Hub credited the blocks of Asset Hub and of People, each to at least one
+/// validator exposed in the active era.
+///
+/// Staking reports `ServicePointsCredited` for every credit, just before
+/// `StakingPointsConverter` reports the source in `BlocksCredited`.
+async fn wait_for_credits_from_both_chains(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	let wait = async {
+		let mut pending = BTreeSet::from([ASSET_HUB_ID as u128, PEOPLE_ID as u128]);
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let mut credited = 0;
+			for event in block.events().await?.iter() {
+				let event = event?;
+				match (event.pallet_name(), event.variant_name()) {
+					("Staking", "ServicePointsCredited") => {
+						credited = event
+							.field_values()?
+							.at("credited")
+							.and_then(|credited| credited.as_u128())
+							.unwrap_or(0);
+					},
+					("StakingPointsConverter", "BlocksCredited") => {
+						let fields = event.field_values()?;
+						if let Some(source) = credit_source(&fields).filter(|_| credited > 0) {
+							log::info!(
+								"Asset Hub #{}: credited the blocks of {source}",
+								block.number()
+							);
+							pending.remove(&source);
+						}
+						credited = 0;
+					},
+					_ => {},
+				}
+			}
+			if pending.is_empty() {
+				return Ok(());
+			}
+		}
+		Err(anyhow!("Asset Hub block subscription ended"))
+	};
+	tokio::time::timeout(CREDIT_TIMEOUT, wait).await.map_err(|_| {
+		anyhow!("Asset Hub did not credit the blocks of both chains within {CREDIT_TIMEOUT:?}")
+	})?
+}
+
+/// Waits for the report before the expected era end on `chain`: the first finalized block that
+/// removes `ValidatorCollators::ExternalSetReceivedAt`. A new arrival that replaces it does not
+/// count. The block must hold `ValidatorCollators::BlocksReported`, since periodic reports alone
+/// emit it too.
+async fn wait_for_early_report(
+	client: OnlineClient<PolkadotConfig>,
+	chain: &'static str,
+) -> Result<u32, anyhow::Error> {
+	let wait = async {
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		let mut arrival_stored = false;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let stored = fetch_raw_at(
+				&client,
+				block.hash(),
+				"ValidatorCollators",
+				"ExternalSetReceivedAt",
+				vec![],
+			)
+			.await?
+			.is_some();
+			if arrival_stored && !stored {
+				let reported = block.events().await?.iter().any(|event| {
+					event.is_ok_and(|event| {
+						event.pallet_name() == "ValidatorCollators" &&
+							event.variant_name() == "BlocksReported"
+					})
+				});
+				if !reported {
+					return Err(anyhow!(
+						"{chain} #{} removed `ExternalSetReceivedAt` without `BlocksReported`",
+						block.number()
+					));
+				}
+				log::info!("{chain} #{}: reported before the expected era end", block.number());
+				return Ok(block.number());
+			}
+			arrival_stored = stored;
+		}
+		Err(anyhow!("{chain} block subscription ended"))
+	};
+	tokio::time::timeout(EARLY_REPORT_TIMEOUT, wait).await.map_err(|_| {
+		anyhow!("{chain} did not report before the era end within {EARLY_REPORT_TIMEOUT:?}")
+	})?
+}
+
+/// The parachain id in the `source` field of `BlocksCredited`.
+fn credit_source(fields: &Composite<u32>) -> Option<u128> {
+	let source = fields.at("source")?;
+	source.as_u128().or_else(|| source.at(0).and_then(|id| id.as_u128()))
 }
 
 async fn wait_for_session_validators(

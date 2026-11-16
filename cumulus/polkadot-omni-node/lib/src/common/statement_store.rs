@@ -37,6 +37,7 @@ pub(crate) fn new_statement_handler_proto<
 >(
 	client: &ParachainClient<Block, RuntimeApi>,
 	parachain_config: &Configuration,
+	statement_store_config: &sc_statement_store::Config,
 	metrics: &sc_network::NotificationMetrics,
 	net_config: &mut FullNetworkConfiguration<Block, Hash, Net>,
 ) -> sc_network_statement::StatementHandlerPrototype {
@@ -46,6 +47,8 @@ pub(crate) fn new_statement_handler_proto<
 			parachain_config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&net_config.peer_store_handle()),
+			&net_config.network_config,
+			statement_store_config.v2dht.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_config);
 	statement_handler_proto
@@ -81,7 +84,7 @@ pub(crate) fn build_statement_store<
 	let statement_protocol_executor = {
 		let spawn_handle = task_manager.spawn_handle();
 		Box::new(move |fut| {
-			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+			spawn_handle.spawn_blocking("network-statement-validator", Some("networking"), fut);
 		})
 	};
 	let statement_handler = statement_handler_proto.build(
@@ -99,7 +102,7 @@ pub(crate) fn build_statement_store<
 			statement_store.set_retention_resolver(resolver);
 		}
 	}
-	task_manager.spawn_handle().spawn(
+	task_manager.spawn_handle().spawn_blocking(
 		"network-statement-handler",
 		Some("networking"),
 		statement_handler.run(),

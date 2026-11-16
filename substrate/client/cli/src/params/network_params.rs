@@ -23,8 +23,9 @@ use crate::{
 use clap::Args;
 use sc_network::{
 	config::{
-		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
-		DEFAULT_IDLE_CONNECTION_TIMEOUT, DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
+		default_light_request_call_workers, NetworkConfiguration, NodeKeyConfig,
+		NonReservedPeerMode, SetConfig, TransportConfig, DEFAULT_IDLE_CONNECTION_TIMEOUT,
+		DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -197,6 +198,13 @@ pub struct NetworkParams {
 	)]
 	pub light_request_execution_timeout_ms: u64,
 
+	/// Number of light-client call requests executed in parallel.
+	///
+	/// Defaults to half the available CPU cores, at most 4. Every worker may use ~128 MiB of
+	/// memory.
+	#[arg(long, value_name = "COUNT")]
+	pub light_request_call_workers: Option<NonZeroUsize>,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -358,6 +366,9 @@ impl NetworkParams {
 				0 => None,
 				ms => Some(Duration::from_millis(ms)),
 			},
+			light_request_call_workers: self
+				.light_request_call_workers
+				.unwrap_or_else(default_light_request_call_workers),
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}
@@ -413,5 +424,16 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
+	}
+
+	#[test]
+	fn light_request_call_workers_must_be_non_zero() {
+		let parse = |workers: &str| {
+			Cli::try_parse_from(["", "--light-request-call-workers", workers])
+				.map(|cli| cli.network_params.light_request_call_workers)
+		};
+
+		assert_eq!(parse("100").unwrap(), NonZeroUsize::new(100));
+		assert!(parse("0").is_err());
 	}
 }

@@ -30,7 +30,14 @@ use crate::{
 
 pub use gas::SignedGas;
 pub use storage::Diff;
-pub use weight::{ChargedAmount, Token};
+pub use weight::{ChargedAmount, EngineMeter, Token, slope};
+
+/// The gas of one iteration of the benchmarks that derive the ref time per gas.
+///
+/// Only `benchmarking` and the benchmark contracts in `call_builder` need them outside of
+/// `weight`.
+#[cfg(feature = "runtime-benchmarks")]
+pub use weight::{INDIRECT_JUMP_GAS, LOAD_CHAIN_GAS};
 
 use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
@@ -581,7 +588,8 @@ impl<T: Config> TransactionMeter<T> {
 
 	/// Execute all postponed storage deposit operations.
 	///
-	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded.
+	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded. The
+	/// limit is checked again after the refunds, since paying them can raise the deposit consumed.
 	pub fn execute_postponed_deposits(
 		&mut self,
 		origin: &Origin<T>,
@@ -607,7 +615,15 @@ impl<T: Config> TransactionMeter<T> {
 			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
 		}
 
-		self.deposit.execute_postponed_deposits(origin, exec_config)
+		// Paying the refunds can increase the deposit consumed: the refunds recorded for a
+		// terminated contract are dropped and a refund can be released only in part. Check the
+		// limit again before any charge is paid.
+		self.deposit.execute_postponed_refunds(origin, exec_config)?;
+		if self.deposit_left().is_none() {
+			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
+		}
+
+		self.deposit.execute_postponed_charges(origin, exec_config)
 	}
 
 	/// Mark a contract as terminated

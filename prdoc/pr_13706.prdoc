@@ -1,0 +1,9 @@
+title: bump asset-hub-westend runtime version
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bump `spec_version` to `1_025_004` and run the authority-discovery keys migration at that version,
+    since Asset Hub Westend was already upgraded to `1_025_003`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch

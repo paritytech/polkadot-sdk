@@ -60,7 +60,7 @@ pub fn start_node_inline(args: Vec<&str>) -> Result<(), sc_service::error::Error
 	use sc_cli::SubstrateCli;
 
 	// Prepend the args with some dummy value because the first arg is skipped.
-	let cli_call = std::iter::once("node-template").chain(args);
+	let cli_call = std::iter::once("substrate-node").chain(args);
 	let cli = node_cli::Cli::from_iter(cli_call);
 	let runner = cli.create_runner(&cli.run).unwrap();
 	runner.run_node_until_exit(|config| async move { node_cli::service::new_full(config, cli) })

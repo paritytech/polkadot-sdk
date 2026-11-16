@@ -38,6 +38,7 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
+pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -78,10 +79,18 @@ parameter_types! {
 	pub static RegisterFails: bool = false;
 	/// When true, `MockRegistrar::deregister` fails.
 	pub static DeregisterFails: bool = false;
+	/// Heads `MockRegistrar` has set, in order.
+	pub static Heads: Vec<(ParaId, Vec<u8>)> = Vec::new();
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// When true, `MockRegistrar::check_code_upgrade` fails.
+	pub static UpgradeCheckFails: bool = false;
+	/// Code upgrades `MockRegistrar` has scheduled, in order.
+	pub static ScheduledUpgrades: Vec<(ParaId, Vec<u8>)> = Vec::new();
+	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
+	pub static ScheduleFails: bool = false;
 }
 
 /// Stands in for the relay chain's `paras_registrar`.
@@ -130,25 +139,42 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): check the head data length in the mock.
+	fn check_head_data(head_len: u32) -> Result<(), ()> {
+		if head_len <= MAX_HEAD_SIZE {
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) {
+		Heads::mutate(|v| v.push((para_id, head)));
+	}
+
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()> {
+		if !Self::is_registered(para_id) ||
+			UpgradeCheckFails::get() ||
+			!(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len)
+		{
+			return Err(());
+		}
 		Ok(())
 	}
 
-	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
-		// TODO(ahm-v2): record the head update in the mock.
-	}
-
-	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): check the code upgrade in the mock.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult {
+		AlreadyKnown::mutate(|v| v.push(para_id));
 		Ok(())
 	}
 
 	fn schedule_code_upgrade(
-		_para_id: ParaId,
-		_validation_code: Vec<u8>,
+		para_id: ParaId,
+		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
-		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
+		if ScheduleFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		ScheduledUpgrades::mutate(|v| v.push((para_id, validation_code)));
 		Ok(())
 	}
 }
@@ -182,12 +208,9 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
+	type CodeUpgradeValidPeriod = ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub const Unused: u32 = 0;
 }
 
 use frame_support::traits::ConstU64;
@@ -198,8 +221,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
 	DeregisterFails::set(false);
+	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	UpgradeCheckFails::set(false);
+	ScheduledUpgrades::set(Vec::new());
+	ScheduleFails::set(false);
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);

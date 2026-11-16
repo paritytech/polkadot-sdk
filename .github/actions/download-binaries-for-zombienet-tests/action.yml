@@ -14,11 +14,16 @@ inputs:
   destination-path:
     description: "Destination path for copied files"
     required: false
+  prefix:
+    description: "substrate, polkadot, cumulus or parachain-templates. Empty means all."
+    required: false
+    default: ""
 
 runs:
   using: "composite"
   steps:
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || inputs.prefix == 'substrate'
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-linux-substrate-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -29,7 +34,8 @@ runs:
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix != 'substrate'
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-linux-stable-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -43,7 +49,8 @@ runs:
         cleanup: "true"
 
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || contains(fromJSON('["polkadot", "cumulus"]'), inputs.prefix)
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-linux-stable-cumulus-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -54,7 +61,8 @@ runs:
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || contains(fromJSON('["polkadot", "cumulus"]'), inputs.prefix)
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-test-parachain-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -65,7 +73,8 @@ runs:
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || inputs.prefix == 'polkadot'
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-test-collators-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -77,7 +86,8 @@ runs:
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || inputs.prefix == 'polkadot'
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-malus-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
@@ -90,7 +100,8 @@ runs:
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
-    - uses: ./.github/actions/download-artifact-extract
+    - if: inputs.prefix == '' || inputs.prefix == 'parachain-templates'
+      uses: ./.github/actions/download-artifact-extract
       with:
         artifact-name: build-templates-node-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}

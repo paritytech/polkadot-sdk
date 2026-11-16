@@ -29,7 +29,7 @@ use sp_weights::Weight;
 pub type TransactionPriority = u64;
 
 /// Minimum number of blocks a transaction will remain valid for.
-/// `TransactionLongevity::max_value()` means "forever".
+/// `TransactionLongevity::MAX` means "forever".
 pub type TransactionLongevity = u64;
 
 /// Tag for a transaction. No two transactions with the same tag should be placed on-chain.
@@ -327,7 +327,7 @@ impl Default for ValidTransaction {
 			priority: 0,
 			requires: vec![],
 			provides: vec![],
-			longevity: TransactionLongevity::max_value(),
+			longevity: TransactionLongevity::MAX,
 			propagate: true,
 		}
 	}

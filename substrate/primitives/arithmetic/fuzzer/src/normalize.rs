@@ -29,8 +29,8 @@ use sp_arithmetic::Normalizable;
 type Ty = u64;
 
 fn main() {
-	let sum_limit = Ty::max_value() as u128;
-	let len_limit: usize = Ty::max_value().try_into().unwrap();
+	let sum_limit = Ty::MAX as u128;
+	let len_limit: usize = Ty::MAX.try_into().unwrap();
 
 	loop {
 		fuzz!(|data: (Vec<Ty>, Ty)| {
@@ -53,6 +53,6 @@ fn main() {
 			} else {
 				panic!("Should have returned Ok for input = {:?}, target = {:?}", data, norm);
 			}
-		})
+		});
 	}
 }
