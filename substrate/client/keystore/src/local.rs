@@ -776,13 +776,16 @@ impl KeyFile {
 	) -> Result<()> {
 		#[cfg(target_family = "unix")]
 		let mut file = {
-			use std::os::unix::fs::OpenOptionsExt;
-			fs::OpenOptions::new()
+			use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+			let file = fs::OpenOptions::new()
 				.write(true)
 				.create(true)
 				.truncate(true)
 				.mode(0o600)
-				.open(path)?
+				.open(path)?;
+			// `mode` applies only when the file is created.
+			file.set_permissions(fs::Permissions::from_mode(0o600))?;
+			file
 		};
 		#[cfg(not(target_family = "unix"))]
 		let mut file = File::create(path)?;
@@ -1046,6 +1049,28 @@ mod tests {
 		let path = store.0.read().key_file(public.as_ref(), TEST_KEY_TYPE).unwrap().path;
 		let permissions = File::open(path).unwrap().metadata().unwrap().permissions();
 
+		assert_eq!(0o100600, permissions.mode());
+	}
+
+	#[test]
+	#[cfg(target_family = "unix")]
+	fn rewritten_key_file_gets_restrictive_permissions_on_unix() {
+		use std::os::unix::fs::PermissionsExt;
+
+		// A key file can get loose permissions from outside the keystore, for example from a
+		// backup restore. A new write of the secret must make the file private again.
+		let temp_dir = TempDir::new().unwrap();
+		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
+		let secret_uri = "//Alice";
+		let public = sr25519::AppPair::from_string(secret_uri, None).unwrap().public();
+
+		store.insert(TEST_KEY_TYPE, secret_uri, public.as_ref()).unwrap();
+		let path = store.0.read().key_file(public.as_ref(), TEST_KEY_TYPE).unwrap().path;
+		fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
+		store.insert(TEST_KEY_TYPE, secret_uri, public.as_ref()).unwrap();
+
+		let permissions = fs::metadata(&path).unwrap().permissions();
 		assert_eq!(0o100600, permissions.mode());
 	}
 
