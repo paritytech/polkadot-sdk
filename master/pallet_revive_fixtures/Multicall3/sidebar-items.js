@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Multicall3Calls"],"struct":["Call3","Result","aggregate3Call","aggregate3Return"]};

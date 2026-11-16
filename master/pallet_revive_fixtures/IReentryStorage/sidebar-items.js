@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["IReentryStorageCalls"],"struct":["noopCall","noopReturn"]};
+window.SIDEBAR_ITEMS = {"enum":["IReentryStorageCalls"],"struct":["noopCall","noopReturn","writeS0Call","writeS0Return"]};

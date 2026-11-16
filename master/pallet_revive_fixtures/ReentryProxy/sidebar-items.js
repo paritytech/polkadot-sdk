@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ReentryProxyCalls"],"struct":["bounceCall","bounceReturn"]};
+window.SIDEBAR_ITEMS = {"enum":["ReentryProxyCalls"],"struct":["bounceCall","bounceReturn","bounceWriteS0Call","bounceWriteS0Return"]};

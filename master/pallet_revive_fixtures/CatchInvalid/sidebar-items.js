@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CatchInvalidCalls"],"struct":["caughtCall","caughtReturn","tryCreateInvalidCall","tryCreateInvalidReturn","tryInvalidCall","tryInvalidReturn","tryPayableInvalidCall","tryPayableInvalidReturn"]};

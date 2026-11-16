@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WeightLeftCalls"],"struct":["weightLeftCall","weightLeftReturn"]};
