@@ -2565,7 +2565,7 @@ impl Store {
 								query_index.retention_tracks.insert(hash, verdict);
 							}
 						},
-						// Logged where found, left tracked so the next sweep reports it again.
+						// Logged where found, left tracked so the next sweep tries again.
 						Ok(false) => {},
 						Err(e) => log::warn!(
 							target: LOG_TARGET,
@@ -3772,7 +3772,8 @@ impl Store {
 	}
 
 	/// Moves a stored statement onto `track` by rewriting its account index row and the totals
-	/// under the submit-index write lock, `false` when the statement cannot be tied to its row.
+	/// under the submit-index write lock, `false` when the statement cannot be tied to its row or
+	/// `track` has no room for it.
 	fn retrack_statement_locked(
 		&self,
 		submit_index: &mut SubmitIndex,
@@ -3806,6 +3807,15 @@ impl Store {
 		let mut totals = submit_index.totals;
 		totals.sub(details.track, details.data_len);
 		totals.add(track, details.data_len);
+		if submit_index.exceeded_limit(&totals, track) == Some(RejectionReason::TrackFull) {
+			log::debug!(
+				target: LOG_TARGET,
+				"No room to move statement {:?} to {:?}",
+				HexDisplay::from(&hash),
+				track
+			);
+			return Ok(false);
+		}
 		self.db
 			.commit([
 				(
@@ -5229,6 +5239,41 @@ mod tests {
 		// The index row carries the track the sweep set, so the removal comes off it.
 		store.remove(&hash).unwrap();
 		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
+	}
+
+	#[test]
+	fn sweep_keeps_a_statement_on_its_track_while_the_new_track_is_full() {
+		let (store, _temp) = test_store_with_config(Config {
+			v2dht: Some(V2DhtConfig { dht_affinity_max_size: Some(15), ..Default::default() }),
+			..Default::default()
+		});
+		let (resolver, transient) =
+			switchable_resolver(RetentionReasonMask::TRANSIENT, RetentionReasonMask::DHT_AFFINITY);
+		store.set_retention_resolver(resolver);
+		let source = StatementSource::Network;
+		let moving = statement(5, 1, None, 10);
+		let hash = moving.hash();
+		assert_eq!(store.submit(moving, source), SubmitResult::New);
+		transient.store(false, Ordering::Relaxed);
+		let persistent = statement(5, 2, None, 10);
+		assert_eq!(store.submit(persistent.clone(), source), SubmitResult::New);
+		propagate(&store);
+
+		// Two statements of 10 bytes exceed the 15 of the persistent track.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient)
+		);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
+
+		store.remove(&persistent.hash()).unwrap();
+		store.maintain();
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
 	}
 
 	fn submit_one_statement_per_track(store: &Store) -> Vec<Statement> {
