@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794841590762,
+  "lastUpdate": 1794849288409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6597bb572c1eca3a21395380fb6e20bebc1a41c",
-          "message": "Additional improvements for the DAP satellite pallet generalization (#11949)\n\nAdditional fixes / improvements for\nhttps://github.com/paritytech/polkadot-sdk/pull/11881:\n- Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since\nit only works on `AccountId32`-type accounts (used in all system\nparachains), but future users with different account types will need\ndifferent trait implementations\n- Improved account migration testing\n- Additional comments to clarify important corner-cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-01T10:51:45Z",
-          "tree_id": "0f8488b30bd2480d173d9bcbac1ab43adb0be7fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6597bb572c1eca3a21395380fb6e20bebc1a41c"
-        },
-        "date": 1777637603694,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.9777662095,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13175198673333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12711180063333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c5087e432dd06d2d36925fecf5c1eb66f7ed010",
+          "message": "backport label check: must be inclusive of all more recent releases (#13753)\n\nNew rule: If a PR is backported to stable-xxx, it must also be\nbackported to all stable-yyyy when yyyy > xxxx.\n\nHere is an example of a PR that seemingly is is 2606, but is not in\n2609, and will be in 2612 again:\nhttps://blog.kianenigma.com/psvm/#/pr/13059 -- to be double checked,\nhopefully I am wrong.\n\nExample when I have 2512 + 2603 backport labels as test in this PR:\n\n<img width=\"1624\" height=\"683\" alt=\"Screenshot 2026-11-06 at 13 07 11\"\nsrc=\"https://github.com/user-attachments/assets/c76b3737-7f70-4d62-8def-bca538deebb1\"\n/>\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T15:39:41Z",
+          "tree_id": "eac0d6fee0245aa609da36d634601b78615a896b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c5087e432dd06d2d36925fecf5c1eb66f7ed010"
+        },
+        "date": 1794849244966,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.529618936366669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12100424526666669,
             "unit": "seconds"
           }
         ]
