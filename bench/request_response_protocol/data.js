@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794840724458,
+  "lastUpdate": 1794848284836,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -146555,6 +146555,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2863762552,
             "range": "± 15338286",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c5087e432dd06d2d36925fecf5c1eb66f7ed010",
+          "message": "backport label check: must be inclusive of all more recent releases (#13753)\n\nNew rule: If a PR is backported to stable-xxx, it must also be\nbackported to all stable-yyyy when yyyy > xxxx.\n\nHere is an example of a PR that seemingly is is 2606, but is not in\n2609, and will be in 2612 again:\nhttps://blog.kianenigma.com/psvm/#/pr/13059 -- to be double checked,\nhopefully I am wrong.\n\nExample when I have 2512 + 2603 backport labels as test in this PR:\n\n<img width=\"1624\" height=\"683\" alt=\"Screenshot 2026-11-06 at 13 07 11\"\nsrc=\"https://github.com/user-attachments/assets/c76b3737-7f70-4d62-8def-bca538deebb1\"\n/>\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T15:39:41Z",
+          "tree_id": "eac0d6fee0245aa609da36d634601b78615a896b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c5087e432dd06d2d36925fecf5c1eb66f7ed010"
+        },
+        "date": 1794848244864,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21413580,
+            "range": "± 218082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21272243,
+            "range": "± 266329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22736989,
+            "range": "± 277122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26937333,
+            "range": "± 312030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61188319,
+            "range": "± 726340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375412523,
+            "range": "± 7528687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2798840962,
+            "range": "± 239234378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18054244,
+            "range": "± 167835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17926854,
+            "range": "± 173000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18612752,
+            "range": "± 142358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23313236,
+            "range": "± 133004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62760489,
+            "range": "± 451374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376949131,
+            "range": "± 5131652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2856317897,
+            "range": "± 19266679",
             "unit": "ns/iter"
           }
         ]
