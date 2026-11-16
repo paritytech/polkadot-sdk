@@ -32,6 +32,20 @@ mod work_package;
 
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
+/// Work-item payload for a parachain candidate (spec §3.2).
+///
+/// The service uses `validation_code` to look up the PVF. The PoV travels as work-item
+/// extrinsic 0, rather than in the payload, because JAM's first CE 133 message is too small
+/// for a multi-MiB PoV. The collator declares it with an `ExtrinsicSpec`, and the PVF reads
+/// it through `fetch`.
+#[derive(Debug, Encode, Decode)]
+pub struct ParachainCandidate {
+	/// The parachain to which the candidate belongs.
+	pub para_id: ParaId,
+	/// Hash of the currently active validation code.
+	pub validation_code: polkadot_parachain_primitives::primitives::ValidationCodeHash,
+}
+
 pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proof, CollatorProofError};
 pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};

@@ -125,7 +125,7 @@ mod tests {
 					refine_gas_limit: 1,
 					accumulate_gas_limit: 1,
 					export_count: 0,
-					payload: Default::default(),
+					payload: vec![0; 36].into(),
 					import_segments: Default::default(),
 					extrinsics: Default::default(),
 				}]
@@ -162,7 +162,7 @@ mod tests {
 			refine_gas_limit: 1,
 			accumulate_gas_limit: 1,
 			export_count: 0,
-			payload: Default::default(),
+			payload: vec![0; 36].into(),
 			import_segments: Default::default(),
 			extrinsics: Default::default(),
 		};

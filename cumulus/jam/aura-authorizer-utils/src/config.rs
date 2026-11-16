@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::ParachainCandidate;
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use core::num::NonZero;
 use jam_types::{ServiceId, Slot, WorkItem};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -31,6 +32,10 @@ pub enum ConfigError {
 	InvalidWorkItemService,
 	/// Number of work items does not match the number of configured para IDs.
 	InvalidWorkItemCount,
+	/// A work item payload is not a fully encoded parachain candidate.
+	InvalidCandidate,
+	/// A candidate's para ID does not match its assignment.
+	InvalidCandidateParaId,
 }
 
 /// The AURA authorizer config embedded in every work package.
@@ -60,7 +65,7 @@ pub struct AuthConfig {
 }
 
 impl AuthConfig {
-	/// Check that every work item has a configured para ID and targets this service.
+	/// Check the count, service, and decoded candidate para ID of every work item.
 	pub fn check_work_items(&self, items: &[WorkItem]) -> Result<(), ConfigError> {
 		if items.len() != self.para_ids.len() {
 			return Err(ConfigError::InvalidWorkItemCount);
@@ -68,6 +73,14 @@ impl AuthConfig {
 
 		if items.iter().any(|item| item.service != self.parachain_service) {
 			return Err(ConfigError::InvalidWorkItemService);
+		}
+
+		for (item, expected_para_id) in items.iter().zip(&self.para_ids) {
+			let candidate = ParachainCandidate::decode_all(&mut &item.payload.0[..])
+				.map_err(|_| ConfigError::InvalidCandidate)?;
+			if candidate.para_id != *expected_para_id {
+				return Err(ConfigError::InvalidCandidateParaId);
+			}
 		}
 
 		Ok(())
@@ -86,41 +99,101 @@ impl AuthConfig {
 mod tests {
 	use super::*;
 	use alloc::vec;
+	use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 
 	#[test]
 	fn work_item_constraints_works() {
-		let mut config = AuthConfig {
-			para_ids: vec![],
+		let config = AuthConfig {
+			para_ids: vec![ParaId::new(0)],
 			parachain_service: 1,
 			collator_set_root: H256::zero(),
 			collator_set_size: NonZero::new(1).expect("nonzero test size"),
 			slot_duration: NonZero::new(1).expect("nonzero test duration"),
 		};
-		let mut items = [WorkItem {
+		let items = [WorkItem {
 			service: config.parachain_service,
 			code_hash: Default::default(),
 			refine_gas_limit: 1,
 			accumulate_gas_limit: 1,
 			export_count: 0,
-			payload: Default::default(),
+			payload: ParachainCandidate {
+				para_id: ParaId::new(0),
+				validation_code: ValidationCodeHash::from([0; 32]),
+			}
+			.encode()
+			.into(),
 			import_segments: Default::default(),
 			extrinsics: Default::default(),
 		}];
 
-		// Missing and surplus assignments fail.
-		for para_ids in [vec![], vec![ParaId::new(0), ParaId::new(1)]] {
-			config.para_ids = para_ids;
-			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
-		}
-		config.para_ids = vec![ParaId::new(0)];
+		// A candidate matching its assignment and service is accepted.
 		assert_eq!(config.check_work_items(&items), Ok(()));
 
-		items[0].service += 1;
-		assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemService));
+		// Missing and surplus assignments fail.
+		{
+			let mut config = AuthConfig { para_ids: vec![], ..config };
+			for para_ids in [vec![], vec![ParaId::new(0), ParaId::new(1)]] {
+				config.para_ids = para_ids;
+				assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+			}
+		}
 
-		// Item-count errors take precedence when both constraints fail.
-		config.para_ids.clear();
-		assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+		// A candidate addressed to another service is rejected.
+		{
+			let mut items = items.clone();
+			items[0].service += 1;
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemService));
+		}
+
+		// A valid candidate cannot claim a different parachain.
+		{
+			let mut items = items.clone();
+			items[0].payload = ParachainCandidate {
+				para_id: ParaId::new(1),
+				validation_code: ValidationCodeHash::from([0; 32]),
+			}
+			.encode()
+			.into();
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidateParaId));
+		}
+
+		// A truncated candidate cannot be decoded.
+		{
+			let mut items = items.clone();
+			items[0].payload = vec![0; 4].into();
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidate));
+		}
+
+		// Valid candidate bytes followed by extra data are also rejected.
+		{
+			let mut items = items.clone();
+			items[0].payload.0.push(0);
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidate));
+		}
+
+		// Each item must match its own assignment, not merely any authorized para.
+		{
+			let config = AuthConfig { para_ids: vec![ParaId::new(0), ParaId::new(1)], ..config };
+			let mut items = [items[0].clone(), items[0].clone()];
+			let mut candidate = ParachainCandidate {
+				para_id: ParaId::new(1),
+				validation_code: ValidationCodeHash::from([1; 32]),
+			};
+			items[1].payload = candidate.encode().into();
+			assert_eq!(config.check_work_items(&items), Ok(()));
+
+			candidate.para_id = ParaId::new(0);
+			items[1].payload = candidate.encode().into();
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidateParaId));
+		}
+
+		// Item-count errors take precedence over an invalid service.
+		{
+			let config = AuthConfig { para_ids: vec![], ..config };
+			let mut items = items.clone();
+			items[0].service += 1;
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+		}
 	}
 
 	#[test]

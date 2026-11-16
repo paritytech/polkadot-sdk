@@ -51,7 +51,7 @@ fn package_body() -> WorkPackageBody {
 			refine_gas_limit: 11,
 			accumulate_gas_limit: 12,
 			export_count: 0,
-			payload: vec![13].into(),
+			payload: [vec![0; 4], vec![13; 32]].concat().into(),
 			import_segments: Default::default(),
 			extrinsics: Default::default(),
 		}]
@@ -84,13 +84,15 @@ fn signing_vectors_works() {
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 0, 2, 4, 5, 1, 1, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
 		10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11, 0, 0, 0, 0,
-		0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 13, 0, 0,
+		0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+		13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+		0, 0,
 	];
 	// Python: hashlib.blake2b(b"jam:parachain-service:aura:work-package:v1" +
 	//                         bytes(expected_payload), digest_size=32).digest()
 	let expected_hash = [
-		70, 105, 60, 131, 151, 80, 76, 5, 177, 87, 22, 96, 11, 137, 229, 127, 177, 19, 158, 211,
-		40, 155, 16, 66, 206, 255, 187, 237, 245, 39, 119, 106,
+		205, 29, 208, 148, 190, 167, 230, 114, 57, 0, 68, 205, 12, 162, 173, 104, 99, 184, 56, 88,
+		12, 24, 85, 154, 239, 187, 138, 245, 95, 42, 92, 80,
 	];
 	assert_eq!(payload, expected_payload);
 	assert_eq!(hash.as_bytes(), &expected_hash);
