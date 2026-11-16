@@ -58,6 +58,7 @@ pub mod pallet_revive;
 pub mod pallet_scheduler;
 pub mod pallet_session;
 pub mod pallet_staking_async;
+pub mod pallet_staking_async_points_converter;
 pub mod pallet_staking_async_rc_client;
 pub mod pallet_sudo;
 pub mod pallet_timestamp;

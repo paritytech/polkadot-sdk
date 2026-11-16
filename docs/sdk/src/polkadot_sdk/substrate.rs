@@ -100,8 +100,9 @@
 //!
 //! ### Anatomy of a Binary Crate
 //!
-//! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially
-//! blueprints of a Substrate-based project, as the name of the latter is implying. Each
+//! From the above, [`node_cli`]/[`kitchensink_runtime`] and the solochain template
+//! (`templates/solochain`) are essentially blueprints of a Substrate-based project, as the name of
+//! the latter is implying. Each
 //! Substrate-based project typically contains the following:
 //!
 //! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.

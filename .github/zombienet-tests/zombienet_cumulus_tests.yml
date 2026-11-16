@@ -183,3 +183,7 @@
 - job-name: "zombienet-cumulus-0040-validator_collators_scale"
   test-filter: "zombie_ci::validator_collators::scale::rotation_to_a_polkadot_sized_authority_list_on_asset_hub_and_people"
   cumulus-image: "polkadot-parachain-debug"
+
+- job-name: "zombienet-cumulus-0041-rpc_collator_switches_back_to_preferred_rpc_node"
+  test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_switches_back_to_preferred_rpc_node"
+  cumulus-image: "test-parachain"

@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
 		tokens::nonfungibles_v2::{Create, Destroy, Inspect, Mutate},
-		Currency, Get,
+		Currency, Get, LockableCurrency, WithdrawReasons,
 	},
 };
 use pallet_balances::Error as BalancesError;
@@ -667,6 +667,65 @@ fn transfer_owner_should_work() {
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(3)), 0, account(2)),
 			Error::<Test>::Unaccepted
 		);
+	});
+}
+
+#[test]
+fn transfer_ownership_fails_when_deposit_is_locked() {
+	new_test_ext().execute_with(|| {
+		let (alice, bob) = (account(1), account(2));
+		Balances::make_free_balance_be(&alice, 100);
+		Balances::make_free_balance_be(&bob, 100);
+		// Reserves the collection deposit of 2 from Alice: free = 98, reserved = 2.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(alice.clone()),
+			alice.clone(),
+			collection_config_with_all_settings_enabled()
+		));
+		// A lock of 99 exceeds Alice's free balance by 1, so 1 unit of the deposit cannot move.
+		Balances::set_lock(*b"test/lk0", &alice, 99, WithdrawReasons::all());
+		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(bob.clone()), Some(0)));
+
+		assert_noop!(
+			Nfts::transfer_ownership(RuntimeOrigin::signed(alice.clone()), 0, bob.clone()),
+			Error::<Test>::IncompleteDepositTransfer
+		);
+
+		// Removing the lock unblocks the transfer, and the whole deposit moves.
+		Balances::remove_lock(*b"test/lk0", &alice);
+		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(alice.clone()), 0, bob.clone()));
+		assert_eq!(collections(), vec![(bob.clone(), 0)]);
+		assert_eq!(Balances::reserved_balance(&alice), 0);
+		assert_eq!(Balances::reserved_balance(&bob), 2);
+	});
+}
+
+#[test]
+fn force_collection_owner_fails_when_deposit_is_locked() {
+	new_test_ext().execute_with(|| {
+		let (alice, bob) = (account(1), account(2));
+		Balances::make_free_balance_be(&alice, 100);
+		Balances::make_free_balance_be(&bob, 100);
+		// Reserves the collection deposit of 2 from Alice: free = 98, reserved = 2.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(alice.clone()),
+			alice.clone(),
+			collection_config_with_all_settings_enabled()
+		));
+		// A lock of 99 exceeds Alice's free balance by 1, so 1 unit of the deposit cannot move.
+		Balances::set_lock(*b"test/lk0", &alice, 99, WithdrawReasons::all());
+
+		assert_noop!(
+			Nfts::force_collection_owner(RuntimeOrigin::root(), 0, bob.clone()),
+			Error::<Test>::IncompleteDepositTransfer
+		);
+
+		// Removing the lock unblocks the transfer, and the whole deposit moves.
+		Balances::remove_lock(*b"test/lk0", &alice);
+		assert_ok!(Nfts::force_collection_owner(RuntimeOrigin::root(), 0, bob.clone()));
+		assert_eq!(collections(), vec![(bob.clone(), 0)]);
+		assert_eq!(Balances::reserved_balance(&alice), 0);
+		assert_eq!(Balances::reserved_balance(&bob), 2);
 	});
 }
 

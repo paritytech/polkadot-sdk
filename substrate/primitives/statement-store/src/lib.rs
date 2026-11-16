@@ -155,7 +155,18 @@ pub const MAX_ANY_TOPICS: usize = 128;
 /// the runtime via [`increase_allowance_by`] / [`decrease_allowance_by`]; the store reads the
 /// current value with [`get_allowance`] when validating a submission. An account with no allowance
 /// (or a depleted one) cannot store statements.
-#[derive(Clone, Default, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[derive(
+	Clone,
+	Default,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct StatementAllowance {
 	/// Maximum number of statements allowed
 	pub max_count: u32,

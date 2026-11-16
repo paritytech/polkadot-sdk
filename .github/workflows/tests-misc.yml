@@ -404,6 +404,7 @@ jobs:
     name: All test misc tests passed
     # If any new job gets added, be sure to add it to this array
     needs:
+      - preflight
       - test-full-crypto-feature
       - test-frame-examples-compile-to-wasm
       - test-frame-ui

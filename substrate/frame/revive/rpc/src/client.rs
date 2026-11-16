@@ -22,8 +22,8 @@ pub(crate) mod version_aware_runtime_api;
 
 use crate::{
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
-	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
-	SyncingStatus, TraceOutcome, TransactionTrace,
+	FilterError, Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	SyncingProgress, SyncingStatus, TraceOutcome, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
@@ -121,9 +121,6 @@ impl From<TransactionStatus<SubstrateBlockHash>> for SubmitError {
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
-	/// A [`jsonrpsee::core::ClientError`] wrapper error.
-	#[error(transparent)]
-	Jsonrpsee(#[from] jsonrpsee::core::ClientError),
 	/// A [`subxt::Error`] wrapper error.
 	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
@@ -165,8 +162,8 @@ pub enum ClientError {
 	#[error("failed to recover eth address")]
 	RecoverEthAddressFailed,
 	/// Failed to filter logs.
-	#[error("Failed to filter logs")]
-	LogFilterFailed(#[from] anyhow::Error),
+	#[error("Failed to filter logs: {0}")]
+	LogFilterFailed(#[source] anyhow::Error),
 	/// Receipt storage was not found.
 	#[error("Receipt storage not found")]
 	ReceiptDataNotFound,
@@ -290,6 +287,16 @@ impl From<ClientError> for ErrorObjectOwned {
 			},
 			ClientError::TransactError(EthTransactError::Message(msg)) => {
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			ClientError::LogFilterFailed(error) => {
+				let message = match error.downcast_ref::<FilterError>() {
+					Some(error) => format!("Failed to filter logs: {error}"),
+					None => {
+						log::error!(target: LOG_TARGET, "Log query failed: {error:#}");
+						"Failed to filter logs".to_string()
+					},
+				};
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, message, None)
 			},
 			_ => {
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
@@ -442,7 +449,8 @@ pub async fn connect(
 		.max_request_size(max_request_size)
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
-		.await?;
+		.await
+		.map_err(subxt::rpcs::Error::from)?;
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 

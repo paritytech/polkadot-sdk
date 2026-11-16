@@ -903,6 +903,41 @@ mod on_idle {
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(4));
 		});
 	}
+
+	#[test]
+	fn cursor_resumes_at_first_node_skipped_by_weight_exhaustion() {
+		ExtBuilder::default()
+			.skip_genesis_ids()
+			.add_ids(vec![(1, 1_000), (2, 1_000), (3, 1_000), (4, 1_000), (5, 1_000)])
+			.build_and_execute(|| {
+				// The count budget allows 4 rebags, but the weight limit only covers 2.
+				<Runtime as Config>::MaxAutoRebagPerBlock::set(4);
+				for id in 1..=5u64 {
+					StakingMock::set_score_of(&id, 10);
+				}
+				let per_item = <Runtime as Config>::WeightInfo::on_idle_rebag();
+
+				run_to_block(1, per_item.saturating_mul(2));
+
+				// Only the two accounts the weight limit actually paid for were rebagged.
+				assert_eq!(
+					List::<Runtime>::get_bags(),
+					vec![(10, vec![1, 2]), (1_000, vec![3, 4, 5])]
+				);
+				// The cursor must resume at 3, the first node the weight limit forced it to
+				// skip, not jump past it to 5 as the count budget alone would suggest.
+				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(3));
+
+				// Next block: the cursor resumes at 3 and the remaining two nodes get rebagged.
+				run_to_block(2, per_item.saturating_mul(2));
+				assert_eq!(
+					List::<Runtime>::get_bags(),
+					vec![(10, vec![1, 2, 3, 4]), (1_000, vec![5])]
+				);
+				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(5));
+			});
+	}
+
 	#[test]
 	fn can_rebag_across_bags() {
 		ExtBuilder::default().build_and_execute(|| {
@@ -1197,6 +1232,33 @@ mod on_idle {
 			// Verify account is now in the list and removed from PendingRebag
 			assert!(!PendingRebag::<Runtime>::contains_key(&1));
 			assert_eq!(List::<Runtime>::get_bags(), vec![(1000, vec![1])]);
+		});
+	}
+
+	#[test]
+	fn cursor_handles_account_present_in_both_pending_and_list() {
+		// An account can end up in both `PendingRebag` and `ListNodes` at once: it joins while
+		// locked (queued to `PendingRebag`), then a second `on_insert` after unlock inserts it
+		// into `ListNodes` directly, leaving the stale `PendingRebag` entry untouched.
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(1);
+
+			BagsList::lock();
+			assert_ok!(BagsList::on_insert(5, 1000));
+			BagsList::unlock();
+			// Second, independent on_insert for the same id: now unlocked, so this goes straight
+			// into `ListNodes`, while the first call's `PendingRebag` entry is still there.
+			assert_ok!(BagsList::on_insert(5, 1000));
+
+			assert!(PendingRebag::<Runtime>::contains_key(&5));
+			assert!(List::<Runtime>::contains(&5));
+
+			// Budget of 1: the loop processes the `PendingRebag`-sourced copy of 5 and stops,
+			// leaving the `ListNodes`-sourced copy at `accounts[1]` unprocessed.
+			run_to_block(1, Weight::MAX);
+
+			assert!(!PendingRebag::<Runtime>::contains_key(&5));
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(5));
 		});
 	}
 }

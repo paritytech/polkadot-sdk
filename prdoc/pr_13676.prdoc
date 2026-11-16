@@ -1,0 +1,10 @@
+title: Derive `MaxEncodedLen` for `StatementAllowance`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `sp_statement_store::StatementAllowance` now implements `MaxEncodedLen`.
+
+crates:
+  - name: sp-statement-store
+    bump: minor

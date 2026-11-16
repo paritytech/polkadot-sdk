@@ -1,0 +1,17 @@
+title: 'omni-node: fix state_traceBlock and state_callRecorded in --dev mode'
+doc:
+  - audience:
+      - Node Dev
+      - Node Operator
+    description: |
+      In `--dev` mode, polkadot-omni-node did not set an executor for block tracing.
+      Because of this, `state_traceBlock` failed for blocks with signed extrinsics on
+      runtimes that use `StorageWeightReclaim`, and `state_callRecorded` was not available.
+      The dev node now uses `ParachainTracingExecuteBlock`, the same executor as the
+      normal parachain node.
+
+      Tracing on a dev node now records a proof. This uses more CPU and memory during
+      tracing. Block authoring and block import do not change.
+crates:
+  - name: polkadot-omni-node-lib
+    bump: patch

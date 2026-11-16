@@ -223,6 +223,68 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnOnce() + std::panic
 mod tasks;
 
 #[test]
+fn test_parse_pallet_multiple_extra_constants() {
+	let pallet = assert_pallet_parses! {
+		#[manifest_dir("../../examples/basic")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+
+			#[pallet::extra_constants]
+			impl<T: Config> Pallet<T> {
+				fn first() -> u32 {
+					1
+				}
+			}
+
+			#[pallet::extra_constants]
+			impl<T: Config> Pallet<T> {
+				fn second() -> u32 {
+					2
+				}
+			}
+		}
+	};
+	assert_eq!(pallet.extra_constants.len(), 2);
+	assert_eq!(pallet.extra_constants[0].extra_constants[0].ident, "first");
+	assert_eq!(pallet.extra_constants[1].extra_constants[0].ident, "second");
+}
+
+#[test]
+fn test_parse_pallet_checks_instances_in_all_extra_constants_blocks() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("trait is defined with instance but generic use none")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::config]
+			pub trait Config<I: 'static = ()>: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T, I = ()>(_);
+
+			#[pallet::extra_constants]
+			impl<T: Config> Pallet<T> {
+				fn first() -> u32 {
+					1
+				}
+			}
+
+			#[pallet::extra_constants]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				fn second() -> u32 {
+					2
+				}
+			}
+		}
+	};
+}
+
+#[test]
 fn test_parse_minimal_pallet() {
 	assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]

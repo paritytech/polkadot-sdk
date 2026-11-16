@@ -719,7 +719,7 @@ mod tests {
 	}
 
 	parameter_types! {
-		pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+		pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	}
 
 	impl parachains_paras::Config for Test {

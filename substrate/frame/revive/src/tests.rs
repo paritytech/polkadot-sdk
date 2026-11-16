@@ -382,6 +382,27 @@ impl pallet_assets::Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
 	type Holder = AssetsHolder;
 	type Freezer = AssetsFreezer;
+	type CallbackHandle = MirrorAssetTransfersCallback;
+}
+
+/// The address the logs of [`MirrorAssetTransfersCallback`] are attributed to.
+pub const ASSET_TRANSFER_LOG_ADDR: H160 = H160([0xa6; 20]);
+
+/// Mirrors every asset transfer as a log with 32 bytes of data and no topics from
+/// [`ASSET_TRANSFER_LOG_ADDR`] while [`MirrorAssetTransfers`] is set, as a runtime's ERC-20
+/// `Transfer` mirror does. Paying a storage deposit in PGAS is such a transfer.
+pub struct MirrorAssetTransfersCallback;
+
+impl pallet_assets::AssetsCallback<u32, AccountId32, u128> for MirrorAssetTransfersCallback {
+	fn transferred(_id: &u32, _from: &AccountId32, _to: &AccountId32, _amount: u128) {
+		if MirrorAssetTransfers::get() {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				ASSET_TRANSFER_LOG_ADDR,
+				Default::default(),
+				vec![0u8; 32].try_into().expect("32 bytes are within the LOG limit; qed"),
+			);
+		}
+	}
 }
 
 impl pallet_assets_holder::Config for Test {
@@ -453,6 +474,7 @@ parameter_types! {
 	pub static DebugFlag: bool = false;
 	pub static AutoMapFlag: bool = false;
 	pub static MaxOutsideFrameLogsFlag: u32 = 1024;
+	pub static MirrorAssetTransfers: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -576,6 +598,7 @@ impl ExtBuilder {
 		// A test that lowers the cap would otherwise leave it lowered for every later test sharing
 		// the thread.
 		MaxOutsideFrameLogsFlag::set(1024);
+		MirrorAssetTransfers::set(false);
 	}
 	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
 		self.genesis_state_overrides = Some(storage);
@@ -1261,10 +1284,15 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 }
 
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
-// whatever the drain benchmark's per-byte marginal comes to for that shape.
+// whatever the drain benchmark's marginals come to for that shape. The ref time is the drain's
+// share for the log's topic count and data length, so each topic adds the per-topic marginal of
+// `outside_frame_log_topics`, which covers the bloom's hash of the topic on top of its bytes.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
-	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
+	use crate::{
+		WeightInfo, evm::block_hash::OutsideFrameLog, limits::NUM_EVENT_TOPICS,
+		weightinfo_extension::OnFinalizeBlockParts,
+	};
 	use codec::Encode;
 	use frame_support::dispatch::DispatchClass;
 	use sp_core::H256;
@@ -1278,7 +1306,7 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		);
 		let after = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
 		let entry = OutsideFrameLog { event_index: 0, contract, topics, data };
-		(after.saturating_sub(before).proof_size(), entry.encoded_size() as u64)
+		(after.saturating_sub(before), u64::try_from(entry.encoded_size()).unwrap())
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1286,20 +1314,46 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		// it here.
 		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
 
+		let max_topics = usize::try_from(NUM_EVENT_TOPICS).unwrap();
 		let shapes = [
-			(vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize], vec![0u8; 64]),
+			(vec![H256::repeat_byte(2); max_topics], vec![0u8; 64]),
 			(vec![H256::repeat_byte(3)], vec![0u8; 32]),
 			(vec![], vec![]),
 		];
-		for (i, (topics, data)) in shapes.into_iter().enumerate() {
+		for (contract, (topics, data)) in (4u8..).zip(shapes) {
+			let num_topics = u32::try_from(topics.len()).unwrap();
+			let data_len = u32::try_from(data.len()).unwrap();
 			let (registered, entry_bytes) =
-				registered_by(H160::repeat_byte(4 + i as u8), topics, data.clone());
+				registered_by(H160::repeat_byte(contract), topics, data);
 			let marginal =
-				<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
+				<Test as Config>::WeightInfo::per_outside_frame_log(num_topics, data_len);
 			assert!(entry_bytes > 0);
-			assert!(registered >= entry_bytes, "shape {i}");
-			assert_eq!(registered, marginal.max(entry_bytes), "shape {i}");
+			assert!(registered.proof_size() >= entry_bytes, "contract {contract}");
+			assert_eq!(
+				registered.proof_size(),
+				marginal.proof_size().max(entry_bytes),
+				"contract {contract}"
+			);
+			assert_eq!(registered.ref_time(), marginal.ref_time(), "contract {contract}");
 		}
+
+		let per_topic = <Test as Config>::WeightInfo::outside_frame_log_topics(1)
+			.saturating_sub(<Test as Config>::WeightInfo::outside_frame_log_topics(0))
+			.ref_time();
+		assert!(per_topic > 0);
+		let data = vec![0u8; 64];
+		let (with_topics, _) = registered_by(
+			H160::repeat_byte(8),
+			vec![H256::repeat_byte(8); max_topics],
+			data.clone(),
+		);
+		let (without_topics, _) = registered_by(H160::repeat_byte(9), vec![], data);
+		assert!(
+			with_topics.ref_time() >=
+				without_topics
+					.ref_time()
+					.saturating_add(u64::from(NUM_EVENT_TOPICS).saturating_mul(per_topic))
+		);
 	});
 }
 
