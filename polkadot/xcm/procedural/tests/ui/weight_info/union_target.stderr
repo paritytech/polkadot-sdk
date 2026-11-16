@@ -1,0 +1,5 @@
+error: unions are not supported by 'derive(XcmWeightInfo)'
+  --> tests/ui/weight_info/union_target.rs:20:1
+   |
+20 | union NotAnEnum {
+   | ^^^^^
