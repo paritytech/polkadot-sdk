@@ -4024,7 +4024,7 @@ fn bulletin_report_message_executes_unpaid_and_credits_points() {
 
 		// WHEN another non-system sibling, or an account on Bulletin, sends the message Bulletin
 		// sends to report its blocks
-		// THEN the barrier rejects it, since it does not pay
+		// THEN the barrier rejects it, since only the listed chains may execute without paying
 		for origin in [
 			Location::new(1, Parachain(2000)),
 			Location::new(
