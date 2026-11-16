@@ -367,20 +367,23 @@ mod tests {
 	#[test]
 	fn kick_threshold_rounds_one_round_plus_a_slot_up_to_whole_sessions() {
 		use frame_support::traits::ConstU64;
-		// GIVEN a largest collator set of 50 extra collators, 20 invulnerables and 20 candidates
+		// GIVEN 90 collators (50 extra, 20 invulnerables, 20 candidates), so one round plus one
+		// slot is 91 slots
 		type Threshold<BlocksPerSlot, Session> =
 			KickThreshold<Test, ConstU32<50>, BlocksPerSlot, Session>;
-		// WHEN the threshold is derived from the blocks per Aura slot and the session length
-		// THEN it is the first session multiple above one round of the set plus one slot
-		// A round of 91 slots of 2 blocks rounds up to 4 sessions of 50 blocks
+		// WHEN each case below sets the blocks per Aura slot and the session length
+		// THEN it is the first whole number of sessions above 91 slots
+
+		// 2 blocks per slot, sessions of 50 blocks: 91 x 2 = 182 blocks, so 4 sessions = 200
 		assert_eq!(Threshold::<ConstU32<2>, ConstU64<50>>::get(), 200);
-		// The extra slot crosses a session boundary that the 90 collators alone stay under
+		// 2 blocks per slot, sessions of 181 blocks: 182 blocks, so 2 sessions = 362
+		// (without the extra slot, 180 blocks would fit in 1 session)
 		assert_eq!(Threshold::<ConstU32<2>, ConstU64<181>>::get(), 362);
-		// A round that is exactly one session still gets the next session, so it exceeds the round
+		// 1 block per slot, sessions of 91 blocks: exactly 1 session, so 2 sessions = 182
 		assert_eq!(Threshold::<ConstU32<1>, ConstU64<91>>::get(), 182);
-		// A zero session length returns the round instead of dividing by zero
+		// 1 block per slot, sessions of 0 blocks: returns 91 blocks instead of dividing by zero
 		assert_eq!(Threshold::<ConstU32<1>, ConstU64<0>>::get(), 91);
-		// A zero blocks per slot counts as one block per slot
+		// 0 blocks per slot (counted as 1), sessions of 50 blocks: 91 blocks, so 2 sessions = 100
 		assert_eq!(Threshold::<ConstU32<0>, ConstU64<50>>::get(), 100);
 	}
 }
