@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794751576858,
+  "lastUpdate": 1794826635197,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b0b3deed77a6a773262a8af9705c4420a503856",
-          "message": "statement-store: multi-seed mode and per-client channel (#11947)\n\n## Summary  \n\nTwo small changes to `statement-latency-bench` that together unlock\nsingle-account propagation measurement (one allowanced SURI, two\nclients, two RPC endpoints)\n\n- `--seed` is now a comma-separated `Vec<String>`\n- Statement `channel` is now derived from `(client_id, sent_count)` \ninstead of `sent_count` alone, so multi-client runs that share an\non-chain author no longer collide on `(author, channel)` and evict\n     each other's statements before propagation completes",
-          "timestamp": "2026-04-30T13:36:47Z",
-          "tree_id": "f18413dc91ecb159cad59b99017eda184b7cc69b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b0b3deed77a6a773262a8af9705c4420a503856"
-        },
-        "date": 1777561895530,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.920852476799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.127720122,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1282020895666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a99e45f49a573d3528d941d090501b39ce274d1",
+          "message": "docs/spec-msg: Bootnode discovery for parachains on JAM (#12809)\n\nOn polkadot, parachain nodes find each other with DHT on bootnodes\nfeature (rfc-0008).\nOn JAM, each parachain publishes up to 8 bootnode addresses to its own\nKV store under `bootnodes/v1`.\n\n### Write \n\n1. Governance decides using `BootnodesOrigin` who can alter the\nbootnodes and calls `set_bootnodes` with addresses as UTF-8 text\n2. Pallet minimally validates every provided address \n3. Writes a SCALE encoded record:\n\n```rust\npub struct BootnodeRecord {\n    genesis: [u8; 32],\n    fork_id: ForkId,\n    addresses: BoundedVec<BoundedVec<u8, ConstU32<512>>, ConstU32<8>>,\n}\n```\n\n### Read\n\n1. Nodes subscribe to KV changes and reads the `BootnodeRecord`\n2. Spawn a runtime Kademlia instance on `/<genesis>/<fork_id>/kad` and\nseed the routing table with the addresses\n3. Track discovered peers in their own list (since they get evicted from\nthe routing table) to know where to send req-resp for offchain messages.\n\nThis PR adds speculative messaging on JAM needed features and backports.\n\nThis PR represents the implementation scope of SpecMSG for the parachain\nservice / JAM specific.\n- includes a minimal set of `Provides` and `Requires`\n- the settlement is done via a ring since that functionality is\nidentical for higher speculation tiers\n- an alternative would be an EnactmentProof, however that adds\ncomplexity for a race condition that is mitigated via ring sizing of 64\nentries (https://github.com/paritytech/polkadot-sdk/pull/13087 for more\ndetails)\n- bootnode address record needed for p2p fetching of messages\n\nNeeds Parachain Service context:\n- https://github.com/paritytech/polkadot-sdk/pull/11883\n\n\nPart of speculative messaging serires:\n- https://github.com/paritytech/polkadot-sdk/pull/13000 - Minimal PS\nrequirements with qnt testing\n- https://github.com/paritytech/polkadot-sdk/pull/13087 - Post MVP work\nfor higher speculation tiers\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-11-16T09:30:37Z",
+          "tree_id": "248e8d05d6c3b96b69d74ce6683ea45a6ff810e3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a99e45f49a573d3528d941d090501b39ce274d1"
+        },
+        "date": 1794826595855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.649614367866661,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12925686389999996,
             "unit": "seconds"
           }
         ]
