@@ -1,0 +1,15 @@
+title: 'statement-store: resend statements a slow or failing peer missed'
+doc:
+- audience: Node Dev
+  description: |-
+    A peer that stops reading or whose sends fail no longer loses statements. A full
+    propagation outbox now refuses new hashes instead of dropping its oldest, and a failed
+    propagation send gives up its chunk and the rest of the outbox. In both cases the peer
+    records the lowest admission sequence it missed. Once its outbox drains, an initial sync
+    walks the admission journal from that sequence to the current watermark, so the peer
+    receives every missed statement once, in admission order. Before, the dropped hashes and
+    the failed chunks were never resent, and the peer got those statements only from another
+    peer or a later full resync.
+crates:
+- name: sc-network-statement
+  bump: patch
