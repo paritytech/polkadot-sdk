@@ -15,9 +15,11 @@ doc:
     `sc_client_api::PartialStateImport` trait, implemented by `Client`, which forwards to the
     backend's `PartialStateStore` from the new `Backend::partial_state()` (`None` by default: such
     a backend cannot state-sync). The database records the target and the cursor, so a restart
-    resumes the download, and the backend discards an abandoned one. Each node position is written
-    exactly once, as parity-db's reference counting needs. The target block imports with the
-    `ImportedState` marker, now a unit struct, and `BlockImportOperation::mark_state_synced`.
+    resumes the download, and the backend discards one that never completed. A warp sync that
+    starts over calls `abandon_partial_state` first, so no restart resumes the old target. Each
+    node position is written exactly once, as parity-db's reference counting needs. The target
+    block imports with the `ImportedState` marker, now a unit struct, and
+    `BlockImportOperation::mark_state_synced`.
     `SyncMode::LightState` loses `skip_proofs`, `ProofProvider::verify_range_proof` also returns
     the decoded trie nodes, and the syncing strategies require `PartialStateImport` of the client.
     Supersedes #9247.

@@ -1405,6 +1405,12 @@ where
 	{
 		partial_state_store(&*self.backend)?.resumable()
 	}
+
+	fn abandon_partial_state(&self) -> sp_blockchain::Result<()> {
+		let store = partial_state_store(&*self.backend)?;
+		let _import_lock = self.backend.get_import_lock().write();
+		store.abandon()
+	}
 }
 
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>

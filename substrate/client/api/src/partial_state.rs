@@ -65,7 +65,8 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// the import lock. A backend without a store cannot state-sync, and every method fails.
 ///
 /// The database records the target and the cursor every chunk leaves, so after a restart
-/// `resumable_partial_state` says where to continue.
+/// `resumable_partial_state` says where to continue, unless `abandon_partial_state` gave the
+/// sync up.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
 	/// Fails, and records nothing, if the database already holds block state.
@@ -85,6 +86,11 @@ pub trait PartialStateImport<Block: BlockT> {
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
+
+	/// Give up the recorded sync. From here on `resumable_partial_state` returns `None`. The
+	/// nodes stay until the next `begin_partial_state`, the next start, or the first block state
+	/// committed removes them. Does nothing if no sync is recorded.
+	fn abandon_partial_state(&self) -> sp_blockchain::Result<()>;
 }
 
 /// The backend side of a state sync: where the chunks go and what the database remembers of
@@ -110,6 +116,11 @@ pub trait PartialStateStore<Block: BlockT>: Send + Sync {
 	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an
 	/// earlier sync is still being discarded.
 	fn resumable(&self) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
+
+	/// Give up the recorded sync without removing its nodes: one commit swaps the records for the
+	/// discard marker. `resumable` returns `None` from then on, and the next discard starts from
+	/// the marker. Does nothing if nothing is recorded or the marker is already there.
+	fn abandon(&self) -> sp_blockchain::Result<()>;
 
 	/// Check that every node of the state trie at `state_root` is in the database, child tries
 	/// included. `state_root` must be the recorded target's, else fails and leaves everything as

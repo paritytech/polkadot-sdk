@@ -435,8 +435,9 @@ where
 	/// download. A parachain is given its finalized head at startup, and the target is too old
 	/// [`STALE_TARGET_DISTANCE`] blocks or more below it. Other chains do not know the finalized
 	/// block of their peers: there the target is too old once [`STALE_TARGET_FAILED_REQUESTS`]
-	/// state requests in a row failed. The old attempt stays in the database until the state
-	/// sync that follows the warp sync begins, which discards it.
+	/// state requests in a row failed. The old attempt is abandoned first, so no later start
+	/// resumes it. Its nodes stay in the database until the state sync that follows the warp
+	/// sync begins, which removes them.
 	fn restart_warp_sync_if_stale(&mut self) {
 		// Only a state sync resumed at startup is checked.
 		let (Some(state), Some((warp_sync_config, _))) = (&self.state, &self.warp_restart) else {
@@ -455,6 +456,15 @@ where
 		};
 		// Recent enough: the resumed state sync goes on.
 		if !stale {
+			return;
+		}
+		// The record goes first, from here on no start resumes this target. 
+		// If that fails, the state sync goes on and the next call tries again.
+		if let Err(e) = self.client.abandon_partial_state() {
+			warn!(
+				target: LOG_TARGET,
+				"Failed to abandon the state sync of #{target}, it goes on: {e}",
+			);
 			return;
 		}
 		let Some((warp_sync_config, warp_sync_protocol_name)) = self.warp_restart.take() else {
@@ -671,10 +681,12 @@ mod test {
 		let mut strategy = resumed(WarpSyncConfig::WithTarget(header(stale - 1)));
 		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_none() && strategy.state.is_some(), "recent enough");
+		assert!(strategy.client.resumable_partial_state().unwrap().is_some(), "still recorded");
 
 		let mut strategy = resumed(WarpSyncConfig::WithTarget(header(stale)));
 		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_some() && strategy.state.is_none(), "too old");
+		assert!(strategy.client.resumable_partial_state().unwrap().is_none(), "abandoned");
 
 		// Without a finalized head the best block of a peer does not count, however far it is.
 		// Each peer is asked for the state and dropped before it answers.
@@ -689,5 +701,6 @@ mod test {
 		}
 		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_some() && strategy.state.is_none(), "no peer serves it");
+		assert!(strategy.client.resumable_partial_state().unwrap().is_none(), "abandoned");
 	}
 }

@@ -92,8 +92,8 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// only the import is left. Handed out once. A download in progress returns `None`: its
 	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
-	/// Finish the work that waits on the database, if it is ready. 
-	// `None` means there is no result: nothing is pending, the thread still runs, 
+	/// Finish the work that waits on the database, if it is ready.
+	// `None` means there is no result: nothing is pending, the thread still runs,
 	// or the delay has not passed.
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
 	/// The target is still being recorded, or a verified chunk waits to be written. No state

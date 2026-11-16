@@ -18,7 +18,7 @@
 
 //! The database side of a state sync: the trie nodes of a block's state go into `STATE` chunk by
 //! chunk before the block is imported, and `STATE_META` records enough for a restart to resume
-//! the download or to finish an interrupted discard. 
+//! the download or to finish an interrupted discard.
 
 use crate::{
 	columns, stats::StateUsageStats, utils::Meta, BlockImportOperation, DbHash, StorageDb,
@@ -69,8 +69,7 @@ enum DiscardStep<H: hash_db::Hasher> {
 pub(crate) enum PartialStateStatus<Hash> {
 	/// `TARGET` is set: chunks of this block are accepted.
 	Syncing { hash: Hash, state_root: Hash },
-	/// `DISCARDING` is set: a discard failed after its first commit. The next one starts from the
-	/// marker.
+	/// `DISCARDING` is set: the attempt was abandoned, or a discard failed after its first commit.
 	Discarding { state_root: Hash },
 }
 
@@ -123,9 +122,11 @@ fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
 /// commit of the target block never interleave, and that commit removes the records in the
 /// block's own transaction ([`DbPartialState::complete`]) and clears the status in one go.
 ///
-/// An attempt that never completes is dropped, nodes and records, as soon as anything else needs
-/// `STATE`: a new target in `begin`, the first block state committed by other means, or
-/// `check_complete` finding a node missing. A stalled download keeps its records until then.
+/// An attempt that does not complete stays on disk and can be resumed or discarded.
+///
+/// `abandon` removes only the records, immediately, and writes the discard
+/// marker in their place, so the attempt can no longer be resumed. Its nodes are removed later:
+/// by the next `begin`, by a block that commits its state by other means, or at the next start.
 pub(crate) struct DbPartialState<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
 	meta: Arc<RwLock<Meta<NumberFor<Block>, Block::Hash>>>,
@@ -145,7 +146,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 	/// Locks the status for a whole block commit, but only while a state sync may be in progress:
 	/// once a finalized block has state `begin` refuses, so nothing is recorded, nothing is locked
 	/// and `None` comes back. Under the lock, a state commit other than the target's own import
-	/// discards a recorded attempt first. 
+	/// discards a recorded attempt first.
 	pub(crate) fn maybe_lock(
 		&self,
 		operation: &BlockImportOperation<Block>,
@@ -280,6 +281,26 @@ impl<Block: BlockT> DbPartialState<Block> {
 		}
 	}
 
+	/// The first commit of a discard: swaps the records for the state root under `DISCARDING`.
+	/// From here on the attempt is not resumable. If we crash or fail after this point, the next
+	/// start or the next discard removes the nodes from the marker. The caller holds the mutex.
+	fn mark_discarding(
+		&self,
+		status: &mut Option<PartialStateStatus<Block::Hash>>,
+		state_root: Block::Hash,
+	) -> ClientResult<()> {
+		let mut transaction = Transaction::new();
+		remove_partial_state_records(&mut transaction);
+		transaction.set_from_vec(
+			columns::STATE_META,
+			partial_state_keys::DISCARDING,
+			state_root.encode(),
+		);
+		self.storage.db.commit(transaction)?;
+		*status = Some(PartialStateStatus::Discarding { state_root });
+		Ok(())
+	}
+
 	/// Removes the recorded attempt and its nodes from `STATE`. The caller holds the mutex and
 	/// passes its guard. On return the status matches the database again: `None` when everything
 	/// is gone, `Discarding` when a commit failed after the marker was written.
@@ -303,22 +324,13 @@ impl<Block: BlockT> DbPartialState<Block> {
 			));
 		}
 		let state_root = match current {
-			// The removal takes several commits, so a marker brackets it. The first commit swaps
-			// the records for the state root under `DISCARDING`. If we crash or fail after this
-			// point, the next start or the next discard resumes from the marker.
+			// The removal takes several commits, so a marker brackets it.
 			PartialStateStatus::Syncing { state_root, .. } => {
-				let mut transaction = Transaction::new();
-				remove_partial_state_records(&mut transaction);
-				transaction.set_from_vec(
-					columns::STATE_META,
-					partial_state_keys::DISCARDING,
-					state_root.encode(),
-				);
-				self.storage.db.commit(transaction)?;
-				*status = Some(PartialStateStatus::Discarding { state_root });
+				self.mark_discarding(status, state_root)?;
 				state_root
 			},
-			// An earlier discard failed after writing the marker. We start from there.
+			// The attempt was abandoned, or an earlier discard failed after writing the marker.
+			// We start from there.
 			PartialStateStatus::Discarding { state_root } => state_root,
 		};
 
@@ -520,6 +532,17 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 		let target = decode_partial_state_target::<Block>(&raw)?;
 		let PartialStateProgress { cursor, complete } = self.progress()?;
 		Ok(Some(ResumablePartialState { target, cursor, complete }))
+	}
+
+	fn abandon(&self) -> ClientResult<()> {
+		let mut status = self.status.lock();
+		match *status {
+			Some(PartialStateStatus::Syncing { state_root, .. }) => {
+				self.mark_discarding(&mut status, state_root)
+			},
+			// Nothing is recorded, or the marker is already there.
+			Some(PartialStateStatus::Discarding { .. }) | None => Ok(()),
+		}
 	}
 
 	fn check_complete(&self, state_root: Block::Hash) -> ClientResult<()> {
@@ -883,8 +906,9 @@ mod tests {
 		assert!(db.get(columns::STATE, &root_key).is_none());
 	}
 
-	/// A discard interrupted after its first commit leaves the marker and the nodes. The next
-	/// start finishes the removal from the marker.
+	/// An abandoned attempt, like a discard interrupted after its first commit, leaves the marker
+	/// and the nodes. It is no longer resumable, and the next start finishes the removal from the
+	/// marker.
 	#[test]
 	fn interrupted_discard_is_finished_at_the_next_start() {
 		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
@@ -895,19 +919,14 @@ mod tests {
 			.import(&with_end(chunk(&header, nodes), &[vec![0x80]]))
 			.unwrap();
 		let root_key = root_key(&backend, &header);
-		drop(backend);
 
-		// What a crash between the two commits of a discard leaves behind: the records swapped
-		// for the marker, the nodes still there.
-		let mut transaction = Transaction::new();
-		remove_partial_state_records(&mut transaction);
-		transaction.set_from_vec(
-			columns::STATE_META,
-			partial_state_keys::DISCARDING,
-			header.state_root.encode(),
-		);
-		db.commit(transaction).unwrap();
+		// What abandoning leaves behind, and a crash between the two commits of a discard too:
+		// the records swapped for the marker, the nodes still there.
+		backend.partial_state.abandon().unwrap();
+		assert_eq!(backend.partial_state.resumable().unwrap(), None);
+		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_some());
 		assert!(db.get(columns::STATE, &root_key).is_some());
+		drop(backend);
 
 		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
 		assert_eq!(backend.partial_state.resumable().unwrap(), None);
