@@ -1,0 +1,12 @@
+title: 'statement-store: drop peers that left the network from the DHT index'
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT path a peer that left the network no longer stays in the DHT index. Discovery
+    events named such a peer long after it left and kept restarting its two-hour eviction time.
+    Now only an identify answer or an open statement substream of the peer restarts it. The choice
+    of the peers that cover the node's own topics passes over an unreachable peer and takes
+    another replica of the topic, and it prefers a connected replica.
+crates:
+- name: sc-network-statement
+  bump: patch
