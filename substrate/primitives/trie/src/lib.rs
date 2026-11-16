@@ -321,8 +321,8 @@ where
 /// Removes keys from an in-memory trie and records the nodes it touches.
 ///
 /// The caller keeps `trie` between calls. So removals spread over several calls collapse the same
-/// nodes as one removal of all keys would. After an error or a panic `trie` still holds the
-/// removals made before it. `db` is only read.
+/// nodes as one removal of all keys would. After an error or a panic `trie` can be partly modified.
+/// Rolling back to a snapshot taken before the call restores it. `db` is only read.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	db: &DB,
 	delta: I,
