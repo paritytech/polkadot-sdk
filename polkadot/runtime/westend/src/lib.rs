@@ -1369,16 +1369,11 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 			xcm_config::XcmConfig,
 			(),
 			xcm_config::PriceForChildParachainDelivery,
-			AccumulateForwardDestParaId,
+			westend_runtime_constants::system_parachain::AssetHubParaId,
 			Dmp,
 		>,
 		xcm_config::AssetHub,
 	>;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub AccumulateForwardDestParaId: ParaId = ASSET_HUB_ID.into();
 }
 
 parameter_types! {
