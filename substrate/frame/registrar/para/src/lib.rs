@@ -402,7 +402,7 @@ pub mod pallet {
 		/// The relay chain refused the head.
 		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A para's request relayed by the relay chain ran, with `result`.
-		RelayedRequest { para_id: ParaId, result: DispatchResult },
+		RelayedRequest { para_id: ParaId, request: ParaRequestV1, result: DispatchResult },
 	}
 
 	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
@@ -1021,7 +1021,7 @@ impl<T: Config> Pallet<T> {
 	fn on_relayed_request(para_id: ParaId, request: ParaRequestV1) -> DispatchResult {
 		let origin: frame_system::pallet_prelude::OriginFor<T> =
 			Origin::RelayedPara(para_id).into();
-		let result = match request {
+		let result = match request.clone() {
 			ParaRequestV1::AddLock => Self::add_lock(origin, para_id),
 			ParaRequestV1::RemoveLock => Self::remove_lock(origin, para_id),
 			ParaRequestV1::Deregister => Self::deregister(origin, para_id),
@@ -1030,22 +1030,25 @@ impl<T: Config> Pallet<T> {
 			},
 			ParaRequestV1::SetCurrentHead { head } => Self::set_current_head(origin, para_id, head),
 		};
-		Self::deposit_event(Event::RelayedRequest { para_id, result });
+		Self::deposit_event(Event::RelayedRequest { para_id, request, result });
 		Ok(())
 	}
 
 	/// The weight of a relayed `request`: relaying it plus the call it runs.
 	fn relayed_weight(request: &ParaRequestV1) -> Weight {
-		let call = match request {
-			ParaRequestV1::AddLock => T::WeightInfo::add_lock(),
-			ParaRequestV1::RemoveLock => T::WeightInfo::remove_lock(),
-			ParaRequestV1::Deregister => Self::deregister_weight(),
-			ParaRequestV1::ScheduleCodeUpgrade { .. } => T::WeightInfo::schedule_code_upgrade(),
+		let (head_len, call) = match request {
+			ParaRequestV1::AddLock => (0, T::WeightInfo::add_lock()),
+			ParaRequestV1::RemoveLock => (0, T::WeightInfo::remove_lock()),
+			ParaRequestV1::Deregister => (0, Self::deregister_weight()),
+			ParaRequestV1::ScheduleCodeUpgrade { .. } => {
+				(0, T::WeightInfo::schedule_code_upgrade())
+			},
 			ParaRequestV1::SetCurrentHead { head } => {
-				T::WeightInfo::set_current_head(head.len() as u32)
+				let head_len = head.len() as u32;
+				(head_len, T::WeightInfo::set_current_head(head_len))
 			},
 		};
-		T::WeightInfo::receive_relayed().saturating_add(call)
+		T::WeightInfo::receive_relayed(head_len).saturating_add(call)
 	}
 
 	/// The heaviest of the three paths through [`Pallet::deregister`].

@@ -63,6 +63,9 @@
 //! total, [`Config::MaxQueuedPerPara`] per para so no single para can fill it, and
 //! [`Config::MaxForwardedPerBlock`] going out per block so the parachain is not flooded.
 //!
+//! A request the transport refuses stays first in line. One that no longer fits
+//! [`SendToPara::max_message_size`] is dropped instead, so it cannot block the queue for good.
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -116,7 +119,7 @@ pub trait SendToPara {
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 
-	/// The largest encoded [`MessageToPara`] [`Self::send`] can ever carry.
+	/// The largest encoded [`MessageToPara`] [`Self::send`] carries right now.
 	fn max_message_size() -> u32;
 }
 
@@ -366,6 +369,8 @@ pub mod pallet {
 		RelayQueued { para_id: ParaId },
 		/// A queued request was forwarded to the parachain.
 		Relayed { para_id: ParaId },
+		/// A queued request no longer fits the transport and was dropped.
+		RelayDropped { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -552,7 +557,7 @@ pub mod pallet {
 		pub fn relay(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
 			let para_id: ParaId = ensure_parachain(origin)?.into();
 			let ParaRequest::V1(request) = request;
-			// A refused send stays first in line, so one that can never fit would block the queue.
+			// Refused here, so the para hears now instead of through a dropped request later.
 			let message =
 				MessageToPara::V1(MessageToParaV1::Relayed { para_id, request: request.clone() });
 			ensure!(
@@ -792,7 +797,9 @@ pub mod pallet {
 					para_id,
 					request: request.into(),
 				});
-				if T::SendToPara::send(message).is_err() {
+				// The limit can shrink after a request is queued, and waiting would not help.
+				let too_large = message.encoded_size() > T::SendToPara::max_message_size() as usize;
+				if !too_large && T::SendToPara::send(message).is_err() {
 					// Left at the front, so it still goes first once the transport recovers.
 					log::debug!(
 						target: LOG_TARGET,
@@ -806,8 +813,12 @@ pub mod pallet {
 					*queued = queued.and_then(|n| n.checked_sub(1)).filter(|n| *n > 0);
 				});
 				oldest = oldest.wrapping_add(1);
-				forwarded += 1;
-				Self::deposit_event(Event::Relayed { para_id });
+				if too_large {
+					Self::deposit_event(Event::RelayDropped { para_id });
+				} else {
+					forwarded += 1;
+					Self::deposit_event(Event::Relayed { para_id });
+				}
 			}
 
 			if oldest != start {

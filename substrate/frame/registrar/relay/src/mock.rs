@@ -26,7 +26,7 @@
 use crate::{self as pallet_registrar_relay, SendToPara};
 use codec::Encode;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{MessageToPara, MessageToParaV1, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -94,6 +94,8 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// The transport refuses relayed requests from this para.
+	pub static RefusedPara: Option<ParaId> = None;
 	/// The largest encoded message the transport carries.
 	pub static MaxSendSize: u32 = u32::MAX;
 	/// When true, `MockRegistrar::check_code_upgrade` fails.
@@ -195,7 +197,12 @@ pub struct RecordingSender;
 
 impl SendToPara for RecordingSender {
 	fn send(message: MessageToPara) -> Result<(), ()> {
-		if SendFails::get() || message.encoded_size() > MaxSendSize::get() as usize {
+		let refused = matches!(
+			message,
+			MessageToPara::V1(MessageToParaV1::Relayed { para_id, .. })
+				if Some(para_id) == RefusedPara::get()
+		);
+		if SendFails::get() || refused || message.encoded_size() > MaxSendSize::get() as usize {
 			return Err(());
 		}
 		SentMessages::mutate(|sent| sent.push(message));
@@ -242,6 +249,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	RefusedPara::set(None);
 	MaxSendSize::set(u32::MAX);
 	UpgradeCheckFails::set(false);
 	ScheduledUpgrades::set(Vec::new());

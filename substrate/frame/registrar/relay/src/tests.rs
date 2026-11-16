@@ -1542,20 +1542,52 @@ mod relay {
 	}
 
 	#[test]
-	fn a_stuck_entry_does_not_lock_everyone_out() {
+	fn a_request_that_no_longer_fits_is_dropped() {
 		new_test_ext().execute_with(|| {
-			MaxSendSize::set(50);
 			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
-			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
-			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_A, request));
 			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
 			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
-			for n in 2..12 {
-				System::set_block_number(n);
-				poll();
-			}
+			registrar_events();
 
-			assert_ok!(relay(2003, ParaRequestV1::AddLock));
+			// The transport's limit shrank after the request was queued.
+			MaxSendSize::set(50);
+			poll();
+
+			assert_eq!(
+				take_sent(),
+				vec![
+					relayed(PARA_B, ParaRequestV1::AddLock),
+					relayed(PARA_C, ParaRequestV1::AddLock)
+				]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::RelayDropped { para_id: PARA_A },
+					Event::Relayed { para_id: PARA_B },
+					Event::Relayed { para_id: PARA_C },
+				]
+			);
+			assert_eq!(queue_len(), 0);
+			assert!(!QueuedPerPara::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn a_dropped_request_does_not_count_against_the_per_block_limit() {
+		new_test_ext().execute_with(|| {
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
+			assert_ok!(relay(PARA_A, request));
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
+			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
+
+			MaxSendSize::set(50);
+			poll();
+
+			assert_eq!(take_sent().len(), MAX_FORWARDED_PER_BLOCK as usize);
+			assert_eq!(queue_len(), 0);
 		});
 	}
 
@@ -1565,12 +1597,11 @@ mod relay {
 			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
 			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
 
-			// Only PARA_A's message is refused this block.
-			MaxSendSize::set(10);
+			RefusedPara::set(Some(PARA_A));
 			poll();
 			assert!(take_sent().is_empty());
 
-			MaxSendSize::set(u32::MAX);
+			RefusedPara::set(None);
 			poll();
 			assert_eq!(
 				take_sent(),

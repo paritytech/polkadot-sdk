@@ -2310,7 +2310,11 @@ mod relayed {
 				registrar_events(),
 				vec![
 					Event::ParaUnlocked { para_id },
-					Event::RelayedRequest { para_id, result: Ok(()) },
+					Event::RelayedRequest {
+						para_id,
+						request: ParaRequestV1::RemoveLock,
+						result: Ok(())
+					},
 				]
 			);
 		});
@@ -2328,7 +2332,11 @@ mod relayed {
 				registrar_events(),
 				vec![
 					Event::ParaLocked { para_id },
-					Event::RelayedRequest { para_id, result: Ok(()) }
+					Event::RelayedRequest {
+						para_id,
+						request: ParaRequestV1::AddLock,
+						result: Ok(())
+					}
 				]
 			);
 		});
@@ -2364,9 +2372,17 @@ mod relayed {
 				registrar_events(),
 				vec![
 					Event::HeadUpdateRequested { para_id, message_id: 1 },
-					Event::RelayedRequest { para_id, result: Ok(()) },
+					Event::RelayedRequest {
+						para_id,
+						request: ParaRequestV1::SetCurrentHead { head: head(20) },
+						result: Ok(())
+					},
 					Event::CodeUpgradeRequested { para_id, message_id: 2, code_hash },
-					Event::RelayedRequest { para_id, result: Ok(()) },
+					Event::RelayedRequest {
+						para_id,
+						request: ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len: 300 },
+						result: Ok(())
+					},
 				]
 			);
 		});
@@ -2414,13 +2430,19 @@ mod relayed {
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::RelayedRequest { para_id, result: Err(Error::<Test>::NotLocked.into()) },
+					Event::RelayedRequest {
+						para_id,
+						request: ParaRequestV1::RemoveLock,
+						result: Err(Error::<Test>::NotLocked.into())
+					},
 					Event::RelayedRequest {
 						para_id: 4242,
+						request: ParaRequestV1::AddLock,
 						result: Err(Error::<Test>::NotReserved.into())
 					},
 					Event::RelayedRequest {
 						para_id,
+						request: ParaRequestV1::Deregister,
 						result: Err(Error::<Test>::SendFailed.into())
 					},
 				]
@@ -2504,7 +2526,7 @@ mod relayed {
 				.get_dispatch_info()
 				.call_weight
 		};
-		let relaying = |call| <() as WeightInfo>::receive_relayed().saturating_add(call);
+		let relaying = |call| <() as WeightInfo>::receive_relayed(0).saturating_add(call);
 
 		assert_eq!(weight(ParaRequestV1::AddLock), relaying(<() as WeightInfo>::add_lock()));
 		assert_eq!(weight(ParaRequestV1::RemoveLock), relaying(<() as WeightInfo>::remove_lock()));
@@ -2525,7 +2547,8 @@ mod relayed {
 		);
 		assert_eq!(
 			weight(ParaRequestV1::SetCurrentHead { head: head(64) }),
-			relaying(<() as WeightInfo>::set_current_head(64))
+			<() as WeightInfo>::receive_relayed(64)
+				.saturating_add(<() as WeightInfo>::set_current_head(64))
 		);
 	}
 }

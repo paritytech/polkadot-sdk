@@ -217,21 +217,27 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// What relaying adds around the call it runs, which fails at its first read here.
+	/// What relaying adds around the call it runs, which fails at its first read here. Grows with
+	/// the head it copies into the event.
 	#[benchmark]
-	fn receive_relayed() -> Result<(), BenchmarkError> {
+	fn receive_relayed(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
 		let para_id: ParaId = u32::MAX;
-		let message = MessageToPara::V1(MessageToParaV1::Relayed {
-			para_id,
-			request: ParaRequestV1::RemoveLock,
-		});
+		let request = ParaRequestV1::SetCurrentHead { head: alloc::vec![2u8; h as usize] };
+		let message =
+			MessageToPara::V1(MessageToParaV1::Relayed { para_id, request: request.clone() });
 
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
 		frame_system::Pallet::<T>::assert_last_event(
-			Event::<T>::RelayedRequest { para_id, result: Err(Error::<T>::NotReserved.into()) }
-				.into(),
+			Event::<T>::RelayedRequest {
+				para_id,
+				request,
+				result: Err(Error::<T>::NotReserved.into()),
+			}
+			.into(),
 		);
 		Ok(())
 	}

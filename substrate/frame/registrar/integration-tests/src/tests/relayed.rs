@@ -68,8 +68,8 @@ fn managed_para() -> u32 {
 	para_id
 }
 
-fn relayed_ok(para_id: u32) -> pallet_registrar_para::Event<para::Runtime> {
-	pallet_registrar_para::Event::RelayedRequest { para_id, result: Ok(()) }
+fn relayed_ok(para_id: u32, request: ParaRequestV1) -> pallet_registrar_para::Event<para::Runtime> {
+	pallet_registrar_para::Event::RelayedRequest { para_id, request, result: Ok(()) }
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn a_locked_para_unlocks_itself_through_the_relay_chain() {
 	});
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_lock(para_id), Some(false));
-		assert!(para_event(|e| *e == relayed_ok(para_id)));
+		assert!(para_event(|e| *e == relayed_ok(para_id, ParaRequestV1::RemoveLock)));
 	});
 }
 
@@ -100,7 +100,7 @@ fn a_relayed_lock_shuts_the_manager_out() {
 
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_lock(para_id), Some(true));
-		assert!(para_event(|e| *e == relayed_ok(para_id)));
+		assert!(para_event(|e| *e == relayed_ok(para_id, ParaRequestV1::AddLock)));
 		assert_noop!(
 			para::Registrar::set_current_head(
 				para::RuntimeOrigin::signed(ALICE),
@@ -127,7 +127,8 @@ fn a_relayed_head_lands_on_the_relay_chain_while_the_manager_is_locked_out() {
 		assert!(para_event(
 			|e| *e == pallet_registrar_para::Event::HeadUpdated { para_id, message_id: 1 }
 		));
-		assert!(para_event(|e| *e == relayed_ok(para_id)));
+		let request = ParaRequestV1::SetCurrentHead { head: head(64) };
+		assert!(para_event(|e| *e == relayed_ok(para_id, request.clone())));
 	});
 }
 
@@ -199,6 +200,7 @@ fn a_failing_relayed_request_is_reported_on_the_registrar_parachain() {
 		assert!(para_event(|e| *e ==
 			pallet_registrar_para::Event::RelayedRequest {
 				para_id,
+				request: ParaRequestV1::RemoveLock,
 				result: Err(pallet_registrar_para::Error::<para::Runtime>::NotLocked.into()),
 			}));
 	});
