@@ -59,7 +59,7 @@ pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
 pub const INITIAL_SYNC_RESERVED_BYTES: u64 = 4 * MAX_STATEMENT_NOTIFICATION_SIZE;
 
 /// Maximum number of statement hashes queued for propagation to one peer.
-/// On overflow the oldest hashes are dropped first.
+/// A full outbox takes no more, instead a walk of the admission journal resends what it refused.
 pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
