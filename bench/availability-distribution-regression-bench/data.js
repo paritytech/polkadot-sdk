@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794849349085,
+  "lastUpdate": 1794859798990,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "154e0f5560b5f3dc1a60569aca9e1a232e702fbc",
-          "message": "[revive] pgas as storage deposit (#11847)\n\n## Storage deposits backed by PGAS\n\n> PGAS is a protocol-level gas token or gas allowance mechanism for\nusers verified through Polkadot's Proof of Personhood ecosystem.\n\nThis PR adds a second payment backend for pallet-revive storage\ndeposits: instead of always charging the user in native currency (DOT),\na runtime can opt in to having deposits denominated in **PGAS**.\n\n### What happens to existing storage deposits\n\nOn Asset Hub, the v4 migration swaps each existing DOT storage-deposit\nhold for an equivalent PGAS hold. These historical deposits will be\nrefunded in PGAS, not DOT — pre-PR contributions weren't tracked\nper-contributor, so refunding them as DOT would let users harvest free\nDOT against deposits they never paid. Only `PGasRefundPercent` (a\nruntime constant) is returned to the user; the rest is burned.\n\n**Code-upload deposits are unaffected** — they stay in DOT and are still\nrefunded in DOT when the code is removed.\n\nFor scale: at time of writing, total storage deposits across the 176\nlive contracts on Polkadot Asset Hub are roughly **85 DOT**:\n\n| Bucket | Total (Plancks) | Total (DOT) |\n|---|---|---|\n| `storage_byte_deposit`  | 10,404,800,027   | 1.04 |\n| `storage_item_deposit`  | 225,202,500,027  | 22.52 |\n| `storage_base_deposit`  | 617,172,620,000  | 61.72 |\n| **TOTAL** | **852,779,920,054** | **85.28** |\n\n### New trait: `Deposit`\n\n`substrate/frame/revive/src/deposit_payment.rs`\n\nA new sealed `Deposit<T: Config>` trait abstracts over how storage\ndeposits are charged, held, refunded. It has two implementations\nin-crate:\n\n- **`()`**: the default, charges and refunds the native currency.\nIdentical to the existing pre-PR behavior.\n- **`PGasDeposit<Mutator, Holder, Freezer, Id, RefundPercent>`**: the\nPGAS-backed backend.\n\nThe trait is wired into `Config::Deposit` and called from\n`charge_deposit` / `refund_deposit` in place of the direct `T::Currency`\ncalls that used to live there.\n\n### Account lifecycle: `init_account` / `deinit_account`\n\nThe trait includes `init_account(to)` and `deinit_account(contract)`\nmethods. Rather than transferring the ED from the origin at contract\ncreation (and back to origin on destruction), the EDs are **minted** on\ninit and **burned** on deinit:\n\n### New storage: `NativeDepositOf`\n\n`substrate/frame/revive/src/lib.rs`\n\n```rust\npub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<\n    _, Identity, T::AccountId,\n    Blake2_128Concat, T::AccountId,\n    BalanceOf<T>, ValueQuery,\n>;\n```\n\nKeyed `(holder_account, user) -> native_amount`. It records how much\n**native currency** a user has contributed to a given account's hold.\nThe holder is either a contract (for storage deposits on contract\naccounts) or the pallet account (for code-upload deposits).\n\nIt exists because in the mixed PGAS/DOT world, a user's refund cap needs\nto be tracked explicitly. The map caps how much of a refund can come\nback as DOT ; anything beyond that is settled in PGAS.\n\n### `PGasDeposit<Mutator, Holder, Freezer, Id, RefundPercent>`\n\n`substrate/frame/revive/src/deposit_payment.rs`\n\nParameterized by five type parameters that the runtime wires up:\n\n- `Mutator: fungibles::Mutate` — the fungibles impl backing PGAS (e.g.\n`pallet-assets`).\n- `Holder: fungibles::MutateHold` — the holds backend (e.g.\n`pallet-assets-holder`).\n- `Freezer: fungibles::freeze::Mutate` — the freezes backend (e.g.\n`pallet-assets-freezer`), used to pin each contract's PGAS ED.\n- `Id: Get<AssetId>` — the PGAS asset id on that fungibles instance.\n- `RefundPercent: Get<Perbill>` — the fraction of PGAS returned on\nrefund/collect; the rest is burned.\n\nCharge semantics:\n- If the user has enough reducible PGAS, the full amount is paid in PGAS\nvia `fungibles::MutateHold::transfer_and_hold`, which emits the\n`TransferOnHold` event. No DOT is touched.\n- Otherwise the charge falls through to DOT, and the contribution is\nrecorded in `NativeDepositOf` so it can be refunded as DOT later.\n\nRefund / collect semantics:\n- DOT is returned first, capped by `NativeDepositOf[holder][user]` (and\nby `Precision::BestEffort` on the actual DOT hold).\n- Any shortfall is taken from the PGAS hold. `RefundPercent` of that\nPGAS is transferred to the user's free balance; the remainder is burned.\n- **Sub-ED refunds**: if the `RefundPercent` portion would land below\nPGAS's ED on the user's account (e.g. the user has no PGAS account and\nthe refund is too small to create one), that portion is folded into the\nburn rather than aborting the whole refund.\n\nThe `RefundPercent` burn is what prevents free-PGAS harvesting: a user\ncan't deposit storage, release it, and walk away with an allowance they\ncan spend on execution.\n\n### Migration (v4)\n\n`substrate/frame/revive/src/migrations/v4.rs`\n\nA three-phase multi-block migration brings live chains over:\n\n- **Phase 1**: record each existing code-upload deposit under\n`NativeDepositOf[pallet_account][owner]` so it can still be refunded in\nDOT.\n- **Phase 2**: flip each contract's storage deposit from DOT to PGAS via\n`Deposit::migrate_native_to_pgas` — mint + freeze the PGAS ED under\n`FreezeReason::PGasMinBalance`, burn the native `StorageDepositReserve`\nhold, re-hold the same amount in PGAS. Needed because pre-PR DOT\ndeposits weren't tracked per-contributor.\n- **Phase 3**: rewrite `DeletionQueue` from `TrieId` to\n`DeletionQueueItem { trie_id, account_id }` so the on-idle sweep can\nalso clear the contract's `NativeDepositOf` rows. Runs on every runtime.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-05-01T10:01:02Z",
-          "tree_id": "272e8b37989e0e908eec1806b7ece9c68e4b1537",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/154e0f5560b5f3dc1a60569aca9e1a232e702fbc"
-        },
-        "date": 1777635045629,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1411769804866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009398675540000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007461620333333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02378620334666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009882182999999973,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55a995e0fe0ac62f81013358c55ec8ca24295fa5",
+          "message": "[pallet-revive]: implement EIP-150 63/64 gas rule (#11079)\n\n### Summary\nOn Ethereum, EIP-150 limits a nested call to 63/64 of its caller's\nremaining gas, so the caller can continue after a callee that uses up\nall of its gas. In pallet-revive, a nested call without a gas limit got\nall the gas, weight and storage deposit its caller had left, so a callee\nthat consumed all its gas, for example by executing `INVALID`, left its\ncaller nothing to continue with, as reported in\nparitytech/contract-issues#257 and paritytech/contract-issues#259. This\nPR applies the 63/64 rule to nested calls and constructors in both\nEthereum and Substrate execution mode.\n\n### Changes\n- **63/64 rule.** A call, delegate call or precompile call from a\ncontract, or the constructor of a contract it creates, gets at most\n`63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s`\nthe call stipend (zero without one). In Substrate execution mode the\nrule applies to each weight dimension and to the storage deposit; in\nEthereum execution mode, to the gas, the caller's weight limit and its\ndeposit limit, if it has one. Calls and constructors that a precompile\nstarts through `precompiles::Ext::call` and\n`precompiles::ExtWithInfo::instantiate` follow the rule too. The\ntransaction's first call is exempt.\n- **Stipend.** The stipend is set aside before the rule, so a call with\na stipend leaves its caller at least 1/64 of what remains after the\nstipend, as on Ethereum. In Ethereum execution mode, the stipend's gas\nis what the stipend's weight costs on its own, as before this PR, and at\nmost what the caller has left. When proof size is the larger cost of the\ntransaction, a caller with less gas left than the stipend's gas can\nstill pay for the stipend's weight, because only the stipend's proof\nsize adds to the transaction's fee. Its callee then gets all of the\ncaller's gas, and the caller keeps none.\n- **Dry runs.** The weight and storage meters each hold an\n`eip_150::Peak`: the minimum amount a call needs at its start so that,\nafter the 63/64 rule, each of its subcalls still gets what it needs to\nfinish. The dry runs report this amount, or what the call consumed if\nthat is higher, so `weight_required`, `max_storage_deposit`, `eth_gas`\nand `eth_estimateGas` now include the part each caller keeps: 1/63 of\nwhat each nested call needs beyond its stipend.\n- **Dry-run weight limit.** An Ethereum dry run runs the call with at\nmost the maximum `eth_transact` weight minus the transaction's base\nweight, instead of the whole maximum, so that the weight it reports\nleaves room for the base weight also when a nested call uses up its\nshare. A call that needs more weight than that runs out of gas in the\ndry run, as it does in a transaction.\n- **Fix.** A dry run reported a `max_storage_deposit` that was too low\nin two cases:\n- A contract A freed storage and then called B, which called back into\nA. A's refund was recorded when that call returned, and the dry run\nsubtracted it from the deposit B needed, although B's deposit limit was\nset before the refund. The storage meter now adds a call's deposit to\nwhat its caller had consumed when the call started.\n- In Substrate execution mode, a call wrote storage that an earlier call\nfreed. The refund does not raise the later call's deposit limit, but the\ndry run subtracted it from what the later call needed. The caller's net\nrefund now counts as zero when it has a deposit limit.\n- **Tests.** Solidity tests, compiled with Solc and Resolc, check that:\n- a caller can write storage in a `catch` block after its callee or a\nconstructor executes `INVALID`;\n- Multicall3's `aggregate3` continues after a call that uses up its gas;\n- an ERC-2771 forwarder's gas check rejects a transaction that leaves\nits callee less than the requested gas;\n- a call to `ISystem.weightLeft()` gets 63/64 of each weight dimension\nits caller has left;\n  - calls succeed when run with exactly the limits a dry run returned.\n\n### Behavior change for deployed contracts\n- A nested call that asks for more than its 63/64 share, or sets no\nlimit, gets less gas, weight and storage deposit than before.\n- `ISystem.weightLeft()` returns the weight left without the part the\ncaller keeps.\n\n### Behavior change for users\n- A nested call can fail when the transaction's limits are set to what a\ndry run or an earlier transaction consumed, or come from a dry run on a\nruntime without this change.\n\n### Follow-ups\n- A PolkaVM value call with gas `u64::MAX` gets no stipend, so its\ncallee gets about 1/64 of a stipend less than with gas `u64::MAX - 1`,\nand the Resolc rows of\n`value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit`\nare ignored. Before this PR, such a call also got no stipend, but its\ncallee received all of its caller's remaining resources.\n- Without a `gas_limit`, `ReviveApi::call` and `ReviveApi::instantiate`\nstill dry run with the whole block weight as the limit. When a nested\ncall uses up its share, they report a `weight_required` of about a whole\nblock, and an extrinsic with that weight limit is rejected. Before this\nPR, the same dry run failed with `OutOfGas`.\n- In Ethereum execution mode, a transaction applies the 63/64 rule to\nthe gas, the caller's weight limit and its deposit limit, if it has one.\nA dry run tracks the part each caller keeps in weight and in storage\ndeposit, but not in gas, and its `eth_gas` covers the fee for\n`weight_required` plus `max_storage_deposit`. This has two effects:\n- A transaction rounds down when it converts gas to weight. So in a\ncorner case, a nested call can get slightly less weight with exactly the\ndry run's `eth_gas` than in the dry run: one byte of proof size in the\ntest runtime. Through `eth_transact`, the dry run's longer encoding\nleaves more gas over than the nested call lacks, unless the wallet sets\nprices that make the transaction at least as long as that encoding.\n`eth_estimateGas` is not affected.\n- A storage deposit that a caller pays from the gas it kept counts\ntwice, so `eth_gas` can be higher than needed, by at most that gas.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-16T17:52:11Z",
+          "tree_id": "1bc337583bfd4f6e62d6d687afbcd038759c8147",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/55a995e0fe0ac62f81013358c55ec8ca24295fa5"
+        },
+        "date": 1794859758661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024052886613333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007860553453333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14167166696666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009924622219999964,
             "unit": "seconds"
           }
         ]
