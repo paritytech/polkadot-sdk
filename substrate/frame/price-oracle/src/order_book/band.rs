@@ -25,8 +25,8 @@
 use super::Interval;
 use crate::pricing::median;
 use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
-use sp_price_oracle::{PairAggregate, PairId, Price};
-use sp_runtime::{traits::CheckedMul, FixedPointNumber};
+use sp_price_oracle::{decimal, PairAggregate, PairId, Price};
+use sp_runtime::traits::CheckedMul;
 
 /// The last price of every pair that had one.
 pub type Prices = BTreeMap<PairId, Price>;
@@ -173,18 +173,6 @@ fn median_edge(filled: &[Price], count: usize) -> Option<Price> {
 		return filled.get(first_middle).copied();
 	}
 	median(&mut [*filled.get(first_middle)?, *filled.get(second_middle)?])
-}
-
-/// `price` in decimal, for the logs. `Debug` of a fixed point number prints nothing in a runtime.
-fn decimal(price: Price) -> String {
-	// The inner value of one, and its number of decimal places.
-	let unit = Price::DIV;
-	let places = unit.ilog10() as usize;
-	let inner = price.into_inner();
-	let fraction = format!("{:0places$}", inner % unit);
-	format!("{}.{}", inner / unit, fraction.trim_end_matches('0'))
-		.trim_end_matches('.')
-		.into()
 }
 
 #[cfg(test)]
@@ -397,12 +385,5 @@ mod tests {
 				filled.len()
 			);
 		}
-	}
-
-	#[test]
-	fn decimal_prints_the_price() {
-		assert_eq!(decimal(p("4.01")), "4.01");
-		assert_eq!(decimal(p("4")), "4");
-		assert_eq!(decimal(p("0.000000000000000001")), "0.000000000000000001");
 	}
 }

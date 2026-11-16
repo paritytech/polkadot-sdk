@@ -18,7 +18,7 @@
 //! Markets of the price oracle: what the oracle nodes fetch to price a pair.
 
 use crate::PairId;
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -119,6 +119,16 @@ pub struct Request {
 	pub timeout_ms: u32,
 	/// Responses larger than this are discarded.
 	pub max_response_bytes: u32,
+}
+
+impl Request {
+	/// The host and the path, e.g. `api.binance.com/api/v3/depth`, for logs and messages. The
+	/// query is left out: its values may not be meant for them.
+	pub fn host_and_path(&self) -> String {
+		let mut out = String::from_utf8_lossy(&self.host).into_owned();
+		out.push_str(&String::from_utf8_lossy(&self.path));
+		out
+	}
 }
 
 /// One query of a market: what to request, and a tag telling the runtime what the response is.

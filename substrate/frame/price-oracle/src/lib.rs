@@ -578,7 +578,7 @@ impl<T: Config> Pallet<T> {
 		now_ms: u64,
 	) -> Result<MarketOutput, ParseError> {
 		let err = |s: &str| ParseError(s.as_bytes().to_vec());
-		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown market"))?;
+		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown_market"))?;
 		crate::parse_market::<T::MarketPricing>(&market, responses, now_ms)
 			.map(|output| MarketOutput(output.encode()))
 	}
@@ -638,20 +638,21 @@ pub fn parse_market<P: MarketPricing>(
 	responses: Vec<(QueryTag, Vec<u8>)>,
 	now_ms: u64,
 ) -> Result<P::Output, ParseError> {
+	// The text is the node's metric label and log text: see `MarketPricing::Error`.
 	let err = |s: &str| ParseError(s.as_bytes().to_vec());
 
 	let queries = P::queries(&market.pricing);
 	for (tag, body) in &responses {
 		let Some(query) = queries.iter().find(|q| q.tag == *tag) else {
-			return Err(err("unknown query tag"));
+			return Err(err("unknown_query_tag"));
 		};
 		if body.len() > query.request.max_response_bytes as usize {
-			return Err(err("response too large"));
+			return Err(err("too_large"));
 		}
 	}
 
 	P::price(&market.pricing, &responses, now_ms)
-		.map_err(|e| ParseError(alloc::format!("{e:?}").into_bytes()))
+		.map_err(|e| ParseError(alloc::format!("{e}").into_bytes()))
 }
 
 impl<T: Config> PriceProvider for Pallet<T> {

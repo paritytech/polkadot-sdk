@@ -21,13 +21,19 @@ use crate::{
 	market::{Market, MarketId, QueryTag},
 	Anchor, PairAggregate, Settings,
 };
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-/// Reason a market could not be priced from the responses to its queries.
+/// Reason a market could not be priced from the responses to its queries, as text.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct ParseError(pub Vec<u8>);
+
+impl core::fmt::Display for ParseError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str(&String::from_utf8_lossy(&self.0))
+	}
+}
 
 /// What pricing a market gave, for [`PriceOracleApi::aggregate`]. Only the runtime reads it.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]

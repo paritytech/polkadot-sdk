@@ -33,15 +33,17 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::{
-	market::Market,
+	decimal,
+	market::{Market, MarketId},
 	runtime_api::{PriceOracleApi, PricingState},
-	Anchor, PairAggregate, PriceReport, Quote, Settings, SignedPriceReport,
+	Anchor, PairAggregate, PairId, Price, PriceReport, Quote, Settings, SignedPriceReport,
 };
 use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion},
 	RuntimeAppPublic,
 };
 use std::{
+	collections::BTreeMap,
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -59,6 +61,7 @@ pub(crate) mod cost {
 	use sc_network::ReputationChange as Rep;
 	pub(crate) const MALFORMED: Rep = Rep::new(-500, "Price oracle: undecodable report");
 	pub(crate) const STALE_REPORT: Rep = Rep::new(-50, "Price oracle: stale report");
+	pub(crate) const DUPLICATE_REPORT: Rep = Rep::new(-50, "Price oracle: duplicate report");
 	pub(crate) const UNKNOWN_SIGNER: Rep = Rep::new(-150, "Price oracle: unknown signer");
 	pub(crate) const BAD_SIGNATURE: Rep = Rep::new(-100, "Price oracle: bad signature");
 }
@@ -148,19 +151,19 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 
 	/// Check a report `sender` sent against the rules of this tick, with this node's clock at
 	/// `now_ms`: it must decode as a [`SignedPriceReport`], be within the window (see
-	/// [`Self::window`]), come from an accepted signer, and carry a valid signature, checked in
-	/// that order. `Err` is the reputation change the sender deserves, and the reason.
-	// TODO: consider bounding how far ahead an anchor may be. A signer anchoring far ahead pins
-	// its own pool slot and costs every author a filtered report per block.
+	/// [`Self::window`]), come from an accepted signer, be newer than what `pool` holds of that
+	/// signer, and carry a valid signature, checked in that order. `Err` is the reputation
+	/// change the sender deserves, and the reason.
 	pub fn check<Signature>(
 		&self,
 		sender: &PeerId,
 		mut data: &[u8],
 		now_ms: u64,
+		pool: &ReportPool<Id, Signature>,
 	) -> Result<SignedPriceReport<Id, Signature>, (ReputationChange, &'static str)>
 	where
-		Id: RuntimeAppPublic<Signature = Signature> + Decode + PartialEq,
-		Signature: Decode,
+		Id: RuntimeAppPublic<Signature = Signature> + Decode + Ord,
+		Signature: Decode + Clone,
 	{
 		let reject = |cost: ReputationChange, reason: &'static str| {
 			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {reason}");
@@ -175,8 +178,11 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		if !self.settings.signers.contains(&report.signer) {
 			return reject(cost::UNKNOWN_SIGNER, "unknown_signer");
 		}
-		// TODO: drop a report the pool already holds a same or newer anchor for before verifying
-		// it. A peer replaying a real report makes this node verify signatures without penalty.
+		// A signer sends each report once, with a fresh anchor. A report the pool already holds,
+		// or an older one, is a replay: dropped before the signature is verified.
+		if pool.holds_at_least(&report.signer, &report.report.anchor) {
+			return reject(cost::DUPLICATE_REPORT, "superseded");
+		}
 		if !report.verify_signature() {
 			return reject(cost::BAD_SIGNATURE, "bad_signature");
 		}
@@ -226,13 +232,100 @@ impl TickOutcome {
 	}
 }
 
+/// Logs the markets and the pairs when their status changes, not every tick.
+///
+/// A market is logged when it stops being priced, with the reason, when the reason changes, and
+/// when it is priced again. A pair is logged when it stops being priced and when it is priced
+/// again. A market that was not fetched keeps its last status.
+#[derive(Default)]
+pub(crate) struct LogState {
+	/// The number of registered markets.
+	markets: usize,
+	/// The markets priced this tick so far.
+	priced: usize,
+	/// The markets not priced at the last tick that fetched them, with the reason.
+	unpriced_markets: BTreeMap<MarketId, String>,
+	/// How each pair was aggregated at the last tick that aggregated it: inputs, quorum, price
+	/// and note.
+	pairs: BTreeMap<PairId, (u32, u32, Option<Price>, String)>,
+}
+
+impl LogState {
+	/// A tick starts with the `registered` markets. Those no longer registered are forgotten.
+	fn tick_starts(&mut self, registered: &[Market]) {
+		self.markets = registered.len();
+		self.priced = 0;
+		self.unpriced_markets.retain(|id, _| registered.iter().any(|m| m.id == *id));
+	}
+
+	/// `market` was priced.
+	fn market_priced(&mut self, market: MarketId) {
+		self.priced += 1;
+		if self.unpriced_markets.remove(&market).is_some() {
+			log::info!(target: LOG_TARGET, "Market {market:?} priced again");
+		}
+	}
+
+	/// `market` was not priced for `reason`.
+	fn market_not_priced(&mut self, market: MarketId, reason: String) {
+		if self.unpriced_markets.get(&market) == Some(&reason) {
+			log::trace!(target: LOG_TARGET, "Market {market:?} still not priced: {reason}");
+		} else {
+			log::info!(target: LOG_TARGET, "Market {market:?} not priced: {reason}");
+			self.unpriced_markets.insert(market, reason);
+		}
+	}
+
+	/// `pair` was priced at `price` from `inputs` against its `quorum`, or not priced if `None`,
+	/// with `note` saying how.
+	fn pair(&mut self, pair: PairId, inputs: u32, quorum: u32, price: Option<Price>, note: &str) {
+		let last = self.pairs.insert(pair, (inputs, quorum, price, note.into()));
+		let was_priced = last.map(|(_, _, price, _)| price.is_some());
+		match price {
+			Some(price) if was_priced != Some(true) => {
+				log::info!(
+					target: LOG_TARGET,
+					"{pair:?} priced at {}: {note}, {inputs}/{quorum}",
+					decimal(price),
+				)
+			},
+			None if was_priced != Some(false) => {
+				log::warn!(target: LOG_TARGET, "{pair:?} not priced: {note}, {inputs}/{quorum}")
+			},
+			_ => {},
+		}
+	}
+
+	/// The tick at `block` is done pricing, `took` after it started. Logs the tick: the pairs,
+	/// the markets priced and the time.
+	fn tick_ends(&self, block: u32, took: Duration) {
+		let pairs: Vec<String> = self
+			.pairs
+			.iter()
+			.map(|(pair, (inputs, quorum, price, note))| match price {
+				Some(price) => format!("{pair:?} {} ({note}, {inputs}/{quorum})", decimal(*price)),
+				None => format!("{pair:?} not priced ({note}, {inputs}/{quorum})"),
+			})
+			.collect();
+		log::debug!(
+			target: LOG_TARGET,
+			"Block {block}: {}; {} of {} markets, tick took {took:?}",
+			pairs.join(", "),
+			self.priced,
+			self.markets,
+		);
+	}
+}
+
 /// Fetch and price the markets, aggregate the prices, and sign the result as a report anchored
 /// at `setup`'s block and this node's clock at signing.
 ///
-/// `state` is the pricing state the last tick returned.
+/// `pricing_state` is what the last tick that reported left for this one, and `log_state` what
+/// the markets and the pairs were last logged as.
 ///
-/// Returns the encoded signed report after inserting it into `pool`, with the pricing state for
-/// the next tick, or the outcome that stopped the tick.
+/// Returns the encoded signed report after inserting it into `pool`, or the outcome that stopped
+/// the tick, with the states for the next tick. The pricing state is empty unless the tick
+/// reported.
 pub(crate) async fn run_tick<Block, Client, Id, Signature>(
 	client: Arc<Client>,
 	fetcher: Fetcher,
@@ -240,8 +333,9 @@ pub(crate) async fn run_tick<Block, Client, Id, Signature>(
 	pool: ReportPool<Id, Signature>,
 	metrics: Metrics,
 	setup: TickSetup<Block::Hash, Id>,
-	state: PricingState,
-) -> Result<(Vec<u8>, PricingState), TickOutcome>
+	pricing_state: PricingState,
+	mut log_state: LogState,
+) -> (Result<Vec<u8>, TickOutcome>, PricingState, LogState)
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>,
@@ -251,17 +345,22 @@ where
 {
 	let interval = setup.interval();
 	let TickSetup { best_hash, block, signer, markets, .. } = setup;
-	// The missing signer is warned about in `run`.
-	let signer = signer.ok_or(TickOutcome::NoSigner)?;
+	// Nothing to do without a signer key or markets. The missing signer is warned about in `run`.
+	let Some(signer) = signer else {
+		return (Err(TickOutcome::NoSigner), PricingState::default(), log_state);
+	};
 	if markets.is_empty() {
 		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
-		return Err(TickOutcome::NoMarkets);
+		return (Err(TickOutcome::NoMarkets), PricingState::default(), log_state);
 	}
+	log_state.tick_starts(&markets);
 
 	// Times the rest of the tick, whichever way it ends.
 	let _timer = metrics.tick_timer();
 	let started = Instant::now();
 	let deadline = started + interval.saturating_sub(TICK_MARGIN);
+
+	// Fetch the markets until the deadline, and have the runtime price each one as it arrives.
 	let (tx, mut rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&markets, deadline, tx);
 	let parse = async {
@@ -270,16 +369,14 @@ where
 			metrics.on_market_fetched(market, started.elapsed());
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(output)) => {
+					log_state.market_priced(market);
 					metrics.on_market_result(market, "priced");
 					outputs.push((market, output));
 				},
 				Ok(Err(e)) => {
-					log::info!(
-						target: LOG_TARGET,
-						"Market {market:?} not priced: {}",
-						String::from_utf8_lossy(&e.0),
-					);
-					metrics.on_market_result(market, "parse");
+					let reason = e.to_string();
+					metrics.on_market_result(market, &format!("parse_{reason}"));
+					log_state.market_not_priced(market, reason);
 				},
 				Err(e) => {
 					log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}");
@@ -289,58 +386,49 @@ where
 		}
 		outputs
 	};
+	// Fetching and parsing run together. Fetching ends at the deadline or when every market
+	// answered, parsing once fetching ends, with the markets that gave no responses left over.
 	let (failures, outputs) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
 		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
 		metrics.on_market_result(market, failure.label());
 	}
 
-	let priced = outputs.len();
-	let (aggregates, next) = match client.runtime_api().aggregate(best_hash, outputs, state) {
-		Ok(aggregated) => aggregated,
-		Err(e) => {
-			log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
-			return Err(TickOutcome::RuntimeError);
-		},
-	};
-	metrics.reset_pair_vote_margins();
+	// Have the runtime turn the market prices into pair prices.
+	let (aggregates, pricing_state) =
+		match client.runtime_api().aggregate(best_hash, outputs, pricing_state) {
+			Ok(aggregated) => aggregated,
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
+				return (Err(TickOutcome::RuntimeError), PricingState::default(), log_state);
+			},
+		};
+	// Record every pair, and quote those with a price.
+	metrics.reset_pair_market_margins();
 	let quotes: Vec<Quote> = aggregates
-		.into_iter()
-		.filter_map(|PairAggregate { pair, inputs, quorum, price, note }| {
-			metrics.on_pair_vote_margin(pair, inputs, quorum);
-			let note = String::from_utf8_lossy(&note);
-			let Some(price) = price else {
-				log::warn!(target: LOG_TARGET, "{pair:?} not priced: {note}");
-				return None;
-			};
-			if inputs == quorum {
-				// One failing input away from being below the quorum.
-				log::debug!(target: LOG_TARGET, "{pair:?} priced at {price:?}: {note}, at quorum");
-			} else {
-				log::debug!(target: LOG_TARGET, "{pair:?} priced at {price:?}: {note}");
-			}
-			Some(Quote { pair, price })
+		.iter()
+		.filter_map(|aggregate| {
+			let PairAggregate { pair, inputs, quorum, price, .. } = *aggregate;
+			metrics.on_pair_market_margin(pair, inputs, quorum);
+			log_state.pair(pair, inputs, quorum, price, &aggregate.note());
+			price.map(|price| Quote { pair, price })
 		})
 		.collect();
+
+	log_state.tick_ends(block, started.elapsed());
 	if quotes.is_empty() {
-		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
-		return Err(TickOutcome::NothingAggregated);
+		return (Err(TickOutcome::NothingAggregated), PricingState::default(), log_state);
 	}
 
+	// Sign the report, pool it for the blocks this node authors, and hand it over for sending.
 	let anchor = Anchor::new(block, now_ms());
 	let report = PriceReport { anchor, quotes };
-	let signed =
-		signer::sign_report(&keystore, signer, report).ok_or(TickOutcome::SigningFailed)?;
-	log::info!(
-		target: LOG_TARGET,
-		"Reporting {} pair prices from {priced} of {} markets at anchor {anchor:?}, tick took {:?}",
-		signed.report.quotes.len(),
-		markets.len(),
-		started.elapsed(),
-	);
+	let Some(signed) = signer::sign_report(&keystore, signer, report) else {
+		return (Err(TickOutcome::SigningFailed), PricingState::default(), log_state);
+	};
 	let encoded = signed.encode();
 	pool.insert(signed);
-	Ok((encoded, next))
+	(Ok(encoded), pricing_state, log_state)
 }
 
 /// Current Unix time in milliseconds.
@@ -391,7 +479,33 @@ mod tests {
 	}
 
 	fn check(tick: &TickSetup<H256, AuthorityId>, data: &[u8]) -> Result<Signed, ReputationChange> {
-		tick.check(&PeerId::random(), data, NOW_MS).map_err(|(cost, _)| cost)
+		check_with(tick, data, &ReportPool::new())
+	}
+
+	fn check_with(
+		tick: &TickSetup<H256, AuthorityId>,
+		data: &[u8],
+		pool: &ReportPool<AuthorityId, AuthoritySignature>,
+	) -> Result<Signed, ReputationChange> {
+		tick.check(&PeerId::random(), data, NOW_MS, pool).map_err(|(cost, _)| cost)
+	}
+
+	#[test]
+	fn replays_are_rejected_before_the_signature_is_checked() {
+		let tick = tick();
+		let pool = ReportPool::new();
+		pool.insert(signed(1, 100));
+		// The same anchor and an older one are replays, a newer one is not.
+		assert_eq!(check_with(&tick, &signed(1, 100).encode(), &pool), Err(cost::DUPLICATE_REPORT));
+		assert_eq!(check_with(&tick, &signed(1, 95).encode(), &pool), Err(cost::DUPLICATE_REPORT));
+		assert!(check_with(&tick, &signed(1, 101).encode(), &pool).is_ok());
+		// Another signer is not affected.
+		assert!(check_with(&tick, &signed(2, 100).encode(), &pool).is_ok());
+		// A replay with a broken signature is still a replay: it costs no verification.
+		let mut broken = signed(1, 100).encode();
+		let last = broken.len() - 1;
+		broken[last] ^= 1;
+		assert_eq!(check_with(&tick, &broken, &pool), Err(cost::DUPLICATE_REPORT));
 	}
 
 	#[test]

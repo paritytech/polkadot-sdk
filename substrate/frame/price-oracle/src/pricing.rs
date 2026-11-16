@@ -19,7 +19,7 @@
 use crate::registry::StoredQuery;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Debug;
+use core::fmt::Display;
 use frame_support::Parameter;
 use sp_price_oracle::{market::QueryTag, PairAggregate, PairId, Price};
 use sp_runtime::traits::{Member, Zero};
@@ -38,7 +38,11 @@ pub trait MarketPricing {
 	type State: Encode + Decode + Default;
 
 	/// Why a market could not be priced.
-	type Error: Debug;
+	///
+	/// Displayed as a short stable identifier such as `stale_trades`. The node logs it and
+	/// uses it, prefixed with `parse_`, as the `result` label of its market results metric, so
+	/// a value may be added but not changed.
+	type Error: Display;
 
 	/// Whether `params` are valid. Checked when a market is set.
 	fn validate(_params: &Self::Params) -> bool {

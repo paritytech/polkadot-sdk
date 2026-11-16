@@ -78,7 +78,7 @@ store the service logs an error and does not run; the node is unaffected.
 The URL is `https://{host}{path}?{name}={value}&...` with names and values URL encoded; the
 scheme is not configurable. Redirects are not followed and a non 2xx status is a failure. A
 response larger than the request's `max_response_bytes` is aborted while streaming. Caps that
-governance cannot exceed protect the process: host and path 2 KB, response 4 MB, timeout 12 s.
+governance cannot exceed protect the process: host and path 2 KB, response 1 MB, timeout 12 s.
 
 ## Delivery
 
@@ -88,23 +88,25 @@ that author next, and nothing is forwarded.
 
 Every tick, the service asks its `ReportRecipients` for the addresses of the coming authors and
 reserves them on the protocol, so the network keeps a substream open to each. The signed report
-is sent to every recipient whose substream is open at that moment. The last few peers that
-stopped being recipients stay reserved: a substream is shared by both sides, and a node that
-drops a peer from its reservation closes the substream it opened, while the peer may still be
-sending its reports over it. An author therefore receives the reports of all signers directly,
-and a signer talks to a handful of peers. The protocol dials only the reserved peers, and
-accepts an inbound substream from any peer.
+is sent to every recipient whose substream is open at that moment. While the node is itself a
+recipient, the last few peers that stopped being recipients stay reserved: a substream is shared
+by both sides, and a node that drops a peer from its reservation closes the substream it opened,
+while the peer is still sending its reports over it. An author therefore receives the reports of
+all signers directly, and a signer talks to a handful of peers. The protocol dials only the
+reserved peers, and accepts an inbound substream only from a peer the `ReportRecipients` knows
+as an authority, so that other peers cannot take the inbound slots.
 
 `polkadot-omni-node` sends to the authors of the Aura slot of the best block and the next
-three, with the authorities from the best block, and keeps the last four past ones reserved.
-The authors are found through the parachain's authority discovery, so the runtime must return
-its authority discovery keys in authoring order, as `cumulus-client-collator-discovery` requires.
+three, with the authorities from the best block, and keeps the last four past ones reserved
+while it is one of the four itself. The authors are found through the parachain's authority
+discovery, so the runtime must return its authority discovery keys in authoring order, as
+`cumulus-client-collator-discovery` requires.
 
 Every incoming message is validated. A message is rejected, and the sending peer's reputation
 lowered, if it does not decode, is anchored before a window, comes from a signer outside the
-accepted set, or carries an invalid signature, in that order, so the signature is checked last.
-A report the pool declines as superseded, which a sender repeating itself produces, is ignored
-without penalty. Anything else is pooled and rewarded.
+accepted set, is not newer than the report the pool holds of that signer, or carries an invalid
+signature, in that order, so the signature is checked last and a replayed report never reaches
+it. Anything else is pooled and rewarded.
 
 A report is within the windows if its block is at most `report_window` behind the tick's block
 and its timestamp at most `report_window_ms` behind the node's clock. Blocks and timestamps ahead

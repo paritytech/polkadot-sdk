@@ -81,6 +81,11 @@ impl<Id: Ord + Clone, Signature: Clone> ReportPool<Id, Signature> {
 		}
 	}
 
+	/// Whether the pool holds a report of `signer` anchored at `anchor` or later.
+	pub fn holds_at_least(&self, signer: &Id, anchor: &Anchor) -> bool {
+		self.inner.read().get(signer).is_some_and(|held| held.report.anchor >= *anchor)
+	}
+
 	/// Drop reports anchored outside `window`.
 	pub fn prune(&self, window: &Window) {
 		self.inner.write().retain(|_, r| window.contains(&r.report.anchor));

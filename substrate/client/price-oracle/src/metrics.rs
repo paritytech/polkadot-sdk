@@ -35,7 +35,7 @@ struct Inner {
 	tick_duration: Histogram,
 	market_results: CounterVec<U64>,
 	market_fetch_duration: HistogramVec,
-	pair_vote_margins: GaugeVec<I64>,
+	pair_market_margins: GaugeVec<I64>,
 	received_reports: CounterVec<U64>,
 	pool_reports: Gauge<U64>,
 }
@@ -64,7 +64,8 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.tick_duration.start_timer())
 	}
 
-	/// Count `market` ending a tick with `result`.
+	/// Count `market` ending a tick with `result`: `priced`, how the fetch failed, or the reason
+	/// the runtime did not price it, prefixed with `parse_`.
 	pub(crate) fn on_market_result(&self, market: MarketId, result: &str) {
 		if let Some(metrics) = &self.0 {
 			metrics.market_results.with_label_values(&[&market.0.to_string(), result]).inc();
@@ -83,20 +84,20 @@ impl Metrics {
 		}
 	}
 
-	/// Drop the vote margins of the previous tick, so pairs no longer aggregated disappear.
-	pub(crate) fn reset_pair_vote_margins(&self) {
+	/// Drop the market margins of the previous tick, so pairs no longer aggregated disappear.
+	pub(crate) fn reset_pair_market_margins(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.pair_vote_margins.reset();
+			metrics.pair_market_margins.reset();
 		}
 	}
 
-	/// Set the votes `pair` got in a tick beyond its `quorum`.
-	pub(crate) fn on_pair_vote_margin(&self, pair: PairId, votes: u32, quorum: u32) {
+	/// Set the `markets` that went into `pair` in a tick beyond its `quorum`.
+	pub(crate) fn on_pair_market_margin(&self, pair: PairId, markets: u32, quorum: u32) {
 		if let Some(metrics) = &self.0 {
 			metrics
-				.pair_vote_margins
+				.pair_market_margins
 				.with_label_values(&[&pair.0.to_string()])
-				.set(i64::from(votes) - i64::from(quorum));
+				.set(i64::from(markets) - i64::from(quorum));
 		}
 	}
 
@@ -140,7 +141,9 @@ impl Inner {
 				CounterVec::new(
 					Opts::new(
 						"substrate_price_oracle_market_results_total",
-						"Number of ticks a market was priced or failed in, by market and result",
+						"Number of ticks a market ended with a result, by market and result: priced, \
+						how the fetch failed, or the reason the runtime did not price it, prefixed \
+						with parse_",
 					),
 					&["market", "result"],
 				)?,
@@ -158,12 +161,12 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			pair_vote_margins: register(
+			pair_market_margins: register(
 				GaugeVec::new(
 					Opts::new(
-						"substrate_price_oracle_pair_vote_margin",
-						"Votes a pair got beyond its quorum in the last tick that aggregated, \
-						by pair",
+						"substrate_price_oracle_pair_market_margin",
+						"Markets that went into a pair beyond its quorum in the last tick that \
+						aggregated, by pair",
 					),
 					&["pair"],
 				)?,

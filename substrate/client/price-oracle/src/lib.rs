@@ -48,7 +48,7 @@ use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::{PriceOracleApi, PricingState};
 use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
 use std::sync::Arc;
-use tick::{benefit::GOOD_REPORT, run_tick, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
+use tick::{benefit::GOOD_REPORT, run_tick, LogState, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
 use tokio::time::MissedTickBehavior;
 
 pub(crate) const LOG_TARGET: &str = "price-oracle";
@@ -68,12 +68,12 @@ pub struct Params<Client, SyncService, Recipients, Id, Signature> {
 	pub protocol_name: ProtocolName,
 	/// Where the reports are sent.
 	pub recipients: Recipients,
-	/// How many of the peers that stopped being recipients stay reserved, the most recent ones.
+	/// How many of the peers that stopped being recipients stay reserved while this node is a
+	/// recipient, the most recent ones.
 	///
-	/// A peer that is no longer a recipient may still be sending its reports to this node. For
-	/// example, when the recipients are the authors of the next 4 slots, the authors of the last
-	/// 4 slots may still be sending to this node while it is one of their next authors, so
-	/// `keep` should be 4.
+	/// While this node is a recipient, a peer that is no longer one is still sending its reports
+	/// to this node. For example, when the recipients are the authors of the next 4 slots, the
+	/// authors of the last 4 slots may be, so `keep` should be 4.
 	pub keep: usize,
 	/// Keystore to look the signer key up in and to sign reports with.
 	pub keystore: KeystorePtr,
@@ -147,23 +147,25 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
-	// The pricing state the last tick returned, for the next tick only.
+	// What the last tick left for the next one: the pricing state, which a tick that does not
+	// report drops, and what the markets and the pairs were last logged as. Both go with the
+	// tick and come back with its result.
 	let mut pricing_state = PricingState::default();
+	let mut log_state = LogState::default();
 	let mut api_missing_logged = false;
 	let mut no_signer_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
 		tokio::select! {
+			// The interval elapsed: start a tick, unless the previous one is still running or
+			// the node is syncing.
 			ticked_at = ticker.tick() => {
-				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
 					metrics.on_tick(TickOutcome::Overrun);
 					continue;
 				}
-				// The state is for the next tick only: a tick that does not report drops it.
-				let state = std::mem::take(&mut pricing_state);
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
 					metrics.on_tick(TickOutcome::Syncing);
@@ -209,26 +211,29 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					pool.clone(),
 					metrics.clone(),
 					setup.clone(),
-					state,
+					// Moved, not cloned: the tick owns the states until it returns them below.
+					std::mem::take(&mut pricing_state),
+					std::mem::take(&mut log_state),
 				)
 				.boxed()
 				.fuse();
 				// Check incoming reports against the rules of this tick.
 				tick_setup = Some(setup);
 			},
-			result = &mut tick, if !tick.is_terminated() => {
-				// The tick finished: send the signed report, if it produced one, to every
-				// recipient reachable now.
+			// The tick finished: send its report, if it produced one.
+			(result, pricing, log) = &mut tick, if !tick.is_terminated() => {
+				// Take the states back for the next tick.
+				pricing_state = pricing;
+				log_state = log;
+				// A tick that produced no report is done.
 				let encoded = match result {
-					Ok((encoded, state)) => {
-						pricing_state = state;
-						encoded
-					},
+					Ok(encoded) => encoded,
 					Err(outcome) => {
 						metrics.on_tick(outcome);
 						continue;
 					},
 				};
+				// Send the report to every recipient reachable now.
 				let mut sent = 0;
 				for peer in targets.reachable() {
 					match notification_service.send_async_notification(peer, encoded.clone()).await {
@@ -236,9 +241,14 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						Err(e) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
 					}
 				}
-				log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				if sent < targets.len() {
+					log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				} else {
+					log::trace!(target: LOG_TARGET, "Sent the report to all {sent} peers");
+				}
 				metrics.on_tick(if sent > 0 { TickOutcome::Reported } else { TickOutcome::NotSent });
 			},
+			// The network delivered a report from a peer, or a substream opened or closed.
 			event = notification_service.next_event() => {
 				use NotificationEvent::*;
 				match event {
@@ -248,7 +258,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 							metrics.on_received_report("no_tick_setup");
 							continue;
 						};
-						match setup.check(&peer, &notification, tick::now_ms()) {
+						match setup.check(&peer, &notification, tick::now_ms(), &pool) {
 							Ok(report) =>
 								if pool.insert(report) {
 									network.report_peer(peer, GOOD_REPORT);
@@ -271,16 +281,25 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						log::debug!(target: LOG_TARGET, "Substream with {peer} closed");
 						targets.closed(&peer);
 					},
-					Some(ValidateInboundSubstream { result_tx, .. }) => {
-						// TODO: any peer can take the inbound slots signers need. Accept only peers
-						// whose authority discovery keys are in the collator set: look them up with
-						// `get_authority_ids_by_peer_id` and answer `result_tx` after the lookup. A
-						// collator not discovered yet would be refused until the next lookup.
-						let _ = result_tx.send(ValidationResult::Accept);
+					Some(ValidateInboundSubstream { peer, result_tx, .. }) => {
+						// Only authorities get a substream, so that other peers cannot take the
+						// inbound slots the signers need. An authority this node has not
+						// discovered yet is refused, and accepted when it tries again.
+						let result = if recipients.is_authority(peer).await {
+							ValidationResult::Accept
+						} else {
+							log::debug!(target: LOG_TARGET, "Refused a substream from {peer}: not an authority");
+							ValidationResult::Reject
+						};
+						let _ = result_tx.send(result);
 					},
 					None => {
-						log::warn!(target: LOG_TARGET, "Notification stream ended, stopping");
-						// TODO: can we handle this without stopping the service?
+						// The network dropped the protocol, which it does only when it shuts down.
+						// A protocol cannot be registered again, so there is nothing to recover.
+						log::error!(
+							target: LOG_TARGET,
+							"Terminating the price oracle: the network's notification service has terminated",
+						);
 						return;
 					},
 				}
