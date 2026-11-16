@@ -71,9 +71,8 @@ pub use streams_root::{
 /// pallet. `()` records nothing. `Provides` needs no hook: `validate_block` takes it from the
 /// blocks' [`SPMS_ENGINE_ID`] digests.
 pub trait ProvideConsumptionRecord {
-	/// The block's consumption record: what the messaging inherent did. Called by the
-	/// `consumption_record()` runtime API node-side and by the `validate_block` wrapper in-wasm
-	/// after executing each block of a bundle.
+	/// The block's consumption record: what the messaging inherent did. The `validate_block`
+	/// wrapper calls it after executing each block of a bundle.
 	fn consumption_record() -> ConsumptionRecord;
 }
 
