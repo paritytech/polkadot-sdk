@@ -22381,7 +22381,7 @@ version = "25.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "log",
- "parking_lot 0.12.3",
+ "parking_lot 0.12.5",
  "serde",
  "serde_json",
  "sp-application-crypto 30.0.0",
