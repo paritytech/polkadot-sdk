@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests of how reports and votes are anchored and expired, and of how votes become prices.
+//! Tests of which reports are accepted, how reports and votes are anchored and expired, and how
+//! votes become prices.
 
 use crate::{self as pallet_price_oracle, *};
 use core::{
@@ -542,5 +543,91 @@ fn report_with_more_quotes_than_pairs_is_rejected() {
 		process(vec![report_quotes(1, Anchor::new(100, START_MS), &[(PAIR, 5), (PAIR, 7)])]);
 		assert_eq!(take_events(), vec![Event::ReportsProcessed { accepted: 0, rejected: 1 }]);
 		assert!(votes().is_empty());
+	});
+}
+
+#[test]
+fn quote_of_unregistered_pair_is_ignored() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::set_pair(
+			RuntimeOrigin::root(),
+			PAIR_B,
+			PairConfig { market_quorum: 1 }
+		));
+		// `PAIR` and `PAIR_B` are registered, this pair is not.
+		let unregistered = PairId(3);
+
+		// Signer 1 quotes `PAIR` and the unregistered pair in one report. The quote of `PAIR`
+		// becomes a vote, the other one is ignored.
+		process(vec![report_quotes(
+			1,
+			Anchor::new(100, START_MS),
+			&[(PAIR, 5), (unregistered, 20)],
+		)]);
+		assert_eq!(
+			Prices::<Test>::get(PAIR),
+			Some(PricePoint { price: Price::from_u32(5), updated_at: 100, signers: 1 })
+		);
+		assert!(!Votes::<Test>::contains_key(unregistered));
+		assert_eq!(Prices::<Test>::get(unregistered), None);
+	});
+}
+
+#[test]
+fn report_of_unknown_signer_is_rejected() {
+	new_test_ext().execute_with(|| {
+		// Signer 4 signs correctly, but is not in `Signers::signers()`.
+		process(vec![report(4, 100, START_MS, 5)]);
+		assert_eq!(take_events(), vec![Event::ReportsProcessed { accepted: 0, rejected: 1 }]);
+		assert!(votes().is_empty());
+	});
+}
+
+#[test]
+fn report_with_invalid_signature_is_rejected() {
+	new_test_ext().execute_with(|| {
+		// The price is changed after signer 1 signed the report.
+		let mut changed = report(1, 100, START_MS, 5);
+		changed.report.quotes[0].price = Price::from_u32(9);
+		process(vec![changed]);
+		assert_eq!(take_events(), vec![Event::ReportsProcessed { accepted: 0, rejected: 1 }]);
+		assert!(votes().is_empty());
+	});
+}
+
+#[test]
+fn highest_anchor_of_a_signer_in_a_block_is_kept() {
+	new_test_ext().execute_with(|| {
+		// Three reports of signer 1 in one block. The one anchored at block 100 is kept, whether
+		// the others come before or after it.
+		process(vec![
+			report(1, 99, START_MS, 4),
+			report(1, 100, START_MS, 6),
+			report(1, 98, START_MS, 9),
+		]);
+		assert!(take_events().contains(&Event::ReportsProcessed { accepted: 1, rejected: 2 }));
+		assert_eq!(votes(), vec![(1, Anchor::new(100, START_MS))]);
+		assert_eq!(Prices::<Test>::get(PAIR).map(|p| p.price), Some(Price::from_u32(6)));
+	});
+}
+
+#[test]
+fn later_report_wins_at_equal_anchors() {
+	new_test_ext().execute_with(|| {
+		process(vec![report(1, 100, START_MS, 4), report(1, 100, START_MS, 6)]);
+		assert_eq!(Prices::<Test>::get(PAIR).map(|p| p.price), Some(Price::from_u32(6)));
+	});
+}
+
+#[test]
+fn report_with_invalid_signature_does_not_replace_a_valid_one() {
+	new_test_ext().execute_with(|| {
+		// Two reports of signer 1 in one block. The one with the higher anchor has an invalid
+		// signature, so the other one is kept.
+		let mut changed = report(1, 100, START_MS, 6);
+		changed.report.quotes[0].price = Price::from_u32(9);
+		process(vec![report(1, 99, START_MS, 4), changed]);
+		assert_eq!(votes(), vec![(1, Anchor::new(99, START_MS))]);
+		assert_eq!(Prices::<Test>::get(PAIR).map(|p| p.price), Some(Price::from_u32(4)));
 	});
 }
