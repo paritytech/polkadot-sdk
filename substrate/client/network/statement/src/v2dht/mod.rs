@@ -312,6 +312,15 @@ impl V2DhtOrchestrator {
 		self.report_topology_size();
 	}
 
+	/// Exclude the light `peer` from the DHT index: steering would otherwise dial it and routing
+	/// would count it as a replica.
+	pub(crate) fn on_light_peer(&mut self, peer: PeerId) {
+		if self.peers_topology.on_light_peer(peer) {
+			self.publish_dht_affinity();
+		}
+		self.report_topology_size();
+	}
+
 	// === Forward decision ===
 
 	/// Whether `peer` is a DHT routing target for a statement.
@@ -840,6 +849,23 @@ mod tests {
 
 		orchestrator.on_peer_identified(remote, true);
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn an_identified_light_peer_is_no_replica() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_light_peer(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 	}
 
 	#[test]
