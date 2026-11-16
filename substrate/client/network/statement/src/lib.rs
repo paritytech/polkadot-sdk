@@ -1443,13 +1443,7 @@ where
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
 						if self.v2dht.major_sync_settled() {
-							// A peer answers a changed filter with only the difference, so the
-							// filter that it holds goes first: the repeat asks for what this node
-							// dropped during the sync.
-							if let Some(filter) = self.v2dht.take_filter_to_repeat() {
-								self.broadcast_local_filter(filter).await;
-							}
-							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
+							for filter in self.v2dht.take_filters_to_broadcast() {
 								self.broadcast_local_filter(filter).await;
 							}
 						}
@@ -1527,7 +1521,7 @@ where
 		});
 	}
 
-	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
+	/// Advertise an affinity filter to every connected peer past V1. A peer assumed
 	/// match-all is skipped: any filter restarts the receiver's initial sync, and it already has
 	/// the match-all one.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
@@ -6795,12 +6789,14 @@ mod tests {
 		assert_eq!(metrics.late_affinity_filters.get(), 0);
 
 		// A late filter clears the mark and gets the real filter in return.
+		// A topic that no broadcast has carried yet stays out of it.
+		let advertised = handler.v2dht.advertised_filter();
+		handler.v2dht.set_rpc_subscription_topics(&HashSet::from([[0xCC; 32].into()]));
 		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
 
 		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
 		assert_eq!(handler.metrics.as_ref().unwrap().late_affinity_filters.get(), 1);
-		let local =
-			StatementMessage::ExplicitTopicAffinity(handler.v2dht.advertised_filter()).encode();
+		let local = StatementMessage::ExplicitTopicAffinity(advertised).encode();
 		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
 	}
 

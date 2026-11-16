@@ -272,14 +272,10 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.advertised_filter()
 	}
 
-	/// The advertised filter, to send again ahead of a changed one after major sync.
-	pub(crate) fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
-		self.explicit_affinity.take_filter_to_repeat()
-	}
-
-	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
-		self.explicit_affinity.take_local_filter_if_changed()
+	/// The filters due for a broadcast, in sending order. After major sync the advertised filter
+	/// goes ahead of a changed one.
+	pub(crate) fn take_filters_to_broadcast(&mut self) -> Vec<AffinityFilter> {
+		self.explicit_affinity.take_filters_to_broadcast()
 	}
 
 	// === Notification-substream events ===
@@ -889,23 +885,22 @@ mod tests {
 	}
 
 	#[test]
-	fn take_local_filter_if_changed_reflects_subscription_topics() {
+	fn take_filters_to_broadcast_reflects_subscription_topics() {
 		let mut orchestrator = orchestrator();
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
 
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
-		let filter = orchestrator
-			.take_local_filter_if_changed()
-			.expect("a subscription topic marks the filter changed");
-		assert!(filter.contains(&topic(1)));
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 1, "a subscription topic marks the filter changed");
+		assert!(filters[0].contains(&topic(1)));
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
 	}
 
 	#[test]
 	fn subscription_changes_during_major_sync_repeat_the_filter_from_before_the_sync() {
 		let mut orchestrator = orchestrator();
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
-		let before_sync = orchestrator.take_local_filter_if_changed().expect("a topic was added");
+		let before_sync = orchestrator.take_filters_to_broadcast().remove(0);
 
 		orchestrator.on_major_sync();
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1), topic(2)]));
@@ -913,10 +908,11 @@ mod tests {
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(2), topic(3)]));
 		assert_eq!(orchestrator.advertised_filter(), before_sync);
 
-		assert_eq!(orchestrator.take_filter_to_repeat(), Some(before_sync));
-		let after_sync = orchestrator.take_local_filter_if_changed().expect("the topics changed");
-		assert!(after_sync.contains(&topic(3)));
-		assert_eq!(orchestrator.advertised_filter(), after_sync);
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 2);
+		assert_eq!(filters[0], before_sync);
+		assert!(filters[1].contains(&topic(3)));
+		assert_eq!(orchestrator.advertised_filter(), filters[1]);
 	}
 
 	#[test]

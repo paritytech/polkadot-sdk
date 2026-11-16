@@ -144,8 +144,8 @@ impl ExplicitAffinity {
 
 	// === Advertise ===
 
-	/// The [`AffinityFilter`] this node advertises, built from its current topics.
-	pub(crate) fn local_filter(&self) -> AffinityFilter {
+	/// The [`AffinityFilter`] built from the current topics, advertised by the next broadcast.
+	fn local_filter(&self) -> AffinityFilter {
 		AffinityFilter::from_topics(
 			self.local.keys().map(|topic| topic.as_ref()),
 			self.seed,
@@ -153,14 +153,15 @@ impl ExplicitAffinity {
 		)
 	}
 
-	/// Request another advertisement without changing topic membership.
+	/// Request another advertisement that makes peers replay, without changing topic membership.
 	pub(crate) fn mark_local_filter_stale(&mut self) {
 		self.local_changed = true;
 		self.replay_wanted = true;
 	}
 
-	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+	/// The filter of the current topics if it is due for a broadcast, clearing the flag. It
+	/// becomes the advertised filter.
+	fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
 		if !self.local_changed {
 			return None;
 		}
@@ -177,12 +178,19 @@ impl ExplicitAffinity {
 
 	/// The advertised filter, to send again ahead of a changed one. A peer answers a repeated
 	/// filter with a full replay and a changed one with only the difference.
-	pub(crate) fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
+	fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
 		if !self.replay_wanted {
 			return None;
 		}
 		self.replay_wanted = false;
 		Some(self.advertised.clone()).filter(|advertised| *advertised != self.local_filter())
+	}
+
+	/// The filters due for a broadcast, in sending order.
+	pub(crate) fn take_filters_to_broadcast(&mut self) -> Vec<AffinityFilter> {
+		let repeated = self.take_filter_to_repeat();
+		let changed = self.take_local_filter_if_changed();
+		repeated.into_iter().chain(changed).collect()
 	}
 
 	// === Peer filters ===
