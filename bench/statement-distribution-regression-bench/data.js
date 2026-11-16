@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794826773641,
+  "lastUpdate": 1794838779663,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "17140f35f6a598b6ed175f6b1159deddb7474e2e",
-          "message": "Snowbridge: API to Check Inbound Nonce Consumption (#11354)\n\n### Context\n\nAdds a runtime API so off-chain callers can check whether an inbound\nmessage from Ethereum (by nonce) has already been relayed/consumed on\nBridge Hub.",
-          "timestamp": "2026-04-29T10:57:57Z",
-          "tree_id": "f3068a90a05c49352d7091fcef626bcb8feb4a6e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/17140f35f6a598b6ed175f6b1159deddb7474e2e"
-        },
-        "date": 1777465118912,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.12599999999992,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.09054632883599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03926807137399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08399822968199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794838746026,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10800000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0872562562079999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03854781143600001,
             "unit": "seconds"
           }
         ]
