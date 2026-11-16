@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794859798990,
+  "lastUpdate": 1794864148777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6597bb572c1eca3a21395380fb6e20bebc1a41c",
-          "message": "Additional improvements for the DAP satellite pallet generalization (#11949)\n\nAdditional fixes / improvements for\nhttps://github.com/paritytech/polkadot-sdk/pull/11881:\n- Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since\nit only works on `AccountId32`-type accounts (used in all system\nparachains), but future users with different account types will need\ndifferent trait implementations\n- Improved account migration testing\n- Additional comments to clarify important corner-cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-01T10:51:45Z",
-          "tree_id": "0f8488b30bd2480d173d9bcbac1ab43adb0be7fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6597bb572c1eca3a21395380fb6e20bebc1a41c"
-        },
-        "date": 1777637635298,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009630386993333313,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1440316771333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007223815433333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02427216750666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009924622219999964,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "597d47dc7fc4b56ee3fae54c54c7da9da428643f",
+          "message": "pallet-bounties: fix `reclaim_bounty_funds` benchmark (#13878)\n\nThe `reclaim_bounty_funds` benchmark from #11045 panics on runtimes with\n`TransferAllAssets = ()`.\n\n- With `()` nothing is transferred, so `BountyFundsReclaimed` is never\nemitted.\n- The benchmark now only asserts the event if the bounty account was\nemptied.\n- Added a test running the benchmark with `()`.",
+          "timestamp": "2026-11-16T19:49:30Z",
+          "tree_id": "c66c10b147420ca015fc8b68a8de4c8452009254",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/597d47dc7fc4b56ee3fae54c54c7da9da428643f"
+        },
+        "date": 1794864111680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024446372333333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009879222453333301,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14447311673999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007917903400000002,
             "unit": "seconds"
           }
         ]
