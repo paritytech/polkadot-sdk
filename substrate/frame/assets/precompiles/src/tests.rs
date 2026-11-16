@@ -40,8 +40,8 @@ use sp_runtime::Weight;
 use test_case::test_case;
 
 // A fresh `approve` consumes exactly `allowance() + approve_transfer() + DepositEvent{3, 32}`.
-// Asserting that sum pins the `DepositEvent` charge to `len = data.len()` (32), guarding against
-// it regressing to `topics.len()` (3), which would undercharge the per-byte event cost.
+// Asserting that sum pins the `len` of `DepositEvent` to the data length (32), not the topic
+// count (3). `DepositEvent` adds the bytes of the 3 topics from `num_topic` itself.
 #[test]
 fn deposit_event_charges_data_byte_length() {
 	use pallet_revive::precompiles::Token;
