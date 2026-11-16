@@ -5986,11 +5986,13 @@ dependencies = [
  "sp-statement-store",
  "sp-transaction-storage-proof",
  "sp-version 29.0.0",
+ "substrate-txtesttool",
  "subxt 0.50.2",
  "subxt-signer 0.50.2",
  "tempfile",
  "thiserror 1.0.65",
  "tokio",
+ "tracing",
  "verifiable",
  "zombienet-configuration",
  "zombienet-orchestrator",
@@ -27710,9 +27712,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda461f1ab3a919493e83cb54ed0de6220377c08df59fb60ba6a91de56e2005d"
+checksum = "57ec45ef6eb845285f9828e2acba2d8e4fc25c83ee3ffcc318f89b7336f5eab9"
 dependencies = [
  "async-trait",
  "average",

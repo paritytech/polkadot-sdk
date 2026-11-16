@@ -46,6 +46,8 @@ sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
+tracing = { workspace = true }
+txtesttool = { workspace = true }
 subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["sr25519"] }
 

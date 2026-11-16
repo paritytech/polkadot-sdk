@@ -67,6 +67,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
 
+	/// Development data storage for testing (e.g., PoV reclaim testing).
+	/// Maps index to value, where value equals index.
+	#[pallet::storage]
+	pub type DevData<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+
 	/// Pending outbound HRMP messages queued by test extrinsics.
 	#[pallet::storage]
 	pub type PendingOutboundHrmpMessages<T: Config> =
@@ -333,6 +338,17 @@ pub mod pallet {
 			frame_system::Pallet::<T>::deposit_log(CumulusDigestItem::UseFullCore.to_digest_item());
 			Ok(())
 		}
+
+		/// Remove development data entries from storage.
+		///
+		/// Removes `count` entries starting from index `start`.
+		#[pallet::weight(0)]
+		pub fn kill_dev_entry(_: OriginFor<T>, start: u32, count: u32) -> DispatchResult {
+			for i in start..start.saturating_add(count) {
+				DevData::<T>::remove(i);
+			}
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -364,6 +380,9 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
+		/// Number of development data entries to create in DevData storage.
+		/// Entry i will have value i.
+		pub dev_data_entries: u32,
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
 		/// Controls if the `BigValueMove` logic is enabled.
@@ -376,6 +395,11 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+
+			// Populate DevData storage entries.
+			for i in 0..self.dev_data_entries {
+				DevData::<T>::insert(i, i);
+			}
 
 			if self.enable_big_value_move {
 				BigValueMove::<T>::insert(BlockNumberFor::<T>::from(0u32), vec![0u8; 4 * 1024]);
