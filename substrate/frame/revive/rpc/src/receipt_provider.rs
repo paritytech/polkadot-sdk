@@ -569,9 +569,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
-	/// The cache entry is removed again when any database write fails, so only committed rows
-	/// report a block as processed. Entries the same call dropped for a fork or by pruning are
-	/// not restored, so their rows outlive the failed write.
+	/// When any database write fails, the cache entry this call added is removed again, so only
+	/// committed rows report a block as processed; an entry that was cached before the call is
+	/// kept. Entries the same call dropped for a fork or by `keep_latest_n_blocks` are not
+	/// restored: if their eviction failed, their rows stay and nothing evicts them later; if the
+	/// eviction committed and the insert failed, their rows are gone and the height has no entry.
 	///
 	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
 	/// us create Mock `SubstrateBlock`
@@ -582,12 +584,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
 		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
+		let was_cached =
+			self.block_number_to_hashes.lock().await.get(&block.number()) == Some(&block_map);
 		let result = async {
 			self.prune_blocks(block.number(), &block_map).await?;
 			self.insert_into_db(block, receipts, ethereum_hash).await
 		}
 		.await;
-		if result.is_err() {
+		if result.is_err() && !was_cached {
 			let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
 			if block_number_to_hash.get(&block.number()) == Some(&block_map) {
 				block_number_to_hash.remove(&block.number());
@@ -1144,6 +1148,38 @@ mod tests {
 		assert_eq!(
 			provider.get_processed_eth_block_hash(block_b.number(), block_b.hash()).await,
 			None
+		);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_failed_reinsert_keeps_block_processed(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let block_a = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+		let ethereum_hash_a = H256::from([1_u8; 32]);
+		provider.insert(&block_a, &receipts, &ethereum_hash_a).await?;
+
+		// Replaying the committed block fails on the existence check.
+		sqlx::query("ALTER TABLE eth_to_substrate_blocks RENAME TO renamed")
+			.execute(&pool)
+			.await?;
+		assert!(provider.insert(&block_a, &receipts, &ethereum_hash_a).await.is_err());
+		sqlx::query("ALTER TABLE renamed RENAME TO eth_to_substrate_blocks")
+			.execute(&pool)
+			.await?;
+
+		assert_eq!(
+			provider.get_processed_eth_block_hash(block_a.number(), block_a.hash()).await,
+			Some(ethereum_hash_a)
+		);
+		// The kept entry lets a fork at the same height evict the block.
+		let block_b = MockBlockInfo { hash: H256::from([8_u8; 32]), number: 5 };
+		provider.insert(&block_b, &receipts, &H256::from([2_u8; 32])).await?;
+		assert_eq!(provider.get_ethereum_hash(&block_a.hash()).await, None);
+		assert_eq!(
+			count(&provider.db_ctx.pool, "transaction_hashes", Some(block_a.hash())).await,
+			0
 		);
 		Ok(())
 	}
