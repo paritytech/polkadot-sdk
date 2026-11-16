@@ -81,6 +81,53 @@ use sp_runtime::{
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
+/// Builds the transaction storage proof inherent provider, if the runtime has
+/// `TransactionStorageApi`. From API version 2 only the transaction holding the selected chunk
+/// is read, not the whole indexed body.
+fn transaction_storage_proof_providers<Block, Client>(
+	client: &Client,
+	parent: Block::Hash,
+) -> Result<
+	Vec<sp_transaction_storage_proof::InherentDataProvider>,
+	Box<dyn std::error::Error + Send + Sync>,
+>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + sp_transaction_storage_proof::IndexedBody<Block>,
+	Client::Api: TransactionStorageApi<Block>,
+{
+	let runtime_api = client.runtime_api();
+	let Some(version) = runtime_api
+		.api_version::<dyn TransactionStorageApi<Block>>(parent)
+		.ok()
+		.flatten()
+		.filter(|version| *version >= 1)
+	else {
+		return Ok(vec![]);
+	};
+	let retention_period = runtime_api.retention_period(parent)?;
+	let provider = if version >= 2 {
+		sp_transaction_storage_proof::registration::new_data_provider_from_indexed_transactions(
+			client,
+			&parent,
+			retention_period,
+			|number| {
+				client
+					.runtime_api()
+					.indexed_transactions(parent, number)
+					.map_err(|e| sp_inherents::Error::Application(Box::new(e)))
+			},
+		)?
+	} else {
+		sp_transaction_storage_proof::registration::new_data_provider(
+			client,
+			&parent,
+			retention_period,
+		)?
+	};
+	Ok(vec![provider])
+}
+
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
 	aura_verifier: Box<dyn VerifierT<Block>>,
@@ -740,23 +787,7 @@ where
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
-				async move {
-					let has_tx_storage_api = client_clone
-						.runtime_api()
-						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
-						.unwrap_or(false);
-					if has_tx_storage_api {
-						let storage_proof =
-							sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-								client_clone.runtime_api().retention_period(parent)?,
-							)?;
-						Ok(vec![storage_proof])
-					} else {
-						Ok(vec![])
-					}
-				}
+				async move { transaction_storage_proof_providers(&*client_clone, parent) }
 			},
 			block_import,
 			para_client: client.clone(),
@@ -909,23 +940,7 @@ where
 			params: AuraParams {
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
-					async move {
-						let has_tx_storage_api = client_clone
-							.runtime_api()
-							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
-							.unwrap_or(false);
-						if has_tx_storage_api {
-							let storage_proof =
-								sp_transaction_storage_proof::registration::new_data_provider(
-									&*client_clone,
-									&parent,
-									client_clone.runtime_api().retention_period(parent)?,
-								)?;
-							Ok(vec![storage_proof])
-						} else {
-							Ok(vec![])
-						}
-					}
+					async move { transaction_storage_proof_providers(&*client_clone, parent) }
 				},
 				block_import,
 				para_client: client.clone(),
