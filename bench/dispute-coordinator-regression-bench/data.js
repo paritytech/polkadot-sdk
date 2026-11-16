@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794841827282,
+  "lastUpdate": 1794849524908,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "173b52cc0f84f2926a015ae9ac75af6c12a53a7f",
-          "message": "Update merkle mountain lib (#11922)\n\nUpdates the merkle mountain crate to its latest version.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T11:39:17Z",
-          "tree_id": "4af8466aa41db0fe0a6a4424bcbbcb8a77678af8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/173b52cc0f84f2926a015ae9ac75af6c12a53a7f"
-        },
-        "date": 1777467983991,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010519565099999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009564675109999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002707852619999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010721345649999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c5087e432dd06d2d36925fecf5c1eb66f7ed010",
+          "message": "backport label check: must be inclusive of all more recent releases (#13753)\n\nNew rule: If a PR is backported to stable-xxx, it must also be\nbackported to all stable-yyyy when yyyy > xxxx.\n\nHere is an example of a PR that seemingly is is 2606, but is not in\n2609, and will be in 2612 again:\nhttps://blog.kianenigma.com/psvm/#/pr/13059 -- to be double checked,\nhopefully I am wrong.\n\nExample when I have 2512 + 2603 backport labels as test in this PR:\n\n<img width=\"1624\" height=\"683\" alt=\"Screenshot 2026-11-06 at 13 07 11\"\nsrc=\"https://github.com/user-attachments/assets/c76b3737-7f70-4d62-8def-bca538deebb1\"\n/>\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T15:39:41Z",
+          "tree_id": "eac0d6fee0245aa609da36d634601b78615a896b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c5087e432dd06d2d36925fecf5c1eb66f7ed010"
+        },
+        "date": 1794849481555,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009278521519999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257615791,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009280616040000005,
             "unit": "seconds"
           }
         ]
