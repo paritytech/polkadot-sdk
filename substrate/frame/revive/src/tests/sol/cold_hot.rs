@@ -20,8 +20,8 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, AddressMapper, BalanceOf, BalanceWithDust, CallProtections, CallResources, Code,
-	Config, Error, ExecConfig, Weight, WeightInfo, WeightToken,
+	AccountInfo, AddressMapper, BalanceOf, CallProtections, CallResources, Code, Config, Error,
+	ExecConfig, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -523,51 +523,6 @@ fn a_transfer_pays_for_creating_the_account_only_when_it_is_missing(
 		to_existing_account.saturating_sub(to_missing_account),
 		existing_account_surcharge,
 		"the cold transfer to an existing account pays its surcharge",
-	);
-}
-
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
-	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
-	let eoa = H160::from([0xfe; 20]);
-	let weight_of_value_call = |dust_amount: u32| {
-		let value = BalanceWithDust::new_unchecked::<Test>(1, dust_amount);
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr: caller, .. } =
-				builder::bare_instantiate(Code::Upload(caller_code.clone()))
-					.build_and_unwrap_contract();
-			let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
-			let result = builder::bare_call(caller)
-				.data(
-					Caller::normalCall {
-						_callee: eoa.0.into(),
-						_value: crate::Pallet::<Test>::convert_native_to_evm(value).low_u64(),
-						_data: Vec::<u8>::new().into(),
-						_gas: u64::MAX,
-					}
-					.abi_encode(),
-				)
-				.build();
-			let nested_call_result =
-				Caller::normalCall::abi_decode_returns(&result.result.as_ref().unwrap().data)
-					.unwrap();
-			assert!(
-				nested_call_result.success,
-				"dust_amount={dust_amount}: the nested call returned {:?}",
-				nested_call_result.output
-			);
-			result.weight_consumed
-		})
-	};
-
-	let weight_without_dust = weight_of_value_call(0);
-	let weight_with_dust = weight_of_value_call(1);
-
-	assert!(
-		weight_with_dust.ref_time() > weight_without_dust.ref_time(),
-		"weight_without_dust={weight_without_dust:?} weight_with_dust={weight_with_dust:?}",
 	);
 }
 

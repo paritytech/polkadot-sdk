@@ -442,7 +442,7 @@ impl AccessEntry {
 
 #[cfg(test)]
 impl AccessEntry {
-	/// Returns the entry for a main-trie key the access list tracks, `None` otherwise.
+	/// Returns the entry for a main-trie key, or `None` if the access list does not track the key.
 	///
 	/// Reads `OriginalAccount` to check that an account is the one its address maps to.
 	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
