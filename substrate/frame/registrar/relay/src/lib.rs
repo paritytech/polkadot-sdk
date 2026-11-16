@@ -1102,7 +1102,8 @@ pub mod pallet {
 /// Tells the parachain the first time a para produces a head, so it can lock the para.
 ///
 /// The caller is a hook that cannot fail, so a send failure is only logged and evented. Nothing is
-/// recorded in that case, so the next head retries.
+/// recorded in that case, so the next head retries. It also waits while [`FailedReports`] is not
+/// empty: the parachain ignores a note for a para whose registration report has not arrived.
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
 		let para_id: ParaId = id.into();
@@ -1110,7 +1111,8 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			return T::WeightInfo::on_new_head_already_noted();
 		}
 
-		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
+		let note = MessageToPara::V1(MessageToParaV1::HeadNoted { para_id });
+		if !Self::failed_reports_is_empty() || T::SendToPara::send(note).is_err() {
 			log::error!(
 				target: LOG_TARGET,
 				"failed to tell the parachain about a new head for para {para_id}",
