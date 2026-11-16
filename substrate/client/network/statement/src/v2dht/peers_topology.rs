@@ -52,7 +52,8 @@ struct PeerInfo {
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
 	key: Key,
-	/// Monotonic timestamp of the most recent sign of life from this peer, or of its discovery.
+	/// Monotonic timestamp of the most recent sign of life from this peer, of its substream close,
+	/// or of its discovery.
 	/// The eviction key for both staleness and the capacity backstop.
 	last_seen: Instant,
 }
@@ -285,7 +286,8 @@ impl PeersTopology {
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
-	/// explicit-affinity topics, and selects a minimal set of peers covering every topic.
+	/// explicit-affinity topics, and selects few peers that together cover every topic with a
+	/// reachable replica.
 	///
 	/// A peer that `is_unreachable` is passed over, so another replica of its topic takes its
 	/// place. A connected peer goes first, so the replacement keeps the topic when the unreachable
@@ -420,8 +422,8 @@ impl PeersTopology {
 	}
 }
 
-/// The peer covering the most uncovered topics, breaking ties by the smallest distance to a
-/// covered topic, then by the smallest peer id. A connected peer goes before any other.
+/// A connected peer before any other, then the peer covering the most uncovered topics, breaking
+/// ties by the smallest distance to a covered topic, then by the smallest peer id.
 fn best_candidate(
 	topics: &[Topic],
 	pools: &[Vec<(PeerId, Key)>],
@@ -1166,15 +1168,17 @@ mod tests {
 	}
 
 	#[test]
-	fn discovery_keeps_the_last_seen_of_a_known_peer() {
+	fn staleness_drops_a_peer_that_discovery_keeps_naming() {
 		let mut topology = topology(1);
 		let peer = peer(2);
 		dht_peer(&mut topology, peer);
-		let last_seen = topology.discovered[&peer].last_seen;
+		let deadline = Instant::now() + PEER_STALENESS_TTL;
 
+		std::thread::sleep(Duration::from_millis(1));
 		topology.on_peers_discovered([peer]);
 
-		assert_eq!(topology.discovered[&peer].last_seen, last_seen);
+		assert!(topology.evict(deadline));
+		assert_eq!(topology.known_peers_count(), 0);
 	}
 
 	#[test]
