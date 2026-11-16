@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794849466174,
+  "lastUpdate": 1794859911621,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf159da7637c65927c3cf41e3c041e4bee4c5957",
-          "message": "statement-store: add --seed flag for single-account latency probe (#11931)\n\n## Summary \n\nAdds an opt-in `--seed <SURI>` flag to `statement-latency-bench` so the\nbench can run as a latency probe against networks where: \n- statement allowances can't be provisioned through Sudo, and\n- only a single, externally pre-allowanced account is available\n\n## Motivation\nGoal is a daily latency telemetry signal on Paseo People against a real\naccount with a fixed 50-statement / 50 KiB allowance, scheduled hourly\n(1 statement × 1 KiB per run, 24 datapoints/day)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T19:14:14Z",
-          "tree_id": "c8a90d9296c210a0eac523e1ad2e295f880a7e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf159da7637c65927c3cf41e3c041e4bee4c5957"
-        },
-        "date": 1777496064608,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.054,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038272940732,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07712937158199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039350628484,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55a995e0fe0ac62f81013358c55ec8ca24295fa5",
+          "message": "[pallet-revive]: implement EIP-150 63/64 gas rule (#11079)\n\n### Summary\nOn Ethereum, EIP-150 limits a nested call to 63/64 of its caller's\nremaining gas, so the caller can continue after a callee that uses up\nall of its gas. In pallet-revive, a nested call without a gas limit got\nall the gas, weight and storage deposit its caller had left, so a callee\nthat consumed all its gas, for example by executing `INVALID`, left its\ncaller nothing to continue with, as reported in\nparitytech/contract-issues#257 and paritytech/contract-issues#259. This\nPR applies the 63/64 rule to nested calls and constructors in both\nEthereum and Substrate execution mode.\n\n### Changes\n- **63/64 rule.** A call, delegate call or precompile call from a\ncontract, or the constructor of a contract it creates, gets at most\n`63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s`\nthe call stipend (zero without one). In Substrate execution mode the\nrule applies to each weight dimension and to the storage deposit; in\nEthereum execution mode, to the gas, the caller's weight limit and its\ndeposit limit, if it has one. Calls and constructors that a precompile\nstarts through `precompiles::Ext::call` and\n`precompiles::ExtWithInfo::instantiate` follow the rule too. The\ntransaction's first call is exempt.\n- **Stipend.** The stipend is set aside before the rule, so a call with\na stipend leaves its caller at least 1/64 of what remains after the\nstipend, as on Ethereum. In Ethereum execution mode, the stipend's gas\nis what the stipend's weight costs on its own, as before this PR, and at\nmost what the caller has left. When proof size is the larger cost of the\ntransaction, a caller with less gas left than the stipend's gas can\nstill pay for the stipend's weight, because only the stipend's proof\nsize adds to the transaction's fee. Its callee then gets all of the\ncaller's gas, and the caller keeps none.\n- **Dry runs.** The weight and storage meters each hold an\n`eip_150::Peak`: the minimum amount a call needs at its start so that,\nafter the 63/64 rule, each of its subcalls still gets what it needs to\nfinish. The dry runs report this amount, or what the call consumed if\nthat is higher, so `weight_required`, `max_storage_deposit`, `eth_gas`\nand `eth_estimateGas` now include the part each caller keeps: 1/63 of\nwhat each nested call needs beyond its stipend.\n- **Dry-run weight limit.** An Ethereum dry run runs the call with at\nmost the maximum `eth_transact` weight minus the transaction's base\nweight, instead of the whole maximum, so that the weight it reports\nleaves room for the base weight also when a nested call uses up its\nshare. A call that needs more weight than that runs out of gas in the\ndry run, as it does in a transaction.\n- **Fix.** A dry run reported a `max_storage_deposit` that was too low\nin two cases:\n- A contract A freed storage and then called B, which called back into\nA. A's refund was recorded when that call returned, and the dry run\nsubtracted it from the deposit B needed, although B's deposit limit was\nset before the refund. The storage meter now adds a call's deposit to\nwhat its caller had consumed when the call started.\n- In Substrate execution mode, a call wrote storage that an earlier call\nfreed. The refund does not raise the later call's deposit limit, but the\ndry run subtracted it from what the later call needed. The caller's net\nrefund now counts as zero when it has a deposit limit.\n- **Tests.** Solidity tests, compiled with Solc and Resolc, check that:\n- a caller can write storage in a `catch` block after its callee or a\nconstructor executes `INVALID`;\n- Multicall3's `aggregate3` continues after a call that uses up its gas;\n- an ERC-2771 forwarder's gas check rejects a transaction that leaves\nits callee less than the requested gas;\n- a call to `ISystem.weightLeft()` gets 63/64 of each weight dimension\nits caller has left;\n  - calls succeed when run with exactly the limits a dry run returned.\n\n### Behavior change for deployed contracts\n- A nested call that asks for more than its 63/64 share, or sets no\nlimit, gets less gas, weight and storage deposit than before.\n- `ISystem.weightLeft()` returns the weight left without the part the\ncaller keeps.\n\n### Behavior change for users\n- A nested call can fail when the transaction's limits are set to what a\ndry run or an earlier transaction consumed, or come from a dry run on a\nruntime without this change.\n\n### Follow-ups\n- A PolkaVM value call with gas `u64::MAX` gets no stipend, so its\ncallee gets about 1/64 of a stipend less than with gas `u64::MAX - 1`,\nand the Resolc rows of\n`value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit`\nare ignored. Before this PR, such a call also got no stipend, but its\ncallee received all of its caller's remaining resources.\n- Without a `gas_limit`, `ReviveApi::call` and `ReviveApi::instantiate`\nstill dry run with the whole block weight as the limit. When a nested\ncall uses up its share, they report a `weight_required` of about a whole\nblock, and an extrinsic with that weight limit is rejected. Before this\nPR, the same dry run failed with `OutOfGas`.\n- In Ethereum execution mode, a transaction applies the 63/64 rule to\nthe gas, the caller's weight limit and its deposit limit, if it has one.\nA dry run tracks the part each caller keeps in weight and in storage\ndeposit, but not in gas, and its `eth_gas` covers the fee for\n`weight_required` plus `max_storage_deposit`. This has two effects:\n- A transaction rounds down when it converts gas to weight. So in a\ncorner case, a nested call can get slightly less weight with exactly the\ndry run's `eth_gas` than in the dry run: one byte of proof size in the\ntest runtime. Through `eth_transact`, the dry run's longer encoding\nleaves more gas over than the nested call lacks, unless the wallet sets\nprices that make the transaction at least as long as that encoding.\n`eth_estimateGas` is not affected.\n- A storage deposit that a caller pays from the gas it kept counts\ntwice, so `eth_gas` can be higher than needed, by at most that gas.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-16T17:52:11Z",
+          "tree_id": "1bc337583bfd4f6e62d6d687afbcd038759c8147",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/55a995e0fe0ac62f81013358c55ec8ca24295fa5"
+        },
+        "date": 1794859871603,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038589722372,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08662550277799991,
             "unit": "seconds"
           }
         ]
