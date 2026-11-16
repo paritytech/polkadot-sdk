@@ -17,8 +17,8 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts,
+	CodeRemoved, Config, ContractInfo, ContractLogTopics, Error, Event, ImmutableData,
+	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -426,14 +426,19 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Deposit an event with the given topics.
 	///
-	/// There should not be any duplicates in `topics`.
+	/// There should not be any duplicates in `topics`. [`ContractLogTopics`] bounds `topics` to
+	/// [`limits::NUM_EVENT_TOPICS`], so no event with more topics reaches the event sink.
 	///
 	/// Fails with [`Error::ReceiptTooLarge`] when the log would take the open ethereum
 	/// transaction's receipt past [`limits::MAX_RECEIPT_LOGS_BYTES`]. Nothing is deposited then.
 	/// The frame fails with the same error when it returns, also if the error is ignored here,
 	/// unless a storage layer opened inside the frame around this call is rolled back: the
 	/// overflow then rolls back with that layer's changes.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
+	fn deposit_event(
+		&mut self,
+		topics: ContractLogTopics,
+		data: Vec<u8>,
+	) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -1132,8 +1137,7 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
-							CachedContract::Cached(info)
+							CachedContract::Cached(ContractInfo::new_for_precompile(&address))
 						}
 					},
 					// A precompile address can never be delegated: skip the `code_address`
@@ -1207,11 +1211,7 @@ where
 						},
 					)
 				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
+				let contract = ContractInfo::new(&address, account_nonce, *executable.code_hash())?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
 					CachedContract::Cached(contract),
@@ -1265,6 +1265,10 @@ where
 	}
 
 	/// Create a subsequent nested frame.
+	///
+	/// When the new frame runs PVM code, the interpreter cache of the innermost PVM frame that
+	/// waits on a sub-call is reset first (see `vm::pvm::reset_caller_cache`), so that only one
+	/// PVM frame of the call stack holds a cache. Pre-compiles and EVM frames reset nothing.
 	fn push_frame(
 		&mut self,
 		frame_args: FrameArgs<T, E>,
@@ -1319,6 +1323,12 @@ where
 						f.account_id == frame.account_id
 				}) {
 				return Err(Error::<T>::DuplicateContract.into());
+			}
+			if executable.is_pvm() {
+				crate::vm::pvm::reset_caller_cache().map_err(|err| {
+					log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+					Error::<T>::ExecutionFailed
+				})?;
 			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -2618,7 +2628,11 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError> {
+	fn deposit_event(
+		&mut self,
+		topics: ContractLogTopics,
+		data: Vec<u8>,
+	) -> Result<(), DispatchError> {
 		let contract = T::AddressMapper::to_address(self.account_id());
 		block_storage::capture_frame_log::<T>(&contract, &data, &topics)?;
 
@@ -2627,7 +2641,11 @@ where
 			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
+			contract,
+			data,
+			topics: topics.into_inner(),
+		});
 		Ok(())
 	}
 
