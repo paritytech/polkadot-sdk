@@ -19,8 +19,8 @@
 //! Blocks emit neither signal. Each block that touched a stream deposits its `StreamsRoot` as an
 //! SPMS header digest, and the bundle's last one is its `Provides` ([`bundle_provides`]).
 //! [`SpecMessagingSignals::build`] synthesizes `Requires` from the consumption records and the PoV
-//! lifts. The collator and the PVF both assemble the tail with [`ump_signal_tail`], so they cannot
-//! drift; the PVF panics on a [`SpecMessagingError`], the collator skips the collation.
+//! lifts. The PVF assembles the tail with [`ump_signal_tail`] and panics on a
+//! [`SpecMessagingError`]; the collator forwards the blocks' signals unchecked.
 
 use crate::scheduling::SchedulingSignals;
 use alloc::vec::Vec;
