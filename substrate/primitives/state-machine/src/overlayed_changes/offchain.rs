@@ -31,7 +31,7 @@ pub struct OffchainOverlayedChanges<H: Hasher>(
 
 impl<H: Hasher> Default for OffchainOverlayedChanges<H> {
 	fn default() -> Self {
-		Self(Default::default())
+		Self(OverlayedMap::without_proof_size_tracker())
 	}
 }
 

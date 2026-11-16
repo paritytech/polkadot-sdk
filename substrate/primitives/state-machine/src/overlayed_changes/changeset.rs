@@ -205,7 +205,8 @@ pub struct OverlayedMap<K, V, H: Hasher> {
 
 	/// Keys written since the last PoV size estimation call with their op, the ops already
 	/// reported by earlier calls, and the estimation trie with one snapshot per open transaction.
-	proof_size_tracker: ProofSizeTracker<K, H>,
+	/// `None` for overlays that are never estimated.
+	proof_size_tracker: Option<ProofSizeTracker<K, H>>,
 }
 
 impl<K: fmt::Debug, V: fmt::Debug, H: Hasher> fmt::Debug for OverlayedMap<K, V, H> {
@@ -227,8 +228,15 @@ impl<K, V, H: Hasher> Default for OverlayedMap<K, V, H> {
 			dirty_keys: SmallVec::new(),
 			num_client_transactions: Default::default(),
 			execution_mode: Default::default(),
-			proof_size_tracker: Default::default(),
+			proof_size_tracker: Some(Default::default()),
 		}
+	}
+}
+
+impl<K, V, H: Hasher> OverlayedMap<K, V, H> {
+	/// Create an empty map that does not track keys for PoV size estimation.
+	pub fn without_proof_size_tracker() -> Self {
+		Self { proof_size_tracker: None, ..Default::default() }
 	}
 }
 
@@ -253,7 +261,7 @@ impl<H: Hasher> From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, 
 			dirty_keys: Default::default(),
 			num_client_transactions: 0,
 			execution_mode: ExecutionMode::Client,
-			proof_size_tracker: Default::default(),
+			proof_size_tracker: Some(Default::default()),
 		}
 	}
 }
@@ -542,14 +550,16 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// Returns true if we are have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
 	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
-		self.proof_size_tracker.add_key(
-			key.clone(),
-			if deleted {
-				proof_size_tracker::DeltaKeyOp::Deleted
-			} else {
-				proof_size_tracker::DeltaKeyOp::Updated
-			},
-		);
+		if let Some(tracker) = &mut self.proof_size_tracker {
+			tracker.add_key(
+				key.clone(),
+				if deleted {
+					proof_size_tracker::DeltaKeyOp::Deleted
+				} else {
+					proof_size_tracker::DeltaKeyOp::Updated
+				},
+			);
+		}
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
 	}
 }
@@ -566,7 +576,10 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
-			proof_size_tracker: ProofSizeTracker::with_transaction_depth(self.transaction_depth()),
+			proof_size_tracker: self
+				.proof_size_tracker
+				.as_ref()
+				.map(|_| ProofSizeTracker::with_transaction_depth(self.transaction_depth())),
 		}
 	}
 
@@ -669,7 +682,9 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
 		self.dirty_keys.push(Default::default());
-		self.proof_size_tracker.start_transaction();
+		if let Some(tracker) = &mut self.proof_size_tracker {
+			tracker.start_transaction();
+		}
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -698,10 +713,12 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
-		if rollback {
-			self.proof_size_tracker.rollback_transaction();
-		} else {
-			self.proof_size_tracker.commit_transaction();
+		if let Some(tracker) = &mut self.proof_size_tracker {
+			if rollback {
+				tracker.rollback_transaction();
+			} else {
+				tracker.commit_transaction();
+			}
 		}
 
 		for key in dirty_keys {
@@ -755,12 +772,12 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// incrementally, without computing the full root after each extrinsic.
 	#[must_use]
 	pub fn take_delta(&mut self) -> proof_size_tracker::DeltaKeys<K> {
-		self.proof_size_tracker.take_delta()
+		self.proof_size_tracker_mut().take_delta()
 	}
 
 	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
 	pub fn estimation_trie_mut(&mut self) -> &mut Option<EstimationTrie<H>> {
-		self.proof_size_tracker.estimation_trie_mut()
+		self.proof_size_tracker_mut().estimation_trie_mut()
 	}
 
 	/// Marks `key` as modified for PoV size estimation without changing its value.
@@ -768,7 +785,13 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// Used for keys the storage root computation will touch that are not written through this
 	/// changeset, such as the roots of child tries stored in the main trie.
 	pub fn track_storage_root_key(&mut self, key: K, op: proof_size_tracker::DeltaKeyOp) {
-		self.proof_size_tracker.add_key(key, op);
+		self.proof_size_tracker_mut().add_key(key, op);
+	}
+
+	fn proof_size_tracker_mut(&mut self) -> &mut ProofSizeTracker<K, H> {
+		self.proof_size_tracker
+			.as_mut()
+			.expect("Overlays used for PoV size estimation are created with a tracker; qed")
 	}
 }
 
@@ -799,10 +822,12 @@ impl<H: Hasher> OverlayedChangeSet<H> {
 
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
-		if rollback {
-			self.proof_size_tracker.rollback_transaction();
-		} else {
-			self.proof_size_tracker.commit_transaction();
+		if let Some(tracker) = &mut self.proof_size_tracker {
+			if rollback {
+				tracker.rollback_transaction();
+			} else {
+				tracker.commit_transaction();
+			}
 		}
 
 		for key in dirty_keys {
@@ -1699,5 +1724,29 @@ mod test {
 		// d, e were in the rolled-back transaction — should NOT appear
 		assert_delta_not_contains!(delta, b"d");
 		assert_delta_not_contains!(delta, b"e");
+	}
+
+	/// Offchain writes are never estimated, so tracking them would only grow memory for the
+	/// whole block.
+	#[test]
+	fn offchain_overlay_has_no_proof_size_tracker() {
+		use crate::overlayed_changes::OffchainOverlayedChanges;
+		use sp_core::offchain::STORAGE_PREFIX;
+
+		let mut offchain = OffchainOverlayedChanges::<Blake2Hasher>::default();
+		offchain.set(STORAGE_PREFIX, b"a", b"v");
+		offchain.overlay_mut().start_transaction();
+		offchain.set(STORAGE_PREFIX, b"b", b"v");
+		offchain.remove(STORAGE_PREFIX, b"a");
+		offchain.overlay_mut().commit_transaction_offchain().unwrap();
+		offchain.overlay_mut().start_transaction();
+		offchain.overlay_mut().start_transaction();
+		let child = offchain.overlay().spawn_child();
+		offchain.overlay_mut().rollback_transaction_offchain().unwrap();
+		assert!(offchain.overlay().proof_size_tracker.is_none());
+		assert!(child.proof_size_tracker.is_none());
+
+		let _ = offchain.drain();
+		assert!(offchain.overlay().proof_size_tracker.is_none());
 	}
 }
