@@ -77,6 +77,12 @@ impl DeclaredEntries {
 		self
 	}
 
+	/// Adds `entry` with `op`, for an entry the runtime charges on its own, outside any access.
+	fn and_entry(mut self, entry: AccessEntry, op: StorageOp) -> Self {
+		self.declarations.entry(entry).or_default().add(op);
+		self
+	}
+
 	/// Adds the operation each access declares for `entry`, when more than one access declares it.
 	fn declared_more_than_once(
 		mut self,
@@ -318,6 +324,38 @@ fn call_with_dispatchable_config(
 	builder::bare_call(dest).exec_config(exec_config)
 }
 
+#[test_case(false; "no dust")]
+#[test_case(true;  "dust")]
+fn a_transfer_accesses_what_it_declares(dust: bool) {
+	use crate::evm::transfer_with_dust;
+	use frame_support::traits::tokens::Preservation;
+
+	// `transfer_with_dust` runs no contract code, so it does not depend on the backend.
+	let (from_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (to_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+	let (mut ext, [from, to]) = deploy_contracts([from_code, to_code]);
+
+	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		transfer_with_dust::<Test>(&from.account_id, &to.account_id, value, Preservation::Preserve)
+			.unwrap();
+	});
+
+	// `transfer_with_dust` creates no access list.
+	assert_eq!(warmed, BTreeMap::new());
+	let declared = DeclaredEntries::of(TransferItems { from: from.addr, to: to.addr, dust });
+	let mut expected = ReadsAndWrites::from_declared(declared);
+	if !dust {
+		// A transfer without dust does not touch the receiver's info.
+		// `CallItems` declares it as a write before each transfer, so this read finds it warm.
+		assert!(
+			expected.read.remove(&AccessEntry::AccountInfo { address: to.addr }),
+			"`TransferItems` does not declare the receiver's `AccountInfo`",
+		);
+	}
+	assert_eq!(accessed, expected);
+}
+
 #[test_case(FixtureType::Solc,   false; "solc")]
 #[test_case(FixtureType::Resolc, false; "resolc")]
 #[test_case(FixtureType::Solc,   true;  "solc through a delegation")]
@@ -375,6 +413,73 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 		);
 	assert_eq!(warmed, declared.warmed());
 	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
+}
+
+#[test_case(false; "not delegated")]
+#[test_case(true;  "delegated to an EOA")]
+fn a_plain_call_to_an_eoa_accesses_what_it_declares(delegated_to_an_eoa: bool) {
+	let (mut ext, []) = deploy_contracts([]);
+	let eoa = H160::from([0xfe; 20]);
+	let delegation_target = H160::from([0xfd; 20]);
+	if delegated_to_an_eoa {
+		ext.execute_with(|| {
+			AccountInfo::<Test>::set_delegation(&eoa, Some(delegation_target), &ALICE).unwrap();
+		});
+	}
+
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		call_with_dispatchable_config(eoa, TransactionKind::Substrate).build_and_unwrap_result();
+	});
+
+	let mut declared = DeclaredEntries::of(CallItems::new(eoa, false));
+	if delegated_to_an_eoa {
+		// The check for a chained delegation reads the target's info, outside any access.
+		declared = declared
+			.and_entry(AccessEntry::AccountInfo { address: delegation_target }, StorageOp::Read);
+	}
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = ReadsAndWrites::from_declared(declared);
+	// No frame runs at an address with no code, so its info is read and never written back.
+	// `CallItems` declares that write, so the call overpays by one write surcharge.
+	assert!(
+		expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
+		"`CallItems` does not declare the EOA's `AccountInfo` as a write",
+	);
+	assert_eq!(accessed, expected);
+}
+
+#[test_case(false; "no dust")]
+#[test_case(true;  "dust")]
+fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
+	let (mut ext, []) = deploy_contracts([]);
+	let eoa = H160::from([0xfe; 20]);
+	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
+
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		call_with_dispatchable_config(eoa, TransactionKind::Substrate)
+			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
+			.build_and_unwrap_result();
+	});
+
+	// Dust balances are stored in the account infos, so only a dust transfer writes them.
+	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
+	let declared = DeclaredEntries::of(CallItems::new(eoa, false))
+		.and(TransferItems { from: ALICE_ADDR, to: eoa, dust })
+		.declared_more_than_once(
+			AccessEntry::AccountInfo { address: eoa },
+			[StorageOp::Write, transfer_info_op],
+		);
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = ReadsAndWrites::from_declared(declared);
+	if !dust {
+		// No frame runs at an address with no code, so its info is read and never written back.
+		// `CallItems` declares that write, so the call overpays by one write surcharge.
+		assert!(
+			expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
+			"`CallItems` does not declare the EOA's `AccountInfo` as a write",
+		);
+	}
+	assert_eq!(accessed, expected);
 }
 
 /// How the caller contract calls the target.
@@ -515,8 +620,9 @@ fn a_nested_instantiate_accesses_what_it_declares(
 		"`InstantiateItems` does not declare the new contract's `OriginalAccount`",
 	);
 	if matches!(transaction_kind, TransactionKind::Substrate) {
-		// A Substrate transaction charges the new contract's deposit to the origin's account, which
-		// no access here declares. An Ethereum transaction pays it from the prepaid fee.
+		// A Substrate transaction charges the new contract's deposit to the origin's account. No
+		// access declares it, because the signed transaction already touched that account for its
+		// nonce and fee. An Ethereum transaction pays the deposit from the prepaid fee.
 		expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
 		expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
 	}
@@ -548,92 +654,5 @@ fn a_nested_instantiate_accesses_what_it_declares(
 	}
 	expected.other_read = deposit_items.clone();
 	expected.other_written = deposit_items;
-	assert_eq!(accessed, expected);
-}
-
-#[test]
-fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
-	let (mut ext, []) = deploy_contracts([]);
-	let eoa = H160::from([0xfe; 20]);
-
-	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		call_with_dispatchable_config(eoa, TransactionKind::Substrate).build_and_unwrap_result();
-	});
-
-	let declared = DeclaredEntries::of(CallItems::new(eoa, false));
-	assert_eq!(warmed, declared.warmed());
-	let mut expected = ReadsAndWrites::from_declared(declared);
-	// No frame runs at an address with no code, so its info is read and never written back.
-	// `CallItems` declares that write, so the call overpays by one write.
-	assert!(
-		expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
-		"`CallItems` does not declare the EOA's `AccountInfo` as a write",
-	);
-	assert_eq!(accessed, expected);
-}
-
-#[test_case(false; "no dust")]
-#[test_case(true;  "dust")]
-fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
-	let (mut ext, []) = deploy_contracts([]);
-	let eoa = H160::from([0xfe; 20]);
-	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-
-	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		call_with_dispatchable_config(eoa, TransactionKind::Substrate)
-			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
-			.build_and_unwrap_result();
-	});
-
-	// Dust balances are stored in the account infos, so only a dust transfer writes them.
-	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
-	let declared = DeclaredEntries::of(CallItems::new(eoa, false))
-		.and(TransferItems { from: ALICE_ADDR, to: eoa, dust })
-		.declared_more_than_once(
-			AccessEntry::AccountInfo { address: eoa },
-			[StorageOp::Write, transfer_info_op],
-		);
-	assert_eq!(warmed, declared.warmed());
-	let mut expected = ReadsAndWrites::from_declared(declared);
-	if !dust {
-		// No frame runs at an address with no code, so its info is read and never written back.
-		// `CallItems` declares that write, so the call overpays by one write.
-		assert!(
-			expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
-			"`CallItems` does not declare the EOA's `AccountInfo` as a write",
-		);
-	}
-	assert_eq!(accessed, expected);
-}
-
-#[test_case(false; "no dust")]
-#[test_case(true;  "dust")]
-fn a_transfer_accesses_what_it_declares(dust: bool) {
-	use crate::evm::transfer_with_dust;
-	use frame_support::traits::tokens::Preservation;
-
-	// `transfer_with_dust` runs no contract code, so it does not depend on the backend.
-	let (from_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
-	let (to_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
-	let (mut ext, [from, to]) = deploy_contracts([from_code, to_code]);
-
-	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		transfer_with_dust::<Test>(&from.account_id, &to.account_id, value, Preservation::Preserve)
-			.unwrap();
-	});
-
-	// `transfer_with_dust` creates no access list.
-	assert_eq!(warmed, BTreeMap::new());
-	let declared = DeclaredEntries::of(TransferItems { from: from.addr, to: to.addr, dust });
-	let mut expected = ReadsAndWrites::from_declared(declared);
-	if !dust {
-		// A transfer without dust does not touch the receiver's info.
-		// `CallItems` declares it as a write before each transfer, so this read finds it warm.
-		assert!(
-			expected.read.remove(&AccessEntry::AccountInfo { address: to.addr }),
-			"`TransferItems` does not declare the receiver's `AccountInfo`",
-		);
-	}
 	assert_eq!(accessed, expected);
 }
