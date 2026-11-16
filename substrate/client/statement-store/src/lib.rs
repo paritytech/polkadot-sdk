@@ -205,8 +205,14 @@ enum AllowanceBlock {
 // Period between enforcing limits (checking for expired statements and making sure statements stay
 // within allowances). Different from maintenance period to avoid keeping the lock for too long for
 // maintenance tasks. If expired statements are still due after a pass, the background task runs the
-// next pass at once instead of waiting for the next tick.
+// next pass after `ENFORCE_LIMITS_BACKLOG_PERIOD` instead of waiting for the next tick.
 const ENFORCE_LIMITS_PERIOD: std::time::Duration = std::time::Duration::from_secs(31);
+
+// Delay before the next enforce-limits pass while expired statements are still due. Each pass is
+// bounded by `MAX_EXPIRY_STATEMENTS_PER_ITERATION` and `MAX_EXPIRY_TIME_PER_ITERATION`; the delay
+// keeps the sweep from holding the store lock back to back, so inbound statements are not starved
+// while a backlog drains.
+const ENFORCE_LIMITS_BACKLOG_PERIOD: std::time::Duration = std::time::Duration::from_millis(500);
 
 mod col {
 	pub const META: u8 = 0;
@@ -1499,7 +1505,7 @@ impl Store {
 						_ = maintenance_interval.tick().fuse() => {worker_store.maintain();}
 						_ = enforce_limits_interval.tick().fuse() => {
 							if worker_store.enforce_limits() {
-								enforce_limits_interval.reset_immediately();
+								enforce_limits_interval.reset_after(ENFORCE_LIMITS_BACKLOG_PERIOD);
 							}
 						}
 					}
@@ -2400,7 +2406,7 @@ impl Store {
 				},
 			}
 		}
-		// If due statements remain, the background task runs the next pass at once.
+		// If due statements remain, the background task runs the next pass after a short delay.
 		let more_due = expired > 0 && self.has_due_expiry(current_time).unwrap_or(false);
 
 		// Phase 2: enforce allowances account by account, resuming from the cursor. The phase
@@ -3280,9 +3286,13 @@ impl StatementStore for Store {
 				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
 					summary.count < validation.max_count as usize &&
 						summary.data_size + statement_len <= validation.max_size as usize
-				}) && submit_index
-				.exceeded_limit(&submit_index.totals_after_insert(track, statement_len, []), track)
-				.is_none();
+				}) &&
+				submit_index
+					.exceeded_limit(
+						&submit_index.totals_after_insert(track, statement_len, []),
+						track,
+					)
+					.is_none();
 			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {
