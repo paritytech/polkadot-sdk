@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Tests of when reports are processed, which of them are accepted, how reports and votes are
-//! anchored and expired, and how votes become prices.
+//! anchored and expired, how votes become prices, and what a pause stops.
 
 use crate::{self as pallet_price_oracle, *};
 use core::{
@@ -724,4 +724,131 @@ fn process_reports_is_operational() {
 	// Not `Mandatory`, so a call that fails does not make the block invalid.
 	let call = Call::<Test>::process_reports { reports: vec![] };
 	assert_eq!(call.get_dispatch_info().class, DispatchClass::Operational);
+}
+
+#[test]
+fn processing_pause_ignores_reports() {
+	new_test_ext().execute_with(|| {
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Processing)));
+		take_events();
+
+		// The report of signer 2 is ignored: no event, and the votes are as they were.
+		System::set_block_number(101);
+		process(vec![report(2, 101, START_MS, 9)]);
+		assert!(take_events().is_empty());
+		assert_eq!(votes(), vec![(1, Anchor::new(100, START_MS))]);
+		// Consumers keep reading the last price.
+		assert_eq!(
+			<PriceOracle as PriceProvider>::price(PAIR),
+			Some(PricePoint { price: Price::from_u32(5), updated_at: 100, signers: 1 })
+		);
+	});
+}
+
+#[test]
+fn publishing_pause_withholds_prices() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Publishing)));
+		process(vec![report(1, 100, START_MS, 5)]);
+		// The price is computed.
+		assert_eq!(
+			Prices::<Test>::get(PAIR),
+			Some(PricePoint { price: Price::from_u32(5), updated_at: 100, signers: 1 })
+		);
+		// Consumers do not get it, and `OnPriceUpdate` is not called.
+		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+		assert!(take_price_updates().is_empty());
+	});
+}
+
+#[test]
+fn full_pause_stops_processing_and_publishing() {
+	new_test_ext().execute_with(|| {
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Full)));
+
+		System::set_block_number(101);
+		process(vec![report(2, 101, START_MS, 9)]);
+		// The report of signer 2 is ignored.
+		assert_eq!(votes(), vec![(1, Anchor::new(100, START_MS))]);
+		// Consumers do not get a price.
+		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+	});
+}
+
+#[test]
+fn lifting_the_pause_resumes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Full)));
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert!(votes().is_empty());
+		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+
+		// With the pause lifted, reports are processed and consumers get the price.
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), None));
+		System::set_block_number(101);
+		process(vec![report(1, 101, START_MS, 5)]);
+		assert_eq!(
+			<PriceOracle as PriceProvider>::price(PAIR),
+			Some(PricePoint { price: Price::from_u32(5), updated_at: 101, signers: 1 })
+		);
+	});
+}
+
+#[test]
+fn only_admin_can_set_pause() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			PriceOracle::set_pause(RuntimeOrigin::signed(1), Some(Pause::Full)),
+			DispatchError::BadOrigin
+		);
+
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Full)));
+		assert_eq!(Paused::<Test>::get(), Some(Pause::Full));
+		// `None` lifts the pause.
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), None));
+		assert_eq!(Paused::<Test>::get(), None);
+		assert_eq!(
+			take_events(),
+			vec![Event::PauseSet { pause: Some(Pause::Full) }, Event::PauseSet { pause: None }]
+		);
+	});
+}
+
+#[test]
+fn lifting_the_pause_does_not_bring_back_the_old_price() {
+	new_test_ext().execute_with(|| {
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Full)));
+
+		// The pause is lifted 100 blocks later. Consumers do not get the price from before it.
+		System::set_block_number(200);
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), None));
+		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+		// Also not in the next block, as long as no new votes come in.
+		System::set_block_number(201);
+		process(vec![]);
+		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+	});
+}
+
+#[test]
+fn on_price_update_is_called_after_publishing_pause_is_lifted() {
+	new_test_ext().execute_with(|| {
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert_eq!(take_price_updates(), vec![(PAIR, Price::from_u32(5))]);
+
+		// The price changes while publishing is paused. `OnPriceUpdate` is not called.
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), Some(Pause::Publishing)));
+		System::set_block_number(101);
+		process(vec![report(1, 101, START_MS, 7)]);
+		assert!(take_price_updates().is_empty());
+
+		// The pause is lifted and the price stays the same. `OnPriceUpdate` is called with it.
+		assert_ok!(PriceOracle::set_pause(RuntimeOrigin::root(), None));
+		System::set_block_number(102);
+		process(vec![report(1, 102, START_MS, 7)]);
+		assert_eq!(take_price_updates(), vec![(PAIR, Price::from_u32(7))]);
+	});
 }
