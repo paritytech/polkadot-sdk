@@ -15,17 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Checks what an operation reads and writes in the main trie against the entries its `Access`
-//! types name.
+//! Checks what an operation reads and writes in the main trie against the entries each test
+//! declares for it.
 
 use crate::{
-	AccountInfo, BalanceWithDust, Code, Config, Pallet,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, Config, Pallet,
 	access_list::{
 		Access, AccessEntry, CallItems, CodeLoadItems, InstantiateItems, StorageOp, TransferItems,
 		Warmth,
 	},
 	test_utils::{ALICE, ALICE_ADDR, EVE_ADDR, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
+	tests::{
+		AllPalletsWithSystem, ExtBuilder, RuntimeOrigin, Test, builder, test_utils::get_contract,
+	},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::{StorageInfo, StorageInfoTrait, fungible::Mutate};
@@ -34,7 +36,7 @@ use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
 use sp_trie::recorder::Recorder;
 use std::collections::{BTreeMap, BTreeSet};
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
 
 /// A deployed contract and the hash of its runtime code.
 struct DeployedContract {
@@ -68,7 +70,7 @@ impl DeclaredEntries {
 		self
 	}
 
-	/// Lists the operation each access declares for `entry`, when more than one access declares it.
+	/// Adds the operation each access declares for `entry`, when more than one access declares it.
 	fn declared_more_than_once(
 		mut self,
 		entry: AccessEntry,
@@ -81,23 +83,16 @@ impl DeclaredEntries {
 		self
 	}
 
-	/// Asserts that each entry is declared by one access, or with the operations
-	/// `declared_more_than_once` lists.
+	/// Asserts that `declared_more_than_once` adds exactly the entries that more than one access
+	/// declares, with the operations they declare.
 	fn assert_declared_counts(&self) {
+		let mut declared_more_than_once = BTreeMap::new();
 		for (entry, counts) in &self.declarations {
-			match self.declared_more_than_once.get(entry) {
-				Some(expected) => assert_eq!(
-					counts, expected,
-					"{entry:?}: the declarations differ from what `declared_more_than_once` lists",
-				),
-				None => assert_eq!(
-					counts.total(),
-					1,
-					"{entry:?} is declared {} times: list it with `declared_more_than_once`",
-					counts.total(),
-				),
+			if counts.total() > 1 {
+				declared_more_than_once.insert(entry.clone(), *counts);
 			}
 		}
+		assert_eq!(declared_more_than_once, self.declared_more_than_once);
 	}
 }
 
@@ -155,7 +150,7 @@ impl ReadsAndWrites {
 	/// and storage item they belong to. Keys the benchmarks already cover are dropped.
 	fn from_keys(read: &[Vec<u8>], written: &[Vec<u8>]) -> Self {
 		let covered = keys_the_benchmarks_cover();
-		let storage_items = crate::tests::AllPalletsWithSystem::storage_info();
+		let storage_items = AllPalletsWithSystem::storage_info();
 		let split = |keys: &[Vec<u8>]| {
 			let mut entries = BTreeSet::new();
 			let mut others = BTreeSet::new();
@@ -178,28 +173,25 @@ impl ReadsAndWrites {
 	}
 }
 
-/// Returns the keys the benchmarks cover.
+/// Returns the keys the pallets whitelist for benchmarks, plus the keys the tested operations
+/// read that the benchmark macro whitelists or a benchmark measures.
 fn keys_the_benchmarks_cover() -> BTreeSet<Vec<u8>> {
 	use frame_support::{
 		storage::transactional::TRANSACTION_LEVEL_KEY, traits::WhitelistedStorageKeys,
 	};
-	crate::tests::AllPalletsWithSystem::whitelisted_storage_keys()
+	AllPalletsWithSystem::whitelisted_storage_keys()
 		.into_iter()
 		.map(|whitelisted| whitelisted.key)
 		// The benchmark macro whitelists the transactional layer itself, outside any pallet.
 		.chain(core::iter::once(TRANSACTION_LEVEL_KEY.to_vec()))
-		// Not whitelisted, but the `call` benchmark measures it: one read when the stack is built.
+		// Not whitelisted, but the `call` benchmark measures its one read when the stack is built.
 		.chain(core::iter::once(pallet_timestamp::Now::<Test>::hashed_key().to_vec()))
 		.collect()
 }
 
-/// Returns the name of a key as its pallet and storage item, `"child trie root"` for a key that
-/// holds a child trie's root, or the key in hex when no pallet claims it.
+/// Returns the name of a key as its pallet and storage item, or the key in hex when no pallet
+/// claims it.
 fn label_key(key: &[u8], storage_items: &[StorageInfo]) -> String {
-	use sp_core::storage::well_known_keys::is_default_child_storage_key;
-	if is_default_child_storage_key(key) {
-		return "child trie root".to_string();
-	}
 	storage_items
 		.iter()
 		.find(|info| key.starts_with(&info.prefix))
@@ -225,7 +217,7 @@ fn deploy_contracts<const N: usize>(
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 			// Funded so that a contract calling another one can move value.
 			let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000);
-			let code_hash = crate::tests::test_utils::get_contract(&addr).code_hash;
+			let code_hash = get_contract(&addr).code_hash;
 			DeployedContract { addr, account_id, code_hash }
 		})
 	});
@@ -262,8 +254,8 @@ fn reads_and_writes_of<R>(
 }
 
 /// Deploys both codes, calls the caller with the data `payload` builds for the target, checks
-/// that the caller's nested call succeeded, and returns the call's reads and writes along with
-/// the two deployed contracts.
+/// that the caller and its nested call succeeded, and returns the call's reads and writes along
+/// with the two deployed contracts.
 fn reads_and_writes_of_call(
 	caller_code: Vec<u8>,
 	target_code: Vec<u8>,
@@ -273,28 +265,41 @@ fn reads_and_writes_of_call(
 	let payload = payload(&target);
 	let (reads_writes, nested_call) = reads_and_writes_of(&mut ext, || {
 		let result = builder::bare_call(caller.addr).data(payload).build_and_unwrap_result();
+		assert!(!result.did_revert(), "the caller returned {:?}", result.data);
 		Caller::normalCall::abi_decode_returns(&result.data).unwrap()
 	});
 	assert!(nested_call.success, "the nested call returned {:?}", nested_call.output);
 	(reads_writes, caller, target)
 }
 
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
-fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
+#[test_case(FixtureType::Solc,   false; "solc")]
+#[test_case(FixtureType::Resolc, false; "resolc")]
+#[test_case(FixtureType::Solc,   true;  "solc through a delegation")]
+#[test_case(FixtureType::Resolc, true;  "resolc through a delegation")]
+fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType, through_delegation: bool) {
 	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 	let (mut ext, [contract]) = deploy_contracts([code]);
-	// `whoSender` reads no contract storage: the harness covers only the main trie.
+	let target = if through_delegation {
+		ext.execute_with(|| {
+			AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(contract.addr), &ALICE).unwrap();
+		});
+		EVE_ADDR
+	} else {
+		contract.addr
+	};
+	// `whoSender` reads no contract storage, which the harness does not cover.
 	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
-		builder::bare_call(contract.addr)
+		let result = builder::bare_call(target)
 			.data(Callee::whoSenderCall {}.abi_encode())
 			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "the target returned {:?}", result.data);
 	});
 
 	assert_eq!(
 		top_frame,
 		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(contract.addr, false))
+			DeclaredEntries::of(CallItems::new(target, false))
+				// A delegated account runs the code of the contract it delegates to.
 				.and(CodeLoadItems::new(contract.code_hash))
 		),
 	);
@@ -310,12 +315,13 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
 	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
-		builder::bare_call(contract.addr)
+		let result = builder::bare_call(contract.addr)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "the contract returned {:?}", result.data);
 	});
 
-	// Dust balances live in the account infos, so only a dust transfer writes them.
+	// Dust balances are stored in the account infos, so only a dust transfer writes them.
 	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
 	assert_eq!(
 		top_frame,
@@ -331,54 +337,46 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 	);
 }
 
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn a_nested_plain_call_accesses_what_it_declares(
-	caller_type: FixtureType,
-	target_type: FixtureType,
-) {
-	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
-	let (accessed, caller, target) = reads_and_writes_of_call(caller_code, target_code, |target| {
-		Caller::normalCall {
-			_callee: target.addr.0.into(),
-			_value: 0,
-			_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
-			_gas: u64::MAX,
-		}
-		.abi_encode()
-	});
-
-	assert_eq!(
-		accessed,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(caller.addr, false))
-				.and(CodeLoadItems::new(caller.code_hash))
-				.and(CallItems::new(target.addr, false))
-				.and(CodeLoadItems::new(target.code_hash))
-		),
-	);
+/// How the caller contract calls the target.
+enum NestedCallKind {
+	Plain,
+	Delegate,
+	Static,
 }
 
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn a_nested_delegate_call_accesses_what_it_declares(
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc],
+	[NestedCallKind::Plain, NestedCallKind::Delegate, NestedCallKind::Static]
+)]
+fn a_nested_call_accesses_what_it_declares(
 	caller_type: FixtureType,
 	target_type: FixtureType,
+	kind: NestedCallKind,
 ) {
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
 	let (accessed, caller, target) = reads_and_writes_of_call(caller_code, target_code, |target| {
-		Caller::delegateCall {
-			_callee: target.addr.0.into(),
-			_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
-			_gas: u64::MAX,
+		let data = Callee::echoCall { _data: 42 }.abi_encode().into();
+		match kind {
+			NestedCallKind::Plain => Caller::normalCall {
+				_callee: target.addr.0.into(),
+				_value: 0,
+				_data: data,
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
+			NestedCallKind::Delegate => {
+				Caller::delegateCall { _callee: target.addr.0.into(), _data: data, _gas: u64::MAX }
+					.abi_encode()
+			},
+			NestedCallKind::Static => Caller::staticCallCall {
+				_callee: target.addr.0.into(),
+				_data: data,
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
 		}
-		.abi_encode()
 	});
 
 	assert_eq!(
@@ -386,37 +384,7 @@ fn a_nested_delegate_call_accesses_what_it_declares(
 		ReadsAndWrites::from_declared(
 			DeclaredEntries::of(CallItems::new(caller.addr, false))
 				.and(CodeLoadItems::new(caller.code_hash))
-				.and(CallItems::new(target.addr, true))
-				.and(CodeLoadItems::new(target.code_hash))
-		),
-	);
-}
-
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn a_nested_static_call_accesses_what_it_declares(
-	caller_type: FixtureType,
-	target_type: FixtureType,
-) {
-	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
-	let (accessed, caller, target) = reads_and_writes_of_call(caller_code, target_code, |target| {
-		Caller::staticCallCall {
-			_callee: target.addr.0.into(),
-			_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
-			_gas: u64::MAX,
-		}
-		.abi_encode()
-	});
-
-	assert_eq!(
-		accessed,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(caller.addr, false))
-				.and(CodeLoadItems::new(caller.code_hash))
-				.and(CallItems::new(target.addr, false))
+				.and(CallItems::new(target.addr, matches!(kind, NestedCallKind::Delegate)))
 				.and(CodeLoadItems::new(target.code_hash))
 		),
 	);
@@ -473,10 +441,10 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		// resolc creates the child from an uploaded blob; solc stores the code on the create.
 		let (child_code, _) = compile_module_with_type("ReceivingChild", fixture_type).unwrap();
 		ext.execute_with(|| {
-			crate::Pallet::<Test>::upload_code(
-				crate::tests::RuntimeOrigin::signed(ALICE.clone()),
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
 				child_code,
-				<crate::BalanceOf<Test>>::MAX,
+				<BalanceOf<Test>>::MAX,
 			)
 			.unwrap();
 		});
@@ -486,26 +454,27 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		let result = builder::bare_call(factory.addr)
 			.data(Factory::createCall {}.abi_encode())
 			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "the factory returned {:?}", result.data);
 		let created = Factory::createCall::abi_decode_returns(&result.data).unwrap();
 		H160::from_slice(created.as_slice())
 	});
-	let child_hash = ext.execute_with(|| crate::tests::test_utils::get_contract(&child).code_hash);
+	let child_hash = ext.execute_with(|| get_contract(&child).code_hash);
 
 	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
 		.and(CodeLoadItems::new(factory.code_hash))
 		.and(InstantiateItems { address: child, deployer: factory.addr })
 		.and(CodeLoadItems::with_info_op(child_hash, StorageOp::Write));
 	let mut expected = ReadsAndWrites::from_declared(declared);
-	// The instantiate never reads it, but its benches prepay a later call's read.
+	// The instantiate never reads it, but its benchmarks prepay a later call's read.
 	assert!(
 		expected.read.remove(&AccessEntry::OriginalAccount { address: child }),
 		"`InstantiateItems` no longer declares the new contract's `OriginalAccount`",
 	);
-	// Never warmed: the new contract's deposit is charged to the origin's account.
+	// The new contract's deposit is charged to the origin's account, which no access here declares.
 	expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
 	expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
 
-	// The deposit entries, which the access list does not track.
+	// The deposit's storage items, which the access list does not track.
 	let mut deposit_items = BTreeSet::from(
 		[
 			"Assets::Account",
@@ -537,7 +506,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 
 #[test]
 fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
-	let (mut ext, []) = deploy_contracts::<0>([]);
+	let (mut ext, []) = deploy_contracts([]);
 	let eoa = H160::from([0xfe; 20]);
 
 	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
@@ -558,7 +527,7 @@ fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
 #[test_case(false; "no dust")]
 #[test_case(true;  "dust")]
 fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
-	let (mut ext, []) = deploy_contracts::<0>([]);
+	let (mut ext, []) = deploy_contracts([]);
 	let eoa = H160::from([0xfe; 20]);
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
 
@@ -568,7 +537,7 @@ fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
 			.build_and_unwrap_result();
 	});
 
-	// Dust balances live in the account infos, so only a dust transfer writes them.
+	// Dust balances are stored in the account infos, so only a dust transfer writes them.
 	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
 	let mut expected = ReadsAndWrites::from_declared(
 		DeclaredEntries::of(CallItems::new(eoa, false))
@@ -617,29 +586,4 @@ fn a_transfer_accesses_what_it_declares(dust: bool) {
 		);
 	}
 	assert_eq!(reads_writes, expected);
-}
-
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
-fn a_call_to_a_delegated_account_accesses_what_it_declares(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
-	let (mut ext, [target]) = deploy_contracts([code]);
-	ext.execute_with(|| {
-		AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(target.addr), &ALICE).unwrap();
-	});
-
-	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
-		builder::bare_call(EVE_ADDR)
-			.data(Callee::whoSenderCall {}.abi_encode())
-			.build_and_unwrap_result();
-	});
-
-	assert_eq!(
-		accessed,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(EVE_ADDR, false))
-				// The delegated account runs the target's code.
-				.and(CodeLoadItems::new(target.code_hash))
-		),
-	);
 }

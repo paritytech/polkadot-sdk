@@ -443,6 +443,8 @@ impl AccessEntry {
 #[cfg(test)]
 impl AccessEntry {
 	/// Returns the entry for a main-trie key the access list tracks, `None` otherwise.
+	///
+	/// Reads `OriginalAccount` to check that an account is the one its address maps to.
 	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
 		use frame_support::storage::StoragePrefixedMap;
 
