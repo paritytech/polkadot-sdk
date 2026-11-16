@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794859911621,
+  "lastUpdate": 1794864234256,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41dd688074605dcc0e104f2250473324ab59ec3",
-          "message": "pallet-psm: switch Westend Asset Hub to Location AssetId backed by LocalAndForeignAssets (#11921)\n\nOn Asset Hub Westend, `pallet-psm` is switched from `u32` (trust-backed\nasset id) to `xcm::v5::Location` as its `AssetId`, and from `Assets` to\n`LocalAndForeignAssets` as its `Fungibles`. PSM can now mint and redeem\nagainst both trust-backed and foreign-registered external stablecoins,\naddressed uniformly by `Location`.\n\nStorage migration: every `AssetId`-keyed PSM storage item is encoded\nunder the old `u32` key. The runtime wipes the existing PSM storage with\n`frame_support::migrations::RemovePallet` and re-seeds the pallet from\n`PsmInitialConfig` via `InitializePsm`. USDT (trust-backed asset `1984`)\nis reseeded under its `Location` representation as the first external\nasset.\n\n`pallet-psm`'s `BenchmarkHelper` trait gains a `get_asset_id(index:\nu32)` method so benchmark scenarios can derive a runtime-specific\n`AssetId` (e.g. a `Location`) from a `u32` index. Existing impls need to\nadd this method.",
-          "timestamp": "2026-04-30T09:51:00Z",
-          "tree_id": "eb4a04010530c93b8ba1d6a85bd134c3e8c49815",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d41dd688074605dcc0e104f2250473324ab59ec3"
-        },
-        "date": 1777548085398,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.14,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03878363737799998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08008919236799991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08662550277799991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "597d47dc7fc4b56ee3fae54c54c7da9da428643f",
+          "message": "pallet-bounties: fix `reclaim_bounty_funds` benchmark (#13878)\n\nThe `reclaim_bounty_funds` benchmark from #11045 panics on runtimes with\n`TransferAllAssets = ()`.\n\n- With `()` nothing is transferred, so `BountyFundsReclaimed` is never\nemitted.\n- The benchmark now only asserts the event if the bounty account was\nemptied.\n- Added a test running the benchmark with `()`.",
+          "timestamp": "2026-11-16T19:49:30Z",
+          "tree_id": "c66c10b147420ca015fc8b68a8de4c8452009254",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/597d47dc7fc4b56ee3fae54c54c7da9da428643f"
+        },
+        "date": 1794864196909,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.16199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038300760738000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08659772978999988,
             "unit": "seconds"
           }
         ]
