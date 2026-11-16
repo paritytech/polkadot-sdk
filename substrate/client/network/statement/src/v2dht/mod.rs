@@ -267,9 +267,14 @@ impl V2DhtOrchestrator {
 
 	// === Advertise own filter ===
 
-	/// The [`AffinityFilter`] this node advertises, built from its current topics.
-	pub(crate) fn local_filter(&self) -> AffinityFilter {
-		self.explicit_affinity.local_filter()
+	/// The [`AffinityFilter`] for a newly connected peer, the one that every peer holds.
+	pub(crate) fn advertised_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.advertised_filter()
+	}
+
+	/// The advertised filter, to send again ahead of a changed one after major sync.
+	pub(crate) fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
+		self.explicit_affinity.take_filter_to_repeat()
 	}
 
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
@@ -894,6 +899,24 @@ mod tests {
 			.expect("a subscription topic marks the filter changed");
 		assert!(filter.contains(&topic(1)));
 		assert!(orchestrator.take_local_filter_if_changed().is_none());
+	}
+
+	#[test]
+	fn subscription_changes_during_major_sync_repeat_the_filter_from_before_the_sync() {
+		let mut orchestrator = orchestrator();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let before_sync = orchestrator.take_local_filter_if_changed().expect("a topic was added");
+
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1), topic(2)]));
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(2), topic(3)]));
+		assert_eq!(orchestrator.advertised_filter(), before_sync);
+
+		assert_eq!(orchestrator.take_filter_to_repeat(), Some(before_sync));
+		let after_sync = orchestrator.take_local_filter_if_changed().expect("the topics changed");
+		assert!(after_sync.contains(&topic(3)));
+		assert_eq!(orchestrator.advertised_filter(), after_sync);
 	}
 
 	#[test]

@@ -55,6 +55,10 @@ pub(crate) struct ExplicitAffinity {
 	local: HashMap<Topic, HashSet<AffinitySource>>,
 	/// Marks the advertised affinity filter stale
 	local_changed: bool,
+	/// The filter that connected peers hold from this node.
+	advertised: AffinityFilter,
+	/// The node dropped statements, so its peers have to send them again.
+	replay_wanted: bool,
 	/// The filter each connected peer advertises.
 	peers: HashMap<PeerId, AffinityFilter>,
 }
@@ -65,11 +69,18 @@ impl ExplicitAffinity {
 		bloom_seed: Option<u128>,
 		bloom_false_pos: f64,
 	) -> Self {
+		let seed = bloom_seed.unwrap_or_else(rand::random);
 		let mut this = Self {
-			seed: bloom_seed.unwrap_or_else(rand::random),
+			seed,
 			false_pos: bloom_false_pos,
 			local: HashMap::new(),
 			local_changed: false,
+			advertised: AffinityFilter::from_topics(
+				configured_topics.iter().map(|topic| topic.as_ref()),
+				seed,
+				bloom_false_pos,
+			),
+			replay_wanted: false,
 			peers: HashMap::new(),
 		};
 		this.add_topics(AffinitySource::Configured, configured_topics);
@@ -145,6 +156,7 @@ impl ExplicitAffinity {
 	/// Request another advertisement without changing topic membership.
 	pub(crate) fn mark_local_filter_stale(&mut self) {
 		self.local_changed = true;
+		self.replay_wanted = true;
 	}
 
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
@@ -153,7 +165,24 @@ impl ExplicitAffinity {
 			return None;
 		}
 		self.local_changed = false;
-		Some(self.local_filter())
+		self.advertised = self.local_filter();
+		Some(self.advertised.clone())
+	}
+
+	/// The filter for a newly connected peer. It changes only with a broadcast, so every peer
+	/// holds the same one.
+	pub(crate) fn advertised_filter(&self) -> AffinityFilter {
+		self.advertised.clone()
+	}
+
+	/// The advertised filter, to send again ahead of a changed one. A peer answers a repeated
+	/// filter with a full replay and a changed one with only the difference.
+	pub(crate) fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
+		if !self.replay_wanted {
+			return None;
+		}
+		self.replay_wanted = false;
+		Some(self.advertised.clone()).filter(|advertised| *advertised != self.local_filter())
 	}
 
 	// === Peer filters ===
@@ -355,6 +384,29 @@ mod tests {
 		assert!(filter.contains(&topic(1)));
 		assert!(filter.contains(&topic(2)));
 		assert!(affinity.take_local_filter_if_changed().is_none());
+	}
+
+	#[test]
+	fn take_filter_to_repeat_yields_the_advertised_filter_ahead_of_a_changed_one() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
+		let advertised =
+			affinity.take_local_filter_if_changed().expect("construction marks a change");
+
+		// A topic change alone asks for the difference.
+		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
+		assert!(affinity.take_filter_to_repeat().is_none());
+		assert_eq!(affinity.advertised_filter(), advertised);
+
+		affinity.mark_local_filter_stale();
+		assert_eq!(affinity.take_filter_to_repeat(), Some(advertised));
+		assert!(affinity.take_filter_to_repeat().is_none());
+		let changed = affinity.take_local_filter_if_changed().expect("add marks a change");
+		assert_eq!(affinity.advertised_filter(), changed);
+
+		// With the topics unchanged the one advertisement already repeats the filter.
+		affinity.mark_local_filter_stale();
+		assert!(affinity.take_filter_to_repeat().is_none());
+		assert_eq!(affinity.take_local_filter_if_changed(), Some(changed));
 	}
 
 	#[test]

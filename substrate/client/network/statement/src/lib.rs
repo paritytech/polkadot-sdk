@@ -1443,6 +1443,12 @@ where
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
 						if self.v2dht.major_sync_settled() {
+							// A peer answers a changed filter with only the difference, so the
+							// filter that it holds goes first: the repeat asks for what this node
+							// dropped during the sync.
+							if let Some(filter) = self.v2dht.take_filter_to_repeat() {
+								self.broadcast_local_filter(filter).await;
+							}
 							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
 								self.broadcast_local_filter(filter).await;
 							}
@@ -1549,7 +1555,8 @@ where
 		if self.peers.get(peer).map(|p| p.protocol_version) == Some(PeerProtocolVersion::V1) {
 			return;
 		}
-		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
+		let encoded =
+			StatementMessage::ExplicitTopicAffinity(self.v2dht.advertised_filter()).encode();
 		self.send_notification(peer, encoded).await;
 	}
 
@@ -6792,7 +6799,8 @@ mod tests {
 
 		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
 		assert_eq!(handler.metrics.as_ref().unwrap().late_affinity_filters.get(), 1);
-		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
+		let local =
+			StatementMessage::ExplicitTopicAffinity(handler.v2dht.advertised_filter()).encode();
 		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
 	}
 
