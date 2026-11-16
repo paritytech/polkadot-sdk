@@ -706,7 +706,9 @@ impl KeystoreInner {
 						Ok(bytes)
 							if bytes.len() > KEY_TYPE_PREFIX_LEN &&
 								bytes[..KEY_TYPE_PREFIX_LEN] == key_type.0 =>
-							bytes,
+						{
+							bytes
+						},
 						_ => continue,
 					};
 					let payload = bytes[KEY_TYPE_PREFIX_LEN..].to_vec();
@@ -1150,7 +1152,7 @@ mod tests {
 		assert_eq!(bls381_keys.len(), 1);
 		assert_eq!(ecdsa_bls381_keys.len(), 1);
 
-	        assert_eq!(ecdsa_bls381_keys[0], ecdsa_bls381_key);
+		assert_eq!(ecdsa_bls381_keys[0], ecdsa_bls381_key);
 		let mut combined = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
 		combined[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_keys[0].as_ref());
 		combined[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_keys[0].as_ref());
