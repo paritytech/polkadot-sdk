@@ -10,7 +10,7 @@ doc:
     The parent search now judges each unincluded block by the runtime that executed it, its
     parent's:
 
-    - V3-executed blocks need a relay parent known from the scheduling parent.
+    - V3-executed blocks need a relay parent known at the scheduling parent.
     - V2-executed blocks need a relay parent in the V2 lookahead window. An expired upgrade block
       is therefore dropped and rebuilt instead of resubmitted forever.
     - V2-executed blocks never enter the V3 resubmittable segment.

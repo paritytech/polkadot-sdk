@@ -233,17 +233,18 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 	})
 }
 
-/// The relay parents a V2-executed block may use: the lookahead window ending at `anchor`.
+/// Relay parents a V2-executed block may still be anchored on: `scheduling_parent` and its last
+/// `scheduling_lookahead - 1` ancestors, not crossing a session. Blocks outside it have expired.
 async fn v2_window(
 	relay_client: &impl RelayChainInterface,
-	anchor: RelayHash,
+	scheduling_parent: RelayHash,
 ) -> RelayChainResult<Vec<(RelayHash, RelayHash)>> {
 	let lookback = relay_client
-		.scheduling_lookahead(anchor)
+		.scheduling_lookahead(scheduling_parent)
 		.await
 		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 		.saturating_sub(1) as usize;
-	build_relay_parent_ancestry(relay_client, anchor, lookback).await
+	build_relay_parent_ancestry(relay_client, scheduling_parent, lookback).await
 }
 
 /// Whether `header` carries the runtime upgrade digest.
@@ -253,6 +254,14 @@ pub fn has_runtime_upgrade_digest<H: HeaderT>(header: &H) -> bool {
 		.logs
 		.iter()
 		.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated))
+}
+
+/// Result of [`find_deepest_valid_parent`].
+struct DeepestValidParent<Block: BlockT> {
+	/// The deepest valid block.
+	best: Block::Header,
+	/// Valid blocks executed under V2; empty in a V2 search.
+	v2_executed: HashSet<Block::Hash>,
 }
 
 /// Find the deepest valid parent block starting from `start`.
@@ -270,7 +279,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 	start_header: Block::Header,
 	start_hash: Block::Hash,
 	v3_enabled_at: &impl Fn(Block::Hash) -> bool,
-) -> RelayChainResult<(Block::Header, HashSet<Block::Hash>)> {
+) -> RelayChainResult<DeepestValidParent<Block>> {
 	let mut v2_ancestry = None;
 	let mut v2_executed = HashSet::new();
 
@@ -329,7 +338,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 		}
 	}
 
-	Ok((best, v2_executed))
+	Ok(DeepestValidParent { best, v2_executed })
 }
 
 /// The chain from `best` back to `start_hash` (exclusive), oldest first.
@@ -464,7 +473,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
 	let is_v2 = matches!(params, ParentSearchParams::V2 { .. });
-	let (best_parent_header, v2_executed) = find_deepest_valid_parent(
+	let DeepestValidParent { best: best_parent_header, v2_executed } = find_deepest_valid_parent(
 		relay_client,
 		backend,
 		scheduling_parent,
