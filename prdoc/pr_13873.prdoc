@@ -1,0 +1,21 @@
+title: 'Westend system chains: derive KickThreshold from the largest collator set'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `parachains-common` adds `impls::KickThreshold`, a `Get` for the `KickThreshold` of
+    `pallet-collator-selection` on a chain whose Aura set holds up to `ExtraCollators` more
+    collators than collator selection's invulnerables and candidates, for example validators
+    drawn by `pallet-validator-collators`.
+
+    Asset Hub Westend and People Westend configure their `KickThreshold`, using
+    `MaxValidators` of `pallet-validator-collators` as the extra collators, and expose the blocks
+    they author per Aura slot as the public `BlocksPerAuraSlot` parameter type.
+crates:
+- name: parachains-common
+  bump: minor
+- name: pallet-validator-collators
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
