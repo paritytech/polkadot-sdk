@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794838665638,
+  "lastUpdate": 1794841651385,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b0b3deed77a6a773262a8af9705c4420a503856",
-          "message": "statement-store: multi-seed mode and per-client channel (#11947)\n\n## Summary  \n\nTwo small changes to `statement-latency-bench` that together unlock\nsingle-account propagation measurement (one allowanced SURI, two\nclients, two RPC endpoints)\n\n- `--seed` is now a comma-separated `Vec<String>`\n- Statement `channel` is now derived from `(client_id, sent_count)` \ninstead of `sent_count` alone, so multi-client runs that share an\non-chain author no longer collide on `(author, channel)` and evict\n     each other's statements before propagation completes",
-          "timestamp": "2026-04-30T13:36:47Z",
-          "tree_id": "f18413dc91ecb159cad59b99017eda184b7cc69b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b0b3deed77a6a773262a8af9705c4420a503856"
-        },
-        "date": 1777561926981,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1419900962800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023858820226666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009750302693333318,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00708099138,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.008025107026666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "585c568b2f0f6a2f53f2b46d8329a5ad6010945c",
+          "message": "statement-store: hold a statement while no routing target can receive it (#13843)\n\n# Description\n\nOn the v2 DHT path a node keeps a statement in its store while the peer\nthat should get it is not ready yet.\n\nThe loss that the change removes takes these steps:\n\n1. A peer connects to the node. The substream is open, so the node\ncounts the peer as a routing target. The node sends it nothing until the\npeer's affinity filter arrives and is applied.\n2. In that gap the node receives a statement for which the peer is the\nonly routing target. The node is no replica for the statement, it only\npasses it on.\n3. Propagation runs. The peer is not ready, so the node skips it and\ntreats the statement as propagated.\n4. Nothing holds the statement in the store any more. The retention\nsweep, which runs every 29 seconds, removes it and bans its hash.\n5. The peer's filter is applied and the node starts the initial sync for\nthe peer. The sync sends every stored statement for which the peer is a\nrouting target, but the statement is gone.\n\nThe statement is lost only when the sweep of step 4 runs before the sync\nof step 5. The gap of step 1 lasts about a second for a peer on the DHT\npath, and the 10 second grace period for a peer off it.\n\nWith the change the node holds the statement at step 3, so the sweep\nleaves it alone. The initial sync delivers it, and the node releases the\nhold once the sync has passed the statement.\n\nOne case needs a direct send. Routing takes the 3 closest peers, so\nseveral peers that are not ready can push a ready peer out of the\nrouting targets. When they leave the routing after the grace period, the\nready peer is a target again, but its initial sync ended before the\nstatement arrived. No sync will pass the statement, so the node sends it\nto that peer and releases the hold.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13219. Stacked\non https://github.com/paritytech/polkadot-sdk/pull/13828, which adds the\nhold.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-16T13:31:40Z",
+          "tree_id": "8b8c247685b9dc83e69d1fcc61b403b3a4154df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/585c568b2f0f6a2f53f2b46d8329a5ad6010945c"
+        },
+        "date": 1794841609457,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007541948593333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024052753400000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14245138108666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009891610033333305,
             "unit": "seconds"
           }
         ]
