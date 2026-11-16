@@ -1514,4 +1514,28 @@ mod tests {
 		assert!(rx.try_recv().is_err());
 		assert!(queue.has_pending(), "dropped gap must keep the sync head from advancing");
 	}
+
+	#[test]
+	fn consecutive_or_older_finalized_block_queues_nothing() {
+		let (queue, mut rx) = SubscriptionGapQueue::new();
+
+		for (current, last) in [(6, 5), (5, 5), (3, 5)] {
+			queue.detect_and_queue(current, last);
+		}
+
+		assert!(rx.try_recv().is_err());
+		assert!(!queue.has_pending());
+	}
+
+	#[test]
+	fn skipped_finalized_block_is_queued() {
+		let (queue, mut rx) = SubscriptionGapQueue::new();
+
+		queue.detect_and_queue(7, 5);
+
+		let request = rx.try_recv().expect("queued gap fill");
+		assert_eq!((request.from_inclusive, request.to_inclusive, request.from_hash), (6, 6, None));
+		assert!(rx.try_recv().is_err());
+		assert!(queue.has_pending());
+	}
 }

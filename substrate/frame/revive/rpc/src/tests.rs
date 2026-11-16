@@ -25,8 +25,8 @@ use crate::{
 	block_sync::GapFillRetry,
 	cli::{self, CliCommand},
 	client::{
-		Client, GapFillRequest, SubscriptionGapQueue, SubscriptionType, connect,
-		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+		Client, GapFillRequest, SubscriptionGapQueue, SubscriptionType, SubstrateBlockNumber,
+		connect, version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	example::TransactionBuilder,
 	subxt_client::{self, SrcChainConfig},
@@ -444,6 +444,9 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_best_block_processing_failure_queues_nothing,
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
 		test_pending_gap_fill_holds_sync_head,
+		test_finalized_subscription_queues_blocks_finalized_before_it_started,
+		test_finalized_subscription_queues_nothing_without_blocks_before_it_started,
+		test_blocks_before_subscription_start_queued_only_by_archive_finalized_stream,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -4229,6 +4232,87 @@ async fn test_pending_gap_fill_holds_sync_head() -> anyhow::Result<()> {
 	sync_client.subscription_gap_queue().mark_done();
 	submit_evm_transfers(1).await?;
 	wait_until("the sync head to advance", || async { current_head().await > Some(head) }).await?;
+
+	Ok(())
+}
+
+/// Produces `new_blocks` blocks past the finalized block a fresh test client cached at
+/// construction, runs `subscription_type` until its first streamed block is processed, and
+/// returns that cached block's number, the client and the gap-fill requests queued so far.
+async fn requests_queued_by_first_streamed_block(
+	is_archive: bool,
+	subscription_type: SubscriptionType,
+	new_blocks: SubstrateBlockNumber,
+) -> anyhow::Result<(
+	SubstrateBlockNumber,
+	Client,
+	Vec<(SubstrateBlockNumber, SubstrateBlockNumber, Option<H256>)>,
+)> {
+	let (sync_client, mut gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(is_archive).await?;
+	let cached_finalized = sync_client.latest_finalized_block().await.block_number();
+	submit_evm_transfers(new_blocks as usize).await?;
+
+	let bg_client = sync_client.clone();
+	let _subscription = AbortOnDrop(tokio::spawn(async move {
+		bg_client.subscribe_and_cache_new_blocks(subscription_type).await
+	}));
+	let first_streamed = cached_finalized + new_blocks;
+	wait_until("the first streamed block to be processed", || async {
+		let cached = match subscription_type {
+			SubscriptionType::BestBlocks => sync_client.latest_block().await,
+			SubscriptionType::FinalizedBlocks => sync_client.latest_finalized_block().await,
+		};
+		cached.block_number() >= first_streamed
+	})
+	.await?;
+
+	let mut requests = Vec::new();
+	while let Ok(request) = gap_fill_rx.try_recv() {
+		requests.push((request.from_inclusive, request.to_inclusive, request.from_hash));
+	}
+	Ok((cached_finalized, sync_client, requests))
+}
+
+/// In archive mode the first streamed finalized block queues the blocks finalized between the
+/// provider's finalized block, where the backward sync starts, and the subscription's start.
+async fn test_finalized_subscription_queues_blocks_finalized_before_it_started()
+-> anyhow::Result<()> {
+	let (cached_finalized, sync_client, requests) =
+		requests_queued_by_first_streamed_block(true, SubscriptionType::FinalizedBlocks, 3).await?;
+
+	assert_eq!(requests, vec![(cached_finalized + 2, cached_finalized + 1, None)]);
+	assert!(sync_client.subscription_gap_queue().has_pending());
+
+	Ok(())
+}
+
+/// A first streamed finalized block right after the provider's finalized block leaves no
+/// blocks in between, so nothing is queued.
+async fn test_finalized_subscription_queues_nothing_without_blocks_before_it_started()
+-> anyhow::Result<()> {
+	let (_, sync_client, requests) =
+		requests_queued_by_first_streamed_block(true, SubscriptionType::FinalizedBlocks, 1).await?;
+
+	assert_eq!(requests, vec![]);
+	assert!(!sync_client.subscription_gap_queue().has_pending());
+
+	Ok(())
+}
+
+/// Only the finalized subscription in archive mode queues the blocks before its start: the
+/// best-block subscription and pruning mode, which has no sync head, queue nothing.
+async fn test_blocks_before_subscription_start_queued_only_by_archive_finalized_stream()
+-> anyhow::Result<()> {
+	for (is_archive, subscription_type) in
+		[(false, SubscriptionType::FinalizedBlocks), (true, SubscriptionType::BestBlocks)]
+	{
+		let (_, sync_client, requests) =
+			requests_queued_by_first_streamed_block(is_archive, subscription_type, 3).await?;
+
+		assert_eq!(requests, vec![], "is_archive: {is_archive}, {subscription_type:?}");
+		assert!(!sync_client.subscription_gap_queue().has_pending());
+	}
 
 	Ok(())
 }
