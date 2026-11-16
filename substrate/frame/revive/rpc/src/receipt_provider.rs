@@ -547,7 +547,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
-		if self.get_ethereum_hash(&block.block_hash()).await.is_some() {
+		if self.is_indexed(&block.block_hash()).await? {
 			return Ok(());
 		}
 		let receipts = self
@@ -653,6 +653,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Whether the block's hash mapping exists. The mapping is written in the same transaction as
+	/// the block's transaction hashes and logs, so it stands for all of the block's rows.
+	async fn is_indexed(&self, substrate_hash: &H256) -> Result<bool, ClientError> {
+		let substrate_hash_ref = substrate_hash.as_ref();
+		let result = sqlx::query!(
+			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
+		)
+		.fetch_one(&self.db_ctx.pool)
+		.await?;
+		Ok(result.exists)
+	}
+
 	/// Insert receipts into the database without updating the in-memory block cache.
 	async fn insert_into_db(
 		&self,
@@ -669,15 +681,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Check if mapping already exists (eg. added when processing best block and we are now
 		// processing finalized block)
-		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
-		)
-		.fetch_one(&self.db_ctx.pool)
-		.await?;
-
-		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
-		// logs exist
-		if result.exists {
+		if self.is_indexed(&substrate_block_hash).await? {
 			log::trace!(target: LOG_TARGET,
 				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
 				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
@@ -1149,6 +1153,21 @@ mod tests {
 			provider.get_processed_eth_block_hash(block_b.number(), block_b.hash()).await,
 			None
 		);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_is_indexed(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let block = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+
+		assert!(!provider.is_indexed(&block.hash()).await?);
+		provider.insert(&block, &receipts, &H256::from([1_u8; 32])).await?;
+		assert!(provider.is_indexed(&block.hash()).await?);
+
+		sqlx::query("DROP TABLE eth_to_substrate_blocks").execute(&pool).await?;
+		assert!(provider.is_indexed(&block.hash()).await.is_err());
 		Ok(())
 	}
 
