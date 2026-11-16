@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794841768906,
+  "lastUpdate": 1794849466174,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9af960b35810a3bcdaa220d69431533995dd88a7",
-          "message": "Fix overlay storage root cache bleed (#11918)\n\nCloses #11833\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-29T18:35:22Z",
-          "tree_id": "7f6bbd045bb81ee1f9ef615ce9945efea207a9fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9af960b35810a3bcdaa220d69431533995dd88a7"
-        },
-        "date": 1777492780164,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.11399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08167160538399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03871021710999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08905885184999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c5087e432dd06d2d36925fecf5c1eb66f7ed010",
+          "message": "backport label check: must be inclusive of all more recent releases (#13753)\n\nNew rule: If a PR is backported to stable-xxx, it must also be\nbackported to all stable-yyyy when yyyy > xxxx.\n\nHere is an example of a PR that seemingly is is 2606, but is not in\n2609, and will be in 2612 again:\nhttps://blog.kianenigma.com/psvm/#/pr/13059 -- to be double checked,\nhopefully I am wrong.\n\nExample when I have 2512 + 2603 backport labels as test in this PR:\n\n<img width=\"1624\" height=\"683\" alt=\"Screenshot 2026-11-06 at 13 07 11\"\nsrc=\"https://github.com/user-attachments/assets/c76b3737-7f70-4d62-8def-bca538deebb1\"\n/>\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T15:39:41Z",
+          "tree_id": "eac0d6fee0245aa609da36d634601b78615a896b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c5087e432dd06d2d36925fecf5c1eb66f7ed010"
+        },
+        "date": 1794849422763,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11599999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08841218714799996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039350628484,
             "unit": "seconds"
           }
         ]
