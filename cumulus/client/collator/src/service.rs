@@ -20,8 +20,7 @@
 
 use cumulus_primitives_core::{
 	bundle_provides, ump_signal_tail, CollationInfo, CollectCollationInfo, ParachainBlockData,
-	SchedulingProof, SchedulingSignals, SignedSchedulingInfo, SpecMessagingError,
-	SpecMessagingSignals,
+	SchedulingProof, SchedulingSignals, SignedSchedulingInfo, SpecMessagingSignals,
 };
 
 use polkadot_primitives::{StreamsRoot, UMP_SEPARATOR};
@@ -38,28 +37,27 @@ use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
-/// The candidate's UMP signal tail, byte-identical to `validate_block`'s. `provides` comes from the
-/// blocks' digests ([`bundle_provides`]). No records or lifts are sourced yet, so no `Requires`.
-fn collation_ump_signals(
+/// Build the candidate's UMP signal tail. The blocks' signals pass through unchanged, or a signed
+/// scheduling info replaces them; either way the `Provides` that `validate_block` derives from the
+/// blocks' digests follows. No records or lifts are sourced yet, so no `Requires`.
+fn signal_tail(
 	signed_scheduling_info: Option<&SignedSchedulingInfo>,
 	provides: Option<StreamsRoot>,
-	upward_message_signals: Vec<Vec<u8>>,
-) -> Result<Vec<Vec<u8>>, SpecMessagingError> {
-	let spec_messaging = SpecMessagingSignals::build(provides, &upward_message_signals, &[], None)?;
-	Ok(match signed_scheduling_info {
-		// A signed scheduling info (resubmission) replaces the block's *scheduling* signals
-		// wholesale, via the same `SchedulingSignals::from_scheduling_info` the PVF applies.
-		Some(signed_info) => {
-			ump_signal_tail(SchedulingSignals::from_scheduling_info(signed_info), spec_messaging)
-		},
-		// Otherwise the block's scheduling signals pass through unchanged: the runtime already
-		// emits them in the canonical order (`pallet_parachain_system::send_ump_signals`).
-		None if upward_message_signals.is_empty() && spec_messaging.is_empty() => Vec::new(),
-		None => core::iter::once(UMP_SEPARATOR)
-			.chain(upward_message_signals)
-			.chain(spec_messaging.into_ump_messages())
-			.collect(),
-	})
+	signals: Vec<Vec<u8>>,
+) -> Vec<Vec<u8>> {
+	let spec_messaging = SpecMessagingSignals::build(provides, &[], &[], None)
+		.expect("no block signals, records or lifts to reject; qed");
+	if let Some(signed_info) = signed_scheduling_info {
+		return ump_signal_tail(
+			SchedulingSignals::from_scheduling_info(signed_info),
+			spec_messaging,
+		);
+	}
+	let spec_messaging = spec_messaging.into_ump_messages();
+	if signals.is_empty() && spec_messaging.is_empty() {
+		return Vec::new();
+	}
+	core::iter::once(UMP_SEPARATOR).chain(signals).chain(spec_messaging).collect()
 }
 
 /// Utility functions generally applicable to writing collators for Cumulus.
@@ -346,22 +344,11 @@ where
 			}),
 		});
 
-		// Emit the UMP signal tail, as `validate_block` will.
-		match collation_ump_signals(
+		upward_messages.extend(signal_tail(
 			signed_scheduling_info.as_ref(),
 			provides,
 			upward_message_signals,
-		) {
-			Ok(tail) => upward_messages.extend(tail),
-			Err(error) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					%error,
-					"Not submitting a collation `validate_block` would reject.",
-				);
-				return None;
-			},
-		}
+		));
 
 		let upward_messages = upward_messages
 			.try_into()
@@ -449,6 +436,8 @@ where
 
 #[cfg(test)]
 mod tests {
+	use super::*;
+
 	type Service = CollatorService<
 		cumulus_test_runtime::Block,
 		cumulus_test_client::Client,
@@ -484,7 +473,6 @@ mod tests {
 		assert_eq!(Service::split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 
-	use super::*;
 	use cumulus_primitives_core::SchedulingInfoPayload;
 	use polkadot_primitives::{
 		ApprovedPeerId, ClaimQueueOffset, CoreSelector, Hash, Id as ParaId, RequiresSet,
@@ -535,16 +523,10 @@ mod tests {
 	fn plain_collation_matches_validate_block() {
 		let raw = block_signals();
 		for provides in [None, root()] {
-			assert_eq!(
-				collation_ump_signals(None, provides, raw.clone()).unwrap(),
-				pvf_tail(None, provides, &raw)
-			);
+			assert_eq!(signal_tail(None, provides, raw.clone()), pvf_tail(None, provides, &raw));
 		}
 		// `Provides` alone still gets its separator.
-		assert_eq!(
-			collation_ump_signals(None, root(), Vec::new()).unwrap(),
-			pvf_tail(None, root(), &[])
-		);
+		assert_eq!(signal_tail(None, root(), Vec::new()), pvf_tail(None, root(), &[]));
 	}
 
 	#[test]
@@ -552,7 +534,7 @@ mod tests {
 		let raw = block_signals();
 		let signed_info = signed(5, peer(0xBB));
 
-		let tail = collation_ump_signals(Some(&signed_info), root(), raw.clone()).unwrap();
+		let tail = signal_tail(Some(&signed_info), root(), raw.clone());
 		assert_eq!(tail, pvf_tail(Some(&signed_info), root(), &raw));
 		// The signed scheduling signals replace the block's; its `Provides` stays.
 		assert_eq!(
@@ -568,29 +550,32 @@ mod tests {
 
 	#[test]
 	fn no_signals_emit_nothing() {
-		assert!(collation_ump_signals(None, None, Vec::new()).unwrap().is_empty());
+		assert!(signal_tail(None, None, Vec::new()).is_empty());
 	}
 
 	#[test]
 	fn resubmission_without_block_signals_matches_validate_block() {
 		let signed_info = signed(2, peer(0xCC));
 		assert_eq!(
-			collation_ump_signals(Some(&signed_info), None, Vec::new()).unwrap(),
+			signal_tail(Some(&signed_info), None, Vec::new()),
 			pvf_tail(Some(&signed_info), None, &[])
 		);
 	}
 
 	#[test]
-	fn rejected_signals_are_not_submitted() {
-		// `validate_block` would reject a block-emitted `Requires`; the collator must not submit.
+	fn block_signals_pass_through_without_decoding() {
+		// The node leaves signal validation to `validate_block`: unknown bytes and block-emitted
+		// speculative-messaging signals are forwarded as they are.
 		let requires =
 			RequiresSet::try_from_iter([(ParaId::from(1u32), StreamsRoot(Hash::repeat_byte(1)))])
 				.unwrap();
-		let raw = vec![UMPSignal::Requires(requires).encode()];
-		let signed_info = signed(2, peer(0xCC));
+		let raw = vec![UMPSignal::Requires(requires).encode(), vec![0xFF]];
 		assert_eq!(
-			collation_ump_signals(Some(&signed_info), None, raw),
-			Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
+			signal_tail(None, root(), raw.clone()),
+			core::iter::once(UMP_SEPARATOR)
+				.chain(raw)
+				.chain([UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(7))).encode()])
+				.collect::<Vec<_>>()
 		);
 	}
 }
