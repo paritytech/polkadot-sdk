@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794859741389,
+  "lastUpdate": 1794864105873,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45f8331013e6ee2880cf1b4fd22e6676ab14ed23",
-          "message": "Bump WAH spec_version (#11959)",
-          "timestamp": "2026-05-01T16:01:02Z",
-          "tree_id": "76922004ef00887cf6384e4edeb0fe17e10ce938",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45f8331013e6ee2880cf1b4fd22e6676ab14ed23"
-        },
-        "date": 1777656276592,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1273246509,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.919085426399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.702191070599998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "597d47dc7fc4b56ee3fae54c54c7da9da428643f",
+          "message": "pallet-bounties: fix `reclaim_bounty_funds` benchmark (#13878)\n\nThe `reclaim_bounty_funds` benchmark from #11045 panics on runtimes with\n`TransferAllAssets = ()`.\n\n- With `()` nothing is transferred, so `BountyFundsReclaimed` is never\nemitted.\n- The benchmark now only asserts the event if the bounty account was\nemptied.\n- Added a test running the benchmark with `()`.",
+          "timestamp": "2026-11-16T19:49:30Z",
+          "tree_id": "c66c10b147420ca015fc8b68a8de4c8452009254",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/597d47dc7fc4b56ee3fae54c54c7da9da428643f"
+        },
+        "date": 1794864068833,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.682840207433337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12767347859999997,
             "unit": "seconds"
           }
         ]
