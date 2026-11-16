@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794826635197,
+  "lastUpdate": 1794838607699,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1d65ee942a42bd25836c1d63aa56afe1d77d9045",
-          "message": "Recovery pallet modernization (#10482)\n\n# Recovery Pallet\n\nPallet Recovery allows you to have friends or family recover access to\nyour account if you lose\n your seed phrase or private key.\n\n ## Terminology\n\n- `lost`: An account that has lost access to its private key and needs\nto be recovered.\n - `friend`: A befriended account that can approve a recovery process.\n - `initiator`: An account that initiated a recovery attempt.\n - `recovered`: An account that has been successfully recovered.\n- `inheritor`: An account that is inheriting access to a lost account\nafter recovery.\n - `attempt`: An attempt to recover a lost account by an initiator.\n - `order`: The level of trust that an account has in a friend group.\n- `deposit`: The amount that a friends of this group needs to reserve to\ninitiate an attempt.\n - `threshold`: The number of friends that need to approve an attempt.\n- `inheritance delay`: How long an attempt will be delayed before it can\nsucceed.\n- `provided block`: The blocks that are *provided* by the\n`T::BlockNumberProvider`.\n\n ## Scenario: Recovering a lost account\n\nStory of how the user Alice loses access and is recovered by her\nfriends.\n\n1. Alice uses the recovery pallet to configure one or more friends\ngroups:\n- Alice picks a suitable `inheritor` account that will inherit the\naccess to her account for\n     each friend group. This could be a multisig.\n   - Alice configures all groups with via `set_friend_groups`.\n 2. Alice loses access to her account and becomes a `lost` account.\n3. Any member (aka `initiator`) of Alice's friend groups become aware of\nthe situation and\n    starts a recovery `attempt` via `initiate_attempt`.\n4. The friend group self-organizes and one-by-one approve the ongoing\nattempt via\n    `approve_attempt`.\n5. Exactly `threshold` friends approve the attempt (further approvals\nwill fail since they are\n    useless).\n6. Any account finishes the attempt via `finish_attempt` after at least\n*inheritance delay*\n    blocks since the initiation have passed.\n7. Alice's account is now officially `recovered` and accessible by the\n`inheritor` account.\n8. The `inheritor` may call `control_inherited_account` at any point to\ntransfer Alice's funds\n    to her new account.\n\n ## Scenario: Multiple friend group try to recover an account\n\nAlice may have configured multiple friend groups that all try to recover\nher account at the same\ntime. This can lead to a conflict of which friend group should\neventually inherit the access.\n\n1. Alice configures groups *Family* (delay 10d, order 0) and *Friends*\n(delay 20d, order 1).\n 1. Day 0: Alice loses access to her account.\n 1. Day 6: *Friends* initiate a recovery attempt for Alice.\n1. Day 15: *Family* finally understands Polkadot and initiates an\nattempt as well.\n 1. Day 25: *Family* inherits access to Alice account.\n1. Day 26: *Friends* group gets nothing since inheritance order is\nhigher the one from *Family*.\n\nIn the case above you see how the *Friends* group is now unable to\nrecover Alice account since\n the *Family* group already did it and has a lower inheritance order.  \nNow, imagine the case that the *Friends* group would have started on day\n4 and would have\nalready recovered the account on day 24. Two days later, the *Family*\ngroup can take access back\nand will replace the inheritor account with their own. The *Friends*\ngroup had access for two\n days since they were faster.  \nIf Alice account has most balance locked in 28 day staking this would\nnot make a big difference,\n since only the free balance would be immediately transferable.\n\nAfter a recovery attempt was completed, friend groups with a higher\ninheritance order cannot\n open a new attempt to recover the account.\n\n ## Data Structures\n\nThe pallet has three storage items, see the in-code docs\n[`FriendGroups`], [`Attempts`] and\n[`Inheritor`]. Storage items may contain deposit \"tickets\" or similar\nnoise and should therefore\n not be read directly but only through the API.\n\n ## API\n\n *Reading* data can be done through the view functions:\n\n- `provided_block_number`: The block number that will be used to measure\ntime.\n- `friend_groups`: The friend groups of an account that can initiate\nrecovery attempts.\n - `attempts`: Ongoing recovery attempts for a lost account.\n- `inheritor`: The account that inherited full access to the lost\naccount.\n- `inheritance`: All the recovered accounts that an account inherited\naccess to.\n\n## TODO\n\n- [x] Create migration from old format for Kusama\n- [ ] Weights\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: claravanstaden <claravanstaden64@gmail.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
-          "timestamp": "2026-04-30T23:07:53Z",
-          "tree_id": "2efea1b77f4dd4d639f2a0cfea7bdbe0061b8786",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d65ee942a42bd25836c1d63aa56afe1d77d9045"
-        },
-        "date": 1777595363331,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12948983523333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.997083091766665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12925686389999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794838574261,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.435227280933335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12451572843333332,
             "unit": "seconds"
           }
         ]
