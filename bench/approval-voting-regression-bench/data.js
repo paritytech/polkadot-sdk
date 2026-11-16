@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794751696608,
+  "lastUpdate": 1794826727604,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf159da7637c65927c3cf41e3c041e4bee4c5957",
-          "message": "statement-store: add --seed flag for single-account latency probe (#11931)\n\n## Summary \n\nAdds an opt-in `--seed <SURI>` flag to `statement-latency-bench` so the\nbench can run as a latency probe against networks where: \n- statement allowances can't be provisioned through Sudo, and\n- only a single, externally pre-allowanced account is available\n\n## Motivation\nGoal is a daily latency telemetry signal on Paseo People against a real\naccount with a fixed 50-statement / 50 KiB allowance, scheduled hourly\n(1 statement × 1 KiB per run, 24 datapoints/day)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T19:14:14Z",
-          "tree_id": "c8a90d9296c210a0eac523e1ad2e295f880a7e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf159da7637c65927c3cf41e3c041e4bee4c5957"
-        },
-        "date": 1777496032133,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.340000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.472808945570004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7603173000499679,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020266920000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.88773433556,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020266920000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8593032836699996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021254689999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.799574341540001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.402851586162852,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.582868771699973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021254689999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0057307459000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7973998194100016,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8700552453799585,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a99e45f49a573d3528d941d090501b39ce274d1",
+          "message": "docs/spec-msg: Bootnode discovery for parachains on JAM (#12809)\n\nOn polkadot, parachain nodes find each other with DHT on bootnodes\nfeature (rfc-0008).\nOn JAM, each parachain publishes up to 8 bootnode addresses to its own\nKV store under `bootnodes/v1`.\n\n### Write \n\n1. Governance decides using `BootnodesOrigin` who can alter the\nbootnodes and calls `set_bootnodes` with addresses as UTF-8 text\n2. Pallet minimally validates every provided address \n3. Writes a SCALE encoded record:\n\n```rust\npub struct BootnodeRecord {\n    genesis: [u8; 32],\n    fork_id: ForkId,\n    addresses: BoundedVec<BoundedVec<u8, ConstU32<512>>, ConstU32<8>>,\n}\n```\n\n### Read\n\n1. Nodes subscribe to KV changes and reads the `BootnodeRecord`\n2. Spawn a runtime Kademlia instance on `/<genesis>/<fork_id>/kad` and\nseed the routing table with the addresses\n3. Track discovered peers in their own list (since they get evicted from\nthe routing table) to know where to send req-resp for offchain messages.\n\nThis PR adds speculative messaging on JAM needed features and backports.\n\nThis PR represents the implementation scope of SpecMSG for the parachain\nservice / JAM specific.\n- includes a minimal set of `Provides` and `Requires`\n- the settlement is done via a ring since that functionality is\nidentical for higher speculation tiers\n- an alternative would be an EnactmentProof, however that adds\ncomplexity for a race condition that is mitigated via ring sizing of 64\nentries (https://github.com/paritytech/polkadot-sdk/pull/13087 for more\ndetails)\n- bootnode address record needed for p2p fetching of messages\n\nNeeds Parachain Service context:\n- https://github.com/paritytech/polkadot-sdk/pull/11883\n\n\nPart of speculative messaging serires:\n- https://github.com/paritytech/polkadot-sdk/pull/13000 - Minimal PS\nrequirements with qnt testing\n- https://github.com/paritytech/polkadot-sdk/pull/13087 - Post MVP work\nfor higher speculation tiers\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-11-16T09:30:37Z",
+          "tree_id": "248e8d05d6c3b96b69d74ce6683ea45a6ff810e3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a99e45f49a573d3528d941d090501b39ce274d1"
+        },
+        "date": 1794826687838,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021856029999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017151540000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7524223110300006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8013957782400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.418178416130007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017151540000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.385884860579997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7519620714600013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005698823310000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.783400507709999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021856029999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8728269526999919,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.863910358562825,
             "unit": "seconds"
           }
         ]
