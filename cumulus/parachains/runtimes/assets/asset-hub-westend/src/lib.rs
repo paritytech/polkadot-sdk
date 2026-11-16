@@ -1984,6 +1984,9 @@ pub type Migrations = (
 	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
 	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
+	// unreleased
+	// Splits every multi-asset bounty into a shared lifecycle and one row per asset.
+	pallet_multi_asset_bounties::migration::MigrateV1ToV2<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
