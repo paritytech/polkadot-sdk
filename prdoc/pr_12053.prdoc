@@ -27,4 +27,4 @@ doc:
 
 crates:
 - name: sc-keystore
-  bump: patch
+  bump: minor
