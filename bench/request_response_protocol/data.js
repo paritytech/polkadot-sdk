@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794827264838,
+  "lastUpdate": 1794837921232,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -146339,6 +146339,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2791349253,
             "range": "± 19907168",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794837882532,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19569001,
+            "range": "± 109486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19812438,
+            "range": "± 103342",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21229747,
+            "range": "± 69822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25152539,
+            "range": "± 105035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 55858844,
+            "range": "± 471861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 329500912,
+            "range": "± 3490572",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2497489387,
+            "range": "± 103568133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16847576,
+            "range": "± 79781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16865361,
+            "range": "± 127045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17739546,
+            "range": "± 133565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22256844,
+            "range": "± 144160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57947900,
+            "range": "± 866999",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341627948,
+            "range": "± 2463364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2658918297,
+            "range": "± 25714041",
             "unit": "ns/iter"
           }
         ]
