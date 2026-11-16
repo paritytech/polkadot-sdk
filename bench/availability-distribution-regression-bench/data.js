@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794826681465,
+  "lastUpdate": 1794838665638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d323e41aeb295d7528b0d89e277359380ed5e8eb",
-          "message": "UncheckedExtrinsic: Improve memory usage (#11908)\n\nImproves the memory usage of the unchecked extrinsic by pre-allocating\nsome buffers and preventing e.g. printing huge calls.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-30T12:49:34Z",
-          "tree_id": "f3c456da97206c9ef25d5b8bed0845e01a849b0e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d323e41aeb295d7528b0d89e277359380ed5e8eb"
-        },
-        "date": 1777558575136,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006735758893333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009631764159999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14140017878000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023723237780000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14305005739333346,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794838631820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1417141982533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010045589726666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024148152666666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008025107026666669,
             "unit": "seconds"
           }
         ]
