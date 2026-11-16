@@ -458,7 +458,7 @@ where
 		if !stale {
 			return;
 		}
-		// The record goes first, from here on no start resumes this target. 
+		// The record goes first, from here on no start resumes this target.
 		// If that fails, the state sync goes on and the next call tries again.
 		if let Err(e) = self.client.abandon_partial_state() {
 			warn!(
