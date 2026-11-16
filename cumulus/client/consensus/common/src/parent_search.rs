@@ -275,7 +275,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
 	scheduling_parent: RelayHash,
-	is_v2: bool,
+	v2_search: bool,
 	start_header: Block::Header,
 	start_hash: Block::Hash,
 	v3_enabled_at: &impl Fn(Block::Hash) -> bool,
@@ -293,7 +293,7 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 			frontier.extend(children.into_iter().map(|child| (child, v3)));
 		}
 	};
-	push_children(&mut frontier, start_hash, is_v2.then_some(false));
+	push_children(&mut frontier, start_hash, v2_search.then_some(false));
 
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -324,12 +324,12 @@ async fn find_deepest_valid_parent<Block: BlockT>(
 		}
 
 		// V3 search, V2-executed block (upgrade not yet backed): kept out of the V3 segment.
-		if !is_v2 && !executed_by_v3 {
+		if !v2_search && !executed_by_v3 {
 			v2_executed.insert(hash);
 		}
 
 		let inherited_v3 =
-			(is_v2 || !has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
+			(v2_search || !has_runtime_upgrade_digest(&header)).then_some(executed_by_v3);
 		push_children(&mut frontier, hash, inherited_v3);
 
 		// This block is valid - update best if it's deeper.
@@ -472,12 +472,12 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let is_v2 = matches!(params, ParentSearchParams::V2 { .. });
+	let v2_search = matches!(params, ParentSearchParams::V2 { .. });
 	let DeepestValidParent { best: best_parent_header, v2_executed } = find_deepest_valid_parent(
 		relay_client,
 		backend,
 		scheduling_parent,
-		is_v2,
+		v2_search,
 		start_header,
 		start_hash,
 		&v3_enabled_at,
@@ -486,7 +486,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	// Only V3 resubmits, and only above the last V2-executed block: a lost V2 submission is not
 	// resubmitted, the search forks below it once its relay parent leaves the V2 window.
-	let resubmittable_segment = if !is_v2 {
+	let resubmittable_segment = if !v2_search {
 		let mut segment =
 			reconstruct_resubmittable_segment(backend, &best_parent_header, start_hash);
 		if let Some(last_v2) = segment.iter().rposition(|h| v2_executed.contains(&h.hash())) {
