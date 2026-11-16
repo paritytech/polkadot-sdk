@@ -4613,6 +4613,11 @@ mod tests {
 		handler.pending_initial_syncs.remove(&target);
 		handler.resolve_dead_ends();
 		assert_eq!(held(), None);
+		assert_eq!(
+			statement_store.held.lock().unwrap().get(&late_hash),
+			Some(&1),
+			"the target's outbox keeps its hold"
+		);
 		assert!(handler.propagation_outboxes.dead_ends().is_empty());
 	}
 
