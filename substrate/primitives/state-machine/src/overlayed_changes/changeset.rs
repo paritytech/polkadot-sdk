@@ -544,24 +544,27 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
-	/// Inserts a key into the dirty set.
-	///
-	/// Returns true if we are have at least one open transaction and if this
-	/// is the first write to the given key that transaction.
-	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
-		if let Some(tracker) = &mut self.proof_size_tracker {
-			tracker.add_key(
-				key.clone(),
-				if deleted {
-					proof_size_tracker::DeltaKeyOp::Deleted
-				} else {
-					proof_size_tracker::DeltaKeyOp::Updated
-				},
-			);
-		}
-		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
+/// Inserts a key into the dirty set.
+///
+/// Returns true if we are have at least one open transaction and if this
+/// is the first write to the given key that transaction.
+fn insert_dirty<K: Ord + Hash + Clone + core::fmt::Debug, H: Hasher>(
+	dirty_keys: &mut DirtyKeysSets<K>,
+	proof_size_tracker: &mut Option<ProofSizeTracker<K, H>>,
+	key: K,
+	deleted: bool,
+) -> bool {
+	if let Some(tracker) = proof_size_tracker {
+		tracker.add_key(
+			key.clone(),
+			if deleted {
+				proof_size_tracker::DeltaKeyOp::Deleted
+			} else {
+				proof_size_tracker::DeltaKeyOp::Updated
+			},
+		);
 	}
+	dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
 }
 
 impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
@@ -601,7 +604,8 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set_offchain(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
-		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let first_write_in_tx =
+			insert_dirty(&mut self.dirty_keys, &mut self.proof_size_tracker, key.clone(), false);
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.set_offchain(value, first_write_in_tx, at_extrinsic);
 	}
@@ -961,7 +965,12 @@ impl<H: Hasher> OverlayedChangeSet<H> {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
-		let first_write_in_tx = self.insert_dirty(key.clone(), value.is_none());
+		let first_write_in_tx = insert_dirty(
+			&mut self.dirty_keys,
+			&mut self.proof_size_tracker,
+			key.clone(),
+			value.is_none(),
+		);
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.set(value, first_write_in_tx, at_extrinsic);
 	}
@@ -974,7 +983,8 @@ impl<H: Hasher> OverlayedChangeSet<H> {
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
 	) {
-		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let first_write_in_tx =
+			insert_dirty(&mut self.dirty_keys, &mut self.proof_size_tracker, key.clone(), false);
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
@@ -988,19 +998,13 @@ impl<H: Hasher> OverlayedChangeSet<H> {
 		at_extrinsic: Option<u32>,
 	) -> u32 {
 		let mut count = 0;
-		let keys = self
-			.changes
-			.iter()
-			.filter_map(|(k, v)| predicate(k, v).then(|| k.clone()))
-			.collect::<Vec<_>>();
-		for key in keys {
-			let first_write_in_tx = { self.insert_dirty(key.clone(), true) };
-			self.changes.get_mut(&key).map(|val| {
-				if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
-					count += 1;
-				}
-				val.set(None, first_write_in_tx, at_extrinsic);
-			});
+		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
+			if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
+				count += 1;
+			}
+			let first_write_in_tx =
+				insert_dirty(&mut self.dirty_keys, &mut self.proof_size_tracker, key.clone(), true);
+			val.set(None, first_write_in_tx, at_extrinsic);
 		}
 		count
 	}
