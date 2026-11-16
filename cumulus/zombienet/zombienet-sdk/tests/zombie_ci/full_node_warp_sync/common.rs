@@ -16,7 +16,7 @@
 
 use anyhow::anyhow;
 #[cfg(not(feature = "generate-snapshots"))]
-use zombienet_sdk::{AddNodeOptions, LocalFileSystem, Network};
+use zombienet_sdk::{AddCollatorOptions, LocalFileSystem, Network};
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 pub const PARA_ID: u32 = 2000;
@@ -186,36 +186,28 @@ pub(crate) async fn build_network_config(
 	Ok(config)
 }
 
-/// Add a relaychain node to the network.
-///
-/// # Arguments
-/// * `network` - The zombienet network
-/// * `name` - Name of the node to add
-/// * `is_validator` - Whether the node is a validator
+/// Add a non-archive parachain full node to the network that warp syncs the parachain and its
+/// embedded relaychain node.
 #[cfg(not(feature = "generate-snapshots"))]
-pub async fn add_relaychain_node(
+pub async fn add_parachain_node(
 	network: &mut Network<LocalFileSystem>,
 	name: &str,
-	is_validator: bool,
 ) -> Result<(), anyhow::Error> {
 	log::info!("Adding {} node to the network", name);
-	let images = zombienet_sdk::environment::get_images_from_env();
-	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
 
-	let options = AddNodeOptions {
-		image: Some(images.polkadot.as_str().try_into()?),
-		command: Some("polkadot".try_into()?),
-		chain_spec: Some(format!("{base_dir}/rococo-local.json").into()),
+	let options = AddCollatorOptions {
 		args: vec![
-			"-lparachain=debug,sync=trace".into(),
-			"--no-beefy".into(),
+			"-lsync=trace".into(),
+			("--sync", "warp").into(),
+			("--blocks-pruning", "256").into(),
+			"--".into(),
 			("--sync", "warp").into(),
 		],
-		is_validator,
+		is_validator: false,
 		..Default::default()
 	};
 
-	network.add_node(name, options).await?;
+	network.add_collator(name, options, PARA_ID).await?;
 
 	Ok(())
 }
