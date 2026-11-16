@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794838722643,
+  "lastUpdate": 1794841710537,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ec9ff80edece3739207e80c41754f532e95cc5bb",
-          "message": "Make the DAP satellite pallet more generic (#11881)\n\nPer [this\ndiscussion](https://www.google.com/url?q=https://github.com/paritytech/polkadot-sdk/pull/11434/changes%23r3073210002&sa=D&source=calendar&ust=1776670486954723&usg=AOvVaw0bpag_qImZt2GCIH1KNcSx)\nwe make the DAP satellite pallet more generic by refactoring it into the\n*Accumulate-and-Forward* pallet.\n\nBecause it is now a general-purpose pallet that pools funds of a\nspecified type into an accumulation account and periodically forwards\nthe contents of the account to a specified destination, it remains under\n`substrate/frame`.\n\nThis is a follow-up to\nhttps://github.com/paritytech/polkadot-sdk/pull/11434)](https://github.com/paritytech/polkadot-sdk/pull/11434.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2026-04-30T11:49:41Z",
-          "tree_id": "df7ee4fdc38cd12c3b1eb085ebb168a64574cb56",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec9ff80edece3739207e80c41754f532e95cc5bb"
-        },
-        "date": 1777554879930,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.54,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026921490000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026921490000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8635162683799984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.893161135299999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023790790000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8410637153799976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005372038700000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.477725216629998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8209745700300006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7490268393099603,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.346813457872862,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.650839783729955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023790790000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000020508579999999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "585c568b2f0f6a2f53f2b46d8329a5ad6010945c",
+          "message": "statement-store: hold a statement while no routing target can receive it (#13843)\n\n# Description\n\nOn the v2 DHT path a node keeps a statement in its store while the peer\nthat should get it is not ready yet.\n\nThe loss that the change removes takes these steps:\n\n1. A peer connects to the node. The substream is open, so the node\ncounts the peer as a routing target. The node sends it nothing until the\npeer's affinity filter arrives and is applied.\n2. In that gap the node receives a statement for which the peer is the\nonly routing target. The node is no replica for the statement, it only\npasses it on.\n3. Propagation runs. The peer is not ready, so the node skips it and\ntreats the statement as propagated.\n4. Nothing holds the statement in the store any more. The retention\nsweep, which runs every 29 seconds, removes it and bans its hash.\n5. The peer's filter is applied and the node starts the initial sync for\nthe peer. The sync sends every stored statement for which the peer is a\nrouting target, but the statement is gone.\n\nThe statement is lost only when the sweep of step 4 runs before the sync\nof step 5. The gap of step 1 lasts about a second for a peer on the DHT\npath, and the 10 second grace period for a peer off it.\n\nWith the change the node holds the statement at step 3, so the sweep\nleaves it alone. The initial sync delivers it, and the node releases the\nhold once the sync has passed the statement.\n\nOne case needs a direct send. Routing takes the 3 closest peers, so\nseveral peers that are not ready can push a ready peer out of the\nrouting targets. When they leave the routing after the grace period, the\nready peer is a target again, but its initial sync ended before the\nstatement arrived. No sync will pass the statement, so the node sends it\nto that peer and releases the hold.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13219. Stacked\non https://github.com/paritytech/polkadot-sdk/pull/13828, which adds the\nhold.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-16T13:31:40Z",
+          "tree_id": "8b8c247685b9dc83e69d1fcc61b403b3a4154df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/585c568b2f0f6a2f53f2b46d8329a5ad6010945c"
+        },
+        "date": 1794841668818,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63569.740000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8430515612699472,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017684619999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.472960625992909,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3420623780699974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6872703447599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017684619999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7338026106099997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6804525255399976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017124289999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017124289999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.96455672703994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0053447817299999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.672572525060001,
             "unit": "seconds"
           }
         ]
