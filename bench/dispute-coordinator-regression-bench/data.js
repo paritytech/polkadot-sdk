@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794826819958,
+  "lastUpdate": 1794838836936,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "604a8e8c2f9b0df285eec01b307d0e9ddfc28575",
-          "message": "statement-store: reduce sync burst interval (#11892)\n\n... with a lot of light clients connected the sync interval impacts how\nfast a light client syncs and see the statements of interest, so let's\nreduce the period we check to 10 ms, this shouldn't be affecting other\nflows because the polling is already in a select biased at the end.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-04-29T08:55:48Z",
-          "tree_id": "e78237f2e0955ea3ba1411db5c1b924cf2ab5d4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/604a8e8c2f9b0df285eec01b307d0e9ddfc28575"
-        },
-        "date": 1777458034021,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010173789290000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026698149000000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009384033329999975,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009862925090000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794838802914,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025926781099999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009964493390000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009482597509999994,
             "unit": "seconds"
           }
         ]
