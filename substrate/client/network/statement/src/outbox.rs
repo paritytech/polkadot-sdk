@@ -35,6 +35,8 @@ use std::{
 pub(crate) struct PropagationOutboxes {
 	store: Option<Arc<dyn StatementStore>>,
 	outboxes: HashMap<PeerId, VecDeque<Hash>>,
+	/// Admission sequence of each queued hash, in step with `outboxes`.
+	seqs: HashMap<PeerId, VecDeque<u64>>,
 	/// Statements held in the store until they find a peer to go to.
 	dead_ends: Vec<DeadEnd>,
 }
@@ -53,30 +55,30 @@ pub(crate) struct DeadEnd {
 
 impl PropagationOutboxes {
 	pub(crate) fn new(store: Option<Arc<dyn StatementStore>>) -> Self {
-		Self { store, outboxes: HashMap::new(), dead_ends: Vec::new() }
+		Self { store, outboxes: HashMap::new(), seqs: HashMap::new(), dead_ends: Vec::new() }
 	}
 
 	pub(crate) fn get(&self, who: &PeerId) -> Option<&VecDeque<Hash>> {
 		self.outboxes.get(who)
 	}
 
-	/// Append `hashes` to the peer's outbox and return how many queued hashes overflow dropped.
-	pub(crate) fn push(&mut self, who: PeerId, hashes: Vec<Hash>) -> usize {
+	/// Append `hashes`, each with its admission sequence, to the peer's outbox until it is full
+	/// and return how many it took.
+	pub(crate) fn push(&mut self, who: PeerId, hashes: &[(u64, Hash)]) -> usize {
+		let outbox = self.outboxes.entry(who).or_default();
+		let taken = hashes.len().min(MAX_PROPAGATION_OUTBOX_LEN.saturating_sub(outbox.len()));
+		let (seqs, hashes): (Vec<_>, Vec<_>) = hashes[..taken].iter().copied().unzip();
 		if let Some(store) = &self.store {
 			store.hold_statements(&hashes);
 		}
-		let outbox = self.outboxes.entry(who).or_default();
-		let mut dropped = Vec::new();
-		for hash in hashes {
-			// The freshest statements are the ones still worth delivering, so an
-			// overflowing outbox drops from the front.
-			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
-				dropped.extend(outbox.pop_front());
-			}
-			outbox.push_back(hash);
-		}
-		self.release(&dropped);
-		dropped.len()
+		outbox.extend(hashes);
+		self.seqs.entry(who).or_default().extend(seqs);
+		taken
+	}
+
+	/// Lowest admission sequence queued for the peer.
+	pub(crate) fn lowest_seq(&self, who: &PeerId) -> Option<u64> {
+		self.seqs.get(who)?.iter().copied().min()
 	}
 
 	/// The peer's queued hashes as one slice, oldest first.
@@ -84,15 +86,16 @@ impl PropagationOutboxes {
 		self.outboxes.get_mut(who).map(|outbox| &*outbox.make_contiguous())
 	}
 
-	/// Remove the peer's `count` oldest hashes.
-	pub(crate) fn consume(&mut self, who: &PeerId, count: usize) {
-		let Some(outbox) = self.outboxes.get_mut(who) else { return };
-		let consumed: Vec<_> = outbox.drain(..count).collect();
+	/// Remove the peer's `count` oldest hashes and return their lowest admission sequence.
+	pub(crate) fn consume(&mut self, who: &PeerId, count: usize) -> Option<u64> {
+		let consumed: Vec<_> = self.outboxes.get_mut(who)?.drain(..count).collect();
 		self.release(&consumed);
+		self.seqs.get_mut(who)?.drain(..count).min()
 	}
 
 	/// Remove the peer's outbox and return how many hashes it held.
 	pub(crate) fn remove(&mut self, who: &PeerId) -> usize {
+		self.seqs.remove(who);
 		let Some(outbox) = self.outboxes.remove(who) else { return 0 };
 		let removed = Vec::from(outbox);
 		self.release(&removed);
