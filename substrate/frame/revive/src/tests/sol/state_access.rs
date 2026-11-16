@@ -19,11 +19,12 @@
 //! the entries each test declares for it.
 
 use crate::{
-	AccountInfo, BalanceOf, BalanceWithDust, Code, Config, Pallet,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, Config, Pallet, Weight,
 	access_list::{
 		Access, AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, StorageOp,
 		TransferItems, Warmth,
 	},
+	evm::fees::InfoT,
 	test_utils::{
 		ALICE, ALICE_ADDR, EVE_ADDR,
 		builder::{BareCallBuilder, Contract},
@@ -33,10 +34,13 @@ use crate::{
 	},
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::{StorageInfo, StorageInfoTrait, fungible::Mutate};
+use frame_support::traits::{
+	StorageInfo, StorageInfoTrait,
+	fungible::{Balanced, Mutate},
+};
 use pallet_revive_fixtures::{Callee, Caller, Factory, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_trie::recorder::Recorder;
 use std::collections::{BTreeMap, BTreeSet};
 use test_case::{test_case, test_matrix};
@@ -86,8 +90,8 @@ impl DeclaredEntries {
 		self
 	}
 
-	/// Asserts that `declared_more_than_once` adds exactly the entries that more than one access
-	/// declares, with the operations they declare.
+	/// Asserts that the entries added with `declared_more_than_once` are exactly the ones more
+	/// than one access declares, with the same number of reads and writes for each.
 	fn assert_declared_counts(&self) {
 		let mut declared_more_than_once = BTreeMap::new();
 		for (entry, counts) in &self.declarations {
@@ -225,6 +229,8 @@ fn deploy_contracts<const N: usize>(
 	let mut ext = ExtBuilder::default().build();
 	let contracts = ext.execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// An Ethereum transaction pays deposits from the fee its signer paid up front.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 		contract_codes.map(|code| {
 			let Contract { addr, account_id } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -269,12 +275,6 @@ fn reads_and_writes_of<R>(
 	(ext.execute_with(|| ReadsAndWrites::from_keys(&read_keys, &written_keys)), warmed, outcome)
 }
 
-/// Returns a call to `dest` with the `call` dispatchable's config, so the access list starts with
-/// the first frame's entries.
-fn call_with_dispatchable_config(dest: H160) -> BareCallBuilder<Test> {
-	builder::bare_call(dest).exec_config(Pallet::<Test>::substrate_call_exec_config())
-}
-
 /// Deploys both codes, calls the caller with the data `build_payload` returns for the target,
 /// checks that the caller and its nested call succeeded, and returns what the call read, wrote
 /// and warmed, along with the two deployed contracts.
@@ -286,7 +286,7 @@ fn reads_and_writes_of_call(
 	let (mut ext, [caller, target]) = deploy_contracts([caller_code, target_code]);
 	let payload = build_payload(&target);
 	let (accessed, warmed, nested_call_result) = reads_and_writes_of(&mut ext, || {
-		let caller_result = call_with_dispatchable_config(caller.addr)
+		let caller_result = call_with_dispatchable_config(caller.addr, TransactionKind::Substrate)
 			.data(payload)
 			.build_and_unwrap_result();
 		assert!(!caller_result.did_revert(), "the caller returned {:?}", caller_result.data);
@@ -294,6 +294,28 @@ fn reads_and_writes_of_call(
 	});
 	assert!(nested_call_result.success, "the nested call returned {:?}", nested_call_result.output);
 	(accessed, warmed, caller, target)
+}
+
+/// The kind of transaction a call runs in.
+#[derive(Clone, Copy)]
+enum TransactionKind {
+	Substrate,
+	Ethereum,
+}
+
+/// Returns a call to `dest` with the config of the dispatchable for `transaction_kind`, `call` or
+/// `eth_call`, so the access list starts with the first frame's entries.
+fn call_with_dispatchable_config(
+	dest: H160,
+	transaction_kind: TransactionKind,
+) -> BareCallBuilder<Test> {
+	let exec_config = match transaction_kind {
+		TransactionKind::Substrate => Pallet::<Test>::substrate_call_exec_config(),
+		TransactionKind::Ethereum => {
+			Pallet::<Test>::eth_call_exec_config(U256::one(), 0, Weight::zero())
+		},
+	};
+	builder::bare_call(dest).exec_config(exec_config)
 }
 
 #[test_case(FixtureType::Solc,   false; "solc")]
@@ -313,7 +335,7 @@ fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType, through_de
 	};
 	// `whoSender` reads no contract storage, which the harness does not cover.
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		let result = call_with_dispatchable_config(target_addr)
+		let result = call_with_dispatchable_config(target_addr, TransactionKind::Substrate)
 			.data(Callee::whoSenderCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the target returned {:?}", result.data);
@@ -336,7 +358,7 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		let result = call_with_dispatchable_config(contract.addr)
+		let result = call_with_dispatchable_config(contract.addr, TransactionKind::Substrate)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the contract returned {:?}", result.data);
@@ -447,9 +469,14 @@ fn a_nested_value_call_accesses_what_it_declares(
 	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
-fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[TransactionKind::Substrate, TransactionKind::Ethereum]
+)]
+fn a_nested_instantiate_accesses_what_it_declares(
+	fixture_type: FixtureType,
+	transaction_kind: TransactionKind,
+) {
 	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
 	let child_code_uploaded_up_front = fixture_type == FixtureType::Resolc;
 	let (mut ext, [factory]) = deploy_contracts([factory_code]);
@@ -467,7 +494,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 	}
 
 	let (accessed, warmed, child_addr) = reads_and_writes_of(&mut ext, || {
-		let result = call_with_dispatchable_config(factory.addr)
+		let result = call_with_dispatchable_config(factory.addr, transaction_kind)
 			.data(Factory::createCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the factory returned {:?}", result.data);
@@ -487,9 +514,12 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		expected.read.remove(&AccessEntry::OriginalAccount { address: child_addr }),
 		"`InstantiateItems` does not declare the new contract's `OriginalAccount`",
 	);
-	// The new contract's deposit is charged to the origin's account, which no access here declares.
-	expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
-	expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
+	if matches!(transaction_kind, TransactionKind::Substrate) {
+		// A Substrate transaction charges the new contract's deposit to the origin's account, which
+		// no access here declares. An Ethereum transaction pays it from the prepaid fee.
+		expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
+		expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
+	}
 
 	// The deposit's storage items, which the access list does not track.
 	let mut deposit_items = BTreeSet::from(
@@ -527,7 +557,7 @@ fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
 	let eoa = H160::from([0xfe; 20]);
 
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		call_with_dispatchable_config(eoa).build_and_unwrap_result();
+		call_with_dispatchable_config(eoa, TransactionKind::Substrate).build_and_unwrap_result();
 	});
 
 	let declared = DeclaredEntries::of(CallItems::new(eoa, false));
@@ -550,7 +580,7 @@ fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
 
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		call_with_dispatchable_config(eoa)
+		call_with_dispatchable_config(eoa, TransactionKind::Substrate)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 	});
