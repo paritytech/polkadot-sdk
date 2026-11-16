@@ -66,6 +66,10 @@
 //! A request the transport refuses stays first in line. One that no longer fits
 //! [`SendToPara::max_message_size`] is dropped instead, so it cannot block the queue for good.
 //!
+//! ## Reports
+//!
+//! A refused report is retried from [`FailedReports`] in `on_poll`, and dropped once that is full.
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -406,8 +410,12 @@ pub mod pallet {
 		CodeUpgradeRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// An authorized code upgrade was scheduled.
 		CodeUpgradeApplied { para_id: ParaId, message_id: u64 },
-		/// A report could not be sent back to the parachain.
+		/// A report could not be sent nor kept for a retry, and was dropped.
 		ReportFailed { para_id: ParaId, message_id: u64 },
+		/// The transport refused a report, kept in [`FailedReports`] to be retried.
+		ReportDeferred { para_id: ParaId, message_id: u64 },
+		/// A report from [`FailedReports`] was sent.
+		ReportSent { para_id: ParaId, message_id: u64 },
 		/// The parachain was told that a para produced its first head.
 		HeadNoted { para_id: ParaId },
 		/// A para's first head could not be reported to the parachain.
@@ -453,6 +461,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
+			Self::retry_failed_reports(meter);
 			Self::forward_queued(meter);
 		}
 
@@ -1032,18 +1041,59 @@ pub mod pallet {
 			Self::report(Report { para_id, message_id, kind: ReportKind::SetHead(outcome) });
 		}
 
-		/// Hand a report to the transport.
+		/// Send a report, or keep it in [`FailedReports`] behind those already waiting there.
 		///
-		/// A failure is only logged and evented: callers have committed relay-chain state that must
-		/// not unwind because a report bounced.
+		/// Never fails: callers have committed relay-chain state that must not unwind because a
+		/// report bounced.
 		fn report(report: Report) {
 			let (para_id, message_id) = (report.para_id, report.message_id);
-			if T::SendToPara::send(report.into()).is_err() {
-				log::error!(
-					target: LOG_TARGET,
-					"failed to report the outcome for para {para_id} back to the parachain",
-				);
-				Self::deposit_event(Event::ReportFailed { para_id, message_id });
+			if Self::failed_reports_is_empty() && T::SendToPara::send(report.clone().into()).is_ok()
+			{
+				return;
+			}
+			if FailedReports::<T>::try_append(report).is_ok() {
+				Self::deposit_event(Event::ReportDeferred { para_id, message_id });
+				return;
+			}
+			log::error!(
+				target: LOG_TARGET,
+				"no room for failed reports, dropped the report for para {para_id}",
+			);
+			Self::deposit_event(Event::ReportFailed { para_id, message_id });
+		}
+
+		/// Whether no report waits in [`FailedReports`].
+		pub(crate) fn failed_reports_is_empty() -> bool {
+			FailedReports::<T>::decode_len().unwrap_or_default() == 0
+		}
+
+		/// Retry the reports in [`FailedReports`], oldest first, until `meter` has no room for the
+		/// next one or the transport refuses it.
+		pub(crate) fn retry_failed_reports(meter: &mut WeightMeter) {
+			if meter.try_consume(T::WeightInfo::retry_failed_reports(0)).is_err() {
+				return;
+			}
+
+			let mut reports = FailedReports::<T>::get();
+			let mut sent = 0u32;
+			for report in reports.iter() {
+				let weight = T::WeightInfo::retry_failed_reports(sent + 1)
+					.saturating_sub(T::WeightInfo::retry_failed_reports(sent));
+				if meter.try_consume(weight).is_err() ||
+					T::SendToPara::send(report.clone().into()).is_err()
+				{
+					break;
+				}
+				Self::deposit_event(Event::ReportSent {
+					para_id: report.para_id,
+					message_id: report.message_id,
+				});
+				sent += 1;
+			}
+
+			if sent > 0 {
+				reports.drain(..sent as usize);
+				FailedReports::<T>::put(reports);
 			}
 		}
 	}

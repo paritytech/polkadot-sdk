@@ -311,5 +311,24 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// `on_poll` sending `n` reports the transport refused earlier.
+	#[benchmark]
+	fn retry_failed_reports(n: Linear<0, { T::MaxFailedReports::get() }>) {
+		let report = Report {
+			para_id: PARA_ID,
+			message_id: u64::MAX,
+			kind: ReportKind::CodeUpgrade(Ok(u32::MAX)),
+		};
+		let reports = alloc::vec![report; n as usize];
+		FailedReports::<T>::put(BoundedVec::truncate_from(reports));
+
+		#[block]
+		{
+			Pallet::<T>::retry_failed_reports(&mut WeightMeter::new());
+		}
+
+		assert!(Pallet::<T>::failed_reports_is_empty());
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -773,12 +773,11 @@ mod reporting {
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
 
-			// The para is gone here regardless; the parachain retries and is confirmed then.
 			assert!(!MockRegistrar::is_registered(PARA_A));
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::ReportDeferred { para_id: PARA_A, message_id: DEREGISTER_ID },
 					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
 				]
 			);
@@ -798,14 +797,12 @@ mod reporting {
 				blob
 			));
 
-			// The relay chain's own state is correct and stays that way; the parachain is simply
-			// told nothing, and the failure is surfaced.
 			assert_eq!(Onboarded::get().len(), 1);
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A, message_id: MSG_ID },
+					Event::ReportDeferred { para_id: PARA_A, message_id: MSG_ID },
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
 				]
 			);
@@ -971,7 +968,7 @@ mod receive_authorize_code_upgrade {
 
 			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
 			assert!(registrar_events().iter().any(
-				|e| matches!(e, Event::ReportFailed { message_id, .. } if *message_id == UPGRADE_ID)
+				|e| matches!(e, Event::ReportDeferred { message_id, .. } if *message_id == UPGRADE_ID)
 			));
 		});
 	}
@@ -1617,8 +1614,10 @@ mod relay {
 	fn forwarding_stops_when_the_meter_runs_out() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			let poll_weight = <() as WeightInfo>::poll_relay_queue();
-			let worst = <() as WeightInfo>::forward_relayed(MAX_HEAD_SIZE) - poll_weight;
+			let poll_weight = <() as WeightInfo>::retry_failed_reports(0) +
+				<() as WeightInfo>::poll_relay_queue();
+			let worst = <() as WeightInfo>::forward_relayed(MAX_HEAD_SIZE) -
+				<() as WeightInfo>::poll_relay_queue();
 
 			poll_with(&mut WeightMeter::with_limit(poll_weight + worst - 1.into()));
 			assert!(take_sent().is_empty());
@@ -1647,12 +1646,13 @@ mod relay {
 	#[test]
 	fn on_poll_charges_for_the_head_it_forwards() {
 		new_test_ext().execute_with(|| {
+			let retry = <() as WeightInfo>::retry_failed_reports(0);
 			let mut meter = WeightMeter::new();
 			poll_with(&mut meter);
-			assert_eq!(meter.consumed(), <() as WeightInfo>::poll_relay_queue());
+			assert_eq!(meter.consumed(), retry + <() as WeightInfo>::poll_relay_queue());
 
 			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
-			let charged = <() as WeightInfo>::forward_relayed(10);
+			let charged = retry + <() as WeightInfo>::forward_relayed(10);
 
 			// A refused send was still read and attempted.
 			SendFails::set(true);
