@@ -1254,7 +1254,7 @@ impl pallet_validator_collators::Config for Runtime {
 
 impl pallet_validator_set_announcer::Config for Runtime {
 	type Sender = staking::ValidatorSetToSystemChains;
-	type Destinations = staking::ValidatorSetDestinations;
+	type Destinations = ValidatorCollatorChains;
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
 }
 
@@ -1263,15 +1263,17 @@ parameter_types! {
 	pub const MaxBlocksPerEntry: u32 = (2 *
 		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
 		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
-	/// The sibling system chains that run `pallet-validator-collators` and report their authored
-	/// blocks here.
-	pub ReportingSiblings: Vec<ParaId> =
-		vec![testnet_parachains_constants::westend::locations::PeopleParaId::get()];
+	/// The system chains that receive the validator set of every era and report their authored
+	/// blocks here. They get free execution at the XCM barrier.
+	pub ValidatorCollatorChains: Vec<ParaId> = vec![
+		testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+		testnet_parachains_constants::westend::locations::BulletinParaId::get(),
+	];
 }
 
 impl pallet_staking_async_points_converter::Config for Runtime {
 	type Source = ParaId;
-	type ReportOrigin = staking::EnsureReportingSiblings<ReportingSiblings>;
+	type ReportOrigin = staking::EnsureReportingSiblings<ValidatorCollatorChains>;
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
 	type RewardPoints = Staking;
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the

@@ -3963,30 +3963,100 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 }
 
 #[test]
-fn only_people_reports_blocks_and_only_as_itself() {
-	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ReportingSiblings};
+fn only_listed_chains_report_blocks_and_only_as_themselves() {
+	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ValidatorCollatorChains};
 	use frame_support::traits::EnsureOrigin;
-	type EnsureReportingSibling = EnsureReportingSiblings<ReportingSiblings>;
-	use testnet_parachains_constants::westend::locations::{PeopleLocation, PeopleParaId};
+	type EnsureReportingSibling = EnsureReportingSiblings<ValidatorCollatorChains>;
+	use testnet_parachains_constants::westend::locations::{BulletinLocation, PeopleLocation};
 	let sibling =
 		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
-	// GIVEN People as a sibling parachain origin
-	// WHEN it reports THEN it is accepted under People's id
-	assert_eq!(
-		EnsureReportingSibling::try_origin(sibling(PeopleParaId::get().into())).ok(),
-		Some(PeopleParaId::get())
-	);
-	// GIVEN another sibling, the relay chain, People's location as an XCM origin, or People's
-	// sovereign account through a `Transact` with another origin kind
-	let people_account = LocationToAccountId::convert_location(&PeopleLocation::get()).unwrap();
+	// GIVEN a listed chain as a sibling parachain origin
+	// WHEN it reports THEN it is accepted under its own id
+	for id in ValidatorCollatorChains::get() {
+		assert_eq!(EnsureReportingSibling::try_origin(sibling(id.into())).ok(), Some(id));
+	}
+	// GIVEN another sibling, the relay chain, People's or Bulletin's location as an XCM origin,
+	// or their sovereign accounts through a `Transact` with another origin kind
+	let account_of = |location| LocationToAccountId::convert_location(&location).unwrap();
 	for origin in [
 		sibling(2000),
 		RuntimeOrigin::from(cumulus_pallet_xcm::Origin::Relay),
 		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(PeopleLocation::get())),
-		RuntimeOrigin::signed(people_account),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(BulletinLocation::get())),
+		RuntimeOrigin::signed(account_of(PeopleLocation::get())),
+		RuntimeOrigin::signed(account_of(BulletinLocation::get())),
 		RuntimeOrigin::root(),
 	] {
 		// WHEN it reports THEN it is rejected
 		assert!(EnsureReportingSibling::try_origin(origin).is_err());
 	}
+}
+
+#[test]
+fn bulletin_report_message_executes_unpaid_and_credits_points() {
+	use asset_hub_westend_runtime::StakingPointsConverter;
+	use testnet_parachains_constants::westend::locations::{BulletinLocation, BulletinParaId};
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let alice = AccountId::from(ALICE);
+		let report = || {
+			RuntimeCall::StakingPointsConverter(
+				pallet_staking_async_points_converter::Call::report_authored_blocks {
+					blocks: vec![(alice.clone(), 3)],
+				},
+			)
+		};
+		// GIVEN era 1 is active with Alice exposed, and Bulletin's blocks earn 5 points
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 1,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(StakingPointsConverter::set_points_per_service(
+			RuntimeOrigin::root(),
+			BulletinParaId::get(),
+			sp_staking::ServiceKind::Collation,
+			5
+		));
+
+		// WHEN another non-system sibling, or an account on Bulletin, sends the message Bulletin
+		// sends to report its blocks
+		// THEN the barrier rejects it, since it does not pay
+		for origin in [
+			Location::new(1, Parachain(2000)),
+			Location::new(
+				1,
+				[Parachain(BulletinParaId::get().into()), AccountId32 { network: None, id: ALICE }],
+			),
+		] {
+			assert_eq!(
+				RuntimeHelper::execute_as_origin((origin, OriginKind::Native), report(), None)
+					.ensure_complete()
+					.map_err(|error| error.error),
+				Err(XcmError::Barrier)
+			);
+		}
+
+		// WHEN Bulletin sends it, an unpaid `Transact` with its native origin
+		// THEN it executes and Alice's blocks are credited as Bulletin's collation points
+		assert_ok!(RuntimeHelper::execute_as_origin(
+			(BulletinLocation::get(), OriginKind::Native),
+			report(),
+			None,
+		)
+		.ensure_complete());
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
+				1,
+				sp_staking::ServiceKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
+			vec![(alice, 15)]
+		);
+	});
 }
