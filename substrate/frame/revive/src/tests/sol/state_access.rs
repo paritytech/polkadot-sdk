@@ -15,16 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Checks what an operation reads and writes in the main trie against the entries each test
-//! declares for it.
+//! Checks what an operation reads and writes in the main trie, and the entries it warms, against
+//! the entries each test declares for it.
 
 use crate::{
 	AccountInfo, BalanceOf, BalanceWithDust, Code, Config, Pallet,
 	access_list::{
-		Access, AccessEntry, CallItems, CodeLoadItems, InstantiateItems, StorageOp, TransferItems,
-		Warmth,
+		Access, AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, StorageOp,
+		TransferItems, Warmth,
 	},
-	test_utils::{ALICE, ALICE_ADDR, EVE_ADDR, builder::Contract},
+	test_utils::{
+		ALICE, ALICE_ADDR, EVE_ADDR,
+		builder::{BareCallBuilder, Contract},
+	},
 	tests::{
 		AllPalletsWithSystem, ExtBuilder, RuntimeOrigin, Test, builder, test_utils::get_contract,
 	},
@@ -76,9 +79,9 @@ impl DeclaredEntries {
 		entry: AccessEntry,
 		ops: impl IntoIterator<Item = StorageOp>,
 	) -> Self {
-		let expected = self.declared_more_than_once.entry(entry).or_default();
+		let expected_counts = self.declared_more_than_once.entry(entry).or_default();
 		for op in ops {
-			expected.add(op);
+			expected_counts.add(op);
 		}
 		self
 	}
@@ -93,6 +96,16 @@ impl DeclaredEntries {
 			}
 		}
 		assert_eq!(declared_more_than_once, self.declared_more_than_once);
+	}
+
+	/// Returns the entries the accesses warm, each as a read or a write.
+	fn warmed(&self) -> BTreeMap<AccessEntry, StorageOp> {
+		let mut warmed = BTreeMap::new();
+		for (entry, counts) in &self.declarations {
+			let op = if counts.writes > 0 { StorageOp::Write } else { StorageOp::Read };
+			warmed.insert(entry.clone(), op);
+		}
+		warmed
 	}
 }
 
@@ -148,7 +161,7 @@ impl ReadsAndWrites {
 
 	/// Splits recorded keys into the entries the access list tracks and, for the rest, the pallet
 	/// and storage item they belong to. Keys the benchmarks already cover are dropped.
-	fn from_keys(read: &[Vec<u8>], written: &[Vec<u8>]) -> Self {
+	fn from_keys(read_keys: &[Vec<u8>], written_keys: &[Vec<u8>]) -> Self {
 		let covered = keys_the_benchmarks_cover();
 		let storage_items = AllPalletsWithSystem::storage_info();
 		let split = |keys: &[Vec<u8>]| {
@@ -167,8 +180,8 @@ impl ReadsAndWrites {
 			}
 			(entries, others)
 		};
-		let (read, other_read) = split(read);
-		let (written, other_written) = split(written);
+		let (read, other_read) = split(read_keys);
+		let (written, other_written) = split(written_keys);
 		Self { read, written, other_read, other_written }
 	}
 }
@@ -224,17 +237,20 @@ fn deploy_contracts<const N: usize>(
 	(ext, contracts)
 }
 
-/// Commits the setup, then runs `operation` and returns what it read and wrote.
+/// Commits the setup, then runs `operation` and returns what it read, wrote and warmed.
 fn reads_and_writes_of<R>(
 	ext: &mut sp_io::TestExternalities,
 	operation: impl FnOnce() -> R,
-) -> (ReadsAndWrites, R) {
+) -> (ReadsAndWrites, BTreeMap<AccessEntry, StorageOp>, R) {
 	ext.commit_all().unwrap();
+	// Clears earlier entries, so `warmed` holds only the operation's.
+	AccessList::take_final_entries();
 	let recorder = Recorder::<sp_core::Blake2Hasher>::default();
 	let outcome = ext.execute_with_recorder(recorder.clone(), operation);
+	let warmed = AccessList::take_final_entries();
 
 	let mut recorded = recorder.recorded_keys();
-	let read = recorded
+	let read_keys = recorded
 		.remove(ext.backend.root())
 		.expect("the operation read the trie")
 		.into_keys()
@@ -242,7 +258,7 @@ fn reads_and_writes_of<R>(
 		.collect::<Vec<_>>();
 	assert_eq!(recorded, Default::default(), "contract storage is out of scope");
 
-	let written = ext
+	let written_keys = ext
 		.overlayed_changes()
 		.changes()
 		.map(|(key, _)| key.clone())
@@ -250,26 +266,34 @@ fn reads_and_writes_of<R>(
 	assert_eq!(ext.overlayed_changes().children().count(), 0, "contract storage is out of scope");
 
 	// `from_keys` reads `OriginalAccount`, and storage can be read only inside `execute_with`.
-	(ext.execute_with(|| ReadsAndWrites::from_keys(&read, &written)), outcome)
+	(ext.execute_with(|| ReadsAndWrites::from_keys(&read_keys, &written_keys)), warmed, outcome)
 }
 
-/// Deploys both codes, calls the caller with the data `payload` builds for the target, checks
-/// that the caller and its nested call succeeded, and returns the call's reads and writes along
-/// with the two deployed contracts.
+/// Returns a call to `dest` with the `call` dispatchable's config, so the access list starts with
+/// the first frame's entries.
+fn call_with_dispatchable_config(dest: H160) -> BareCallBuilder<Test> {
+	builder::bare_call(dest).exec_config(Pallet::<Test>::substrate_call_exec_config())
+}
+
+/// Deploys both codes, calls the caller with the data `build_payload` returns for the target,
+/// checks that the caller and its nested call succeeded, and returns what the call read, wrote
+/// and warmed, along with the two deployed contracts.
 fn reads_and_writes_of_call(
 	caller_code: Vec<u8>,
 	target_code: Vec<u8>,
-	payload: impl FnOnce(&DeployedContract) -> Vec<u8>,
-) -> (ReadsAndWrites, DeployedContract, DeployedContract) {
+	build_payload: impl FnOnce(&DeployedContract) -> Vec<u8>,
+) -> (ReadsAndWrites, BTreeMap<AccessEntry, StorageOp>, DeployedContract, DeployedContract) {
 	let (mut ext, [caller, target]) = deploy_contracts([caller_code, target_code]);
-	let payload = payload(&target);
-	let (reads_writes, nested_call) = reads_and_writes_of(&mut ext, || {
-		let result = builder::bare_call(caller.addr).data(payload).build_and_unwrap_result();
-		assert!(!result.did_revert(), "the caller returned {:?}", result.data);
-		Caller::normalCall::abi_decode_returns(&result.data).unwrap()
+	let payload = build_payload(&target);
+	let (accessed, warmed, nested_call_result) = reads_and_writes_of(&mut ext, || {
+		let caller_result = call_with_dispatchable_config(caller.addr)
+			.data(payload)
+			.build_and_unwrap_result();
+		assert!(!caller_result.did_revert(), "the caller returned {:?}", caller_result.data);
+		Caller::normalCall::abi_decode_returns(&caller_result.data).unwrap()
 	});
-	assert!(nested_call.success, "the nested call returned {:?}", nested_call.output);
-	(reads_writes, caller, target)
+	assert!(nested_call_result.success, "the nested call returned {:?}", nested_call_result.output);
+	(accessed, warmed, caller, target)
 }
 
 #[test_case(FixtureType::Solc,   false; "solc")]
@@ -279,7 +303,7 @@ fn reads_and_writes_of_call(
 fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType, through_delegation: bool) {
 	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 	let (mut ext, [contract]) = deploy_contracts([code]);
-	let target = if through_delegation {
+	let target_addr = if through_delegation {
 		ext.execute_with(|| {
 			AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(contract.addr), &ALICE).unwrap();
 		});
@@ -288,21 +312,18 @@ fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType, through_de
 		contract.addr
 	};
 	// `whoSender` reads no contract storage, which the harness does not cover.
-	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
-		let result = builder::bare_call(target)
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		let result = call_with_dispatchable_config(target_addr)
 			.data(Callee::whoSenderCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the target returned {:?}", result.data);
 	});
 
-	assert_eq!(
-		top_frame,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(target, false))
-				// A delegated account runs the code of the contract it delegates to.
-				.and(CodeLoadItems::new(contract.code_hash))
-		),
-	);
+	let declared = DeclaredEntries::of(CallItems::new(target_addr, false))
+		// A delegated account runs the code of the contract it delegates to.
+		.and(CodeLoadItems::new(contract.code_hash));
+	assert_eq!(warmed, declared.warmed());
+	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
 #[test_case(FixtureType::Solc,   false; "solc no dust")]
@@ -314,8 +335,8 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 	let (mut ext, [contract]) = deploy_contracts([code]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
-		let result = builder::bare_call(contract.addr)
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		let result = call_with_dispatchable_config(contract.addr)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the contract returned {:?}", result.data);
@@ -323,18 +344,15 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 
 	// Dust balances are stored in the account infos, so only a dust transfer writes them.
 	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
-	assert_eq!(
-		top_frame,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(contract.addr, false))
-				.and(CodeLoadItems::new(contract.code_hash))
-				.and(TransferItems { from: ALICE_ADDR, to: contract.addr, dust })
-				.declared_more_than_once(
-					AccessEntry::AccountInfo { address: contract.addr },
-					[StorageOp::Write, transfer_info_op],
-				)
-		),
-	);
+	let declared = DeclaredEntries::of(CallItems::new(contract.addr, false))
+		.and(CodeLoadItems::new(contract.code_hash))
+		.and(TransferItems { from: ALICE_ADDR, to: contract.addr, dust })
+		.declared_more_than_once(
+			AccessEntry::AccountInfo { address: contract.addr },
+			[StorageOp::Write, transfer_info_op],
+		);
+	assert_eq!(warmed, declared.warmed());
+	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
 /// How the caller contract calls the target.
@@ -356,38 +374,38 @@ fn a_nested_call_accesses_what_it_declares(
 ) {
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
-	let (accessed, caller, target) = reads_and_writes_of_call(caller_code, target_code, |target| {
-		let data = Callee::echoCall { _data: 42 }.abi_encode().into();
-		match kind {
-			NestedCallKind::Plain => Caller::normalCall {
-				_callee: target.addr.0.into(),
-				_value: 0,
-				_data: data,
-				_gas: u64::MAX,
+	let (accessed, warmed, caller, target) =
+		reads_and_writes_of_call(caller_code, target_code, |target| {
+			let data = Callee::echoCall { _data: 42 }.abi_encode().into();
+			match kind {
+				NestedCallKind::Plain => Caller::normalCall {
+					_callee: target.addr.0.into(),
+					_value: 0,
+					_data: data,
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+				NestedCallKind::Delegate => Caller::delegateCall {
+					_callee: target.addr.0.into(),
+					_data: data,
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+				NestedCallKind::Static => Caller::staticCallCall {
+					_callee: target.addr.0.into(),
+					_data: data,
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
 			}
-			.abi_encode(),
-			NestedCallKind::Delegate => {
-				Caller::delegateCall { _callee: target.addr.0.into(), _data: data, _gas: u64::MAX }
-					.abi_encode()
-			},
-			NestedCallKind::Static => Caller::staticCallCall {
-				_callee: target.addr.0.into(),
-				_data: data,
-				_gas: u64::MAX,
-			}
-			.abi_encode(),
-		}
-	});
+		});
 
-	assert_eq!(
-		accessed,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(caller.addr, false))
-				.and(CodeLoadItems::new(caller.code_hash))
-				.and(CallItems::new(target.addr, matches!(kind, NestedCallKind::Delegate)))
-				.and(CodeLoadItems::new(target.code_hash))
-		),
-	);
+	let declared = DeclaredEntries::of(CallItems::new(caller.addr, false))
+		.and(CodeLoadItems::new(caller.code_hash))
+		.and(CallItems::new(target.addr, matches!(kind, NestedCallKind::Delegate)))
+		.and(CodeLoadItems::new(target.code_hash));
+	assert_eq!(warmed, declared.warmed());
+	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
@@ -401,34 +419,32 @@ fn a_nested_value_call_accesses_what_it_declares(
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("DoNothingReceiver", target_type).unwrap();
 	let value = BalanceWithDust::new_unchecked::<Test>(1, 0);
-	let (accessed, caller, target) = reads_and_writes_of_call(caller_code, target_code, |target| {
-		Caller::normalCall {
-			_callee: target.addr.0.into(),
-			_value: Pallet::<Test>::convert_native_to_evm(value).low_u64(),
-			_data: Vec::new().into(),
-			_gas: u64::MAX,
-		}
-		.abi_encode()
-	});
+	let (accessed, warmed, caller, target) =
+		reads_and_writes_of_call(caller_code, target_code, |target| {
+			Caller::normalCall {
+				_callee: target.addr.0.into(),
+				_value: Pallet::<Test>::convert_native_to_evm(value).low_u64(),
+				_data: Vec::new().into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode()
+		});
 
-	assert_eq!(
-		accessed,
-		ReadsAndWrites::from_declared(
-			DeclaredEntries::of(CallItems::new(caller.addr, false))
-				.and(CodeLoadItems::new(caller.code_hash))
-				.and(CallItems::new(target.addr, false))
-				.and(CodeLoadItems::new(target.code_hash))
-				.and(TransferItems { from: caller.addr, to: target.addr, dust: false })
-				.declared_more_than_once(
-					AccessEntry::AccountInfo { address: caller.addr },
-					[StorageOp::Write, StorageOp::Read],
-				)
-				.declared_more_than_once(
-					AccessEntry::AccountInfo { address: target.addr },
-					[StorageOp::Write, StorageOp::Read],
-				)
-		),
-	);
+	let declared = DeclaredEntries::of(CallItems::new(caller.addr, false))
+		.and(CodeLoadItems::new(caller.code_hash))
+		.and(CallItems::new(target.addr, false))
+		.and(CodeLoadItems::new(target.code_hash))
+		.and(TransferItems { from: caller.addr, to: target.addr, dust: false })
+		.declared_more_than_once(
+			AccessEntry::AccountInfo { address: caller.addr },
+			[StorageOp::Write, StorageOp::Read],
+		)
+		.declared_more_than_once(
+			AccessEntry::AccountInfo { address: target.addr },
+			[StorageOp::Write, StorageOp::Read],
+		);
+	assert_eq!(warmed, declared.warmed());
+	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
 #[test_case(FixtureType::Solc;   "solc")]
@@ -450,25 +466,26 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		});
 	}
 
-	let (accessed, child) = reads_and_writes_of(&mut ext, || {
-		let result = builder::bare_call(factory.addr)
+	let (accessed, warmed, child_addr) = reads_and_writes_of(&mut ext, || {
+		let result = call_with_dispatchable_config(factory.addr)
 			.data(Factory::createCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the factory returned {:?}", result.data);
 		let created = Factory::createCall::abi_decode_returns(&result.data).unwrap();
 		H160::from_slice(created.as_slice())
 	});
-	let child_hash = ext.execute_with(|| get_contract(&child).code_hash);
+	let child_hash = ext.execute_with(|| get_contract(&child_addr).code_hash);
 
 	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
 		.and(CodeLoadItems::new(factory.code_hash))
-		.and(InstantiateItems { address: child, deployer: factory.addr })
+		.and(InstantiateItems { address: child_addr, deployer: factory.addr })
 		.and(CodeLoadItems::with_info_op(child_hash, StorageOp::Write));
+	assert_eq!(warmed, declared.warmed());
 	let mut expected = ReadsAndWrites::from_declared(declared);
 	// The instantiate never reads it, but its benchmarks prepay a later call's read.
 	assert!(
-		expected.read.remove(&AccessEntry::OriginalAccount { address: child }),
-		"`InstantiateItems` no longer declares the new contract's `OriginalAccount`",
+		expected.read.remove(&AccessEntry::OriginalAccount { address: child_addr }),
+		"`InstantiateItems` does not declare the new contract's `OriginalAccount`",
 	);
 	// The new contract's deposit is charged to the origin's account, which no access here declares.
 	expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
@@ -493,7 +510,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		let child_blob = AccessEntry::PristineCode { hash: child_hash };
 		assert!(
 			expected.read.remove(&child_blob),
-			"`CodeLoadItems` no longer declares the child's `PristineCode`",
+			"`CodeLoadItems` does not declare the child's `PristineCode`",
 		);
 		expected.written.insert(child_blob);
 		// The create's benchmark also pays for holding the code deposit on the pallet's account.
@@ -509,17 +526,18 @@ fn a_plain_call_to_an_eoa_accesses_what_it_declares() {
 	let (mut ext, []) = deploy_contracts([]);
 	let eoa = H160::from([0xfe; 20]);
 
-	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
-		builder::bare_call(eoa).build_and_unwrap_result();
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		call_with_dispatchable_config(eoa).build_and_unwrap_result();
 	});
 
-	let mut expected =
-		ReadsAndWrites::from_declared(DeclaredEntries::of(CallItems::new(eoa, false)));
+	let declared = DeclaredEntries::of(CallItems::new(eoa, false));
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = ReadsAndWrites::from_declared(declared);
 	// No frame runs at an address with no code, so its info is read and never written back.
 	// `CallItems` declares that write, so the call overpays by one write.
 	assert!(
 		expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
-		"`CallItems` no longer declares the EOA's `AccountInfo` as a write",
+		"`CallItems` does not declare the EOA's `AccountInfo` as a write",
 	);
 	assert_eq!(accessed, expected);
 }
@@ -531,28 +549,28 @@ fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
 	let eoa = H160::from([0xfe; 20]);
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
 
-	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
-		builder::bare_call(eoa)
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
+		call_with_dispatchable_config(eoa)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 	});
 
 	// Dust balances are stored in the account infos, so only a dust transfer writes them.
 	let transfer_info_op = if dust { StorageOp::Write } else { StorageOp::Read };
-	let mut expected = ReadsAndWrites::from_declared(
-		DeclaredEntries::of(CallItems::new(eoa, false))
-			.and(TransferItems { from: ALICE_ADDR, to: eoa, dust })
-			.declared_more_than_once(
-				AccessEntry::AccountInfo { address: eoa },
-				[StorageOp::Write, transfer_info_op],
-			),
-	);
+	let declared = DeclaredEntries::of(CallItems::new(eoa, false))
+		.and(TransferItems { from: ALICE_ADDR, to: eoa, dust })
+		.declared_more_than_once(
+			AccessEntry::AccountInfo { address: eoa },
+			[StorageOp::Write, transfer_info_op],
+		);
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = ReadsAndWrites::from_declared(declared);
 	if !dust {
 		// No frame runs at an address with no code, so its info is read and never written back.
 		// `CallItems` declares that write, so the call overpays by one write.
 		assert!(
 			expected.written.remove(&AccessEntry::AccountInfo { address: eoa }),
-			"`CallItems` no longer declares the EOA's `AccountInfo` as a write",
+			"`CallItems` does not declare the EOA's `AccountInfo` as a write",
 		);
 	}
 	assert_eq!(accessed, expected);
@@ -565,16 +583,18 @@ fn a_transfer_accesses_what_it_declares(dust: bool) {
 	use frame_support::traits::tokens::Preservation;
 
 	// `transfer_with_dust` runs no contract code, so it does not depend on the backend.
-	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
-	let (target_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
-	let (mut ext, [from, to]) = deploy_contracts([caller_code, target_code]);
+	let (from_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (to_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+	let (mut ext, [from, to]) = deploy_contracts([from_code, to_code]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-	let (reads_writes, ()) = reads_and_writes_of(&mut ext, || {
+	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
 		transfer_with_dust::<Test>(&from.account_id, &to.account_id, value, Preservation::Preserve)
 			.unwrap();
 	});
 
+	// `transfer_with_dust` creates no access list.
+	assert_eq!(warmed, BTreeMap::new());
 	let declared = DeclaredEntries::of(TransferItems { from: from.addr, to: to.addr, dust });
 	let mut expected = ReadsAndWrites::from_declared(declared);
 	if !dust {
@@ -582,8 +602,8 @@ fn a_transfer_accesses_what_it_declares(dust: bool) {
 		// `CallItems` declares it as a write before each transfer, so this read finds it warm.
 		assert!(
 			expected.read.remove(&AccessEntry::AccountInfo { address: to.addr }),
-			"`TransferItems` no longer declares the receiver's `AccountInfo`",
+			"`TransferItems` does not declare the receiver's `AccountInfo`",
 		);
 	}
-	assert_eq!(reads_writes, expected);
+	assert_eq!(accessed, expected);
 }

@@ -531,8 +531,8 @@ fn a_transfer_pays_for_creating_the_account_only_when_it_is_missing(
 fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
 	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 	let eoa = H160::from([0xfe; 20]);
-	let weight_of_transfer = |dust: u32| {
-		let value = BalanceWithDust::new_unchecked::<Test>(1, dust);
+	let weight_of_value_call = |dust_amount: u32| {
+		let value = BalanceWithDust::new_unchecked::<Test>(1, dust_amount);
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr: caller, .. } =
@@ -550,24 +550,24 @@ fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
 					.abi_encode(),
 				)
 				.build();
-			let nested_call =
+			let nested_call_result =
 				Caller::normalCall::abi_decode_returns(&result.result.as_ref().unwrap().data)
 					.unwrap();
 			assert!(
-				nested_call.success,
-				"dust={dust}: the nested call returned {:?}",
-				nested_call.output
+				nested_call_result.success,
+				"dust_amount={dust_amount}: the nested call returned {:?}",
+				nested_call_result.output
 			);
 			result.weight_consumed
 		})
 	};
 
-	let without_dust = weight_of_transfer(0);
-	let with_dust = weight_of_transfer(1);
+	let weight_without_dust = weight_of_value_call(0);
+	let weight_with_dust = weight_of_value_call(1);
 
 	assert!(
-		with_dust.ref_time() > without_dust.ref_time(),
-		"without_dust={without_dust:?} with_dust={with_dust:?}",
+		weight_with_dust.ref_time() > weight_without_dust.ref_time(),
+		"weight_without_dust={weight_without_dust:?} weight_with_dust={weight_with_dust:?}",
 	);
 }
 
