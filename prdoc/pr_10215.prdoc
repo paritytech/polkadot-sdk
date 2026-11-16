@@ -27,6 +27,12 @@ doc:
       Version 2 does both.
     - storage_proof_size version 2 adds the estimation.
 
+    One change reaches all versions through trie-db (paritytech/trie#249): removing an
+    absent key that is a strict prefix of a stored key no longer deletes the stored key
+    and no longer panics. This changes the storage root only for that removal. FRAME
+    typed storage cannot produce it; only a root call such as system.kill_storage on raw
+    keys can. All system chains sync from genesis with this change.
+
     The bodies of the old and the new versions are separate, callable items:
     Externalities::storage_append and storage_append_v2,
     Externalities::child_storage_root_with_version and child_storage_root_v3, and
