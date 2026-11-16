@@ -686,7 +686,7 @@ pub(crate) mod tests {
 		let mut expected_report = PeerReport { who: sender, cost_benefit: expected_cost };
 		let res = gv.validate(&mut context, &sender, bad_encoding);
 		assert!(matches!(res, ValidationResult::Discard));
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// verify votes validation
 
@@ -698,14 +698,14 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		// nothing reported
-		assert!(report_stream.try_next().is_err());
+		assert_eq!(report_stream.try_recv(), Err(futures::channel::mpsc::TryRecvError::Empty));
 
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		// nothing in cache first time
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VOTE_MESSAGE;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// reject vote, voter not in validator set
 		let mut bad_vote = vote.clone();
@@ -714,7 +714,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &bad_vote);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::UNKNOWN_VOTER;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// reject if the round is not GRANDPA finalized
 		gv.update_filter(GossipFilterCfg { start: 1, end: 2, validator_set: &validator_set });
@@ -724,7 +724,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// reject if the round is not live anymore
 		gv.update_filter(GossipFilterCfg { start: 7, end: 10, validator_set: &validator_set });
@@ -734,7 +734,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// now verify proofs validation
 
@@ -745,7 +745,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// accept next proof with good set_id
 		let proof = dummy_proof(7, &validator_set);
@@ -754,7 +754,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// accept future proof with good set_id
 		let proof = dummy_proof(20, &validator_set);
@@ -763,7 +763,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// reject proof, future set_id
 		let bad_validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys, 1).unwrap();
@@ -773,7 +773,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 
 		// reject proof, bad signatures (Bob instead of Alice)
 		let bad_validator_set =
@@ -785,7 +785,7 @@ pub(crate) mod tests {
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::INVALID_PROOF;
 		expected_report.cost_benefit.value += cost::PER_SIGNATURE_CHECKED;
-		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
+		assert_eq!(report_stream.try_recv().expect("peer report expected"), expected_report);
 	}
 
 	#[test]

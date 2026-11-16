@@ -18,13 +18,16 @@
 use super::*;
 
 use crate::{
-	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
+	AccountIdOf, CodeInfo, Config, ContractBlob, ContractLogTopics, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
 	exec::Ext,
 	limits,
+	metering::EngineMeter,
 	primitives::ExecReturnValue,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
+	vm::{
+		BytecodeType, ExportedFunction, RuntimeCosts, StipendAndProtections, calculate_code_deposit,
+	},
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -38,14 +41,18 @@ use sp_runtime::{DispatchError, SaturatedConversion};
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
 	///
-	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
-	/// don't make use of this buffer. Hence this should not be set to anything
-	/// other than `0` when not used for benchmarking.
+	/// With the interpreter backend the instance starts with the frame's gas plus a credit for
+	/// the first allocation of the interpreter's map of compiled blocks:
+	/// `ceil(code_section_bytes * per_code_byte_millis / 1000)`, the gas the interpreter charges
+	/// for it. The caller pays for that allocation with the code load of stored code, or with the
+	/// code length slope of `instantiate_with_code` or `eth_instantiate_with_code` for code the
+	/// transaction uploads. The frame's meter keeps accounting against the gas it handed over, so
+	/// the credit is not counted as the callee's consumption. Other backends do not charge for the
+	/// map and get no credit.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
-		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		// Log filtering by level with log::enabled! returns always true,
@@ -66,15 +73,29 @@ impl<T: Config> ContractBlob<T> {
 				interpreter is available on all platforms; qed",
 		);
 
+		let compilation_cost = EngineMeter::<T>::interpreter_compilation_cost();
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_aux_data_size(aux_data_size);
-		let module =
-			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
-				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-				Error::<T>::CodeRejected
-			})?;
+		module_config.set_interpreter_compilation_cost(Some(compilation_cost));
+		let blob = polkavm::ProgramBlob::parse(self.code.into()).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
+		let charges_code_map = engine.backend() == polkavm::BackendKind::Interpreter;
+		let code_map_credit: polkavm::Gas = if charges_code_map {
+			let code_section_bytes: u64 = blob.code().len().saturated_into();
+			code_section_bytes
+				.saturating_mul(compilation_cost.per_code_byte_millis.into())
+				.div_ceil(1000)
+				.saturated_into()
+		} else {
+			0
+		};
+		let module = polkavm::Module::from_blob(&engine, &module_config, blob).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
 
 		let entry_program_counter = module
 			.exports()
@@ -89,7 +110,7 @@ impl<T: Config> ContractBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		instance.set_gas(gas_limit_polkavm);
+		instance.set_gas(gas_limit_polkavm.saturating_add(code_map_credit));
 		instance
 			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
 				max_block_size: limits::code::BASIC_BLOCK_SIZE,
@@ -304,7 +325,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, stipend_limited: false },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -326,22 +347,29 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let call_flags = CallFlags::from_bits(flags);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let (resources, stipend_limited) = if gas == u64::MAX {
+			(CallResources::NoLimits, false)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			// We also need to detect the 2300: We need to add something scaled.
-			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
-			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+			let read_only = call_flags.is_some_and(|flags| flags.contains(CallFlags::READ_ONLY));
+			let stipend_and_protections = StipendAndProtections::new(value, Some(gas), read_only);
+			(
+				CallResources::from_ethereum_gas(
+					gas.into(),
+					stipend_and_protections.gets_stipend(),
+				),
+				stipend_and_protections.is_stipend_limited(),
+			)
 		};
 
 		self.call(
 			memory,
-			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			call_flags.ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::Call { value_ptr, stipend_limited },
 			callee,
 			&resources,
 			input_data_ptr,
@@ -374,7 +402,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::DelegateCall,
+			CallType::DelegateCall { stipend_limited: false },
 			address_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -397,16 +425,24 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let (resources, stipend_limited) = if gas == u64::MAX {
+			(CallResources::NoLimits, false)
 		} else {
-			CallResources::from_ethereum_gas(gas.into(), false)
+			let stipend_and_protections =
+				StipendAndProtections::new(U256::zero(), Some(gas), false);
+			(
+				CallResources::from_ethereum_gas(
+					gas.into(),
+					stipend_and_protections.gets_stipend(),
+				),
+				stipend_and_protections.is_stipend_limited(),
+			)
 		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::DelegateCall,
+			CallType::DelegateCall { stipend_limited },
 			callee,
 			&resources,
 			input_data_ptr,
@@ -429,6 +465,7 @@ pub mod env {
 		output_data: u64,
 		address_and_salt: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, code_hash_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
@@ -775,6 +812,8 @@ pub mod env {
 				v
 			},
 		};
+		let topics =
+			ContractLogTopics::try_from(topics).map_err(|_| Error::<E::T>::TooManyTopics)?;
 
 		let event_data = memory.read(data_ptr, data_len)?;
 		self.ext.deposit_event(topics, event_data)?;
@@ -958,6 +997,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {

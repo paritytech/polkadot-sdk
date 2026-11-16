@@ -313,19 +313,19 @@ impl pallet_glutton::Config for Runtime {
 
 /// Scheduling-info verifier used by `cumulus-test-runtime`.
 ///
-/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
-/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
-/// per build.
-pub struct NoVerification;
+/// Delegates to the production [`cumulus_pallet_aura_ext::AuraSchedulingVerifier`];
+/// `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo feature so the test runtime
+/// can flip V3 scheduling on without needing a runtime upgrade per build.
+pub struct SchedulingVerifier;
 
-impl VerifySchedulingSignature for NoVerification {
+impl VerifySchedulingSignature for SchedulingVerifier {
 	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
 
 	fn verify(
-		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
-		_relay_slot: cumulus_primitives_core::relay_chain::Slot,
+		signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		relay_slot: cumulus_primitives_core::relay_chain::Slot,
 	) -> bool {
-		true
+		cumulus_pallet_aura_ext::AuraSchedulingVerifier::<Runtime>::verify(signed_info, relay_slot)
 	}
 }
 
@@ -350,7 +350,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
-	type SchedulingSignatureVerifier = NoVerification;
+	type SchedulingSignatureVerifier = SchedulingVerifier;
 }
 
 impl parachain_info::Config for Runtime {}

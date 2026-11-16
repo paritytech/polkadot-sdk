@@ -654,5 +654,8 @@ fn a_nested_instantiate_accesses_what_it_declares(
 	}
 	expected.other_read = deposit_items.clone();
 	expected.other_written = deposit_items;
+	// The create reads the deletion queue counter to derive the child's trie id; its benchmark
+	// pays for that read.
+	expected.other_read.insert("Contracts::DeletionQueueCounter".into());
 	assert_eq!(accessed, expected);
 }

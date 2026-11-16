@@ -18,7 +18,7 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, U256, Weight,
+	CallProtections, Config, DispatchError, ExecOrigin as Origin, U256, Weight,
 	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
 };
@@ -30,6 +30,7 @@ use alloy_core::{
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_system::RawOrigin;
+use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 
 sol! {
@@ -46,6 +47,7 @@ sol! {
 		function callRuntime(bytes memory call) external;
 		function passData(uint32 inputLen) external;
 		function returnData(uint32 returnLen) external returns (bytes);
+		function callContract(address target) external;
 	}
 }
 
@@ -117,13 +119,22 @@ impl<T: Config> Precompile for NoInfo<T> {
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],
-					ReentrancyProtection::AllowReentry,
-					false,
+					CallProtections::none(),
 				)?;
 				Ok(Vec::new())
 			},
 			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) => {
 				Ok(vec![42; *returnLen as usize])
+			},
+			INoInfoCalls::callContract(INoInfo::callContractCall { target }) => {
+				env.call(
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
+					&H160::from_slice(target.as_slice()),
+					0.into(),
+					Vec::new(),
+					CallProtections::none(),
+				)?;
+				Ok(Vec::new())
 			},
 		}
 	}

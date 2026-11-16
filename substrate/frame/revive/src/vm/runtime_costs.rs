@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config,
+	Config, H256,
 	access_list::{
 		CallWarmth, KeyFamily, StorageItems, StorageOp, Summarized, TransferWarmth, Warmth,
 		WarmthSummary,
@@ -121,6 +121,14 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
+	///
+	/// `len` is the size of the data field. The per-byte charges for storing the event and adding
+	/// it to the receipt apply to the topic bytes (32 per topic) plus `len`, the byte count the
+	/// `on_finalize_per_event_data` benchmark measures. The topic count is clamped to
+	/// [`limits::NUM_EVENT_TOPICS`] for these charges. The event sink only accepts
+	/// [`ContractLogTopics`](crate::ContractLogTopics), which holds at most that many topics, so
+	/// no stored event has more topics than that. A caller that passes the number of topics it
+	/// stores as `num_topic` is charged for every stored topic byte.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
@@ -316,6 +324,18 @@ pub fn deferred_write_cost<T: Config>() -> Weight {
 	db.writes(1).saturating_sub(db.reads(1))
 }
 
+/// Returns the weight of writing a value of the maximum size to a cold slot, without rollback.
+pub fn cold_non_revertible_storage_write_weight<T: Config>() -> Weight {
+	<RuntimeCosts as Token<T>>::weight(&RuntimeCosts::SetStorage {
+		new_bytes: limits::STORAGE_BYTES,
+		old_bytes: 0,
+		kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
+			Warmth::new_cold_non_revertible(),
+			StorageOp::Write,
+		)),
+	})
+}
+
 /// Computes the cost of an access from the warmth of its entries.
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
@@ -478,12 +498,17 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_terminate(code_removed.into())
 				}
 			},
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
-				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
-				.saturating_add(Weight::from_parts(
-					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
-					0,
-				)),
+			DepositEvent { num_topic, len } => {
+				let topic_bytes =
+					num_topic.min(limits::NUM_EVENT_TOPICS) * H256::len_bytes() as u32;
+				let event_bytes = len.saturating_add(topic_bytes);
+				T::WeightInfo::seal_deposit_event(num_topic, len)
+					.saturating_add(T::WeightInfo::on_finalize_block_per_event(event_bytes))
+					.saturating_add(Weight::from_parts(
+						limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(event_bytes.into()),
+						0,
+					))
+			},
 			SetStorage { new_bytes, old_bytes, kind } => kind.weight::<T>(
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),

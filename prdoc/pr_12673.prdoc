@@ -1,12 +1,20 @@
-title: 'pallet-revive: cold/hot pricing for calls, transfers, code loads and contract creation'
+title: 'pallet-revive: cold/hot pricing for calls, transfers, code loads and contract creation,
+  and limits for transfer and send receivers'
 doc:
 - audience: [Runtime Dev, Runtime User]
   description: |-
     The cold/hot pricing introduced in #12104 now also covers the state items accessed by the call
     opcodes (EVM `CALL`, `STATICCALL`, `DELEGATECALL` and the PVM call and delegate-call host
     functions), a call's value transfer, code loads and contract creation, following EIP-2929. An
-    item is hot if it was accessed earlier in the same transaction. Each operation is charged the
-    cold benchmark if any of the items it accesses is cold, and the hot benchmark if all are hot.
+    item is hot if it was accessed earlier in the same transaction and no revert rolled that
+    access back. Each operation is charged the cold benchmark if any of the items it accesses is
+    cold, and the hot benchmark if all are hot.
+
+    The callee of a call shaped like Solidity's `transfer()` or `send()` (an EVM `CALL`, or a
+    PolkaVM `call_evm` without the `READ_ONLY` flag, that moves value with a gas limit of 0 or
+    moves no value with a gas limit of exactly 2300), and every contract it calls, can no longer
+    write persistent contract storage, move value, or create or terminate a contract. On Ethereum,
+    the 2300-gas stipend such a call gives its callee does not pay for these operations.
 - audience: Runtime Dev
   description: |-
     `WeightInfo` has 15 new required methods: `code_load`, `chained_delegation_check`,
@@ -22,23 +30,25 @@ doc:
       `seal_delegate_call`, `instantiate`, `seal_instantiate` and `seal_instantiate_transfer` no
       longer measure the reads of the contract blob and its code info, and `instantiate`,
       `seal_instantiate` and `seal_instantiate_transfer` no longer measure the write that bumps
-      the code's reference count. These are now charged with the `code_load` weight, when the code
-      was not accessed earlier in the same transaction.
+      the code's reference count. These are now charged with the `code_load` weight when the code
+      info or the code blob is cold.
     - `seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate` and
       `evm_instantiate_transfer` also measure a read of the new address's `OriginalAccount` entry.
     - `seal_call_transfer` and `seal_call_transfer_to_existing` also measure checking whether the
       callee has a `frame_system` account.
-    - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
-      measures an upgrade; `access_list_touch_hot_upgrade` measures that.
+    - `access_list_touch_hot_full` now reads an entry that was already read, so it no longer
+      measures upgrading an entry from a read to a write; `access_list_touch_hot_upgrade` measures
+      that.
     - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
       up to 4,096.
 
     Code outside the pallet that uses `pallet_revive::precompiles`:
     - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and
-      `StorageAccessKind::Persistent` no longer holds a plain `Warmth`, so `StorageAccessKind::new`
-      no longer takes one either. Code that charged a storage access should charge the cold price
-      with the new `StorageAccessKind::new_persistent_cold`, or use `StorageAccessKind::Transient`
-      for transient storage, for example:
+      `StorageAccessKind::Persistent` no longer holds a plain `Warmth`, so the closure that
+      `StorageAccessKind::new` takes no longer returns one either. Code that charged a contract
+      storage access should charge the cold price with the new
+      `StorageAccessKind::new_persistent_cold`, or use `StorageAccessKind::Transient` for transient
+      storage, for example:
       ```rust
       env.frame_meter_mut().charge_weight_token(RuntimeCosts::GetStorage {
           len,
@@ -46,36 +56,72 @@ doc:
       })?;
       ```
     - `StorageOp` and `Warmth` are no longer re-exported.
-    - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
-      entries as a new parameter, `CallTransferSurcharge` replaces `dust_transfer` with the
-      transfer's warmth and whether the callee has a `frame_system` account, and
-      `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that charged `CallBase`,
-      `DelegateCallBase` or `CallTransferSurcharge` can no longer build these variants; it should
-      charge the cold price from `WeightInfo` instead, for example
-      `env.charge(T::WeightInfo::seal_call(0))`, `seal_delegate_call()` for a delegate call, or
-      `seal_call_transfer(dust).max(seal_call_transfer_to_existing(dust))` for a call with value.
+    - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` now holds the warmth of the
+      call's entries, `CallTransferSurcharge` replaces `dust_transfer` with the transfer's warmth
+      and whether the callee has a `frame_system` account (a transfer to a precompile keeps only
+      the `dust` flag), and `ChainedDelegationCheck` and `AccessListRegistration` are new. Code
+      that charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build
+      these variants; it should charge the cold price from `WeightInfo` instead, for example
+      `env.charge(T::WeightInfo::seal_call(0))`, `seal_delegate_call()` for a delegate call, or,
+      for a call with value, `seal_call_transfer(dust).max(seal_call_transfer_to_existing(dust))`
+      in place of both `CallBase` and `CallTransferSurcharge`.
+    - `Ext::call` takes a `CallProtections` argument in place of its reentrancy protection and
+      `read_only` arguments. The struct holds the reentrancy protection, `read_only`, and
+      `stipend_limited`, which is set for calls shaped like a `transfer()` or `send()` and for
+      delegate calls with a gas limit of exactly 2300. A precompile that passed
+      `ReentrancyProtection::AllowReentry` and `false` now passes `CallProtections::none()`. A
+      precompile that used another reentrancy level should set it in the `reentrancy` field, and
+      one that made a read-only call should set the `read_only` field, for example:
+      ```rust
+      // Before
+      env.call(&resources, &to, value, input, ReentrancyProtection::Strict, true)?;
+      // After
+      let protections = CallProtections {
+          reentrancy: ReentrancyProtection::Strict,
+          read_only: true,
+          stipend_limited: false,
+      };
+      env.call(&resources, &to, value, input, protections)?;
+      ```
+    - `ReentrancyProtection::AllowNext` is removed and replaced by `stipend_limited`.
+      `ReentrancyProtection` is also exported as `pallet_revive::ReentrancyProtection`, so code
+      that imports it from there is affected too.
+    - In a stipend-limited frame, `Ext::set_storage`, `Ext::terminate_caller`,
+      `ExtWithInfo::instantiate` and a value transfer through `Ext::call` return `OutOfGas`. In a
+      read-only frame, they return `StateChangeDenied` instead, and so do
+      `Ext::set_transient_storage` and a value transfer through `Ext::call` with `read_only` set.
+      Before, the caller had to check the read-only flag; now these functions enforce it. A
+      precompile that changes state by calling into another pallet, for example to move balances
+      or assets, must call the new `Ext::ensure_not_stipend_limited` first. The assets,
+      asset-conversion, XCM and vesting precompiles do so.
 
     `ContractBlob::store_code` now returns `Result<Option<BalanceOf<T>>, DispatchError>`. On
     success it holds the deposit collected for newly stored code, or `None` when the code was
     already stored.
 
     `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
-    sets. It adds the called contract's entries to the access list, and the transfer's when the
-    call moves value, so later accesses to them are charged hot. Set it only when the weight
-    already covers these reads, as the weights of the `call` and `eth_call` dispatchables do. A
-    dry run must set it exactly when the dispatch it estimates does, or its estimate can be too
-    low; the runtime APIs' dry runs of `call` and `eth_call` set it. Code that calls `bare_call`
-    directly should leave it unset, unless the weight of the extrinsic making the call already
-    covers these reads. Code that builds an `ExecConfig` by listing all its fields, instead of
-    calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
-    `first_frame_reads_paid`.
+    sets. Setting the field adds the called contract's entries to the access list, and the
+    transfer's when the call moves value, so later accesses to them are charged hot. Code that
+    calls `bare_call` directly should set it only when the weight of the extrinsic making the
+    call already covers these reads, as the weights of the `call` and `eth_call` dispatchables
+    do. A dry run must set it exactly when the dispatch it estimates does, or its estimate can be
+    too low; the runtime APIs' dry runs of `call` and `eth_call` set it. Code that builds an
+    `ExecConfig` by listing all its fields, instead of calling a constructor such as
+    `ExecConfig::new_substrate_tx()`, must add `first_frame_reads_paid`.
 
-    `pallet_revive::runtime_api` has a new public function, `dry_run_call`. It dry runs the `call`
-    dispatchable the same way the `call` runtime API does.
+    `pallet_revive::runtime_api` has a new public function, `dry_run_call`. It performs a dry run
+    of the `call` dispatchable, the same way the `call` runtime API does.
 
-    The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
-    for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB
-    to 4 MiB, so a runtime close to its memory limit can now fail that check.
+    The access list holds up to 4,096 entries per transaction (was 2,048), and the memory budgeted
+    for its worst case grows from 1.5 MiB to 4 MiB. `integrity_test` checks that this memory,
+    together with the rest of the memory the pallet requires, fits in half of `RuntimeMemory`, so
+    a runtime close to that limit can now fail this check.
+
+    `integrity_test` also checks that the storage a block can write fits in half of the difference
+    between `PVFMemory` and `RuntimeMemory`, the memory a validator has beyond the block builder's.
+    Before, it counted contract storage writes as close to zero, so they could not make that check
+    fail. It now counts how many writes fit the block weight, each priced as a cold write without
+    rollback, and multiplies that count by the memory each write uses.
 
     No storage migration is needed.
 - audience: Runtime User
@@ -89,18 +135,71 @@ doc:
     Before, every call with value paid for creating it. A call with value to a precompile still
     always pays for creating the precompile's `frame_system` account.
 
-    A contract creation now sets aside the weight to register the new contract in the access list
-    before the constructor runs, so the constructor gets that much less weight. If the constructor
-    fails or reverts after using up all of its weight, the caller gets the set-aside weight back and
-    can continue with it.
+    A contract creation now sets aside the worst-case weight of registering the new contract in the
+    access list before the constructor runs, so the constructor gets that much less weight. When
+    the creation ends, the caller gets back the part of that weight the registration did not use,
+    or all of it if the creation failed or reverted, even when the constructor used up all of its
+    own weight.
 
-    The `call` and `instantiate` dispatchables used to include loading the contract's code in
-    their own weight. Now it is charged to their `weight_limit`, so a `weight_limit` that was just
-    enough before can be too low. The `weight_limit` should be estimated again with a dry run.
+    The `call` and `instantiate` dispatchables used to include the reads of the contract's code
+    info and code blob in their own weight, and charged only the cost per byte of code to their
+    `weight_limit`. Now those reads are charged to the `weight_limit` too, with the weight of the
+    `code_load` benchmark, so a limit that was just enough before can be too low and should be
+    estimated again with a dry run.
+
+    A contract called through Solidity's `transfer()` or `send()` gets a stipend of 2300 gas. On
+    Ethereum, the stipend cannot pay for a storage write, a value transfer, or creating or
+    terminating a contract. In revive, only the stipend's weight limited these operations.
+    The pallet now limits the callee to what the stipend pays for on Ethereum, for every call with
+    that shape: an EVM `CALL`, or a PolkaVM `call_evm` without `READ_ONLY`, that moves value with a
+    gas limit of 0, or moves no value with a gas limit of exactly 2300. In the callee, and in every
+    contract it calls, these operations fail with `OutOfGas`:
+    - persistent contract storage writes (`SSTORE`, the PolkaVM storage host functions, and
+      `clearStorage` and `takeStorage` of the storage precompile),
+    - value transfers,
+    - contract creation (`CREATE`, `CREATE2`, PolkaVM `instantiate`),
+    - contract termination (`SELFDESTRUCT`, PolkaVM `terminate`, `terminate` of the system
+      precompile),
+    - calls to a state-changing function of the assets, asset-conversion, XCM or vesting
+      precompile.
+
+    The contract that attempts such an operation halts on the EVM or traps on PolkaVM, and its
+    caller sees a failed call. On Ethereum, the operation runs out of gas, with the same result.
+    When a precompile denies such an operation, only the call to the precompile fails. Persistent
+    contract storage reads, events, and transient storage reads and writes are not denied, but the
+    stipend's weight must still pay for them. Calls with any other explicit gas limit are not
+    affected, even one below 2300.
+
+    A delegate call (an EVM `DELEGATECALL` or a PolkaVM `delegate_call_evm`) with a gas limit of
+    exactly 2300 now gets the stipend and the same limits. Before, such a delegate call got the
+    stipend but not the limits on the EVM, and neither on PolkaVM.
+
+    These limits can break deployed contracts that perform one of the listed operations in the
+    callee of a call shaped like a `transfer()` or `send()`, for example a `receive()` that writes
+    storage, or in a delegate call with a gas limit of exactly 2300.
+
+    The receiver may call back into the sender, as on Ethereum, under the same limits. Before, the
+    EVM denied this after a zero-value `transfer()` or `send()` and in the callee of a `STATICCALL`
+    with a gas limit of 2300: the reentrant call returned 0 in an EVM receiver, and a PolkaVM
+    receiver trapped. A call from the receiver to a contract whose items are all hot, such as the
+    sender contract, is now charged the hot benchmark, so the stipend can pay for some calls that
+    ran out of gas before. Whether it pays for a given call depends on the runtime's weights, on
+    how much of the stipend the receiver uses before the call, and on the size of the called
+    contract's code.
 crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
+- name: pallet-revive-uapi
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-asset-conversion-precompiles
+  bump: patch
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: pallet-vesting-precompiles
+  bump: patch
 - name: asset-hub-westend-runtime
   bump: patch

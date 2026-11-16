@@ -198,16 +198,23 @@ where
 			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
 		);
 
-		match input {
+		let changes_state = matches!(
+			input,
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
-			IAssetConversionCalls::swapTokensForExactTokens(_) |
-			IAssetConversionCalls::createPool(_) |
-			IAssetConversionCalls::addLiquidity(_) |
-			IAssetConversionCalls::removeLiquidity(_)
-				if env.is_read_only() =>
-			{
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
-			},
+				IAssetConversionCalls::swapTokensForExactTokens(_) |
+				IAssetConversionCalls::createPool(_) |
+				IAssetConversionCalls::addLiquidity(_) |
+				IAssetConversionCalls::removeLiquidity(_)
+		);
+		if changes_state {
+			frame_support::ensure!(
+				!env.is_read_only(),
+				pallet_revive::Error::<Self::T>::StateChangeDenied
+			);
+			env.ensure_not_stipend_limited()?;
+		}
+
+		match input {
 			IAssetConversionCalls::swapExactTokensForTokens(call) => {
 				Self::swap_exact_tokens_for_tokens(call, env)
 			},

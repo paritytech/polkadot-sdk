@@ -20,8 +20,8 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, AddressMapper, BalanceOf, BalanceWithDust, CallResources, Code, Config,
-	ExecConfig, ReentrancyProtection, Weight, WeightInfo, WeightToken,
+	AccountInfo, AddressMapper, BalanceOf, BalanceWithDust, CallProtections, CallResources, Code,
+	Config, Error, ExecConfig, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -38,7 +38,7 @@ use crate::{
 	vm::RuntimeCosts,
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::{assert_ok, traits::fungible::Mutate};
+use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{
 	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse, SendBackOrForward,
 	compile_module_with_type,
@@ -623,8 +623,7 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 				&factory,
 				U256::zero(),
 				Factory::createCall {}.abi_encode(),
-				ReentrancyProtection::AllowReentry,
-				false,
+				CallProtections::none(),
 			)
 			.unwrap();
 			let consumed = ext.frame_meter().weight_consumed().saturating_sub(before);
@@ -685,9 +684,15 @@ fn a_constructor_cannot_use_the_weight_set_aside_for_its_registration(fixture_ty
 			.build()
 			.result;
 
-		let output =
-			result.expect("the caller goes on with the weight set aside for the registration");
-		assert!(!output.did_revert(), "the factory catches the failed creation");
+		if fixture_type == FixtureType::Resolc {
+			// Starting the PVM constructor drops the factory's compiled code.
+			// The weight set aside for the registration is not enough to compile that code again.
+			assert_err!(result, <Error<Test>>::OutOfGas);
+		} else {
+			let output =
+				result.expect("the caller goes on with the weight set aside for the registration");
+			assert!(!output.did_revert(), "the factory catches the failed creation");
+		}
 		assert_eq!(contract_count(), contract_count_before);
 	});
 }

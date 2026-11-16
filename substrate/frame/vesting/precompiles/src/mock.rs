@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mock runtime for benchmarking the vesting precompile.
+//! Mock runtime for testing and benchmarking the vesting precompile.
 
 use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
 use sp_runtime::BuildStorage;
@@ -63,6 +63,7 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const MinimumPeriod: u64 = 1;
+	pub static GasScale: u32 = pallet_revive::config_preludes::GasScale::get();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -95,6 +96,7 @@ impl pallet_revive::Config for Test {
 	type Balance = u64;
 	type Currency = Balances;
 	type Precompiles = (crate::Vesting<Self>,);
+	type GasScale = GasScale;
 }
 
 impl crate::pallet::Config for Test {

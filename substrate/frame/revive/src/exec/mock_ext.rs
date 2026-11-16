@@ -17,8 +17,8 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, CallProtections, Code, CodeRemoved, Config, ContractLogTopics, DispatchResult,
+	ExecReturnValue, ImmutableData,
 	access_list::{Access, Summarized},
 	exec::{
 		AccountIdOf, BuiltinPrecompileExt, CallResources, ExecError, Ext, Key, Origin,
@@ -63,8 +63,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_reentrancy: ReentrancyProtection,
-		_read_only: bool,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
 	}
@@ -142,7 +141,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) -> Result<(), DispatchError> {
+	fn deposit_event(
+		&mut self,
+		_topics: ContractLogTopics,
+		_data: Vec<u8>,
+	) -> Result<(), DispatchError> {
 		panic!("MockExt::deposit_event")
 	}
 
@@ -210,6 +213,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn is_read_only(&self) -> bool {
 		panic!("MockExt::is_read_only")
+	}
+
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_not_stipend_limited")
 	}
 
 	fn is_delegate_call(&self) -> bool {
@@ -285,6 +292,7 @@ impl<T: Config> Ext for MockExt<T> {
 		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
 	}

@@ -24,11 +24,14 @@ mod runtime_costs;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use runtime_costs::BENCH_MIN_EVM_INIT_CODE_LEN;
-pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
+pub use runtime_costs::{
+	RuntimeCosts, StorageAccessKind, TransferAccessKind, cold_non_revertible_storage_write_weight,
+};
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
+	Weight,
 	access_list::{
 		Access, CodeLoadItems, CodeLoadWarmth, InstantiateItems, Summarized, TransferItems, Warmth,
 		WarmthSummary,
@@ -36,7 +39,7 @@ use crate::{
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	metering::{ChargedAmount, ResourceMeter, State, Token},
+	metering::{ChargedAmount, ResourceMeter, State, Token, slope},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -125,6 +128,13 @@ impl ExportedFunction {
 }
 
 /// The charges a code load pays: a flat cost and the code's bytes.
+///
+/// It is charged to the caller: the calling frame, or the transaction for the first frame. For
+/// PVM code the bytes are charged at the slope of `call_with_pvm_code_per_byte`, or of
+/// `call_with_pvm_code_per_byte_hot` when the blob is hot. Both slopes include the callee's first
+/// allocation of the interpreter's map of compiled blocks. The interpreter charges that allocation
+/// as gas, and the callee's instance starts with a gas credit of the same size (see
+/// `ContractBlob::prepare_call`).
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 enum CodeLoadToken {
@@ -150,7 +160,7 @@ impl CodeLoadToken {
 		)
 	}
 
-	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
+	/// Computes the cost of the code's bytes at the blob's warmth.
 	fn blob_cost<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
 		let per_byte: fn(u32) -> Weight = match (code_type, warmth.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
@@ -158,17 +168,7 @@ impl CodeLoadToken {
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
 			(BytecodeType::Evm, true) => T::WeightInfo::call_with_evm_code_per_byte_hot,
 		};
-		let bytes_weight = per_byte(code_len).saturating_sub(per_byte(0));
-		let compilation_weight = match code_type {
-			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so the
-			// compilation term drops its proof. It double-charges the first BASIC_BLOCK_SIZE
-			// instructions; we keep that as a safety margin.
-			BytecodeType::Pvm => T::WeightInfo::basic_block_compilation(1)
-				.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-				.set_proof_size(0),
-			BytecodeType::Evm => Weight::zero(),
-		};
-		bytes_weight.saturating_add(compilation_weight)
+		slope(per_byte, code_len)
 	}
 }
 
@@ -413,8 +413,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.code_info().is_pvm() {
-			let prepared_call =
-				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			let prepared_call = self.prepare_call(pvm::Runtime::new(ext, input_data), function)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
 			use revm::bytecode::Bytecode;
@@ -513,6 +512,51 @@ pub fn adjust_instantiate_registration_charge<E: Ext>(
 	};
 	ext.frame_meter_mut()
 		.adjust_weight(worst_case_charge, RuntimeCosts::AccessListRegistration(summary));
+}
+
+/// The stipend and protections a call gets from its value, gas limit and read-only flag.
+pub struct StipendAndProtections {
+	moves_value: bool,
+	has_transfer_or_send_shape: bool,
+	read_only: bool,
+}
+
+impl StipendAndProtections {
+	/// Builds a call's stipend and protections from its `value`, `gas_limit` and `read_only` flag.
+	///
+	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
+	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
+	/// call gets the stipend, because the fixed 2300 is tailored to Ethereum's gas scale. Its
+	/// callee, and every frame the callee creates, cannot write persistent storage, move value,
+	/// or create or terminate contracts, none of which the stipend pays for on Ethereum. A
+	/// read-only call is never a `transfer` or `send`, but still gets the stipend at 2300 gas.
+	pub fn new(value: U256, gas_limit: Option<u64>, read_only: bool) -> Self {
+		use revm::interpreter::gas::CALL_STIPEND;
+		let moves_value = !value.is_zero();
+		let has_transfer_or_send_shape =
+			matches!((moves_value, gas_limit), (false, Some(CALL_STIPEND)) | (true, Some(0)));
+		Self { moves_value, has_transfer_or_send_shape, read_only }
+	}
+
+	/// Returns whether the call gets the stipend.
+	pub fn gets_stipend(&self) -> bool {
+		self.moves_value || self.has_transfer_or_send_shape
+	}
+
+	/// Returns whether the callee is stipend-limited.
+	pub fn is_stipend_limited(&self) -> bool {
+		self.has_transfer_or_send_shape && !self.read_only
+	}
+
+	/// Returns the protections the call sets for the callee.
+	pub fn protections(&self) -> CallProtections {
+		CallProtections {
+			reentrancy: ReentrancyProtection::AllowReentry,
+			read_only: self.read_only,
+			stipend_limited: self.is_stipend_limited(),
+		}
+	}
 }
 
 #[cfg(test)]
