@@ -1856,10 +1856,10 @@ where
 						// like a peer assumed match-all and stays out of the DHT index.
 						self.v2dht.on_peer_filter_update(peer, AffinityFilter::match_all(0));
 					} else if !is_light {
-						// A light peer stores and routes nothing, so it stays out of the topology
-						// and reaches the propagation plan through its filter alone.
 						self.v2dht.on_substream_opened(peer);
 					} else {
+						// A light peer stores and routes nothing, so it stays out of the DHT index
+						// and reaches the propagation plan through its filter alone.
 						self.v2dht.on_light_peer(peer);
 					}
 					self.send_local_filter(&peer).await;
