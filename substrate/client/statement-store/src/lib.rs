@@ -1710,10 +1710,39 @@ impl Store {
 				let Some(dec_key) = parse_dec_key_index_prefix(&prefix) else { continue };
 				query_index.dec_key_counts.insert(dec_key, count);
 			}
+			if submit_index.config.v2dht.is_some() {
+				self.restore_retention_tracking(&mut query_index)?;
+			}
 		}
 
 		self.known_accounts_count.store(self.count_accounts()?, AtomicOrdering::Relaxed);
 		self.maintain();
+		Ok(())
+	}
+
+	/// Restores the track of every transient and explicit-only statement from the account index.
+	fn restore_retention_tracking(&self, query_index: &mut QueryIndex) -> Result<()> {
+		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let Some((_, _, hash)) = parse_account_index_key(&key) else { continue };
+			let Ok(details) = EntryDetails::decode(&mut value.as_slice()) else {
+				log::error!(
+					target: LOG_TARGET,
+					"Corrupt account index entry for statement {:?}",
+					HexDisplay::from(&hash)
+				);
+				continue;
+			};
+			if details.track.is_persistent() {
+				continue;
+			}
+			query_index.retention_tracks.insert(hash, details.track);
+			// Nothing records which transient statements reached a peer, so all are sent again.
+			if details.track == RetentionTrack::Transient {
+				query_index.recent.insert(hash, details.admission_seq);
+			}
+		}
 		Ok(())
 	}
 
@@ -4189,13 +4218,17 @@ mod tests {
 
 	/// Closes `store` and opens the database in `temp` again with the default config.
 	fn reopen(store: Store, temp: &tempfile::TempDir) -> Store {
+		reopen_with_config(store, temp, Default::default())
+	}
+
+	fn reopen_with_config(store: Store, temp: &tempfile::TempDir, config: Config) -> Store {
 		let keystore = store.keystore.clone();
 		drop(store);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
 		Store::new::<Block, TestClient, TestBackend>(
 			&path,
-			Default::default(),
+			config,
 			std::sync::Arc::new(TestClient),
 			keystore,
 			None,
@@ -5647,19 +5680,62 @@ mod tests {
 	}
 
 	#[test]
-	fn sweep_skips_statements_admitted_before_a_restart() {
-		let (store, temp) = test_store();
+	fn sweep_drops_a_lapsed_statement_admitted_before_a_restart() {
+		let (store, temp) = test_store_with_config(v2dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		let store = reopen(store, &temp);
+		let store = reopen_with_config(store, &temp, v2dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 
-		// Affinity tracking is in-memory: a statement admitted before a restart escapes the
-		// sweep and is kept until natural expiry.
 		store.maintain();
-		assert!(store.has_statement(&hash));
+		assert!(!store.has_statement(&hash));
+	}
+
+	fn v2dht_config() -> Config {
+		Config { v2dht: Some(Default::default()), ..Default::default() }
+	}
+
+	fn resolver_by_data_len() -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
+		Box::new(|statement| match statement.data_len() {
+			1 => RetentionReasonMask::TRANSIENT,
+			2 => RetentionReasonMask::EXPLICIT_AFFINITY,
+			_ => RetentionReasonMask::persistent(),
+		})
+	}
+
+	#[test]
+	fn restart_restores_the_retention_tracks() {
+		let (store, temp) = test_store_with_config(v2dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		let transient = statement(5, 1, None, 1).hash();
+		for data_len in 1..=3 {
+			let statement = statement(5, data_len as u32, None, data_len);
+			assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		}
+		propagate(&store);
+		let tracks = store.query_index.read().retention_tracks.clone();
+		assert_eq!(tracks.len(), 2);
+
+		let store = reopen_with_config(store, &temp, v2dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		assert_eq!(store.query_index.read().retention_tracks, tracks);
+
+		// The transient statement waits for propagation again, so the sweep keeps it.
+		store.maintain();
+		let recent: Vec<_> = store
+			.take_recent_statements()
+			.unwrap()
+			.into_iter()
+			.map(|(_, hash, _)| hash)
+			.collect();
+		assert_eq!(recent, vec![transient]);
+
+		// Without the v2 config nothing is tracked.
+		let store = reopen(store, &temp);
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert!(store.take_recent_statements().unwrap().is_empty());
 	}
 
 	#[test]
