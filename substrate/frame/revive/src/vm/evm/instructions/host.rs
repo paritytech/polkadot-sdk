@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind, U256,
+	ContractLogTopics, DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind,
+	U256,
 	access_list::StorageOp,
 	limits,
 	metering::Token,
@@ -98,7 +99,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 	// `copy_code_slice` already handles.
 	let code_offset = as_usize_saturated(code_offset);
 
-	interpreter.memory.resize(memory_offset, len)?;
+	interpreter.memory.resize(memory_offset, len, interpreter.ext)?;
 
 	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
@@ -262,6 +263,8 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn log<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
+	const { assert!(N as u32 <= limits::NUM_EVENT_TOPICS) };
+
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
@@ -279,14 +282,17 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		Vec::new()
 	} else {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.memory.resize(offset, len, interpreter.ext)?;
 		interpreter.memory.slice(offset..offset + len).to_vec()
 	};
 	if interpreter.stack.len() < N {
 		return ControlFlow::Break(Error::<E::T>::StackUnderflow.into());
 	}
 	let topics = interpreter.stack.popn::<N>()?;
-	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
+	let topics: Vec<_> =
+		topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
+	let topics = ContractLogTopics::try_from(topics)
+		.expect("N <= NUM_EVENT_TOPICS, asserted at compile time; qed");
 
 	if let Err(err) = interpreter.ext.deposit_event(topics, data) {
 		return ControlFlow::Break(Halt::Err(err));

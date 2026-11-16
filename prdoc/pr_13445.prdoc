@@ -1,0 +1,20 @@
+title: 'net/litep2p: Use manual routing table update and support `--no-private-ip`'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Switch to manual routing table update in litep2p network backend, populating peer addresses
+    from Identify events instead of blindly trusting Kademlia responses.
+
+    Additionally, add support for `--no-private-ip` flag with litep2p network backend.
+
+    `Event::PeerRoutingTableUpdate` is renamed to `Event::PeersDiscovered`, as the reported peers
+    are discovered via the DHT and not necessarily added to the routing table.
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-types
+  bump: minor
+- name: sc-network-bitswap
+  bump: minor
+- name: sc-network-statement
+  bump: patch

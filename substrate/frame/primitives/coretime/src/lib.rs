@@ -17,8 +17,9 @@
 
 //! Primitives for Polkadot Coretime.
 //!
-//! Contains fundamental types and the [`market::Market`] trait used by both `pallet-broker` and
-//! market implementations.
+//! Contains fundamental types, the [`market::Market`] trait used by both `pallet-broker` and
+//! market implementations, and the [`revenue::OnDemandRevenue`] trait connecting `pallet-broker`
+//! to a local on-demand Coretime market.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -26,6 +27,7 @@ extern crate alloc;
 
 mod core_mask;
 pub mod market;
+pub mod revenue;
 
 pub use core_mask::*;
 
