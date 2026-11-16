@@ -46,7 +46,7 @@ pub struct ParachainCandidate {
 	pub validation_code: polkadot_parachain_primitives::primitives::ValidationCodeHash,
 }
 
-pub use config::{AuthConfig, ConfigError};
+pub use config::{AuthConfig, CandidateError, ConfigError};
 pub use merkle::{build_collator_proof, CollatorProofError};
 pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};

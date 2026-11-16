@@ -32,10 +32,17 @@ pub enum ConfigError {
 	InvalidWorkItemService,
 	/// Number of work items does not match the number of configured para IDs.
 	InvalidWorkItemCount,
-	/// A work item payload is not a fully encoded parachain candidate.
-	InvalidCandidate,
-	/// A candidate's para ID does not match its assignment.
-	InvalidCandidateParaId,
+	/// A candidate cannot be decoded or does not match its assignment.
+	Candidate(CandidateError),
+}
+
+/// Invalid candidate payload or parachain identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CandidateError {
+	/// The payload does not fully decode as a parachain candidate.
+	Undecodable,
+	/// The candidate's para ID does not match its assignment.
+	InvalidParaId,
 }
 
 /// The AURA authorizer config embedded in every work package.
@@ -77,9 +84,9 @@ impl AuthConfig {
 
 		for (item, expected_para_id) in items.iter().zip(&self.para_ids) {
 			let candidate = ParachainCandidate::decode_all(&mut &item.payload.0[..])
-				.map_err(|_| ConfigError::InvalidCandidate)?;
+				.map_err(|_| ConfigError::Candidate(CandidateError::Undecodable))?;
 			if candidate.para_id != *expected_para_id {
-				return Err(ConfigError::InvalidCandidateParaId);
+				return Err(ConfigError::Candidate(CandidateError::InvalidParaId));
 			}
 		}
 
@@ -154,21 +161,30 @@ mod tests {
 			}
 			.encode()
 			.into();
-			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidateParaId));
+			assert_eq!(
+				config.check_work_items(&items),
+				Err(ConfigError::Candidate(CandidateError::InvalidParaId))
+			);
 		}
 
 		// A truncated candidate cannot be decoded.
 		{
 			let mut items = items.clone();
 			items[0].payload = vec![0; 4].into();
-			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidate));
+			assert_eq!(
+				config.check_work_items(&items),
+				Err(ConfigError::Candidate(CandidateError::Undecodable))
+			);
 		}
 
 		// Valid candidate bytes followed by extra data are also rejected.
 		{
 			let mut items = items.clone();
 			items[0].payload.0.push(0);
-			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidate));
+			assert_eq!(
+				config.check_work_items(&items),
+				Err(ConfigError::Candidate(CandidateError::Undecodable))
+			);
 		}
 
 		// Each item must match its own assignment, not merely any authorized para.
@@ -184,7 +200,10 @@ mod tests {
 
 			candidate.para_id = ParaId::new(0);
 			items[1].payload = candidate.encode().into();
-			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidCandidateParaId));
+			assert_eq!(
+				config.check_work_items(&items),
+				Err(ConfigError::Candidate(CandidateError::InvalidParaId))
+			);
 		}
 
 		// Item-count errors take precedence over an invalid service.
