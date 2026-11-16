@@ -45,6 +45,9 @@ sp-runtime = { workspace = true, default-features = true }
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [features]
 default = ["cli", "db", "full-node"]
 db = ["polkadot-service/db"]
