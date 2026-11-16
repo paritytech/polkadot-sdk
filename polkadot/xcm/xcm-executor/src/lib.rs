@@ -25,7 +25,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
-	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
+	traits::{Contains, ContainsPair, Get, PalletsInfoAccess},
 };
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
