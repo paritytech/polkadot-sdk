@@ -2218,6 +2218,54 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 	});
 }
 
+/// `burn_from` with `Expendable` on a balance that would be left below the minimum returns the
+/// dust as part of the burned amount and takes it out of the supply. Callers that reconcile
+/// against the returned amount, such as `pallet-psm`'s debt, rely on this.
+#[test]
+fn burn_from_expendable_returns_dust_in_burned_amount() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let (asset, who, min_balance) = (0u32, 1u64, 10u64);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, 1, true, min_balance));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 109));
+
+		// Burning 100 leaves 9, below the minimum: the 9 go with it.
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(109)
+		);
+		assert_eq!(Assets::balance(asset, who), 0);
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert!(!Account::<Test>::contains_key(asset, who));
+
+		// Leaving exactly the minimum burns only what was asked.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 110));
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(100)
+		);
+		assert_eq!(Assets::balance(asset, who), min_balance);
+		assert_eq!(Assets::total_supply(asset), min_balance);
+	});
+}
+
 #[test]
 fn balance_change_callbacks_fire_on_shelve_and_restore() {
 	use frame_support::traits::fungibles::Mutate;

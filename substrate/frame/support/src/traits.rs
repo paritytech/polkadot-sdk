@@ -60,14 +60,14 @@ pub use misc::{
 	DefensiveSaturating, DefensiveTruncateFrom, DefensiveTruncateInto, EqualPrivilegeOnly,
 	EstimateCallFee, EstimateFee, ExecuteBlock, Get, GetBacking, GetDefault, HandleLifetime,
 	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
-	OnNewAccount, PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
-	WrapperOpaque,
+	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
+	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
 #[doc(hidden)]
 pub use misc::{DEFENSIVE_OP_INTERNAL_ERROR, DEFENSIVE_OP_PUBLIC_ERROR};
+pub use sp_staking::RewardsReporter;
 
 mod stored_map;
 pub use stored_map::{StorageMapShim, StoredMap};

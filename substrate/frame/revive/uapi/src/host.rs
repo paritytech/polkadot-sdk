@@ -231,14 +231,21 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
-	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
-	/// on the maximum number of topics specified by `event_topics`.
-	///
-	/// There should not be any duplicates in `topics`.
+	/// Deposit a contract event with the data buffer and optional list of topics.
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The topics list. It can't contain duplicates.
+	/// - `topics`: At most 4 topics (`NUM_EVENT_TOPICS`).
+	/// - `data`: At most 64 KiB (`EVENT_BYTES`).
+	///
+	/// # Traps
+	///
+	/// Fails the calling frame if either bound is exceeded. Inside an Ethereum transaction
+	/// (`eth_transact`, `eth_substrate_call` and their dry runs) it also fails the frame if the
+	/// event would take the transaction's receipt logs past 2 MiB (`MAX_RECEIPT_LOGS_BYTES`). That
+	/// depends on the logs the transaction already kept, from any contract or mirrored by the
+	/// runtime, not only on this call's arguments. The caller can handle the failure. The receipt
+	/// limit does not apply outside an Ethereum transaction, such as under `Revive::call`.
 	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
 	/// Retrieve the value under the given key from storage.
