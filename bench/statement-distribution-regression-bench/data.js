@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794838779663,
+  "lastUpdate": 1794841768906,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "173b52cc0f84f2926a015ae9ac75af6c12a53a7f",
-          "message": "Update merkle mountain lib (#11922)\n\nUpdates the merkle mountain crate to its latest version.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-29T11:39:17Z",
-          "tree_id": "4af8466aa41db0fe0a6a4424bcbbcb8a77678af8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/173b52cc0f84f2926a015ae9ac75af6c12a53a7f"
-        },
-        "date": 1777467953504,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.174,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08007788604199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03824016650600001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03854781143600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "585c568b2f0f6a2f53f2b46d8329a5ad6010945c",
+          "message": "statement-store: hold a statement while no routing target can receive it (#13843)\n\n# Description\n\nOn the v2 DHT path a node keeps a statement in its store while the peer\nthat should get it is not ready yet.\n\nThe loss that the change removes takes these steps:\n\n1. A peer connects to the node. The substream is open, so the node\ncounts the peer as a routing target. The node sends it nothing until the\npeer's affinity filter arrives and is applied.\n2. In that gap the node receives a statement for which the peer is the\nonly routing target. The node is no replica for the statement, it only\npasses it on.\n3. Propagation runs. The peer is not ready, so the node skips it and\ntreats the statement as propagated.\n4. Nothing holds the statement in the store any more. The retention\nsweep, which runs every 29 seconds, removes it and bans its hash.\n5. The peer's filter is applied and the node starts the initial sync for\nthe peer. The sync sends every stored statement for which the peer is a\nrouting target, but the statement is gone.\n\nThe statement is lost only when the sweep of step 4 runs before the sync\nof step 5. The gap of step 1 lasts about a second for a peer on the DHT\npath, and the 10 second grace period for a peer off it.\n\nWith the change the node holds the statement at step 3, so the sweep\nleaves it alone. The initial sync delivers it, and the node releases the\nhold once the sync has passed the statement.\n\nOne case needs a direct send. Routing takes the 3 closest peers, so\nseveral peers that are not ready can push a ready peer out of the\nrouting targets. When they leave the routing after the grace period, the\nready peer is a target again, but its initial sync ended before the\nstatement arrived. No sync will pass the statement, so the node sends it\nto that peer and releases the hold.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13219. Stacked\non https://github.com/paritytech/polkadot-sdk/pull/13828, which adds the\nhold.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-16T13:31:40Z",
+          "tree_id": "8b8c247685b9dc83e69d1fcc61b403b3a4154df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/585c568b2f0f6a2f53f2b46d8329a5ad6010945c"
+        },
+        "date": 1794841727004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.118,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03940846323200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08905885184999994,
             "unit": "seconds"
           }
         ]
