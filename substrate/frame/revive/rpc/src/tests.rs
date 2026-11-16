@@ -443,6 +443,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
 		test_subscription_gap_filler_failure_stays_pending,
+		test_subscription_gap_filler_retries_failed_attempt,
 		test_finalized_block_processing_failure_queues_gap_fill,
 		test_best_block_processing_failure_queues_nothing,
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
@@ -4064,6 +4065,58 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 	// the remaining pending count can only belong to the failed first request.
 	tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 	assert!(queue.has_pending(), "failed gap fill must keep the sync head from advancing");
+
+	Ok(())
+}
+
+/// A gap fill whose first attempt fails is retried, and completes once the block exists.
+async fn test_subscription_gap_filler_retries_failed_attempt() -> anyhow::Result<()> {
+	let (sync_client, mut gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
+	let queue = sync_client.subscription_gap_queue();
+	let tip = sync_client.api().at_current_block().await?.block_number();
+	queue.queue(tip + 1, tip + 1);
+
+	let dequeued = Arc::new(std::sync::atomic::AtomicBool::new(false));
+	let (filler_tx, filler_rx) = mpsc::channel(1);
+	let bg_dequeued = dequeued.clone();
+	let _tee = AbortOnDrop(tokio::spawn(async move {
+		while let Some(request) = gap_fill_rx.recv().await {
+			bg_dequeued.store(true, std::sync::atomic::Ordering::SeqCst);
+			if filler_tx.send(request).await.is_err() {
+				break;
+			}
+		}
+	}));
+	let bg_client = sync_client.clone();
+	let _filler = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.run_subscription_gap_filler(
+				filler_rx,
+				GapFillRetry { max_attempts: 5, backoff: tokio::time::Duration::from_millis(500) },
+			)
+			.await
+	}));
+
+	// The block does not exist until the transfer below, so the first attempt fails.
+	wait_until("the filler to take the request", || async {
+		dequeued.load(std::sync::atomic::Ordering::SeqCst)
+	})
+	.await?;
+	assert!(queue.has_pending());
+	submit_evm_transfers(1).await?;
+	let hash = sync_client
+		.block_provider()
+		.block_by_number(tip + 1)
+		.await?
+		.expect("block exists on chain")
+		.block_hash();
+
+	wait_until("a retry to index the block", || async {
+		sync_client.receipt_provider().get_ethereum_hash(&hash).await.is_some()
+	})
+	.await?;
+	wait_until("the queue to drain", || async { !queue.has_pending() }).await?;
 
 	Ok(())
 }

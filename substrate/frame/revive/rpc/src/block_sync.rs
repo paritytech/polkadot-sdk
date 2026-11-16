@@ -568,6 +568,13 @@ mod tests {
 		assert_eq!(start.elapsed(), Duration::from_secs(2 + 4 + 8 + 16));
 	}
 
+	#[test]
+	fn gap_fill_retry_default_is_five_attempts_from_two_seconds() {
+		let retry = GapFillRetry::default();
+
+		assert_eq!((retry.max_attempts, retry.backoff), (5, Duration::from_secs(2)));
+	}
+
 	#[tokio::test(start_paused = true)]
 	async fn retry_with_backoff_makes_at_least_one_attempt() {
 		let calls = Cell::new(0);
