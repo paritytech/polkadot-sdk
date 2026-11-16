@@ -566,16 +566,32 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#416 id=416 data-nosnippet>416</a>		<span class="attr">#[extrinsic_call]
 <a href=#417 id=417 data-nosnippet>417</a>		</span><span class="kw">_</span>(RawOrigin::Signed(caller), bounty_id);
 <a href=#418 id=418 data-nosnippet>418</a>
-<a href=#419 id=419 data-nosnippet>419</a>		assert_last_event::&lt;T, I&gt;(Event::BountyFundsReclaimed { bounty_id }.into());
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>		<span class="prelude-val">Ok</span>(())
-<a href=#422 id=422 data-nosnippet>422</a>	}
-<a href=#423 id=423 data-nosnippet>423</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#424 id=424 data-nosnippet>424</a>		Bounties,
-<a href=#425 id=425 data-nosnippet>425</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
-<a href=#426 id=426 data-nosnippet>426</a>		<span class="kw">crate</span>::tests::Test
-<a href=#427 id=427 data-nosnippet>427</a>	);
-<a href=#428 id=428 data-nosnippet>428</a>}
+<a href=#419 id=419 data-nosnippet>419</a>		<span class="comment">// `TransferAllAssets = ()` transfers nothing, in which case no event is emitted.
+<a href=#420 id=420 data-nosnippet>420</a>		</span><span class="kw">if </span>T::Currency::free_balance(<span class="kw-2">&amp;</span>bounty_account).is_zero() {
+<a href=#421 id=421 data-nosnippet>421</a>			assert_last_event::&lt;T, I&gt;(Event::BountyFundsReclaimed { bounty_id }.into());
+<a href=#422 id=422 data-nosnippet>422</a>		}
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>		<span class="prelude-val">Ok</span>(())
+<a href=#425 id=425 data-nosnippet>425</a>	}
+<a href=#426 id=426 data-nosnippet>426</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#427 id=427 data-nosnippet>427</a>		Bounties,
+<a href=#428 id=428 data-nosnippet>428</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
+<a href=#429 id=429 data-nosnippet>429</a>		<span class="kw">crate</span>::tests::Test
+<a href=#430 id=430 data-nosnippet>430</a>	);
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>	<span class="comment">// `Instance1` of the mock uses `TransferAllAssets = ()`.
+<a href=#433 id=433 data-nosnippet>433</a>	</span><span class="attr">#[test]
+<a href=#434 id=434 data-nosnippet>434</a>	</span><span class="kw">fn </span>reclaim_bounty_funds_works_without_transfer_all_assets() {
+<a href=#435 id=435 data-nosnippet>435</a>		<span class="kw">use crate</span>::{
+<a href=#436 id=436 data-nosnippet>436</a>			tests::{ExtBuilder, Test},
+<a href=#437 id=437 data-nosnippet>437</a>			Instance1,
+<a href=#438 id=438 data-nosnippet>438</a>		};
+<a href=#439 id=439 data-nosnippet>439</a>
+<a href=#440 id=440 data-nosnippet>440</a>		ExtBuilder::default().build().execute_with(|| {
+<a href=#441 id=441 data-nosnippet>441</a>			<span class="macro">assert_eq!</span>(Bounties::&lt;Test, Instance1&gt;::test_benchmark_reclaim_bounty_funds(), <span class="prelude-val">Ok</span>(()));
+<a href=#442 id=442 data-nosnippet>442</a>		});
+<a href=#443 id=443 data-nosnippet>443</a>	}
+<a href=#444 id=444 data-nosnippet>444</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
