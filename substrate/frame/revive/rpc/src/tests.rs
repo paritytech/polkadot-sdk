@@ -412,6 +412,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
+		test_block_sync_resume_top_gap_failure_keeps_head,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 		test_state_override_balance,
@@ -2820,6 +2821,95 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		new_tail.block_number,
 		new_head.block_number,
 	);
+
+	Ok(())
+}
+
+/// A block that fails in the top gap of a resumed sync leaves the sync head where it was and
+/// does not cancel the backfill of older history. The historic sync is then incomplete, so
+/// later finalized blocks do not move the head either.
+async fn test_block_sync_resume_top_gap_failure_keeps_head() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	submit_evm_transfers(6).await?;
+	let (sync_client, _gap_fill_rx, pool) = create_sync_test_client_with_pool(true).await?;
+
+	let chain_len = sync_client.latest_finalized_block().await.block_number();
+	let block_at = |number| {
+		let sync_client = sync_client.clone();
+		async move {
+			sync_client
+				.block_provider()
+				.block_by_number(number)
+				.await?
+				.ok_or_else(|| anyhow!("block #{number} exists on chain"))
+		}
+	};
+	let tail_block = block_at(chain_len / 3).await?;
+	let head_block = block_at(chain_len * 2 / 3).await?;
+	let failing_block = block_at(head_block.block_number() + 1).await?;
+	let interrupted_head = SyncCheckpoint::new(head_block.block_number(), head_block.block_hash());
+	sync_client
+		.receipt_provider()
+		.set_sync_label(
+			SyncLabel::Tail,
+			SyncCheckpoint::new(tail_block.block_number(), tail_block.block_hash()),
+		)
+		.await?;
+	sync_client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Head, interrupted_head)
+		.await?;
+
+	// The database is empty, so the resume extracts both gaps; it rejects one top-gap block.
+	sqlx::query(&format!(
+		"CREATE TRIGGER reject_block BEFORE INSERT ON eth_to_substrate_blocks \
+		 WHEN NEW.substrate_block_hash = X'{}' \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+		hex::encode(failing_block.block_hash())
+	))
+	.execute(&pool)
+	.await?;
+
+	sync_client.sync_backward().await?;
+
+	let label = |label| {
+		let sync_client = sync_client.clone();
+		async move { sync_client.receipt_provider().get_sync_label(label).await.ok().flatten() }
+	};
+	assert_eq!(label(SyncLabel::Head).await, Some(interrupted_head));
+	assert_eq!(label(SyncLabel::Tail).await.map(|tail| tail.block_number), Some(0));
+	assert_eq!(
+		sync_client
+			.receipt_provider()
+			.get_ethereum_hash(&failing_block.block_hash())
+			.await,
+		None
+	);
+
+	// Once the second new finalized block is cached, the first one's callback has run to
+	// completion, so the label had its chance to move.
+	let bg_client = sync_client.clone();
+	let _subscription = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)
+			.await
+	}));
+	submit_evm_transfers(2).await?;
+	wait_until("two finalized blocks past the synced chain", || async {
+		sync_client.latest_finalized_block().await.block_number() >= chain_len + 2
+	})
+	.await?;
+	assert!(!sync_client.subscription_gap_queue().has_pending());
+	assert_eq!(label(SyncLabel::Head).await, Some(interrupted_head));
+
+	// The head is held only by the incomplete historic sync.
+	sync_client.mark_backfill_complete();
+	submit_evm_transfers(1).await?;
+	wait_until("the sync head to advance", || async {
+		label(SyncLabel::Head).await.map(|head| head.block_number) > Some(chain_len)
+	})
+	.await?;
 
 	Ok(())
 }

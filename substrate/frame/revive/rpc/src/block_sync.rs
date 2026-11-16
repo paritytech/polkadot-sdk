@@ -258,10 +258,14 @@ impl Client {
 
 		let top_gap = async {
 			// Top gap: sync from latest_finalized down to head + 1.
-			if head.block_number < latest_finalized.block_number {
+			if head.block_number >= latest_finalized.block_number {
+				return Ok(());
+			}
+			let (from, to) = (latest_finalized.block_number, head.block_number.saturating_add(1));
+			async {
 				self.sync_backward_range(BackwardSyncRange {
-					from: latest_finalized.block_number,
-					to: head.block_number.saturating_add(1),
+					from,
+					to,
 					from_hash: None,
 					set_head: false,
 					checkpoint_tail: false,
@@ -272,24 +276,35 @@ impl Client {
 				// Mark top gap complete so a restart won't redo it.
 				self.receipt_provider()
 					.advance_sync_label(SyncLabel::Head, latest_finalized)
-					.await?;
+					.await
 			}
-			Ok::<_, ClientError>(())
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET,
+					"🗄️ Sync of new blocks #{from}..#{to} stopped due to {err}. The sync head stays \
+					 at #{} until a restart syncs them; a backfill of older history still running \
+					 continues", head.block_number);
+			})
 		};
 
 		let bottom_gap = async {
 			// Bottom gap: sync from tail - 1 down to the first EVM block.
 			let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
 			if tail.block_number > first_evm {
+				let from = tail.block_number.saturating_sub(1);
 				self.sync_backward_range(BackwardSyncRange {
-					from: tail.block_number.saturating_sub(1),
+					from,
 					to: first_evm,
 					from_hash: None,
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
 				})
-				.await?;
+				.await
+				.inspect_err(|err| {
+					log::error!(target: LOG_TARGET,
+						"🗄️ Backfill of older history #{from}..#{first_evm} stopped due to {err}");
+				})?;
 			} else {
 				log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
 			}
@@ -298,6 +313,8 @@ impl Client {
 
 		// The gaps are independent: a block that fails in the top gap must not cancel the
 		// backfill of older history, which otherwise restarts from its checkpoint every time.
+		// Each gap logs its own failure, as `sync_backward` reports only one of them, and only
+		// once both have ended.
 		let (top, bottom) = tokio::join!(top_gap, bottom_gap);
 		top.and(bottom)
 	}
