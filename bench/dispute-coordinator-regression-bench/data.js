@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794838836936,
+  "lastUpdate": 1794841827282,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "17140f35f6a598b6ed175f6b1159deddb7474e2e",
-          "message": "Snowbridge: API to Check Inbound Nonce Consumption (#11354)\n\n### Context\n\nAdds a runtime API so off-chain callers can check whether an inbound\nmessage from Ethereum (by nonce) has already been relayed/consumed on\nBridge Hub.",
-          "timestamp": "2026-04-29T10:57:57Z",
-          "tree_id": "f3068a90a05c49352d7091fcef626bcb8feb4a6e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/17140f35f6a598b6ed175f6b1159deddb7474e2e"
-        },
-        "date": 1777465145336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009806398820000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00266223172,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009381156179999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009482597509999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "585c568b2f0f6a2f53f2b46d8329a5ad6010945c",
+          "message": "statement-store: hold a statement while no routing target can receive it (#13843)\n\n# Description\n\nOn the v2 DHT path a node keeps a statement in its store while the peer\nthat should get it is not ready yet.\n\nThe loss that the change removes takes these steps:\n\n1. A peer connects to the node. The substream is open, so the node\ncounts the peer as a routing target. The node sends it nothing until the\npeer's affinity filter arrives and is applied.\n2. In that gap the node receives a statement for which the peer is the\nonly routing target. The node is no replica for the statement, it only\npasses it on.\n3. Propagation runs. The peer is not ready, so the node skips it and\ntreats the statement as propagated.\n4. Nothing holds the statement in the store any more. The retention\nsweep, which runs every 29 seconds, removes it and bans its hash.\n5. The peer's filter is applied and the node starts the initial sync for\nthe peer. The sync sends every stored statement for which the peer is a\nrouting target, but the statement is gone.\n\nThe statement is lost only when the sweep of step 4 runs before the sync\nof step 5. The gap of step 1 lasts about a second for a peer on the DHT\npath, and the 10 second grace period for a peer off it.\n\nWith the change the node holds the statement at step 3, so the sweep\nleaves it alone. The initial sync delivers it, and the node releases the\nhold once the sync has passed the statement.\n\nOne case needs a direct send. Routing takes the 3 closest peers, so\nseveral peers that are not ready can push a ready peer out of the\nrouting targets. When they leave the routing after the grace period, the\nready peer is a target again, but its initial sync ended before the\nstatement arrived. No sync will pass the statement, so the node sends it\nto that peer and releases the hold.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13219. Stacked\non https://github.com/paritytech/polkadot-sdk/pull/13828, which adds the\nhold.\n\n## Integration\n\nNo action is needed. The change applies only to nodes that run with the\nv2 DHT path on.",
+          "timestamp": "2026-11-16T13:31:40Z",
+          "tree_id": "8b8c247685b9dc83e69d1fcc61b403b3a4154df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/585c568b2f0f6a2f53f2b46d8329a5ad6010945c"
+        },
+        "date": 1794841785483,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009348662919999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00252476518,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010721345649999995,
             "unit": "seconds"
           }
         ]
