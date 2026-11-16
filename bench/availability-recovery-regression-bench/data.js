@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794849288409,
+  "lastUpdate": 1794859741389,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "98e0271c667a0a32ea4aabd5e4f811f2a1f6171e",
-          "message": "Support multiple `IndexOperation::Renew` calls within a single extrinsic index in `sc-client-db` (#11474)\n\n# Description\n\nCurrently, `apply_index_ops` uses `renewed_map: HashMap<u32, DbHash>`\nwhich means if multiple `Renew` operations target the same extrinsic\nindex, only the last hash survives — earlier ones are silently\noverwritten. This blocks batch-renewal use cases where a single\nmandatory inherent renews multiple previously-stored data items (e.g.\nthe Bulletin chain's `process_auto_renewals` inherent which calls\n`sp_io::transaction_index::renew()` N times within one extrinsic).\n\nThis PR changes `renewed_map` to `HashMap<u32, Vec<DbHash>>` and\nintroduces a new `DbExtrinsic::MultiRenew` variant to correctly store,\nreconstruct, retrieve, and prune blocks containing multi-renewal\nextrinsics.\n\n\n## Integration\n\nDownstream projects using `sc-client-db` that read `BODY_INDEX` data\ndirectly (rather than through the `BlockchainDb` API) will need to\nhandle the new `DbExtrinsic::MultiRenew` variant. Projects using the\nstandard `blockchain.body()`, `blockchain.block_indexed_body()`, or\n`blockchain.indexed_transaction()` APIs require no changes.\n\nSingle-renewal extrinsics continue to produce `DbExtrinsic::Indexed`\n(backwards-compatible). The `MultiRenew` variant is only emitted when 2+\n`Renew` operations share the same extrinsic index.\n\n\n## Review Notes\n\nAll changes are in `substrate/client/db/src/lib.rs`. There are five\nlogical changes:\n\n### 1. New `DbExtrinsic::MultiRenew` variant\n\n```rust\nMultiRenew {\n    hashes: Vec<DbHash>,  // all renewed data hashes\n    header: Vec<u8>,       // full encoded extrinsic for body reconstruction\n}\n```\n\n### 2. `apply_index_ops` — core fix\n\n```diff\n- let mut renewed_map = HashMap::new();\n+ let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();\n\n  IndexOperation::Renew { extrinsic, hash } => {\n-     renewed_map.insert(extrinsic, DbHash::from_slice(hash.as_ref()));\n+     renewed_map.entry(extrinsic).or_default().push(DbHash::from_slice(hash.as_ref()));\n  }\n```\n\nWhen building extrinsic entries:\n- **1 hash** → `DbExtrinsic::Indexed` (backwards-compatible, same as\nbefore)\n- **2+ hashes** → `DbExtrinsic::MultiRenew` with ref count bumped for\neach hash\n\n### 3. `body_uncached` — body reconstruction\n\n`MultiRenew`'s `header` contains the full encoded extrinsic (unlike\n`Indexed` where header is partial and joined with indexed data). Decoded\ndirectly via `Block::Extrinsic::decode(&mut &header[..])`.\n\n### 4. `block_indexed_body` — indexed data retrieval\n\nReturns transaction data for **all** hashes in `MultiRenew`, not just a\nsingle hash.\n\n### 5. `prune_block` — ref count release\n\nReleases all hashes in `MultiRenew` when pruning, instead of just the\nsingle hash from `Indexed`.\n\n---------\n\nCo-authored-by: Karol Kokoszka <karol@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2026-05-01T12:03:05Z",
-          "tree_id": "10813189ad759aab5ffa2505c8ad3fea131d445e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/98e0271c667a0a32ea4aabd5e4f811f2a1f6171e"
-        },
-        "date": 1777641914840,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13589883149999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.079701788666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12100424526666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55a995e0fe0ac62f81013358c55ec8ca24295fa5",
+          "message": "[pallet-revive]: implement EIP-150 63/64 gas rule (#11079)\n\n### Summary\nOn Ethereum, EIP-150 limits a nested call to 63/64 of its caller's\nremaining gas, so the caller can continue after a callee that uses up\nall of its gas. In pallet-revive, a nested call without a gas limit got\nall the gas, weight and storage deposit its caller had left, so a callee\nthat consumed all its gas, for example by executing `INVALID`, left its\ncaller nothing to continue with, as reported in\nparitytech/contract-issues#257 and paritytech/contract-issues#259. This\nPR applies the 63/64 rule to nested calls and constructors in both\nEthereum and Substrate execution mode.\n\n### Changes\n- **63/64 rule.** A call, delegate call or precompile call from a\ncontract, or the constructor of a contract it creates, gets at most\n`63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s`\nthe call stipend (zero without one). In Substrate execution mode the\nrule applies to each weight dimension and to the storage deposit; in\nEthereum execution mode, to the gas, the caller's weight limit and its\ndeposit limit, if it has one. Calls and constructors that a precompile\nstarts through `precompiles::Ext::call` and\n`precompiles::ExtWithInfo::instantiate` follow the rule too. The\ntransaction's first call is exempt.\n- **Stipend.** The stipend is set aside before the rule, so a call with\na stipend leaves its caller at least 1/64 of what remains after the\nstipend, as on Ethereum. In Ethereum execution mode, the stipend's gas\nis what the stipend's weight costs on its own, as before this PR, and at\nmost what the caller has left. When proof size is the larger cost of the\ntransaction, a caller with less gas left than the stipend's gas can\nstill pay for the stipend's weight, because only the stipend's proof\nsize adds to the transaction's fee. Its callee then gets all of the\ncaller's gas, and the caller keeps none.\n- **Dry runs.** The weight and storage meters each hold an\n`eip_150::Peak`: the minimum amount a call needs at its start so that,\nafter the 63/64 rule, each of its subcalls still gets what it needs to\nfinish. The dry runs report this amount, or what the call consumed if\nthat is higher, so `weight_required`, `max_storage_deposit`, `eth_gas`\nand `eth_estimateGas` now include the part each caller keeps: 1/63 of\nwhat each nested call needs beyond its stipend.\n- **Dry-run weight limit.** An Ethereum dry run runs the call with at\nmost the maximum `eth_transact` weight minus the transaction's base\nweight, instead of the whole maximum, so that the weight it reports\nleaves room for the base weight also when a nested call uses up its\nshare. A call that needs more weight than that runs out of gas in the\ndry run, as it does in a transaction.\n- **Fix.** A dry run reported a `max_storage_deposit` that was too low\nin two cases:\n- A contract A freed storage and then called B, which called back into\nA. A's refund was recorded when that call returned, and the dry run\nsubtracted it from the deposit B needed, although B's deposit limit was\nset before the refund. The storage meter now adds a call's deposit to\nwhat its caller had consumed when the call started.\n- In Substrate execution mode, a call wrote storage that an earlier call\nfreed. The refund does not raise the later call's deposit limit, but the\ndry run subtracted it from what the later call needed. The caller's net\nrefund now counts as zero when it has a deposit limit.\n- **Tests.** Solidity tests, compiled with Solc and Resolc, check that:\n- a caller can write storage in a `catch` block after its callee or a\nconstructor executes `INVALID`;\n- Multicall3's `aggregate3` continues after a call that uses up its gas;\n- an ERC-2771 forwarder's gas check rejects a transaction that leaves\nits callee less than the requested gas;\n- a call to `ISystem.weightLeft()` gets 63/64 of each weight dimension\nits caller has left;\n  - calls succeed when run with exactly the limits a dry run returned.\n\n### Behavior change for deployed contracts\n- A nested call that asks for more than its 63/64 share, or sets no\nlimit, gets less gas, weight and storage deposit than before.\n- `ISystem.weightLeft()` returns the weight left without the part the\ncaller keeps.\n\n### Behavior change for users\n- A nested call can fail when the transaction's limits are set to what a\ndry run or an earlier transaction consumed, or come from a dry run on a\nruntime without this change.\n\n### Follow-ups\n- A PolkaVM value call with gas `u64::MAX` gets no stipend, so its\ncallee gets about 1/64 of a stipend less than with gas `u64::MAX - 1`,\nand the Resolc rows of\n`value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit`\nare ignored. Before this PR, such a call also got no stipend, but its\ncallee received all of its caller's remaining resources.\n- Without a `gas_limit`, `ReviveApi::call` and `ReviveApi::instantiate`\nstill dry run with the whole block weight as the limit. When a nested\ncall uses up its share, they report a `weight_required` of about a whole\nblock, and an extrinsic with that weight limit is rejected. Before this\nPR, the same dry run failed with `OutOfGas`.\n- In Ethereum execution mode, a transaction applies the 63/64 rule to\nthe gas, the caller's weight limit and its deposit limit, if it has one.\nA dry run tracks the part each caller keeps in weight and in storage\ndeposit, but not in gas, and its `eth_gas` covers the fee for\n`weight_required` plus `max_storage_deposit`. This has two effects:\n- A transaction rounds down when it converts gas to weight. So in a\ncorner case, a nested call can get slightly less weight with exactly the\ndry run's `eth_gas` than in the dry run: one byte of proof size in the\ntest runtime. Through `eth_transact`, the dry run's longer encoding\nleaves more gas over than the nested call lacks, unless the wallet sets\nprices that make the transaction at least as long as that encoding.\n`eth_estimateGas` is not affected.\n- A storage deposit that a caller pays from the gas it kept counts\ntwice, so `eth_gas` can be higher than needed, by at most that gas.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-16T17:52:11Z",
+          "tree_id": "1bc337583bfd4f6e62d6d687afbcd038759c8147",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/55a995e0fe0ac62f81013358c55ec8ca24295fa5"
+        },
+        "date": 1794859700810,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12529173143333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.702191070599998,
             "unit": "seconds"
           }
         ]
