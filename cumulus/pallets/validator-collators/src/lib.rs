@@ -104,7 +104,8 @@
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
 //! the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
 //! between their slots. [`Config::MaxValidators`] rather than the cap is the bound, since the cap
-//! can be raised or removed without a runtime upgrade.
+//! can be raised or removed without a runtime upgrade. `parachains_common::impls::KickThreshold`
+//! derives such a value.
 //!
 //! ## TODO
 //!

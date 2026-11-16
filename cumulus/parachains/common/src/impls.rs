@@ -22,8 +22,9 @@ use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Get,
 	Imbalance, OnUnbalanced, OriginTrait, TypedGet,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_collator_selection::StakingPotAccountId;
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{CheckedDiv, One, Saturating, Zero};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,
@@ -167,6 +168,44 @@ where
 		if let Err(err) = result {
 			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
+	}
+}
+
+/// A `KickThreshold` for `pallet-collator-selection` on a chain whose Aura set holds up to
+/// `ExtraCollators` more collators than collator selection's invulnerables and candidates, for
+/// example validators drawn by `pallet-validator-collators`.
+///
+/// The blocks between two turns of the same collator in the largest collator set, plus one slot,
+/// then the first whole number of sessions above that, since candidates are only kicked at session
+/// start. The largest set is `ExtraCollators` plus the invulnerables and candidates. While the set
+/// size does not change, a bonded candidate authors a block within that time and is not kicked as
+/// stale.
+///
+/// `BlocksPerAuraSlot` is the number of blocks the chain authors in one Aura slot, at least one.
+pub struct KickThreshold<R, ExtraCollators, BlocksPerAuraSlot, SessionLength>(
+	PhantomData<(R, ExtraCollators, BlocksPerAuraSlot, SessionLength)>,
+);
+
+impl<R, ExtraCollators, BlocksPerAuraSlot, SessionLength> Get<BlockNumberFor<R>>
+	for KickThreshold<R, ExtraCollators, BlocksPerAuraSlot, SessionLength>
+where
+	R: pallet_collator_selection::Config,
+	ExtraCollators: Get<u32>,
+	BlocksPerAuraSlot: Get<u32>,
+	SessionLength: Get<BlockNumberFor<R>>,
+{
+	fn get() -> BlockNumberFor<R> {
+		let collators = ExtraCollators::get()
+			.saturating_add(R::MaxInvulnerables::get())
+			.saturating_add(R::MaxCandidates::get());
+		let round: BlockNumberFor<R> = collators
+			.saturating_add(1)
+			.saturating_mul(BlocksPerAuraSlot::get().max(1))
+			.into();
+		let session = SessionLength::get();
+		round
+			.checked_div(&session)
+			.map_or(round, |sessions| session.saturating_mul(sessions.saturating_add(One::one())))
 	}
 }
 
@@ -323,5 +362,25 @@ mod tests {
 			AssetsFrom::<SomeSiblingParachain>::contains(&asset, &SomeSiblingParachain::get()),
 			"AssetsFrom should allow assets from any of its interior locations"
 		);
+	}
+
+	#[test]
+	fn kick_threshold_rounds_one_round_plus_a_slot_up_to_whole_sessions() {
+		use frame_support::traits::ConstU64;
+		// GIVEN a largest collator set of 50 extra collators, 20 invulnerables and 20 candidates
+		type Threshold<BlocksPerSlot, Session> =
+			KickThreshold<Test, ConstU32<50>, BlocksPerSlot, Session>;
+		// WHEN the threshold is derived from the blocks per Aura slot and the session length
+		// THEN it is the first session multiple above one round of the set plus one slot
+		// A round of 91 slots of 2 blocks rounds up to 4 sessions of 50 blocks
+		assert_eq!(Threshold::<ConstU32<2>, ConstU64<50>>::get(), 200);
+		// The extra slot crosses a session boundary that the 90 collators alone stay under
+		assert_eq!(Threshold::<ConstU32<2>, ConstU64<181>>::get(), 362);
+		// A round that is exactly one session still gets the next session, so it exceeds the round
+		assert_eq!(Threshold::<ConstU32<1>, ConstU64<91>>::get(), 182);
+		// A zero session length returns the round instead of dividing by zero
+		assert_eq!(Threshold::<ConstU32<1>, ConstU64<0>>::get(), 91);
+		// A zero blocks per slot counts as one block per slot
+		assert_eq!(Threshold::<ConstU32<0>, ConstU64<50>>::get(), 100);
 	}
 }
