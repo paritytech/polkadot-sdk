@@ -418,7 +418,9 @@ impl V2DhtOrchestrator {
 	fn on_pending_affinities_at(&mut self, now: Instant) {
 		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self
+			.peers_topology
+			.peers_for_topics(&topics, |peer| self.peer_steering.is_unreachable(peer));
 		desired.extend(
 			self.peers_topology
 				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
@@ -934,7 +936,7 @@ mod tests {
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
@@ -1078,7 +1080,7 @@ mod tests {
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.
