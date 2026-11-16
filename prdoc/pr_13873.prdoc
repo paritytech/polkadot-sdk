@@ -5,9 +5,13 @@ doc:
     `parachains-common` adds `impls::KickThreshold`, a `Get` for the `KickThreshold` of
     `pallet-collator-selection` on a chain whose Aura set holds up to `ExtraCollators` more
     collators than collator selection's invulnerables and candidates, for example validators
-    drawn by `pallet-validator-collators`.
+    drawn by `pallet-validator-collators`. It returns the blocks between two turns of the same
+    collator in the largest collator set, plus one slot, then the first whole number of sessions
+    above that, since candidates are only kicked at session start. A candidate authors a block
+    within that time and is not kicked as stale. The runtime supplies the extra collators, the
+    blocks it authors per Aura slot and its session length.
 
-    Asset Hub Westend and People Westend configure their `KickThreshold`, using
+    Asset Hub Westend and People Westend configure their `KickThreshold` with this helper, using
     `MaxValidators` of `pallet-validator-collators` as the extra collators, and expose the blocks
     they author per Aura slot as the public `BlocksPerAuraSlot` parameter type.
 crates:

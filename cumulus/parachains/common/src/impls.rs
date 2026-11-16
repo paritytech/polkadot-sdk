@@ -177,9 +177,8 @@ where
 ///
 /// The blocks between two turns of the same collator in the largest collator set, plus one slot,
 /// then the first whole number of sessions above that, since candidates are only kicked at session
-/// start. The largest set is `ExtraCollators` plus the invulnerables and candidates. While the set
-/// size does not change, a bonded candidate authors a block within that time and is not kicked as
-/// stale.
+/// start. The largest set is `ExtraCollators` plus the invulnerables and candidates. A candidate
+/// authors a block within that time and is not kicked as stale.
 ///
 /// `BlocksPerAuraSlot` is the number of blocks the chain authors in one Aura slot, at least one.
 pub struct KickThreshold<R, ExtraCollators, BlocksPerAuraSlot, SessionLength>(
