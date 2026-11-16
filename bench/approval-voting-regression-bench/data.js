@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794826727604,
+  "lastUpdate": 1794838722643,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41dd688074605dcc0e104f2250473324ab59ec3",
-          "message": "pallet-psm: switch Westend Asset Hub to Location AssetId backed by LocalAndForeignAssets (#11921)\n\nOn Asset Hub Westend, `pallet-psm` is switched from `u32` (trust-backed\nasset id) to `xcm::v5::Location` as its `AssetId`, and from `Assets` to\n`LocalAndForeignAssets` as its `Fungibles`. PSM can now mint and redeem\nagainst both trust-backed and foreign-registered external stablecoins,\naddressed uniformly by `Location`.\n\nStorage migration: every `AssetId`-keyed PSM storage item is encoded\nunder the old `u32` key. The runtime wipes the existing PSM storage with\n`frame_support::migrations::RemovePallet` and re-seeds the pallet from\n`PsmInitialConfig` via `InitializePsm`. USDT (trust-backed asset `1984`)\nis reseeded under its `Location` representation as the first external\nasset.\n\n`pallet-psm`'s `BenchmarkHelper` trait gains a `get_asset_id(index:\nu32)` method so benchmark scenarios can derive a runtime-specific\n`AssetId` (e.g. a `Location`) from a `u32` index. Existing impls need to\nadd this method.",
-          "timestamp": "2026-04-30T09:51:00Z",
-          "tree_id": "eb4a04010530c93b8ba1d6a85bd134c3e8c49815",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d41dd688074605dcc0e104f2250473324ab59ec3"
-        },
-        "date": 1777548055697,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.65,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006261335350000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.447252865839962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7704462484599713,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000027745870000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002066386,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7450603574799977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.464141685829995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.779652718159999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.82719599581,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002066386,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000027745870000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.333702644632775,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8544945247499998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.863910358562825,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fa9f17286c91d3216b491a11de94bcc776b5be7f",
+          "message": "Staking: Chill stakers should not have a score (#13527)\n\nPort of #9926 to `pallet-staking`. `ScoreProvider::score` returned a\nscore for any bonded stash, so `pallet-bags-list` could re-insert a\nchilled staker into `VoterList`: through the permissionless `rebag`\ncall, or through the `on_idle` auto-rebag when the staker chilled while\nthe auto-rebag cursor pointed at them. The resulting node is neither a\nnominator nor a validator, and trips the \"invalid item in `VoterList`\"\ndefensive failure in every election snapshot, such as in\nhttps://github.com/paritytech/polkadot-sdk/issues/13508\n\n`score` now returns `None` unless the stash is a nominator or validator,\nand the benchmark `set_score_of` gives the account a role so it keeps a\nscore.\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-16T12:45:52Z",
+          "tree_id": "739fa019392e7c341b6953f578c3f2faa5dd3e2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa9f17286c91d3216b491a11de94bcc776b5be7f"
+        },
+        "date": 1794838688651,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63571.18000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.813589070599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002118476,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005356311540000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7510280815100017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8713942022000104,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002118476,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.342001414300004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3807042279599897,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020508579999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.750643678110001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5973610491926085,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7692858423800013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020508579999999997,
             "unit": "seconds"
           }
         ]
