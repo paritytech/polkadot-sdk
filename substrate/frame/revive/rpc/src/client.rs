@@ -628,7 +628,7 @@ impl Client {
 
 	/// Subscribe to new blocks, and execute the async closure for each block. The finalized
 	/// stream queues the gaps listed on [`SubscriptionGapQueue`].
-	pub(crate) async fn subscribe_new_blocks<F, Fut>(
+	async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
 		callback: F,

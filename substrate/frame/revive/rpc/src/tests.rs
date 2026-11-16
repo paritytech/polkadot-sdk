@@ -60,7 +60,10 @@ use pallet_revive_types::runtime_api::{
 	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{
+	SqlitePool,
+	sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+};
 use std::{collections::BTreeSet, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -443,6 +446,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_finalized_block_processing_failure_queues_gap_fill,
 		test_best_block_processing_failure_queues_nothing,
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
+		test_failed_log_read_of_indexed_block_queues_nothing,
 		test_pending_gap_fill_holds_sync_head,
 		test_finalized_subscription_queues_blocks_finalized_before_it_started,
 		test_finalized_subscription_queues_nothing_without_blocks_before_it_started,
@@ -2545,6 +2549,15 @@ async fn create_sync_test_client() -> anyhow::Result<Client> {
 async fn create_sync_test_client_with_subscription_gap_queue(
 	is_archive: bool,
 ) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+	let (client, gap_fill_rx, _pool) = create_sync_test_client_with_pool(is_archive).await?;
+	Ok((client, gap_fill_rx))
+}
+
+/// Like [`create_sync_test_client_with_subscription_gap_queue`], also returning the client's
+/// database so that tests can make its writes fail.
+async fn create_sync_test_client_with_pool(
+	is_archive: bool,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>, SqlitePool)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2564,7 +2577,7 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 	let chain_id = crate::chain_id(&api).await?;
 	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
-		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
+		DbContext::new(pool.clone(), DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
 		receipt_extractor,
 		None,
@@ -2584,7 +2597,7 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 		chain_id,
 	)
 	.await?;
-	Ok((client, gap_fill_rx))
+	Ok((client, gap_fill_rx, pool))
 }
 
 /// Fresh sync: labels, hash mappings, and re-sync idempotency.
@@ -4058,57 +4071,27 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 /// A finalized block whose processing fails is handed to the gap filler as a one-block request
 /// carrying its hash; the filler indexes it and the queue drains without manual bookkeeping.
 async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Result<()> {
-	let (sync_client, mut gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue(true).await?;
-	assert!(!sync_client.subscription_gap_queue().has_pending());
+	let failed = fail_one_streamed_block(true, SubscriptionType::FinalizedBlocks).await?;
+	let (sync_client, (number, hash)) = (&failed.client, failed.block);
 
-	// Record every request on its way to the real filler.
-	let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
-	let (filler_tx, filler_rx) = mpsc::channel(32);
-	let bg_requests = requests.clone();
-	let _tee = AbortOnDrop(tokio::spawn(async move {
-		while let Some(request) = gap_fill_rx.recv().await {
-			bg_requests.lock().unwrap().push((
-				request.from_inclusive,
-				request.to_inclusive,
-				request.from_hash,
-			));
-			if filler_tx.send(request).await.is_err() {
-				break;
-			}
-		}
-	}));
+	assert_eq!(failed.requests, vec![(number, number, Some(hash))]);
+	assert!(sync_client.subscription_gap_queue().has_pending());
+	assert_eq!(sync_client.receipt_provider().get_ethereum_hash(&hash).await, None);
+
+	// With the database accepting the block again, the real filler indexes it.
+	sqlx::query("DROP TRIGGER reject_block").execute(&failed.pool).await?;
+	let (filler_tx, filler_rx) = mpsc::channel(1);
+	filler_tx
+		.try_send(GapFillRequest {
+			from_inclusive: number,
+			to_inclusive: number,
+			from_hash: Some(hash),
+		})
+		.map_err(|_| anyhow!("gap filler queue closed"))?;
 	let bg_client = sync_client.clone();
 	let _filler = AbortOnDrop(tokio::spawn(async move {
 		bg_client.run_subscription_gap_filler(filler_rx, GapFillRetry::default()).await
 	}));
-
-	// The callback never indexes anything, so only the filler can.
-	let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
-	let bg_client = sync_client.clone();
-	let bg_seen = seen.clone();
-	let _subscription = AbortOnDrop(tokio::spawn(async move {
-		bg_client
-			.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| {
-				let seen = bg_seen.clone();
-				async move {
-					seen.lock().unwrap().push((block.block_number(), block.block_hash()));
-					Err(crate::client::ClientError::BlockNotFound)
-				}
-			})
-			.await
-	}));
-	submit_evm_transfers(1).await?;
-
-	wait_until("a finalized block to fail processing", || async {
-		!seen.lock().unwrap().is_empty()
-	})
-	.await?;
-	let (number, hash) = seen.lock().unwrap()[0];
-	wait_until("the failed block to be queued with its hash", || async {
-		requests.lock().unwrap().contains(&(number, number, Some(hash)))
-	})
-	.await?;
 	wait_until("the gap filler to index the failed block", || async {
 		sync_client.receipt_provider().get_ethereum_hash(&hash).await.is_some()
 	})
@@ -4121,34 +4104,100 @@ async fn test_finalized_block_processing_failure_queues_gap_fill() -> anyhow::Re
 	Ok(())
 }
 
-/// A best block whose processing fails queues nothing: best blocks can be retracted, and the
-/// finalized stream indexes the canonical block.
-async fn test_best_block_processing_failure_queues_nothing() -> anyhow::Result<()> {
-	let (sync_client, mut gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue(true).await?;
+/// A test client whose subscription failed to index one block.
+struct FailedStreamedBlock {
+	client: Client,
+	pool: SqlitePool,
+	/// Number and hash of the block that failed.
+	block: (SubstrateBlockNumber, H256),
+	/// Gap-fill requests queued by the time the next block was processed.
+	requests: Vec<(SubstrateBlockNumber, SubstrateBlockNumber, Option<H256>)>,
+	_subscription: AbortOnDrop<Result<(), crate::client::ClientError>>,
+}
 
-	let failures = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-	let bg_client = sync_client.clone();
-	let bg_failures = failures.clone();
-	let _subscription = AbortOnDrop(tokio::spawn(async move {
-		bg_client
-			.subscribe_new_blocks(SubscriptionType::BestBlocks, |_block| {
-				let failures = bg_failures.clone();
-				async move {
-					failures.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-					Err(crate::client::ClientError::BlockNotFound)
-				}
-			})
-			.await
+/// Runs the production `subscription_type` callback on a fresh test client while its database
+/// rejects the next block, and returns once the block after it is indexed. The rejection stays
+/// in place as the trigger `reject_block`.
+async fn fail_one_streamed_block(
+	is_archive: bool,
+	subscription_type: SubscriptionType,
+) -> anyhow::Result<FailedStreamedBlock> {
+	let (client, mut gap_fill_rx, pool) = create_sync_test_client_with_pool(is_archive).await?;
+	let cached = client.latest_finalized_block().await;
+
+	let bg_client = client.clone();
+	let subscription = AbortOnDrop(tokio::spawn(async move {
+		bg_client.subscribe_and_cache_new_blocks(subscription_type).await
 	}));
-	submit_evm_transfers(2).await?;
-	wait_until("two failed best-block callbacks", || async {
-		failures.load(std::sync::atomic::Ordering::SeqCst) >= 2
+	wait_until("the subscription to index its first block", || async {
+		client
+			.receipt_provider()
+			.get_ethereum_hash(&cached.block_hash())
+			.await
+			.is_some()
 	})
 	.await?;
 
-	assert!(!sync_client.subscription_gap_queue().has_pending());
-	assert!(gap_fill_rx.try_recv().is_err(), "a failed best block must not be queued");
+	// Reject every block until the next one exists, then that block only.
+	sqlx::query(
+		"CREATE TRIGGER reject_all BEFORE INSERT ON eth_to_substrate_blocks \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+	)
+	.execute(&pool)
+	.await?;
+	submit_evm_transfers(1).await?;
+	let number = cached.block_number() + 1;
+	let hash = client
+		.block_provider()
+		.block_by_number(number)
+		.await?
+		.expect("block exists on chain")
+		.block_hash();
+	sqlx::query(&format!(
+		"CREATE TRIGGER reject_block BEFORE INSERT ON eth_to_substrate_blocks \
+		 WHEN NEW.substrate_block_hash = X'{}' \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+		hex::encode(hash)
+	))
+	.execute(&pool)
+	.await?;
+	sqlx::query("DROP TRIGGER reject_all").execute(&pool).await?;
+
+	// Blocks are processed in order, so once the next block is indexed the rejected one has
+	// been processed and failed.
+	submit_evm_transfers(1).await?;
+	let next_hash = client
+		.block_provider()
+		.block_by_number(number + 1)
+		.await?
+		.expect("block exists on chain")
+		.block_hash();
+	wait_until("the subscription to index the block after the rejected one", || async {
+		client.receipt_provider().get_ethereum_hash(&next_hash).await.is_some()
+	})
+	.await?;
+	assert_eq!(client.receipt_provider().get_ethereum_hash(&hash).await, None);
+
+	let mut requests = Vec::new();
+	while let Ok(request) = gap_fill_rx.try_recv() {
+		requests.push((request.from_inclusive, request.to_inclusive, request.from_hash));
+	}
+	Ok(FailedStreamedBlock {
+		client,
+		pool,
+		block: (number, hash),
+		requests,
+		_subscription: subscription,
+	})
+}
+
+/// A best block whose processing fails queues nothing: best blocks can be retracted, and the
+/// finalized stream indexes the canonical block.
+async fn test_best_block_processing_failure_queues_nothing() -> anyhow::Result<()> {
+	let failed = fail_one_streamed_block(true, SubscriptionType::BestBlocks).await?;
+
+	assert_eq!(failed.requests, vec![], "a failed best block must not be queued");
+	assert!(!failed.client.subscription_gap_queue().has_pending());
 
 	Ok(())
 }
@@ -4157,31 +4206,59 @@ async fn test_best_block_processing_failure_queues_nothing() -> anyhow::Result<(
 /// processing fails is left unindexed instead of being queued.
 async fn test_finalized_block_processing_failure_queues_nothing_in_pruning_mode()
 -> anyhow::Result<()> {
-	let (sync_client, mut gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue(false).await?;
+	let failed = fail_one_streamed_block(false, SubscriptionType::FinalizedBlocks).await?;
 
-	let failures = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+	assert_eq!(failed.requests, vec![], "pruning mode must not queue a failed block");
+	assert!(!failed.client.subscription_gap_queue().has_pending());
+
+	Ok(())
+}
+
+/// A failed read of an indexed block's logs for log subscribers is logged, not returned, so the
+/// indexed block is not handed to the gap filler.
+async fn test_failed_log_read_of_indexed_block_queues_nothing() -> anyhow::Result<()> {
+	let (sync_client, mut gap_fill_rx, pool) = create_sync_test_client_with_pool(true).await?;
+	let _logs = sync_client.get_log_subscription_rx();
+	let cached = sync_client.latest_finalized_block().await.block_number();
+
+	// The best stream indexes the next block, so the finalized stream later finds it processed
+	// and reads its logs from the database instead of extracting them.
 	let bg_client = sync_client.clone();
-	let bg_failures = failures.clone();
-	let _subscription = AbortOnDrop(tokio::spawn(async move {
+	let best = AbortOnDrop(tokio::spawn(async move {
+		bg_client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks).await
+	}));
+	submit_evm_transfers(1).await?;
+	wait_until("the best stream to index the next block", || async {
+		sync_client.latest_block().await.block_number() > cached
+	})
+	.await?;
+	drop(best);
+	let indexed = sync_client.latest_block().await;
+	assert!(
+		sync_client
+			.receipt_provider()
+			.get_processed_eth_block_hash(indexed.block_number(), indexed.block_hash())
+			.await
+			.is_some()
+	);
+
+	sqlx::query("DROP TABLE logs").execute(&pool).await?;
+	let bg_client = sync_client.clone();
+	let _finalized = AbortOnDrop(tokio::spawn(async move {
 		bg_client
-			.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |_block| {
-				let failures = bg_failures.clone();
-				async move {
-					failures.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-					Err(crate::client::ClientError::BlockNotFound)
-				}
-			})
+			.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)
 			.await
 	}));
-	submit_evm_transfers(2).await?;
-	wait_until("two failed finalized-block callbacks", || async {
-		failures.load(std::sync::atomic::Ordering::SeqCst) >= 2
+	// The finalized stream starts at the indexed block; once the next block is cached, the
+	// indexed block's callback has run to completion.
+	submit_evm_transfers(1).await?;
+	wait_until("the finalized stream to pass the indexed block", || async {
+		sync_client.latest_finalized_block().await.block_number() > indexed.block_number()
 	})
 	.await?;
 
+	assert!(gap_fill_rx.try_recv().is_err(), "an indexed block must not be queued");
 	assert!(!sync_client.subscription_gap_queue().has_pending());
-	assert!(gap_fill_rx.try_recv().is_err(), "pruning mode must not queue a failed block");
 
 	Ok(())
 }
