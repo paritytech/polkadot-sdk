@@ -178,7 +178,7 @@ impl ExplicitAffinity {
 
 	/// The advertised filter, to send again ahead of a changed one. A peer answers a repeated
 	/// filter with a full replay and a changed one with only the difference.
-	fn take_filter_to_repeat(&mut self) -> Option<AffinityFilter> {
+	fn take_replay_request(&mut self) -> Option<AffinityFilter> {
 		if !self.replay_wanted {
 			return None;
 		}
@@ -188,9 +188,9 @@ impl ExplicitAffinity {
 
 	/// The filters due for a broadcast, in sending order.
 	pub(crate) fn take_filters_to_broadcast(&mut self) -> Vec<AffinityFilter> {
-		let repeated = self.take_filter_to_repeat();
+		let replay_request = self.take_replay_request();
 		let changed = self.take_local_filter_if_changed();
-		repeated.into_iter().chain(changed).collect()
+		replay_request.into_iter().chain(changed).collect()
 	}
 
 	// === Peer filters ===
@@ -395,25 +395,25 @@ mod tests {
 	}
 
 	#[test]
-	fn take_filter_to_repeat_yields_the_advertised_filter_ahead_of_a_changed_one() {
+	fn take_replay_request_yields_the_advertised_filter_ahead_of_a_changed_one() {
 		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let advertised =
 			affinity.take_local_filter_if_changed().expect("construction marks a change");
 
 		// A topic change alone asks for the difference.
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
-		assert!(affinity.take_filter_to_repeat().is_none());
+		assert!(affinity.take_replay_request().is_none());
 		assert_eq!(affinity.advertised_filter(), advertised);
 
 		affinity.mark_local_filter_stale();
-		assert_eq!(affinity.take_filter_to_repeat(), Some(advertised));
-		assert!(affinity.take_filter_to_repeat().is_none());
+		assert_eq!(affinity.take_replay_request(), Some(advertised));
+		assert!(affinity.take_replay_request().is_none());
 		let changed = affinity.take_local_filter_if_changed().expect("add marks a change");
 		assert_eq!(affinity.advertised_filter(), changed);
 
 		// With the topics unchanged the one advertisement already repeats the filter.
 		affinity.mark_local_filter_stale();
-		assert!(affinity.take_filter_to_repeat().is_none());
+		assert!(affinity.take_replay_request().is_none());
 		assert_eq!(affinity.take_local_filter_if_changed(), Some(changed));
 	}
 
