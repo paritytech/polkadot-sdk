@@ -466,9 +466,13 @@ fn minted_contract_pgas_ed_not_extractable_due_to_freeze() {
 	});
 }
 
+/// A contract whose storage was paid for by two different signers, both via the native
+/// fallback path, can still be terminated. [`Deposit::refund_all`] bypasses the per-payer
+/// [`NativeDepositOf`] cap (one recipient at termination, contract gone), so the full native
+/// hold goes to the terminator and any PGAS hold is settled via `settle_pgas_refund`.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn terminate_keeps_native_deposits_of_pre_existing_contract(fixture_type: FixtureType) {
+fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::set_balance(&ALICE, 100_000_000_000);
@@ -497,8 +501,73 @@ fn terminate_keeps_native_deposits_of_pre_existing_contract(fixture_type: Fixtur
 
 		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
 		let native_held = Balances::balance_on_hold(&hold, &account_id);
+		let pgas_held = AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &account_id);
+		assert_eq!(pgas_held, 0, "every charge fell back to native");
 		assert_eq!(native_held, alice_entry + charlie_entry);
+
 		let alice_before = Balances::balance(&ALICE);
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(
+					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build()
+				.result,
+		);
+		let alice_after = Balances::balance(&ALICE);
+
+		assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+		assert_eq!(
+			Balances::balance_on_hold(&hold, &account_id),
+			0,
+			"the full multi-contributor native hold has been released",
+		);
+		// ALICE receives the full storage-deposit hold (her own + CHARLIE's). The actual delta
+		// also picks up the code-upload deposit refund and any tx-level deposit accounting,
+		// so it is at least `native_held`.
+		assert!(
+			alice_after.saturating_sub(alice_before) >= native_held,
+			"expected ALICE balance delta >= {}, got {}",
+			native_held,
+			alice_after.saturating_sub(alice_before),
+		);
+	});
+}
+
+/// Terminating a contract reaps its system account (native and PGAS EDs are burned by
+/// `destroy_contract`, the manual consumer is decremented), and the `on_idle` deletion-queue
+/// drain clears its [`NativeDepositOf`] rows. We charge a multi-contributor native deposit
+/// first so the double map is genuinely populated and we can observe both rows disappear.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&CHARLIE, 100_000_000_000);
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Two distinct payers grow distinct slots so that `NativeDepositOf[contract][_]` has
+		// two rows once the deletion queue starts draining.
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+
+		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
+		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
+		assert!(System::account_exists(&account_id), "contract account is alive pre-terminate");
 
 		assert_ok!(
 			builder::bare_call(addr)
@@ -510,12 +579,27 @@ fn terminate_keeps_native_deposits_of_pre_existing_contract(fixture_type: Fixtur
 				.result,
 		);
 
-		assert!(get_contract_checked(&addr).is_some(), "contract should stay");
-		assert_eq!(Balances::balance_on_hold(&hold, &account_id), native_held);
-		assert_eq!(Balances::balance(&ALICE), alice_before, "nothing is refunded");
-		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), alice_entry);
-		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE), charlie_entry);
-		assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "nothing is queued for deletion");
+		assert!(get_contract_checked(&addr).is_none(), "contract info should be gone");
+		assert!(
+			!System::account_exists(&account_id),
+			"system account should be reaped once destroy_contract burns the EDs",
+		);
+		assert_eq!(Balances::balance(&account_id), 0);
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &account_id), 0);
+
+		// `NativeDepositOf` rows survive termination; they're cleared lazily by `on_idle`.
+		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
+		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "contract is queued for deletion");
+
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		assert_eq!(
+			DeletionQueue::<Test>::iter().count(),
+			0,
+			"deletion queue drained to completion",
+		);
+		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
 	});
 }
 
@@ -848,7 +932,6 @@ fn terminate_clearable(addr: H160, beneficiary: H160) {
 /// the rows of the new contract while it finishes removing the old child trie.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
@@ -880,7 +963,6 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 /// the new contract alone until the queue is empty.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_of_recreated_contract_across_batches(
 	fixture_type: FixtureType,
 ) {
@@ -938,7 +1020,6 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract_across_batches(
 /// the address.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
@@ -967,7 +1048,6 @@ fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_typ
 /// rows, so a contract can be re-created at its address before the deletion queue runs.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_keeps_native_deposits_after_pgas_only_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
 	ExtBuilder::default()
@@ -1016,7 +1096,6 @@ fn deletion_queue_keeps_native_deposits_after_pgas_only_contract(fixture_type: F
 /// the terminated contract.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn deletion_queue_clears_native_deposits_of_terminated_contract_with_dust(
 	fixture_type: FixtureType,
 ) {

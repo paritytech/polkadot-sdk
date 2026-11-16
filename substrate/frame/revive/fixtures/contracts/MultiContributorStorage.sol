@@ -10,7 +10,9 @@ import "@revive/ISystem.sol";
 /// where neither caller has any PGAS, every charge falls back to native currency and is
 /// recorded per-payer in `NativeDepositOf[contract][caller]`.
 ///
-/// `terminate` invokes the `ISystem.terminate` precompile.
+/// `terminate` invokes the `ISystem.terminate` precompile (not the EVM `SELFDESTRUCT` opcode,
+/// which EIP-6780 restricts to same-tx-created contracts). The precompile path is what
+/// `do_terminate` is reachable through across distinct transactions.
 contract MultiContributorStorage {
 	mapping(address => bytes) private slots;
 
