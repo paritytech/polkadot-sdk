@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests of which reports are accepted, how reports and votes are anchored and expired, and how
-//! votes become prices.
+//! Tests of when reports are processed, which of them are accepted, how reports and votes are
+//! anchored and expired, and how votes become prices.
 
 use crate::{self as pallet_price_oracle, *};
 use core::{
@@ -25,6 +25,7 @@ use core::{
 };
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
+	dispatch::GetDispatchInfo,
 	traits::{ConstU32, Hooks},
 };
 use sp_price_oracle::{PriceReport, Quote};
@@ -630,4 +631,97 @@ fn report_with_invalid_signature_does_not_replace_a_valid_one() {
 		assert_eq!(votes(), vec![(1, Anchor::new(99, START_MS))]);
 		assert_eq!(Prices::<Test>::get(PAIR).map(|p| p.price), Some(Price::from_u32(4)));
 	});
+}
+
+#[test]
+fn only_none_origin_can_process_reports() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			PriceOracle::process_reports(RuntimeOrigin::signed(1), vec![]),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			PriceOracle::process_reports(RuntimeOrigin::root(), vec![]),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn reports_are_processed_once_per_block() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::process_reports(
+			RuntimeOrigin::none(),
+			vec![report(1, 100, START_MS, 5)]
+		));
+		// A second call in the same block fails.
+		assert_noop!(
+			PriceOracle::process_reports(RuntimeOrigin::none(), vec![report(2, 100, START_MS, 7)]),
+			Error::<Test>::AlreadyProcessed
+		);
+		// The next block processes reports again.
+		PriceOracle::on_finalize(100);
+		System::set_block_number(101);
+		assert_ok!(PriceOracle::process_reports(
+			RuntimeOrigin::none(),
+			vec![report(2, 101, START_MS, 7)]
+		));
+		assert_eq!(votes(), vec![(1, Anchor::new(100, START_MS)), (2, Anchor::new(101, START_MS))]);
+	});
+}
+
+#[test]
+fn more_reports_than_max_signers_fail() {
+	new_test_ext().execute_with(|| {
+		// Reports of signer 1, each with a later timestamp than the one before.
+		let reports = |count: u64| -> Vec<_> {
+			(0..count).map(|i| report(1, 100, START_MS + i, 5)).collect()
+		};
+		// `MaxSigners` is 10.
+		assert_noop!(
+			PriceOracle::process_reports(RuntimeOrigin::none(), reports(11)),
+			Error::<Test>::TooManyReports
+		);
+		// The failed call left nothing behind, so the block can still process reports. As many
+		// as `MaxSigners` are fine.
+		assert_ok!(PriceOracle::process_reports(RuntimeOrigin::none(), reports(10)));
+		assert_eq!(votes(), vec![(1, Anchor::new(100, START_MS + 9))]);
+	});
+}
+
+#[test]
+fn nothing_is_processed_while_parameters_are_unset() {
+	new_test_ext().execute_with(|| {
+		Params::<Test>::kill();
+		// The call succeeds, but the report is ignored.
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert!(take_events().is_empty());
+		assert!(votes().is_empty());
+	});
+}
+
+#[test]
+fn create_inherent_takes_the_reports_of_the_inherent_data() {
+	new_test_ext().execute_with(|| {
+		let reports = vec![report(1, 100, START_MS, 5), report(2, 100, START_MS, 7)];
+		let mut data = InherentData::new();
+		data.put_data(INHERENT_IDENTIFIER, &reports).unwrap();
+		assert_eq!(PriceOracle::create_inherent(&data), Some(Call::process_reports { reports }));
+
+		// Without inherent data, the call has no reports.
+		let no_reports = Some(Call::process_reports { reports: vec![] });
+		assert_eq!(PriceOracle::create_inherent(&InherentData::new()), no_reports);
+
+		// The same with inherent data that does not decode.
+		let mut malformed = InherentData::new();
+		malformed.put_data(INHERENT_IDENTIFIER, &vec![1u8, 2, 3]).unwrap();
+		assert_eq!(PriceOracle::create_inherent(&malformed), no_reports);
+	});
+}
+
+#[test]
+fn process_reports_is_operational() {
+	// Not `Mandatory`, so a call that fails does not make the block invalid.
+	let call = Call::<Test>::process_reports { reports: vec![] };
+	assert_eq!(call.get_dispatch_info().class, DispatchClass::Operational);
 }
