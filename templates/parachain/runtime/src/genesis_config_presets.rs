@@ -39,6 +39,11 @@ fn testnet_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, 1u128 << 60))
+				.chain(core::iter::once((
+					crate::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					EXISTENTIAL_DEPOSIT
+				)))
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },

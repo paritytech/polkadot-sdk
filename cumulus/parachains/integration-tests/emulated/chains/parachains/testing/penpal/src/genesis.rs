@@ -42,7 +42,16 @@ pub fn genesis(para_id: u32) -> Storage {
 	let genesis_config = penpal_runtime::RuntimeGenesisConfig {
 		system: penpal_runtime::SystemConfig::default(),
 		balances: penpal_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ED * 4096))
+				.chain(std::iter::once((
+					penpal_runtime::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ED,
+				)))
+				.collect(),
 			..Default::default()
 		},
 		parachain_info: penpal_runtime::ParachainInfoConfig {

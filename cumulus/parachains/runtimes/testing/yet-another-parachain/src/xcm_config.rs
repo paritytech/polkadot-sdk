@@ -201,6 +201,7 @@ impl pallet_xcm::Config for Runtime {
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationToAccountId;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;

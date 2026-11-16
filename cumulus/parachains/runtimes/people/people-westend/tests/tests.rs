@@ -376,3 +376,13 @@ fn staking_operator_proxy_manages_session_keys_only() {
 	assert!(!ProxyType::Collator.is_superset(&operator));
 	assert!(!operator.is_superset(&ProxyType::NonTransfer));
 }
+
+/// The trap account migration of `pallet_xcm` sets the account up and moves known traps into it,
+/// and the pallet's trap account try-state check passes afterwards.
+#[test]
+fn pallet_xcm_trap_account_migration_works() {
+	parachains_runtimes_test_utils::test_cases::pallet_xcm_trap_account_migration_works::<Runtime>(
+		collator_session_keys(),
+		1004,
+	)
+}

@@ -61,6 +61,11 @@ pub fn genesis() -> Storage {
 				.iter()
 				.cloned()
 				.map(|k| (k, ED * 4096 * 4096))
+				.chain(std::iter::once((
+					asset_hub_rococo_runtime::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ED,
+				)))
 				.collect(),
 			..Default::default()
 		},

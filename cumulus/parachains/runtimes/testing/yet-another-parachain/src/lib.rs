@@ -112,6 +112,7 @@ pub type Migrations = (
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
 	>,
+	pallet_xcm::migration::v2::MigrateToV2<Runtime>,
 );
 
 /// This runtime version.

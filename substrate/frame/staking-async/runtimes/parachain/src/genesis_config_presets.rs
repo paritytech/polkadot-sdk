@@ -65,6 +65,10 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 	// `Preservation::Preserve`, so it needs spendable balance above ED, sized in rounds of
 	// `RewardBase` rather than tracking whatever endowment a preset picked.
 	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED + crate::staking::RewardBase::get() * 1_000));
+	balances.push((
+		PolkadotXcm::trap_account().expect("the trap location converts to an account; qed"),
+		STAKING_ASYNC_PARA_ED,
+	));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },

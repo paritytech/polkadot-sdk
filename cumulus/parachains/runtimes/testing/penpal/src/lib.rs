@@ -184,6 +184,7 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	pallet_xcm::migration::v2::MigrateToV2<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

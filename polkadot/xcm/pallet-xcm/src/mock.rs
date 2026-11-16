@@ -587,6 +587,7 @@ impl pallet_xcm::Config for Test {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = AccountId32Aliases<(), AccountId32>;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<RelayLocation>;
 	type MaxLockers = frame_support::traits::ConstU32<8>;
@@ -770,6 +771,9 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
+	let mut balances = balances;
+	// The trap account holds the existential deposit, as it does on real chains.
+	balances.push((XcmPallet::trap_account().unwrap(), ExistentialDeposit::get()));
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();

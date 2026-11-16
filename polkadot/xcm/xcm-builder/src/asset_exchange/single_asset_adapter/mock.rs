@@ -160,6 +160,9 @@ pub type LocationToAccountId = AccountIndex64Aliases;
 
 parameter_types! {
 	pub HereLocation: Location = Here.into_location();
+	/// The trap account, see `pallet_xcm::Config::TrapAccountLocation`; this mock uses u64
+	/// account ids, so it is an `AccountIndex64` junction.
+	pub TrapAccountLocation: Location = AccountIndex64 { index: 7_777_777, network: None }.into();
 	pub WeightPerInstruction: Weight = Weight::from_parts(1, 1);
 	pub MaxInstructions: u32 = 100;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
@@ -336,6 +339,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	// How to turn locations into accounts
 	type SovereignAccountOf = LocationToAccountId;
+	type TrapAccountLocation = TrapAccountLocation;
 	// A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
 	type CurrencyMatcher = crate::IsConcrete<HereLocation>;

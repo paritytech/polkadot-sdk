@@ -55,7 +55,16 @@ pub fn genesis() -> Storage {
 	let genesis_config = westend_runtime::RuntimeGenesisConfig {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ENDOWMENT))
+				.chain(std::iter::once((
+					westend_runtime::XcmPallet::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					westend_runtime::ExistentialDeposit::get(),
+				)))
+				.collect(),
 			..Default::default()
 		},
 		session: westend_runtime::SessionConfig {

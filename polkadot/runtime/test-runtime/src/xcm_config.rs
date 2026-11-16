@@ -24,8 +24,8 @@ use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageD
 use polkadot_runtime_parachains::FeeTracker;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
+	AccountId32Aliases, AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds,
+	FrameTransactionalProcessor, SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
 };
 use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
@@ -186,7 +186,8 @@ impl pallet_xcm::Config for crate::Runtime {
 	type Currency = crate::Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
-	type SovereignAccountOf = ();
+	type SovereignAccountOf = AccountId32Aliases<AnyNetwork, crate::AccountId>;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	type MaxLockers = frame_support::traits::ConstU32<8>;
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();

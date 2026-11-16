@@ -45,6 +45,11 @@ fn bridge_hub_westend_genesis(
 					AccumulateForward::accumulation_account(),
 					BRIDGE_HUB_WESTEND_ED
 				)))
+				.chain(core::iter::once((
+					PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					BRIDGE_HUB_WESTEND_ED
+				)))
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },

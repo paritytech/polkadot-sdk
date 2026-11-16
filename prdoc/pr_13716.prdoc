@@ -1,0 +1,74 @@
+title: "pallet-xcm: hold trapped assets in a dedicated trap account"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Trapped assets are now held by a dedicated trap account instead of being dropped without
+      a burn and minted back on claim. `pallet_xcm::DropAssets` deposits every trapped asset
+      into the account at the new `pallet_xcm::Config::TrapAccountLocation` and
+      `pallet_xcm::ClaimAssets` withdraws them from it again (all or nothing), so the sum of
+      balances keeps matching total issuance for everything trapped from now on, and claims no
+      longer emit a mint and a burn. When the trap account cannot receive an asset, it is burned,
+      recorded as a trap of its own (so the assets successfully moved to the trap account stay
+      claimable) and reported by the new `AssetsTrapFailed` event; that trap becomes claimable
+      once the asset's issuer (or governance) funds the trap account with it.
+
+      Traps recorded before this change only exist as hashes and cannot be automatically migrated
+      into the trap account. `pallet_xcm::migration::v2::MigrateToV2<Runtime>` (pallet storage
+      version 1 -> 2) moves them to the new `LegacyAssetTraps` map, where nothing is added anymore
+      and claims keep minting them back until the map empties. The migration also funds the trap
+      account with the native existential deposit (minted, the only issuance change).
+
+      Runtimes must add `type TrapAccountLocation` to their `pallet_xcm::Config`
+      (`pallet_xcm::AccountId32TrapLocation` for chains with 32-byte account ids), fund that
+      account with the existential deposit at genesis (`pallet_xcm::Pallet::trap_account()`)
+      or add the migration for existing chains.
+
+  - audience: Runtime User
+    description: |
+      Issuers of non-sufficient `pallet_assets` assets: the trap account can only hold
+      `frame_system::Config::MaxConsumers` distinct non-sufficient assets through consumer
+      references, so to make your asset reliably recoverable from traps, create its account for
+      the trap account once with `assets.touch_other(asset_id, trap_account)`. Such an account
+      uses a deposit instead of a consumer reference and is kept when its balance drops to zero.
+      If an `AssetsTrapFailed` event is emitted for your asset before you could do the above,
+      `touch_other` and `mint` the reported amount into the trap account, after which the
+      original owner can claim it.
+
+crates:
+  - name: pallet-xcm
+    bump: major
+  - name: parachains-runtimes-test-utils
+    bump: minor
+  - name: westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: yet-another-parachain-runtime
+    bump: major
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: staging-xcm-builder
+    bump: patch
+  - name: pallet-xcm-precompiles
+    bump: patch
+  - name: xcm-simulator-example
+    bump: patch
+  - name: pallet-contracts-mock-network
+    bump: patch

@@ -56,6 +56,12 @@ fn asset_hub_westend_genesis(
 		.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED + staking::RewardBase::get() * 1_000));
 	// The staging account only receives, so ED is enough for it to exist.
 	balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
+	// The XCM trap account holds the existential deposit so that trapped amounts of any size
+	// can be received and claimed, see `pallet_xcm::Config::TrapAccountLocation`.
+	balances.push((
+		PolkadotXcm::trap_account().expect("the trap location converts to an account; qed"),
+		ASSET_HUB_WESTEND_ED,
+	));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },

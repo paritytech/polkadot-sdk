@@ -61,6 +61,11 @@ pub fn genesis() -> Storage {
 					asset_hub_westend_runtime::xcm_config::CheckingAccount::get(),
 					ED * 1000,
 				)))
+				.chain(std::iter::once((
+					asset_hub_westend_runtime::PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					ED,
+				)))
 				.collect(),
 			..Default::default()
 		},

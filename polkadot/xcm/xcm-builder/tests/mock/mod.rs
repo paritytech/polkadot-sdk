@@ -216,7 +216,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type TrustedLockers = ();
-	type SovereignAccountOf = ();
+	type SovereignAccountOf = SovereignAccountOf;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<KsmLocation>;
 	type MaxLockers = frame_support::traits::ConstU32<8>;

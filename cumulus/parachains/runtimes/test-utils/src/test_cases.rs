@@ -23,15 +23,17 @@ use crate::{
 use codec::Encode;
 use frame_support::{
 	assert_ok,
-	traits::{Get, OriginTrait},
+	traits::{Currency, Get, OnRuntimeUpgrade, OriginTrait, StorageVersion},
 	weights::WeightToFee as WeightToFeeT,
 };
 use parachains_common::AccountId;
+use sp_core::H256;
 use sp_runtime::{
-	traits::{Block as BlockT, SaturatedConversion, StaticLookup},
+	traits::{BlakeTwo256, Block as BlockT, Hash, SaturatedConversion, StaticLookup},
 	DispatchError, Either,
 };
-use xcm::prelude::InstructionError;
+use xcm::prelude::*;
+use xcm_executor::traits::{ClaimAssets, DropAssets, TransactAsset, XcmAssetTransfers};
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError,
 };
@@ -250,4 +252,167 @@ where
 			Some(_) => Ok(()),
 		}
 	})
+}
+
+/// Records `(origin, assets)` in `map` the way a runtime at XCM `version` did before trapped
+/// assets were held by the trap account, `count` times: the hash is of the pair as encoded at
+/// that version, and the relay token amount is counted in total issuance without being held by
+/// anyone.
+fn legacy_asset_trap<Runtime, Map>(
+	origin: &Location,
+	assets: &Assets,
+	version: XcmVersion,
+	count: u32,
+) -> H256
+where
+	Runtime: pallet_xcm::Config,
+	Map: frame_support::StorageMap<H256, u32, Query = u32>,
+	pallet_xcm::BalanceOf<Runtime>: From<u128>,
+{
+	let versioned_assets = VersionedAssets::from(assets.clone()).into_version(version).unwrap();
+	let hash = match VersionedLocation::from(origin.clone()).into_version(version).unwrap() {
+		VersionedLocation::V3(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+		VersionedLocation::V4(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+		VersionedLocation::V5(origin) => BlakeTwo256::hash_of(&(origin, versioned_assets)),
+	};
+	Map::mutate(hash, |n| *n += count);
+	for asset in assets.inner() {
+		if let (AssetId(location), Fungible(amount)) = (&asset.id, &asset.fun) {
+			if location == &Location::parent() {
+				for _ in 0..count {
+					// Issued and forgotten: in total issuance, in nobody's balance.
+					core::mem::forget(<Runtime as pallet_xcm::Config>::Currency::issue(
+						(*amount).into(),
+					));
+				}
+			}
+		}
+	}
+	hash
+}
+
+/// Sum of all relay token balances, which equals total issuance once no legacy trap is left.
+fn sum_of_balances<Runtime: pallet_xcm::Config>() -> u128
+where
+	pallet_xcm::BalanceOf<Runtime>: Into<u128>,
+{
+	frame_system::Account::<Runtime>::iter_keys()
+		.map(|who| <Runtime as pallet_xcm::Config>::Currency::total_balance(&who).into())
+		.sum()
+}
+
+/// Test-case makes sure that `pallet_xcm`'s trap account works on `Runtime` and that
+/// `pallet_xcm::migration::v2::MigrateToV2` brings a chain that trapped assets before the trap
+/// account existed into the state `pallet_xcm`'s try-state expects.
+///
+/// Starting from a chain without the trap account and with assets trapped under older XCM
+/// versions (counted in total issuance, held by nobody), running the migration must:
+/// - move those traps to `LegacyAssetTraps` and leave `AssetTraps` empty,
+/// - fund the trap account with the existential deposit, the only issuance change,
+/// - pass `pallet_xcm::Pallet::try_state_trap_account`,
+/// - leave every legacy trap claimable through its original version ticket, by minting.
+///
+/// Finally, assets trapped on this runtime land in the trap account and can be claimed, with
+/// the sum of balances matching total issuance throughout.
+pub fn pallet_xcm_trap_account_migration_works<Runtime>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+) where
+	Runtime: BasicParachainRuntime,
+	pallet_xcm::BalanceOf<Runtime>: From<u128> + Into<u128>,
+{
+	type Xcm<Runtime> = pallet_xcm::Pallet<Runtime>;
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.build()
+		.execute_with(|| {
+			let trap_account = Xcm::<Runtime>::trap_account()
+				.expect("`TrapAccountLocation` converts to an account");
+			let ed: u128 = <Runtime as pallet_xcm::Config>::Currency::minimum_balance().into();
+			let free = |who| <Runtime as pallet_xcm::Config>::Currency::free_balance(who).into();
+			let issuance = || <Runtime as pallet_xcm::Config>::Currency::total_issuance().into();
+
+			// A chain from before the trap account existed: no balance, storage version 1.
+			assert_eq!(free(&trap_account), 0u128);
+			StorageVersion::new(1).put::<Xcm<Runtime>>();
+			assert!(Xcm::<Runtime>::try_state_trap_account().is_err());
+
+			// The pair was trapped twice under XCM v4 and once under v5.
+			let origin = Location::new(1, [Parachain(2000)]);
+			let amount = 10 * ed;
+			let assets: Assets = (Parent, amount).into();
+			let hash_v4 =
+				legacy_asset_trap::<Runtime, pallet_xcm::AssetTraps<Runtime>>(&origin, &assets, 4, 2);
+			let hash_v5 =
+				legacy_asset_trap::<Runtime, pallet_xcm::AssetTraps<Runtime>>(&origin, &assets, 5, 1);
+			let issuance_before: u128 = issuance();
+			assert_eq!(sum_of_balances::<Runtime>(), issuance_before - 3 * amount);
+
+			pallet_xcm::migration::v2::MigrateToV2::<Runtime>::on_runtime_upgrade();
+
+			assert_eq!(StorageVersion::get::<Xcm<Runtime>>(), 2);
+			assert!(pallet_xcm::AssetTraps::<Runtime>::iter().next().is_none());
+			assert_eq!(pallet_xcm::LegacyAssetTraps::<Runtime>::get(hash_v4), 2);
+			assert_eq!(pallet_xcm::LegacyAssetTraps::<Runtime>::get(hash_v5), 1);
+			assert_eq!(free(&trap_account), ed);
+			assert_eq!(issuance(), issuance_before + ed);
+			assert_ok!(Xcm::<Runtime>::try_state_trap_account());
+
+			// Running the migration again does nothing.
+			pallet_xcm::migration::v2::MigrateToV2::<Runtime>::on_runtime_upgrade();
+			assert_eq!(free(&trap_account), ed);
+			assert_eq!(issuance(), issuance_before + ed);
+
+			// Each legacy trap is claimable through its version ticket; the claim mints the
+			// amount and the claimed holding is dropped here, which burns it again.
+			let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
+			for (ticket, hash, count) in [(4u128, hash_v4, 2u32), (5, hash_v5, 1)] {
+				let ticket: Location = GeneralIndex(ticket).into();
+				for remaining in (0..count).rev() {
+					let claimed = <Xcm<Runtime> as ClaimAssets>::claim_assets(
+						&origin, &ticket, &assets, &context,
+					)
+					.expect("legacy traps are claimable");
+					assert!(claimed.ensure_contains(&assets).is_ok());
+					assert_eq!(pallet_xcm::LegacyAssetTraps::<Runtime>::get(hash), remaining);
+				}
+				assert!(<Xcm<Runtime> as ClaimAssets>::claim_assets(
+					&origin, &ticket, &assets, &context,
+				)
+				.is_none());
+			}
+			assert_eq!(free(&trap_account), ed);
+			assert_eq!(issuance(), issuance_before + ed - 3 * amount);
+			assert_eq!(sum_of_balances::<Runtime>(), issuance_before + ed - 3 * amount);
+			assert_ok!(Xcm::<Runtime>::try_state_trap_account());
+
+			// Assets trapped on this runtime are held by the trap account until claimed.
+			let issuance_before: u128 = issuance();
+			let mut holding = xcm_executor::AssetsInHolding::new();
+			for asset in assets.inner() {
+				let minted = <<Runtime as pallet_xcm::Config>::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, &context)
+					.expect("the relay token can be minted");
+				holding.subsume_assets(minted);
+			}
+			assert_eq!(issuance(), issuance_before + amount);
+			<Xcm<Runtime> as DropAssets>::drop_assets(&origin, holding, &context);
+			let hash = BlakeTwo256::hash_of(&(origin.clone(), VersionedAssets::from(assets.clone())));
+			assert_eq!(pallet_xcm::AssetTraps::<Runtime>::get(hash), 1);
+			assert!(pallet_xcm::LegacyAssetTraps::<Runtime>::iter().next().is_none());
+			assert_eq!(free(&trap_account), ed + amount);
+			assert_eq!(sum_of_balances::<Runtime>(), issuance_before + amount);
+			let claimed = <Xcm<Runtime> as ClaimAssets>::claim_assets(
+				&origin, &Here.into(), &assets, &context,
+			)
+			.expect("trapped assets are held by the trap account");
+			assert!(claimed.ensure_contains(&assets).is_ok());
+			drop(claimed);
+			assert_eq!(pallet_xcm::AssetTraps::<Runtime>::get(hash), 0);
+			assert_eq!(free(&trap_account), ed);
+			assert_eq!(issuance(), issuance_before);
+			assert_eq!(sum_of_balances::<Runtime>(), issuance_before);
+			assert_ok!(Xcm::<Runtime>::try_state_trap_account());
+		})
 }

@@ -2017,8 +2017,9 @@ parameter_types! {
 	pub const MaxAgentsToMigrate: u32 = 300;
 }
 
-/// No migrations needed for test runtime (always starts from fresh genesis).
-pub type Migrations = ();
+/// Only the `pallet_xcm` trap account migration, a no-op on this test runtime (it always
+/// starts from a fresh genesis).
+pub type Migrations = (pallet_xcm::migration::v2::MigrateToV2<Runtime>,);
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
