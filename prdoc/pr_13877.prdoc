@@ -9,6 +9,6 @@ crates:
 - name: sp-transaction-storage-proof
   bump: minor
 - name: sc-service
-  bump: minor
+  bump: patch
 - name: polkadot-omni-node-lib
-  bump: minor
+  bump: patch
