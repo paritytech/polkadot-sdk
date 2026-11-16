@@ -3970,7 +3970,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(!sync_client.subscription_gap_queue().has_pending());
 	sync_client
 		.subscription_gap_queue()
-		.detect_and_queue(new_finalized_number, head_after_sync);
+		.queue(new_finalized_number - 1, head_after_sync + 1);
 	assert!(sync_client.subscription_gap_queue().has_pending());
 
 	// Wait for the pending request to be processed.
@@ -4027,7 +4027,7 @@ async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<
 		.block_by_number(head + 1)
 		.await?
 		.expect("block exists on chain");
-	queue.detect_and_queue(new_finalized, head);
+	queue.queue(new_finalized - 1, head + 1);
 
 	let bg_client = sync_client.clone();
 	let _filler = AbortOnDrop(tokio::spawn(async move {
@@ -4281,7 +4281,10 @@ async fn test_finalized_subscription_queues_blocks_finalized_before_it_started()
 	let (cached_finalized, sync_client, requests) =
 		requests_queued_by_first_streamed_block(true, SubscriptionType::FinalizedBlocks, 3).await?;
 
-	assert_eq!(requests, vec![(cached_finalized + 2, cached_finalized + 1, None)]);
+	let first_streamed = sync_client.latest_finalized_block().await;
+	assert_eq!(first_streamed.block_number(), cached_finalized + 3);
+	let parent_hash = first_streamed.block_header().await?.parent_hash;
+	assert_eq!(requests, vec![(cached_finalized + 2, cached_finalized + 1, Some(parent_hash))]);
 	assert!(sync_client.subscription_gap_queue().has_pending());
 
 	Ok(())

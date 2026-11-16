@@ -342,8 +342,9 @@ pub struct Client {
 pub(crate) struct GapFillRequest {
 	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
-	/// Hash of `from_inclusive` when the producer knows it. A one-block request is resolved
-	/// by hash, so a retracted sibling still cached as the best block is not indexed instead.
+	/// Hash of `from_inclusive` when the producer knows it. The range then starts from that
+	/// block rather than from the block its number resolves to, which can be a retracted
+	/// sibling still cached as the best block.
 	pub from_hash: Option<H256>,
 }
 
@@ -374,30 +375,36 @@ impl SubscriptionGapQueue {
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
 
-	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
-	pub fn detect_and_queue(&self, current: SubstrateBlockNumber, last: SubstrateBlockNumber) {
-		if current.saturating_sub(last) <= 1 {
-			return;
-		}
-		self.queue(current.saturating_sub(1), last.saturating_add(1));
+	/// The blocks between the finalized block `last` and the next streamed one, `current`, as
+	/// `(from_inclusive, to_inclusive)`, or `None` when `current` is consecutive to `last`.
+	pub fn missing_range(
+		current: SubstrateBlockNumber,
+		last: SubstrateBlockNumber,
+	) -> Option<(SubstrateBlockNumber, SubstrateBlockNumber)> {
+		(current.saturating_sub(last) > 1)
+			.then(|| (current.saturating_sub(1), last.saturating_add(1)))
 	}
 
 	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`.
+	#[cfg(test)]
 	pub fn queue(&self, from_inclusive: SubstrateBlockNumber, to_inclusive: SubstrateBlockNumber) {
-		self.send(GapFillRequest { from_inclusive, to_inclusive, from_hash: None });
+		self.queue_range(from_inclusive, to_inclusive, None);
 	}
 
 	/// Queue a gap-fill for the single block `number` with hash `hash`.
 	pub fn queue_block(&self, number: SubstrateBlockNumber, hash: H256) {
-		self.send(GapFillRequest {
-			from_inclusive: number,
-			to_inclusive: number,
-			from_hash: Some(hash),
-		});
+		self.queue_range(number, number, Some(hash));
 	}
 
-	fn send(&self, request: GapFillRequest) {
-		let GapFillRequest { from_inclusive, to_inclusive, .. } = request;
+	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`, starting at the block
+	/// `from_hash` when it is known.
+	fn queue_range(
+		&self,
+		from_inclusive: SubstrateBlockNumber,
+		to_inclusive: SubstrateBlockNumber,
+		from_hash: Option<H256>,
+	) {
+		let request = GapFillRequest { from_inclusive, to_inclusive, from_hash };
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
 		match self.tx.try_send(request) {
@@ -694,8 +701,21 @@ impl Client {
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
-				if let Some(last) = last_finalized_seen {
-					self.subscription_gap_queue.detect_and_queue(block_number, last);
+				if let Some((from, to)) = last_finalized_seen
+					.and_then(|last| SubscriptionGapQueue::missing_range(block_number, last))
+				{
+					// `from` is the streamed block's parent, so its hash pins the range to the
+					// finalized chain.
+					let from_hash = match block.block_header().await {
+						Ok(header) => Some(header.parent_hash),
+						Err(err) => {
+							log::warn!(target: LOG_TARGET,
+								"Failed to fetch the header of finalized block #{block_number}, \
+								 queuing #{from}..#{to} by number: {err:?}");
+							None
+						},
+					};
+					self.subscription_gap_queue.queue_range(from, to, from_hash);
 				}
 				// The stream position advances whatever the callback does, so gap detection
 				// only sees stream gaps; a failed finalized block is queued separately below.
@@ -1504,7 +1524,7 @@ mod tests {
 
 		// One more gap than the channel holds; the last one is dropped.
 		for i in 0..=capacity {
-			queue.detect_and_queue(i * 10 + 5, i * 10);
+			queue.queue(i * 10 + 4, i * 10 + 1);
 		}
 
 		for _ in 0..capacity {
@@ -1516,26 +1536,14 @@ mod tests {
 	}
 
 	#[test]
-	fn consecutive_or_older_finalized_block_queues_nothing() {
-		let (queue, mut rx) = SubscriptionGapQueue::new();
-
+	fn consecutive_or_older_finalized_block_misses_nothing() {
 		for (current, last) in [(6, 5), (5, 5), (3, 5)] {
-			queue.detect_and_queue(current, last);
+			assert_eq!(SubscriptionGapQueue::missing_range(current, last), None);
 		}
-
-		assert!(rx.try_recv().is_err());
-		assert!(!queue.has_pending());
 	}
 
 	#[test]
-	fn skipped_finalized_block_is_queued() {
-		let (queue, mut rx) = SubscriptionGapQueue::new();
-
-		queue.detect_and_queue(7, 5);
-
-		let request = rx.try_recv().expect("queued gap fill");
-		assert_eq!((request.from_inclusive, request.to_inclusive, request.from_hash), (6, 6, None));
-		assert!(rx.try_recv().is_err());
-		assert!(queue.has_pending());
+	fn skipped_finalized_block_is_missing() {
+		assert_eq!(SubscriptionGapQueue::missing_range(7, 5), Some((6, 6)));
 	}
 }
