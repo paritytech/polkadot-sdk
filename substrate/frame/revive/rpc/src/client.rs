@@ -367,10 +367,12 @@ impl SubscriptionGapQueue {
 	pub(crate) fn new() -> (Self, mpsc::Receiver<GapFillRequest>) {
 		// Reconnects produce one request per missed range and, in archive mode, failed
 		// finalized blocks one request each, served by a single consumer that holds a
-		// failing request for its whole retry schedule. A request that does not fit is
-		// dropped but stays pending, which freezes the sync head exactly as an abandoned
-		// fill does; the restart's backward sync then re-indexes the dropped range like any
-		// other gap.
+		// failing request for its whole retry schedule (about 30 s). While every finalized
+		// block fails, the queue gains one request per block and loses one per schedule, so
+		// at 6 s blocks it fills after about four minutes. A request that does not fit is
+		// dropped but stays pending, which freezes the sync head exactly as an abandoned fill
+		// does; the restart's backward sync then re-indexes the dropped range like any other
+		// gap.
 		let (tx, rx) = mpsc::channel(32);
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
@@ -724,7 +726,8 @@ impl Client {
 
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				log::error!(target: LOG_TARGET,
+					"Failed to process block {block_number} ({subscription_type:?}): {err:?}");
 				// The callback fails only before the block is indexed. The block is queued
 				// rather than retried here, so a failing block does not stall both streams
 				// behind `subscription_lock` for a whole retry schedule; the gap filler
