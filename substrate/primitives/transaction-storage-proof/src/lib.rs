@@ -212,8 +212,8 @@ pub trait IndexedBody<B: BlockT> {
 
 	/// Get one indexed transaction by its content hash.
 	///
-	/// Needed by [`registration::new_data_provider_from_indexed_transactions`]. Errors by
-	/// default so implementors that don't support it keep the whole-body path.
+	/// Only [`registration::new_data_provider_from_indexed_transactions`] calls this. Errors by
+	/// default, so existing implementors keep compiling.
 	#[cfg(feature = "std")]
 	fn indexed_transaction(&self, _hash: &ContentHash) -> Result<Option<Vec<u8>>, Error> {
 		Err(Error::Application(Box::from("indexed_transaction is not supported")))
@@ -291,8 +291,7 @@ pub mod registration {
 
 	/// Build a proof from the transaction sizes, loading only the selected transaction.
 	///
-	/// Gives the same proof as [`build_proof`] for the same transactions. `load` is called
-	/// once, with the index of the transaction that holds the selected chunk.
+	/// `load` is called once, with the index of the transaction that holds the selected chunk.
 	pub fn build_proof_from_sizes(
 		random_hash: &[u8],
 		sizes: &[u32],
@@ -329,9 +328,16 @@ pub mod registration {
 		transaction: &[u8],
 		chunk_index: ChunkIndex,
 	) -> Result<TransactionStorageProof, Error> {
+		let chunk = transaction
+			.chunks(CHUNK_SIZE)
+			.nth(chunk_index as usize)
+			.ok_or_else(|| {
+				Error::Application(Box::from(format!("Chunk {chunk_index} is out of range")))
+			})?
+			.to_vec();
+
 		let mut db = sp_trie::MemoryDB::<Hasher>::default();
 		let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
-		let mut target_chunk = None;
 		{
 			let mut trie =
 				sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db, &mut transaction_root)
@@ -339,15 +345,9 @@ pub mod registration {
 			for (index, chunk) in transaction.chunks(CHUNK_SIZE).enumerate() {
 				trie.insert(&encode_index(index as u32), chunk)
 					.map_err(|e| Error::Application(Box::new(e)))?;
-				if index as ChunkIndex == chunk_index {
-					target_chunk = Some(chunk.to_vec());
-				}
 			}
 			trie.commit();
 		}
-		let chunk = target_chunk.ok_or_else(|| {
-			Error::Application(Box::from(format!("Chunk {chunk_index} is out of range")))
-		})?;
 		let proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
 			&db,
 			transaction_root,
@@ -360,55 +360,10 @@ pub mod registration {
 	/// Build a proof for a given source of randomness and indexed transactions.
 	pub fn build_proof(
 		random_hash: &[u8],
-		transactions: Vec<Vec<u8>>,
+		mut transactions: Vec<Vec<u8>>,
 	) -> Result<Option<TransactionStorageProof>, Error> {
-		// Get total chunks, we will need it to generate a random chunk index.
-		let total_chunks: ChunkIndex =
-			transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
-		if total_chunks.is_zero() {
-			return Ok(None);
-		}
-		let selected_chunk_index = random_chunk(random_hash, total_chunks);
-
-		// Generate tries for each transaction.
-		let mut chunk_index = 0;
-		for transaction in transactions {
-			let mut selected_chunk_and_key = None;
-			let mut db = sp_trie::MemoryDB::<Hasher>::default();
-			let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
-			{
-				let mut trie =
-					sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db, &mut transaction_root)
-						.build();
-				let chunks = transaction.chunks(CHUNK_SIZE).map(|c| c.to_vec());
-				for (index, chunk) in chunks.enumerate() {
-					let index = encode_index(index as u32);
-					trie.insert(&index, &chunk).map_err(|e| Error::Application(Box::new(e)))?;
-					if chunk_index == selected_chunk_index {
-						selected_chunk_and_key = Some((chunk, index));
-					}
-					chunk_index += 1;
-				}
-				trie.commit();
-			}
-			if let Some((target_chunk, target_chunk_key)) = selected_chunk_and_key {
-				let chunk_proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
-					&db,
-					transaction_root,
-					&[target_chunk_key],
-				)
-				.map_err(|e| Error::Application(Box::new(e)))?;
-
-				// We found the chunk and computed the proof root for the entire transaction,
-				// so there is no need to waste time calculating the subsequent transactions.
-				return Ok(Some(TransactionStorageProof {
-					proof: chunk_proof,
-					chunk: target_chunk,
-				}));
-			}
-		}
-
-		Err(Error::Application(Box::from(format!("No chunk (total_chunks: {total_chunks}) matched the selected_chunk_index: {selected_chunk_index}; logic error!"))))
+		let sizes: Vec<u32> = transactions.iter().map(|t| t.len() as u32).collect();
+		build_proof_from_sizes(random_hash, &sizes, |index| Ok(transactions.swap_remove(index)))
 	}
 
 	#[test]
@@ -443,9 +398,19 @@ pub mod registration {
 	}
 
 	#[test]
-	fn build_proof_from_sizes_matches_build_proof() {
+	fn build_proof_from_sizes_proves_selected_chunk() {
+		use sp_trie::TrieConfiguration;
+
 		let transactions = mixed_transactions();
 		let sizes: Vec<u32> = transactions.iter().map(|t| t.len() as u32).collect();
+		// Every chunk of the block as (transaction, chunk index in it, data).
+		let chunks: Vec<(usize, ChunkIndex, &[u8])> = transactions
+			.iter()
+			.enumerate()
+			.flat_map(|(tx, data)| {
+				data.chunks(CHUNK_SIZE).enumerate().map(move |(i, chunk)| (tx, i as u32, chunk))
+			})
+			.collect();
 
 		for seed in 0u8..=255 {
 			let random = [seed; 32];
@@ -454,11 +419,23 @@ pub mod registration {
 				loads.push(index);
 				Ok(transactions[index].clone())
 			})
+			.unwrap()
 			.unwrap();
 
-			assert_eq!(proof, build_proof(&random, transactions.clone()).unwrap(), "seed={seed}");
-			assert_eq!(loads.len(), 1, "seed={seed}: loads only the selected transaction");
-			assert_ne!(sizes[loads[0]], 0, "seed={seed}: never loads an empty transaction");
+			let (tx, chunk_index, chunk) =
+				chunks[random_chunk(&random, chunks.len() as u32) as usize];
+			assert_eq!(loads, vec![tx], "seed={seed}: loads only the selected transaction");
+			assert_eq!(proof.chunk, chunk, "seed={seed}");
+			// The root the runtime keeps for the transaction.
+			let root = TrieLayout::ordered_trie_root(transactions[tx].chunks(CHUNK_SIZE));
+			sp_trie::verify_trie_proof::<TrieLayout, _, _, _>(
+				&root,
+				&proof.proof,
+				&[(encode_index(chunk_index), Some(chunk))],
+			)
+			.unwrap_or_else(|e| panic!("seed={seed}: {e:?}"));
+
+			assert_eq!(build_proof(&random, transactions.clone()).unwrap(), Some(proof));
 		}
 	}
 

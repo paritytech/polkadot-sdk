@@ -112,8 +112,7 @@ where
 			&parent,
 			retention_period,
 			|number| {
-				client
-					.runtime_api()
+				runtime_api
 					.indexed_transactions(parent, number)
 					.map_err(|e| sp_inherents::Error::Application(Box::new(e)))
 			},
