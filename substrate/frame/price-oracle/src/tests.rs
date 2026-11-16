@@ -46,6 +46,8 @@ impl frame_system::Config for Test {
 std::thread_local! {
 	static NOW_MS: Cell<u64> = const { Cell::new(0) };
 	static PRICE_UPDATES: RefCell<Vec<(PairId, Price)>> = const { RefCell::new(Vec::new()) };
+	static PRICES_AT_UPDATE: RefCell<Vec<Vec<(PairId, Price)>>> =
+		const { RefCell::new(Vec::new()) };
 }
 
 /// The chain time of the tests, set with [`set_now`].
@@ -60,17 +62,26 @@ fn set_now(ms: u64) {
 	NOW_MS.with(|n| n.set(ms));
 }
 
-/// Records the calls of [`OnPriceUpdate`], read with [`take_price_updates`].
+/// Records the calls of [`OnPriceUpdate`], read with [`take_price_updates`], and what [`Prices`]
+/// holds at each call, read with [`take_prices_at_update`].
 pub struct RecordPriceUpdates;
 impl OnPriceUpdate for RecordPriceUpdates {
 	fn on_price_update(pair: PairId, price: Price) {
 		PRICE_UPDATES.with(|u| u.borrow_mut().push((pair, price)));
+		let mut prices: Vec<_> = Prices::<Test>::iter().map(|(pair, p)| (pair, p.price)).collect();
+		prices.sort();
+		PRICES_AT_UPDATE.with(|p| p.borrow_mut().push(prices));
 	}
 }
 
 /// The `(pair, price)` that [`OnPriceUpdate`] was called with since the last call.
 fn take_price_updates() -> Vec<(PairId, Price)> {
 	PRICE_UPDATES.with(|u| u.take())
+}
+
+/// What [`Prices`] held at each call of [`OnPriceUpdate`] since the last call, sorted by pair.
+fn take_prices_at_update() -> Vec<Vec<(PairId, Price)>> {
+	PRICES_AT_UPDATE.with(|p| p.take())
 }
 
 /// Signers 1 to 3.
@@ -118,6 +129,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 		// Tests start without the events and price updates of the setup.
 		System::reset_events();
 		take_price_updates();
+		take_prices_at_update();
 	});
 	ext
 }
@@ -483,5 +495,52 @@ fn price_stays_after_quorum_is_lost() {
 		assert!(votes().is_empty());
 		assert_eq!(Prices::<Test>::get(PAIR), Some(price));
 		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), Some(price));
+	});
+}
+
+#[test]
+fn on_price_update_is_called_after_all_prices_are_written() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::set_pair(
+			RuntimeOrigin::root(),
+			PAIR_B,
+			PairConfig { market_quorum: 1 }
+		));
+		// Signer 1 quotes both pairs in one report. Both get a price in block 100, so
+		// `OnPriceUpdate` is called twice, first for `PAIR` and then for `PAIR_B`.
+		process(vec![report_quotes(1, Anchor::new(100, START_MS), &[(PAIR, 5), (PAIR_B, 20)])]);
+		let both_prices = vec![(PAIR, Price::from_u32(5)), (PAIR_B, Price::from_u32(20))];
+		assert_eq!(take_price_updates(), both_prices);
+
+		// What `Prices` held at each of the two calls. The price of `PAIR_B` is already written
+		// at the first call, the one for `PAIR`.
+		let prices_at_update = take_prices_at_update();
+		assert_eq!(prices_at_update[0], both_prices);
+		assert_eq!(prices_at_update[1], both_prices);
+	});
+}
+
+#[test]
+fn vote_with_timestamp_ahead_does_not_survive_a_stall() {
+	new_test_ext().execute_with(|| {
+		let hour = 3_600_000;
+		// Signer 1 reports with a timestamp one hour ahead of the chain time.
+		process(vec![report(1, 100, START_MS + hour, 4)]);
+		// The chain stalls for 59 minutes: one block later, the chain time moved on by far more
+		// than `report_window_ms`. No vote made before the stall is left.
+		System::set_block_number(101);
+		set_now(START_MS + hour - 60_000);
+		process(vec![]);
+		assert!(votes().is_empty());
+	});
+}
+
+#[test]
+fn report_with_more_quotes_than_pairs_is_rejected() {
+	new_test_ext().execute_with(|| {
+		// Two quotes, while only `PAIR` is registered.
+		process(vec![report_quotes(1, Anchor::new(100, START_MS), &[(PAIR, 5), (PAIR, 7)])]);
+		assert_eq!(take_events(), vec![Event::ReportsProcessed { accepted: 0, rejected: 1 }]);
+		assert!(votes().is_empty());
 	});
 }
