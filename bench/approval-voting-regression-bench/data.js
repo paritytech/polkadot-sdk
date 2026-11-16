@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794849407742,
+  "lastUpdate": 1794859855648,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b0b3deed77a6a773262a8af9705c4420a503856",
-          "message": "statement-store: multi-seed mode and per-client channel (#11947)\n\n## Summary  \n\nTwo small changes to `statement-latency-bench` that together unlock\nsingle-account propagation measurement (one allowanced SURI, two\nclients, two RPC endpoints)\n\n- `--seed` is now a comma-separated `Vec<String>`\n- Statement `channel` is now derived from `(client_id, sent_count)` \ninstead of `sent_count` alone, so multi-client runs that share an\non-chain author no longer collide on `(author, channel)` and evict\n     each other's statements before propagation completes",
-          "timestamp": "2026-04-30T13:36:47Z",
-          "tree_id": "f18413dc91ecb159cad59b99017eda184b7cc69b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b0b3deed77a6a773262a8af9705c4420a503856"
-        },
-        "date": 1777561958944,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63634,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018733390000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4848416636499984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018733390000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.846477374390002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9268214026800004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.628759819239965,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.788239972940001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020063480000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8188608312700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.287694361942739,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7584606108499652,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005057963460000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020063480000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.951278670649973,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55a995e0fe0ac62f81013358c55ec8ca24295fa5",
+          "message": "[pallet-revive]: implement EIP-150 63/64 gas rule (#11079)\n\n### Summary\nOn Ethereum, EIP-150 limits a nested call to 63/64 of its caller's\nremaining gas, so the caller can continue after a callee that uses up\nall of its gas. In pallet-revive, a nested call without a gas limit got\nall the gas, weight and storage deposit its caller had left, so a callee\nthat consumed all its gas, for example by executing `INVALID`, left its\ncaller nothing to continue with, as reported in\nparitytech/contract-issues#257 and paritytech/contract-issues#259. This\nPR applies the 63/64 rule to nested calls and constructors in both\nEthereum and Substrate execution mode.\n\n### Changes\n- **63/64 rule.** A call, delegate call or precompile call from a\ncontract, or the constructor of a contract it creates, gets at most\n`63/64 * (r - s) + s`, with `r` the caller's remaining resources and `s`\nthe call stipend (zero without one). In Substrate execution mode the\nrule applies to each weight dimension and to the storage deposit; in\nEthereum execution mode, to the gas, the caller's weight limit and its\ndeposit limit, if it has one. Calls and constructors that a precompile\nstarts through `precompiles::Ext::call` and\n`precompiles::ExtWithInfo::instantiate` follow the rule too. The\ntransaction's first call is exempt.\n- **Stipend.** The stipend is set aside before the rule, so a call with\na stipend leaves its caller at least 1/64 of what remains after the\nstipend, as on Ethereum. In Ethereum execution mode, the stipend's gas\nis what the stipend's weight costs on its own, as before this PR, and at\nmost what the caller has left. When proof size is the larger cost of the\ntransaction, a caller with less gas left than the stipend's gas can\nstill pay for the stipend's weight, because only the stipend's proof\nsize adds to the transaction's fee. Its callee then gets all of the\ncaller's gas, and the caller keeps none.\n- **Dry runs.** The weight and storage meters each hold an\n`eip_150::Peak`: the minimum amount a call needs at its start so that,\nafter the 63/64 rule, each of its subcalls still gets what it needs to\nfinish. The dry runs report this amount, or what the call consumed if\nthat is higher, so `weight_required`, `max_storage_deposit`, `eth_gas`\nand `eth_estimateGas` now include the part each caller keeps: 1/63 of\nwhat each nested call needs beyond its stipend.\n- **Dry-run weight limit.** An Ethereum dry run runs the call with at\nmost the maximum `eth_transact` weight minus the transaction's base\nweight, instead of the whole maximum, so that the weight it reports\nleaves room for the base weight also when a nested call uses up its\nshare. A call that needs more weight than that runs out of gas in the\ndry run, as it does in a transaction.\n- **Fix.** A dry run reported a `max_storage_deposit` that was too low\nin two cases:\n- A contract A freed storage and then called B, which called back into\nA. A's refund was recorded when that call returned, and the dry run\nsubtracted it from the deposit B needed, although B's deposit limit was\nset before the refund. The storage meter now adds a call's deposit to\nwhat its caller had consumed when the call started.\n- In Substrate execution mode, a call wrote storage that an earlier call\nfreed. The refund does not raise the later call's deposit limit, but the\ndry run subtracted it from what the later call needed. The caller's net\nrefund now counts as zero when it has a deposit limit.\n- **Tests.** Solidity tests, compiled with Solc and Resolc, check that:\n- a caller can write storage in a `catch` block after its callee or a\nconstructor executes `INVALID`;\n- Multicall3's `aggregate3` continues after a call that uses up its gas;\n- an ERC-2771 forwarder's gas check rejects a transaction that leaves\nits callee less than the requested gas;\n- a call to `ISystem.weightLeft()` gets 63/64 of each weight dimension\nits caller has left;\n  - calls succeed when run with exactly the limits a dry run returned.\n\n### Behavior change for deployed contracts\n- A nested call that asks for more than its 63/64 share, or sets no\nlimit, gets less gas, weight and storage deposit than before.\n- `ISystem.weightLeft()` returns the weight left without the part the\ncaller keeps.\n\n### Behavior change for users\n- A nested call can fail when the transaction's limits are set to what a\ndry run or an earlier transaction consumed, or come from a dry run on a\nruntime without this change.\n\n### Follow-ups\n- A PolkaVM value call with gas `u64::MAX` gets no stipend, so its\ncallee gets about 1/64 of a stipend less than with gas `u64::MAX - 1`,\nand the Resolc rows of\n`value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit`\nare ignored. Before this PR, such a call also got no stipend, but its\ncallee received all of its caller's remaining resources.\n- Without a `gas_limit`, `ReviveApi::call` and `ReviveApi::instantiate`\nstill dry run with the whole block weight as the limit. When a nested\ncall uses up its share, they report a `weight_required` of about a whole\nblock, and an extrinsic with that weight limit is rejected. Before this\nPR, the same dry run failed with `OutOfGas`.\n- In Ethereum execution mode, a transaction applies the 63/64 rule to\nthe gas, the caller's weight limit and its deposit limit, if it has one.\nA dry run tracks the part each caller keeps in weight and in storage\ndeposit, but not in gas, and its `eth_gas` covers the fee for\n`weight_required` plus `max_storage_deposit`. This has two effects:\n- A transaction rounds down when it converts gas to weight. So in a\ncorner case, a nested call can get slightly less weight with exactly the\ndry run's `eth_gas` than in the dry run: one byte of proof size in the\ntest runtime. Through `eth_transact`, the dry run's longer encoding\nleaves more gas over than the nested call lacks, unless the wallet sets\nprices that make the transaction at least as long as that encoding.\n`eth_estimateGas` is not affected.\n- A storage deposit that a caller pays from the gas it kept counts\ntwice, so `eth_gas` can be higher than needed, by at most that gas.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-16T17:52:11Z",
+          "tree_id": "1bc337583bfd4f6e62d6d687afbcd038759c8147",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/55a995e0fe0ac62f81013358c55ec8ca24295fa5"
+        },
+        "date": 1794859815298,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.68000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7167873699500005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7726320359599411,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3386304337500006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000207207,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005199941039999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.697024547009998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002157048,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6710895817700018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.878500924089943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6771370146099995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000207207,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002157048,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.510634836832767,
             "unit": "seconds"
           }
         ]
