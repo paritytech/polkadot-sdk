@@ -1067,8 +1067,9 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 mod eip_150 {
 	use super::*;
 	use crate::{
-		CallResources, ContractResult, EthTxInfo, Pallet, TransactionMeter,
+		CallResources, ContractResult, EthTxInfo, FrameMeter, Pallet, TransactionMeter,
 		evm::{CallTracer, GenericTransaction},
+		metering::SignedGas,
 		test_utils::ETH_GAS_LIMIT,
 		tests::{DepositPerByte, TestSigner, test_utils::dispatch_eth_transaction},
 		tracing::trace,
@@ -1230,6 +1231,54 @@ mod eip_150 {
 		assert_eq!(Pallet::<Test>::evm_balance(&receiver), receiver_balance + value);
 	}
 
+	/// Returns the meter of the callee of a value call without gas, which gets just the stipend.
+	fn stipend_callee_meter(limits: TransactionLimits<Test>) -> FrameMeter<Test> {
+		TransactionMeter::<Test>::new(limits)
+			.unwrap()
+			.new_nested(&CallResources::NoLimits)
+			.unwrap()
+			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
+			.unwrap()
+	}
+
+	/// Deploys `Caller`, compiled as `fixture_type`, and `GasLeftReceiver`, funds the caller, and
+	/// returns the addresses of the receiver and the caller.
+	fn deploy_caller_and_gas_left_receiver(fixture_type: FixtureType) -> [H160; 2] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		// The caller's backend decides the stipend; the receiver only reports the gas it gets.
+		let (receiver_code, _) =
+			compile_module_with_type("GasLeftReceiver", FixtureType::Solc).unwrap();
+		let [receiver, caller] = deploy([receiver_code, caller_code]);
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller);
+		let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+		[receiver, caller]
+	}
+
+	/// Returns the gas `GasLeftReceiver` reports when `caller` calls it with `gas` and `value`.
+	fn receiver_gas_left(
+		caller: H160,
+		receiver: H160,
+		limits: &TransactionLimits<Test>,
+		gas: u64,
+		value: u64,
+	) -> u64 {
+		let output = builder::bare_call(caller)
+			.data(
+				Caller::normalCall {
+					_callee: receiver.0.into(),
+					_value: value,
+					_data: GasLeftReceiver::gasLeftCall {}.abi_encode().into(),
+					_gas: gas,
+				}
+				.abi_encode(),
+			)
+			.transaction_limits(limits.clone())
+			.build_and_unwrap_result();
+		let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
+		assert!(call.success, "the call with gas {gas} and value {value} failed");
+		GasLeftReceiver::gasLeftCall::abi_decode_returns(&call.output).unwrap()
+	}
+
 	/// Returns an `aggregate3` call that stores `data` in `callee`.
 	fn store_call3(callee: H160, data: u64) -> Multicall3::Call3 {
 		Multicall3::Call3 {
@@ -1313,25 +1362,19 @@ mod eip_150 {
 		[32, 64]
 	)]
 	fn caller_has_gas_left_in_catch_after_value_call_hits_invalid(
-		caller_type: FixtureType,
+		fixture_type: FixtureType,
 		transaction_limits: fn(Weight) -> TransactionLimits<Test>,
 		stipends: u64,
 	) {
-		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", fixture_type).unwrap();
 		// The caller's backend decides the stipend; the callee only uses up its gas.
 		let (callee_code, _) =
 			compile_module_with_type("PayableInvalid", FixtureType::Solc).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
 			// A value call without gas gets just the stipend.
-			let stipend_weight = TransactionMeter::<Test>::new_from_limits(Weight::MAX, 0)
-				.unwrap()
-				.new_nested(&CallResources::NoLimits)
-				.unwrap()
-				.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
-				.unwrap()
-				.weight_left()
-				.unwrap();
+			let stipend_weight =
+				stipend_callee_meter(substrate_limits(Weight::MAX)).weight_left().unwrap();
 			// With 64 stipends or fewer, the stipend's ref_time is at least 1/64 of the caller's.
 			// The caller keeps ref_time because the stipend is set aside before the 63/64 rule.
 			let limits = transaction_limits(
@@ -1376,38 +1419,77 @@ mod eip_150 {
 		=> ignore["a PVM value call with gas u64::MAX gets no stipend"]
 	)]
 	fn value_call_without_gas_limit_gets_as_much_gas_as_with_the_highest_limit(
-		caller_type: FixtureType,
+		fixture_type: FixtureType,
 		limits: TransactionLimits<Test>,
 	) {
-		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-		// The caller's backend decides the stipend; the receiver only reports the gas it gets.
-		let (receiver_code, _) =
-			compile_module_with_type("GasLeftReceiver", FixtureType::Solc).unwrap();
-
 		ExtBuilder::default().build().execute_with(|| {
-			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
-			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
-			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
-			let receiver_gas_left = |gas: u64| {
-				let output = builder::bare_call(caller_addr)
-					.data(
-						Caller::normalCall {
-							_callee: receiver_addr.0.into(),
-							_value: 1,
-							_data: GasLeftReceiver::gasLeftCall {}.abi_encode().into(),
-							_gas: gas,
-						}
-						.abi_encode(),
-					)
-					.transaction_limits(limits.clone())
-					.build_and_unwrap_result();
-				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
-				assert!(call.success, "the call with gas {gas} failed");
-				GasLeftReceiver::gasLeftCall::abi_decode_returns(&call.output).unwrap()
-			};
+			let [receiver, caller] = deploy_caller_and_gas_left_receiver(fixture_type);
 
 			// Both gas limits exceed the 63/64 share, so each call gets the share plus the stipend.
-			assert_eq!(receiver_gas_left(u64::MAX), receiver_gas_left(u64::MAX - 1));
+			assert_eq!(
+				receiver_gas_left(caller, receiver, &limits, u64::MAX, 1),
+				receiver_gas_left(caller, receiver, &limits, u64::MAX - 1, 1),
+			);
+		});
+	}
+
+	/// A value call gets the gas it requests, up to its 63/64 share, plus the stipend's gas.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn value_call_gets_requested_gas_up_to_its_share_plus_stipend(
+		fixture_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		// Substrate mode rounds the callee's proof size down to whole bytes and its gas to whole
+		// Ethereum gas, so below its share a call can be off by up to one byte's gas plus 1 gas.
+		let max_rounding = match limits {
+			TransactionLimits::WeightAndDeposit { .. } => {
+				// Substrate mode prices weight at the average of its two dimensions.
+				let proof_byte_fee =
+					<Test as Config>::FeeInfo::weight_to_fee_average(&Weight::from_parts(0, 1));
+				let proof_byte_gas: u64 = SignedGas::<Test>::from_weight_fee(proof_byte_fee)
+					.to_ethereum_gas()
+					.unwrap()
+					.try_into()
+					.unwrap();
+				proof_byte_gas + 1
+			},
+			_ => 0,
+		};
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [receiver, caller] = deploy_caller_and_gas_left_receiver(fixture_type);
+			let receiver_gas_left_for =
+				|requested_gas| receiver_gas_left(caller, receiver, &limits, requested_gas, 1);
+			// The receiver reports its gas less the gas it uses before it reads `gasleft()`.
+			// A value call without gas gets just the stipend.
+			let stipend_gas_left = receiver_gas_left_for(0);
+			// A value call that requests more than its share gets the share plus the stipend.
+			let share = receiver_gas_left_for(u64::MAX - 1) - stipend_gas_left;
+
+			let below_share = share - 1;
+			let below_share_gas_left = receiver_gas_left_for(below_share);
+			assert!(
+				below_share_gas_left.abs_diff(below_share + stipend_gas_left) <= max_rounding,
+				"requested {below_share} gas, the receiver reports {below_share_gas_left}, \
+				 {stipend_gas_left} without gas, allowed rounding {max_rounding}"
+			);
+			// The same request without value gets no stipend. The stipend's gas is rounded up to
+			// whole Ethereum gas, so the value can add one gas less.
+			let stipend_gas: u64 =
+				stipend_callee_meter(limits.clone()).eth_gas_left().unwrap().try_into().unwrap();
+			let gas_the_value_adds =
+				below_share_gas_left - receiver_gas_left(caller, receiver, &limits, below_share, 0);
+			assert!(
+				(stipend_gas - 1 - max_rounding..=stipend_gas + max_rounding)
+					.contains(&gas_the_value_adds),
+				"the value added {gas_the_value_adds} gas, the stipend's gas is {stipend_gas}, \
+				 allowed rounding {max_rounding}"
+			);
+			let above_share = share + 1;
+			assert_eq!(receiver_gas_left_for(above_share), share + stipend_gas_left);
 		});
 	}
 
@@ -1554,8 +1636,8 @@ mod eip_150 {
 	/// A call to the System precompile gets 63/64 of the weight its caller has left.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
-	fn system_precompile_call_gets_63_64_of_the_weight_left(caller_type: FixtureType) {
-		let (code, _) = compile_module_with_type("WeightLeft", caller_type).unwrap();
+	fn system_precompile_call_gets_63_64_of_the_weight_left(fixture_type: FixtureType) {
+		let (code, _) = compile_module_with_type("WeightLeft", fixture_type).unwrap();
 		let weight_left = |limit| {
 			ExtBuilder::default().build().execute_with(|| {
 				let [addr] = deploy([code.clone()]);
@@ -1730,8 +1812,8 @@ mod eip_150 {
 	/// the transaction succeeds with the gas the dry run returned.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
-	fn dry_run_without_gas_succeeds_when_value_call_drains_its_gas(caller_type: FixtureType) {
-		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+	fn dry_run_without_gas_succeeds_when_value_call_drains_its_gas(fixture_type: FixtureType) {
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", fixture_type).unwrap();
 		let (callee_code, _) =
 			compile_module_with_type("PayableInvalid", FixtureType::Solc).unwrap();
 
@@ -1793,10 +1875,10 @@ mod eip_150 {
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
 	fn dry_run_estimates_suffice_for_value_transfer(
-		caller_type: FixtureType,
+		fixture_type: FixtureType,
 		mode: TransactionLimits<Test>,
 	) {
-		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		// An EVM receiver, so the test does not depend on how much PVM code fits in the stipend.
 		let (receiver_code, _) =
 			compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();

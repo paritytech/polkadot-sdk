@@ -37,6 +37,11 @@ doc:
     room for the base weight also when a nested call uses up its share. A call that needs more
     weight than that now runs out of gas in the dry run, as it does in a transaction.
 
+    When `gas_limit`, the weight limit of `ReviveApi::call` and `ReviveApi::instantiate`, is `None`,
+    their dry run still uses the maximum block weight. When a nested call uses up its 63/64 share,
+    they now report a `weight_required` of about the maximum block weight, and an extrinsic with
+    that weight limit is rejected. Before this change, the same dry run failed with `OutOfGas`.
+
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be
     estimated again, and to limits set to what a dry run or an earlier transaction consumed, for

@@ -122,6 +122,8 @@ where
 #[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of weight that was necessary to execute the transaction.
+	///
+	/// This is [`ContractResult::weight_required`].
 	pub weight_required: Weight,
 	/// Final storage deposit charged.
 	pub storage_deposit: Balance,

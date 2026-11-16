@@ -71,7 +71,7 @@ contract SenderBalanceReader {
 
 /**
  * @title TwoEventsReceiver
- * @dev Receiver contract 7: emits two events, which cost more than the call stipend
+ * @dev Receiver contract 7: emits two events, which cost more than the call stipend's weight
  */
 contract TwoEventsReceiver {
     event Received(address from, uint256 amount);

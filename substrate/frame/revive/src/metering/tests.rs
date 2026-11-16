@@ -2856,27 +2856,6 @@ fn ethereum_execution_caller_refund_does_not_raise_callee_deposit_limit() {
 	});
 }
 
-/// A call that asks for less gas than its 63/64 share gets the gas it asks for.
-#[test]
-fn substrate_execution_call_gets_the_gas_it_asks_for_below_its_share() {
-	ExtBuilder::default().build().execute_with(|| {
-		let weight_limit = Weight::from_parts(WEIGHT_LIMIT.ref_time(), 0);
-		let root_meter =
-			TransactionMeter::<Test>::new_from_limits(weight_limit, 1_000_000).unwrap();
-		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
-		let gas_given_for = |requested_gas: BalanceOf<Test>| {
-			caller_meter
-				.new_nested(&CallResources::Ethereum { gas: requested_gas, add_stipend: false })
-				.unwrap()
-				.eth_gas_left()
-				.unwrap()
-		};
-
-		let requested_gas = gas_given_for(u64::MAX.into()) / 2;
-		assert_eq!(gas_given_for(requested_gas), requested_gas);
-	});
-}
-
 /// Returns the weight of the call stipend.
 fn stipend_weight() -> Weight {
 	super::math::call_stipend_weight::<Test>(
@@ -2985,11 +2964,89 @@ fn ethereum_execution_value_call_leaves_the_caller_its_share(
 	});
 }
 
+/// A value call gets the gas it requests, up to its 63/64 share, plus the stipend's price.
+#[test]
+fn ethereum_execution_value_call_gets_requested_gas_up_to_its_share_plus_stipend() {
+	ExtBuilder::default().build().execute_with(|| {
+		let caller_meter = first_frame_meter_with_ethereum_limits(u64::MAX.into(), Weight::zero());
+		let share = ethereum_gas_left(&caller_meter)
+			.saturating_sub(&stipend_price())
+			.apply_eip_150(eip_150::Rule::Apply);
+		let callee_gas_for = |requested_gas: BalanceOf<Test>| {
+			let callee_meter = caller_meter
+				.new_nested(&CallResources::Ethereum { gas: requested_gas, add_stipend: true })
+				.unwrap();
+			ethereum_gas_left(&callee_meter)
+		};
+
+		// Just below its share, the requested gas plus the stipend is more than the share.
+		let below_share = share.to_ethereum_gas().unwrap() - 1;
+		assert_eq!(
+			callee_gas_for(below_share),
+			SignedGas::from_ethereum_gas(below_share).saturating_add(&stipend_price()),
+		);
+		let above_share = share.to_ethereum_gas().unwrap() + 1;
+		assert_eq!(callee_gas_for(above_share), share.saturating_add(&stipend_price()));
+	});
+}
+
+/// A value call gets the weight the gas it requests pays for, up to its 63/64 share, plus the
+/// stipend's weight.
+#[test]
+fn substrate_execution_value_call_gets_requested_gas_up_to_its_share_plus_stipend() {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = stipend_weight();
+		// Proof size is left out, since the callee's share of it is rounded down to whole bytes.
+		let weight_limit = Weight::from_parts(WEIGHT_LIMIT.ref_time(), 0);
+		let new_callee_meter = |caller_weight_limit: Weight,
+		                        callee_resources: CallResources<Test>| {
+			TransactionMeter::<Test>::new_from_limits(caller_weight_limit, 1_000_000)
+				.unwrap()
+				.new_nested(&CallResources::NoLimits)
+				.unwrap()
+				.new_nested(&callee_resources)
+				.unwrap()
+		};
+		// A call without a limit gets its whole share.
+		let share = new_callee_meter(weight_limit, CallResources::NoLimits).eth_gas_left().unwrap();
+
+		// A value call takes the stipend out of its caller's weight before the 63/64 rule, so its
+		// caller gets one stipend more, and both calls get the same share.
+		let assert_call_requesting_gets =
+			|requested_gas: BalanceOf<Test>, expected_gas: BalanceOf<Test>| {
+				let callee_meter_with_value = new_callee_meter(
+					weight_limit + stipend_weight,
+					CallResources::Ethereum { gas: requested_gas, add_stipend: true },
+				);
+				let callee_meter_without_value = new_callee_meter(
+					weight_limit,
+					CallResources::Ethereum { gas: requested_gas, add_stipend: false },
+				);
+				assert_eq!(callee_meter_without_value.eth_gas_left().unwrap(), expected_gas);
+				assert_eq!(
+					callee_meter_with_value.weight_left().unwrap(),
+					callee_meter_without_value.weight_left().unwrap() + stipend_weight,
+					"requested gas {requested_gas}",
+				);
+				assert_eq!(
+					callee_meter_with_value.deposit_left(),
+					callee_meter_without_value.deposit_left(),
+					"requested gas {requested_gas}",
+				);
+			};
+		assert_call_requesting_gets(share / 2, share / 2);
+		assert_call_requesting_gets(share * 2, share);
+	});
+}
+
 /// A value call without gas gets only the stipend's gas, whether its caller has one stipend left or
-/// many.
+/// many. With one stipend left, it can use only the stipend's weight, and with many, the weight the
+/// stipend's gas pays for.
 #[test_case(1 ; "one stipend left")]
 #[test_case(1000 ; "many stipends left")]
 fn ethereum_execution_value_call_without_gas_gets_only_the_stipend(stipends_left: u64) {
+	use crate::evm::fees::InfoT;
+
 	ExtBuilder::default().build().execute_with(|| {
 		let stipend_weight = stipend_weight();
 		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
@@ -3005,6 +3062,14 @@ fn ethereum_execution_value_call_without_gas_gets_only_the_stipend(stipends_left
 			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
 			.unwrap();
 		assert_eq!(callee_meter.eth_gas_left().unwrap(), stipend_gas());
+		// With one stipend left, the callee's weight limit runs out first. With more, its gas does.
+		if stipends_left == 1 {
+			assert_eq!(callee_meter.weight_left().unwrap(), stipend_weight);
+		} else {
+			let weight_the_stipend_price_pays_for =
+				<Test as Config>::FeeInfo::fee_to_weight(stipend_price().to_weight_fee().unwrap());
+			assert_eq!(callee_meter.weight_left().unwrap(), weight_the_stipend_price_pays_for);
+		}
 	});
 }
 

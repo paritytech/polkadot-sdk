@@ -488,14 +488,13 @@ pub mod ethereum_execution {
 	/// - applies the EIP-150 63/64 rule to the remaining gas, weight and deposit, except for the
 	///   transaction's first call,
 	/// - adds the stipend to the nested frame's gas and weight limits,
-	/// - if the parent is in a simple gas-only mode, returns a child meter that is limited only by
-	///   gas (no per-frame weight/deposit limits),
-	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
-	///   ethereum gas
+	/// - gives the nested frame a weight limit, and a deposit limit if the caller has one or
+	///   `limit` is `CallResources::WeightDeposit`; otherwise only its gas limits its deposit.
 	///
 	/// The function ensures the nested frame's derived gas+resources remain within the parent's
 	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
-	/// available resources.
+	/// available resources, or `Err(Error::StorageDepositLimitExhausted)` when the caller is over
+	/// its deposit limit.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,

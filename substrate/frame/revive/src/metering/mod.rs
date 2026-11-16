@@ -122,32 +122,6 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-/// What a meter has left, has consumed and requires.
-#[derive(DebugNoBound)]
-#[allow(dead_code)]
-struct ResourceSummary<T: Config> {
-	weight_left: Option<Weight>,
-	deposit_left: Option<BalanceOf<T>>,
-	weight_consumed: Weight,
-	deposit_consumed: DepositOf<T>,
-	weight_required: Weight,
-	deposit_required: DepositOf<T>,
-}
-
-impl<T: Config> ResourceSummary<T> {
-	/// Builds the summary of `meter`.
-	fn new<S: State>(meter: &ResourceMeter<T, S>) -> Self {
-		Self {
-			weight_left: meter.weight_left(),
-			deposit_left: meter.deposit_left(),
-			weight_consumed: meter.weight_consumed(),
-			deposit_consumed: meter.deposit_consumed(),
-			weight_required: meter.weight_required(),
-			deposit_required: meter.deposit_required(),
-		}
-	}
-}
-
 /// Parameters required to construct a root [`TransactionMeter`].
 ///
 /// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
@@ -255,9 +229,31 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb weight meter only: parent={:?}, child={:?}",
-			ResourceSummary::new(self),
-			ResourceSummary::new(&other),
+			"Absorb weight meter only: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}, \
+				child_weight_left={:?}, \
+				child_deposit_left={:?}, \
+				child_weight_consumed={:?}, \
+				child_deposit_consumed={:?}, \
+				child_weight_required={:?}, \
+				child_deposit_required={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
+			other.weight_left(),
+			other.deposit_left(),
+			other.weight_consumed(),
+			other.deposit_consumed(),
+			other.weight_required(),
+			other.deposit_required(),
 		);
 
 		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
@@ -265,8 +261,19 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb weight meter done: parent={:?}",
-			ResourceSummary::new(self),
+			"Absorb weight meter done: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 		);
 	}
 
@@ -279,9 +286,31 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	) {
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb all meters: parent={:?}, child={:?}",
-			ResourceSummary::new(self),
-			ResourceSummary::new(&other),
+			"Absorb all meters: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}, \
+				child_weight_left={:?}, \
+				child_deposit_left={:?}, \
+				child_weight_consumed={:?}, \
+				child_deposit_consumed={:?}, \
+				child_weight_required={:?}, \
+				child_deposit_required={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
+			other.weight_left(),
+			other.deposit_left(),
+			other.weight_consumed(),
+			other.deposit_consumed(),
+			other.weight_required(),
+			other.deposit_required(),
 		);
 
 		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
@@ -292,8 +321,19 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		log::trace!(
 			target: LOG_TARGET,
-			"Absorb all meters done: parent={:?}",
-			ResourceSummary::new(self),
+			"Absorb all meters done: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 		);
 	}
 
