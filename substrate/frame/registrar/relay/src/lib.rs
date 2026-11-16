@@ -228,7 +228,7 @@ impl<S: Get<u32>> From<QueuedRequest<S>> for ParaRequestV1 {
 	}
 }
 
-/// A report to the parachain.
+/// A report to the parachain, as [`FailedReports`] stores it.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
 pub struct Report {
 	pub para_id: ParaId,
@@ -336,6 +336,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxForwardedPerBlock: Get<u32>;
 
+		/// How many reports the transport refused may wait to be retried.
+		#[pallet::constant]
+		type MaxFailedReports: Get<u32>;
+
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -370,6 +374,13 @@ pub mod pallet {
 	/// How many requests each para has in [`RelayQueue`].
 	#[pallet::storage]
 	pub type QueuedPerPara<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, u32, ValueQuery>;
+
+	/// Reports the transport refused, oldest first, retried in `on_poll`.
+	///
+	/// Later reports and first-head notes wait behind them, so none overtakes another.
+	#[pallet::storage]
+	pub type FailedReports<T: Config> =
+		StorageValue<_, BoundedVec<Report, T::MaxFailedReports>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

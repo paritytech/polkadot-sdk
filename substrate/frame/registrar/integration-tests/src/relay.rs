@@ -203,6 +203,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxQueuedRequests = frame_support::traits::ConstU32<16>;
 	type MaxQueuedPerPara = frame_support::traits::ConstU32<2>;
 	type MaxForwardedPerBlock = frame_support::traits::ConstU32<4>;
+	type MaxFailedReports = frame_support::traits::ConstU32<4>;
 	type WeightInfo = ();
 }
 

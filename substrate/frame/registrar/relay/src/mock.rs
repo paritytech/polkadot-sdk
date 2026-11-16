@@ -43,6 +43,7 @@ pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
 pub const MAX_QUEUED: u32 = 4;
 pub const MAX_QUEUED_PER_PARA: u32 = 2;
 pub const MAX_FORWARDED_PER_BLOCK: u32 = 3;
+pub const MAX_FAILED_REPORTS: u32 = 2;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -235,6 +236,7 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxQueuedRequests = ConstU32<MAX_QUEUED>;
 	type MaxQueuedPerPara = ConstU32<MAX_QUEUED_PER_PARA>;
 	type MaxForwardedPerBlock = ConstU32<MAX_FORWARDED_PER_BLOCK>;
+	type MaxFailedReports = ConstU32<MAX_FAILED_REPORTS>;
 	type WeightInfo = ();
 }
 
