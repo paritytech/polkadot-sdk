@@ -18,7 +18,7 @@ pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
 pub const MALUS_IMAGE_ENV: &str = "MALUS_IMAGE";
-pub const EXPERIMENTAL_COLLATOR_PROTOCOL_ENV: &str = "EXPERIMENTAL_COLLATOR_PROTOCOL";
+pub const LEGACY_COLLATOR_PROTOCOL_ENV: &str = "LEGACY_COLLATOR_PROTOCOL";
 pub const BLOCK_HEIGHT_FINALIZED_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
 pub const APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
 	"polkadot_parachain_approval_checking_finality_lag";
@@ -52,12 +52,13 @@ pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-/// Appends `--experimental-collator-protocol` to the command line arguments list if the
-/// `EXPERIMENTAL_COLLATOR_PROTOCOL` env variable is set.
-pub fn maybe_enable_experimental_collator_protocol(mut args: Vec<Arg>) -> Vec<Arg> {
-	if std::env::var(EXPERIMENTAL_COLLATOR_PROTOCOL_ENV).is_ok() {
-		log::info!("Enabling the experimental collator protocol");
-		args.push("--experimental-collator-protocol".into());
+/// Appends `--experimental-collator-protocol=false` to the command line arguments list if the
+/// `LEGACY_COLLATOR_PROTOCOL` env variable is set. The experimental collator protocol is enabled by
+/// default, so this switches the validators to the legacy implementation.
+pub fn maybe_enable_legacy_collator_protocol(mut args: Vec<Arg>) -> Vec<Arg> {
+	if std::env::var(LEGACY_COLLATOR_PROTOCOL_ENV).is_ok() {
+		log::info!("Enabling the legacy collator protocol");
+		args.push("--experimental-collator-protocol=false".into());
 	}
 
 	args

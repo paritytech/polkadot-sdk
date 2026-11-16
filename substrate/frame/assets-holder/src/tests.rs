@@ -420,6 +420,23 @@ mod impl_hold_mutate {
 	}
 
 	#[test]
+	fn best_effort_release_of_max_releases_all_held() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(
+				AssetsHolder::release(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					Balance::MAX,
+					Precision::BestEffort,
+				),
+				Ok(30)
+			);
+			assert_eq!(Assets::balance(ASSET_ID, WHO), 80);
+		});
+	}
+
+	#[test]
 	fn burn_held_works() {
 		// Burning works, reducing total issuance and `total_balance`.
 		new_test_ext().execute_with(|| {
