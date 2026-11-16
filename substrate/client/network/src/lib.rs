@@ -248,6 +248,8 @@ mod litep2p;
 mod protocol;
 
 #[cfg(test)]
+mod address_tests;
+#[cfg(test)]
 mod mock;
 
 pub mod config;

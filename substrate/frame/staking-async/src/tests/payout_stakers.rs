@@ -32,10 +32,10 @@ fn rewards_with_nominator_should_work() {
 		Payee::<T>::insert(21, RewardDestination::Account(21));
 		Payee::<T>::insert(101, RewardDestination::Account(101));
 
-		Eras::<T>::reward_active_era(vec![(11, 50)]);
-		Eras::<T>::reward_active_era(vec![(11, 50)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 50)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 50)]);
 		// This is the second validator of the current elected set.
-		Eras::<T>::reward_active_era(vec![(21, 50)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(21, 50)]);
 
 		// Compute total payout now for whole duration of the session.
 		let validator_payout_0 = validator_payout_for(time_per_era());
@@ -107,7 +107,7 @@ fn rewards_with_nominator_should_work() {
 		);
 
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_1 = validator_payout_for(time_per_era());
@@ -211,8 +211,8 @@ fn nominating_and_rewards_should_work() {
 			);
 
 			// reward our two winning validators
-			Eras::<T>::reward_active_era(vec![(41, 1)]);
-			Eras::<T>::reward_active_era(vec![(21, 1)]);
+			Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(41, 1)]);
+			Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(21, 1)]);
 
 			Session::roll_until_active_era(2);
 
@@ -307,7 +307,7 @@ fn reward_destination_staked() {
 		);
 
 		// reward era 1 and payout at era 2
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
@@ -417,7 +417,7 @@ fn reward_destination_stash() {
 		);
 
 		// reward era 1 and payout at era 2
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
@@ -465,7 +465,7 @@ fn reward_destination_account() {
 		);
 
 		// reward era 1 and payout at era 2
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
@@ -498,7 +498,7 @@ fn reward_destination_account() {
 #[test]
 fn validator_prefs_no_commission() {
 	ExtBuilder::default().build_and_execute(|| {
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
@@ -520,7 +520,7 @@ fn validator_prefs_no_commission() {
 fn validator_prefs_100_commission() {
 	ExtBuilder::default().build_and_execute(|| {
 		let commission = Perbill::from_percent(100);
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 
 		Eras::<T>::set_validator_prefs(1, &11, ValidatorPrefs { commission, ..Default::default() });
 		Session::roll_until_active_era(2);
@@ -542,7 +542,7 @@ fn validator_prefs_100_commission() {
 fn validator_payment_some_commission_prefs_work() {
 	ExtBuilder::default().build_and_execute(|| {
 		let commission = Perbill::from_percent(40);
-		Eras::<T>::reward_active_era(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 1)]);
 
 		Eras::<T>::set_validator_prefs(1, &11, ValidatorPrefs { commission, ..Default::default() });
 		Session::roll_until_active_era(2);

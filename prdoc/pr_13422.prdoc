@@ -1,0 +1,10 @@
+title: 'statement-store: v2 soak step, node joining shifts the replica layout'
+doc:
+- audience: Node Dev
+  description: |-
+    In this PR, we extend the v2 DHT soak with a full node joining an active network. Statements are first placed on their K closest nodes. Load starts before the newcomer is spawned and continues until all nodes learn the new peer and the topology converges.
+
+    Fresh probes submitted through the XOR-farthest node must land on exactly the new top-K. For shifted topics, the newcomer holds the statements and the displaced replica does not; control topics keep their replica set. The newcomer must also receive every pre-join statement of its shifted topics. The displaced replicas' pre-join copies are not checked: persistent statements stay until they expire. The join and a subsequent ordinary wave are mandatory, including with a zero soak duration.
+
+    Closes #13185. Part of #13162.
+crates: []

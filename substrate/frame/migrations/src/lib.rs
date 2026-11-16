@@ -835,7 +835,7 @@ impl<T: Config> Pallet<T> {
 
 		let id = T::Migrations::nth_id(cursor.index).map(TryInto::try_into);
 		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
-			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
+			defensive!("integrity_test ensures that all identifiers are present and bounded; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None;
 		};

@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config,
-	access_list::{StorageAccessKind, StorageOp, Warmth},
+	Config, H256,
+	access_list::{StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -39,11 +39,21 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
+/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
+
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight of exposing zeroed EVM memory and, when needed, allocating a replacement buffer.
+	/// Both sizes are in 32-byte words. Zero allocation words means the existing buffer is kept.
+	EvmMemoryGrow { words: u32, allocation_words: u32 },
+	/// Weight of allocating and copying EVM output data, in bytes.
+	EvmMemoryCopyOut(u32),
+	/// Per-byte weight of copying data into EVM memory; the op-code pays its fixed cost.
+	EvmCopyToContract(u32),
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -107,6 +117,14 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
+	///
+	/// `len` is the size of the data field. The per-byte charges for storing the event and adding
+	/// it to the receipt apply to the topic bytes (32 per topic) plus `len`, the byte count the
+	/// `on_finalize_per_event_data` benchmark measures. The topic count is clamped to
+	/// [`limits::NUM_EVENT_TOPICS`] for these charges. The event sink only accepts
+	/// [`ContractLogTopics`](crate::ContractLogTopics), which holds at most that many topics, so
+	/// no stored event has more topics than that. A caller that passes the number of topics it
+	/// stores as `num_topic` is charged for every stored topic byte.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
@@ -175,6 +193,31 @@ pub enum RuntimeCosts {
 	Blake2F(u32),
 	/// Weight of calling `Modexp` precompile
 	Modexp(u64),
+	/// Weight of processing EIP-7702 authorization tuples.
+	///
+	/// `invalid_accounts` covers every tuple that produced no state change: those that
+	/// fail the chain-id check, fail signature recovery, or pass recovery but then fail
+	/// validation (bad nonce, non-EOA authority, etc.) or post-validation (set_delegation
+	/// error). All are billed at the signature-recovery cost — a conservative over-estimate
+	/// for the chain-id failures, which bail before recovery — and incur no
+	/// account creation/update work.
+	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -279,12 +322,29 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			EvmMemoryGrow { words, allocation_words } => {
+				let grow = cost_args!(evm_memory_grow, words);
+				let allocate = if allocation_words == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_reallocate(allocation_words)
+				};
+				grow.saturating_add(allocate)
+			},
+			EvmMemoryCopyOut(len) => {
+				if len == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_copy_out(len)
+				}
+			},
 			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
 			// twice.
 			ExtCodeCopy(len) => {
 				T::WeightInfo::extcodecopy(len).saturating_sub(T::WeightInfo::seal_code_size())
 			},
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
+			EvmCopyToContract(len) => cost_args!(seal_copy_to_contract, len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			ReturnDataSize => T::WeightInfo::seal_return_data_size(),
@@ -322,12 +382,17 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_terminate(code_removed.into())
 				}
 			},
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
-				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
-				.saturating_add(Weight::from_parts(
-					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
-					0,
-				)),
+			DepositEvent { num_topic, len } => {
+				let topic_bytes =
+					num_topic.min(limits::NUM_EVENT_TOPICS) * H256::len_bytes() as u32;
+				let event_bytes = len.saturating_add(topic_bytes);
+				T::WeightInfo::seal_deposit_event(num_topic, len)
+					.saturating_add(T::WeightInfo::on_finalize_block_per_event(event_bytes))
+					.saturating_add(Weight::from_parts(
+						limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(event_bytes.into()),
+						0,
+					))
+			},
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
 				StorageOp::Write,
 				kind,
@@ -363,28 +428,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
+			CallBase => T::WeightInfo::seal_call(0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge { dust_transfer } => {
-				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+				// `Weight::max` is per dimension, so ref time and proof size can each be taken from
+				// either of the two benches.
+				T::WeightInfo::seal_call_transfer(dust_transfer.into())
+					.max(T::WeightInfo::seal_call_transfer_to_existing(dust_transfer.into()))
+					.saturating_sub(T::WeightInfo::seal_call(0))
 			},
-			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			CallInputCloned(len) => cost_args!(seal_call, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::seal_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					input_data_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::seal_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::seal_instantiate(0))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::seal_instantiate(input_data_len).saturating_add(transfer)
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::evm_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					init_code_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(BENCH_MIN_EVM_INIT_CODE_LEN))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::evm_instantiate(init_code_len).saturating_add(transfer)
 			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -404,6 +477,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
+			Delegations { new_accounts, existing_accounts, invalid_accounts } => {
+				T::WeightInfo::process_new_account_authorization(new_accounts)
+					.saturating_add(T::WeightInfo::process_existing_account_authorization(
+						existing_accounts,
+					))
+					.saturating_add(T::WeightInfo::process_invalid_authorization(invalid_accounts))
+			},
 		}
 	}
 }
@@ -414,7 +494,7 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+	fn storage_pricing_by_access_kind() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
@@ -467,6 +547,19 @@ mod tests {
 				rev_weight.proof_size(),
 				non_rev_weight.proof_size(),
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+		}
+
+		for transient_cost in with_kind(StorageAccessKind::Transient) {
+			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+			assert_eq!(
+				weight.proof_size(),
+				0,
+				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+			);
+			assert!(
+				weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
 			);
 		}
 	}
@@ -523,6 +616,14 @@ mod tests {
 	}
 
 	#[test]
+	fn a_transient_access_never_consults_the_access_list() {
+		assert_eq!(
+			StorageAccessKind::new(true, || unreachable!("transient storage has no warmth")),
+			StorageAccessKind::Transient,
+		);
+	}
+
+	#[test]
 	fn hot_storage_overlay_overhead_is_not_zero() {
 		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		assert!(
@@ -530,5 +631,41 @@ mod tests {
 			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+	}
+
+	#[test]
+	fn value_transfers_pay_a_surcharge() {
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let call = |dust_transfer| weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
+		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
+		assert!(call(true).ref_time() > call(false).ref_time(), "a call with dust must cost more");
+
+		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
+		};
+		let create: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Create { init_code_len: 0, balance_transfer, dust_transfer }
+		};
+
+		for (name, cost_of) in [("instantiate", instantiate), ("create", create)] {
+			let surcharge = |balance_transfer, dust_transfer| {
+				weight(cost_of(balance_transfer, dust_transfer))
+					.saturating_sub(weight(cost_of(false, false)))
+			};
+			assert!(
+				surcharge(true, false).ref_time() > 0,
+				"{name} with value must pay for its transfer",
+			);
+			assert!(
+				surcharge(true, true).ref_time() > surcharge(true, false).ref_time(),
+				"{name} with dust must cost more",
+			);
+			assert_eq!(
+				surcharge(false, true),
+				surcharge(true, true),
+				"{name} with only dust does the same work as with value and dust",
+			);
+		}
 	}
 }

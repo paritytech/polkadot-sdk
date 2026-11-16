@@ -1,0 +1,39 @@
+title: 'Registrar: Force Register'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Implements `pallet-registrar-para::force_register`, the port of the relay chain's
+      `paras_registrar::force_register`, gated by the new `ForceOrigin` config type.
+
+      Any id works, the system range included, and it need not be reserved first. The manager
+      pays the usual deposits, as with `reserve` + `register`, unless the id is a system one or
+      `skip_deposit` is set. That replaces the old `deposit` override, which Polkadot set to 0 for
+      system chains. Deposit tickets in `ParaInfo` and `RegistrationState` are now `Option`s.
+      The `MaxCodeSize` and `MaxHeadDataSize` config items are replaced by `HostConfiguration`,
+      which reads the relay chain's limits (on a parachain, parachain-system's `HostConfiguration`).
+      `register` fails with `NoHostConfiguration` until it is set. The registration deposit is now
+      taken for the relay chain's `max_code_size` rather than the declared code length. Benchmarks
+      need the new `BenchmarkHelper` config item.
+      `NextFreeParaId` moves past a forced public id so `reserve` doesn't collide with it.
+      A forced system id the relay chain turns down, or whose registration is cancelled, is
+      dropped rather than left reserved, and `register` refuses system ids with the new
+      `SystemParaId` error, so only `force_register` picks a system para's code.
+      New try-state checks fail on a reserved system id or a system para holding a deposit, and
+      warn on a public para missing one.
+      The call sends the existing `Register` message, so the relay chain logic is unchanged. It
+      comes with a new `force_register` weight.
+
+      Once the Coretime chain runs `pallet-registrar-para` (Assethub on Kusama), use its `force_register` rather than
+      the relay chain's: the manager, deposits and lock live on the Coretime chain, and a para
+      registered straight on the relay chain is unknown there, so it can't be managed from it.
+      Root skips the call filter, so the relay chain call can't be filtered out, and its doc now
+      carries a deprecation note instead.
+
+crates:
+  - name: pallet-registrar-para
+    bump: major
+  - name: polkadot-runtime-common
+    bump: none
+  - name: pallet-registrar-relay
+    bump: none

@@ -1,0 +1,22 @@
+title: Check configured address identity against the node key
+doc:
+- audience: Node Operator
+  description: |-
+    `--listen-addr` and `--public-addr` accept a trailing `/p2p/<peer id>`, and a
+    `/certhash/<hash>` before it on a `webrtc-direct` address. Both are checked against the node
+    key and stripped. The node refuses to start if either does not match, or if the node key does
+    not exist yet.
+- audience: Node Dev
+  description: |-
+    `NetworkConfiguration::validate_and_complete_webrtc_addresses` is renamed to
+    `validate_and_complete_addresses`. It now also checks the `/p2p` and `/certhash` components of
+    listen and public addresses against the node key and strips them, on both network backends,
+    pinning the resolved key into `NetworkConfiguration::node_key`.
+
+    `sc_network::error::Error` gains `MismatchedAddressIdentity`, `MalformedAddressIdentity` and
+    `AddressIdentityWithoutNodeKey`.
+crates:
+- name: sc-cli
+  bump: minor
+- name: sc-network
+  bump: major

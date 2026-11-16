@@ -45,3 +45,4 @@ mod account;
 pub use account::*;
 
 mod signature;
+pub use signature::recover_eth_address_from_message;

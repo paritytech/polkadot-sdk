@@ -70,6 +70,9 @@ pub enum SecondingError {
 	#[error("Candidate hash doesn't match the advertisement")]
 	CandidateHashMismatch,
 
+	#[error("Candidate's output head hash doesn't match the advertisement")]
+	OutputHeadHashMismatch,
+
 	#[error("Scheduling parent hash doesn't match the advertisement")]
 	SchedulingParentMismatch,
 
@@ -115,7 +118,8 @@ impl SecondingError {
 			InvalidSessionIndex(_, _) |
 			InvalidReceiptVersion(_) |
 			DescriptorVersionMismatch(_, _) |
-			ParaIdMismatch => true,
+			ParaIdMismatch |
+			OutputHeadHashMismatch => true,
 			_ => false,
 		}
 	}

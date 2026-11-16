@@ -65,6 +65,9 @@ pub type BlockNumber = u32;
 pub const BLOCKS_PER_SESSION: BlockNumber = 3;
 pub const MAX_PENDING: u32 = 4;
 
+/// How long the relay chain will accept the blob for an authorized code upgrade.
+pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
+
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 
@@ -133,7 +136,7 @@ impl frame_support::traits::EstimateNextSessionRotation<BlockNumber> for TestNex
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl paras::Config for Runtime {
@@ -142,7 +145,7 @@ impl paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = TestNextSessionRotation;
-	type OnNewHead = ();
+	type OnNewHead = (ParasRegistrar, RegistrarRelay);
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
@@ -183,7 +186,7 @@ impl paras_registrar::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 impl pallet_registrar_relay::Config for Runtime {
@@ -195,6 +198,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = frame_support::traits::ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
+	type CodeUpgradeValidPeriod = frame_support::traits::ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
 	type WeightInfo = ();
 }
@@ -344,7 +348,7 @@ construct_runtime!(
 		Parachains: paras,
 		ParasOrigin: origin,
 		ParasRegistrar: paras_registrar,
-		Registrar: pallet_registrar_relay,
+		RegistrarRelay: pallet_registrar_relay,
 		XcmPallet: pallet_xcm,
 		MessageQueue: pallet_message_queue,
 	}

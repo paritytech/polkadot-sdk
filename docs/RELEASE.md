@@ -189,3 +189,42 @@ The release itself is similar to [the new stable release](#steps-to-execute-a-ne
 the branching-off step, as the branch already exists and depending on the patch
 (whether it is for the current `stable` release or one of the previous ones) the binary build can be skipped
 and only crates and GitHub publishing is done.
+
+## Changelog
+
+Cadence: every release. Responsible: Release Team.
+
+The release notes are generated from the prdoc files of the release by
+[`build-changelogs.sh`](/scripts/release/build-changelogs.sh): the outer document (free notes, release
+info, runtimes, docker images) is rendered from the `tera` templates in `scripts/release/templates/`,
+the changelog itself by [`generate.py`](/scripts/release/changelog/generate.py) (`python3` + PyYAML, no
+network access). The generator produces:
+
+- `changelog_body.md`: the changelog placed into the GitHub release body, with a breaking-changes index
+  on top and the changes grouped by topic and, within a topic, by audience. Descriptions are truncated
+  so that the body stays under the GitHub size limit.
+- `CHANGELOG.md`: the complete changelog with untruncated descriptions, attached to the release.
+- `changelog.json`: the same data in machine-readable form, attached to the release and described by
+  [`schema.json`](/scripts/release/changelog/schema.json).
+
+### Topics
+
+Changes are grouped by the topics defined in [`prdoc/topics.yaml`](/prdoc/topics.yaml). The topic of a
+change is resolved in this order:
+
+1. The prdoc's explicit `topic` field, if it matches a topic `id`, `label` or `alias`.
+2. Derived from the prdoc's `crates`: the first topic in file order with a glob pattern matching any of
+   the crates.
+3. `Misc` otherwise.
+
+Maintaining the taxonomy is a one-line change in `topics.yaml`: add a crate pattern to a topic, or add a
+new topic. The order of the file is the order of the changelog sections and the first match wins, so
+specific topics have to stay above the FRAME and Node catch-alls. A topic without `patterns` is only
+used when a prdoc selects it explicitly, which fits initiatives spanning many crates. `aliases` are
+alternative spellings accepted in the `topic` field, they do not affect derivation.
+
+Unknown `topic` values never fail anything: the `check-prdoc` CI job warns on the PR and the generator
+logs a notice and falls back to derivation. The
+[Check changelog generation](/.github/workflows/release-check-changelog-generation.yml) workflow runs on
+PRs touching the generator, the templates or the taxonomy, uploads the rendered changelog as an
+artifact for review and lists unknown explicit `topic` values in its job summary.

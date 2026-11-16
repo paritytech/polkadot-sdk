@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
+	traits::{Hooks, UnfilteredDispatchable},
 	weights::constants,
 	PalletId,
 };
@@ -108,10 +108,8 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
 }
 
 impl pallet_timestamp::Config for Runtime {

@@ -24,8 +24,8 @@ use std::time::SystemTime;
 use tracing_subscriber::EnvFilter;
 use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
-	subxt::SubstrateConfig, GlobalSettingsBuilder, LocalFileSystem, Network, NetworkConfig,
-	NetworkConfigBuilder, NetworkConfigExt, WithRelaychain,
+	subxt::SubstrateConfig, Buildable, GlobalSettingsBuilder, LocalFileSystem, Network,
+	NetworkConfig, NetworkConfigBuilder, NetworkConfigExt,
 };
 
 /// Gathers TOML files paths for relaychains and for parachains' (that use rococo-local based
@@ -86,7 +86,7 @@ impl NetworkSpawner {
 	/// Initialize the network spawner using given `builder` closure.
 	pub async fn with_closure<F>(builder: F) -> Result<NetworkSpawner>
 	where
-		F: FnOnce() -> NetworkConfigBuilder<WithRelaychain>,
+		F: FnOnce() -> NetworkConfigBuilder<Buildable>,
 	{
 		let _ = env_logger::try_init_from_env(
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),

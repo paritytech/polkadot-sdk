@@ -22,7 +22,6 @@ use sp_consensus::block_validation::{
 };
 use sp_runtime::traits::Block as BlockT;
 
-use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_primitives::{
 	CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash, UncheckedSigned,
 };
@@ -59,24 +58,6 @@ impl Decode for BlockAnnounceData {
 		};
 
 		Ok(Self { receipt, statement, relay_parent })
-	}
-}
-
-impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
-	type Error = ();
-
-	fn try_from(signal: &CollationSecondedSignal) -> Result<BlockAnnounceData, ()> {
-		let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
-			receipt.to_plain()
-		} else {
-			return Err(());
-		};
-
-		Ok(BlockAnnounceData {
-			receipt,
-			statement: signal.statement.convert_payload().into(),
-			relay_parent: signal.scheduling_parent,
-		})
 	}
 }
 

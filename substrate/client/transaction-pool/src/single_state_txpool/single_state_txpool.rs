@@ -423,17 +423,9 @@ where
 impl<Block, Client> BasicPool<FullChainApi<Client, Block>, Block>
 where
 	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
+	Client: crate::ClientForTransactionPool<Block>
 		+ sc_client_api::ExecutorProvider<Block>
-		+ sc_client_api::UsageProvider<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Send
-		+ Sync
-		+ 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+		+ sc_client_api::UsageProvider<Block>,
 {
 	/// Create new basic transaction pool for a full node with the provided api.
 	pub fn new_full(
@@ -464,13 +456,7 @@ impl<Block, Client> sc_transaction_pool_api::LocalTransactionPool
 	for BasicPool<FullChainApi<Client, Block>, Block>
 where
 	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	Client: Send + Sync + 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	Client: crate::ClientForTransactionPool<Block>,
 {
 	type Block = Block;
 	type Hash = graph::ExtrinsicHash<FullChainApi<Client, Block>>;

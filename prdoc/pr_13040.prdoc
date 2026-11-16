@@ -1,0 +1,10 @@
+title: Propagate the revenue claim transfer error
+doc:
+- audience: Runtime Dev
+  description: |-
+    Return the error when the revenue payout to the payee fails, so the extrinsic reverts and
+    the claimant keeps the entitlement. The pallet previously discarded this error and removed
+    the entitlement without payment.
+crates:
+- name: pallet-broker
+  bump: patch

@@ -52,6 +52,7 @@ pub trait WeightInfo {
 	fn request_revenue_at() -> Weight;
 	fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
+	fn queue_on_demand_batch(s: u32) -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -68,6 +69,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn assign_core(_s: u32) -> Weight {
+		Weight::MAX
+	}
+	fn queue_on_demand_batch(_s: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -245,6 +249,28 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
 			Ok(())
 		}
+
+		/// Receive on-demand coretime orders from the `ExternalBrokerOrigin`.
+		///
+		/// Parameters:
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
+		/// -`batch`: The batch of on-demand orders.
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::queue_on_demand_batch(batch.len() as u32))]
+		pub fn queue_on_demand_batch(
+			origin: OriginFor<T>,
+			batch: Vec<(ParaId, BlockNumberFor<T>)>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
+
+			// It is possible for the call below to not always queue the full batch. In such a case,
+			// instead of returning an error, which would revert any changes made to storage, we
+			// queue as much as possible, so that the orders don't have to wait unnecessarily long,
+			// and emit an `UnexpectedQueueFull` event for better observability.
+			<on_demand::Pallet<T>>::queue_order_batch(&batch);
+			Ok(())
+		}
 	}
 }
 
@@ -264,6 +290,15 @@ impl<T: Config> Pallet<T> {
 			ensure_root(origin.clone())?;
 		}
 		Ok(())
+	}
+
+	/// Helper function for benchmarks to ensure the broker parachain is reachable.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn ensure_broker_parachain_reachable() {
+		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
+			0,
+			[Junction::Parachain(T::BrokerId::get())],
+		)));
 	}
 
 	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {

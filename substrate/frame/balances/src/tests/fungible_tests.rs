@@ -119,6 +119,40 @@ fn unbalanced_trait_set_total_issuance_works() {
 }
 
 #[test]
+fn inactive_issuance_survives_reverted_rescind() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		Balances::deactivate(80);
+		assert_eq!(Balances::active_issuance(), 20);
+
+		let debt = <Balances as fungible::Balanced<_>>::rescind(30);
+		assert_eq!(Balances::total_issuance(), 70);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), 80);
+
+		drop(debt);
+		assert_eq!(Balances::total_issuance(), 100);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), 80);
+		assert_eq!(Balances::active_issuance(), 20);
+	});
+}
+
+#[test]
+fn deactivate_zero_does_not_reduce_inactive_issuance() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		Balances::deactivate(80);
+
+		let debt = <Balances as fungible::Balanced<_>>::rescind(30);
+		assert_eq!(Balances::total_issuance(), 70);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), 80);
+
+		assert_storage_noop!(Balances::deactivate(0));
+
+		drop(debt);
+	});
+}
+
+#[test]
 fn unbalanced_trait_decrease_balance_simple_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		// An Account that starts at 100
@@ -216,6 +250,31 @@ fn unbalanced_trait_increase_balance_works() {
 }
 
 #[test]
+fn increase_balance_rejects_total_balance_overflow() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		// The free-balance addition is checked, but free and reserved are then combined with
+		// saturating arithmetic. That masks the aggregate overflow and accepts an account whose
+		// mathematical total cannot be represented by `Balance`.
+		let account = 1;
+
+		Balances::set_balance(&account, u64::MAX - 1);
+		assert_ok!(Balances::hold(&TestId::Foo, &account, 1));
+		assert_eq!(get_test_account_data(account).free, u64::MAX - 2);
+		assert_eq!(get_test_account_data(account).reserved, 1);
+
+		// Exact cannot credit the requested amount because it would make the aggregate overflow.
+		assert_noop!(Balances::increase_balance(&account, 2, Exact), ArithmeticError::Overflow);
+
+		// BestEffort must credit only the remaining aggregate headroom, not hide the overflow by
+		// saturating `total_balance` after writing both components.
+		assert_eq!(Balances::increase_balance(&account, 2, BestEffort), Ok(1));
+		assert_eq!(get_test_account_data(account).free, u64::MAX - 1);
+		assert_eq!(get_test_account_data(account).reserved, 1);
+		assert_eq!(Balances::total_balance(&account), u64::MAX);
+	});
+}
+
+#[test]
 fn unbalanced_trait_increase_balance_at_most_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_eq!(Balances::increase_balance(&1337, 0, BestEffort), Ok(0));
@@ -277,6 +336,27 @@ fn frozen_hold_balance_cannot_be_moved_without_force() {
 			);
 
 			assert_eq!(Balances::total_balance(&2), 21);
+		});
+}
+
+#[test]
+fn zero_value_transfer_emits_no_event() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let _ = events();
+
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 0, Preserve));
+			assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 0));
+			assert_eq!(events(), []);
+
+			// A non-zero transfer still emits `Transfer`.
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 1, Preserve));
+			assert_eq!(
+				events(),
+				[RuntimeEvent::Balances(crate::Event::Transfer { from: 1, to: 2, amount: 1 })]
+			);
 		});
 }
 
@@ -358,6 +438,24 @@ fn burn_held() {
 			assert_eq!(Balances::total_balance(&account), 6);
 			assert_eq!(Balances::total_issuance(), 106);
 		});
+}
+
+#[test]
+fn best_effort_release_below_ed_does_not_lose_funds() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		// Another provider lets the free balance drop below ED while funds are held.
+		System::inc_providers(&1);
+		Balances::set_balance(&1, 15);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 15));
+		assert_ok!(Balances::burn_held(&TestId::Foo, &1, 11, Exact, Polite));
+		assert_eq!(Balances::balance(&1), 0);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 4);
+		assert_eq!(Balances::total_issuance(), 4);
+
+		// Only 4 are held, which is below ED, so nothing can be released.
+		assert_noop!(Balances::release(&TestId::Foo, &1, 10, BestEffort), TokenError::CannotCreate);
+		assert_eq!(Balances::total_balance(&1), Balances::total_issuance());
+	});
 }
 
 #[test]

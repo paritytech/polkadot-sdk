@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+. "$(dirname "${BASH_SOURCE[0]}")/../common/lib.sh"
+
 # Set the new version by replacing the value of the constant given as pattern
 # in the file.
 #
@@ -29,9 +31,10 @@ commit_with_message() {
 # input: none
 # output: list of filtered runtimes
 get_filtered_runtimes_list() {
+    # "docs" skips the tutorial runtime, which has a placeholder spec_version: 0.
     grep_filters=("runtime.*" "test|template|starters|substrate|docs")
 
-    git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1
+    git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1 | sort -u
 }
 
 # Sets provided spec version
@@ -169,47 +172,6 @@ upload_s3_runtimes_release_artifacts() {
   echo "Uploaded files:"
   aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize
   echo "✅ The release should be at https://releases.parity.io/polkadot/runtimes/${version}"
-}
-
-
-# Pass the name of the binary as input, it will
-# return the s3 base url
-function get_s3_url_base() {
-    name=$1
-    case $name in
-      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
-        printf "releases.parity.io/polkadot"
-        ;;
-
-      polkadot-parachain)
-        printf "releases.parity.io/polkadot-parachain"
-        ;;
-
-      polkadot-omni-node)
-        printf "releases.parity.io/polkadot-omni-node"
-        ;;
-
-      chain-spec-builder)
-        printf "releases.parity.io/chain-spec-builder"
-        ;;
-
-      frame-omni-bencher)
-        printf "releases.parity.io/frame-omni-bencher"
-        ;;
-      substrate-node)
-        printf "releases.parity.io/substrate-node"
-        ;;
-      eth-rpc)
-        printf "releases.parity.io/eth-rpc"
-        ;;
-      subkey)
-        printf "releases.parity.io/subkey"
-        ;;
-      *)
-        printf "UNSUPPORTED BINARY $name"
-        exit 1
-        ;;
-    esac
 }
 
 # Bump spec_version in a runtime file based on release type

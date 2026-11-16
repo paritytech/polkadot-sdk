@@ -1084,3 +1084,68 @@ mod disabling_with_reenabling {
 		});
 	}
 }
+
+#[test]
+fn union_session_manager_merges_and_forwards_to_both_managers() {
+	frame_support::parameter_types! {
+		pub static LeftSet: Option<Vec<u64>> = None;
+		pub static RightSet: Option<Vec<u64>> = None;
+		pub static Calls: Vec<(&'static str, &'static str, SessionIndex)> = Vec::new();
+	}
+	struct Left;
+	impl SessionManager<u64> for Left {
+		fn new_session(_: SessionIndex) -> Option<Vec<u64>> {
+			LeftSet::get()
+		}
+		fn new_session_genesis(_: SessionIndex) -> Option<Vec<u64>> {
+			Some(vec![5, 6])
+		}
+		fn start_session(index: SessionIndex) {
+			Calls::mutate(|calls| calls.push(("left", "start", index)));
+		}
+		fn end_session(index: SessionIndex) {
+			Calls::mutate(|calls| calls.push(("left", "end", index)));
+		}
+	}
+	struct Right;
+	impl SessionManager<u64> for Right {
+		fn new_session(_: SessionIndex) -> Option<Vec<u64>> {
+			RightSet::get()
+		}
+		fn new_session_genesis(_: SessionIndex) -> Option<Vec<u64>> {
+			Some(vec![6, 7])
+		}
+		fn start_session(index: SessionIndex) {
+			Calls::mutate(|calls| calls.push(("right", "start", index)));
+		}
+		fn end_session(index: SessionIndex) {
+			Calls::mutate(|calls| calls.push(("right", "end", index)));
+		}
+	}
+	type Union = UnionSessionManager<Left, Right>;
+	let merged = |left, right| {
+		LeftSet::set(left);
+		RightSet::set(right);
+		<Union as SessionManager<u64>>::new_session(1)
+	};
+
+	// GIVEN two managers returning every combination of None and overlapping sets
+	// WHEN the union plans sessions, the genesis session, and starts and ends a session
+	// THEN it is None only if both are None, returns a one-sided set unchanged, and merges two
+	// sets left then right without duplicates
+	assert_eq!(merged(None, None), None);
+	assert_eq!(merged(Some(vec![1, 2]), None), Some(vec![1, 2]));
+	assert_eq!(merged(Some(vec![1, 1]), None), Some(vec![1, 1]));
+	assert_eq!(merged(None, Some(vec![3])), Some(vec![3]));
+	assert_eq!(merged(Some(vec![]), None), Some(vec![]));
+	assert_eq!(merged(Some(vec![2, 1]), Some(vec![3, 1, 4, 3])), Some(vec![2, 1, 3, 4]));
+	// THEN the genesis session merges the genesis sets
+	assert_eq!(<Union as SessionManager<u64>>::new_session_genesis(0), Some(vec![5, 6, 7]));
+	// THEN starting and ending a session reaches both managers
+	<Union as SessionManager<u64>>::start_session(3);
+	<Union as SessionManager<u64>>::end_session(3);
+	assert_eq!(
+		Calls::get(),
+		vec![("left", "start", 3), ("right", "start", 3), ("left", "end", 3), ("right", "end", 3)]
+	);
+}

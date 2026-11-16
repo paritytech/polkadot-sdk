@@ -1,0 +1,12 @@
+title: Remove deprecated polkadot and omni-node CLI flags
+doc:
+- audience: Node Operator
+  description: |-
+    Removes CLI flags that were deprecated and no longer had any effect, along with the code that handled them.
+    For omni-node, removes `--experimental-use-slot-based`. Its warning said the flag would be removed after May 2025. Use `--authoring slot-based` instead.
+    For polkadot, Removes `--force-kusama`, `--force-westend` and `--force-rococo`.
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-cli
+  bump: major

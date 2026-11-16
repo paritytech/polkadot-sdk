@@ -50,28 +50,42 @@ use std::{
 
 /// Times `op` over `n` iterations. `setup` runs untimed before each iteration and its value is
 /// dropped untimed after it; `pacing` sleeps between iterations (untimed) let the matcher task
-/// keep up with the create/add/drop churn. Returns (mean, min, max) in seconds.
+/// keep up with the create/add/drop churn. Returns the per-iteration times in seconds, sorted.
 fn timed_loop<S>(
 	n: usize,
 	pacing: Duration,
 	mut setup: impl FnMut() -> S,
 	mut op: impl FnMut(&S),
-) -> (f64, f64, f64) {
-	let mut total = 0.0f64;
-	let mut min = f64::MAX;
-	let mut max = 0.0f64;
+) -> Vec<f64> {
+	let mut samples = Vec::with_capacity(n);
 	for _ in 0..n {
 		let state = setup();
 		let started = Instant::now();
 		op(&state);
-		let secs = started.elapsed().as_secs_f64();
-		total += secs;
-		min = min.min(secs);
-		max = max.max(secs);
+		samples.push(started.elapsed().as_secs_f64());
 		drop(state);
 		std::thread::sleep(pacing);
 	}
-	(total / n as f64, min, max)
+	samples.sort_by(f64::total_cmp);
+	samples
+}
+
+/// The sample at quantile `q` of `sorted`, by the nearest-rank rule.
+fn quantile(sorted: &[f64], q: f64) -> f64 {
+	let rank = (q * sorted.len() as f64).ceil() as usize;
+	sorted[rank - 1]
+}
+
+fn summary(label: &str, sorted: &[f64], scale: f64, unit: &str) -> String {
+	let fmt = |name: &str, secs: f64| format!("{}_{}={:.3}", name, unit, secs * scale);
+	format!(
+		"ADDFILTER_META {} {} {} {} {}",
+		label,
+		fmt("median", quantile(sorted, 0.5)),
+		fmt("p90", quantile(sorted, 0.9)),
+		fmt("min", sorted[0]),
+		fmt("max", sorted[sorted.len() - 1]),
+	)
 }
 
 fn main() {
@@ -95,28 +109,18 @@ fn main() {
 	timed_loop(50, Duration::from_millis(1), create, |(handle, _stream)| {
 		handle.add_filter(narrow.clone()).expect("filter attaches");
 	});
-	let (mean, min, max) =
-		timed_loop(500, Duration::from_millis(1), create, |(handle, _stream)| {
-			handle.add_filter(narrow.clone()).expect("filter attaches");
-		});
-	println!(
-		"ADDFILTER_META add_filter_diverse_8 mean_us={:.2} min_us={:.2} max_us={:.2}",
-		mean * 1e6,
-		min * 1e6,
-		max * 1e6
-	);
+	let samples = timed_loop(500, Duration::from_millis(1), create, |(handle, _stream)| {
+		handle.add_filter(narrow.clone()).expect("filter attaches");
+	});
+	println!("{}", summary("add_filter_diverse_8", &samples, 1e6, "us"));
 
 	// Whole-store snapshot: `Any` enumerates every statement hash under the store lock. The
 	// snapshot Vec (~4.2M hashes) travels to the matcher and is freed on unsubscribe, so pace
 	// generously.
-	let (mean, min, max) =
-		timed_loop(5, Duration::from_millis(500), create, |(handle, _stream)| {
-			handle.add_filter(OptimizedTopicFilter::Any).expect("filter attaches");
-		});
-	println!(
-		"ADDFILTER_META add_filter_any_4m mean_s={:.3} min_s={:.3} max_s={:.3}",
-		mean, min, max
-	);
+	let samples = timed_loop(10, Duration::from_millis(500), create, |(handle, _stream)| {
+		handle.add_filter(OptimizedTopicFilter::Any).expect("filter attaches");
+	});
+	println!("{}", summary("add_filter_any_4m", &samples, 1.0, "s"));
 
 	// Submit stall: start an `add_filter(Any)` scan on another thread, give it a head start to
 	// take the lock, then time a single submit. Compared against the same submit with no scan in
@@ -131,14 +135,8 @@ fn main() {
 		});
 		std::thread::sleep(Duration::from_millis(10));
 
-		let statement = create_statement(
-			fresh_id_base(),
-			&[],
-			None,
-			STATEMENT_DATA_SIZE,
-			LOW_EXPIRY,
-			&sacrifice,
-		);
+		let statement =
+			create_statement(fresh_id_base(), &[], STATEMENT_DATA_SIZE, LOW_EXPIRY, &sacrifice);
 		let submit_started = Instant::now();
 		let result = store.submit(statement, StatementSource::Local);
 		let submit_during_scan = submit_started.elapsed().as_secs_f64();
@@ -148,14 +146,8 @@ fn main() {
 		assert!(filter_ok, "add_filter(Any) must succeed");
 		drop(stream);
 
-		let statement = create_statement(
-			fresh_id_base() | 1,
-			&[],
-			None,
-			STATEMENT_DATA_SIZE,
-			LOW_EXPIRY,
-			&sacrifice,
-		);
+		let statement =
+			create_statement(fresh_id_base() | 1, &[], STATEMENT_DATA_SIZE, LOW_EXPIRY, &sacrifice);
 		let submit_started = Instant::now();
 		let result = store.submit(statement, StatementSource::Local);
 		let submit_no_scan = submit_started.elapsed().as_secs_f64();

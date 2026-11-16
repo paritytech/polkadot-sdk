@@ -515,6 +515,181 @@ fn good_commit_leads_to_relay() {
 }
 
 #[test]
+fn duplicate_commit_is_not_relayed() {
+	let private = [Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+	let public = make_ids(&private[..]);
+	let voter_set = Arc::new(VoterSet::new(public.iter().cloned()).unwrap());
+
+	let round = 1;
+	let set_id = 1;
+
+	// a valid commit for `target_number`, with precommits optionally in reverse order so that
+	// two commits for the same round and block have a different encoding.
+	let make_commit = |target_number: u64, reverse: bool| {
+		let target_hash: Hash = [target_number as u8; 32].into();
+		let precommit = finality_grandpa::Precommit { target_hash, target_number };
+		let payload = sp_consensus_grandpa::localized_payload(
+			round,
+			set_id,
+			&finality_grandpa::Message::Precommit(precommit.clone()),
+		);
+
+		let mut signed = private
+			.iter()
+			.enumerate()
+			.map(|(i, key)| {
+				let signature =
+					sp_consensus_grandpa::AuthoritySignature::from(key.sign(&payload[..]));
+				(precommit.clone(), (signature, public[i].0.clone()))
+			})
+			.collect::<Vec<_>>();
+
+		if reverse {
+			signed.reverse();
+		}
+
+		let (precommits, auth_data) = signed.into_iter().unzip();
+
+		gossip::GossipMessage::<Block>::Commit(gossip::FullCommitMessage {
+			round: Round(round),
+			set_id: SetId(set_id),
+			message: finality_grandpa::CompactCommit {
+				target_hash,
+				target_number,
+				precommits,
+				auth_data,
+			},
+		})
+		.encode()
+	};
+
+	// two different commits for the same round and block, e.g. from two voters, followed by a
+	// commit for a later block.
+	let first = make_commit(500, false);
+	let duplicate = make_commit(500, true);
+	let next = make_commit(501, false);
+	assert_ne!(first, duplicate);
+
+	let sender_id = PeerId::random();
+	let receiver_id = PeerId::random();
+	let late_sender_id = PeerId::random();
+
+	let test = make_test_network().0.then(move |tester| {
+		let (commits_in, _) =
+			tester.net_handle.global_communication(SetId(set_id), voter_set, false);
+		let network_bridge = tester.net_handle.clone();
+
+		let commits = vec![first.clone(), duplicate.clone(), next.clone()];
+		let late_duplicate = duplicate.clone();
+		let send_messages = async move {
+			// the receiver is an authority, so that commits are gossiped to it right away,
+			// without waiting for gossip to reach all peers.
+			for (peer, roles) in [
+				(sender_id, Roles::FULL),
+				(receiver_id, Roles::AUTHORITY),
+				(late_sender_id, Roles::FULL),
+			] {
+				let _ = tester.notification_tx.unbounded_send(
+					NotificationEvent::NotificationStreamOpened {
+						peer,
+						direction: Direction::Inbound,
+						negotiated_fallback: None,
+						handshake: roles.encode(),
+					},
+				);
+			}
+
+			// the receiver is on the current set, otherwise it won't be eligible for commits
+			let neighbor = gossip::GossipMessage::<Block>::Neighbor(
+				gossip::VersionedNeighborPacket::V1(gossip::NeighborPacket {
+					round: Round(round),
+					set_id: SetId(set_id),
+					commit_finalized_height: 1,
+				}),
+			);
+			let _ =
+				tester.notification_tx.unbounded_send(NotificationEvent::NotificationReceived {
+					peer: receiver_id,
+					notification: neighbor.encode(),
+				});
+
+			// all commits pass validation before any of them is processed
+			for commit in commits {
+				let _ = tester.notification_tx.unbounded_send(
+					NotificationEvent::NotificationReceived {
+						peer: sender_id,
+						notification: commit,
+					},
+				);
+			}
+
+			tester
+		}
+		.boxed();
+
+		// tell the voter all three commits are good, in the order they came in
+		let handle_commits = commits_in.take(3).for_each(|item| {
+			match item {
+				finality_grandpa::voter::CommunicationIn::Commit(_, _, mut callback) => {
+					callback.run(finality_grandpa::voter::CommitProcessingOutcome::good());
+				},
+				_ => panic!("commit expected"),
+			}
+			future::ready(())
+		});
+
+		// the first and the next commit are relayed, the duplicate isn't.
+		let fut = future::join(send_messages, handle_commits)
+			.then(move |(tester, ())| {
+				let mut relayed_first = false;
+				tester.filter_network_events(move |event| match event {
+					Event::WriteNotification(peer, data) if peer == receiver_id => {
+						assert_ne!(data, duplicate, "duplicate commit must not be relayed");
+						relayed_first |= data == first;
+						if data == next {
+							assert!(relayed_first, "first commit must be relayed");
+							true
+						} else {
+							false
+						}
+					},
+					_ => false,
+				})
+			})
+			.then(move |tester| {
+				// another peer sends us the duplicate after it was processed, followed by an
+				// undecodable message. the duplicate must be ignored as already known, so the
+				// first report for that peer is the one for the undecodable message.
+				for notification in [late_duplicate, vec![1, 2, 3]] {
+					let _ = tester.notification_tx.unbounded_send(
+						NotificationEvent::NotificationReceived {
+							peer: late_sender_id,
+							notification,
+						},
+					);
+				}
+
+				tester.filter_network_events(move |event| match event {
+					Event::Report(peer, cost_benefit) if peer == late_sender_id => {
+						assert_ne!(
+							cost_benefit,
+							super::cost::PAST_REJECTION,
+							"duplicate commit must not be penalized",
+						);
+						true
+					},
+					_ => false,
+				})
+			})
+			.map(|_| ());
+
+		future::select(fut, network_bridge)
+	});
+
+	futures::executor::block_on(test);
+}
+
+#[test]
 fn bad_commit_leads_to_report() {
 	sp_tracing::try_init_simple();
 	let private = [Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];

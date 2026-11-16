@@ -55,7 +55,7 @@ chainspec_parachain() {
 chainspec_relaychain() {
     echo "==> Generating relaychain chain spec"
 
-    "$TARGET_DIR/polkadot" build-spec --chain rococo-local --disable-default-bootnode --raw > chain_spec.json
+    "$TARGET_DIR/polkadot" export-chain-spec --chain rococo-local --raw > chain_spec.json
     [[ -f "$RELAYCHAIN_SPEC" ]] && cp "$RELAYCHAIN_SPEC" "$RELAYCHAIN_SPEC.backup"
     mv chain_spec.json "$RELAYCHAIN_SPEC"
     echo "Created: $RELAYCHAIN_SPEC"

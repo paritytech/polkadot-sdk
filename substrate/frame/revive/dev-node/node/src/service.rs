@@ -42,7 +42,7 @@ pub type Service = sc_service::PartialComponents<
 	FullBackend,
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	Option<Telemetry>,
 >;
 
@@ -76,15 +76,13 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.build();
 
 	let import_queue = sc_consensus_manual_seal::import_queue(
 		Box::new(client.clone()),

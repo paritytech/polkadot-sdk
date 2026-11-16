@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::{AdvertisementError, CollationManager},
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -30,11 +30,14 @@ use crate::{
 	LOG_TARGET,
 };
 use fatality::Split;
-use futures::stream::FusedStream;
+use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
-	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
+	messages::{
+		CandidateBackingMessage, IfDisconnected, KnownOutputHeads, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
+	},
 	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
@@ -139,6 +142,7 @@ impl<B: Backend> State<B> {
 	}
 
 	/// Handle a peer's declaration message.
+	/// V4 peers do not declare anymore.
 	pub async fn handle_declare<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -258,18 +262,61 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		entries: Vec<ProspectiveCandidate>,
+		descriptor_version: Option<CandidateDescriptorVersion>,
+		// Some for V4 self declaring ad.
+		advertised_para_id: Option<ParaId>,
 	) {
+		let advertisement_log = if advertised_para_id.is_some() {
+			"Received a segment advertisement"
+		} else {
+			"Received advertisement"
+		};
 		let _timer = self.metrics.time_handler(TimedHandler::Advertisement);
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
-			?maybe_prospective_candidate,
 			?peer_id,
-			"Received advertisement",
+			advertisement_log,
 		);
+
+		if let Some(para_id) = advertised_para_id {
+			if entries.is_empty() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received an empty segment advertisement",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+			// A zero-len cycle is impossible for an honest block.
+			if entries.iter().any(|prospective_candidate| {
+				Some(prospective_candidate.parent_head_data_hash()) ==
+					prospective_candidate.output_head_data_hash()
+			}) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received a segment advertisement with a zero-length cycle",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+
+			// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+			// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+			// releases the slots it held on all the other paras.
+			if !self.peer_manager.declared(sender, peer_id, para_id).await {
+				self.collation_manager.remove_peer(&peer_id);
+				return;
+			}
+		}
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
 			self.metrics.on_advertisement_rejected_unconnected_peer();
@@ -277,7 +324,6 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?scheduling_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -289,26 +335,28 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
-				?maybe_prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
 			return;
 		};
 
-		let advertisement = Advertisement {
-			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
-		};
-
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
-		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// Note: `try_accept_segment` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self
+			.collation_manager
+			.try_accept_segment(
+				sender,
+				peer_id,
+				*para_id,
+				scheduling_parent,
+				descriptor_version,
+				entries,
+			)
+			.await
+		{
 			Err(err) => {
 				match err {
 					AdvertisementError::Duplicate => {
@@ -329,11 +377,13 @@ impl<B: Backend> State<B> {
 					AdvertisementError::SchedulingParentNotValid => {
 						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(para_id)
 					},
+					AdvertisementError::MixedClaimShapes => {
+						self.metrics.on_advertisement_rejected_mixed_claim_shapes(para_id)
+					},
 				}
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -345,7 +395,6 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",
@@ -596,9 +645,49 @@ impl<B: Backend> State<B> {
 		}
 	}
 
+	pub fn mark_replan(&mut self) {
+		self.collation_manager.mark_replan()
+	}
+
+	#[cfg(test)]
+	pub fn take_replan(&mut self) -> bool {
+		self.collation_manager.take_replan()
+	}
+
+	/// Runs a planner pass if a launch-enabling mutation happened since the last one.
+	/// Outer `None`: no pass ran. Inner value: the pass's fetch-delay, as before.
+	pub async fn maybe_replan<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) -> Option<Option<Duration>> {
+		if !self.collation_manager.take_replan() {
+			return None;
+		}
+		let paras: Vec<ParaId> = self.collation_manager.assignments().into_iter().collect();
+		if paras.is_empty() {
+			return None;
+		}
+		let (tx, rx) = oneshot::channel();
+		sender
+			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
+			.await;
+		let pp_known = match rx.await {
+			Ok(known) => known,
+			Err(_) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					"GetKnownOutputHeads responder dropped; skipping planner pass",
+				);
+				return None;
+			},
+		};
+		Some(self.try_launch_new_fetch_requests(sender, &pp_known).await)
+	}
+
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
+		pp_known: &KnownOutputHeads,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 
@@ -617,6 +706,7 @@ impl<B: Backend> State<B> {
 		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
 			connected_rep_query_fn,
 			max_reps,
+			pp_known,
 			create_timer_fn,
 		);
 
@@ -722,6 +812,13 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
+	}
+
+	#[cfg(test)]
+	pub fn segments(
+		&self,
+	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
+		self.collation_manager.segments()
 	}
 
 	#[cfg(test)]

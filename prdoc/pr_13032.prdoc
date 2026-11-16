@@ -1,0 +1,28 @@
+title: 'Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-election-provider-multi-block` no longer uses the deprecated `ValidateUnsigned` trait and
+    the `#[pallet::validate_unsigned]` attribute. The validation of `submit_unsigned` moved to a
+    `#[pallet::authorize]` callback.
+
+    The validation semantics do not change. The callback accepts only `TransactionSource::Local` and
+    `TransactionSource::InBlock`, it runs the same checks, and it builds the same transaction
+    validity as before.
+
+    Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
+    `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
+    `frame_system::AuthorizeCall` in its transaction extension pipeline. A runtime that forgets
+    `AuthorizeCall` still compiles, but its unsigned solutions never get an authorized origin.
+    Validation rejects them with `UnknownOrigin`, so the unsigned fallback is never included.
+
+    The `WeightInfo` trait renamed `validate_unsigned` to `authorize_submit_unsigned`.
+
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major

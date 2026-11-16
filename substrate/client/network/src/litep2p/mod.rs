@@ -140,6 +140,10 @@ struct ConnectionContext {
 
 	/// Number of active connections.
 	num_connections: usize,
+
+	/// Protocols the peer reported over identify, replayed to an event stream that subscribes
+	/// after the peer was identified.
+	supported_protocols: Option<HashSet<ProtocolName>>,
 }
 
 /// Kademlia query we are tracking.
@@ -606,7 +610,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth)?;
 		}
 
 		Ok(Self {
@@ -619,7 +623,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
-			event_streams: out_events::OutChannels::new(None)?,
+			event_streams: out_events::OutChannels::new(params.metrics_registry.as_ref())?,
 			peers: HashMap::new(),
 			litep2p,
 		})
@@ -727,7 +731,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.pending_queries.insert(query_id, KadQuery::GetProviders(key, Instant::now()));
 						}
 						NetworkServiceCommand::EventStream { tx } => {
-							self.event_streams.push(tx);
+							let identified = self.peers.iter().filter_map(|(peer, context)| {
+								let supported_protocols = context.supported_protocols.clone()?;
+								Some(Event::PeerIdentified { peer: (*peer).into(), supported_protocols })
+							});
+							self.event_streams.push_with(tx, identified);
 						}
 						NetworkServiceCommand::Status { tx } => {
 							let _ = tx.send(NetworkStatus {
@@ -827,9 +835,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
-						for peer in peers {
-							self.peerstore_handle.add_known_peer(peer.into());
+					Some(DiscoveryEvent::PeersDiscovered { peers }) => {
+						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
+
+						for peer in &peers {
+							self.peerstore_handle.add_known_peer(*peer);
+						}
+
+						if !peers.is_empty() {
+							self.event_streams.send(Event::PeersDiscovered(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
@@ -1132,6 +1146,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
+						let protocols: HashSet<ProtocolName> =
+							supported_protocols.iter().cloned().map(Into::into).collect();
+						if let Some(context) = self.peers.get_mut(&peer) {
+							context.supported_protocols = Some(protocols.clone());
+						}
+						self.event_streams.send(Event::PeerIdentified {
+							peer: peer.into(),
+							supported_protocols: protocols,
+						});
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
@@ -1191,10 +1214,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 				event = self.litep2p.next_event() => match event {
 					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
-						let Some(metrics) = &self.metrics else {
-							continue;
-						};
-
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
 							Endpoint::Listener { .. } => {
@@ -1202,20 +1221,27 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								//
 								// Note: For litep2p these are represented by established negotiated connections,
 								// while for libp2p (legacy) these represent not-yet-negotiated connections.
-								metrics.incoming_connections_total.inc();
+								if let Some(metrics) = &self.metrics {
+									metrics.incoming_connections_total.inc();
+								}
 
 								"in"
 							},
 						};
-						metrics.connections_opened_total.with_label_values(&[direction]).inc();
+						if let Some(metrics) = &self.metrics {
+							metrics.connections_opened_total.with_label_values(&[direction]).inc();
+						}
 
 						match self.peers.entry(peer) {
 							Entry::Vacant(entry) => {
 								entry.insert(ConnectionContext {
 									endpoints: HashMap::from_iter([(endpoint.connection_id(), endpoint)]),
 									num_connections: 1usize,
+									supported_protocols: None,
 								});
-								metrics.distinct_peers_connections_opened_total.inc();
+								if let Some(metrics) = &self.metrics {
+									metrics.distinct_peers_connections_opened_total.inc();
+								}
 							}
 							Entry::Occupied(entry) => {
 								let entry = entry.into_mut();
@@ -1225,10 +1251,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(Litep2pEvent::ConnectionClosed { peer, connection_id }) => {
-						let Some(metrics) = &self.metrics else {
-							continue;
-						};
-
 						let Some(context) = self.peers.get_mut(&peer) else {
 							log::debug!(target: LOG_TARGET, "unknown peer disconnected: {peer:?} ({connection_id:?})");
 							continue
@@ -1249,11 +1271,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						};
 
-						metrics.connections_closed_total.with_label_values(&[direction, "actively-closed"]).inc();
+						if let Some(metrics) = &self.metrics {
+							metrics.connections_closed_total.with_label_values(&[direction, "actively-closed"]).inc();
+						}
 
 						if context.num_connections == 0 {
 							self.peers.remove(&peer);
-							metrics.distinct_peers_connections_closed_total.inc();
+							if let Some(metrics) = &self.metrics {
+								metrics.distinct_peers_connections_closed_total.inc();
+							}
 						}
 					}
 					Some(Litep2pEvent::DialFailure { address, error }) => {
@@ -1382,7 +1408,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		let (keypair, _peer_id) =
 			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
@@ -1411,7 +1437,7 @@ mod tests {
 		let mut network_config = NetworkConfiguration::new_local();
 		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
 		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Completing the addresses pinned the key, so this is the key the backend serves.
 		let (keypair, _peer_id) =
@@ -1441,7 +1467,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Held for the duration of the test: dropping it closes the node's sockets.
 		let backend = start_backend(&network_config).unwrap();
@@ -1457,6 +1483,9 @@ mod tests {
 		);
 	}
 
+	/// A configured `/certhash` is checked against the node's own and removed by
+	/// `NetworkConfiguration::validate_and_complete_addresses`, which this test deliberately skips:
+	/// the backend is the guard for a configuration built without it.
 	#[tokio::test]
 	async fn webrtc_listen_address_with_certhash_refuses_to_start() {
 		let listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();

@@ -28,7 +28,6 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt,
 	time::{Duration, Instant},
-	u32,
 };
 
 use futures::{channel::oneshot, select, FutureExt as _};

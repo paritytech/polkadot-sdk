@@ -45,7 +45,9 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use coretime_interface::*;
 pub use fp_coretime::{
-	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	market,
+	revenue::{OnDemandRevenue, RevenueClaim},
+	CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };
 pub use types::*;
@@ -96,6 +98,17 @@ pub mod pallet {
 		/// Relay chain's Coretime API used to interact with and instruct the low-level scheduling
 		/// system.
 		type Coretime: CoretimeInterface;
+
+		/// The on-demand Coretime market whose revenue is distributed among the contributors to
+		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
+		/// the revenue can be claimed directly.
+		///
+		/// Once it is enabled, the revenue of each timeslice is claimed from it once that
+		/// timeslice has ended, along with that of any earlier timeslice which could not be paid
+		/// out before, and revenue reports from the Relay chain are ignored. Until then, the
+		/// revenue is requested from the Relay chain through [`Config::Coretime`], which reports
+		/// it back with `notify_revenue`.
+		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
@@ -491,7 +504,7 @@ pub mod pallet {
 			task: TaskId,
 		},
 		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-		/// funded.
+		/// funded or the workload on the core no longer belonging to the paying task.
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
@@ -600,6 +613,10 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// The renewable workload of the core does not include the given task.
+		TaskNotInWorkload,
+		/// Attempted to enable auto-renewal for a core that already has it enabled.
+		AutoRenewalAlreadyEnabled,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -835,6 +852,11 @@ pub mod pallet {
 		///   must be greater than 0. This may affect the weight of the call but should be ideally
 		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
 		///   will be required with the same `region_id` to claim revenue for the remainder.
+		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
+		///   reported; the remainder can be claimed once it has been.
+		///
+		/// The fee is waived only if at least one timeslice was processed, and the weight of the
+		/// timeslices that were not processed is refunded.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
@@ -843,8 +865,9 @@ pub mod pallet {
 			max_timeslices: Timeslice,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			Self::do_claim_revenue(region_id, max_timeslices)?;
-			Ok(Pays::No.into())
+			let checked = Self::do_claim_revenue(region_id, max_timeslices)?;
+			let pays = if checked > 1 { Pays::No } else { Pays::Yes };
+			Ok((Some(T::WeightInfo::claim_revenue(checked)), pays).into())
 		}
 
 		/// Purchase credit for use in the Instantaneous Coretime Pool.
@@ -956,7 +979,9 @@ pub mod pallet {
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-		///   inefficient to look up when the core expires to schedule the next renewal.
+		///   inefficient to look up when the core expires to schedule the next renewal. Also used
+		///   when the core is expiring with another task's workload, in which case it must point at
+		///   the task's own renewal record.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
 		pub fn enable_auto_renew(

@@ -18,3 +18,4 @@ mod claim_assets;
 mod governance;
 mod identity;
 mod teleport;
+mod validator_collators;

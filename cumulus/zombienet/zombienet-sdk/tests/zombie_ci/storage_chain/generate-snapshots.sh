@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release"
 SNAPSHOT_DIR="${ZOMBIENET_SDK_BASE_DIR:-/tmp/zombienet-storage-chain}"
 BUNDLE_OUTPUT_DIR="${BUNDLE_OUTPUT_DIR:-$SCRIPT_DIR/fixtures/test-databases}"
-BUNDLE_PATH="${BUNDLE_OUTPUT_DIR}/tip-sync-100-bundle.tar.gz"
+BUNDLE_PATH="${BUNDLE_OUTPUT_DIR}/tip-sync-100-bundle-v2.tar.gz"
 
 usage() {
 	cat <<EOF
@@ -25,7 +25,8 @@ EOF
 }
 
 build_binaries() {
-	cargo build --release -p polkadot --bin polkadot
+	cargo build --release -p polkadot --bin polkadot \
+		--bin polkadot-execute-worker --bin polkadot-prepare-worker
 	cargo build --release -p polkadot-parachain-bin --bin polkadot-parachain
 }
 

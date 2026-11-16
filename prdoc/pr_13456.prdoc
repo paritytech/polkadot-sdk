@@ -1,0 +1,9 @@
+title: 'statement-store: deliver statements to light peers on the v2 DHT path'
+doc:
+- audience: Node Dev
+  description: |-
+    With the v2 DHT path on, the propagation plan takes the filter matches from the stored peer
+    filters instead of the topology, so a light peer gets live statements after its initial sync.
+crates:
+- name: sc-network-statement
+  bump: patch

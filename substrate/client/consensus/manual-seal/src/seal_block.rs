@@ -36,7 +36,7 @@ use std::{sync::Arc, time::Duration};
 pub const MAX_PROPOSAL_DURATION: u64 = 10;
 
 /// params for sealing a new block
-pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP, CIDP> {
+pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP: ?Sized, CIDP> {
 	/// if true, empty blocks(without extrinsics) will be created.
 	/// otherwise, will return Error::EmptyTransactionPool.
 	pub create_empty: bool,
@@ -83,7 +83,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP>(
 	C: HeaderBackend<B> + ProvideRuntimeApi<B>,
 	E: Environment<B>,
 	E::Proposer: Proposer<B>,
-	TP: TransactionPool<Block = B>,
+	TP: TransactionPool<Block = B> + ?Sized,
 	SC: SelectChain<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {

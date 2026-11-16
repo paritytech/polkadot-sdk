@@ -1,0 +1,18 @@
+title: 'statement-store: v2 soak step, a replica goes offline and returns'
+
+doc:
+- audience: Node Dev
+  description: |-
+    Adds a mandatory lifecycle step to the on-demand v2 DHT soak zombienet test. Between the
+    first and the second wave one full node is stopped by swapping its executable for an idle
+    one, load continues on a bounded cohort of topics for which the node is a DHT replica, an
+    explicit subscriber and the closest non-replica, and the node is restored with its database
+    and node key. During the outage every cohort statement must reach an online subscriber and
+    stay exactly on its original online holders, and the stopped node must keep its rank in every
+    peer's topology. After the restart the node must hold every replica and subscription
+    statement and its re-opened subscription must receive the whole subscription backlog. Its
+    admissions by retention reason are logged; the absence of the non-replica statements on the
+    returned node is not asserted yet because of a known startup race in the node. The lifecycle
+    needs a full statement mesh. The soak workflow spawns the network 20 nodes at a time: with
+    all nodes spawned at once, the cluster apiserver dropped connections mid-spawn.
+crates: []

@@ -1,0 +1,16 @@
+title: 'statement-store: v2 DHT peer gauge, submissions labelled by retention reason'
+doc:
+- audience:
+  - Node Operator
+  - Node Dev
+  description: |-
+    - New gauge `substrate_sync_statement_v2dht_desired_unconnected_peers`: desired peers with no
+      open statement substream.
+    - `substrate_sub_statement_store_submitted_statements` is now a `CounterVec` labelled `reason`:
+      `dht`, `explicit`, `both`, `transient` (no affinity for the statement's topics), `persistent`
+      (no v2 retention resolver).
+crates:
+- name: sc-statement-store
+  bump: minor
+- name: sc-network-statement
+  bump: minor

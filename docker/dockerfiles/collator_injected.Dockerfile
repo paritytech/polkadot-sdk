@@ -1,5 +1,5 @@
 # this file copies from scripts/ci/dockerfiles/Dockerfile and changes only the binary name
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/debian:bookworm-slim
 
 # metadata
 ARG VCS_REF
@@ -21,7 +21,7 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates && \
 	# apt cleanup
 	apt-get autoremove -y && \

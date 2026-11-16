@@ -14,6 +14,7 @@ workspace = true
 # Core
 codec = { workspace = true, features = ["derive"] }
 hex = { workspace = true }
+parity-db = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }

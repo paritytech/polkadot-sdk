@@ -97,6 +97,15 @@ impl<MaxEntries: Get<u32>> Bitfield<MaxEntries> {
 	pub fn count_ones(&self) -> u32 {
 		self.0.iter().cloned().map(u16::count_ones).sum()
 	}
+
+	/// Iterate the absolute indices of all set bits.
+	pub fn iter_ones(&self) -> impl Iterator<Item = usize> + '_ {
+		self.0.iter().enumerate().flat_map(|(word_index, word)| {
+			(0..16usize).filter_map(move |bit_index| {
+				((word & (1u16 << bit_index)) != 0).then_some(word_index * 16 + bit_index)
+			})
+		})
+	}
 }
 
 /// A `Consideration`-like type that tracks who paid for it.

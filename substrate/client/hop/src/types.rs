@@ -46,12 +46,13 @@ pub struct Recipient {
 }
 
 /// On-disk format version for `HopEntryMeta` records. Startup recovery rejects
-/// `.meta` files whose `version` field doesn't match, so same-shape schema
-/// changes (e.g. semantic reinterpretation of an existing field) can be rolled
-/// out by bumping this constant; shape changes are caught by SCALE decode failure.
+/// rows in the parity-db meta column whose `version` field doesn't match, so
+/// same-shape schema changes (e.g. semantic reinterpretation of an existing
+/// field) can be rolled out by bumping this constant; shape changes are caught
+/// by SCALE decode failure.
 pub const HOP_META_VERSION: u8 = 2;
 
-/// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
+/// Metadata for a pool entry (SCALE-encoded into the parity-db meta column).
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
 	/// On-disk format version; see `HOP_META_VERSION`.
@@ -62,9 +63,9 @@ pub struct HopEntryMeta {
 	pub size: u64,
 	/// Intended recipients and their per-recipient ack state.
 	///
-	/// Using a `BoundedVec` means a corrupted / hostile on-disk `.meta` file with
-	/// too many recipients fails to SCALE-decode and is discarded during startup
-	/// recovery rather than being loaded into the in-memory index.
+	/// Using a `BoundedVec` means a corrupted / hostile meta row with too many
+	/// recipients fails to SCALE-decode and is discarded during startup recovery
+	/// rather than being surfaced to the rest of the pool.
 	pub recipients: RecipientVec,
 	/// Account ID of the sender who submitted this entry.
 	pub sender_id: SenderId,
@@ -220,6 +221,9 @@ pub enum HopError {
 
 	#[error("No database path available and --hop-data-dir not specified")]
 	MissingDataDir,
+
+	#[error("Metadata database error: {0}")]
+	Db(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -245,6 +249,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
 			HopError::MissingDataDir => 1021,
+			HopError::Db(_) => 1022,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)

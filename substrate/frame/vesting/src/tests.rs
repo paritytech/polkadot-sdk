@@ -1053,6 +1053,26 @@ fn generates_multiple_schedules_from_genesis_config() {
 }
 
 #[test]
+fn genesis_multiple_schedules_aggregate_lock() {
+	// Two genesis entries for account 3: locked = 10*ED and 20*ED respectively.
+	// The currency lock must cover their sum, not just the last entry.
+	let vesting_config = vec![(3, 10, 10, 20 * ED), (3, 10, 10, 10 * ED)];
+	ExtBuilder::default()
+		.existential_deposit(ED)
+		.vesting_genesis_config(vesting_config)
+		.build()
+		.execute_with(|| {
+			let schedules = VestingStorage::<Test>::get(&3).unwrap();
+			assert_eq!(schedules.len(), 2);
+
+			let total_locked: u64 = schedules.iter().map(|s| s.locked()).sum();
+			let lock_amount = Balances::free_balance(&3) - Balances::usable_balance(&3);
+
+			assert_eq!(lock_amount, total_locked, "lock must equal aggregate of all schedules");
+		});
+}
+
+#[test]
 #[should_panic]
 fn multiple_schedules_from_genesis_config_errors() {
 	// MaxVestingSchedules is 3, but this config has 4 for account 12 so we panic when building

@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
 				.unwrap_or_else(|| {
-					frame_support::print("Error: start_session_index must be set for current_era");
+					log!(error, "start_session_index must be set for current_era");
 					0
 				});
 
@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 			} else if next_active_era_start_session_index < start_session {
 				// This arm should never happen, but better handle it than to stall the staking
 				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
+				log!(warn, "A session appears to have been skipped.");
 				Self::start_era(start_session);
 			}
 		}
@@ -1780,13 +1780,23 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
+		// Only voters have a score. A chilled staker is bonded but must not be in `VoterList`,
+		// and bags-list inserts anyone it is asked to rebag who has a score.
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1802,6 +1812,11 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		if !Nominators::<T>::contains_key(who) {
+			<Validators<T>>::insert(who, ValidatorPrefs::default());
+		}
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1

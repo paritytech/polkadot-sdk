@@ -45,7 +45,7 @@ use std::sync::Arc;
 pub use sc_rpc_api::author::*;
 
 /// Authoring API
-pub struct Author<P, Client> {
+pub struct Author<P: ?Sized, Client> {
 	/// Substrate client
 	client: Arc<Client>,
 	/// Transactions pool
@@ -56,7 +56,7 @@ pub struct Author<P, Client> {
 	executor: SubscriptionTaskExecutor,
 }
 
-impl<P, Client> Author<P, Client> {
+impl<P: ?Sized, Client> Author<P, Client> {
 	/// Create new instance of Authoring API.
 	pub fn new(
 		client: Arc<Client>,
@@ -68,7 +68,7 @@ impl<P, Client> Author<P, Client> {
 	}
 }
 
-impl<P, Client> Author<P, Client>
+impl<P: ?Sized, Client> Author<P, Client>
 where
 	P: TransactionPool + Sync + Send + 'static,
 	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
@@ -115,7 +115,7 @@ const TX_SOURCE: TransactionSource = TransactionSource::External;
 #[async_trait]
 impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
 where
-	P: TransactionPool + Sync + Send + 'static,
+	P: TransactionPool + Sync + Send + 'static + ?Sized,
 	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
 	Client::Api: SessionKeys<P::Block>,
 	P::Hash: Unpin,

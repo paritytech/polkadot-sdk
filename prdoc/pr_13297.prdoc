@@ -1,0 +1,14 @@
+title: 'Add Interweb Polkadot WebRTC, TCP and WSS bootnodes'
+
+doc:
+- audience: Node Operator
+  description: |-
+    Adds three Interweb IT bootnode multiaddrs to the embedded Polkadot relay
+    chainspec (`polkadot/node/service/chain-specs/polkadot.json`), all via DNS
+    `boot.interweb-it.com`: WebRTC UDP 13012, TCP 13012, and WSS 13016.
+    Peer ID 12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF.
+    No crate API or runtime code changes.
+
+crates:
+- name: polkadot-service
+  bump: none

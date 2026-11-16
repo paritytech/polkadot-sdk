@@ -1,0 +1,15 @@
+title: Fix stale bandersnatch static public keys in sp-keyring
+doc:
+  - audience: Runtime Dev
+    description: |
+      `ark-vrf` 0.5.3 implements draft-35 of the Bandersnatch VRF specification
+      (https://github.com/davxy/bandersnatch-vrf-spec). Between draft-29 and
+      draft-35 the specification changed how the secret scalar is derived from
+      a seed, so the key pair obtained from a given seed changed. The static
+      public keys in `sp-keyring` were still the ones derived under draft-29
+      (`ark-vrf` 0.2.2) and no longer matched the keys that `sp-core` derives
+      from the same seeds. This refreshes them to the draft-35 values. Only
+      relevant with the `bandersnatch-experimental` feature.
+crates:
+  - name: sp-keyring
+    bump: patch

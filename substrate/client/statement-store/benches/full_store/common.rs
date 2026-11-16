@@ -28,14 +28,10 @@
 //! 256 bytes of plain data embedding `i`, expiry `LOW_EXPIRY`, and:
 //! - `i < 1000 && i % 10 == 0` → topics `[T0, T1]`      (100 statements; the *bounded* topic set,
 //!   size-compatible with the 1k-store `setup_store` used by the standard benches);
-//! - `i < 1000 && i % 10 == 5` → decryption key `DK42`  (100 statements; bounded key set);
 //! - `i % 10 == 3`             → topics `T2, T3`        (419,431 statements; the *scaled* ~10% set,
 //!   completing the `read_scaling` 1k/10k/50k curve at 4M);
 //! - `i >= 1000`               → one diverse topic `topic(1000 + i/8)` (~524k distinct topics, 8
-//!   statements each: a deep, realistic topic index);
-//! - `i >= 1000 && i % 4 == 0` → diverse key `dec_key(100_000 + i/16)` (~262k distinct keys, 4
-//!   statements each; `i % 10 == 3` is odd so the scaled set stays key-less, and the `None`-key set
-//!   ends up with ~3.15M members).
+//!   statements each: a deep, realistic topic index).
 //!
 //! Write benches use a dedicated 65th ("sacrificial") account with fresh high-range ids, so they
 //! never perturb the fixture accounts; the eviction bench reopens the store with a per-account
@@ -43,7 +39,7 @@
 
 use sp_core::Pair;
 use sp_runtime::codec::Encode;
-use sp_statement_store::{DecryptionKey, Statement, StatementSource, SubmitResult, Topic};
+use sp_statement_store::{OptimizedTopicFilter, Statement, StatementSource, SubmitResult, Topic};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 	Arc,
@@ -245,52 +241,42 @@ pub fn topic(data: u64) -> Topic {
 	Topic::from(bytes)
 }
 
-pub fn dec_key(data: u64) -> DecryptionKey {
-	let mut key: DecryptionKey = Default::default();
-	key[0..8].copy_from_slice(&data.to_le_bytes());
-	key
-}
-
-/// The bounded broadcast topics (100 carriers).
+/// The bounded topics (100 carriers).
 pub fn t01() -> Vec<Topic> {
 	vec![topic(0), topic(1)]
 }
 
-/// The scaled broadcast topics (~419k carriers, ~10% of the store).
+/// The scaled topics (~419k carriers, ~10% of the store).
 pub fn t23() -> Vec<Topic> {
 	vec![topic(2), topic(3)]
 }
 
-/// The bounded decryption key (100 carriers).
-pub fn dk42() -> DecryptionKey {
-	dec_key(42)
-}
-
-/// A diverse-topic group id near the middle of the fixture that is interior, key-diluted (6 of
-/// its 8 members are key-less) and contains no account-0 statement (`g % 8 == 1`, so member ids
-/// are ≡ 8..15 mod 64 and the eviction bench can never erode it).
+/// A diverse-topic group id near the middle of the fixture that is interior and contains no
+/// account-0 statement (`g % 8 == 1`, so member ids are ≡ 8..15 mod 64 and the eviction bench can
+/// never erode it).
 pub fn diverse_topic_group() -> u64 {
 	let g = (n_statements() as u64 / 2) / 8;
 	g - (g % 8) + 1
 }
-/// Expected `broadcasts` result size for [`diverse_topic_group`].
-pub const DIVERSE_TOPIC_MATCHES: usize = 6;
-
-/// A diverse-key group id with 4 members, none of them account 0 (`j % 4 == 1`, so member ids are
-/// ≡ 16..28 mod 64).
-pub fn diverse_key_group() -> u64 {
-	let j = (n_statements() as u64 / 2) / 16;
-	j - (j % 4) + 1
-}
-/// Expected `posted` result size for [`diverse_key_group`].
-pub const DIVERSE_KEY_MATCHES: usize = 4;
+/// Expected subscription snapshot size for [`diverse_topic_group`].
+pub const DIVERSE_TOPIC_MATCHES: usize = 8;
 
 pub fn diverse_topic() -> Topic {
 	topic(1000 + diverse_topic_group())
 }
 
-pub fn diverse_key() -> DecryptionKey {
-	dec_key(100_000 + diverse_key_group())
+/// Matches the statements that carry all of `topics`.
+pub fn match_all(topics: &[Topic]) -> OptimizedTopicFilter {
+	OptimizedTopicFilter::MatchAll(topics.iter().copied().collect())
+}
+
+/// Size of the snapshot that a subscription to the statements carrying all of `topics` returns.
+pub fn snapshot_len(store: &Store, topics: &[Topic]) -> usize {
+	store
+		.subscribe_statement(match_all(topics))
+		.expect("subscribes to the store")
+		.0
+		.len()
 }
 
 /// Global limits with headroom above the fixture size, so ordinary write benches never trigger
@@ -315,7 +301,6 @@ pub fn sacrifice_keypair() -> sp_core::ed25519::Pair {
 pub fn create_statement(
 	id: u64,
 	topics: &[Topic],
-	key: Option<DecryptionKey>,
 	data_size: usize,
 	expiry: u64,
 	keypair: &sp_core::ed25519::Pair,
@@ -326,9 +311,6 @@ pub fn create_statement(
 	statement.set_plain_data(data);
 	for (i, topic) in topics.iter().enumerate() {
 		statement.set_topic(i, *topic);
-	}
-	if let Some(key) = key {
-		statement.set_decryption_key(key);
 	}
 	statement.set_expiry(expiry);
 	statement.sign_ed25519_private(keypair);
@@ -342,7 +324,7 @@ pub fn channel(data: u64) -> sp_statement_store::Channel {
 	channel
 }
 
-/// Like [`create_statement`] (topic- and key-less), but carrying a channel: admitting such a
+/// Like [`create_statement`] (topic-less), but carrying a channel: admitting such a
 /// statement forces the store to consult the account's full channel state.
 pub fn create_channel_statement(
 	id: u64,
@@ -375,17 +357,9 @@ pub fn fixture_statement(i: u64, keypairs: &[sp_core::ed25519::Pair]) -> Stateme
 		topics.push(topic(2));
 		topics.push(topic(3));
 	}
-	let key = if i < 1000 && i % 10 == 5 {
-		Some(dec_key(42))
-	} else if i >= 1000 && i.is_multiple_of(4) {
-		Some(dec_key(100_000 + i / 16))
-	} else {
-		None
-	};
 	create_statement(
 		i,
 		&topics,
-		key,
 		STATEMENT_DATA_SIZE,
 		LOW_EXPIRY,
 		&keypairs[(i as usize) % ACCOUNTS],

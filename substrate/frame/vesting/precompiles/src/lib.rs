@@ -35,6 +35,7 @@ alloy_core::sol!("IVesting.sol");
 
 pub use pallet::Pallet;
 pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

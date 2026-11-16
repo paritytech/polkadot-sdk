@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix("BabeEquivocation")
 				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one equivocation report for the same offender at the same slot.
 				.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
 				.longevity(longevity)

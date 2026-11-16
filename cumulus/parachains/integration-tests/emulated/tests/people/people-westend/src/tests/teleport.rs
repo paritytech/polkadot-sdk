@@ -18,7 +18,6 @@ use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
 	test_relay_is_trusted_teleporter,
 };
-use frame_support::sp_runtime::traits::BlockNumberProvider;
 
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
@@ -88,14 +87,8 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 
 #[test]
 fn accumulate_forward_people_transfers_native_to_asset_hub() {
-	type RelayDataProvider =
-		cumulus_pallet_parachain_system::RelaychainDataProvider<people_westend_runtime::Runtime>;
 	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		PeopleWestend,
 		AssetHubWestend,
-	>(
-		|acct, amount| PeopleWestend::fund_accounts(vec![(acct, amount)]),
-		|| RelayDataProvider::current_block_number(),
-		|n| RelayDataProvider::set_block_number(n),
-	);
+	>();
 }

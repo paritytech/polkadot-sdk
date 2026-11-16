@@ -45,7 +45,6 @@ use sp_trie::{
 };
 
 use frame_support::{
-	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
 	Parameter,
 };
@@ -211,8 +210,11 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 					Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
 				},
 				Err(reason) => {
-					print("Failed to generate historical ancestry-inclusion proof.");
-					print(reason);
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to generate historical ancestry-inclusion proof: {:?}",
+						reason,
+					);
 				},
 			};
 		} else {

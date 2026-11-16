@@ -229,7 +229,7 @@ where
 		let runtime_max = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
 			.map_err(HopError::from)?;
 		if data_len > runtime_max as usize {
-			return Err(HopError::DataTooLarge(data_len, runtime_max));
+			return Err(HopError::DataTooLarge(data_len, runtime_max).into());
 		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized

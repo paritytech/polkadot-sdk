@@ -18,7 +18,7 @@ futures = { workspace = true }
 parking_lot = { workspace = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "time"] }
 tracing = { workspace = true, default-features = true }
 
 # Substrate

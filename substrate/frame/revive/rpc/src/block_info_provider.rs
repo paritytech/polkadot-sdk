@@ -32,9 +32,14 @@ use tokio::sync::RwLock;
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
-	/// Update the latest block or the latest finalized block, depending on `subscription_type`,
-	/// ignoring a block that is not a valid new head.
-	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
+	/// Updates the latest block or the latest finalized block, depending on `subscription_type`.
+	///
+	/// Returns the new latest block, or `None` when the latest block did not change.
+	async fn update_latest(
+		&self,
+		block: Arc<SubstrateBlock>,
+		subscription_type: SubscriptionType,
+	) -> Option<Arc<SubstrateBlock>>;
 
 	/// Return the latest finalized block.
 	async fn latest_finalized_block(&self) -> Arc<SubstrateBlock>;
@@ -89,7 +94,10 @@ impl SubxtBlockInfoProvider {
 		})
 	}
 
-	/// Whether `number` still resolves to `hash` on chain.
+	/// Returns whether the block at `number` with `hash` is still on the canonical chain.
+	///
+	/// When eth-rpc reconnects to a node that is behind, the block counts as not canonical, so the
+	/// latest block moves back to one that node can serve.
 	async fn is_canonical(&self, number: SubstrateBlockNumber, hash: H256) -> bool {
 		match self.rpc.chain_get_block_hash(Some(number.into())).await {
 			Ok(canonical) => canonical == Some(hash),
@@ -101,8 +109,10 @@ impl SubxtBlockInfoProvider {
 		}
 	}
 
-	/// Update the latest finalized block, and the latest block when it is no longer ahead of it.
-	async fn update_finalized(&self, block: Arc<SubstrateBlock>) {
+	/// Updates the latest finalized block, and the latest block when it is no longer ahead of it.
+	///
+	/// Returns the latest block when the finalized block moved it, or `None` otherwise.
+	async fn update_finalized(&self, block: Arc<SubstrateBlock>) -> Option<Arc<SubstrateBlock>> {
 		// The finalized block only ever increases.
 		let mut finalized = self.latest_finalized_block.write().await;
 		if block.block_number() >= finalized.block_number() {
@@ -122,20 +132,26 @@ impl SubxtBlockInfoProvider {
 				best.block_hash(),
 				finalized_block.block_number(),
 				finalized_block.block_hash());
-			*best = finalized_block;
+			*best = finalized_block.clone();
+			return Some(finalized_block);
 		}
+
+		None
 	}
 
-	/// Update the latest block, ignoring a replay of a block at or below the cached one.
-	async fn update_best(&self, block: Arc<SubstrateBlock>) {
+	/// Updates the latest block, ignoring a replay of a block at or below the cached one.
+	///
+	/// Returns the new latest block, or `None` when the latest block did not change.
+	async fn update_best(&self, block: Arc<SubstrateBlock>) -> Option<Arc<SubstrateBlock>> {
 		let is_same_or_above = |other: &SubstrateBlock| {
 			block.block_number() > other.block_number() || block.block_hash() == other.block_hash()
 		};
 
 		let mut best = self.latest_block.write().await;
 		if is_same_or_above(&best) {
-			*best = block;
-			return;
+			let changed = block.block_hash() != best.block_hash();
+			*best = block.clone();
+			return changed.then_some(block);
 		}
 
 		let (best_number, best_hash) = (best.block_number(), best.block_hash());
@@ -150,12 +166,12 @@ impl SubxtBlockInfoProvider {
 				block.block_hash(),
 				finalized.block_number(),
 				finalized.block_hash());
-			return;
+			return None;
 		}
 
 		// A lower block is a replay, unless the stored best block is no longer canonical.
 		if self.is_canonical(best_number, best_hash).await {
-			return;
+			return None;
 		}
 
 		let mut best = self.latest_block.write().await;
@@ -167,20 +183,25 @@ impl SubxtBlockInfoProvider {
 				block.block_hash(),
 				best.block_number(),
 				best.block_hash());
-			return;
+			return None;
 		}
 
 		log::trace!(target: LOG_TARGET,
-			"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
+			"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): it is no longer canonical",
 			block.block_number(),
 			block.block_hash());
-		*best = block;
+		*best = block.clone();
+		Some(block)
 	}
 }
 
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
-	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
+	async fn update_latest(
+		&self,
+		block: Arc<SubstrateBlock>,
+		subscription_type: SubscriptionType,
+	) -> Option<Arc<SubstrateBlock>> {
 		match subscription_type {
 			SubscriptionType::FinalizedBlocks => self.update_finalized(block).await,
 			SubscriptionType::BestBlocks => self.update_best(block).await,
@@ -296,7 +317,8 @@ pub mod test {
 			&self,
 			_block: Arc<SubstrateBlock>,
 			_subscription_type: SubscriptionType,
-		) {
+		) -> Option<Arc<SubstrateBlock>> {
+			None
 		}
 
 		async fn latest_finalized_block(&self) -> Arc<SubstrateBlock> {
@@ -454,11 +476,11 @@ pub mod test {
 			provider: &SubxtBlockInfoProvider,
 			api: &OnlineClient<SrcChainConfig>,
 			block: MockBlockId,
-		) {
+		) -> Option<Arc<SubstrateBlock>> {
 			*self.best_block.lock().unwrap() = block;
 			provider
 				.update_latest(block_at(api, block).await, SubscriptionType::BestBlocks)
-				.await;
+				.await
 		}
 
 		/// Build the clients that talk to this mocked chain.
@@ -582,7 +604,7 @@ pub mod test {
 		let (provider, api) = chain_heads.provider().await;
 		let best = chain_heads.best_block.lock().unwrap().number();
 
-		chain_heads
+		let head = chain_heads
 			.import_best(&provider, &api, MockBlockId::MainBranch(best + 1))
 			.await;
 		assert_eq!(
@@ -591,18 +613,28 @@ pub mod test {
 			"a higher block becomes the latest block"
 		);
 		assert_eq!(
+			head.map(|head| head.block_hash()),
+			Some(MockBlockId::MainBranch(best + 1).hash()),
+			"a higher block is returned as the new latest block"
+		);
+		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
 			0,
 			"no block hash lookup for a higher block"
 		);
 
-		chain_heads
+		let head = chain_heads
 			.import_best(&provider, &api, MockBlockId::SideBranch(best + 1))
 			.await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best + 1).hash(),
 			"a same-number block from a side branch replaces the latest block"
+		);
+		assert_eq!(
+			head.map(|head| head.block_hash()),
+			Some(MockBlockId::SideBranch(best + 1).hash()),
+			"a same-number block from a side branch is returned as the new latest block"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -625,7 +657,7 @@ pub mod test {
 		);
 
 		let latest = provider.latest_block().await;
-		provider
+		let head = provider
 			.update_latest(
 				block_at(&api, MockBlockId::SideBranch(best + 2)).await,
 				SubscriptionType::BestBlocks,
@@ -635,6 +667,7 @@ pub mod test {
 			!Arc::ptr_eq(&latest, &provider.latest_block().await),
 			"a repeat of the latest block replaces the cached one"
 		);
+		assert!(head.is_none(), "a repeat of the latest block does not change it");
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
@@ -655,7 +688,7 @@ pub mod test {
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best - 1).hash(),
-			"a lower block is accepted when the chain ends below the stored latest block"
+			"a lower block is accepted after a reorg to a shorter branch"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -675,7 +708,7 @@ pub mod test {
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(finalized).hash(),
-			"an old block is accepted when the chain no longer lists the stored latest block"
+			"a lower block is accepted once the latest block is no longer canonical"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -696,7 +729,7 @@ pub mod test {
 			"no block hash lookup for the chain's best block"
 		);
 
-		provider
+		let head = provider
 			.update_latest(
 				block_at(&api, MockBlockId::MainBranch(best - 1)).await,
 				SubscriptionType::BestBlocks,
@@ -705,7 +738,11 @@ pub mod test {
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best).hash(),
-			"an old block is ignored while the chain still lists the stored latest block"
+			"a lower block is ignored while the latest block is still canonical"
+		);
+		assert!(
+			head.is_none(),
+			"a lower block does not change a latest block that is still canonical"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -730,7 +767,7 @@ pub mod test {
 			"no block hash lookup for a block below the finalized block"
 		);
 
-		provider
+		let head = provider
 			.update_latest(
 				block_at(&api, MockBlockId::SideBranch(finalized)).await,
 				SubscriptionType::BestBlocks,
@@ -740,6 +777,10 @@ pub mod test {
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best).hash(),
 			"a block from another branch at the finalized block's number is ignored"
+		);
+		assert!(
+			head.is_none(),
+			"a block that contradicts the finalized block does not change the latest block"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -756,8 +797,8 @@ pub mod test {
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best).hash(),
-			"a same-number block from another branch is ignored while the chain still lists the \
-			 stored latest block"
+			"a same-number block from another branch is ignored while the latest block is still \
+			 canonical"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -826,7 +867,7 @@ pub mod test {
 			"a lower finalized block is ignored"
 		);
 
-		provider
+		let head = provider
 			.update_latest(
 				block_at(&api, MockBlockId::MainBranch(finalized + 1)).await,
 				SubscriptionType::FinalizedBlocks,
@@ -842,6 +883,7 @@ pub mod test {
 			MockBlockId::MainBranch(best).hash(),
 			"the latest block stays put while it is ahead of the finalized block"
 		);
+		assert!(head.is_none(), "a finalized block below the latest block does not change it");
 
 		provider
 			.update_latest(
@@ -904,7 +946,7 @@ pub mod test {
 			"the latest block starts below the latest finalized block"
 		);
 
-		provider
+		let head = provider
 			.update_latest(
 				block_at(&api, MockBlockId::MainBranch(finalized - 1)).await,
 				SubscriptionType::FinalizedBlocks,
@@ -918,7 +960,12 @@ pub mod test {
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(finalized).hash(),
-			"the latest block is pulled up to the latest finalized block, not to the stale one"
+			"the latest block is pulled up to the latest finalized block"
+		);
+		assert_eq!(
+			head.map(|head| head.block_hash()),
+			Some(MockBlockId::MainBranch(finalized).hash()),
+			"the latest finalized block, not the lower one, is returned as the new latest block"
 		);
 	}
 

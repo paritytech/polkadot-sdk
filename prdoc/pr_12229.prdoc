@@ -1,0 +1,69 @@
+title: '[pallet-revive] EIP-7702 (continued)'
+doc:
+- audience: Runtime Dev
+  description: |
+    Continuation of #10936.
+
+    Implements [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) for `pallet-revive`: an EOA can sign an authorization that designates a target contract whose code runs when the EOA is called, while keeping the EOA's storage and balance.
+
+    ## Pallet integration
+
+    `eth_call` gains an `authorization_list: Vec<AuthorizationListEntry>` parameter. The signature change is safe because `eth_call` is never dispatched directly — it's the inner call of `eth_transact`, signed by an Ethereum wallet and submitted via `eth-rpc`. List length is bounded indirectly: each entry reserves `worst_case_delegation_deposit` against the tx's storage-deposit budget, so a transaction can only carry as many entries as its budget covers.
+
+    ## Authorization processing
+
+    `process_authorizations` runs **before** the call. It validates each entry (chain ID, signature, nonce, account type), creates the authority account if needed, and sets or clears the delegation. Two key semantics:
+
+    - Per-entry failures (bad chain_id, nonce mismatch, signature recovery, contract-account authority) are silently skipped per spec, so the function as a whole is structurally infallible.
+    - Delegation changes persist even if the subsequent call reverts — processing happens outside the call's storage transaction.
+
+    Revive-specific costs per authorization, beyond the EVM baseline:
+
+    - **ED for new accounts**: an authority that didn't exist on-chain is created.
+    - **Account-entry deposit**: the `DelegatedEOA` entry persists for the life of the account, so the item/byte cost of its `ContractInfo` is charged on first delegation — even when the target is not a contract — and stays held after clearing. There is no release path: a delegated EOA cannot be terminated, so this deposit is locked permanently once an account has ever been delegated. On a relayed set/clear the recorded payer is refunded in full and the relayer is charged the entry deposit anew (becoming the recorded payer) — relaying a revocation is therefore no longer deposit-neutral for the relayer.
+    - **Code lockup deposit + refcount**: delegating to a contract increments the refcount on its code hash so the code can't be deleted while delegated, and reserves a deposit equal to the lockup share of the code's storage cost. Deposits are tracked against the relayer that paid them (see `payer` below) so refunds flow to the original payer regardless of who relays the next set/clear.
+
+    ## Storage changes
+
+    New `AccountType::DelegatedEOA` variant:
+
+    - `delegate_target: Option<H160>` — target contract (`None` after clearing).
+    - `contract_info: ContractInfo` — child trie + base-deposit accounting for the delegated EOA.
+    - `payer: Option<T::AccountId>` — account that paid the currently held deposit; read on clear/re-delegation so refunds flow back to the original payer rather than whoever relays the next authorization.
+
+    Lifecycle:
+
+    - Once delegated, an EOA stays `DelegatedEOA` permanently; clearing only zeroes the target.
+    - The child trie survives across target changes (re-delegate keeps storage).
+    - Code refcounts are managed on set/clear.
+    - Clearing refunds the code-lockup share of `storage_base_deposit`; the account entry's own deposit stays held — permanently, since the entry persists and delegated accounts cannot be terminated. Per-item storage deposits stay locked until the user re-delegates to a contract that lets them release the items through normal storage operations.
+
+    New error variant: `Error::CannotTerminateDelegatedAccount = 0x44` — `seal_terminate` invoked on a delegated EOA; delegated accounts cannot be torn down via the contract-termination path.
+
+    ## Execution changes
+
+    On a call to a delegated EOA the runtime loads the target contract's code but uses the EOA's own storage and balance. Constructors skip delegation resolution (cannot deploy via a delegated EOA). Delegation is resolved **at most once** — no chain following (if A → B → C, calling A executes B's code; B's own delegation is ignored, and if B is itself delegated the call traps on the `0xef` indicator: nested callers observe a failed subcall (`CalleeTrapped`), a top-level call fails with `ContractTrapped`).
+
+    ## RPC
+
+    - `eth-rpc` submits and dry-runs EIP-7702 transactions.
+    - `eth_getCode` returns the `0xef0100 || target` indicator for delegated EOAs.
+
+    ## Benchmarks
+
+    Adds `process_new_account_authorization(n)`, `process_existing_account_authorization(n)`, and `process_invalid_authorization(n)`. The new- and existing-account weights are combined component-wise (via `worst_case_authorization_weight`) for the pre-dispatch reservation, since neither dominates on every axis — `existing` is heavier on proof_size on at least one runtime, `new` is heavier on ref_time. The reservation is zero for an empty authorization list, so every transaction that isn't type-4 reserves none of it.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: assets-common
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major

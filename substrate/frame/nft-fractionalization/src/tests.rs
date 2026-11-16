@@ -56,6 +56,16 @@ fn account(id: u8) -> AccountIdOf<Test> {
 	[id; 32].into()
 }
 
+fn pallet_account() -> AccountIdOf<Test> {
+	NftFractionalizationPalletId::get().into_account_truncating()
+}
+
+fn asset_destroyed(asset_id: u32) -> bool {
+	System::events().iter().any(|record| {
+		record.event == mock::RuntimeEvent::Assets(pallet_assets::Event::Destroyed { asset_id })
+	})
+}
+
 #[test]
 fn fractionalize_should_work() {
 	new_test_ext().execute_with(|| {
@@ -305,5 +315,168 @@ fn unify_should_work() {
 			account(2),
 		));
 		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(2)));
+	});
+}
+
+#[test]
+fn unify_destroys_the_asset() {
+	new_test_ext().execute_with(|| {
+		let nft_collection_id = 0;
+		let nft_id = 0;
+		let asset_id = 0;
+		let fractions = 1000;
+		Balances::set_balance(&account(1), 100);
+
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			account(1),
+			CollectionConfig::default(),
+		));
+		assert_ok!(Nfts::mint(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			account(1),
+			None,
+		));
+		assert_ok!(Nfts::mint(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id + 1,
+			account(1),
+			None,
+		));
+		assert_ok!(NftFractionalization::fractionalize(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			asset_id,
+			account(1),
+			fractions,
+		));
+
+		// the metadata deposit is reserved on the pallet's account.
+		let metadata_deposit = Balances::reserved_balance(&pallet_account());
+		assert!(!metadata_deposit.is_zero());
+
+		assert_ok!(NftFractionalization::unify(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			asset_id,
+			account(1),
+		));
+
+		// the asset is gone, not just left in a destroying state.
+		assert!(assets().is_empty());
+		assert!(asset_destroyed(asset_id));
+		assert_eq!(<Assets as Inspect<AccountIdOf<Test>>>::name(asset_id), Vec::<u8>::new());
+		assert_eq!(Balances::reserved_balance(&pallet_account()), 0);
+
+		// and, with an `AssetIdAllocator` that allows it, the asset ID can be used again.
+		assert_ok!(NftFractionalization::fractionalize(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id + 1,
+			asset_id,
+			account(1),
+			fractions,
+		));
+		assert_eq!(assets(), vec![asset_id]);
+	});
+}
+
+#[test]
+fn unify_works_when_the_asset_cannot_be_destroyed_yet() {
+	new_test_ext().execute_with(|| {
+		let nft_collection_id = 0;
+		let nft_id = 0;
+		let asset_id = 0;
+		let fractions = 1000;
+
+		Balances::set_balance(&account(1), 100);
+		Balances::set_balance(&account(2), 100);
+		Balances::set_balance(&account(3), 100);
+
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			account(1),
+			CollectionConfig::default(),
+		));
+		assert_ok!(Nfts::mint(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			account(1),
+			None,
+		));
+		assert_ok!(NftFractionalization::fractionalize(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			asset_id,
+			account(2),
+			fractions,
+		));
+
+		// a `touch`ed asset account and an approval both block `finish_destroy`, and the account
+		// unifying can own them itself.
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(account(3)), asset_id));
+		assert_ok!(Assets::transfer(
+			RuntimeOrigin::signed(account(2)),
+			asset_id,
+			account(3),
+			fractions,
+		));
+		assert_ok!(Assets::approve_transfer(
+			RuntimeOrigin::signed(account(3)),
+			asset_id,
+			account(4),
+			1,
+		));
+
+		let metadata_deposit = Balances::reserved_balance(&pallet_account());
+		assert!(!metadata_deposit.is_zero());
+		assert!(
+			!Balances::balance_on_hold(&HoldReason::Fractionalized.into(), &account(1)).is_zero()
+		);
+
+		// the unify goes through anyway, the asset just stays in a destroying state.
+		assert_ok!(NftFractionalization::unify(
+			RuntimeOrigin::signed(account(3)),
+			nft_collection_id,
+			nft_id,
+			asset_id,
+			account(3),
+		));
+		assert_eq!(assets(), vec![asset_id]);
+		assert!(!asset_destroyed(asset_id));
+
+		// nothing of the destruction was half-applied.
+		assert_eq!(
+			String::from_utf8(<Assets as Inspect<AccountIdOf<Test>>>::name(asset_id)).unwrap(),
+			"Frac 0-0"
+		);
+		assert_eq!(Balances::reserved_balance(&pallet_account()), metadata_deposit);
+
+		// the NFT is unlocked and the deposit released, as on the fully destroying path.
+		assert_ok!(Nfts::transfer(
+			RuntimeOrigin::signed(account(3)),
+			nft_collection_id,
+			nft_id,
+			account(4),
+		));
+		assert_eq!(Balances::balance_on_hold(&HoldReason::Fractionalized.into(), &account(1)), 0);
+
+		// and anyone can complete the destruction afterwards. Each leftover blocks on its own.
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(account(2)), asset_id));
+		assert_noop!(
+			Assets::finish_destroy(RuntimeOrigin::signed(account(2)), asset_id),
+			pallet_assets::Error::<Test>::InUse
+		);
+		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(account(2)), asset_id));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(account(2)), asset_id));
+		assert!(assets().is_empty());
+		assert!(asset_destroyed(asset_id));
 	});
 }
