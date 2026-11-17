@@ -445,6 +445,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_subscription_gap_filler_backfills_queued_range,
 		test_subscription_gap_filler_failure_stays_pending,
 		test_subscription_gap_filler_retries_failed_attempt,
+		test_subscription_gap_filler_starts_at_from_hash,
 		test_finalized_block_processing_failure_queues_gap_fill,
 		test_best_block_processing_failure_queues_nothing,
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
@@ -4215,6 +4216,59 @@ async fn test_subscription_gap_filler_retries_failed_attempt() -> anyhow::Result
 	})
 	.await?;
 	wait_until("the queue to drain", || async { !queue.has_pending() }).await?;
+
+	Ok(())
+}
+
+/// A gap fill whose `from_hash` names a different block than `from_inclusive` starts at the
+/// block the hash names.
+async fn test_subscription_gap_filler_starts_at_from_hash() -> anyhow::Result<()> {
+	let (sync_client, mut gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(true).await?;
+	sync_client.sync_backward().await?;
+	let head = sync_client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head is set after sync")
+		.block_number;
+	submit_evm_transfers(4).await?;
+	let hash_at = |number| {
+		let sync_client = sync_client.clone();
+		async move {
+			sync_client
+				.block_provider()
+				.block_by_number(number)
+				.await?
+				.map(|block| block.block_hash())
+				.ok_or_else(|| anyhow!("block #{number} exists on chain"))
+		}
+	};
+	let (below, named, above) =
+		(hash_at(head + 2).await?, hash_at(head + 3).await?, hash_at(head + 4).await?);
+
+	// The queue counts the request; the filler receives it with the hash of the block below
+	// `from_inclusive`.
+	let queue = sync_client.subscription_gap_queue();
+	queue.queue(head + 4, head + 2);
+	let request = gap_fill_rx.try_recv()?;
+	let (filler_tx, filler_rx) = mpsc::channel(1);
+	filler_tx
+		.try_send(GapFillRequest { from_hash: Some(named), ..request })
+		.map_err(|_| anyhow!("gap filler queue closed"))?;
+	let bg_client = sync_client.clone();
+	let _filler = AbortOnDrop(tokio::spawn(async move {
+		bg_client.run_subscription_gap_filler(filler_rx, GapFillRetry::default()).await
+	}));
+	wait_until("the queue to drain", || async { !queue.has_pending() }).await?;
+
+	let indexed = |hash| {
+		let sync_client = sync_client.clone();
+		async move { sync_client.receipt_provider().get_ethereum_hash(&hash).await.is_some() }
+	};
+	assert!(indexed(named).await);
+	assert!(indexed(below).await);
+	assert!(!indexed(above).await, "the walk must not start at the block the number resolves to");
 
 	Ok(())
 }
