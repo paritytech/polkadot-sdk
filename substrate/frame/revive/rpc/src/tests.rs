@@ -2826,14 +2826,17 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 }
 
 /// A block that fails in the top gap of a resumed sync leaves the sync head where it was and
-/// does not cancel the backfill of older history. The historic sync is then incomplete, so
-/// later finalized blocks do not move the head either.
+/// does not cancel the backfill of older history. The top gap fails on its first block while
+/// the bottom gap spans a third of the chain, so a backfill cancelled with the top gap would
+/// stop far above the first EVM block. The historic sync is then incomplete, so later finalized
+/// blocks do not move the head either.
 async fn test_block_sync_resume_top_gap_failure_keeps_head() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
 	submit_evm_transfers(6).await?;
 	let (sync_client, _gap_fill_rx, pool) = create_sync_test_client_with_pool(true).await?;
 
+	// The backward sync starts at this block: no subscription moves the cached finalized block.
 	let chain_len = sync_client.latest_finalized_block().await.block_number();
 	let block_at = |number| {
 		let sync_client = sync_client.clone();
@@ -2846,8 +2849,8 @@ async fn test_block_sync_resume_top_gap_failure_keeps_head() -> anyhow::Result<(
 		}
 	};
 	let tail_block = block_at(chain_len / 3).await?;
-	let head_block = block_at(chain_len * 2 / 3).await?;
-	let failing_block = block_at(head_block.block_number() + 1).await?;
+	let head_block = block_at(chain_len - 2).await?;
+	let failing_block = block_at(chain_len).await?;
 	let interrupted_head = SyncCheckpoint::new(head_block.block_number(), head_block.block_hash());
 	sync_client
 		.receipt_provider()
@@ -2861,7 +2864,8 @@ async fn test_block_sync_resume_top_gap_failure_keeps_head() -> anyhow::Result<(
 		.set_sync_label(SyncLabel::Head, interrupted_head)
 		.await?;
 
-	// The database is empty, so the resume extracts both gaps; it rejects one top-gap block.
+	// The database is empty, so the resume extracts both gaps; it rejects the first block of
+	// the top gap.
 	sqlx::query(&format!(
 		"CREATE TRIGGER reject_block BEFORE INSERT ON eth_to_substrate_blocks \
 		 WHEN NEW.substrate_block_hash = X'{}' \
