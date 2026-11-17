@@ -1,0 +1,12 @@
+title: "pallet-bounties: fix `reclaim_bounty_funds` benchmark"
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `reclaim_bounty_funds` benchmark panicked on runtimes with `TransferAllAssets = ()`.
+      Nothing is transferred there, so `BountyFundsReclaimed` is never emitted, but the
+      benchmark asserted it unconditionally. It now only asserts the event if the bounty
+      account was emptied.
+
+crates:
+  - name: pallet-bounties
+    bump: patch
