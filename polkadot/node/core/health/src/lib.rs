@@ -39,7 +39,10 @@ const LOG_TARGET: &str = "parachain::health";
 const CHANNEL_CAPACITY: usize = 4096;
 
 /// How often the checks judged on time, not on a chain event, are judged.
+#[cfg(not(feature = "short-health-tick"))]
 const TICK_INTERVAL: Duration = Duration::from_secs(10 * 60);
+#[cfg(feature = "short-health-tick")]
+const TICK_INTERVAL: Duration = Duration::from_secs(60);
 
 /// The producers' end: cloneable, cheap, and never waits.
 #[derive(Clone)]

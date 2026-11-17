@@ -15,6 +15,7 @@ mod coretime_shared_core;
 mod dispute_freshly_finalized;
 mod dispute_old_finalized;
 mod duplicate_collations;
+mod health_reachability_no_listener;
 mod parachains_disputes;
 mod parachains_disputes_garbage_candidate;
 mod parachains_max_tranche0;

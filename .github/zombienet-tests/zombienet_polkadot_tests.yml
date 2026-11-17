@@ -72,6 +72,11 @@
   runner-type: "default"
 
 
+- job-name: "zombienet-polkadot-functional-0020-health-reachability-no-listener"
+  test-filter: "functional::health_reachability_no_listener"
+  runner-type: "default"
+
+
 # Smoke tests using traditional zombienet
 - job-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
   test-filter: "smoke::parachains_smoke::parachains_smoke_test"
