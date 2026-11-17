@@ -23,6 +23,7 @@ use super::{
 	CodeProvider,
 };
 use crate::client::notification_pinning::NotificationPinningWorker;
+use futures::channel::oneshot;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
@@ -118,6 +119,8 @@ where
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	code_provider: CodeProvider<Block, B, E>,
+	// Spawns the task that records a state sync target.
+	spawn_handle: Box<dyn SpawnNamed>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -425,6 +428,7 @@ where
 			telemetry,
 			unpin_worker_sender,
 			code_provider,
+			spawn_handle,
 			_phantom: Default::default(),
 		})
 	}
@@ -1375,19 +1379,30 @@ where
 
 impl<B, E, Block, RA> PartialStateImport<Block> for Client<B, E, Block, RA>
 where
-	B: backend::Backend<Block>,
+	B: backend::Backend<Block> + 'static,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
 	fn begin_partial_state(
 		&self,
 		target: sc_client_api::partial_state::PartialStateTarget<Block>,
-	) -> sp_blockchain::Result<()> {
-		let store = partial_state_store(&*self.backend)?;
-		// Beginning over an earlier sync empties the state column, so no block import may run
-		// meanwhile.
-		let _import_lock = self.backend.get_import_lock().write();
-		store.begin(target)
+	) -> oneshot::Receiver<sp_blockchain::Result<()>> {
+		let (result, receiver) = oneshot::channel();
+		let backend = self.backend.clone();
+		self.spawn_handle.spawn_blocking(
+			"state-sync-begin",
+			None,
+			Box::pin(async move {
+				let recorded = partial_state_store(&*backend).and_then(|store| {
+					// Beginning over an earlier sync empties the state column, so no block
+					// import may run meanwhile.
+					let _import_lock = backend.get_import_lock().write();
+					store.begin(target)
+				});
+				let _ = result.send(recorded);
+			}),
+		);
+		receiver
 	}
 
 	fn import_partial_state(

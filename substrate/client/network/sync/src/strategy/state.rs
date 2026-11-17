@@ -88,7 +88,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Strategy key used by state sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
 
-	/// Create a new instance. The client records the target on a thread of its own, see
+	/// Create a new instance. The client records the target in a task of its own, see
 	/// [`StateSync::new`]: no state request goes out before it has, and the strategy aborts if it
 	/// cannot.
 	pub fn new<Client>(

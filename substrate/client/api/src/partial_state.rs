@@ -20,6 +20,7 @@
 //! before the block itself is imported.
 
 use codec::{Decode, Encode};
+use futures::channel::oneshot;
 use sp_core::Hasher;
 use sp_runtime::{
 	traits::{Block as BlockT, PartialStateFor},
@@ -69,8 +70,12 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// sync up.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
+	/// This returns and the work runs in a blocking task, and the receiver gets its result. 
 	/// Fails, and records nothing, if the database already holds block state.
-	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
+	fn begin_partial_state(
+		&self,
+		target: PartialStateTarget<Block>,
+	) -> oneshot::Receiver<sp_blockchain::Result<()>>;
 
 	/// Write the chunk's nodes and its range end as the new cursor, in one transaction. A chunk
 	/// with no end marks the download complete. On `Err` nothing was written and the same chunk

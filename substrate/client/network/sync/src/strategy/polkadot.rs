@@ -588,7 +588,10 @@ mod test {
 	use crate::{
 		mock::MockBlockDownloader,
 		service::network::NetworkServiceProvider,
-		strategy::{chain_sync::GapSyncBodyPolicy, warp::test::MockWarpSyncProvider},
+		strategy::{
+			chain_sync::GapSyncBodyPolicy, state_sync::begin_and_wait,
+			warp::test::MockWarpSyncProvider,
+		},
 	};
 	use sc_client_api::partial_state::PartialStateTarget;
 	use substrate_test_runtime_client::{
@@ -624,13 +627,11 @@ mod test {
 	#[test]
 	fn warp_mode_resumes_a_recorded_state_sync_without_a_warp_phase() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-		client
-			.begin_partial_state(PartialStateTarget {
-				header: header(1),
-				body: None,
-				justifications: None,
-			})
-			.unwrap();
+		begin_and_wait(
+			&*client,
+			PartialStateTarget { header: header(1), body: None, justifications: None },
+		)
+		.unwrap();
 		let strategy = PolkadotSyncingStrategy::new(
 			warp_mode_config(),
 			client,
@@ -666,13 +667,11 @@ mod test {
 		// Resume the state sync of block 1.
 		let resumed = |warp_sync_config| {
 			let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-			client
-				.begin_partial_state(PartialStateTarget {
-					header: header(1),
-					body: None,
-					justifications: None,
-				})
-				.unwrap();
+			begin_and_wait(
+				&*client,
+				PartialStateTarget { header: header(1), body: None, justifications: None },
+			)
+			.unwrap();
 			PolkadotSyncingStrategy::new(warp_mode_config(), client, Some(warp_sync_config), None)
 				.unwrap()
 		};

@@ -21,7 +21,7 @@
 use super::*;
 use crate::{
 	block_relay_protocol::BlockResponseError, mock::MockBlockDownloader,
-	service::network::NetworkServiceProvider,
+	service::network::NetworkServiceProvider, strategy::state_sync::begin_and_wait,
 };
 use futures::{channel::oneshot::Canceled, executor::block_on};
 use rstest::rstest;
@@ -1742,11 +1742,10 @@ fn record_complete_state(
 	client: &TestClient,
 	header: &Header,
 ) -> sp_blockchain::Result<()> {
-	client.begin_partial_state(PartialStateTarget {
-		header: header.clone(),
-		body: None,
-		justifications: None,
-	})?;
+	begin_and_wait(
+		client,
+		PartialStateTarget { header: header.clone(), body: None, justifications: None },
+	)?;
 	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX)?;
 	let (values, completed, nodes) = client.verify_range_proof(*header.state_root(), proof, &[])?;
 	if completed != 0 {
@@ -1852,7 +1851,7 @@ fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
 	assert!(request.start.is_empty());
 
 	let other = build_block(&remote, Some(header.hash()), false).header().clone();
-	client.begin_partial_state(target(&other)).unwrap();
+	begin_and_wait(&*client, target(&other)).unwrap();
 	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX).unwrap();
 	let response = StateResponse { entries: vec![], proof: proof.encode() }.encode_to_vec();
 	assert!(sync.on_state_data(&peer, &response).is_ok());
@@ -1864,7 +1863,7 @@ fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
 	assert!(sync.block_requests().is_empty(), "block sync waits for the state");
 	assert!(sync.actions(&network_handle).unwrap().is_empty(), "the retry waits for its delay");
 
-	client.begin_partial_state(target(&header)).unwrap();
+	begin_and_wait(&*client, target(&header)).unwrap();
 	sync.state_sync.as_mut().expect("the state sync goes on").expire_write_delay();
 	let actions = sync.actions(&network_handle).unwrap();
 	assert!(matches!(

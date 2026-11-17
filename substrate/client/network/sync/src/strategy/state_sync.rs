@@ -23,6 +23,7 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
+use futures::channel::oneshot;
 use log::{debug, error, info, warn};
 use sc_client_api::{
 	partial_state::{PartialStateTarget, ResumablePartialState},
@@ -37,7 +38,6 @@ use sp_runtime::{
 use std::{
 	fmt,
 	sync::Arc,
-	thread::JoinHandle,
 	time::{Duration, Instant},
 };
 
@@ -82,6 +82,17 @@ pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 	Ok(Some(resumable))
 }
 
+/// Begins the state sync of `target` on `client` and waits for the client's task, for tests that
+/// need the record in place.
+#[cfg(test)]
+pub(crate) fn begin_and_wait<B: BlockT>(
+	client: &impl PartialStateImport<B>,
+	target: PartialStateTarget<B>,
+) -> sp_blockchain::Result<()> {
+	futures::executor::block_on(client.begin_partial_state(target))
+		.map_err(|_| sp_blockchain::Error::Backend("the task did not finish".into()))?
+}
+
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// Validate and import a state response.
@@ -93,7 +104,7 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
 	/// Finish the work that waits on the database, if it is ready.
-	// `None` means there is no result: nothing is pending, the thread still runs,
+	// `None` means there is no result: nothing is pending, the task still runs,
 	// or the delay has not passed.
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
 	/// The target is still being recorded, or a verified chunk waits to be written. No state
@@ -233,9 +244,9 @@ impl<B: BlockT> StateSyncMetadata<B> {
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	client: Arc<Client>,
-	/// The thread on which the client records the target, see [`StateSync::new`]. `None` once it
-	/// has ended and `retry_pending_write` has taken its result.
-	begin: Option<JoinHandle<sp_blockchain::Result<()>>>,
+	/// Gets the result of the task in which the client records the target, see
+	/// [`StateSync::new`]. `None` once `retry_pending_write` has taken that result.
+	begin: Option<oneshot::Receiver<sp_blockchain::Result<()>>>,
 	pending_write: Option<PendingWrite<B>>,
 }
 
@@ -246,9 +257,9 @@ where
 {
 	/// Create a new instance. The client records the target so a restart can resume the download,
 	/// and first drops any earlier attempt that never completed. Dropping one removes its nodes
-	/// one by one, tens of seconds on a large state, so the client does all of this on a thread
-	/// of its own and `new` returns at once. Until that thread has ended the sync reports a
-	/// pending write: no state request goes out and a response is ignored. Then
+	/// one by one, tens of seconds on a large state, so the client does all of this in a task of
+	/// its own and `new` returns at once. Until that task has ended the sync reports a pending
+	/// write: no state request goes out and a response is ignored. Then
 	/// [`StateSyncProvider::retry_pending_write`] lets the download start, or aborts the sync if
 	/// the target could not be recorded.
 	pub fn new(
@@ -262,10 +273,7 @@ where
 			body: target_body.clone(),
 			justifications: target_justifications.clone(),
 		};
-		let begin = std::thread::spawn({
-			let client = client.clone();
-			move || client.begin_partial_state(target)
-		});
+		let begin = client.begin_partial_state(target);
 		let mut sync = Self::with_cursor(
 			client,
 			target_header,
@@ -369,14 +377,17 @@ where
 		}
 	}
 
-	/// Waits for the thread of `new` and returns what `retry_pending_write` makes of its result,
+	/// Waits for the task of `new` and returns what `retry_pending_write` makes of its result,
 	/// so tests need not poll.
 	#[cfg(test)]
 	pub(crate) fn wait_for_begin(&mut self) -> Option<ImportResult<B>> {
-		while self.begin.as_ref().is_some_and(|begin| !begin.is_finished()) {
+		loop {
+			let result = self.retry_pending_write();
+			if self.begin.is_none() {
+				return result;
+			}
 			std::thread::yield_now();
 		}
-		self.retry_pending_write()
 	}
 }
 
@@ -459,9 +470,12 @@ where
 	}
 
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>> {
-		if let Some(begin) = self.begin.take_if(|begin| begin.is_finished()) {
-			let recorded = begin.join().unwrap_or_else(|_| {
-				Err(sp_blockchain::Error::Backend("the thread recording it panicked".into()))
+		let recorded = self.begin.as_mut().and_then(|begin| begin.try_recv().transpose());
+		if let Some(recorded) = recorded {
+			self.begin = None;
+			// The sender is gone without a result: the task panicked or was never run.
+			let recorded = recorded.unwrap_or_else(|_| {
+				Err(sp_blockchain::Error::Backend("the task recording it did not finish".into()))
 			});
 			return Some(match recorded {
 				Ok(()) => ImportResult::Continue,
@@ -638,7 +652,7 @@ mod tests {
 		let (remote, header) = remote();
 		let (client, mut sync) = syncing(&header);
 		// Another target recorded under the sync's feet: the database refuses its chunks.
-		client.begin_partial_state(other_target(&header)).unwrap();
+		begin_and_wait(&*client, other_target(&header)).unwrap();
 
 		assert!(matches!(sync.import(response(&remote, &header, &[], 1)), ImportResult::Continue));
 		assert!(sync.has_pending_write());
@@ -649,7 +663,7 @@ mod tests {
 		assert!(matches!(sync.import(no_proof), ImportResult::Continue), "ignored while pending");
 		assert!(sync.retry_pending_write().is_none(), "no retry before the delay");
 
-		client.begin_partial_state(target(&header)).unwrap();
+		begin_and_wait(&*client, target(&header)).unwrap();
 		sync.expire_write_delay();
 		assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
 		assert!(!sync.has_pending_write());
@@ -665,7 +679,7 @@ mod tests {
 		let (remote, header) = remote();
 		let after_the_last_retry = |recover: bool| {
 			let (client, mut sync) = syncing(&header);
-			client.begin_partial_state(other_target(&header)).unwrap();
+			begin_and_wait(&*client, other_target(&header)).unwrap();
 			let whole_state = response(&remote, &header, &[], usize::MAX);
 			assert!(matches!(sync.import(whole_state), ImportResult::Continue));
 			for _ in 1..MAX_PARTIAL_STATE_WRITE_RETRIES {
@@ -674,7 +688,7 @@ mod tests {
 				assert!(sync.has_pending_write());
 			}
 			if recover {
-				client.begin_partial_state(target(&header)).unwrap();
+				begin_and_wait(&*client, target(&header)).unwrap();
 			}
 			sync.expire_write_delay();
 			let last = sync.retry_pending_write();
@@ -706,7 +720,7 @@ mod tests {
 		let (remote, header) = remote();
 		let (client, backend) = TestClientBuilder::new().set_no_genesis().build_with_backend();
 		let client = Arc::new(client);
-		client.begin_partial_state(other_target(&header)).unwrap();
+		begin_and_wait(&*client, other_target(&header)).unwrap();
 
 		// The thread waits for the import lock, as it would be busy removing a large attempt.
 		let import_lock = backend.get_import_lock().write();
