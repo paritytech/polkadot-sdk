@@ -50,7 +50,8 @@
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
 //! peer that resends the statement before its tick is added there too. Propagation and
 //! initial-sync chunks both skip the recorded peers, and the propagation pass clears
-//! `recently_received_statements` when done.
+//! `recently_received_statements` when done. A journal walk outlives that record, so it can send
+//! a peer statements the peer supplied.
 //!
 //! ## Initial sync
 //!
@@ -76,9 +77,10 @@
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. A
 //! full outbox (`config::MAX_PROPAGATION_OUTBOX_LEN`) takes no more hashes. The peer records the
-//! lowest admission sequence refused, and once the outbox drains an initial sync walks the
-//! journal from there, so a slow peer loses nothing. Refused hashes are counted in
-//! `undelivered_statements` until the walk delivers them.
+//! lowest admission sequence refused, and once the outbox drains and its last chunk completes, an
+//! initial sync walks the journal from there, so a slow peer loses nothing. The walk may resend
+//! statements the peer already has. Hashes left to a walk count in `send_failures`, not in
+//! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -283,7 +285,7 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Admission sequence a detour hash queues under. A journal walk skips a peer outside the
 /// routing targets, so a failed detour must not move a resync's start.
-const DETOUR_SEQ: u64 = u64::MAX;
+pub(crate) const DETOUR_SEQ: u64 = u64::MAX;
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -341,7 +343,7 @@ mod send_failure {
 	pub const TIMEOUT: &str = "timeout";
 	/// The chunk was never handed to the network because the peer had no message sink.
 	pub const NO_SINK: &str = "no_sink";
-	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
+	/// The peer's propagation outbox was full and refused new hashes, which a resync resends.
 	pub const OUTBOX_FULL: &str = "outbox_full";
 	/// A queued statement left the store, failed to decode or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
@@ -553,7 +555,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
-						"Total statements whose delivery was abandoned, so the peer never received them, by reason",
+						"Total statements propagation dropped for a peer with no resync to resend them, by reason",
 					),
 					&["reason"],
 				)?,
@@ -2383,8 +2385,8 @@ where
 			return;
 		};
 		let queued = hashes.len();
-		// After one refusal the journal walk owns every later hash, so the peer still
-		// receives them in admission order.
+		// After one refusal the journal walk resends every later hash, so queueing them too
+		// would send them twice.
 		let taken = if peer.resync_from.is_some() {
 			0
 		} else {
@@ -2395,24 +2397,36 @@ where
 
 		let refused = &hashes[taken..];
 		if let Some(lowest) = refused.iter().map(|(seq, _)| *seq).min() {
+			let overflowed = peer.resync_from.is_none();
 			peer.resync_from = Some(peer.resync_from.map_or(lowest, |seq| seq.min(lowest)));
-			self.record_abandoned_send(send_failure::OUTBOX_FULL, refused.len());
+			// One failure per overflow: the walk resends the refused hashes, so they are not
+			// undelivered.
+			if overflowed {
+				self.record_send_failure(send_failure::OUTBOX_FULL);
+			}
 		}
 		self.try_send_next_chunk(*who);
 	}
 
 	/// Leave a chunk that failed to send, and the hashes still queued behind it, to an initial
-	/// sync. Returns how many hashes the outbox held.
+	/// sync. Returns how many hashes the outbox gave up.
+	///
+	/// Detours stay queued, since a walk skips a peer outside the routing targets. Sequences
+	/// below the peer's sync watermark are left out: a sync scheduled after the chunk went out
+	/// already covers them.
 	fn resync_failed_outbox(&mut self, who: &PeerId, chunk_lowest_seq: Option<u64>) -> usize {
+		let Some(peer) = self.peers.get_mut(who) else {
+			return self.propagation_outboxes.remove(who);
+		};
 		let lowest = chunk_lowest_seq
 			.into_iter()
 			.chain(self.propagation_outboxes.lowest_seq(who))
-			.filter(|seq| *seq != DETOUR_SEQ)
+			.filter(|seq| *seq != DETOUR_SEQ && *seq >= peer.sync_watermark)
 			.min();
-		if let (Some(lowest), Some(peer)) = (lowest, self.peers.get_mut(who)) {
+		if let Some(lowest) = lowest {
 			peer.resync_from = Some(peer.resync_from.map_or(lowest, |seq| seq.min(lowest)));
 		}
-		self.propagation_outboxes.remove(who)
+		self.propagation_outboxes.retain_detours(who)
 	}
 
 	/// Start an initial sync for each peer whose outbox refused hashes and has since drained.
@@ -2421,8 +2435,10 @@ where
 			.peers
 			.iter()
 			.filter(|(who, peer)| {
+				// A chunk still in flight may fail and lower `resync_from` below the walk.
 				peer.resync_from.is_some() &&
 					!self.pending_initial_syncs.contains_key(who) &&
+					!self.in_flight_chunks.contains_key(who) &&
 					self.propagation_outboxes.get(who).map_or(true, |outbox| outbox.is_empty())
 			})
 			.map(|(who, _)| *who)
@@ -2434,11 +2450,14 @@ where
 		for who in drained {
 			let Some(peer) = self.peers.get_mut(&who) else { continue };
 			let Some(cursor) = peer.resync_from.take() else { continue };
-			// The walk covers every admission below the watermark, so propagation skips them. Past
-			// a gap, raising it would claim admissions no walk sent.
+			// Without a gap below the cursor the walk extends the synced range, so v1 propagation
+			// skips what it covers. Past a gap, raising the watermark would claim admissions no
+			// walk sent. Either way, and always on the v2 path, an admission that lands between
+			// the take and the watermark read goes out twice, by the walk and by the next tick.
 			if cursor <= peer.sync_watermark {
 				peer.sync_watermark = peer.sync_watermark.max(watermark);
 			}
+			log::debug!(target: LOG_TARGET, "Resync {who} from admission {cursor} to {watermark}");
 			self.start_initial_sync(who, cursor, watermark, None);
 		}
 	}
@@ -2547,12 +2566,12 @@ where
 			};
 			let bytes_sent = encoded.len() as u64;
 			let Some(message_sink) = self.notification_service.message_sink(&who) else {
-				let abandoned = statement_count + self.resync_failed_outbox(&who, lowest_seq);
+				let deferred = statement_count + self.resync_failed_outbox(&who, lowest_seq);
 				log::debug!(
 					target: LOG_TARGET,
-					"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
+					"Failed to get message sink for peer {who}, leaving {deferred} statements to a resync ({bytes_sent} bytes in the current chunk)",
 				);
-				self.record_abandoned_send(send_failure::NO_SINK, abandoned);
+				self.record_send_failure(send_failure::NO_SINK);
 				return;
 			};
 			let chunk_id = self.occupy_send_slot(who);
@@ -2646,18 +2665,23 @@ where
 			},
 		};
 
-		if let Some(reason) = failure {
-			match kind {
-				SendKind::Propagation { .. } => self.record_abandoned_send(reason, statement_count),
-				SendKind::InitialSync { .. } => self.record_send_failure(reason),
-			}
-		}
-
 		// A send future is not cancelled on disconnect, so its result can outlive the
 		// connection. Only the result of the chunk still occupying the slot frees it.
 		let slot_freed = self.in_flight_chunks.get(&peer) == Some(&chunk_id);
 		if slot_freed {
 			self.in_flight_chunks.remove(&peer);
+		}
+
+		if let Some(reason) = failure {
+			match kind {
+				// A resync resends the chunk of a live connection, but not one it outlived.
+				SendKind::Propagation { .. } if !slot_freed => {
+					self.record_abandoned_send(reason, statement_count)
+				},
+				SendKind::Propagation { .. } | SendKind::InitialSync { .. } => {
+					self.record_send_failure(reason)
+				},
+			}
 		}
 
 		let (sync_id, next_cursor) = match kind {
@@ -4405,8 +4429,8 @@ mod tests {
 				.undelivered_statements
 				.with_label_values(&[send_failure::OUTBOX_FULL])
 				.get(),
-			3,
-			"each refused hash counts as undelivered"
+			0,
+			"the walk resends the refused hashes"
 		);
 		assert_eq!(
 			metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
@@ -5399,7 +5423,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn missing_sink_counts_every_abandoned_statement() {
+	async fn missing_sink_leaves_every_statement_to_a_resync() {
 		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
 		let peer_id = peer_ids[0];
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
@@ -5408,16 +5432,17 @@ mod tests {
 		// sink disappears, otherwise "the whole remainder" and "the current chunk" are the same
 		// number and the test proves nothing.
 		let total = 25;
+		let mut hashes = Vec::new();
 		for i in 0..total {
 			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i as u8;
 			statement.set_plain_data(data);
-			statement_store
-				.recent_statements
-				.lock()
-				.unwrap()
-				.insert(statement.hash(), statement);
+			let hash = statement.hash();
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+			// Admit in creation order, so the delivered chunk holds the lowest sequences.
+			statement_store.admit(hash);
+			hashes.push(hash);
 		}
 
 		// Serve the first chunk, then behave as if the peer went away.
@@ -5437,9 +5462,28 @@ mod tests {
 		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NO_SINK]).get(), 1,);
 		assert_eq!(
 			metrics.undelivered_statements.with_label_values(&[send_failure::NO_SINK]).get(),
-			(total - delivered) as u64,
-			"every statement after the delivered chunk counts as undelivered"
+			0,
+			"a resync resends every statement after the delivered chunk"
 		);
+
+		// The walk starts at the first lost sequence, above the zero watermark, and leaves the
+		// watermark alone across the gap.
+		let resync_from = handler.peers[&peer_id].resync_from.unwrap();
+		assert_eq!(resync_from, delivered as u64);
+		notification_service.serve_sinks(usize::MAX);
+		handler.propagate_statements().await;
+		assert_eq!(handler.pending_initial_syncs[&peer_id].cursor, resync_from);
+		assert_eq!(handler.peers[&peer_id].sync_watermark, 0);
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		let mut counts: HashMap<_, usize> = HashMap::new();
+		sent.iter().for_each(|hash| *counts.entry(*hash).or_default() += 1);
+		assert!(hashes.iter().all(|hash| counts.get(hash) == Some(&1)), "each arrives once");
+		assert_eq!(sent.len(), total);
 	}
 
 	#[tokio::test]
