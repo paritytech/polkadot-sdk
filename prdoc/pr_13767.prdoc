@@ -1,0 +1,9 @@
+title: 'cumulus-collator: drop extra UMP separators when splitting signals'
+doc:
+- audience: Node Dev
+  description: |-
+    Drop any extra `UMP_SEPARATOR` entries after the first separator when splitting a block's
+    upward messages, matching `validate_block`.
+crates:
+- name: cumulus-client-collator
+  bump: patch
