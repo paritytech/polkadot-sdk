@@ -204,7 +204,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#54 id=54 data-nosnippet>54</a>	// `RewardBase` rather than tracking whatever endowment a preset picked.
 <a href=#55 id=55 data-nosnippet>55</a>	</span>balances
 <a href=#56 id=56 data-nosnippet>56</a>		.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED + staking::RewardBase::get() * <span class="number">1_000</span>));
-<a href=#57 id=57 data-nosnippet>57</a>	<span class="comment">// The staging account only receives, so ED is enough for it to exist.
+<a href=#57 id=57 data-nosnippet>57</a>	<span class="comment">// Deposits below ED into a missing account fail, so staging starts with ED.
 <a href=#58 id=58 data-nosnippet>58</a>	</span>balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
 <a href=#59 id=59 data-nosnippet>59</a>
 <a href=#60 id=60 data-nosnippet>60</a>	<span class="macro">build_struct_json_patch!</span>(RuntimeGenesisConfig {

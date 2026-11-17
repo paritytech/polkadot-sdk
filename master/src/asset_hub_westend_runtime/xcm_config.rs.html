@@ -365,7 +365,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#215 id=215 data-nosnippet>215</a>	</span><span class="kw">pub const </span>ERC20TransferGasLimit: Weight = Weight::from_parts(<span class="number">500_000_000_000</span>, <span class="number">10 </span>* <span class="number">1024 </span>* <span class="number">1024</span>);
 <a href=#216 id=216 data-nosnippet>216</a>	<span class="kw">pub const </span>ERC20TransferStorageDepositLimit: Balance = <span class="number">10_200_000_000</span>;
 <a href=#217 id=217 data-nosnippet>217</a>	<span class="kw">pub </span>ERC20TransfersCheckingAccount: AccountId = PalletId(<span class="kw-2">*</span><span class="string">b"py/revch"</span>).into_account_truncating();
-<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">pub </span>DapBufferAccount: AccountId = pallet_dap::Pallet::&lt;Runtime&gt;::buffer_account();
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">pub </span>DapStagingAccount: AccountId = pallet_dap::Pallet::&lt;Runtime&gt;::staging_account();
 <a href=#219 id=219 data-nosnippet>219</a>}
 <a href=#220 id=220 data-nosnippet>220</a>
 <a href=#221 id=221 data-nosnippet>221</a><span class="doccomment">/// Transactor for ERC20 tokens.
@@ -652,7 +652,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#502 id=502 data-nosnippet>502</a>	<span class="kw">type </span>AssetExchanger = PoolAssetsExchanger;
 <a href=#503 id=503 data-nosnippet>503</a>	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
 <a href=#504 id=504 data-nosnippet>504</a>		WaivedLocations,
-<a href=#505 id=505 data-nosnippet>505</a>		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, DapBufferAccount&gt;,
+<a href=#505 id=505 data-nosnippet>505</a>		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, DapStagingAccount&gt;,
 <a href=#506 id=506 data-nosnippet>506</a>	&gt;;
 <a href=#507 id=507 data-nosnippet>507</a>	<span class="kw">type </span>MessageExporter = ();
 <a href=#508 id=508 data-nosnippet>508</a>	<span class="kw">type </span>UniversalAliases =
