@@ -18,9 +18,6 @@
 
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
-use sc_consensus::IncomingBlock;
-use sp_consensus::BlockOrigin;
-
 use crate::{
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	service::network::NetworkServiceHandle,
@@ -401,39 +398,19 @@ where
 			return;
 		};
 
-		let proof_to_incoming_block =
-			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
-				IncomingBlock {
-					hash: header.hash(),
-					header: Some(header),
-					body: None,
-					justifications: Some(justifications),
-					origin: Some(*peer_id),
-					// We are still in warp sync, so we don't have the state. This means
-					// we also can't execute the block.
-					allow_missing_state: true,
-					skip_execution: true,
-					// Shouldn't already exist in the database.
-					import_existing: false,
-					state: None,
-				}
-			};
-
 		match verifier.verify(&response) {
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Bad warp proof response: {}", e);
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(proofs)) => {
+			// The proof headers are not imported. Gap sync delivers these blocks together with
+			// their justifications.
+			Ok(VerificationResult::Partial(_)) => {
 				debug!(target: LOG_TARGET, "Verified partial proof");
 				self.total_proof_bytes += response.0.len() as u64;
-				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::WarpSync,
-					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
-				});
 			},
-			Ok(VerificationResult::Complete(header, proofs)) => {
+			Ok(VerificationResult::Complete(header, _)) => {
 				debug!(
 					target: LOG_TARGET,
 					"Verified complete proof. Continuing with target block download: {} ({}).",
@@ -441,32 +418,7 @@ where
 					header.number(),
 				);
 				self.total_proof_bytes += response.0.len() as u64;
-				self.phase = Phase::TargetBlock(header.clone());
-				let incoming_blocks: Vec<_> = proofs
-					.into_iter()
-					.map(proof_to_incoming_block)
-					.filter(|i| {
-						// We need target block with state and warp sync does not provide this.
-						// That's why we filter out target block here, otherwise oncoming state sync
-						// (which comes after warp sync) will abort because target block is already
-						// imported.
-						if header.number() != i.header.as_ref().unwrap().number() {
-							true
-						} else {
-							log::trace!(
-								target: LOG_TARGET,
-								"Filtered out target block: {} ({})",
-								header.hash(),
-								header.number()
-							);
-							false
-						}
-					})
-					.collect();
-				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::WarpSync,
-					blocks: incoming_blocks,
-				});
+				self.phase = Phase::TargetBlock(header);
 			},
 		}
 	}
@@ -1338,28 +1290,8 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert_eq!(warp_sync.actions.len(), 1);
-		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
-		else {
-			panic!("Expected `ImportBlocks` action.");
-		};
-		assert_eq!(origin, BlockOrigin::WarpSync);
-		assert_eq!(blocks.len(), 1);
-		let import_block = blocks.pop().unwrap();
-		assert_eq!(
-			import_block,
-			IncomingBlock {
-				hash: target_header.hash(),
-				header: Some(target_header),
-				body: None,
-				justifications: Some(justifications),
-				origin: Some(request_peer_id),
-				allow_missing_state: true,
-				skip_execution: true,
-				import_existing: false,
-				state: None,
-			}
-		);
+		// The proof header is not imported.
+		assert!(warp_sync.actions.is_empty());
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
@@ -1456,29 +1388,8 @@ mod test {
 			EncodedProof(*response.downcast::<Vec<u8>>().unwrap()),
 		);
 
-		assert_eq!(warp_sync.actions.len(), 1);
-		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
-		else {
-			panic!("Expected `ImportBlocks` action.");
-		};
-		assert_eq!(origin, BlockOrigin::WarpSync);
-		// Only warp_synced_block should be in the import list; target_block is filtered out
-		assert_eq!(blocks.len(), 1);
-		let import_block = blocks.pop().unwrap();
-		assert_eq!(
-			import_block,
-			IncomingBlock {
-				hash: warp_synced_header.hash(),
-				header: Some(warp_synced_header),
-				body: None,
-				justifications: Some(warp_justifications),
-				origin: Some(request_peer_id),
-				allow_missing_state: true,
-				skip_execution: true,
-				import_existing: false,
-				state: None,
-			}
-		);
+		// Neither proof header is imported.
+		assert!(warp_sync.actions.is_empty());
 		assert!(matches!(&warp_sync.phase, Phase::TargetBlock(header) if *header == target_header));
 
 		let mut actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();

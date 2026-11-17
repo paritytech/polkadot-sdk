@@ -1,0 +1,27 @@
+title: 'fix(warp sync): do not import the headers of a warp proof'
+doc:
+  - audience: Node Dev
+    description: |
+      Warp sync no longer imports the headers of a warp proof. It verifies the proof and continues
+      with the target block; gap sync delivers these blocks together with their justifications,
+      like the rest of the history.
+
+      The imported headers were sparse and reached the client without their justifications and
+      without an authority set change recorded by GRANDPA, so they did not make the node able to
+      serve warp proofs. Having them in the database caused three failures:
+
+      - On chains whose engine sets the fork choice only in its verifier, such as AURA with
+        GRANDPA, every such header failed with `IncompletePipeline`, because these headers skip
+        the verifier.
+      - When the target directly followed an authority set change, its parent was one of these
+        headers. The target is imported as finalized, the client then tried to finalize the parent
+        as well and failed with `UnknownBlock`, and warp sync fell back to full sync.
+      - GRANDPA block import treats a block that is already stored as processed and drops its
+        justification, so gap sync could not add the justification and the authority set change
+        later. A node that warp synced answered warp proof requests with `Missing required data`
+        or with a proof that skipped authority set changes.
+
+      No API change.
+crates:
+  - name: sc-network-sync
+    bump: patch
