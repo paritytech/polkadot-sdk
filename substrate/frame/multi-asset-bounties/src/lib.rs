@@ -1778,11 +1778,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			),
 		};
 
-<<<<<<< HEAD
-		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, value)
-=======
 		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, refund)
->>>>>>> 40801b80 (pallet-multi-asset-bounties: refund parent bounty net of paid-out child-bounty value on close (#13258))
 			.map_err(|_| Error::<T, I>::RefundError)?;
 
 		Self::deposit_event(Event::<T, I>::Paid {
