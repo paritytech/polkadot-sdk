@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794908037736,
+  "lastUpdate": 1794926659341,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d5876e2565a4fe83c92c8f710778ff49c4ed4a8",
-          "message": "client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order (#11962)\n\n## Problem\n\n#11474 switched `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to\n`BTreeSet<DbHash>` for dedup + canonical ordering. This silently broke\nproof-of-storage verification for any block produced by a multi-renew\nextrinsic.\n\n`build_proof` walks `block_indexed_body(N)` linearly to count chunks and\npick the chunk at `random_chunk(parent_hash, total_chunks)`. The\nconsumer pallet (`pallet_transaction_storage`) stores a parallel\n`Vec<TransactionInfo>` in dispatch order. Both sides resolve\n`selected_chunk_index` to a position; with `BTreeSet`, the off-chain\nside iterates in hash-sorted order while the runtime indexes in dispatch\norder. Different positions point at different `chunk_root`s →\n`blake2_256_verify_proof` returns `false` → `Error::InvalidProof` →\n`BadMandatory` → chain halts at the first proof block after a\nmulti-renew.\n\n## Fix\n\nRevert `MultiRenew.hashes` to `Vec<DbHash>`, append every\n`IndexOperation::Renew` op (no dedup). Insertion order is the\ncross-process contract; duplicates are preserved so column-refcount\ninc/dec stays symmetric per occurrence.\n\n## Tests\n\n- `block_indexed_body_preserves_renew_op_submission_order`\n(sc-client-db) — submits 5 Renew ops in non-sorted order, asserts both\n`MultiRenew.hashes` and `block_indexed_body(N)` come back\nposition-by-position equal to the submission order. Fails immediately\nunder any sort-applying container.\n- `proof_round_trip_against_parallel_runtime_view`\n(sp-transaction-storage-proof) — builds a proof from N transactions in\nsubmission order `[3, 0, 2, 1]`, then verifies it against a parallel\nruntime-side `Vec<TxInfo>` in the same order using the binary-search\nlogic FRAME consumers use. Sweeps 16 parent_hash seeds. Under\n`BTreeSet`, would fail on the first seed.\n- `random_chunk_is_deterministic_for_same_inputs`,\n`encode_index_round_trip_is_compact` — pin the agreement primitives.\n- All 10 pre-existing multi-renew tests updated for Vec semantics\n(duplicates preserved, refcount math adjusted accordingly).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-05-04T09:40:40Z",
-          "tree_id": "da8baadabdd743b604435cda1cea37fd1ceae48b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d5876e2565a4fe83c92c8f710778ff49c4ed4a8"
-        },
-        "date": 1777893484378,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12516303126666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.895492329933337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13049863933333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f15542a9a7b0998480b00b7e10cd7445eca99882",
+          "message": "Send XCM fees to the DAP staging account on AHW and staking-async parachain (#13847)\n\nDOT in the DAP buffer is inactive issuance: `pallet-dap` deactivates it\nwhen `on_idle` drains the staging account into the buffer. On Asset Hub\nWestend and the staking-async parachain runtime, the XCM fee manager\nsends fees straight to the buffer, so they are never deactivated. Signed\nelection rewards are paid from the buffer through `ReactivatingPot`,\nwhich reactivates the paid amount. A reward paid out of XCM fees\nreactivates DOT that was never deactivated, and `InactiveIssuance`\ndrifts down.\n\n## Change\n\n- Both runtimes send XCM fees to the DAP staging account, **as Asset Hub\nPolkadot already does.**\n- The `staking-async parachain` genesis preset funds the staging account\nwith ED, as Asset Hub Westend does, so fees below ED are not burned.\n- A new AHW test checks that an XCM fee lands in staging and becomes\ninactive issuance after `on_idle`.\n- Tests asserting the old destination are updated.\n\n## Not part of this PR\n\n- Election rewards still use `ReactivatingPot`. Routing them through\n`pallet-dap` is left to the change that adds DAP-side accounting on\nbuffer outflows (see #13305)\n- The drift accumulated so far is accepted on Westend, no migration. On\nPolkadot, the drift around total issuance is meant to be fixed as final\nreconciliation step in\nhttps://github.com/polkadot-fellows/runtimes/issues/1283",
+          "timestamp": "2026-11-17T12:56:30Z",
+          "tree_id": "a8466d07822929410052e847a451c2723f49fda6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f15542a9a7b0998480b00b7e10cd7445eca99882"
+        },
+        "date": 1794926616662,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12418929943333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.951966992933333,
             "unit": "seconds"
           }
         ]
