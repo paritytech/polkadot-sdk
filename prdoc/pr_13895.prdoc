@@ -1,0 +1,13 @@
+title: 'pallet-psm: make the issuance check advisory'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Any holder can burn the internal asset outside of the PSM, for example with XCM
+      `BurnAsset`. The issuance then falls below the PSM's debt, and the reserve holds the
+      difference as surplus. Check 4 of `do_try_state` ("Total internal issuance is less than
+      total PSM debt") now writes a warning instead of returning an error.
+
+crates:
+  - name: pallet-psm
+    bump: patch
