@@ -4060,3 +4060,30 @@ fn bulletin_report_message_executes_unpaid_and_credits_points() {
 		);
 	});
 }
+
+#[test]
+fn only_wnd_from_bulletin_itself_is_a_trusted_teleport() {
+	use testnet_parachains_constants::westend::locations::BulletinLocation;
+	type IsTeleporter = <XcmConfig as xcm_executor::Config>::IsTeleporter;
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let wnd = Asset { id: AssetId(WestendLocation::get()), fun: Fungible(UNITS) };
+		// GIVEN WND from Bulletin Chain
+		// WHEN Asset Hub checks it as a teleport THEN it is trusted
+		assert!(IsTeleporter::contains(&wnd, &BulletinLocation::get()));
+
+		// GIVEN WND from another non-system sibling or from an account on Bulletin, or another
+		// asset from Bulletin
+		let bulletin_account = BulletinLocation::get()
+			.appended_with(AccountId32 { network: None, id: ALICE })
+			.unwrap();
+		let other_asset = Asset { id: AssetId(BulletinLocation::get()), fun: Fungible(UNITS) };
+		for (asset, origin) in [
+			(&wnd, Location::new(1, Parachain(2000))),
+			(&wnd, bulletin_account),
+			(&other_asset, BulletinLocation::get()),
+		] {
+			// WHEN Asset Hub checks it as a teleport THEN it is not trusted
+			assert!(!IsTeleporter::contains(asset, &origin));
+		}
+	});
+}
