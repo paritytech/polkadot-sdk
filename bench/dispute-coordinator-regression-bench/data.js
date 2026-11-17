@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794893689099,
+  "lastUpdate": 1794908218621,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ec9ff80edece3739207e80c41754f532e95cc5bb",
-          "message": "Make the DAP satellite pallet more generic (#11881)\n\nPer [this\ndiscussion](https://www.google.com/url?q=https://github.com/paritytech/polkadot-sdk/pull/11434/changes%23r3073210002&sa=D&source=calendar&ust=1776670486954723&usg=AOvVaw0bpag_qImZt2GCIH1KNcSx)\nwe make the DAP satellite pallet more generic by refactoring it into the\n*Accumulate-and-Forward* pallet.\n\nBecause it is now a general-purpose pallet that pools funds of a\nspecified type into an accumulation account and periodically forwards\nthe contents of the account to a specified destination, it remains under\n`substrate/frame`.\n\nThis is a follow-up to\nhttps://github.com/paritytech/polkadot-sdk/pull/11434)](https://github.com/paritytech/polkadot-sdk/pull/11434.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2026-04-30T11:49:41Z",
-          "tree_id": "df7ee4fdc38cd12c3b1eb085ebb168a64574cb56",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec9ff80edece3739207e80c41754f532e95cc5bb"
-        },
-        "date": 1777554942198,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009783719719999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009522033869999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026829774000000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010156338570000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4dff985e283e223ad10f72054752a6195ed3827",
+          "message": "Asset Hub Westend: validators collate on Bulletin Westend (#13866)\n\nValidators of the active era collate on Asset Hub and People Westend and\nearn era points for the blocks they author there. This PR extends the\nsame to Bulletin Westend. The Bulletin runtime side lives in\n`paritytech/polkadot-bulletin-chain` and will require a companion PR to\nwire `pallet-validator-collators` there (see more-than-WIP\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/856).\n\n## Implementation details\n\n- One list, `ValidatorCollatorChains: Vec<ParaId>` (currently People and\nBulletin), names the chains other than AH that collate with validators.\nIt drives the announcer destinations, the origins allowed to report\nauthored blocks, the testnet preset points and the barrier. Adding a\nchain in the future becomes one entry.\n- Asset Hub sends the era's validator set to each listed chain as an\nunpaid `Transact` of `set_validators`, with the `Xcm` origin kind. The\ncall is encoded once, with the same index of `ValidatorCollators` on\nevery receiving chain. Bulletin's own tests _will_ pin that index on its\nside.\n- The announcer destination is now the `ParaId`. The `destination` field\nof `AnnouncementSent` and `AnnouncementFailed` changes type from an enum\nto a `ParaId`, which indexers will see. No migration is needed since the\nannouncer has no storage.\n- Bulletin's para ID on Westend is outside the system parachain range,\nso the barrier allows explicit unpaid execution of any message from the\nlisted chains.\n\n## Rollout on Westend\n\n- `set_points_per_service(Bulletin, Collation, x)` on Asset Hub,\notherwise Bulletin's reports credit nothing.\n- Either upgrade order is safe. With Asset Hub first, `set_validators`\nfails to decode on Bulletin once per era until Bulletin upgrades. With\nBulletin first, no set arrives.\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-17T08:00:36Z",
+          "tree_id": "c1b6aa65a7a5717788de1d2883f27c350693cbb2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4dff985e283e223ad10f72054752a6195ed3827"
+        },
+        "date": 1794908179998,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025597686200000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009711395369999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011532943210000009,
             "unit": "seconds"
           }
         ]
