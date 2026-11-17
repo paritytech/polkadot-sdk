@@ -200,6 +200,17 @@ pub async fn add_parachain_node(
 			"-lsync=trace".into(),
 			("--sync", "warp").into(),
 			("--blocks-pruning", "256").into(),
+			// `add_collator` passes no bootnodes and the default one ("one") is paused, so point
+			// to the parachain nodes that keep running.
+			(
+				"--bootnodes",
+				vec![
+					"{{ZOMBIE:three:multiaddr}}",
+					"{{ZOMBIE:four:multiaddr}}",
+					"{{ZOMBIE:five:multiaddr}}",
+				],
+			)
+				.into(),
 			"--".into(),
 			("--sync", "warp").into(),
 		],
