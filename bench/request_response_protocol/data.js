@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794892750476,
+  "lastUpdate": 1794907061840,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -146987,6 +146987,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2776037063,
             "range": "± 22651637",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4dff985e283e223ad10f72054752a6195ed3827",
+          "message": "Asset Hub Westend: validators collate on Bulletin Westend (#13866)\n\nValidators of the active era collate on Asset Hub and People Westend and\nearn era points for the blocks they author there. This PR extends the\nsame to Bulletin Westend. The Bulletin runtime side lives in\n`paritytech/polkadot-bulletin-chain` and will require a companion PR to\nwire `pallet-validator-collators` there (see more-than-WIP\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/856).\n\n## Implementation details\n\n- One list, `ValidatorCollatorChains: Vec<ParaId>` (currently People and\nBulletin), names the chains other than AH that collate with validators.\nIt drives the announcer destinations, the origins allowed to report\nauthored blocks, the testnet preset points and the barrier. Adding a\nchain in the future becomes one entry.\n- Asset Hub sends the era's validator set to each listed chain as an\nunpaid `Transact` of `set_validators`, with the `Xcm` origin kind. The\ncall is encoded once, with the same index of `ValidatorCollators` on\nevery receiving chain. Bulletin's own tests _will_ pin that index on its\nside.\n- The announcer destination is now the `ParaId`. The `destination` field\nof `AnnouncementSent` and `AnnouncementFailed` changes type from an enum\nto a `ParaId`, which indexers will see. No migration is needed since the\nannouncer has no storage.\n- Bulletin's para ID on Westend is outside the system parachain range,\nso the barrier allows explicit unpaid execution of any message from the\nlisted chains.\n\n## Rollout on Westend\n\n- `set_points_per_service(Bulletin, Collation, x)` on Asset Hub,\notherwise Bulletin's reports credit nothing.\n- Either upgrade order is safe. With Asset Hub first, `set_validators`\nfails to decode on Bulletin once per era until Bulletin upgrades. With\nBulletin first, no set arrives.\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-17T08:00:36Z",
+          "tree_id": "c1b6aa65a7a5717788de1d2883f27c350693cbb2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4dff985e283e223ad10f72054752a6195ed3827"
+        },
+        "date": 1794907023986,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21137583,
+            "range": "± 299926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21304654,
+            "range": "± 216980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23188310,
+            "range": "± 280468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27252309,
+            "range": "± 176202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61513714,
+            "range": "± 863318",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 384769707,
+            "range": "± 5992681",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2656161969,
+            "range": "± 123032156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17923790,
+            "range": "± 193172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18213412,
+            "range": "± 132248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18756881,
+            "range": "± 193293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23562071,
+            "range": "± 155320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61950681,
+            "range": "± 432629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 366441680,
+            "range": "± 4172414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2839697852,
+            "range": "± 17224172",
             "unit": "ns/iter"
           }
         ]
