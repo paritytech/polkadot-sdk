@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Collator membership proofs, including padded trees and invalid membership.
+//! Collator membership proofs, including odd-sized trees and invalid membership.
 
 use cumulus_aura_authorizer_utils::{
 	build_collator_proof, AuthConfig, AuthToken, CollatorKey, ParaId,
@@ -104,7 +104,7 @@ fn malformed_proof_errors() {
 }
 
 #[test]
-fn invalid_set_size_and_index_errors() {
+fn mismatched_set_size_and_index_errors() {
 	let keys = keys(1);
 	let (mut config, proof) = config(&keys, 0);
 
@@ -131,7 +131,7 @@ fn aliased_index_errors() {
 }
 
 #[test]
-fn populated_padding_leaf_errors() {
+fn outside_declared_set_errors() {
 	let keys = keys(4);
 	let (mut config, proof) = config(&keys, 3);
 
@@ -139,7 +139,7 @@ fn populated_padding_leaf_errors() {
 	assert!(token.check_proof(&config, 3).is_ok());
 
 	// Even a cryptographically valid proof cannot authorize a leaf outside the declared set.
-	// The padded width and proof length remain four and two respectively.
+	// The root and proof came from four leaves, but the declared set has three.
 	config.collator_set_size = core::num::NonZero::new(3).expect("nonzero test size");
 	assert!(token.check_proof(&config, 3).is_err());
 }

@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use hash_db::Hasher as _;
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
@@ -43,36 +42,25 @@ pub enum CollatorProofError {
 	InvalidCollatorIndex,
 }
 
-pub(crate) fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> {
-	if size == 0 {
-		return Err(CollatorProofError::EmptySet);
-	}
-
-	u32::try_from(size)
-		.ok()
-		.and_then(u32::checked_next_power_of_two)
-		.ok_or(CollatorProofError::TooManyCollators)
-}
-
-/// Build a zero-padded Merkle tree and return its root and the proof for `collator_index`.
+/// Build an unpadded Merkle tree and return its root and proof for `collator_index`.
 ///
+/// Keys are hashed as leaves; unpaired nodes are promoted to the next level.
 /// Construction takes O(n) hashing work for n keys.
 ///
-/// Returns an error if `keys` is empty, the padded tree exceeds the SDK's `u32` leaf count,
-/// or `collator_index` is outside the unpadded collator set.
+/// Returns an error for an empty set, more than `u32::MAX` keys, or an invalid index.
 pub fn build_collator_proof(
 	keys: &[CollatorKey],
 	collator_index: u32,
 ) -> Result<(H256, Vec<H256>), CollatorProofError> {
-	let padded_size = padded_leaf_count(keys.len())?;
+	if keys.is_empty() {
+		return Err(CollatorProofError::EmptySet);
+	}
+	u32::try_from(keys.len()).map_err(|_| CollatorProofError::TooManyCollators)?;
 	if collator_index as usize >= keys.len() {
 		return Err(CollatorProofError::InvalidCollatorIndex);
 	}
 
-	let leaves = (0..padded_size as usize)
-		.map(|index| keys.get(index).map_or_else(H256::zero, |key| CollatorHasher::hash(key)));
-
-	let proof = binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(leaves, collator_index);
+	let proof = binary_merkle_tree::merkle_proof::<CollatorHasher, _, _>(keys, collator_index);
 	Ok((proof.root, proof.proof))
 }
 
@@ -94,23 +82,6 @@ mod tests {
 			assert_eq!(
 				super::build_collator_proof(&[[1; 32], [2; 32], [3; 32]], index),
 				Err(super::CollatorProofError::InvalidCollatorIndex)
-			);
-		}
-	}
-
-	#[test]
-	fn padded_leaf_count_boundaries_works() {
-		for (size, expected) in [(1, 1), (3, 4), (1usize << 31, 1u32 << 31)] {
-			assert_eq!(super::padded_leaf_count(size), Ok(expected));
-		}
-	}
-
-	#[test]
-	fn padded_leaf_count_oversized_errors() {
-		for size in [(1usize << 31) + 1, u32::MAX as usize, usize::MAX] {
-			assert_eq!(
-				super::padded_leaf_count(size),
-				Err(super::CollatorProofError::TooManyCollators)
 			);
 		}
 	}

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Fixed protocol vectors for SCALE encoding and the zero-padded Merkle tree.
+//! Fixed protocol vectors for SCALE encoding and the unpadded Merkle tree.
 
 use codec::Encode;
 use cumulus_aura_authorizer_utils::{
@@ -24,27 +24,24 @@ use cumulus_aura_authorizer_utils::{
 use primitive_types::H256;
 
 #[test]
-fn padded_tree_vector_works() {
+fn unpadded_tree_vector_works() {
 	let (root, proof) =
 		build_collator_proof(&[[1; 32], [2; 32], [3; 32]], 2).expect("valid test collator set");
 
 	assert_eq!(
 		root,
 		H256::from([
-			85, 243, 163, 207, 64, 253, 63, 18, 253, 224, 77, 156, 237, 59, 240, 105, 126, 129,
-			244, 235, 59, 193, 124, 86, 112, 220, 83, 111, 50, 97, 27, 205
+			43, 115, 32, 112, 131, 138, 143, 157, 237, 227, 246, 111, 56, 148, 40, 249, 140, 134,
+			69, 221, 53, 193, 205, 236, 179, 102, 34, 84, 213, 17, 93, 26
 		])
 	);
 
 	assert_eq!(
 		proof,
-		vec![
-			H256::zero(),
-			H256::from([
-				180, 31, 7, 124, 161, 36, 245, 239, 83, 83, 112, 218, 244, 28, 116, 162, 188, 72,
-				186, 126, 184, 104, 231, 51, 124, 193, 247, 244, 171, 255, 28, 174
-			])
-		]
+		vec![H256::from([
+			180, 31, 7, 124, 161, 36, 245, 239, 83, 83, 112, 218, 244, 28, 116, 162, 188, 72, 186,
+			126, 184, 104, 231, 51, 124, 193, 247, 244, 171, 255, 28, 174
+		])]
 	);
 }
 

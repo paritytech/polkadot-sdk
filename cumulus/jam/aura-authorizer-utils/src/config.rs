@@ -26,8 +26,6 @@ use primitive_types::H256;
 /// Invalid AURA configuration or work items that do not satisfy it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigError {
-	/// Collator-set size exceeds the supported maximum of `2^31`.
-	InvalidCollatorSetSize,
 	/// A work item does not target the configured Parachain Service.
 	InvalidWorkItemService,
 	/// Number of work items does not match the number of configured para IDs.
