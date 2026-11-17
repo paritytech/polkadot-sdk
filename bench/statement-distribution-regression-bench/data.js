@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794893632479,
+  "lastUpdate": 1794908174012,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d323e41aeb295d7528b0d89e277359380ed5e8eb",
-          "message": "UncheckedExtrinsic: Improve memory usage (#11908)\n\nImproves the memory usage of the unchecked extrinsic by pre-allocating\nsome buffers and preventing e.g. printing huge calls.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-30T12:49:34Z",
-          "tree_id": "f3c456da97206c9ef25d5b8bed0845e01a849b0e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d323e41aeb295d7528b0d89e277359380ed5e8eb"
-        },
-        "date": 1777558628328,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.136,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08375213326199991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03825334825,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08747986531999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4dff985e283e223ad10f72054752a6195ed3827",
+          "message": "Asset Hub Westend: validators collate on Bulletin Westend (#13866)\n\nValidators of the active era collate on Asset Hub and People Westend and\nearn era points for the blocks they author there. This PR extends the\nsame to Bulletin Westend. The Bulletin runtime side lives in\n`paritytech/polkadot-bulletin-chain` and will require a companion PR to\nwire `pallet-validator-collators` there (see more-than-WIP\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/856).\n\n## Implementation details\n\n- One list, `ValidatorCollatorChains: Vec<ParaId>` (currently People and\nBulletin), names the chains other than AH that collate with validators.\nIt drives the announcer destinations, the origins allowed to report\nauthored blocks, the testnet preset points and the barrier. Adding a\nchain in the future becomes one entry.\n- Asset Hub sends the era's validator set to each listed chain as an\nunpaid `Transact` of `set_validators`, with the `Xcm` origin kind. The\ncall is encoded once, with the same index of `ValidatorCollators` on\nevery receiving chain. Bulletin's own tests _will_ pin that index on its\nside.\n- The announcer destination is now the `ParaId`. The `destination` field\nof `AnnouncementSent` and `AnnouncementFailed` changes type from an enum\nto a `ParaId`, which indexers will see. No migration is needed since the\nannouncer has no storage.\n- Bulletin's para ID on Westend is outside the system parachain range,\nso the barrier allows explicit unpaid execution of any message from the\nlisted chains.\n\n## Rollout on Westend\n\n- `set_points_per_service(Bulletin, Collation, x)` on Asset Hub,\notherwise Bulletin's reports credit nothing.\n- Either upgrade order is safe. With Asset Hub first, `set_validators`\nfails to decode on Bulletin once per era until Bulletin upgrades. With\nBulletin first, no set arrives.\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-17T08:00:36Z",
+          "tree_id": "c1b6aa65a7a5717788de1d2883f27c350693cbb2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4dff985e283e223ad10f72054752a6195ed3827"
+        },
+        "date": 1794908135021,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12800000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08421246531799992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03853493529399999,
             "unit": "seconds"
           }
         ]
