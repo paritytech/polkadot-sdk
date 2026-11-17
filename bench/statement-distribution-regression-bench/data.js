@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794944842097,
+  "lastUpdate": 1794953722319,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6597bb572c1eca3a21395380fb6e20bebc1a41c",
-          "message": "Additional improvements for the DAP satellite pallet generalization (#11949)\n\nAdditional fixes / improvements for\nhttps://github.com/paritytech/polkadot-sdk/pull/11881:\n- Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since\nit only works on `AccountId32`-type accounts (used in all system\nparachains), but future users with different account types will need\ndifferent trait implementations\n- Improved account migration testing\n- Additional comments to clarify important corner-cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-01T10:51:45Z",
-          "tree_id": "0f8488b30bd2480d173d9bcbac1ab43adb0be7fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6597bb572c1eca3a21395380fb6e20bebc1a41c"
-        },
-        "date": 1777637697847,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.098,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08032830103599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03856403080600002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08144955620599995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca330ff2d3432070c9576750b254ca43b6a57ccc",
+          "message": "sc-rpc-spec-v2: stop archive storage tasks on disconnect (#13819)\n\nArchive storage subscriptions currently keep their bounded-channel\nreceiver alive after a client disconnects. A large query can therefore\nleave the blocking storage producer parked in `blocking_send`, retaining\nthe subscription task and a blocking-pool thread.\n\nMove the receiver into both archive storage consumer futures so\ndisconnect drops the channel and lets the producer terminate. Add an\nenabled WebSocket regression test covering a large `archive_v1_storage`\nquery and the task cleanup path.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-17T20:42:25Z",
+          "tree_id": "2c2c982ed89bedd5cb58a0d43cff0883ee61aed0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca330ff2d3432070c9576750b254ca43b6a57ccc"
+        },
+        "date": 1794953689095,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10000000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08255808514999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03841074314599999,
             "unit": "seconds"
           }
         ]
