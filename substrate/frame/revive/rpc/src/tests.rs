@@ -452,6 +452,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
 		test_failed_log_read_of_indexed_block_queues_nothing,
 		test_pending_gap_fill_holds_sync_head,
+		test_failed_block_freezes_head_until_restart_fills_it,
 		test_finalized_subscription_queues_blocks_finalized_before_it_started,
 		test_finalized_subscription_queues_nothing_without_blocks_before_it_started,
 		test_blocks_before_subscription_start_queued_only_by_archive_finalized_stream,
@@ -2562,6 +2563,21 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 async fn create_sync_test_client_with_pool(
 	is_archive: bool,
 ) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>, SqlitePool)> {
+	let pool = SqlitePoolOptions::new()
+		.max_connections(1)
+		.idle_timeout(None)
+		.max_lifetime(None)
+		.connect_with(SqliteConnectOptions::new().in_memory(true))
+		.await?;
+	let (client, gap_fill_rx) = create_sync_test_client_on_pool(is_archive, pool.clone()).await?;
+	Ok((client, gap_fill_rx, pool))
+}
+
+/// Create a test [`Client`] over an existing database, as a restarted eth-rpc would.
+async fn create_sync_test_client_on_pool(
+	is_archive: bool,
+	pool: SqlitePool,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2570,18 +2586,11 @@ async fn create_sync_test_client_with_pool(
 	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
-	let pool = SqlitePoolOptions::new()
-		.max_connections(1)
-		.idle_timeout(None)
-		.max_lifetime(None)
-		.connect_with(SqliteConnectOptions::new().in_memory(true))
-		.await?;
-
 	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
 	let chain_id = crate::chain_id(&api).await?;
 	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
-		DbContext::new(pool.clone(), DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
+		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
 		receipt_extractor,
 		None,
@@ -2601,7 +2610,7 @@ async fn create_sync_test_client_with_pool(
 		chain_id,
 	)
 	.await?;
-	Ok((client, gap_fill_rx, pool))
+	Ok((client, gap_fill_rx))
 }
 
 /// Fresh sync: labels, hash mappings, and re-sync idempotency.
@@ -4559,6 +4568,113 @@ async fn test_pending_gap_fill_holds_sync_head() -> anyhow::Result<()> {
 	sync_client.subscription_gap_queue().mark_done();
 	submit_evm_transfers(1).await?;
 	wait_until("the sync head to advance", || async { current_head().await > Some(head) }).await?;
+
+	Ok(())
+}
+
+/// A finalized block that the subscription and the gap filler both fail to index freezes the
+/// sync head below it while later blocks are indexed, and a restart over the same database
+/// indexes it and moves the head to the finalized block of the restart.
+async fn test_failed_block_freezes_head_until_restart_fills_it() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	let (client, gap_fill_rx, pool) = create_sync_test_client_with_pool(true).await?;
+	client.sync_backward().await?;
+	let synced = client.latest_finalized_block().await.block_number();
+	let head = |client: Client| async move {
+		client.receipt_provider().get_sync_label(SyncLabel::Head).await.ok().flatten()
+	};
+	let block_at = |number| {
+		let client = client.clone();
+		async move {
+			client
+				.block_provider()
+				.block_by_number(number)
+				.await?
+				.map(|block| SyncCheckpoint::new(block.block_number(), block.block_hash()))
+				.ok_or_else(|| anyhow!("block #{number} exists on chain"))
+		}
+	};
+	let indexed = |client: Client, hash| async move {
+		client.receipt_provider().get_ethereum_hash(&hash).await
+	};
+
+	let bg_client = client.clone();
+	let subscription = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)
+			.await
+	}));
+	let bg_client = client.clone();
+	let filler = AbortOnDrop(tokio::spawn(async move {
+		bg_client
+			.run_subscription_gap_filler(
+				gap_fill_rx,
+				GapFillRetry { max_attempts: 1, backoff: tokio::time::Duration::ZERO },
+			)
+			.await
+	}));
+
+	// The head follows the finalized stream while nothing is pending.
+	submit_evm_transfers(1).await?;
+	let before = block_at(synced + 1).await?;
+	wait_until("the sync head to follow the finalized stream", || async {
+		head(client.clone()).await == Some(before)
+	})
+	.await?;
+
+	// Reject every block until the next one exists, then that block only.
+	sqlx::query(
+		"CREATE TRIGGER reject_all BEFORE INSERT ON eth_to_substrate_blocks \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+	)
+	.execute(&pool)
+	.await?;
+	submit_evm_transfers(1).await?;
+	let failing = block_at(before.block_number + 1).await?;
+	let failing_hash = failing.block_hash.expect("checkpoint carries a hash");
+	sqlx::query(&format!(
+		"CREATE TRIGGER reject_block BEFORE INSERT ON eth_to_substrate_blocks \
+		 WHEN NEW.substrate_block_hash = X'{}' \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+		hex::encode(failing_hash)
+	))
+	.execute(&pool)
+	.await?;
+	sqlx::query("DROP TRIGGER reject_all").execute(&pool).await?;
+
+	submit_evm_transfers(2).await?;
+	let mut later = Vec::new();
+	for number in failing.block_number + 1..=failing.block_number + 2 {
+		later.push(block_at(number).await?.block_hash.expect("checkpoint carries a hash"));
+	}
+	wait_until("the subscription to index the blocks after the failing one", || async {
+		indexed(client.clone(), later[1]).await.is_some()
+	})
+	.await?;
+	let later_ethereum_hashes =
+		[indexed(client.clone(), later[0]).await, indexed(client.clone(), later[1]).await];
+	assert!(later_ethereum_hashes.iter().all(Option::is_some));
+	assert_eq!(indexed(client.clone(), failing_hash).await, None);
+	assert!(client.subscription_gap_queue().has_pending());
+	assert_eq!(head(client.clone()).await, Some(before));
+
+	// Restart: a new client over the same database, with the cause of the failure gone.
+	drop((subscription, filler));
+	sqlx::query("DROP TRIGGER reject_block").execute(&pool).await?;
+	let (restarted, _gap_fill_rx) = create_sync_test_client_on_pool(true, pool).await?;
+	let finalized = restarted.latest_finalized_block().await;
+	restarted.sync_backward().await?;
+
+	assert!(indexed(restarted.clone(), failing_hash).await.is_some());
+	assert_eq!(
+		head(restarted.clone()).await,
+		Some(SyncCheckpoint::new(finalized.block_number(), finalized.block_hash()))
+	);
+	assert_eq!(
+		[indexed(restarted.clone(), later[0]).await, indexed(restarted.clone(), later[1]).await],
+		later_ethereum_hashes
+	);
 
 	Ok(())
 }
