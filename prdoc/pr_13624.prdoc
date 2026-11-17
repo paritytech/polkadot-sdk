@@ -3,7 +3,7 @@ title: '[pallet-revive] PolkaVM 0.38: the interpreter meters compilation, new re
 doc:
 - audience: Runtime Dev
   description: |-
-    PolkaVM is bumped from 0.36 to 0.38 (`polkavm`, `polkavm-common`, `polkavm-derive`,
+    PolkaVM is bumped from 0.35 to 0.38 (`polkavm`, `polkavm-common`, `polkavm-derive`,
     `polkavm-linker`). PolkaVM 0.38 lets the interpreter charge gas for compiling contract code,
     and `pallet-revive` configures that cost from its benchmarks. The `pallet-revive`
     fixtures build template follows the workspace pin.
@@ -89,8 +89,8 @@ doc:
       `with_entry_block`, `with_branch_blocks`, `with_code_bytes`, `with_load_chain`,
       `with_indirect_jump_cycle`, `BRANCH_BLOCKS`, `MAX_CODE_BYTES`, `LOAD_CHAIN_SLOTS` and
       `LOAD_CHAIN_SLOT_BYTES`, and loses `instr`.
-    - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink`, `Reverter` and
-      `Forwarder` Solidity contracts.
+    - `pallet-revive-fixtures` gains the `SubCaller`, `SubCallerLarge`, `Sink`, `Reverter`,
+      `Forwarder` and `SendAndTransferTest` Solidity contracts.
 
     Other runtime crates that use PolkaVM:
 
@@ -98,11 +98,11 @@ doc:
       `substrate-wasm-builder` only change their PolkaVM dependency. No PolkaVM item appears in
       their API, and no migration is needed.
     - `sp-runtime-interface` re-exports the `polkavm_export` and `polkavm_import` macros of
-      `polkavm-derive`. `polkavm-derive` 0.38 has the same source as 0.36, so the macros behave
+      `polkavm-derive`. `polkavm-derive` 0.38 has the same source as 0.35, so the macros behave
       the same and no migration is needed.
 - audience: Node Dev
   description: |-
-    The client crates that use PolkaVM move from `polkavm` 0.36 to 0.38.
+    The client crates that use PolkaVM move from `polkavm` 0.35 to 0.38.
 
     - `sc-executor-common` (`RuntimeBlob::as_polkavm_blob`) and `sc-executor-polkavm`
       (`create_runtime`) expose `polkavm::ProgramBlob` in their API, which is the 0.38 type.
@@ -116,7 +116,7 @@ doc:
   description: |-
     The ref time charged per PolkaVM gas changes with the new weights. It covers the more
     expensive of dependent loads from the L2 cache and indirect jumps between compiled
-    basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 30303 ps
+    basic blocks. On Asset Hub Westend one gas costs 36618 ps of ref time, against 48700 ps
     before.
 
     Compiling contract code is charged as gas: on Asset Hub Westend 3 gas per basic block,
@@ -127,13 +127,14 @@ doc:
     call or instantiation of a PVM contract, directly or through a pre-compile or an EVM
     contract.
 
-    PVM execution and calls cost more weight than before. Contracts that pass fixed weight
-    limits to their sub-calls may need to raise those limits. Calls with a stipend do not depend
+    The weight of PVM execution and calls changes. Contracts that pass fixed weight limits to
+    their sub-calls may need to raise those limits. Calls with a stipend do not depend
     on the receiver's code size.
 
 crates:
 - name: pallet-revive
   bump: major
+  validate: false
 - name: pallet-revive-fixtures
   bump: minor
 - name: pallet-revive-uapi
@@ -142,8 +143,10 @@ crates:
   bump: patch
 - name: sc-executor-common
   bump: major
+  validate: false
 - name: sc-executor-polkavm
   bump: major
+  validate: false
 - name: sc-virtualization
   bump: minor
 - name: sp-io

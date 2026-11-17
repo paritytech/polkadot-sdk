@@ -47,11 +47,8 @@ sol! {
 		function callRuntime(bytes memory call) external;
 		function passData(uint32 inputLen) external;
 		function returnData(uint32 returnLen) external returns (bytes);
-<<<<<<< HEAD
 		function emitLogsIgnoringErrors(uint32[] calldata dataLens) external;
-=======
 		function callContract(address target) external;
->>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 	}
 }
 
@@ -131,7 +128,6 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) => {
 				Ok(vec![42; *returnLen as usize])
 			},
-<<<<<<< HEAD
 			// Emits one log without topics per entry, with that many bytes of data, and drops the
 			// error of a log that is refused, as a precompile that does not propagate it would.
 			INoInfoCalls::emitLogsIgnoringErrors(INoInfo::emitLogsIgnoringErrorsCall {
@@ -140,7 +136,8 @@ impl<T: Config> Precompile for NoInfo<T> {
 				for data_len in dataLens {
 					let _ = env.deposit_event(Vec::new(), vec![0; *data_len as usize]);
 				}
-=======
+				Ok(Vec::new())
+			},
 			INoInfoCalls::callContract(INoInfo::callContractCall { target }) => {
 				env.call(
 					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
@@ -150,7 +147,6 @@ impl<T: Config> Precompile for NoInfo<T> {
 					ReentrancyProtection::AllowReentry,
 					false,
 				)?;
->>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 				Ok(Vec::new())
 			},
 		}

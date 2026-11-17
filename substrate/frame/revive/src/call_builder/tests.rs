@@ -18,12 +18,20 @@
 use super::VmBinaryModule;
 use crate::{
 	SENTINEL,
-	limits::code::{BASIC_BLOCK_SIZE, INTERPRETER_CACHE_BYTES, check_pvm_code},
+	limits::code::{BASIC_BLOCK_SIZE, INTERPRETER_CACHE_BYTES, enforce},
 	metering::{INDIRECT_JUMP_GAS, LOAD_CHAIN_GAS},
+	tests::Test,
+	vm::pvm::env::list_syscalls,
 };
 use polkavm_common::program::{
 	INTERPRETER_CACHE_ENTRY_SIZE, ISA_ReviveV1, Instruction, ParsedInstruction, ProgramBlob,
 };
+use sp_runtime::DispatchError;
+
+/// The check the pallet runs on code upload.
+fn check_pvm_code(code: &[u8]) -> Result<(), DispatchError> {
+	enforce::<Test>(code.to_vec(), list_syscalls()).map(|_| ())
+}
 
 /// The instructions of the `call` export, from its start to the end of the code.
 fn call_instructions(module: &VmBinaryModule) -> Vec<ParsedInstruction> {

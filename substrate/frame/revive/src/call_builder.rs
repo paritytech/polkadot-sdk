@@ -752,35 +752,6 @@ impl VmBinaryModule {
 	pub fn noop() -> Self {
 		Self::new(bench_fixtures::noop().to_vec())
 	}
-<<<<<<< HEAD
-
-	/// A contract code that does unaligned memory accessed in a loop.
-	pub fn instr(do_load: bool) -> Self {
-		let load = match do_load {
-			false => "",
-			true => "a0 = u64 [a0]",
-		};
-		let text = alloc::format!(
-			"
-		pub @deploy:
-		ret
-		pub @call:
-			@loop:
-				jump @done if t0 == a1
-				{load}
-				t0 = t0 + 1
-				jump @loop
-			@done:
-		ret
-		"
-		);
-		let code = polkavm_common::assembler::assemble(
-			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
-		)
-		.unwrap();
-		Self::new(code)
-	}
 
 	/// An evm contract that executes `size` JUMPDEST instructions.
 	pub fn evm_noop(size: u32) -> Self {
@@ -789,6 +760,4 @@ impl VmBinaryModule {
 		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
-=======
->>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 }

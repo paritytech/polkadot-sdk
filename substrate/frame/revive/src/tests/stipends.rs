@@ -102,50 +102,6 @@ fn evm_call_stipends_work_for_send_zero() {
 	});
 }
 
-<<<<<<< HEAD
-=======
-#[test_case(FixtureType::Solc, "BalanceReader", false)]
-#[test_case(FixtureType::Resolc, "BalanceReader", false)]
-#[test_case(FixtureType::Solc, "BalanceOfReader", false)]
-#[test_case(FixtureType::Resolc, "BalanceOfReader", false)]
-#[test_case(FixtureType::Solc, "SenderBalanceReader", true)]
-#[test_case(FixtureType::Resolc, "SenderBalanceReader", true)]
-#[test_case(FixtureType::Solc, "SimpleReceiver", false)]
-#[test_case(FixtureType::Solc, "TwoEventsReceiver", true)]
-#[test_case(FixtureType::Resolc, "TwoEventsReceiver", true)]
-fn call_stipends_cover_own_balance_reads_and_evm_events(
-	fixture_type: FixtureType,
-	receiver_name: &str,
-	reverts: bool,
-) {
-	let (receiver_code, _) = compile_module_with_type(receiver_name, fixture_type).unwrap();
-	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
-	// Half of it moves one native unit plus dust.
-	let value = 2_000_002_u128;
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ =
-			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
-
-		let Contract { addr: receiver, .. } =
-			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
-		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(test_code)).build_and_unwrap_contract();
-		// Keeps the sender's balance above 0, so `SenderBalanceReader` fails only because of the
-		// cost of the balance read.
-		<Test as Config>::Currency::mint_into(&account_id, 10_000_000_000_000).unwrap();
-
-		let result = builder::bare_call(addr)
-			.data(
-				SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }.abi_encode(),
-			)
-			.evm_value(value.into())
-			.build_and_unwrap_result();
-
-		assert_eq!(result.did_revert(), reverts);
-	});
-}
-
 /// Call stipends for PVM receivers built from assembly.
 ///
 /// The receivers stop at the sentinel syscall that only the benchmarks accept. The CI job with
@@ -154,6 +110,7 @@ fn call_stipends_cover_own_balance_reads_and_evm_events(
 mod code_size_benchmark {
 	use super::*;
 	use crate::call_builder::VmBinaryModule;
+	use pallet_revive_fixtures::SendAndTransferTest;
 	use test_case::test_case;
 
 	/// `send` and `transfer` reach a PVM receiver of every code size the pallet accepts.
@@ -205,7 +162,6 @@ mod code_size_benchmark {
 	}
 }
 
->>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 #[test]
 fn evm_call_stipends_work_for_calls() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();

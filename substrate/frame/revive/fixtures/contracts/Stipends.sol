@@ -224,3 +224,23 @@ contract StipendTest {
 
     receive() external payable {}
 }
+
+/**
+ * @title SendAndTransferTest
+ * @dev Calls `send` and `transfer` on the given receiver and checks that the balances moved
+ */
+contract SendAndTransferTest {
+    function testSendAndTransfer(address payable to) public payable {
+        require(to.send(0), "send zero failed");
+        to.transfer(0);
+
+        uint256 amount = msg.value / 2;
+        uint256 balanceBefore = to.balance;
+        uint256 ownBalanceBefore = address(this).balance;
+        require(to.send(amount), "send failed");
+        require(to.balance == balanceBefore + amount, "balance not updated after send");
+        to.transfer(amount);
+        require(to.balance == balanceBefore + 2 * amount, "balance not updated after transfer");
+        require(address(this).balance == ownBalanceBefore - 2 * amount, "sender balance not updated");
+    }
+}
