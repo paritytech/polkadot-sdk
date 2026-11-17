@@ -2891,6 +2891,10 @@ async fn test_block_sync_resume_top_gap_failure_keeps_head() -> anyhow::Result<(
 		None
 	);
 
+	// The finalized stream starts at the rejected block; it must index it rather than queue it,
+	// so that only the incomplete historic sync holds the head below.
+	sqlx::query("DROP TRIGGER reject_block").execute(&pool).await?;
+
 	// Once the second new finalized block is cached, the first one's callback has run to
 	// completion, so the label had its chance to move.
 	let bg_client = sync_client.clone();
