@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794863164110,
+  "lastUpdate": 1794892692153,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -262271,6 +262271,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2356490152,
             "range": "± 19819231",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce059ae2a008272bc9574ff78aa6471659e92f27",
+          "message": "statement-store: rerun expiry sweep while a backlog remains (#13824)\n\n# Description\n\nThe statement store has a background task that removes expired\nstatements. It runs every 31 s\nand removes at most 10,000 statements each time, so a node can only\nremove about 320 statements\nper second. On Versi (#13634), about 833 statements per second expired\non each node. The expired\nstatements piled up until the store hit its 2 GiB limit, and then it\nrejected new statements with\n`StoreFull`.\n\nAfter each pass, the task now checks whether more expired statements are\nleft. If there are, it\nruns again right away instead of waiting for 31 seconds. When none are\nleft, it goes back to running\nevery 31 second.\n\nFixes #13634\n\n## Integration\n\nNothing to do. `Store::enforce_limits` now returns `true` if expired\nstatements are still left.\nIt is `#[doc(hidden)]` and only the benchmarks use it.\n\n## Review Notes\n\n- To check for leftovers, I added `has_due_expiry`. It reads the first\nentry of\n`INDEX_BY_EXPIRY`. The index is sorted by expiry, so if the first entry\nhasn't expired, nothing\nelse has.\n- A pass only asks to run again if it removed at least one statement.\nThis way the task can't\nget stuck rerunning on a row it can't remove.\n- To run again right away, the task calls\n`Interval::reset_immediately()`. `maintain` still gets\nto run between passes.\n- The extra passes also run the allowance check (phase 2). It has its\nown limits, so I think\nrunning it more often is fine.",
+          "timestamp": "2026-11-17T03:57:24Z",
+          "tree_id": "d45587eae67d27c5ce44f2bb5d5510293ded8ab5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce059ae2a008272bc9574ff78aa6471659e92f27"
+        },
+        "date": 1794892650790,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4197512,
+            "range": "± 58012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 306916,
+            "range": "± 3912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4265737,
+            "range": "± 34665",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 375595,
+            "range": "± 2634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4947869,
+            "range": "± 41077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 895655,
+            "range": "± 9997",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10568535,
+            "range": "± 193782",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4978177,
+            "range": "± 79552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45004636,
+            "range": "± 459313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38401124,
+            "range": "± 381020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 368854706,
+            "range": "± 5196893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 304195485,
+            "range": "± 2768925",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2592896270,
+            "range": "± 31232769",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2296246856,
+            "range": "± 18517087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3408000,
+            "range": "± 40012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1885602,
+            "range": "± 8921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3514846,
+            "range": "± 16055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1986979,
+            "range": "± 7798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4162128,
+            "range": "± 30994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2282220,
+            "range": "± 14457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8002711,
+            "range": "± 64357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5363871,
+            "range": "± 107547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38301016,
+            "range": "± 533773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37901623,
+            "range": "± 585685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321176860,
+            "range": "± 3700129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 286611030,
+            "range": "± 2768702",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2645281345,
+            "range": "± 66680886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2336298277,
+            "range": "± 21051210",
             "unit": "ns/iter"
           }
         ]
