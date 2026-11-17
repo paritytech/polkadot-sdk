@@ -44,6 +44,13 @@ contract Host {
         }
     }
 
+    function sstoreTwo(uint64 slotA, uint64 valueA, uint64 slotB, uint64 valueB) public {
+        assembly {
+            sstore(slotA, valueA)
+            sstore(slotB, valueB)
+        }
+    }
+
     function logOps() public {
         assembly {
             log0(0x01, 0x20)
@@ -51,6 +58,16 @@ contract Host {
             log2(0x03, 0x20, 0x22, 0x33)
             log3(0x04, 0x20, 0x44, 0x55, 0x66)
             log4(0x05, 0x20, 0x77, 0x88, 0x99, 0xaa)
+        }
+    }
+
+    function logOpsWithoutData() public {
+        assembly {
+            log0(0, 0)
+            log1(0, 0, 0x11)
+            log2(0, 0, 0x22, 0x33)
+            log3(0, 0, 0x44, 0x55, 0x66)
+            log4(0, 0, 0x77, 0x88, 0x99, 0xaa)
         }
     }
 

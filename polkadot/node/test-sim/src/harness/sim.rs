@@ -577,8 +577,8 @@ where
 			let sim_t = self.now_sim_t();
 			let mut progressed = false;
 			for idx in 0..self.outbound_rxs.len() {
-				match self.outbound_rxs[idx].try_next() {
-					Ok(Some(msg)) => {
+				match self.outbound_rxs[idx].try_recv() {
+					Ok(msg) => {
 						progressed = true;
 						let uut_route = UutRouteFor::<S> { uut: &self.uut };
 						let aux = self.aux.as_slice();
@@ -598,7 +598,7 @@ where
 						// reached their inboxes; oneshot replies unblocked someone).
 						self.executor.poll_until_pending();
 					},
-					Ok(None) | Err(_) => {},
+					Err(_) => {},
 				}
 			}
 			if !progressed {

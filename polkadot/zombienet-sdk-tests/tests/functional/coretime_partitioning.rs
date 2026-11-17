@@ -19,7 +19,7 @@
 //! - Block B-1:   claim queue = [B, B, B, B, B]
 //! - Block B+:    claim queue = [B, B, B, B, B]
 
-use crate::utils::maybe_enable_experimental_collator_protocol;
+use crate::utils::maybe_enable_legacy_collator_protocol;
 use anyhow::anyhow;
 use codec::Decode;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
@@ -243,7 +243,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				.with_default_args(maybe_enable_legacy_collator_protocol(vec![
 					("-lruntime=debug").into(),
 					("-lparachain=debug").into(),
 					("-lruntime::parachains::scheduler=trace").into(),

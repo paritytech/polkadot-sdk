@@ -413,7 +413,7 @@ where
 
 	fn should_backoff(&self, slot: Slot, chain_head: &B::Header) -> bool {
 		if let Some(ref strategy) = self.backoff_authoring_blocks {
-			if let Ok(chain_head_slot) = find_pre_digest::<B, P::Signature>(chain_head) {
+			if let Ok(chain_head_slot) = find_pre_digest::<B>(chain_head) {
 				return strategy.should_backoff(
 					*chain_head.number(),
 					chain_head_slot,
@@ -446,7 +446,7 @@ where
 	}
 
 	fn proposing_remaining_duration(&self, slot_info: &SlotInfo<B>) -> std::time::Duration {
-		let parent_slot = find_pre_digest::<B, P::Signature>(&slot_info.chain_head).ok();
+		let parent_slot = find_pre_digest::<B>(&slot_info.chain_head).ok();
 
 		sc_consensus_slots::proposing_remaining_duration(
 			parent_slot,
@@ -462,9 +462,9 @@ where
 /// Aura Errors
 #[derive(Debug, thiserror::Error)]
 pub enum Error<B: BlockT> {
-	/// Multiple Aura pre-runtime headers
-	#[error("Multiple Aura pre-runtime headers")]
-	MultipleHeaders,
+	/// Multiple AuRa pre-runtime digests
+	#[error("Multiple AuRa pre-runtime digests")]
+	MultiplePreDigests,
 	/// No Aura pre-runtime digest found
 	#[error("No Aura pre-runtime digest found")]
 	NoDigestFound,
@@ -497,7 +497,9 @@ impl<B: BlockT> From<Error<B>> for String {
 impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	fn from(e: crate::standalone::PreDigestLookupError) -> Self {
 		match e {
-			crate::standalone::PreDigestLookupError::MultipleHeaders => Error::MultipleHeaders,
+			crate::standalone::PreDigestLookupError::MultiplePreDigests => {
+				Error::MultiplePreDigests
+			},
 			crate::standalone::PreDigestLookupError::NoDigestFound => Error::NoDigestFound,
 		}
 	}
