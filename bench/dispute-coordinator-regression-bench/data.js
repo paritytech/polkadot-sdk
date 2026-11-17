@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794864277441,
+  "lastUpdate": 1794893689099,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41dd688074605dcc0e104f2250473324ab59ec3",
-          "message": "pallet-psm: switch Westend Asset Hub to Location AssetId backed by LocalAndForeignAssets (#11921)\n\nOn Asset Hub Westend, `pallet-psm` is switched from `u32` (trust-backed\nasset id) to `xcm::v5::Location` as its `AssetId`, and from `Assets` to\n`LocalAndForeignAssets` as its `Fungibles`. PSM can now mint and redeem\nagainst both trust-backed and foreign-registered external stablecoins,\naddressed uniformly by `Location`.\n\nStorage migration: every `AssetId`-keyed PSM storage item is encoded\nunder the old `u32` key. The runtime wipes the existing PSM storage with\n`frame_support::migrations::RemovePallet` and re-seeds the pallet from\n`PsmInitialConfig` via `InitializePsm`. USDT (trust-backed asset `1984`)\nis reseeded under its `Location` representation as the first external\nasset.\n\n`pallet-psm`'s `BenchmarkHelper` trait gains a `get_asset_id(index:\nu32)` method so benchmark scenarios can derive a runtime-specific\n`AssetId` (e.g. a `Location`) from a `u32` index. Existing impls need to\nadd this method.",
-          "timestamp": "2026-04-30T09:51:00Z",
-          "tree_id": "eb4a04010530c93b8ba1d6a85bd134c3e8c49815",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d41dd688074605dcc0e104f2250473324ab59ec3"
-        },
-        "date": 1777548115420,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00265792341,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010157762360000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009496060739999989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010701325030000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce059ae2a008272bc9574ff78aa6471659e92f27",
+          "message": "statement-store: rerun expiry sweep while a backlog remains (#13824)\n\n# Description\n\nThe statement store has a background task that removes expired\nstatements. It runs every 31 s\nand removes at most 10,000 statements each time, so a node can only\nremove about 320 statements\nper second. On Versi (#13634), about 833 statements per second expired\non each node. The expired\nstatements piled up until the store hit its 2 GiB limit, and then it\nrejected new statements with\n`StoreFull`.\n\nAfter each pass, the task now checks whether more expired statements are\nleft. If there are, it\nruns again right away instead of waiting for 31 seconds. When none are\nleft, it goes back to running\nevery 31 second.\n\nFixes #13634\n\n## Integration\n\nNothing to do. `Store::enforce_limits` now returns `true` if expired\nstatements are still left.\nIt is `#[doc(hidden)]` and only the benchmarks use it.\n\n## Review Notes\n\n- To check for leftovers, I added `has_due_expiry`. It reads the first\nentry of\n`INDEX_BY_EXPIRY`. The index is sorted by expiry, so if the first entry\nhasn't expired, nothing\nelse has.\n- A pass only asks to run again if it removed at least one statement.\nThis way the task can't\nget stuck rerunning on a row it can't remove.\n- To run again right away, the task calls\n`Interval::reset_immediately()`. `maintain` still gets\nto run between passes.\n- The extra passes also run the allowance check (phase 2). It has its\nown limits, so I think\nrunning it more often is fine.",
+          "timestamp": "2026-11-17T03:57:24Z",
+          "tree_id": "d45587eae67d27c5ce44f2bb5d5510293ded8ab5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce059ae2a008272bc9574ff78aa6471659e92f27"
+        },
+        "date": 1794893656546,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025613130799999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009557351469999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010156338570000003,
             "unit": "seconds"
           }
         ]
