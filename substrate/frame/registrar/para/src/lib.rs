@@ -360,6 +360,14 @@ pub mod pallet {
 		ParaLocked { para_id: ParaId },
 		/// The manager may control this para again.
 		ParaUnlocked { para_id: ParaId },
+		/// The relay chain has been asked to authorize a code upgrade.
+		CodeUpgradeRequested { para_id: ParaId, message_id: u64, code_hash: H256 },
+		/// The relay chain will accept the code until `expire_at`, one of its own block numbers.
+		CodeUpgradeAuthorized { para_id: ParaId, message_id: u64, expire_at: u32 },
+		/// The relay chain refused the upgrade.
+		CodeUpgradeFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// The relay chain scheduled the upgrade.
+		CodeUpgradeScheduled { para_id: ParaId, message_id: u64 },
 		/// Something that should never happen did. The pallet carried on regardless.
 		Unexpected(UnexpectedKind),
 		/// The relay chain has been asked to set this para's current head.
@@ -528,9 +536,9 @@ pub mod pallet {
 
 		/// Ask the relay chain to register head data and validation code for a reserved para id.
 		///
-		/// The validation code itself stays here: only `code_hash` and `code_len` are sent. The
-		/// caller uploads the blob to the relay chain separately, which accepts it only if it
-		/// hashes to `code_hash` and is exactly `code_len` bytes long.
+		/// Only `code_hash` and `code_len` are sent, never the validation code. The caller uploads
+		/// the blob to the relay chain separately, which accepts it only if it hashes to
+		/// `code_hash` and is exactly `code_len` bytes long.
 		///
 		/// ## Costs
 		///
@@ -716,17 +724,41 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Ask the relay chain to authorize a validation code upgrade.
+		///
+		/// Root, the para itself, or its manager while unlocked. As with [`Pallet::register`] only
+		/// `code_hash` and `code_len` are sent: the caller uploads the code to the relay chain
+		/// separately, and it is accepted only if it matches both. Nothing is recorded and no
+		/// deposit is taken; the outcome comes back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(7)]
-		#[pallet::weight(Weight::MAX)]
+		#[pallet::weight(T::WeightInfo::schedule_code_upgrade())]
 		pub fn schedule_code_upgrade(
 			origin: OriginFor<T>,
 			para_id: ParaId,
 			code_hash: H256,
 			code_len: u32,
 		) -> DispatchResult {
-			let _ = (origin, para_id, code_hash, code_len);
-			// TODO(ahm-v2): send the code upgrade authorization to the relay chain.
-			Err(Error::<T>::Unimplemented.into())
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+			let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
+			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
+			ensure!(code_len <= config.max_code_size, Error::<T>::CodeTooLarge);
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+				para_id,
+				message_id,
+				code_hash,
+				code_len,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CodeUpgradeRequested { para_id, message_id, code_hash });
+			Ok(())
 		}
 
 		/// Set the current head of a registered para.
@@ -1170,20 +1202,23 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
 	fn on_code_upgrade_response(
 		para_id: ParaId,
 		message_id: u64,
 		outcome: Result<u32, FailureReason>,
 	) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		// TODO(ahm-v2): settle the pending code upgrade from the relay chain's answer.
-		Err(Error::<T>::Unimplemented.into())
+		Self::deposit_event(match outcome {
+			Ok(expire_at) => Event::CodeUpgradeAuthorized { para_id, message_id, expire_at },
+			Err(reason) => Event::CodeUpgradeFailed { para_id, message_id, reason },
+		});
+		Ok(())
 	}
 
+	/// The blob landed on the relay chain, so the upgrade is on its way.
 	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
-		let _ = (para_id, message_id);
-		// TODO(ahm-v2): finish the code upgrade once the relay chain has scheduled it.
-		Err(Error::<T>::Unimplemented.into())
+		Self::deposit_event(Event::CodeUpgradeScheduled { para_id, message_id });
+		Ok(())
 	}
 
 	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
