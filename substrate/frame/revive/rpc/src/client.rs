@@ -682,6 +682,7 @@ impl Client {
 			// erroring out here would kill the essential subscription task and with it the
 			// whole server. Gap detection compares each finalized block with
 			// `last_finalized_seen`, so a later block backfills an unresolved one.
+			let parent_hash = block.header().parent_hash;
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {
@@ -708,16 +709,7 @@ impl Client {
 				{
 					// `from` is the streamed block's parent, so its hash pins the range to the
 					// finalized chain.
-					let from_hash = match block.block_header().await {
-						Ok(header) => Some(header.parent_hash),
-						Err(err) => {
-							log::warn!(target: LOG_TARGET,
-								"Failed to fetch the header of finalized block #{block_number}, \
-								 queuing #{from}..#{to} by number: {err:?}");
-							None
-						},
-					};
-					self.subscription_gap_queue.queue_range(from, to, from_hash);
+					self.subscription_gap_queue.queue_range(from, to, Some(parent_hash));
 				}
 				// The stream position advances whatever the callback does, so gap detection
 				// only sees stream gaps; a failed finalized block is queued separately below.
