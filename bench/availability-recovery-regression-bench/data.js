@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794953554174,
+  "lastUpdate": 1794957452432,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ef30210809ef77767afb5e2a5bb238d41180989e",
-          "message": "Snowbridge: Halt message verifier when Ethereum client is Halted    (#11856)\n\nWhen the Snowbridge Ethereum client is halted, no messages should be\nverified. The Ethereum client currently checks the bridge status, but\n`submit_delivery_receipt` does not explicitly use the Ethereum client -\nit uses the `Verifier` impl. When the Ethereum client is `Halted`, no\nmessages should be processed at all. This PR adds a check if the pallet\nis halted, and if so, return a `VerificationError::Halted` message.\n\nThere is no current vulnerability or exploit that this change fixes, it\nis just good security posture.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2026-05-05T11:05:24Z",
-          "tree_id": "008e20e6e6dfe724cece80b6a831f26ed64256c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef30210809ef77767afb5e2a5bb238d41180989e"
-        },
-        "date": 1777984559684,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1325394815,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.089421176066669,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.1542978712,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb5166f49c6838ad45dfac4921109e9b65527fa9",
+          "message": "pallet-oracle: remove sp-std and make the median provider macro self-contained (#13852)\n\n# Description\n\nRemoves the `sp-std` dependency from `pallet-oracle` in favour of\n`alloc`/`core`.\n\nThe exported `create_median_value_data_provider!` macro expanded to\n`sp_std::collections::btree_set::BTreeSet` and `vec![]`, so callers\nneeded `sp-std` as a direct\ndependency and `vec!` in scope (which a `no_std` runtime does not have\nby default). The macro now\nuses `$crate::__private::{BTreeSet, Vec}`, a hidden re-export module,\nand works without either.\n\nAdvances #2101. Follow-up to #13850, which covers\n`pallet-oracle-runtime-api`.\n\n## Integration\n\nNo action needed. Existing invocations of\n`create_median_value_data_provider!` keep compiling;\ncrates that depended on `sp-std` only for this macro can drop it.\n\n## Review Notes\n\n`__private` is `#[doc(hidden)]` and follows the same pattern as\n`frame_support::__private`. It is\na new public item, hence the `minor` bump.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2026-11-17T21:42:25Z",
+          "tree_id": "eb65056162459dcd4adf4d9ee6cdfb1003742088",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb5166f49c6838ad45dfac4921109e9b65527fa9"
+        },
+        "date": 1794957414116,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13784594649999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.805405593733333,
             "unit": "seconds"
           }
         ]
