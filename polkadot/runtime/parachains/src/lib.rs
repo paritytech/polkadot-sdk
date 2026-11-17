@@ -157,6 +157,11 @@ pub fn schedule_code_upgrade<T: paras::Config>(
 	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 }
 
+/// Whether a validation code upgrade could be scheduled for the parachain with the given id.
+pub fn can_upgrade_validation_code<T: paras::Config>(id: ParaId) -> bool {
+	paras::Pallet::<T>::can_upgrade_validation_code(id)
+}
+
 /// Sets the current parachain head with the given id.
 pub fn set_current_head<T: paras::Config>(id: ParaId, new_head: HeadData) {
 	paras::Pallet::<T>::set_current_head(id, new_head)
