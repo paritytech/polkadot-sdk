@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794943873331,
+  "lastUpdate": 1794952697839,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147419,6 +147419,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2698695604,
             "range": "± 26883517",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca330ff2d3432070c9576750b254ca43b6a57ccc",
+          "message": "sc-rpc-spec-v2: stop archive storage tasks on disconnect (#13819)\n\nArchive storage subscriptions currently keep their bounded-channel\nreceiver alive after a client disconnects. A large query can therefore\nleave the blocking storage producer parked in `blocking_send`, retaining\nthe subscription task and a blocking-pool thread.\n\nMove the receiver into both archive storage consumer futures so\ndisconnect drops the channel and lets the producer terminate. Add an\nenabled WebSocket regression test covering a large `archive_v1_storage`\nquery and the task cleanup path.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-17T20:42:25Z",
+          "tree_id": "2c2c982ed89bedd5cb58a0d43cff0883ee61aed0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca330ff2d3432070c9576750b254ca43b6a57ccc"
+        },
+        "date": 1794952661477,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21590761,
+            "range": "± 339410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21926863,
+            "range": "± 474381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23673357,
+            "range": "± 319638",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27950298,
+            "range": "± 436677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66858822,
+            "range": "± 959356",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 450108609,
+            "range": "± 4535404",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3018821287,
+            "range": "± 272678862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18944513,
+            "range": "± 217286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18979480,
+            "range": "± 208325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19761444,
+            "range": "± 201934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24685085,
+            "range": "± 193089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 68053114,
+            "range": "± 973690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 420160900,
+            "range": "± 6310683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3000594703,
+            "range": "± 25407663",
             "unit": "ns/iter"
           }
         ]
