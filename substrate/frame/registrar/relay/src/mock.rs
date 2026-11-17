@@ -34,6 +34,7 @@ pub type AccountId = u64;
 pub const ALICE: AccountId = 1;
 pub const PARA_A: ParaId = 2000;
 pub const PARA_B: ParaId = 2001;
+pub const PARA_C: ParaId = 2002;
 
 pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;

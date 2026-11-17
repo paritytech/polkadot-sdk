@@ -18,7 +18,7 @@
 //! Tests for `pallet-registrar-relay`.
 
 use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingCodeUpgrades, PendingRegistrations};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::OnPoll, weights::WeightMeter};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
 	ParachainRegistrar,
@@ -28,6 +28,15 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource},
 	DispatchError,
 };
+
+fn poll_with(meter: &mut WeightMeter) {
+	Registrar::on_poll(System::block_number(), meter);
+	Registrar::do_try_state().unwrap();
+}
+
+fn poll() {
+	poll_with(&mut WeightMeter::new());
+}
 
 fn head(len: usize) -> Vec<u8> {
 	vec![7u8; len]
@@ -765,18 +774,7 @@ mod receive_set_current_head {
 mod reporting {
 	use super::*;
 	use crate::{weights::WeightInfo, FailedReports};
-	use frame_support::{traits::OnPoll, weights::WeightMeter};
 	use polkadot_runtime_parachains::paras::OnNewHead;
-
-	const PARA_C: ParaId = 2002;
-
-	fn poll_with(meter: &mut WeightMeter) {
-		Registrar::on_poll(System::block_number(), meter);
-	}
-
-	fn poll() {
-		poll_with(&mut WeightMeter::new());
-	}
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_deregistration() {
@@ -1473,10 +1471,8 @@ mod head_noted {
 mod relay {
 	use super::*;
 	use crate::{weights::WeightInfo, QueuedPerPara, RelayQueue, RelayQueueBounds};
-	use frame_support::{dispatch::GetDispatchInfo, traits::OnPoll, weights::WeightMeter};
+	use frame_support::dispatch::GetDispatchInfo;
 	use registrar_primitives::{ParaRequest, ParaRequestV1};
-
-	const PARA_C: ParaId = 2002;
 
 	fn para(para_id: ParaId) -> RuntimeOrigin {
 		polkadot_runtime_parachains::Origin::Parachain(para_id.into()).into()
@@ -1488,15 +1484,6 @@ mod relay {
 
 	fn relay(para_id: ParaId, request: ParaRequestV1) -> sp_runtime::DispatchResult {
 		Registrar::relay(para(para_id), ParaRequest::V1(request))
-	}
-
-	fn poll_with(meter: &mut WeightMeter) {
-		Registrar::on_poll(System::block_number(), meter);
-		Registrar::do_try_state().unwrap();
-	}
-
-	fn poll() {
-		poll_with(&mut WeightMeter::new());
 	}
 
 	fn queue_len() -> u32 {

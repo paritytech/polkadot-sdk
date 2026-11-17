@@ -572,7 +572,7 @@ pub mod pallet {
 			PendingRegistrations::<T>::remove(para_id);
 
 			let message_id = pending.message_id;
-			Self::report_registration(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Register(Ok(())));
 			Self::deposit_event(Event::Registered {
 				para_id,
 				message_id,
@@ -604,7 +604,7 @@ pub mod pallet {
 			PendingCodeUpgrades::<T>::remove(para_id);
 
 			let message_id = pending.message_id;
-			Self::report_code_upgrade_scheduled(para_id, message_id);
+			Self::report(para_id, message_id, ReportKind::CodeUpgradeScheduled);
 			Self::deposit_event(Event::CodeUpgradeApplied { para_id, message_id });
 			Ok(Pays::No.into())
 		}
@@ -737,7 +737,7 @@ pub mod pallet {
 
 		/// Turn a request away and tell the parachain to release the deposit.
 		fn reject(para_id: ParaId, message_id: u64, reason: FailureReason) {
-			Self::report_registration(para_id, message_id, Err(reason.clone()));
+			Self::report(para_id, message_id, ReportKind::Register(Err(reason.clone())));
 			Self::deposit_event(Event::RegistrationRejected { para_id, message_id, reason });
 		}
 
@@ -749,17 +749,17 @@ pub mod pallet {
 			PendingRegistrations::<T>::remove(para_id);
 
 			if T::Registrar::is_registered(para_id) {
-				Self::report_cancellation(
+				Self::report(
 					para_id,
 					message_id,
-					Err(FailureReason::AlreadyRegistered),
+					ReportKind::Cancel(Err(FailureReason::AlreadyRegistered)),
 				);
 				return Self::deposit_event(Event::CancellationRefused { para_id, message_id });
 			}
 
 			AwaitingFirstHead::<T>::remove(para_id);
 
-			Self::report_cancellation(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Cancel(Ok(())));
 			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
 		}
 
@@ -914,16 +914,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Tell the parachain how a registration ended.
-		fn report_registration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::Register(outcome) });
-		}
-
-		/// Tell the parachain what became of its cancellation.
-		fn report_cancellation(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::Cancel(outcome) });
-		}
-
 		/// Drop `para_id` at the parachain's request.
 		///
 		/// A para already gone is confirmed rather than refused, so a retried request settles.
@@ -933,10 +923,10 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"registry refused to drop para {para_id}: {e:?}",
 				);
-				Self::report_deregistration(
+				Self::report(
 					para_id,
 					message_id,
-					Err(FailureReason::NotDeregisterable),
+					ReportKind::Deregister(Err(FailureReason::NotDeregisterable)),
 				);
 				return Self::deposit_event(Event::DeregistrationRejected { para_id, message_id });
 			}
@@ -944,7 +934,7 @@ pub mod pallet {
 			AwaitingFirstHead::<T>::remove(para_id);
 			// Nothing prunes it, and not every registry refuses an offboarding para.
 			PendingCodeUpgrades::<T>::remove(para_id);
-			Self::report_deregistration(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Deregister(Ok(())));
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
@@ -969,7 +959,7 @@ pub mod pallet {
 			};
 
 			if let Some(reason) = reason {
-				Self::report_code_upgrade(para_id, message_id, Err(reason.clone()));
+				Self::report(para_id, message_id, ReportKind::CodeUpgrade(Err(reason.clone())));
 				return Self::deposit_event(Event::CodeUpgradeRejected {
 					para_id,
 					message_id,
@@ -984,7 +974,11 @@ pub mod pallet {
 				PendingCodeUpgrade { message_id, code_hash, code_len, expire_at },
 			);
 
-			Self::report_code_upgrade(para_id, message_id, Ok(expire_at.saturated_into()));
+			Self::report(
+				para_id,
+				message_id,
+				ReportKind::CodeUpgrade(Ok(expire_at.saturated_into())),
+			);
 			Self::deposit_event(Event::CodeUpgradePending {
 				para_id,
 				message_id,
@@ -1007,46 +1001,22 @@ pub mod pallet {
 				None
 			};
 			if let Some(reason) = reason {
-				Self::report_set_head(para_id, message_id, Err(reason.clone()));
+				Self::report(para_id, message_id, ReportKind::SetHead(Err(reason.clone())));
 				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
 				return;
 			}
 
 			T::Registrar::set_current_head(para_id, head);
-			Self::report_set_head(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::SetHead(Ok(())));
 			Self::deposit_event(Event::HeadUpdated { para_id, message_id });
-		}
-
-		/// Tell the parachain how a deregistration ended.
-		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::Deregister(outcome) });
-		}
-
-		/// Tell the parachain whether the upgrade was authorized, and until when.
-		fn report_code_upgrade(
-			para_id: ParaId,
-			message_id: u64,
-			outcome: Result<u32, FailureReason>,
-		) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::CodeUpgrade(outcome) });
-		}
-
-		/// Tell the parachain that the uploaded code is now scheduled.
-		fn report_code_upgrade_scheduled(para_id: ParaId, message_id: u64) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::CodeUpgradeScheduled });
-		}
-
-		/// Tell the parachain whether the head was set.
-		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(Report { para_id, message_id, kind: ReportKind::SetHead(outcome) });
 		}
 
 		/// Send a report, or keep it in [`FailedReports`] behind those already waiting there.
 		///
 		/// Never fails: callers have committed relay-chain state that must not unwind because a
 		/// report bounced.
-		fn report(report: Report) {
-			let (para_id, message_id) = (report.para_id, report.message_id);
+		fn report(para_id: ParaId, message_id: u64, kind: ReportKind) {
+			let report = Report { para_id, message_id, kind };
 			if Self::failed_reports_is_empty() && T::SendToPara::send(report.clone().into()).is_ok()
 			{
 				return;
