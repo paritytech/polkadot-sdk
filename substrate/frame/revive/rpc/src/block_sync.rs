@@ -340,10 +340,17 @@ impl Client {
 		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
 
 		let mut block = match from_hash {
-			Some(hash) => self.block_provider().block_by_hash(&hash).await?,
-			None => self.block_provider().block_by_number(from).await?,
+			Some(hash) => self.block_provider().block_by_hash(&hash).await,
+			None => self.block_provider().block_by_number(from).await,
 		}
-		.ok_or(ClientError::BlockNotFound)?;
+		.map_err(Into::into)
+		.and_then(|opt| opt.ok_or(ClientError::BlockNotFound))
+		.inspect_err(|err| match from_hash {
+			Some(hash) => log::error!(target: LOG_TARGET,
+				"⚠️ Could not fetch start block #{from} ({hash:?}): {err:?}, stopping"),
+			None => log::error!(target: LOG_TARGET,
+				"⚠️ Could not fetch start block #{from}: {err:?}, stopping"),
+		})?;
 
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
@@ -422,7 +429,14 @@ impl Client {
 			}
 
 			if block_number > to {
-				let parent_hash = block.block_header().await?.parent_hash;
+				let parent_hash = match block.block_header().await {
+					Ok(header) => header.parent_hash,
+					Err(err) => {
+						log::error!(target: LOG_TARGET,
+							"⚠️ Could not fetch header of #{block_number}: {err:?}, stopping");
+						break Err(err.into());
+					},
+				};
 				match self
 					.block_provider()
 					.block_by_hash(&parent_hash)
