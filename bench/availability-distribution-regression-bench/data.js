@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794944732165,
+  "lastUpdate": 1794953611134,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "104af7915ab0a8ab5bf5a3c9f09bf134560a877c",
-          "message": "Version bumps and prdocs reordering after stable2603-1 (#11977)\n\nThis PR backports regualr node version bumps and prdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-05-04T14:02:52Z",
-          "tree_id": "e770ffce4ae7ef632b9289707c4e3a17b1eaef2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/104af7915ab0a8ab5bf5a3c9f09bf134560a877c"
-        },
-        "date": 1777908442366,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14052567065333346,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007162619846666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009874307799999978,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023776687613333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14140041834,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca330ff2d3432070c9576750b254ca43b6a57ccc",
+          "message": "sc-rpc-spec-v2: stop archive storage tasks on disconnect (#13819)\n\nArchive storage subscriptions currently keep their bounded-channel\nreceiver alive after a client disconnects. A large query can therefore\nleave the blocking storage producer parked in `blocking_send`, retaining\nthe subscription task and a blocking-pool thread.\n\nMove the receiver into both archive storage consumer futures so\ndisconnect drops the channel and lets the producer terminate. Add an\nenabled WebSocket regression test covering a large `archive_v1_storage`\nquery and the task cleanup path.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-17T20:42:25Z",
+          "tree_id": "2c2c982ed89bedd5cb58a0d43cff0883ee61aed0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca330ff2d3432070c9576750b254ca43b6a57ccc"
+        },
+        "date": 1794953577944,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024350559126666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01001435581333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14306620108000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00792267364666667,
             "unit": "seconds"
           }
         ]
