@@ -26,7 +26,7 @@ use crate::{
 	},
 	tests::{
 		Assets, AssetsFreezer, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID,
-		RuntimeOrigin, Test, builder, test_utils::get_contract_checked,
+		PGasRefundPercent, RuntimeOrigin, Test, builder, test_utils::get_contract_checked,
 	},
 };
 use alloy_core::sol_types::SolCall;
@@ -670,4 +670,44 @@ fn refund_all_leaves_frozen_part_on_hold() {
 		assert_eq!(Balances::balance_on_hold(&hold, &BOB), 500);
 		assert_eq!(Balances::balance(&ALICE), alice_before + 100);
 	});
+}
+
+/// [`Deposit::refund_all`] returns the deposit released from the native and the PGAS hold. Of the
+/// PGAS hold, `PGasRefundPercent` is credited to the destination and the rest is burned. Both
+/// parts count as released.
+#[test]
+fn refund_all_returns_native_and_whole_pgas_hold() {
+	use frame_support::traits::{fungible::MutateHold, tokens::fungibles::MutateHold as _};
+
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			let hold: <Test as Config>::RuntimeHoldReason =
+				HoldReason::StorageDepositReserve.into();
+			Balances::set_balance(&BOB, 1_000);
+			assert_ok!(Balances::hold(&hold, &BOB, 600));
+			assert_ok!(Assets::mint_into(PGAS_ASSET_ID, &BOB, 1_001));
+			assert_ok!(AssetsHolder::hold(PGAS_ASSET_ID, &hold, &BOB, 1_000));
+
+			let native_before = Balances::balance(&ALICE);
+			let pgas_before = Assets::balance(PGAS_ASSET_ID, &ALICE);
+			let issuance_before = Assets::total_issuance(PGAS_ASSET_ID);
+
+			let released = <<Test as Config>::Deposit as Deposit<Test>>::refund_all(
+				&BOB,
+				Funds::Balance(&ALICE),
+			)
+			.unwrap();
+
+			let credited = PGasRefundPercent::get().mul_floor(1_000u128);
+			let burned = 1_000 - credited;
+			assert!(credited > 0 && burned > 0);
+			assert_eq!(released, 600 + credited + burned);
+			assert_eq!(Balances::balance(&ALICE), native_before + 600);
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &ALICE), pgas_before + credited);
+			assert_eq!(Assets::total_issuance(PGAS_ASSET_ID), issuance_before - burned);
+			assert_eq!(Balances::balance_on_hold(&hold, &BOB), 0);
+			assert_eq!(AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &BOB), 0);
+		});
 }
