@@ -54,7 +54,7 @@ fn asset_hub_westend_genesis(
 	// `RewardBase` rather than tracking whatever endowment a preset picked.
 	balances
 		.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED + staking::RewardBase::get() * 1_000));
-	// The staging account only receives, so ED is enough for it to exist.
+	// Deposits below ED into a missing account fail, so staging starts with ED.
 	balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {

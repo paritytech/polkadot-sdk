@@ -1231,7 +1231,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		None,
-		Some(xcm_config::DapBufferAccount::get()),
+		Some(xcm_config::DapStagingAccount::get()),
 	)
 }
 
@@ -3475,6 +3475,7 @@ fn ah_treasury_creates_asset_reward_pool() {
 
 mod dap {
 	use super::*;
+	use xcm_executor::traits::{FeeManager, FeeReason};
 
 	#[test]
 	fn tx_fees_go_to_dap_buffer() {
@@ -3525,6 +3526,64 @@ mod dap {
 					buffer_before + fee_paid
 				);
 				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+			});
+	}
+
+	#[test]
+	fn xcm_fees_go_to_dap_buffer() {
+		let alice = AccountId::from(ALICE);
+		let buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
+		let ed = ExistentialDeposit::get();
+		let fee = 10 * ed;
+
+		ExtBuilder::<Runtime>::default()
+			.with_collators(vec![alice.clone()])
+			.with_session_keys(collator_session_keys().session_keys())
+			.with_balances(vec![
+				(alice.clone(), 100 * ed),
+				(buffer.clone(), ed),
+				(staging.clone(), ed),
+			])
+			.build()
+			.execute_with(|| {
+				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
+				let inactive_before = Balances::inactive_issuance();
+
+				// GIVEN an XCM fee withdrawn from Alice.
+				let alice_location: Location =
+					Junction::AccountId32 { network: None, id: alice.into() }.into();
+				let fee_holding =
+					<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+						&(WestendLocation::get(), fee).into(),
+						&alice_location,
+						None,
+					)
+					.expect("Alice holds enough to pay the fee");
+
+				// WHEN the XCM fee manager handles the fee.
+				<XcmConfig as xcm_executor::Config>::FeeManager::handle_fee(
+					fee_holding,
+					None,
+					FeeReason::ChargeFees,
+				);
+
+				// THEN the fee lands in staging and stays active.
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + fee
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
+				assert_eq!(Balances::inactive_issuance(), inactive_before);
+
+				// WHEN `on_idle` drains staging.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+
+				// THEN the fee moves to the buffer and becomes inactive issuance.
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + fee);
+				assert_eq!(Balances::inactive_issuance(), inactive_before + fee);
 			});
 	}
 
