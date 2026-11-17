@@ -440,6 +440,39 @@ impl AccessEntry {
 	}
 }
 
+#[cfg(test)]
+impl AccessEntry {
+	/// Returns the entry for a main-trie key, or `None` if the access list does not track the key.
+	///
+	/// Reads `OriginalAccount` to check that an account is the one its address maps to.
+	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
+		use frame_support::storage::StoragePrefixedMap;
+
+		if let Some(tail) = key.strip_prefix(&frame_system::Account::<T>::final_prefix()) {
+			use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
+			let mut encoded = Blake2_128Concat::reverse(tail);
+			let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
+			let address = <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id);
+			return (<T::AddressMapper as crate::AddressMapper<T>>::to_account_id(&address) ==
+				account_id)
+				.then_some(Self::Account { address });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::OriginalAccount::<T>::final_prefix()) {
+			return Some(Self::OriginalAccount { address: H160(tail.try_into().ok()?) });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::AccountInfoOf::<T>::final_prefix()) {
+			return Some(Self::AccountInfo { address: H160(tail.try_into().ok()?) });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::CodeInfoOf::<T>::final_prefix()) {
+			return Some(Self::CodeInfo { hash: H256(tail.try_into().ok()?) });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::PristineCode::<T>::final_prefix()) {
+			return Some(Self::PristineCode { hash: H256(tail.try_into().ok()?) });
+		}
+		None
+	}
+}
+
 /// The most entries a single access has: a transfer and an instantiate have four.
 const MAX_ENTRIES_PER_ACCESS: usize = 4;
 
@@ -940,6 +973,13 @@ impl AccessList {
 			.next_back()
 			.expect("fixtures only ask a non-empty list; qed")
 			.clone()
+	}
+}
+
+#[cfg(test)]
+impl Drop for AccessList {
+	fn drop(&mut self) {
+		crate::tests::FinalAccessListEntries::set(core::mem::take(&mut self.accessed));
 	}
 }
 

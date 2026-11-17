@@ -1,0 +1,20 @@
+title: 'pallet-revive: test that operations read and write what they declare'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests that compare the entries each operation declares with the keys it reads and
+      writes, and with the entries it warms in the access list. On both the EVM and PolkaVM
+      backends, they cover successful calls (plain, delegate, static and with value), a call to an
+      account delegated with EIP-7702, and a contract created by another contract. The tests cover
+      the contract creation in both Substrate and Ethereum transactions, and the creation of a
+      contract whose code is already stored. They also cover value transfers to a contract, and
+      calls to an account that has no code, with and without value.
+
+      Also adds a check that a transfer with dust is charged more than one without.
+
+      No runtime behaviour changes, so nothing needs to be migrated.
+
+crates:
+  - name: pallet-revive
+    bump: none
