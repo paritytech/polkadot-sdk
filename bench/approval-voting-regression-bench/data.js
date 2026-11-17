@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794908128477,
+  "lastUpdate": 1794926782352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "98e0271c667a0a32ea4aabd5e4f811f2a1f6171e",
-          "message": "Support multiple `IndexOperation::Renew` calls within a single extrinsic index in `sc-client-db` (#11474)\n\n# Description\n\nCurrently, `apply_index_ops` uses `renewed_map: HashMap<u32, DbHash>`\nwhich means if multiple `Renew` operations target the same extrinsic\nindex, only the last hash survives — earlier ones are silently\noverwritten. This blocks batch-renewal use cases where a single\nmandatory inherent renews multiple previously-stored data items (e.g.\nthe Bulletin chain's `process_auto_renewals` inherent which calls\n`sp_io::transaction_index::renew()` N times within one extrinsic).\n\nThis PR changes `renewed_map` to `HashMap<u32, Vec<DbHash>>` and\nintroduces a new `DbExtrinsic::MultiRenew` variant to correctly store,\nreconstruct, retrieve, and prune blocks containing multi-renewal\nextrinsics.\n\n\n## Integration\n\nDownstream projects using `sc-client-db` that read `BODY_INDEX` data\ndirectly (rather than through the `BlockchainDb` API) will need to\nhandle the new `DbExtrinsic::MultiRenew` variant. Projects using the\nstandard `blockchain.body()`, `blockchain.block_indexed_body()`, or\n`blockchain.indexed_transaction()` APIs require no changes.\n\nSingle-renewal extrinsics continue to produce `DbExtrinsic::Indexed`\n(backwards-compatible). The `MultiRenew` variant is only emitted when 2+\n`Renew` operations share the same extrinsic index.\n\n\n## Review Notes\n\nAll changes are in `substrate/client/db/src/lib.rs`. There are five\nlogical changes:\n\n### 1. New `DbExtrinsic::MultiRenew` variant\n\n```rust\nMultiRenew {\n    hashes: Vec<DbHash>,  // all renewed data hashes\n    header: Vec<u8>,       // full encoded extrinsic for body reconstruction\n}\n```\n\n### 2. `apply_index_ops` — core fix\n\n```diff\n- let mut renewed_map = HashMap::new();\n+ let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();\n\n  IndexOperation::Renew { extrinsic, hash } => {\n-     renewed_map.insert(extrinsic, DbHash::from_slice(hash.as_ref()));\n+     renewed_map.entry(extrinsic).or_default().push(DbHash::from_slice(hash.as_ref()));\n  }\n```\n\nWhen building extrinsic entries:\n- **1 hash** → `DbExtrinsic::Indexed` (backwards-compatible, same as\nbefore)\n- **2+ hashes** → `DbExtrinsic::MultiRenew` with ref count bumped for\neach hash\n\n### 3. `body_uncached` — body reconstruction\n\n`MultiRenew`'s `header` contains the full encoded extrinsic (unlike\n`Indexed` where header is partial and joined with indexed data). Decoded\ndirectly via `Block::Extrinsic::decode(&mut &header[..])`.\n\n### 4. `block_indexed_body` — indexed data retrieval\n\nReturns transaction data for **all** hashes in `MultiRenew`, not just a\nsingle hash.\n\n### 5. `prune_block` — ref count release\n\nReleases all hashes in `MultiRenew` when pruning, instead of just the\nsingle hash from `Indexed`.\n\n---------\n\nCo-authored-by: Karol Kokoszka <karol@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2026-05-01T12:03:05Z",
-          "tree_id": "10813189ad759aab5ffa2505c8ad3fea131d445e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/98e0271c667a0a32ea4aabd5e4f811f2a1f6171e"
-        },
-        "date": 1777641978398,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.55,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.797928883249999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021487040000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021487040000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001813398,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001813398,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.247804355562767,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8562736824399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.610501968519966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8893525545799985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.813742787349999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7856626096599639,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005078713449999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4624627377900055,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.6905222144600005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f15542a9a7b0998480b00b7e10cd7445eca99882",
+          "message": "Send XCM fees to the DAP staging account on AHW and staking-async parachain (#13847)\n\nDOT in the DAP buffer is inactive issuance: `pallet-dap` deactivates it\nwhen `on_idle` drains the staging account into the buffer. On Asset Hub\nWestend and the staking-async parachain runtime, the XCM fee manager\nsends fees straight to the buffer, so they are never deactivated. Signed\nelection rewards are paid from the buffer through `ReactivatingPot`,\nwhich reactivates the paid amount. A reward paid out of XCM fees\nreactivates DOT that was never deactivated, and `InactiveIssuance`\ndrifts down.\n\n## Change\n\n- Both runtimes send XCM fees to the DAP staging account, **as Asset Hub\nPolkadot already does.**\n- The `staking-async parachain` genesis preset funds the staging account\nwith ED, as Asset Hub Westend does, so fees below ED are not burned.\n- A new AHW test checks that an XCM fee lands in staging and becomes\ninactive issuance after `on_idle`.\n- Tests asserting the old destination are updated.\n\n## Not part of this PR\n\n- Election rewards still use `ReactivatingPot`. Routing them through\n`pallet-dap` is left to the change that adds DAP-side accounting on\nbuffer outflows (see #13305)\n- The drift accumulated so far is accepted on Westend, no migration. On\nPolkadot, the drift around total issuance is meant to be fixed as final\nreconciliation step in\nhttps://github.com/polkadot-fellows/runtimes/issues/1283",
+          "timestamp": "2026-11-17T12:56:30Z",
+          "tree_id": "a8466d07822929410052e847a451c2723f49fda6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f15542a9a7b0998480b00b7e10cd7445eca99882"
+        },
+        "date": 1794926739126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002406354,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.691930108850001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.74868990206,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3386862868399945,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.594465331412875,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8454657656399609,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7336337254700007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.699233652900001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002406354,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005499515120000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.063138956879959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019033640000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019033640000000003,
             "unit": "seconds"
           }
         ]
