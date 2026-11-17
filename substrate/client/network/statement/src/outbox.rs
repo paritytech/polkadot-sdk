@@ -102,6 +102,24 @@ impl PropagationOutboxes {
 		removed.len()
 	}
 
+	/// Remove the peer's queued hashes except detours, queued under `DETOUR_SEQ`, and return how
+	/// many it removed.
+	pub(crate) fn retain_detours(&mut self, who: &PeerId) -> usize {
+		let (Some(outbox), Some(seqs)) = (self.outboxes.remove(who), self.seqs.remove(who)) else {
+			return self.remove(who);
+		};
+		let (detours, removed): (Vec<_>, Vec<_>) =
+			outbox.into_iter().zip(seqs).partition(|(_, seq)| *seq == crate::DETOUR_SEQ);
+		let removed: Vec<_> = removed.into_iter().map(|(hash, _)| hash).collect();
+		self.release(&removed);
+		if !detours.is_empty() {
+			let (hashes, seqs) = detours.into_iter().unzip();
+			self.outboxes.insert(*who, hashes);
+			self.seqs.insert(*who, seqs);
+		}
+		removed.len()
+	}
+
 	/// Hold `dead_end` in the store.
 	pub(crate) fn hold_dead_end(&mut self, dead_end: DeadEnd) {
 		if let Some(store) = &self.store {

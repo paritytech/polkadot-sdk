@@ -4,12 +4,19 @@ doc:
   description: |-
     A peer that stops reading or whose sends fail no longer loses statements. A full
     propagation outbox now refuses new hashes instead of dropping its oldest, and a failed
-    propagation send gives up its chunk and the rest of the outbox. In both cases the peer
-    records the lowest admission sequence it missed. Once its outbox drains, an initial sync
-    walks the admission journal from that sequence to the current watermark, so the peer
-    receives every missed statement once, in admission order. Before, the dropped hashes and
-    the failed chunks were never resent, and the peer got those statements only from another
-    peer or a later full resync.
+    propagation send gives up its chunk and the hashes queued behind it, except detours. In
+    both cases the peer records the lowest admission sequence it missed. Once its outbox drains
+    and its last chunk completes, an initial sync walks the admission journal from that
+    sequence to the current watermark, so the peer receives every missed statement. The walk
+    may resend a statement the peer already has. Before, the dropped hashes and the failed
+    chunks were never resent, and the peer got those statements only from another peer or a
+    later full resync.
+
+    Statements left to a walk now count in `send_failures` only, so
+    `substrate_sync_statement_undelivered_total` counts statements no resync resends.
+
+    On the v2 path the retention sweep can still remove a forwarded statement before the walk
+    reaches it.
 crates:
 - name: sc-network-statement
   bump: patch
