@@ -20,14 +20,12 @@ use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
-use futures::{stream::FusedStream, StreamExt};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
 	HeaderBackend,
 };
 use sc_consensus::{BlockImport, StateAction};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
@@ -37,6 +35,7 @@ use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider};
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 /// The aux storage key used to store the ignored nodes for the given block hash.
 fn ignored_nodes_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -74,7 +73,7 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 /// This handle should be passed to [`Params`](super::Params) or can also be dropped if the node is
 /// not running as collator.
 pub struct SlotBasedBlockImportHandle<Block> {
-	receiver: TracingUnboundedReceiver<(Block, Arc<StorageProof>)>,
+	receiver: mpsc::Receiver<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block> SlotBasedBlockImportHandle<Block> {
@@ -82,12 +81,9 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 	///
 	/// The future will never return when the internal channel is closed.
 	pub async fn next(&mut self) -> (Block, Arc<StorageProof>) {
-		loop {
-			if self.receiver.is_terminated() {
-				futures::pending!()
-			} else if let Some(res) = self.receiver.next().await {
-				return res;
-			}
+		match self.receiver.recv().await {
+			Some(item) => item,
+			None => futures::future::pending().await,
 		}
 	}
 }
@@ -134,7 +130,7 @@ where
 pub struct SlotBasedBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
-	sender: TracingUnboundedSender<(Block, Arc<StorageProof>)>,
+	sender: mpsc::Sender<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
@@ -147,7 +143,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	where
 		Client: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
 	{
-		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
+		let (sender, receiver) = mpsc::channel(1);
 
 		register_ignored_nodes_cleanup(client.clone());
 
@@ -210,6 +206,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	async fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
+		collect_for_resubmission: bool,
 	) -> Result<Option<(Block, Arc<StorageProof>)>, sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
@@ -253,15 +250,6 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		runtime_api.set_call_context(CallContext::Onchain { import: true });
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
-
-		// Only blocks imported at the tip (built by other collators) are forwarded to the
-		// resubmission backfill task. Sync/gap/warp imports are historical and never part of our
-		// unincluded segment, so recording resubmission data for them would be wasted work (and
-		// would buffer their potentially large storage proofs).
-		let collect_for_resubmission = matches!(
-			params.origin,
-			BlockOrigin::NetworkBroadcast | BlockOrigin::ConsensusBroadcast
-		);
 
 		let body = params.body.clone().unwrap_or_default();
 		let resubmission_body = collect_for_resubmission.then(|| body.clone());
@@ -370,21 +358,171 @@ where
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		let origin = params.origin;
 
-		let imported = if !(origin == BlockOrigin::Own ||
+		let execute = !(origin == BlockOrigin::Own ||
 			params.with_state() ||
-			params.state_action.skip_execution_checks())
-		{
-			self.execute_block_and_collect_storage_proof(&mut params).await?
+			params.state_action.skip_execution_checks());
+		// Catch-up can import an unincluded suffix whose original collator is no longer online.
+		let collect_for_resubmission = !params.finalized &&
+			*params.header.number() > self.client.info().finalized_number &&
+			matches!(
+				params.origin,
+				BlockOrigin::NetworkInitialSync |
+					BlockOrigin::NetworkBroadcast |
+					BlockOrigin::ConsensusBroadcast
+			);
+
+		// Reserve before execution so slow relay queries cannot accumulate imported proofs.
+		let permit = if execute && collect_for_resubmission {
+			self.sender.reserve().await.ok()
+		} else {
+			None
+		};
+
+		let imported = if execute {
+			self.execute_block_and_collect_storage_proof(&mut params, permit.is_some())
+				.await?
 		} else {
 			None
 		};
 
 		let result = self.inner.import_block(params).await.map_err(Into::into)?;
 
-		if let Some((block, proof)) = imported {
-			let _ = self.sender.unbounded_send((block, proof));
+		if let (Some(permit), Some(imported)) = (permit, imported) {
+			permit.send(imported);
 		}
 
 		Ok(result)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use cumulus_test_client::{
+		runtime::Block, BuildBlockBuilder, Client, TestClientBuilder, TestClientBuilderExt,
+	};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+	use futures::FutureExt;
+	use sc_consensus::{BlockImportParams, ForkChoiceStrategy};
+
+	fn block(client: &Client) -> Block {
+		let parent = client.info().best_hash;
+		let mut sproof = RelayStateSproofBuilder::default();
+		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+		sproof.included_para_head = Some(
+			client
+				.header(parent)
+				.expect("header lookup succeeds; qed")
+				.expect("genesis exists; qed")
+				.encode()
+				.into(),
+		);
+		client
+			.init_block_builder_builder()
+			.with_relay_sproof_builder(sproof)
+			.with_pre_digests(vec![
+				CumulusDigestItem::CoreInfo(CoreInfo {
+					selector: 0.into(),
+					claim_queue_offset: 0.into(),
+					number_of_cores: 1.into(),
+				})
+				.to_digest_item(),
+				CumulusDigestItem::BlockBundleInfo(BlockBundleInfo { index: 0, is_last: true })
+					.to_digest_item(),
+			])
+			.build()
+			.block_builder
+			.build()
+			.expect("test block builds; qed")
+			.block
+	}
+
+	#[tokio::test]
+	async fn catch_up_import_forwards_the_execution_proof() {
+		let client = Arc::new(TestClientBuilder::default().build());
+		let (importer, mut handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
+		let block = block(&client);
+		let (header, body) = block.clone().deconstruct();
+		let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+		params.body = Some(body);
+		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		importer.import_block(params).await.expect("catch-up import succeeds; qed");
+		let (forwarded, proof) = handle
+			.next()
+			.now_or_never()
+			.expect("unfinalized catch-up block must reach backfill; qed");
+		assert_eq!(forwarded, block);
+		assert!(proof.iter_nodes().next().is_some());
+		assert_eq!(client.info().best_hash, block.header.hash());
+	}
+
+	#[tokio::test]
+	async fn catch_up_waits_for_backfill_before_executing_more_blocks() {
+		let client = Arc::new(TestClientBuilder::default().build());
+		let (importer, mut handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
+		let mut previous = None;
+		for number in 1..=32 {
+			let block = block(&client);
+			let (header, body) = block.clone().deconstruct();
+			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			params.body = Some(body);
+			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+			let clone = importer.clone();
+			let import = clone.import_block(params);
+			futures::pin_mut!(import);
+			if let Some(previous) = previous {
+				assert!(import.as_mut().now_or_never().is_none());
+				assert_eq!(client.info().best_number, number - 1);
+				assert_eq!(handle.receiver.len(), 1);
+				let (forwarded, proof) = handle.next().await;
+				assert_eq!(forwarded, previous);
+				assert!(proof.iter_nodes().next().is_some());
+			}
+			import.await.expect("catch-up import succeeds after backfill drains; qed");
+			assert_eq!(client.info().best_number, number);
+			previous = Some(block);
+		}
+		let (forwarded, _) = handle.next().await;
+		assert_eq!(Some(forwarded), previous);
+		assert_eq!(handle.receiver.len(), 0);
+	}
+
+	#[tokio::test]
+	async fn dropping_backfill_releases_a_waiting_import() {
+		let client = Arc::new(TestClientBuilder::default().build());
+		let (importer, handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
+		for number in 1..=2 {
+			let (header, body) = block(&client).deconstruct();
+			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			params.body = Some(body);
+			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+			let import = importer.import_block(params);
+			futures::pin_mut!(import);
+			if number == 2 {
+				assert!(import.as_mut().now_or_never().is_none());
+				drop(handle);
+				import.await.expect("import continues without a backfill task; qed");
+				assert_eq!(client.info().best_number, 2);
+				return;
+			}
+			import.await.expect("first import succeeds; qed");
+		}
+	}
+
+	#[tokio::test]
+	async fn finalized_catch_up_imports_do_not_forward_proofs() {
+		let client = Arc::new(TestClientBuilder::default().build());
+		let (importer, mut handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
+		let block = block(&client);
+		for finalized in [true, false] {
+			let (header, body) = block.clone().deconstruct();
+			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			params.body = Some(body);
+			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+			params.finalized = finalized;
+			importer.import_block(params).await.expect("finalized import succeeds; qed");
+			assert!(handle.next().now_or_never().is_none());
+			assert_eq!(client.info().finalized_number, 1);
+		}
 	}
 }
