@@ -12,7 +12,7 @@ use zombienet_sdk::{
 	subxt::{
 		self,
 		dynamic::Value,
-		ext::scale_value::{At, Composite, ValueDef},
+		ext::scale_value::{At, Composite},
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
@@ -341,12 +341,16 @@ pub(super) async fn wait_for_event(
 		.map_err(|_| anyhow!("no `{pallet}::{variant}` on {chain} within {timeout:?}"))?
 }
 
-/// `AnnouncementSent { destination: People, era: 1 }`.
+/// `AnnouncementSent { destination: PEOPLE_ID, era: 1 }`.
 pub(super) fn is_announcement_of_era_1(fields: &Composite<u32>) -> bool {
-	let to_people = fields.at("destination").is_some_and(
-		|destination| matches!(&destination.value, ValueDef::Variant(v) if v.name == "People"),
-	);
-	to_people && fields.at("era").and_then(|era| era.as_u128()) == Some(1)
+	para_id_at(fields, "destination") == Some(PEOPLE_ID.into()) &&
+		fields.at("era").and_then(|era| era.as_u128()) == Some(1)
+}
+
+/// The parachain id in the `field` of an event.
+pub(super) fn para_id_at(fields: &Composite<u32>, field: &str) -> Option<u128> {
+	let id = fields.at(field)?;
+	id.as_u128().or_else(|| id.at(0).and_then(|id| id.as_u128()))
 }
 
 pub(super) async fn wait_for_finalized_block(
