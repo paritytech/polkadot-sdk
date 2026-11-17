@@ -369,10 +369,11 @@ impl SubscriptionGapQueue {
 		// finalized blocks one request each, served by a single consumer that holds a
 		// failing request for its whole retry schedule (about 30 s). While every finalized
 		// block fails, the queue gains one request per block and loses one per schedule, so
-		// at 6 s blocks it fills after about four minutes. A request that does not fit is
-		// dropped but stays pending, which freezes the sync head exactly as an abandoned fill
-		// does; the restart's backward sync then re-indexes the dropped range like any other
-		// gap.
+		// at 6 s blocks that producer alone fills it after about four minutes; reconnect gaps
+		// and the startup range share the same slots. A request that does not fit is dropped
+		// but stays pending, which freezes the sync head exactly as an abandoned fill does.
+		// Only a restart recovers from that: its backward sync re-indexes the dropped range
+		// like any other gap.
 		let (tx, rx) = mpsc::channel(32);
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
