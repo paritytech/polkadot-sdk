@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794926782352,
+  "lastUpdate": 1794940389637,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45f8331013e6ee2880cf1b4fd22e6676ab14ed23",
-          "message": "Bump WAH spec_version (#11959)",
-          "timestamp": "2026-05-01T16:01:02Z",
-          "tree_id": "76922004ef00887cf6384e4edeb0fe17e10ce938",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45f8331013e6ee2880cf1b4fd22e6676ab14ed23"
-        },
-        "date": 1777656339294,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.990000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7989863013199586,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002281533,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0060867461900000076,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9160624282199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.795698395059999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.524766183040005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.931654194459999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002281533,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.819966272579961,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020936729999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.388180458292895,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020936729999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8467120242900004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.000019033640000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9f3743bce6f3f6b25be482ad16ba62b3788999df",
+          "message": "Westend system chains: derive KickThreshold from the largest collator set (#13873)\n\n`pallet-collator-selection` kicks a bonded candidate at session start if\nit has not authored a block in the last `KickThreshold` blocks. Asset\nHub Westend and People Westend set it to one session (3600 blocks).\n\n`pallet-validator-collators` adds up to `MaxValidators` validators to\nthe Aura set. Each collator authors the blocks of one Aura slot (12\nblocks). A full round exceeds a session well before the largest set:\n\n- Polkadot after the reduction to 320 validators, with the same slot and\nsession as here: `(320 + 20 + 100) × 12 = 5280` blocks, about one and a\nhalf sessions.\n- The largest set, `MaxValidators` of 1000: `(1000 + 20 + 100) × 12 =\n13440` blocks, almost four sessions.\n\nA good candidate would then be kicked between its own slots, and would\nhave to register again.\n\n## Changes\n\n`parachains-common` adds `impls::KickThreshold<Runtime, ExtraCollators,\nBlocksPerAuraSlot, SessionLength>`, a `Get` for collator selection on a\nchain whose Aura set holds more collators than collator selection's own.\nFor validator collators, `ExtraCollators` is `MaxValidators` of\n`pallet-validator-collators`. It computes the threshold from the largest\ncollator set (`ExtraCollators` plus collator selection's invulnerables\nand candidates) with the following rule\n\n_Two full Aura rounds plus two slots, rounded to the first whole number\nof sessions above that, since candidates are only kicked at session\nstart. With a stable set, two turns of the same collator are at most one\nround plus one slot apart. A change of the set length at a session\nboundary can add up to one more round._\n\nAsset Hub and People Westend use it with 12 blocks per slot: `2 × (1000\n+ 20 + 100 + 1) × 12 = 26904`, which gives `28800` blocks (eight\nsessions). Each runtime only declares `BlocksPerAuraSlot`.\n\n## Notes\n\n- The threshold uses `MaxValidators`, not the number of validators\ndrawn. `KickThreshold` is exposed as a pallet constant in the metadata,\nso it should not read storage. On a chain that draws few or no\nvalidators, a candidate that stopped authoring is kicked after four\nsessions instead of one. Asset Hub Polkadot also uses a\n`MaxValidatorSet` of 1000, so with 320 validators drawn the threshold\nwould still be 14400, where 7200 would do easily.\n\n## Follow-ups\n\n- Polkadot and Kusama system chains in the fellowship runtimes use one\nsession too. They need the same derivation when they wire validator\ncollators\n- [Bulletin Westend WIP\nPR](https://github.com/paritytech/polkadot-bulletin-chain/pull/856)\nswitches to this helper once its pinned polkadot-sdk commit includes\nthis PR.",
+          "timestamp": "2026-11-17T16:55:06Z",
+          "tree_id": "c63335e3a487c8ee34815cfb575a87da9890eb9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f3743bce6f3f6b25be482ad16ba62b3788999df"
+        },
+        "date": 1794940350072,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3492162728300023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8738091274199267,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018200730000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018200730000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6951547628499997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.636812355312782,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.993603050829927,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019030330000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019030330000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.71249010102,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005208970850000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.66410123902,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.693622576839998,
             "unit": "seconds"
           }
         ]
