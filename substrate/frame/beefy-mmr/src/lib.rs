@@ -43,7 +43,10 @@ use sp_runtime::{
 
 use alloc::vec::Vec;
 use codec::Decode;
-use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, NodesUtils, ParentNumberAndHash};
+use pallet_mmr::{
+	primitives::{AncestryProof, LeafIndex},
+	LeafDataProvider, NodesUtils, ParentNumberAndHash,
+};
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
@@ -107,6 +110,15 @@ impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEc
 }
 
 type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output;
+
+/// Data extracted from a canonical header, used for validating ancestry proofs against it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AncestryValidationContext<Hash> {
+	/// The number of leaves of the MMR at the header.
+	pub leaf_count: LeafIndex,
+	/// The MMR root contained in the header digest.
+	pub mmr_root: Hash,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -207,7 +219,7 @@ where
 	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
 {
 	type Proof = AncestryProof<MerkleRootOf<T>>;
-	type ValidationContext = MerkleRootOf<T>;
+	type ValidationContext = AncestryValidationContext<MerkleRootOf<T>>;
 
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
 		let is_proof_optimal = pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof);
@@ -228,14 +240,16 @@ where
 			return None;
 		}
 
-		// Extract the MMR root from the header digest
-		header.digest().convert_first(|l| {
+		let mmr_root = header.digest().convert_first(|l| {
 			l.try_to(OpaqueDigestItemId::Consensus(&sp_consensus_beefy::BEEFY_ENGINE_ID))
 				.and_then(|log: ConsensusLog<<T as pallet_beefy::Config>::BeefyId>| match log {
 					ConsensusLog::MmrRoot(mmr_root) => Some(mmr_root),
 					_ => None,
 				})
-		})
+		})?;
+		let leaf_count = pallet_mmr::Pallet::<T>::block_num_to_leaf_count(*header.number()).ok()?;
+
+		Some(AncestryValidationContext { leaf_count, mmr_root })
 	}
 
 	fn is_non_canonical(
@@ -258,7 +272,14 @@ where
 			return false;
 		}
 
-		let canonical_mmr_root = context;
+		// The proof has to be sized after the header that provided the root.
+		if context.leaf_count != proof.leaf_count {
+			// Can't prove that the commitment is non-canonical if the proof is not sized
+			// after the header that provided the root.
+			return false;
+		}
+
+		let canonical_mmr_root = context.mmr_root;
 		let canonical_prev_root =
 			match pallet_mmr::Pallet::<T>::verify_ancestry_proof(canonical_mmr_root, proof) {
 				Ok(canonical_prev_root) => canonical_prev_root,

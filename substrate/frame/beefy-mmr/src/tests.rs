@@ -30,7 +30,7 @@ use sp_runtime::{traits::Keccak256, DigestItem};
 
 use frame_support::traits::OnInitialize;
 
-use crate::mock::*;
+use crate::{mock::*, AncestryValidationContext};
 
 fn init_block(block: u64, maybe_parent_hash: Option<H256>) {
 	let parent_hash = maybe_parent_hash.unwrap_or(H256::repeat_byte(block as u8));
@@ -228,11 +228,14 @@ fn extract_validation_context_should_work_correctly() {
 		// Make sure that all the info about h2 was stored on-chain
 		init_block(3, Some(h2.hash()));
 
-		// `extract_validation_context` should return the MMR root when the provided header
-		// is part of the chain,
+		// `extract_validation_context` should return the header number and the MMR root
+		// when the provided header is part of the chain,
 		assert_eq!(
 			BeefyMmr::extract_validation_context(h2.clone()),
-			Some(H256::from_slice(&expected_mmr_root))
+			Some(AncestryValidationContext {
+				leaf_count: 2,
+				mmr_root: H256::from_slice(&expected_mmr_root)
+			})
 		);
 
 		// `extract_validation_context` should return `None` when the provided header
@@ -257,6 +260,8 @@ fn is_non_canonical_should_work_correctly() {
 	ext.persist_offchain_overlay();
 
 	ext.execute_with(|| {
+		let context =
+			AncestryValidationContext { leaf_count: Mmr::mmr_leaves(), mmr_root: Mmr::mmr_root() };
 		let valid_proof = Mmr::generate_ancestry_proof(250, None).unwrap();
 		let mut invalid_proof = valid_proof.clone();
 		invalid_proof.items.push((300, Default::default()));
@@ -270,7 +275,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0
 				},
 				valid_proof.clone(),
-				Mmr::mmr_root(),
+				context.clone(),
 			),
 			true
 		);
@@ -289,7 +294,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0,
 				},
 				valid_proof.clone(),
-				Mmr::mmr_root(),
+				context.clone(),
 			),
 			true
 		);
@@ -308,7 +313,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0,
 				},
 				valid_proof.clone(),
-				Mmr::mmr_root(),
+				context.clone(),
 			),
 			true
 		);
@@ -325,7 +330,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0
 				},
 				invalid_proof,
-				Mmr::mmr_root(),
+				context.clone(),
 			),
 			false
 		);
@@ -342,8 +347,8 @@ fn is_non_canonical_should_work_correctly() {
 					block_number: 300,
 					validator_set_id: 0,
 				},
-				valid_proof,
-				Mmr::mmr_root(),
+				valid_proof.clone(),
+				context.clone(),
 			),
 			false
 		);
@@ -365,7 +370,7 @@ fn is_non_canonical_should_work_correctly() {
 						validator_set_id: 0,
 					},
 					proof.clone(),
-					Mmr::mmr_root(),
+					context.clone(),
 				),
 				false
 			);
@@ -381,11 +386,64 @@ fn is_non_canonical_should_work_correctly() {
 						validator_set_id: 0,
 					},
 					proof,
-					Mmr::mmr_root(),
+					context.clone(),
 				),
 				true
 			)
 		}
+	});
+}
+
+#[test]
+fn is_non_canonical_should_reject_proof_with_wrong_leaf_count() {
+	use sp_runtime::traits::Hash;
+
+	let mut ext = new_test_ext(vec![1, 2]);
+
+	let mut prev_roots = vec![];
+	ext.execute_with(|| {
+		for block_num in 1..=3 {
+			init_block(block_num, None);
+			prev_roots.push(Mmr::mmr_root())
+		}
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let context =
+			AncestryValidationContext { leaf_count: Mmr::mmr_leaves(), mmr_root: Mmr::mmr_root() };
+
+		// The MMR has 3 leaves. Its peaks are `n2 = H(n0 || n1)` and `n3`, and its root is
+		// `H(n3 || n2)`, since peaks are bagged from right to left.
+		let proof = Mmr::generate_ancestry_proof(2, None).unwrap();
+		assert_eq!(proof.leaf_count, 3);
+		let n2 = proof.prev_peaks[0];
+		let n3 = proof.items[0].1;
+		assert_eq!(context.mmr_root, Keccak256::hash(&[n3.as_bytes(), n2.as_bytes()].concat()));
+
+		// The root can also be the single peak `H(n3 || n2)` of an MMR with 2 leaves.
+		let wrong_proof = pallet_mmr::primitives::AncestryProof {
+			prev_peaks: vec![n3],
+			prev_leaf_count: 1,
+			leaf_count: 2,
+			items: vec![(1, n2)],
+		};
+		assert!(BeefyMmr::is_proof_optimal(&wrong_proof));
+		assert_eq!(Mmr::verify_ancestry_proof(context.mmr_root, wrong_proof.clone()), Ok(n3));
+
+		// A canonical commitment shouldn't be considered non-canonical based on the wrong proof.
+		let canonical_commitment = Commitment {
+			payload: Payload::from_single_entry(
+				known_payloads::MMR_ROOT_ID,
+				prev_roots[0].encode(),
+			),
+			block_number: 1,
+			validator_set_id: 0,
+		};
+		assert_eq!(
+			BeefyMmr::is_non_canonical(&canonical_commitment, wrong_proof, context.clone()),
+			false
+		);
 	});
 }
 
