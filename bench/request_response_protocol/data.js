@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794907061840,
+  "lastUpdate": 1794925146762,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147095,6 +147095,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2839697852,
             "range": "± 17224172",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f15542a9a7b0998480b00b7e10cd7445eca99882",
+          "message": "Send XCM fees to the DAP staging account on AHW and staking-async parachain (#13847)\n\nDOT in the DAP buffer is inactive issuance: `pallet-dap` deactivates it\nwhen `on_idle` drains the staging account into the buffer. On Asset Hub\nWestend and the staking-async parachain runtime, the XCM fee manager\nsends fees straight to the buffer, so they are never deactivated. Signed\nelection rewards are paid from the buffer through `ReactivatingPot`,\nwhich reactivates the paid amount. A reward paid out of XCM fees\nreactivates DOT that was never deactivated, and `InactiveIssuance`\ndrifts down.\n\n## Change\n\n- Both runtimes send XCM fees to the DAP staging account, **as Asset Hub\nPolkadot already does.**\n- The `staking-async parachain` genesis preset funds the staging account\nwith ED, as Asset Hub Westend does, so fees below ED are not burned.\n- A new AHW test checks that an XCM fee lands in staging and becomes\ninactive issuance after `on_idle`.\n- Tests asserting the old destination are updated.\n\n## Not part of this PR\n\n- Election rewards still use `ReactivatingPot`. Routing them through\n`pallet-dap` is left to the change that adds DAP-side accounting on\nbuffer outflows (see #13305)\n- The drift accumulated so far is accepted on Westend, no migration. On\nPolkadot, the drift around total issuance is meant to be fixed as final\nreconciliation step in\nhttps://github.com/polkadot-fellows/runtimes/issues/1283",
+          "timestamp": "2026-11-17T12:56:30Z",
+          "tree_id": "a8466d07822929410052e847a451c2723f49fda6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f15542a9a7b0998480b00b7e10cd7445eca99882"
+        },
+        "date": 1794925108590,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19725728,
+            "range": "± 270605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20041392,
+            "range": "± 244537",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21604687,
+            "range": "± 191630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25811415,
+            "range": "± 169147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60955968,
+            "range": "± 912829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 379739629,
+            "range": "± 8538063",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2541195566,
+            "range": "± 106245219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17526315,
+            "range": "± 151627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17620132,
+            "range": "± 112617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18352073,
+            "range": "± 170104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23005507,
+            "range": "± 135835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62848923,
+            "range": "± 859242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 371940827,
+            "range": "± 6516990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2841520415,
+            "range": "± 21778971",
             "unit": "ns/iter"
           }
         ]
