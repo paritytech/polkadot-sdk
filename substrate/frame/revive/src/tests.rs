@@ -153,15 +153,19 @@ macro_rules! assert_refcount {
 pub mod test_utils {
 	use super::{
 		BalanceWithDust, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		Test,
+		RuntimeEvent, RuntimeOrigin, System, Test,
 	};
 	use crate::{
-		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
-		PristineCode, address::AddressMapper, exec::AccountIdOf,
+		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, Pallet,
+		PristineCode,
+		address::AddressMapper,
+		evm::{CreateCallMode, GenericTransaction, TYPE_EIP1559, TYPE_EIP7702, fees::InfoT},
+		exec::AccountIdOf,
 	};
 	use codec::{Encode, MaxEncodedLen};
-	use frame_support::traits::fungible::{InspectHold, Mutate};
+	use frame_support::traits::fungible::{Balanced, InspectHold, Mutate};
 	use sp_core::H160;
+	use sp_runtime::{DispatchError, traits::Dispatchable};
 
 	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: sp_core::H256) {
 		set_balance(address, Contracts::min_balance() * 10);
@@ -250,6 +254,59 @@ pub mod test_utils {
 				}
 			});
 		}
+	}
+
+	/// Returns the error of the first Ethereum transaction that failed, if any.
+	pub fn eth_extrinsic_revert() -> Option<DispatchError> {
+		System::events().into_iter().find_map(|record| match record.event {
+			// Benchmark builds emit this event for successful transactions too, so it is not a
+			// failure.
+			#[cfg(feature = "runtime-benchmarks")]
+			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error })
+				if dispatch_error == crate::Error::<Test>::BenchmarkingError.into() =>
+			{
+				None
+			},
+			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
+				Some(dispatch_error)
+			},
+			_ => None,
+		})
+	}
+
+	/// Dispatches the call that a submitted `eth_transact` with `tx` is converted into, with
+	/// `tx.from` as the signer, and returns the error the transaction failed with, if any.
+	pub fn dispatch_eth_transaction(tx: GenericTransaction) -> Result<(), DispatchError> {
+		assert_eq!(eth_extrinsic_revert(), None, "an earlier Ethereum transaction failed");
+		let signer = <Test as Config>::AddressMapper::to_account_id(
+			&tx.from.expect("the transaction has a sender"),
+		);
+		let base_fee = Pallet::<Test>::evm_base_fee();
+		let tx = GenericTransaction {
+			gas_price: Some(base_fee),
+			max_fee_per_gas: Some(base_fee),
+			chain_id: Some(<Test as Config>::ChainId::get().into()),
+			r#type: Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			),
+			..tx
+		};
+		// The fee depends on the length of the signed transaction. A placeholder signature has the
+		// same length, and only the extrinsic check, which this helper skips, verifies it.
+		let transaction_encoded = tx.clone().try_into_unsigned().unwrap().dummy_signed_payload();
+		let encoded_len = <Test as Config>::FeeInfo::encoded_len(
+			crate::Call::<Test>::eth_transact { payload: transaction_encoded.clone() }.into(),
+		);
+		let call_info = tx
+			.into_call::<Test>(CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded))
+			.unwrap();
+		// A real transaction fills this pot from its gas before the call runs.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			call_info.tx_fee + call_info.storage_deposit,
+		));
+		let origin = RuntimeOrigin::from(crate::Origin::<Test>::EthTransaction(signer));
+		call_info.call.dispatch(origin).map_err(|error| error.error)?;
+		eth_extrinsic_revert().map_or(Ok(()), Err)
 	}
 }
 
@@ -1284,10 +1341,15 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 }
 
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
-// whatever the drain benchmark's per-byte marginal comes to for that shape.
+// whatever the drain benchmark's marginals come to for that shape. The ref time is the drain's
+// share for the log's topic count and data length, so each topic adds the per-topic marginal of
+// `outside_frame_log_topics`, which covers the bloom's hash of the topic on top of its bytes.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
-	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
+	use crate::{
+		WeightInfo, evm::block_hash::OutsideFrameLog, limits::NUM_EVENT_TOPICS,
+		weightinfo_extension::OnFinalizeBlockParts,
+	};
 	use codec::Encode;
 	use frame_support::dispatch::DispatchClass;
 	use sp_core::H256;
@@ -1301,7 +1363,7 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		);
 		let after = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
 		let entry = OutsideFrameLog { event_index: 0, contract, topics, data };
-		(after.saturating_sub(before).proof_size(), entry.encoded_size() as u64)
+		(after.saturating_sub(before), u64::try_from(entry.encoded_size()).unwrap())
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1309,20 +1371,46 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		// it here.
 		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
 
+		let max_topics = usize::try_from(NUM_EVENT_TOPICS).unwrap();
 		let shapes = [
-			(vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize], vec![0u8; 64]),
+			(vec![H256::repeat_byte(2); max_topics], vec![0u8; 64]),
 			(vec![H256::repeat_byte(3)], vec![0u8; 32]),
 			(vec![], vec![]),
 		];
-		for (i, (topics, data)) in shapes.into_iter().enumerate() {
+		for (contract, (topics, data)) in (4u8..).zip(shapes) {
+			let num_topics = u32::try_from(topics.len()).unwrap();
+			let data_len = u32::try_from(data.len()).unwrap();
 			let (registered, entry_bytes) =
-				registered_by(H160::repeat_byte(4 + i as u8), topics, data.clone());
+				registered_by(H160::repeat_byte(contract), topics, data);
 			let marginal =
-				<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
+				<Test as Config>::WeightInfo::per_outside_frame_log(num_topics, data_len);
 			assert!(entry_bytes > 0);
-			assert!(registered >= entry_bytes, "shape {i}");
-			assert_eq!(registered, marginal.max(entry_bytes), "shape {i}");
+			assert!(registered.proof_size() >= entry_bytes, "contract {contract}");
+			assert_eq!(
+				registered.proof_size(),
+				marginal.proof_size().max(entry_bytes),
+				"contract {contract}"
+			);
+			assert_eq!(registered.ref_time(), marginal.ref_time(), "contract {contract}");
 		}
+
+		let per_topic = <Test as Config>::WeightInfo::outside_frame_log_topics(1)
+			.saturating_sub(<Test as Config>::WeightInfo::outside_frame_log_topics(0))
+			.ref_time();
+		assert!(per_topic > 0);
+		let data = vec![0u8; 64];
+		let (with_topics, _) = registered_by(
+			H160::repeat_byte(8),
+			vec![H256::repeat_byte(8); max_topics],
+			data.clone(),
+		);
+		let (without_topics, _) = registered_by(H160::repeat_byte(9), vec![], data);
+		assert!(
+			with_topics.ref_time() >=
+				without_topics
+					.ref_time()
+					.saturating_add(u64::from(NUM_EVENT_TOPICS).saturating_mul(per_topic))
+		);
 	});
 }
 
