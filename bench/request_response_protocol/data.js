@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794925146762,
+  "lastUpdate": 1794939317102,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147203,6 +147203,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2841520415,
             "range": "± 21778971",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9f3743bce6f3f6b25be482ad16ba62b3788999df",
+          "message": "Westend system chains: derive KickThreshold from the largest collator set (#13873)\n\n`pallet-collator-selection` kicks a bonded candidate at session start if\nit has not authored a block in the last `KickThreshold` blocks. Asset\nHub Westend and People Westend set it to one session (3600 blocks).\n\n`pallet-validator-collators` adds up to `MaxValidators` validators to\nthe Aura set. Each collator authors the blocks of one Aura slot (12\nblocks). A full round exceeds a session well before the largest set:\n\n- Polkadot after the reduction to 320 validators, with the same slot and\nsession as here: `(320 + 20 + 100) × 12 = 5280` blocks, about one and a\nhalf sessions.\n- The largest set, `MaxValidators` of 1000: `(1000 + 20 + 100) × 12 =\n13440` blocks, almost four sessions.\n\nA good candidate would then be kicked between its own slots, and would\nhave to register again.\n\n## Changes\n\n`parachains-common` adds `impls::KickThreshold<Runtime, ExtraCollators,\nBlocksPerAuraSlot, SessionLength>`, a `Get` for collator selection on a\nchain whose Aura set holds more collators than collator selection's own.\nFor validator collators, `ExtraCollators` is `MaxValidators` of\n`pallet-validator-collators`. It computes the threshold from the largest\ncollator set (`ExtraCollators` plus collator selection's invulnerables\nand candidates) with the following rule\n\n_Two full Aura rounds plus two slots, rounded to the first whole number\nof sessions above that, since candidates are only kicked at session\nstart. With a stable set, two turns of the same collator are at most one\nround plus one slot apart. A change of the set length at a session\nboundary can add up to one more round._\n\nAsset Hub and People Westend use it with 12 blocks per slot: `2 × (1000\n+ 20 + 100 + 1) × 12 = 26904`, which gives `28800` blocks (eight\nsessions). Each runtime only declares `BlocksPerAuraSlot`.\n\n## Notes\n\n- The threshold uses `MaxValidators`, not the number of validators\ndrawn. `KickThreshold` is exposed as a pallet constant in the metadata,\nso it should not read storage. On a chain that draws few or no\nvalidators, a candidate that stopped authoring is kicked after four\nsessions instead of one. Asset Hub Polkadot also uses a\n`MaxValidatorSet` of 1000, so with 320 validators drawn the threshold\nwould still be 14400, where 7200 would do easily.\n\n## Follow-ups\n\n- Polkadot and Kusama system chains in the fellowship runtimes use one\nsession too. They need the same derivation when they wire validator\ncollators\n- [Bulletin Westend WIP\nPR](https://github.com/paritytech/polkadot-bulletin-chain/pull/856)\nswitches to this helper once its pinned polkadot-sdk commit includes\nthis PR.",
+          "timestamp": "2026-11-17T16:55:06Z",
+          "tree_id": "c63335e3a487c8ee34815cfb575a87da9890eb9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f3743bce6f3f6b25be482ad16ba62b3788999df"
+        },
+        "date": 1794939280416,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20960285,
+            "range": "± 286591",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21337819,
+            "range": "± 290344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22904708,
+            "range": "± 391826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26706010,
+            "range": "± 246972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61056828,
+            "range": "± 1319109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 385565696,
+            "range": "± 10860957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2817031633,
+            "range": "± 244784888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18585258,
+            "range": "± 265260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18319545,
+            "range": "± 226045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19042697,
+            "range": "± 281777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23765920,
+            "range": "± 333727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62580016,
+            "range": "± 719470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 371655413,
+            "range": "± 5136300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2933691724,
+            "range": "± 20839764",
             "unit": "ns/iter"
           }
         ]
