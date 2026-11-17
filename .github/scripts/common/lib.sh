@@ -419,12 +419,6 @@ function import_gpg_key_from_file() {
 # tried first for the following keys. GPG_KEYSERVER can be used to set a preferred keyserver.
 # If no keyserver delivers the key, it is imported from the key files committed to the repo.
 function import_gpg_keys() {
-<<<<<<< HEAD
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
-  SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
-=======
   local keyservers=()
   local keyserver
   for keyserver in ${GPG_KEYSERVER:-} "hkps://keyserver.ubuntu.com" "hkps://keys.openpgp.org"; do
@@ -432,12 +426,11 @@ function import_gpg_keys() {
       keyservers+=("$keyserver")
     fi
   done
->>>>>>> 714b87e2 ([CI/CD] Add a fallback the gpg key servers if they are not reachable (#13827))
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
   PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
   local key
-  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
+  for key in $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
     local imported_from=""
     for keyserver in "${keyservers[@]}"; do
       echo "Importing GPG key $key from $keyserver"
