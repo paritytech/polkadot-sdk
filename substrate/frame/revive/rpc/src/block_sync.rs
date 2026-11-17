@@ -493,8 +493,10 @@ impl Client {
 	/// extraction but still fetched. A range that still fails
 	/// after `retry.max_attempts` stays pending, which keeps [`Client::advance_sync_head`]
 	/// from moving the `Head` label over the missing blocks. In archive mode the next
-	/// restart's backward sync fills them, provided the cause has cleared; otherwise that sync
-	/// stops at the same block and the label stays where it is.
+	/// restart's backward sync walks from the finalized block down to the block after `Head`
+	/// and fills them, provided neither their cause nor that of a failing block above them
+	/// persists: the walk stops at the first block it cannot index, leaves everything below it
+	/// unvisited, and the label stays where it is until a restart gets past that block.
 	async fn fill_subscription_gap(
 		&self,
 		GapFillRequest { from_inclusive, to_inclusive, from_hash }: GapFillRequest,
