@@ -27,7 +27,7 @@
 //! record the interval for the candidate's lift to bind.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input};
 use scale_info::TypeInfo;
 
 use crate::{
@@ -104,14 +104,45 @@ impl MessagingInherentData {
 	}
 }
 
+// Copy of codec's private btree_utils::mem_size_of_btree.
+fn mem_size_of_btree<T>(len: u32) -> usize {
+	use core::mem::size_of;
+
+	const B: usize = 6;
+	const CAPACITY: usize = 2 * B - 1;
+	const MIN_LEN_AFTER_SPLIT: usize = B - 1;
+
+	if len == 0 {
+		return 0;
+	}
+	let leaf_node_size = size_of::<(usize, u16, u16, [T; CAPACITY])>();
+	let internal_node_size = leaf_node_size + size_of::<[usize; 2 * B]>();
+	let num_nodes = (len as usize).saturating_div((CAPACITY + MIN_LEN_AFTER_SPLIT) * 2 / 3);
+	if num_nodes == 0 {
+		return leaf_node_size;
+	}
+	num_nodes.saturating_mul(internal_node_size)
+}
+
 fn decode_strict_map<K: Decode + Ord, V: Decode, I: Input>(
 	input: &mut I,
 ) -> Result<BTreeMap<K, V>, CodecError> {
-	let pairs = Vec::<(K, V)>::decode(input)?;
-	if pairs.windows(2).any(|w| w[0].0 >= w[1].0) {
-		return Err("MessagingInherentData: map keys must be strictly increasing".into());
-	}
-	Ok(pairs.into_iter().collect())
+	let Compact(len) = Compact::<u32>::decode(input)?;
+	input.descend_ref()?;
+	let result = (|| {
+		input.on_before_alloc_mem(mem_size_of_btree::<(K, V)>(len))?;
+		let mut map = BTreeMap::new();
+		for _ in 0..len {
+			let (key, value) = <(K, V)>::decode(input)?;
+			if map.last_key_value().is_some_and(|(previous, _)| previous >= &key) {
+				return Err("MessagingInherentData: map keys must be strictly increasing".into());
+			}
+			map.insert(key, value);
+		}
+		Ok(map)
+	})();
+	input.ascend_ref();
+	result
 }
 
 impl Decode for MessagingInherentData {
@@ -242,6 +273,92 @@ mod tests {
 		for events in [vec![(b2, read.clone()), (b1, read.clone())], vec![(b1, read.clone()); 2]] {
 			let bytes = (no_channels(), Vec::<(OutChannelId, LossyRead)>::new(), events).encode();
 			assert!(MessagingInherentData::decode(&mut &bytes[..]).is_err());
+		}
+	}
+
+	#[test]
+	fn inherent_memory_limit_accounts_for_map_nodes() {
+		use codec::DecodeWithMemLimit;
+
+		let key = InChannelId { sender: ParaId::from(1000), domain: 0, num: 0 };
+		let data = MessagingInherentData {
+			channels: BTreeMap::from([(key, Vec::new())]),
+			..Default::default()
+		};
+		let encoded = data.encode();
+		let vec_bytes = data.channels.len() * core::mem::size_of::<(InChannelId, Vec<Payload>)>();
+		let map_bytes =
+			mem_size_of_btree::<(InChannelId, Vec<Payload>)>(data.channels.len() as u32);
+		let small_limit = vec_bytes + 1;
+		assert!(small_limit < map_bytes);
+		assert!(Vec::<(InChannelId, Vec<Payload>)>::decode_with_mem_limit(
+			&mut &encoded[..],
+			small_limit,
+		)
+		.is_ok());
+		assert!(
+			MessagingInherentData::decode_with_mem_limit(&mut &encoded[..], small_limit).is_err()
+		);
+		assert!(MessagingInherentData::decode_with_mem_limit(&mut &encoded[..], map_bytes).is_err());
+		assert_eq!(
+			MessagingInherentData::decode_with_mem_limit(&mut &encoded[..], map_bytes + 1)
+				.expect("the limit exceeds the map estimate; qed"),
+			data,
+		);
+	}
+
+	#[test]
+	fn strict_map_balances_depth_on_success_and_errors() {
+		struct TrackedInput<'a> {
+			bytes: &'a [u8],
+			depth: usize,
+			fail_allocation: bool,
+		}
+
+		impl Input for TrackedInput<'_> {
+			fn remaining_len(&mut self) -> Result<Option<usize>, CodecError> {
+				self.bytes.remaining_len()
+			}
+
+			fn read(&mut self, into: &mut [u8]) -> Result<(), CodecError> {
+				self.bytes.read(into)
+			}
+
+			fn descend_ref(&mut self) -> Result<(), CodecError> {
+				self.depth += 1;
+				Ok(())
+			}
+
+			fn ascend_ref(&mut self) {
+				self.depth -= 1;
+			}
+
+			fn on_before_alloc_mem(&mut self, _: usize) -> Result<(), CodecError> {
+				if self.fail_allocation {
+					return Err("allocation rejected".into());
+				}
+				Ok(())
+			}
+		}
+
+		let valid = vec![(1u8, 0u8)].encode();
+		let mut input = TrackedInput { bytes: &valid, depth: 0, fail_allocation: false };
+		assert_eq!(
+			decode_strict_map::<u8, u8, _>(&mut input)
+				.expect("the encoded map is ordered and complete; qed"),
+			BTreeMap::from([(1, 0)])
+		);
+		assert_eq!(input.depth, 0);
+
+		for (bytes, fail_allocation) in [
+			(valid, true),
+			(Compact(1u32).encode(), false),
+			(vec![(2u8, 0u8), (1, 0)].encode(), false),
+			(vec![(1u8, 0u8), (1, 0)].encode(), false),
+		] {
+			let mut input = TrackedInput { bytes: &bytes, depth: 0, fail_allocation };
+			assert!(decode_strict_map::<u8, u8, _>(&mut input).is_err());
+			assert_eq!(input.depth, 0);
 		}
 	}
 
