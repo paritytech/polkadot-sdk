@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794908218621,
+  "lastUpdate": 1794926905391,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d323e41aeb295d7528b0d89e277359380ed5e8eb",
-          "message": "UncheckedExtrinsic: Improve memory usage (#11908)\n\nImproves the memory usage of the unchecked extrinsic by pre-allocating\nsome buffers and preventing e.g. printing huge calls.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-30T12:49:34Z",
-          "tree_id": "f3c456da97206c9ef25d5b8bed0845e01a849b0e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d323e41aeb295d7528b0d89e277359380ed5e8eb"
-        },
-        "date": 1777558654859,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026776292700000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009198623669999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008843857309999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011532943210000009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f15542a9a7b0998480b00b7e10cd7445eca99882",
+          "message": "Send XCM fees to the DAP staging account on AHW and staking-async parachain (#13847)\n\nDOT in the DAP buffer is inactive issuance: `pallet-dap` deactivates it\nwhen `on_idle` drains the staging account into the buffer. On Asset Hub\nWestend and the staking-async parachain runtime, the XCM fee manager\nsends fees straight to the buffer, so they are never deactivated. Signed\nelection rewards are paid from the buffer through `ReactivatingPot`,\nwhich reactivates the paid amount. A reward paid out of XCM fees\nreactivates DOT that was never deactivated, and `InactiveIssuance`\ndrifts down.\n\n## Change\n\n- Both runtimes send XCM fees to the DAP staging account, **as Asset Hub\nPolkadot already does.**\n- The `staking-async parachain` genesis preset funds the staging account\nwith ED, as Asset Hub Westend does, so fees below ED are not burned.\n- A new AHW test checks that an XCM fee lands in staging and becomes\ninactive issuance after `on_idle`.\n- Tests asserting the old destination are updated.\n\n## Not part of this PR\n\n- Election rewards still use `ReactivatingPot`. Routing them through\n`pallet-dap` is left to the change that adds DAP-side accounting on\nbuffer outflows (see #13305)\n- The drift accumulated so far is accepted on Westend, no migration. On\nPolkadot, the drift around total issuance is meant to be fixed as final\nreconciliation step in\nhttps://github.com/polkadot-fellows/runtimes/issues/1283",
+          "timestamp": "2026-11-17T12:56:30Z",
+          "tree_id": "a8466d07822929410052e847a451c2723f49fda6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f15542a9a7b0998480b00b7e10cd7445eca99882"
+        },
+        "date": 1794926862007,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025780555700000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010356434960000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009505589919999984,
             "unit": "seconds"
           }
         ]
