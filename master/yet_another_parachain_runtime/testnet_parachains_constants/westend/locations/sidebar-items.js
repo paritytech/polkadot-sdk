@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AssetHubLocation","AssetHubParaId","PeopleLocation","PeopleParaId"],"type":["GovernanceLocation"]};
+window.SIDEBAR_ITEMS = {"constant":["BULLETIN_ID"],"struct":["AssetHubLocation","AssetHubParaId","BulletinLocation","BulletinParaId","PeopleLocation","PeopleParaId"],"type":["GovernanceLocation"]};

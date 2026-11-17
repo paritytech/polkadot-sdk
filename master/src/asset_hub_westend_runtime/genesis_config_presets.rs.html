@@ -180,7 +180,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>sp_staking::ServiceKind;
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>testnet_parachains_constants::westend::{
-<a href=#33 id=33 data-nosnippet>33</a>	currency::UNITS <span class="kw">as </span>WND, locations::PeopleParaId, xcm_version::SAFE_XCM_VERSION,
+<a href=#33 id=33 data-nosnippet>33</a>	currency::UNITS <span class="kw">as </span>WND, xcm_version::SAFE_XCM_VERSION,
 <a href=#34 id=34 data-nosnippet>34</a>};
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>xcm_builder::GlobalConsensusConvertsFor;
@@ -353,10 +353,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#203 id=203 data-nosnippet>203</a>					),
 <a href=#204 id=204 data-nosnippet>204</a>				],
 <a href=#205 id=205 data-nosnippet>205</a>				<span class="comment">// Era points per block authored on each chain that reports its blocks.
-<a href=#206 id=206 data-nosnippet>206</a>				</span><span class="macro">vec!</span>[
-<a href=#207 id=207 data-nosnippet>207</a>					(id, ServiceKind::Collation, <span class="number">20</span>),
-<a href=#208 id=208 data-nosnippet>208</a>					(PeopleParaId::get(), ServiceKind::Collation, <span class="number">20</span>),
-<a href=#209 id=209 data-nosnippet>209</a>				],
+<a href=#206 id=206 data-nosnippet>206</a>				</span>core::iter::once(id)
+<a href=#207 id=207 data-nosnippet>207</a>					.chain(ValidatorCollatorChains::get())
+<a href=#208 id=208 data-nosnippet>208</a>					.map(|id| (id, ServiceKind::Collation, <span class="number">20</span>))
+<a href=#209 id=209 data-nosnippet>209</a>					.collect(),
 <a href=#210 id=210 data-nosnippet>210</a>			)
 <a href=#211 id=211 data-nosnippet>211</a>		},
 <a href=#212 id=212 data-nosnippet>212</a>		sp_genesis_builder::DEV_RUNTIME_PRESET =&gt; asset_hub_westend_genesis(

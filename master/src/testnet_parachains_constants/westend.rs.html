@@ -386,14 +386,19 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#236 id=236 data-nosnippet>236</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
 <a href=#237 id=237 data-nosnippet>237</a>	<span class="kw">use </span>xcm::latest::prelude::{Location, Parachain};
 <a href=#238 id=238 data-nosnippet>238</a>
-<a href=#239 id=239 data-nosnippet>239</a>	<span class="macro">parameter_types!</span> {
-<a href=#240 id=240 data-nosnippet>240</a>		<span class="kw">pub </span>AssetHubLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
-<a href=#241 id=241 data-nosnippet>241</a>		<span class="kw">pub </span>PeopleLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
-<a href=#242 id=242 data-nosnippet>242</a>	}
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a>	<span class="doccomment">/// The governance on the AssetHub.
-<a href=#245 id=245 data-nosnippet>245</a>	</span><span class="kw">pub type </span>GovernanceLocation = AssetHubLocation;
-<a href=#246 id=246 data-nosnippet>246</a>}
+<a href=#239 id=239 data-nosnippet>239</a>	<span class="doccomment">/// Bulletin's parachain ID, outside the system parachain range.
+<a href=#240 id=240 data-nosnippet>240</a>	</span><span class="kw">pub const </span>BULLETIN_ID: u32 = <span class="number">2487</span>;
+<a href=#241 id=241 data-nosnippet>241</a>
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="macro">parameter_types!</span> {
+<a href=#243 id=243 data-nosnippet>243</a>		<span class="kw">pub </span>AssetHubLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
+<a href=#244 id=244 data-nosnippet>244</a>		<span class="kw">pub </span>PeopleLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
+<a href=#245 id=245 data-nosnippet>245</a>		<span class="kw">pub </span>BulletinParaId: cumulus_primitives_core::ParaId = BULLETIN_ID.into();
+<a href=#246 id=246 data-nosnippet>246</a>		<span class="kw">pub </span>BulletinLocation: Location = Location::new(<span class="number">1</span>, Parachain(BULLETIN_ID));
+<a href=#247 id=247 data-nosnippet>247</a>	}
+<a href=#248 id=248 data-nosnippet>248</a>
+<a href=#249 id=249 data-nosnippet>249</a>	<span class="doccomment">/// The governance on the AssetHub.
+<a href=#250 id=250 data-nosnippet>250</a>	</span><span class="kw">pub type </span>GovernanceLocation = AssetHubLocation;
+<a href=#251 id=251 data-nosnippet>251</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
