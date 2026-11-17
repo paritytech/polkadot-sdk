@@ -424,6 +424,71 @@ fn thawing_refunded_blocked_account_with_freeze_fails() {
 }
 
 #[test]
+fn refunded_blocked_account_passes_try_state() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		// the tombstone stays in place for the `try_state` run at the end of the test
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_eq!(Assets::total_supply(0), 0);
+		assert_eq!(
+			Asset::<Test>::get(0).unwrap().accounts,
+			Account::<Test>::iter_prefix(0).count() as u32
+		);
+	});
+}
+
+#[test]
+fn destroying_asset_removes_refunded_blocked_account() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, false));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+		assert!(!Asset::<Test>::contains_key(0));
+	});
+}
+
+#[test]
+fn refund_trait_on_blocked_account() {
+	use frame_support::traits::fungibles::Refund;
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		// 2 placed its own deposit, 3's deposit was placed by 1
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 3));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 3));
+
+		assert_ok!(<Assets as Refund<u64>>::refund(0, 2));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_eq!(<Assets as Refund<u64>>::deposit_held(0, 2), None);
+		assert_noop!(<Assets as Refund<u64>>::refund(0, 2), Error::<Test>::NoDeposit);
+
+		// a deposit placed by someone else is still refused while blocked, as by `refund_other`
+		assert_noop!(<Assets as Refund<u64>>::refund(0, 3), Error::<Test>::Frozen);
+	});
+}
+
+#[test]
 fn approval_lifecycle_works() {
 	build_and_execute(|| {
 		// can't approve non-existent token
