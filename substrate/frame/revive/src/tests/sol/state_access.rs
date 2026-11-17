@@ -21,22 +21,24 @@
 use crate::{
 	AccountInfo, BalanceOf, BalanceWithDust, Code, Config, Pallet, Weight,
 	access_list::{
-		Access, AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, StorageOp,
-		TransferItems, Warmth,
+		Access, AccessEntry, CallItems, CodeLoadItems, InstantiateItems, StorageOp, TransferItems,
+		Warmth,
 	},
-	evm::fees::InfoT,
+	evm::{fees::InfoT, transfer_with_dust},
 	test_utils::{
 		ALICE, ALICE_ADDR, EVE_ADDR,
 		builder::{BareCallBuilder, Contract},
 	},
 	tests::{
-		AllPalletsWithSystem, ExtBuilder, RuntimeOrigin, Test, builder, test_utils::get_contract,
+		AllPalletsWithSystem, ExtBuilder, FinalAccessListEntries, RuntimeOrigin, Test, builder,
+		test_utils::get_contract,
 	},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::{
 	StorageInfo, StorageInfoTrait,
 	fungible::{Balanced, Mutate},
+	tokens::Preservation,
 };
 use pallet_revive_fixtures::{Callee, Caller, Factory, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
@@ -235,7 +237,7 @@ fn deploy_contracts<const N: usize>(
 	let mut ext = ExtBuilder::default().build();
 	let contracts = ext.execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		// An Ethereum transaction pays deposits from the fee its signer paid up front.
+		// An Ethereum transaction takes deposits from the fee its signer sent up front.
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 		contract_codes.map(|code| {
 			let Contract { addr, account_id } =
@@ -256,10 +258,10 @@ fn reads_and_writes_of<R>(
 ) -> (ReadsAndWrites, BTreeMap<AccessEntry, StorageOp>, R) {
 	ext.commit_all().unwrap();
 	// Clears earlier entries, so `warmed` holds only the operation's.
-	AccessList::take_final_entries();
+	FinalAccessListEntries::take();
 	let recorder = Recorder::<sp_core::Blake2Hasher>::default();
 	let outcome = ext.execute_with_recorder(recorder.clone(), operation);
-	let warmed = AccessList::take_final_entries();
+	let warmed = FinalAccessListEntries::take();
 
 	let mut recorded = recorder.recorded_keys();
 	let read_keys = recorded
@@ -268,14 +270,14 @@ fn reads_and_writes_of<R>(
 		.into_keys()
 		.map(|key| key.to_vec())
 		.collect::<Vec<_>>();
-	assert_eq!(recorded, Default::default(), "contract storage is out of scope");
+	assert_eq!(recorded, Default::default(), "contract storage is read");
 
 	let written_keys = ext
 		.overlayed_changes()
 		.changes()
 		.map(|(key, _)| key.clone())
 		.collect::<Vec<_>>();
-	assert_eq!(ext.overlayed_changes().children().count(), 0, "contract storage is out of scope");
+	assert_eq!(ext.overlayed_changes().children().count(), 0, "contract storage is written");
 
 	// `from_keys` reads `OriginalAccount`, and storage can be read only inside `execute_with`.
 	(ext.execute_with(|| ReadsAndWrites::from_keys(&read_keys, &written_keys)), warmed, outcome)
@@ -327,9 +329,6 @@ fn call_with_dispatchable_config(
 #[test_case(false; "no dust")]
 #[test_case(true;  "dust")]
 fn a_transfer_accesses_what_it_declares(dust: bool) {
-	use crate::evm::transfer_with_dust;
-	use frame_support::traits::tokens::Preservation;
-
 	// `transfer_with_dust` runs no contract code, so it does not depend on the backend.
 	let (from_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
 	let (to_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
@@ -346,8 +345,8 @@ fn a_transfer_accesses_what_it_declares(dust: bool) {
 	let declared = DeclaredEntries::of(TransferItems { from: from.addr, to: to.addr, dust });
 	let mut expected = ReadsAndWrites::from_declared(declared);
 	if !dust {
-		// A transfer without dust does not touch the receiver's info.
-		// `CallItems` declares it as a write before each transfer, so this read finds it warm.
+		// Without dust, the transfer does not touch the receiver's info, though `TransferItems`
+		// declares it. A call warms that info before its transfer, so the transfer finds it warm.
 		assert!(
 			expected.read.remove(&AccessEntry::AccountInfo { address: to.addr }),
 			"`TransferItems` does not declare the receiver's `AccountInfo`",
@@ -395,8 +394,11 @@ fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureTyp
 	let (mut ext, [contract]) = deploy_contracts([code]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
+	// `call` takes a native balance, so only `eth_call` can send a value with dust.
+	let transaction_kind =
+		if dust { TransactionKind::Ethereum } else { TransactionKind::Substrate };
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		let result = call_with_dispatchable_config(contract.addr, TransactionKind::Substrate)
+		let result = call_with_dispatchable_config(contract.addr, transaction_kind)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "the contract returned {:?}", result.data);
@@ -454,9 +456,12 @@ fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
 	let (mut ext, []) = deploy_contracts([]);
 	let eoa = H160::from([0xfe; 20]);
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
+	// `call` takes a native balance, so only `eth_call` can send a value with dust.
+	let transaction_kind =
+		if dust { TransactionKind::Ethereum } else { TransactionKind::Substrate };
 
 	let (accessed, warmed, ()) = reads_and_writes_of(&mut ext, || {
-		call_with_dispatchable_config(eoa, TransactionKind::Substrate)
+		call_with_dispatchable_config(eoa, transaction_kind)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
 	});
@@ -574,31 +579,15 @@ fn a_nested_value_call_accesses_what_it_declares(
 	assert_eq!(accessed, ReadsAndWrites::from_declared(declared));
 }
 
-#[test_matrix(
-	[FixtureType::Solc, FixtureType::Resolc],
-	[TransactionKind::Substrate, TransactionKind::Ethereum]
-)]
-fn a_nested_instantiate_accesses_what_it_declares(
-	fixture_type: FixtureType,
+/// Calls `create` on `factory` in a transaction of `transaction_kind`, checks that the call
+/// succeeded, and returns what the call read, wrote and warmed, along with the new child's
+/// address and code hash.
+fn reads_and_writes_of_instantiate(
+	ext: &mut sp_io::TestExternalities,
+	factory: &DeployedContract,
 	transaction_kind: TransactionKind,
-) {
-	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
-	let child_code_uploaded_up_front = fixture_type == FixtureType::Resolc;
-	let (mut ext, [factory]) = deploy_contracts([factory_code]);
-	if child_code_uploaded_up_front {
-		// resolc creates the child from an uploaded blob; solc stores the code on the create.
-		let (child_code, _) = compile_module_with_type("ReceivingChild", fixture_type).unwrap();
-		ext.execute_with(|| {
-			Pallet::<Test>::upload_code(
-				RuntimeOrigin::signed(ALICE.clone()),
-				child_code,
-				<BalanceOf<Test>>::MAX,
-			)
-			.unwrap();
-		});
-	}
-
-	let (accessed, warmed, child_addr) = reads_and_writes_of(&mut ext, || {
+) -> (ReadsAndWrites, BTreeMap<AccessEntry, StorageOp>, H160, H256) {
+	let (accessed, warmed, child_addr) = reads_and_writes_of(ext, || {
 		let result = call_with_dispatchable_config(factory.addr, transaction_kind)
 			.data(Factory::createCall {}.abi_encode())
 			.build_and_unwrap_result();
@@ -607,28 +596,23 @@ fn a_nested_instantiate_accesses_what_it_declares(
 		H160::from_slice(created.as_slice())
 	});
 	let child_hash = ext.execute_with(|| get_contract(&child_addr).code_hash);
+	(accessed, warmed, child_addr, child_hash)
+}
 
-	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
-		.and(CodeLoadItems::new(factory.code_hash))
-		.and(InstantiateItems { address: child_addr, deployer: factory.addr })
-		.and(CodeLoadItems::with_info_op(child_hash, StorageOp::Write));
-	assert_eq!(warmed, declared.warmed());
+/// Returns the reads and writes expected from `declared` for the instantiate that creates the
+/// child at `child_addr`.
+fn expected_reads_and_writes_of_instantiate(
+	declared: DeclaredEntries,
+	child_addr: H160,
+) -> ReadsAndWrites {
 	let mut expected = ReadsAndWrites::from_declared(declared);
-	// The instantiate never reads it, but its benchmarks prepay a later call's read.
+	// The instantiate skips the child's `OriginalAccount` read; its benchmarks prepay a later read.
 	assert!(
 		expected.read.remove(&AccessEntry::OriginalAccount { address: child_addr }),
 		"`InstantiateItems` does not declare the new contract's `OriginalAccount`",
 	);
-	if matches!(transaction_kind, TransactionKind::Substrate) {
-		// A Substrate transaction charges the new contract's deposit to the origin's account. No
-		// access declares it, because the signed transaction already touched that account for its
-		// nonce and fee. An Ethereum transaction pays the deposit from the prepaid fee.
-		expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
-		expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
-	}
-
 	// The deposit's storage items, which the access list does not track.
-	let mut deposit_items = BTreeSet::from(
+	let deposit_items = BTreeSet::from(
 		[
 			"Assets::Account",
 			"Assets::Asset",
@@ -639,23 +623,121 @@ fn a_nested_instantiate_accesses_what_it_declares(
 		]
 		.map(String::from),
 	);
-	if !child_code_uploaded_up_front {
-		// The create stores the child's code without reading it; its benchmark pays for that write.
-		// It then warms the code for a later load with `CodeLoadItems`, which declares a read.
-		// The code's later writes do not go through the list, so none is overcharged.
-		let child_blob = AccessEntry::PristineCode { hash: child_hash };
-		assert!(
-			expected.read.remove(&child_blob),
-			"`CodeLoadItems` does not declare the child's `PristineCode`",
-		);
-		expected.written.insert(child_blob);
-		// The create's benchmark also pays for holding the code deposit on the pallet's account.
-		deposit_items.insert("System::Account".into());
-	}
 	expected.other_read = deposit_items.clone();
 	expected.other_written = deposit_items;
 	// The create reads the deletion queue counter to derive the child's trie id; its benchmark
 	// pays for that read.
 	expected.other_read.insert("Contracts::DeletionQueueCounter".into());
+	expected
+}
+
+#[test]
+fn a_nested_instantiate_that_stores_new_code_accesses_what_it_declares() {
+	let (factory_code, _) = compile_module_with_type("Factory", FixtureType::Solc).unwrap();
+	let (mut ext, [factory]) = deploy_contracts([factory_code]);
+	let (accessed, warmed, child_addr, child_hash) =
+		reads_and_writes_of_instantiate(&mut ext, &factory, TransactionKind::Ethereum);
+
+	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
+		.and(CodeLoadItems::new(factory.code_hash))
+		.and(InstantiateItems { address: child_addr, deployer: factory.addr })
+		.and(CodeLoadItems::with_info_op(child_hash, StorageOp::Write));
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = expected_reads_and_writes_of_instantiate(declared, child_addr);
+	// The create writes the child's code without reading it, and its benchmark pays for that write.
+	// `CodeLoadItems` declares a read because it only warms the code for a later load.
+	let child_blob = AccessEntry::PristineCode { hash: child_hash };
+	assert!(
+		expected.read.remove(&child_blob),
+		"`CodeLoadItems` does not declare the child's `PristineCode`",
+	);
+	expected.written.insert(child_blob);
+	// The create's benchmark also pays for holding the code deposit on the pallet's account.
+	expected.other_read.insert("System::Account".into());
+	expected.other_written.insert("System::Account".into());
 	assert_eq!(accessed, expected);
+}
+
+#[test]
+fn a_nested_instantiate_that_loads_uploaded_code_accesses_what_it_declares() {
+	let (factory_code, _) = compile_module_with_type("Factory", FixtureType::Resolc).unwrap();
+	let (mut ext, [factory]) = deploy_contracts([factory_code]);
+	// resolc creates the child from uploaded code.
+	let (child_code, _) = compile_module_with_type("ReceivingChild", FixtureType::Resolc).unwrap();
+	ext.execute_with(|| {
+		Pallet::<Test>::upload_code(
+			RuntimeOrigin::signed(ALICE.clone()),
+			child_code,
+			<BalanceOf<Test>>::MAX,
+		)
+		.unwrap();
+	});
+	let (accessed, warmed, child_addr, child_hash) =
+		reads_and_writes_of_instantiate(&mut ext, &factory, TransactionKind::Ethereum);
+
+	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
+		.and(CodeLoadItems::new(factory.code_hash))
+		.and(InstantiateItems { address: child_addr, deployer: factory.addr })
+		.and(CodeLoadItems::with_info_op(child_hash, StorageOp::Write));
+	assert_eq!(warmed, declared.warmed());
+	assert_eq!(accessed, expected_reads_and_writes_of_instantiate(declared, child_addr));
+}
+
+#[test]
+fn a_nested_instantiate_that_finds_the_code_stored_accesses_what_it_declares() {
+	let (factory_code, _) = compile_module_with_type("Factory", FixtureType::Solc).unwrap();
+	let (mut ext, [factory]) = deploy_contracts([factory_code]);
+	// The first create stores the child's code, so the second finds it stored.
+	reads_and_writes_of_instantiate(&mut ext, &factory, TransactionKind::Ethereum);
+	let (accessed, warmed, child_addr, child_hash) =
+		reads_and_writes_of_instantiate(&mut ext, &factory, TransactionKind::Ethereum);
+
+	// A create that finds the code stored does not warm it.
+	let declared = DeclaredEntries::of(CallItems::new(factory.addr, false))
+		.and(CodeLoadItems::new(factory.code_hash))
+		.and(InstantiateItems { address: child_addr, deployer: factory.addr });
+	assert_eq!(warmed, declared.warmed());
+	let mut expected = expected_reads_and_writes_of_instantiate(declared, child_addr);
+	// The create increments the code's reference count; its benchmark pays for that read and write.
+	let child_info = AccessEntry::CodeInfo { hash: child_hash };
+	expected.read.insert(child_info.clone());
+	expected.written.insert(child_info);
+	assert_eq!(accessed, expected);
+}
+
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn a_nested_instantiate_in_a_substrate_transaction_also_accesses_the_origin_account(
+	fixture_type: FixtureType,
+) {
+	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
+	let instantiate_in = |transaction_kind| {
+		let (mut ext, [factory]) = deploy_contracts([factory_code.clone()]);
+		if fixture_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("ReceivingChild", fixture_type).unwrap();
+			ext.execute_with(|| {
+				Pallet::<Test>::upload_code(
+					RuntimeOrigin::signed(ALICE.clone()),
+					child_code,
+					<BalanceOf<Test>>::MAX,
+				)
+				.unwrap();
+			});
+		}
+		let (accessed, warmed, _, _) =
+			reads_and_writes_of_instantiate(&mut ext, &factory, transaction_kind);
+		(accessed, warmed)
+	};
+	let (accessed_in_ethereum, warmed_in_ethereum) = instantiate_in(TransactionKind::Ethereum);
+	let (accessed_in_substrate, warmed_in_substrate) = instantiate_in(TransactionKind::Substrate);
+
+	assert_eq!(warmed_in_substrate, warmed_in_ethereum);
+
+	let origin_account = AccessEntry::Account { address: ALICE_ADDR };
+	let mut expected_in_substrate = accessed_in_ethereum;
+	// Only a Substrate transaction takes the deposit from the origin's account. The benchmarks
+	// whitelist that account, assuming the origin signed the transaction and was charged the fee.
+	expected_in_substrate.read.insert(origin_account.clone());
+	expected_in_substrate.written.insert(origin_account);
+	assert_eq!(accessed_in_substrate, expected_in_substrate);
 }

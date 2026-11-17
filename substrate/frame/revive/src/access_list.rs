@@ -977,25 +977,9 @@ impl AccessList {
 }
 
 #[cfg(test)]
-std::thread_local! {
-	/// The final entries of the access list dropped last on this thread.
-	static FINAL_ENTRIES: core::cell::RefCell<BTreeMap<AccessEntry, StorageOp>> =
-		const { core::cell::RefCell::new(BTreeMap::new()) };
-}
-
-#[cfg(test)]
 impl Drop for AccessList {
 	fn drop(&mut self) {
-		FINAL_ENTRIES.set(core::mem::take(&mut self.accessed));
-	}
-}
-
-#[cfg(test)]
-impl AccessList {
-	/// Returns the final entries of the list dropped last on this thread, with the operation each
-	/// was paid for. A second call returns no entries until another list is dropped.
-	pub fn take_final_entries() -> BTreeMap<AccessEntry, StorageOp> {
-		FINAL_ENTRIES.take()
+		crate::tests::FinalAccessListEntries::set(core::mem::take(&mut self.accessed));
 	}
 }
 

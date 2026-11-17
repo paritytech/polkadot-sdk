@@ -26,13 +26,13 @@ mod pvm;
 mod sol;
 mod stipends;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
-	access_list::AccessListMetrics,
+	access_list::{AccessEntry, AccessListMetrics, StorageOp},
 	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
@@ -65,6 +65,9 @@ use sp_runtime::{
 parameter_types! {
 	/// Access-list metrics of the last call.
 	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
+	/// The final entries of the access list dropped last on this thread, with the operation each
+	/// was paid for.
+	pub static FinalAccessListEntries: BTreeMap<AccessEntry, StorageOp> = BTreeMap::new();
 }
 
 /// The access-list metrics `operation` recorded.

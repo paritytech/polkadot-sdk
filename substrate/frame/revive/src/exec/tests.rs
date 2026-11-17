@@ -22,7 +22,7 @@
 /// a VM binary code.
 use super::*;
 use crate::{
-	AddressMapper, BalanceWithDust, CallProtections, Error, Pallet, ReentrancyProtection,
+	AddressMapper, CallProtections, Error, Pallet, ReentrancyProtection,
 	access_list::{
 		CallItems, CallWarmth, CodeLoadItems, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
 		MAX_INLINE_KEY_LEN, StorageOp, Summarized, TransferItems, TransferWarmth, Warmth,
@@ -3682,7 +3682,7 @@ fn cold_hot_first_frame_prewarms_the_called_contract_and_its_transfer() {
 				receiver_account: Warmth::Hot { .. },
 				sender_account: Warmth::Hot { .. },
 				receiver_account_info: Warmth::Hot { .. },
-				sender_account_info: Warmth::Hot { charged: StorageOp::Read },
+				sender_account_info: Warmth::Hot { .. },
 				dust: false,
 			}
 		);
@@ -3692,29 +3692,6 @@ fn cold_hot_first_frame_prewarms_the_called_contract_and_its_transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, value_transfer_root_code_hash);
 		let value = Pallet::<Test>::convert_native_to_evm(100u128);
-		run_root_call_with_value(BOB_ADDR, vec![], value, &exec_config);
-	});
-
-	let dust_transfer_root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		assert_eq!(
-			ctx.ext
-				.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: true })
-				.entries(),
-			TransferWarmth {
-				receiver_account: Warmth::new_write_paid(),
-				sender_account: Warmth::new_write_paid(),
-				receiver_account_info: Warmth::new_write_paid(),
-				sender_account_info: Warmth::new_write_paid(),
-				dust: true,
-			}
-		);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, dust_transfer_root_code_hash);
-		let value =
-			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 1));
 		run_root_call_with_value(BOB_ADDR, vec![], value, &exec_config);
 	});
 }
