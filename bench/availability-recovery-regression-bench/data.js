@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794864105873,
+  "lastUpdate": 1794893465224,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "franciscoaguirreperez@gmail.com",
-            "name": "Francisco Aguirre",
-            "username": "franciscoaguirre"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3501f2c3c8e46d0b726994065a05615995f03880",
-          "message": "Add sp-hop (#11960)\n\nAdded the primitives needed for HOP (Hand-Off Protocol) in the future\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-02T10:43:06Z",
-          "tree_id": "6dcfaf5a3ff7ff7904888c194880a5c6d94a39f9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3501f2c3c8e46d0b726994065a05615995f03880"
-        },
-        "date": 1777723409666,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 310458.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 4.299999999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.913949275300002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13909309723333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12767347859999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce059ae2a008272bc9574ff78aa6471659e92f27",
+          "message": "statement-store: rerun expiry sweep while a backlog remains (#13824)\n\n# Description\n\nThe statement store has a background task that removes expired\nstatements. It runs every 31 s\nand removes at most 10,000 statements each time, so a node can only\nremove about 320 statements\nper second. On Versi (#13634), about 833 statements per second expired\non each node. The expired\nstatements piled up until the store hit its 2 GiB limit, and then it\nrejected new statements with\n`StoreFull`.\n\nAfter each pass, the task now checks whether more expired statements are\nleft. If there are, it\nruns again right away instead of waiting for 31 seconds. When none are\nleft, it goes back to running\nevery 31 second.\n\nFixes #13634\n\n## Integration\n\nNothing to do. `Store::enforce_limits` now returns `true` if expired\nstatements are still left.\nIt is `#[doc(hidden)]` and only the benchmarks use it.\n\n## Review Notes\n\n- To check for leftovers, I added `has_due_expiry`. It reads the first\nentry of\n`INDEX_BY_EXPIRY`. The index is sorted by expiry, so if the first entry\nhasn't expired, nothing\nelse has.\n- A pass only asks to run again if it removed at least one statement.\nThis way the task can't\nget stuck rerunning on a row it can't remove.\n- To run again right away, the task calls\n`Interval::reset_immediately()`. `maintain` still gets\nto run between passes.\n- The extra passes also run the allowance check (phase 2). It has its\nown limits, so I think\nrunning it more often is fine.",
+          "timestamp": "2026-11-17T03:57:24Z",
+          "tree_id": "d45587eae67d27c5ce44f2bb5d5510293ded8ab5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce059ae2a008272bc9574ff78aa6471659e92f27"
+        },
+        "date": 1794893432420,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12824134936666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.881831669033335,
             "unit": "seconds"
           }
         ]
