@@ -446,6 +446,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_subscription_gap_filler_failure_stays_pending,
 		test_subscription_gap_filler_retries_failed_attempt,
 		test_subscription_gap_filler_starts_at_from_hash,
+		test_backfill_skips_indexed_block_before_writing,
 		test_finalized_block_processing_failure_queues_gap_fill,
 		test_best_block_processing_failure_queues_nothing,
 		test_finalized_block_processing_failure_queues_nothing_in_pruning_mode,
@@ -4269,6 +4270,50 @@ async fn test_subscription_gap_filler_starts_at_from_hash() -> anyhow::Result<()
 	assert!(indexed(named).await);
 	assert!(indexed(below).await);
 	assert!(!indexed(above).await, "the walk must not start at the block the number resolves to");
+
+	Ok(())
+}
+
+/// The backfill writer skips an indexed block before writing any of its rows.
+async fn test_backfill_skips_indexed_block_before_writing() -> anyhow::Result<()> {
+	let (sync_client, _gap_fill_rx, pool) = create_sync_test_client_with_pool(true).await?;
+	sync_client.sync_backward().await?;
+	let provider = sync_client.receipt_provider();
+	let indexed = sync_client.latest_finalized_block().await;
+	let indexed_ethereum_hash = provider
+		.get_ethereum_hash(&indexed.block_hash())
+		.await
+		.ok_or_else(|| anyhow!("the backward sync indexes the block it starts from"))?;
+
+	submit_evm_transfers(1).await?;
+	let unindexed = sync_client
+		.block_provider()
+		.block_by_number(indexed.block_number() + 1)
+		.await?
+		.ok_or_else(|| anyhow!("block exists on chain"))?;
+	let unindexed_ethereum_hash = sync_client
+		.runtime_api(unindexed.block_hash())
+		.await?
+		.eth_block_hash(U256::from(unindexed.block_number()))
+		.ok_or_else(|| anyhow!("the runtime exposes eth_block_hash"))?
+		.await?
+		.ok_or_else(|| anyhow!("the block has an EVM block hash"))?;
+
+	sqlx::query(
+		"CREATE TRIGGER reject_all BEFORE INSERT ON eth_to_substrate_blocks \
+		 BEGIN SELECT RAISE(ABORT, 'rejected by test'); END;",
+	)
+	.execute(&pool)
+	.await?;
+	provider.insert_block_receipts_past(&indexed, &indexed_ethereum_hash).await?;
+	assert!(
+		provider
+			.insert_block_receipts_past(&unindexed, &unindexed_ethereum_hash)
+			.await
+			.is_err(),
+		"the database rejects every block write"
+	);
+	sqlx::query("DROP TRIGGER reject_all").execute(&pool).await?;
 
 	Ok(())
 }

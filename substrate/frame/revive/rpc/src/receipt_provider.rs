@@ -554,8 +554,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
-		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		Ok(())
+		self.write_block(block, &receipts, ethereum_hash).await
 	}
 
 	/// Insert pre-extracted receipts and update the block cache (with fork detection).
@@ -665,8 +664,31 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(result.exists)
 	}
 
-	/// Insert receipts into the database without updating the in-memory block cache.
+	/// Insert receipts into the database without updating the in-memory block cache, unless the
+	/// block is already indexed.
 	async fn insert_into_db(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		// Check if mapping already exists (eg. added when processing best block and we are now
+		// processing finalized block)
+		if self.is_indexed(&block.hash()).await? {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{} ({:?}): mapping already exists. \
+				 ETH hash: {ethereum_hash:?}, receipts count: {count}",
+				block.number(),
+				block.hash(),
+				count = receipts.len(),
+			);
+			return Ok(());
+		}
+		self.write_block(block, receipts, ethereum_hash).await
+	}
+
+	/// Write the block's rows in one transaction, without checking whether it is indexed.
+	async fn write_block(
 		&self,
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
@@ -678,17 +700,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let ethereum_hash_ref = ethereum_hash.as_ref();
 
 		log::trace!(target: LOG_TARGET, "Inserting receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}");
-
-		// Check if mapping already exists (eg. added when processing best block and we are now
-		// processing finalized block)
-		if self.is_indexed(&substrate_block_hash).await? {
-			log::trace!(target: LOG_TARGET,
-				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
-				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
-				count = receipts.len(),
-			);
-			return Ok(());
-		}
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
 
