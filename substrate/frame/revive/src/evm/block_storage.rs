@@ -135,9 +135,12 @@ impl EthereumCallResult {
 ///
 /// The receipt is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that would take it past
 /// the limit is not kept and fails with [`Error::ReceiptTooLarge`]. It also sets
-/// [`CommittedReceiptLogs::exceeded`]: every later log fails as well, and the frame or the
-/// transaction the log was emitted in fails, see [`ensure_receipt_within_limit`], even where the
-/// error is not propagated. The flag rolls back with the layer the log was emitted in.
+/// [`CommittedReceiptLogs::exceeded`] in the current storage layer: every later log fails as
+/// well, and the frame or the transaction the log was emitted in fails, see
+/// [`ensure_receipt_within_limit`], even where the error is not propagated. The flag rolls back
+/// with that storage layer. If the layer rolls back while the frame or the transaction around it
+/// continues, for example a call that mirrored a log and then failed inside a `Utility::batch` or
+/// an XCM `Transact`, the overflow fails nothing outside that layer.
 pub fn capture_into_receipt<T: Config>(
 	contract: &H160,
 	data: &[u8],
@@ -175,9 +178,14 @@ pub fn capture_into_receipt<T: Config>(
 /// `ContractEmitted` event; there is no ethereum observer outside an ethereum transaction for it
 /// to be missing from.
 ///
-/// So where a contract's log ends up depends on the entry point: `eth_transact` and
-/// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
-/// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
+/// So where a contract's log ends up depends on whether an ethereum transaction's receipt is open
+/// when the log is emitted, not on the dispatch path that led there. Inside `eth_transact` or
+/// `eth_substrate_call`, which run inside `with_ethereum_context`, or their dry run, the log goes
+/// on the receipt and counts against [`limits::MAX_RECEIPT_LOGS_BYTES`]. This includes a
+/// `Revive::call` that `eth_substrate_call` dispatches, directly or through a batch or an XCM
+/// `Transact`. Outside an ethereum transaction, such as in a `Revive::call` extrinsic or an XCM
+/// `Transact` executed by the message queue in `on_initialize` or `on_idle`, the log stays a
+/// substrate-only `ContractEmitted` event.
 ///
 /// Fails with [`Error::ReceiptTooLarge`] when the log does not fit the open receipt, see
 /// [`capture_into_receipt`]. The emitting frame then fails like on any other error.
@@ -230,7 +238,9 @@ pub fn with_receipt_scope<T: Config, R>(f: impl FnOnce() -> R) -> R {
 /// a precompile did not propagate the error. Logs emitted outside any frame are checked where
 /// they can be emitted: after `bare_call` and `bare_instantiate` executed their storage
 /// deposits, and after the runtime call dispatched by `eth_substrate_call` or by a dry run.
-/// Failing there leaves the fee to be computed from the failed result.
+/// Failing there leaves the fee to be computed from the failed result. A storage layer that
+/// recorded the overflow and was then rolled back took the flag with it, and nothing fails here,
+/// see [`capture_into_receipt`].
 pub fn ensure_receipt_within_limit<T: Config>() -> Result<(), DispatchError> {
 	let exceeded = receipt::with(|_| ReceiptLogsCommitted::<T>::get().exceeded);
 	ensure!(exceeded != Some(true), Error::<T>::ReceiptTooLarge);

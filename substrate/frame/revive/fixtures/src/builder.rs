@@ -512,7 +512,7 @@ pub fn compile_solidity_contracts(
 		return Ok(());
 	}
 
-	let evm_only = vec!["HostEvmOnly"];
+	let evm_only = vec!["HostEvmOnly", "MemoryEvmOnly"];
 	let solidity_entries_pvm: Vec<_> = solidity_entries
 		.iter()
 		.cloned()
