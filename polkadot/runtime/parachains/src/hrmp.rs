@@ -64,9 +64,6 @@ pub use pallet::*;
 pub const HRMP_MAX_INBOUND_CHANNELS_BOUND: u32 = 128;
 /// Same as [`HRMP_MAX_INBOUND_CHANNELS_BOUND`], but for outbound channels.
 pub const HRMP_MAX_OUTBOUND_CHANNELS_BOUND: u32 = 128;
-/// The `open_requests` witness of `hrmp_cancel_open_request` that
-/// [`Pallet::max_para_request_weight`] weighs.
-pub const MAX_OPEN_REQUESTS_WITNESS: u32 = 10_000;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -1041,11 +1038,13 @@ impl<T: Config> Pallet<T> {
 
 	/// The weight of the heaviest call a parachain makes for itself, with its own origin: opening,
 	/// accepting, cancelling or closing a channel, poking its deposits, or establishing a channel
-	/// with a system chain. The cancel is weighed for [`MAX_OPEN_REQUESTS_WITNESS`] pending
-	/// requests.
+	/// with a system chain.
 	///
 	/// For a runtime that executes such requests without payment, to bound what one may cost.
-	pub fn max_para_request_weight() -> Weight {
+	///
+	/// The cancel is weighed for the open requests witness: `max_open_requests`, there is no bound
+	/// to the number of open requests but it costs deposits.
+	pub fn max_para_request_weight(max_open_requests: u32) -> Weight {
 		let para = ParaId::from(0);
 		let channel_id = HrmpChannelId { sender: para, recipient: para };
 		[
@@ -1056,7 +1055,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Call::hrmp_accept_open_channel { sender: para },
 			Call::hrmp_close_channel { channel_id: channel_id.clone() },
-			Call::hrmp_cancel_open_request { channel_id, open_requests: MAX_OPEN_REQUESTS_WITNESS },
+			Call::hrmp_cancel_open_request { channel_id, open_requests: max_open_requests },
 			Call::poke_channel_deposits { sender: para, recipient: para },
 			Call::establish_channel_with_system { target_system_chain: para },
 		]

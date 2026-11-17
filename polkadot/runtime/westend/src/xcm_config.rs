@@ -70,7 +70,12 @@ parameter_types! {
 	/// stripped by `TrailingSetTopicAsId` before the barrier, but weighed all the same.
 	pub MaxUnpaidParaRequestWeight: Weight = {
 		type W = crate::weights::xcm::WestendXcmWeight<RuntimeCall>;
-		Hrmp::max_para_request_weight()
+
+		// For the unpad HRMP cancel request, the maximum number of open HRMP requests accepted.
+		// This is bound by economic factors, 10_000 is enough for westend.
+		let max_open_request: u32 = 10_000;
+
+		Hrmp::max_para_request_weight(max_open_request)
 			.saturating_add(W::unpaid_execution(&Unlimited, &None))
 			.saturating_add(W::transact(&OriginKind::Native, &None, &alloc::vec::Vec::new().into()))
 			.saturating_add(W::set_topic(&[0; 32]))
