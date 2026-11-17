@@ -4485,7 +4485,7 @@ mod try_state {
 
 	// Check 4
 	#[test]
-	fn detects_issuance_below_psm_debt() {
+	fn warns_on_issuance_below_psm_debt() {
 		new_test_ext().execute_with(|| {
 			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
 			assert_ok!(Psm::mint(
@@ -4509,10 +4509,7 @@ mod try_state {
 				Ok(1),
 				"the burn must happen for the issuance to fall below the debt"
 			);
-			assert_eq!(
-				dts().unwrap_err(),
-				DispatchError::Other("Total internal issuance is less than total PSM debt")
-			);
+			assert_ok!(dts());
 		});
 	}
 

@@ -68,14 +68,14 @@
 //!
 //! * each decimals snapshot agrees with the live asset metadata;
 //! * each reserve covers the debt that the PSM records against it;
-//! * the issuance of the internal asset covers the debt of the instance;
 //! * no storage row stays after the removal of its PSM;
 //! * no debt exists for a pair that the PSM does not approve.
 //!
-//! Five of the fifteen checks are advisory. An advisory check writes a warning to
-//! the log. It does not return an error. A permitted action can create these five
+//! Six of the fifteen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. A permitted action can create these six
 //! states, so an error would stop the chain after a correct call:
 //!
+//! * an issuance of the internal asset below the debt of the instance;
 //! * debt above a per-asset ceiling;
 //! * debt above the ceiling of an instance;
 //! * a reserve with a balance, but with zero weight and zero debt;
@@ -85,6 +85,12 @@
 //! The two decimal checks are advisory because an asset owner can change asset
 //! metadata at any time, and swaps use the recorded values. Drift does not change
 //! the arithmetic of the pallet. It changes what a reader of live metadata sees.
+//!
+//! The issuance check is advisory because any holder can burn the internal asset
+//! outside of the PSM, for example with XCM `BurnAsset`. A burn leaves the reserve
+//! larger than the issuance it backs. The PSM is then over-collateralised, which
+//! is a safe state. Governance can mint the difference, or move the surplus out,
+//! to wind the asset class down.
 //!
 //! ### Fee Structure
 //!
@@ -1767,10 +1773,11 @@ pub mod pallet {
 		/// * Checks 5 to 9 run for each approved external asset of an instance.
 		/// * Checks 12 to 15 run once, across all of the storage.
 		///
-		/// Checks 2, 5, 8, 9 and 15 are advisory. They write a warning to the
+		/// Checks 2, 4, 5, 8, 9 and 15 are advisory. They write a warning to the
 		/// log, and they do not return an error. A permitted action can create
 		/// each of these states: a metadata change by an asset owner for checks
-		/// 2 and 5, a parameter change by governance for checks 8, 9 and 15.
+		/// 2 and 5, a burn by a holder for check 4, a parameter change by
+		/// governance for checks 8, 9 and 15.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
@@ -1800,16 +1807,23 @@ pub mod pallet {
 				// file can bypass that check. A zero value permits swaps of dust.
 				ensure!(!info.min_swap_amount.is_zero(), "PSM instance has a zero min_swap_amount");
 
-				// Check 4: the issuance of the internal asset covers the debt of this
-				// instance. The PSM mints the internal asset for each mint call, and
-				// burns it for each redeem call. A lower issuance therefore has two
-				// possible causes: something burned the asset outside of the PSM, or
-				// the debt records are wrong.
-				ensure!(
-					T::Fungibles::total_issuance(internal_asset.clone()) >=
-						Self::total_psm_debt(&internal_asset),
-					"Total internal issuance is less than total PSM debt"
-				);
+				// Check 4 (advisory): the issuance of the internal asset covers the
+				// debt of this instance. Any holder can burn the internal asset
+				// outside of the PSM, for example with XCM `BurnAsset`. Such a burn
+				// leaves the reserve larger than the issuance it backs, so the PSM is
+				// over-collateralised, which is a safe state. The debt it leaves
+				// behind can never be redeemed; governance can mint the difference,
+				// or move the surplus reserve out, to wind the asset class down.
+				let issuance = T::Fungibles::total_issuance(internal_asset.clone());
+				let total_debt = Self::total_psm_debt(&internal_asset);
+				if issuance < total_debt {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: total internal issuance ({:?}) is less than total PSM \
+						debt ({:?}); the reserve holds the difference as surplus",
+						internal_asset, issuance, total_debt,
+					);
+				}
 
 				let mut counted = 0u32;
 				let mut approved_debt = BalanceOf::<T>::zero();
