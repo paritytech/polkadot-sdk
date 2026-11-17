@@ -841,8 +841,8 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResultWithPostInfo {
-			if let Some(caller) = Self::ensure_signed_manager_or_para(origin)? {
-				ensure!(caller.is_system(), Error::<T>::ChannelCreationNotAuthorized);
+			if let Some(para_caller) = Self::ensure_signed_manager_or_para(origin)? {
+				ensure!(para_caller.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 			}
 
 			// both chains must be system
@@ -894,13 +894,13 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			let caller = Self::ensure_signed_manager_or_para(origin)?;
-			if let Some(caller) = caller {
+			let para_caller = Self::ensure_signed_manager_or_para(origin)?;
+			if let Some(para_caller) = para_caller {
 				ensure!(
-					caller == sender || caller == recipient,
+					para_caller == sender || para_caller == recipient,
 					Error::<T>::PokeHrmpChannelUnauthorized,
 				);
-				Self::count_request(caller)?;
+				Self::count_request(para_caller)?;
 			}
 
 			let channel_id = HrmpChannelId { sender, recipient };
