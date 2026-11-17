@@ -1,0 +1,16 @@
+title: '[pallet-revive] opt-in termination'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: Restore the contract termination functionality. But now, the constructor
+    code must opt-in, which protects call-forwarding contracts from unwanted termination.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
