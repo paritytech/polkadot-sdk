@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794953778177,
+  "lastUpdate": 1794957629544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6597bb572c1eca3a21395380fb6e20bebc1a41c",
-          "message": "Additional improvements for the DAP satellite pallet generalization (#11949)\n\nAdditional fixes / improvements for\nhttps://github.com/paritytech/polkadot-sdk/pull/11881:\n- Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since\nit only works on `AccountId32`-type accounts (used in all system\nparachains), but future users with different account types will need\ndifferent trait implementations\n- Improved account migration testing\n- Additional comments to clarify important corner-cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-01T10:51:45Z",
-          "tree_id": "0f8488b30bd2480d173d9bcbac1ab43adb0be7fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6597bb572c1eca3a21395380fb6e20bebc1a41c"
-        },
-        "date": 1777637729284,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026390246699999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010263008540000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009476528109999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025550652900000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb5166f49c6838ad45dfac4921109e9b65527fa9",
+          "message": "pallet-oracle: remove sp-std and make the median provider macro self-contained (#13852)\n\n# Description\n\nRemoves the `sp-std` dependency from `pallet-oracle` in favour of\n`alloc`/`core`.\n\nThe exported `create_median_value_data_provider!` macro expanded to\n`sp_std::collections::btree_set::BTreeSet` and `vec![]`, so callers\nneeded `sp-std` as a direct\ndependency and `vec!` in scope (which a `no_std` runtime does not have\nby default). The macro now\nuses `$crate::__private::{BTreeSet, Vec}`, a hidden re-export module,\nand works without either.\n\nAdvances #2101. Follow-up to #13850, which covers\n`pallet-oracle-runtime-api`.\n\n## Integration\n\nNo action needed. Existing invocations of\n`create_median_value_data_provider!` keep compiling;\ncrates that depended on `sp-std` only for this macro can drop it.\n\n## Review Notes\n\n`__private` is `#[doc(hidden)]` and follows the same pattern as\n`frame_support::__private`. It is\na new public item, hence the `minor` bump.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2026-11-17T21:42:25Z",
+          "tree_id": "eb65056162459dcd4adf4d9ee6cdfb1003742088",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb5166f49c6838ad45dfac4921109e9b65527fa9"
+        },
+        "date": 1794957591224,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00256890238,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010145309780000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009424836119999985,
             "unit": "seconds"
           }
         ]
