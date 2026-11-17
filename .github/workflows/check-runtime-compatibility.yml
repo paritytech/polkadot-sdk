@@ -109,7 +109,7 @@ jobs:
   confirm-runtime-compatibility-checks-passed:
     runs-on: ubuntu-latest
     name: All runtime compatibility checks passed
-    needs: [check-runtime-compatibility]
+    needs: [preflight, check-runtime-compatibility]
     if: always() && !cancelled()
     steps:
       - run: |

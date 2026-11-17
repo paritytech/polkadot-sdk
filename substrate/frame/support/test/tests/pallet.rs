@@ -162,10 +162,17 @@ pub mod pallet {
 		fn some_extra() -> T::AccountId {
 			SomeType2.into()
 		}
+	}
 
+	// A separate block with different bounds must contribute its constants to metadata too.
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType3>,
+	{
 		/// Some doc
 		fn some_extra_extra() -> T::AccountId {
-			SomeType1.into()
+			SomeType3.into()
 		}
 
 		/// Some doc
@@ -1425,6 +1432,40 @@ fn pallet_item_docs_in_metadata() {
 	assert!(error_variants[1].docs.is_empty());
 
 	// storage is already covered in the main `fn metadata` test.
+}
+
+#[test]
+fn view_function_metadata_and_dispatch() {
+	use codec::Encode;
+	use frame_support::view_functions::{DispatchViewFunction, ViewFunction};
+
+	let metadata = Example::pallet_view_functions_metadata();
+	assert_eq!(
+		metadata.iter().map(|function| function.name).collect::<Vec<_>>(),
+		vec!["get_value", "get_value_with_arg"],
+	);
+	assert_eq!(metadata[0].docs, maybe_docs(vec![" Query value no args."]));
+	assert_eq!(metadata[1].docs, maybe_docs(vec![" Query value with args."]));
+	assert_eq!(metadata[0].inputs.len(), 0);
+	assert_eq!(metadata[1].inputs.len(), 1);
+
+	TestExternalities::default().execute_with(|| {
+		pallet::Value::<Runtime>::put(42);
+		pallet::Map2::<Runtime>::insert(5, 24);
+		for (index, id, input, expected) in [
+			(0, pallet::GetValueViewFunction::<Runtime>::id(), vec![], Some(42u32)),
+			(1, pallet::GetValueWithArgViewFunction::<Runtime>::id(), 5u16.encode(), Some(24u32)),
+		] {
+			assert_eq!(metadata[index].id, <[u8; 32]>::from(id.clone()));
+			let mut output = vec![];
+			assert_ok!(RuntimeViewFunction::dispatch_view_function(
+				&id,
+				&mut &input[..],
+				&mut output
+			));
+			assert_eq!(output, expected.encode());
+		}
+	});
 }
 
 #[test]

@@ -1,0 +1,14 @@
+title: 'FRAME: preserve constants from multiple extra_constants blocks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Pallets can define multiple `#[pallet::extra_constants]` blocks. All blocks now contribute
+    constants to metadata in declaration order, after the constants defined in `Config`, instead
+    of silently keeping only the last block. Bounds and instance usage are checked across all
+    blocks. Rebuild the runtime and regenerate metadata bindings to expose previously omitted
+    constants. Pallets using a single block retain their existing metadata.
+crates:
+- name: frame-support-procedural
+  bump: patch
+- name: frame-support
+  bump: patch

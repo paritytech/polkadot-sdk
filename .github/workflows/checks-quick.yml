@@ -306,6 +306,7 @@ jobs:
     name: All quick checks passed
     # If any new job gets added, be sure to add it to this array
     needs:
+      - preflight
       - fmt
       - check-dependency-rules
       - check-workspace-inheritance

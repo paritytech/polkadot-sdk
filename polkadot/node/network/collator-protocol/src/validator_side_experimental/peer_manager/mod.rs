@@ -222,24 +222,23 @@ impl<B: Backend> PeerManager<B> {
 
 		self.latest_finalized_session = Some(finalized_session);
 
-		let registered_paras = match recv_runtime(
-			request_para_ids(finalized_hash, finalized_session, sender).await,
-		)
-		.await
-		{
-			Ok(registered_paras) => registered_paras.into_iter().collect(),
-			Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					"Using a runtime which does not support querying the registered paras, this should not be used in production with the `--enable-experimental-collator-protocol` flag."
-				);
-				return;
-			},
-			Err(err) => {
-				JfyiError::Runtime(err).log();
-				return;
-			},
-		};
+		let registered_paras =
+			match recv_runtime(request_para_ids(finalized_hash, finalized_session, sender).await)
+				.await
+			{
+				Ok(registered_paras) => registered_paras.into_iter().collect(),
+				Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						"Using a runtime which does not support querying the registered paras"
+					);
+					return;
+				},
+				Err(err) => {
+					JfyiError::Runtime(err).log();
+					return;
+				},
+			};
 
 		// Tell the DB to cleanup paras that are no longer registered. No need to clean
 		// up the connected peers state, since it will get automatically cleaned up

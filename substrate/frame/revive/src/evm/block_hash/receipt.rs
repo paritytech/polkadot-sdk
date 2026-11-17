@@ -65,7 +65,8 @@ pub struct AccumulateReceipt {
 }
 
 /// What an ethereum transaction has committed to its receipt so far: how much of the
-/// [`AccumulateReceipt`] encoding, and the bloom over exactly those logs.
+/// [`AccumulateReceipt`] encoding, the bloom over exactly those logs, and whether a log did not
+/// fit.
 ///
 /// Kept in storage while the transaction runs, so that it rolls back with whatever storage layer
 /// rolls back: a contract frame, or a `batch_all` around a plain call whose balance change was
@@ -77,11 +78,18 @@ pub struct CommittedReceiptLogs {
 	pub encoded_len: u32,
 	/// The bloom over the committed logs.
 	pub bloom: [u8; BLOOM_SIZE_BYTES],
+	/// Whether a log was left out because it did not fit the receipt.
+	///
+	/// Set when a log would have taken the receipt past
+	/// [`crate::limits::MAX_RECEIPT_LOGS_BYTES`]. Every later log is left out as well, and the
+	/// frame or the transaction the log was emitted in fails with
+	/// [`crate::Error::ReceiptTooLarge`].
+	pub exceeded: bool,
 }
 
 impl Default for CommittedReceiptLogs {
 	fn default() -> Self {
-		Self { encoded_len: 0, bloom: [0u8; BLOOM_SIZE_BYTES] }
+		Self { encoded_len: 0, bloom: [0u8; BLOOM_SIZE_BYTES], exceeded: false }
 	}
 }
 
@@ -99,8 +107,41 @@ impl AccumulateReceipt {
 	}
 
 	/// What the accumulator holds, as the value to commit.
+	///
+	/// Always returns [`CommittedReceiptLogs::exceeded`] as `false`: the accumulator does not know
+	/// about a log that did not fit. That is correct only while no log has overflowed, which
+	/// `block_storage::capture_into_receipt` ensures by returning before it calls this once the
+	/// flag is set. Do not use it where the result could overwrite a set flag.
 	pub fn committed(&self) -> CommittedReceiptLogs {
-		CommittedReceiptLogs { encoded_len: self.encoding.len() as u32, bloom: self.bloom.bloom }
+		CommittedReceiptLogs {
+			encoded_len: self.encoding.len() as u32,
+			bloom: self.bloom.bloom,
+			exceeded: false,
+		}
+	}
+
+	/// The number of bytes [`Self::add_log`] appends to the encoding for this log.
+	pub fn encoded_log_len(contract: &H160, data: &[u8], topics: &[H256]) -> usize {
+		let (_, payload_length) = Self::log_lengths(contract, data, topics);
+		payload_length.saturating_add(rlp::length_of_length(payload_length))
+	}
+
+	/// The payload lengths of the log's topic list and of the log itself, without their headers.
+	fn log_lengths(contract: &H160, data: &[u8], topics: &[H256]) -> (usize, usize) {
+		let mut topics_len: usize = 0;
+		for topic in topics {
+			// Topics are represented by 32 bytes. However, their encoding
+			// can produce different lengths depending on their value.
+			topics_len = topics_len.saturating_add(rlp::Encodable::length(&topic.0));
+		}
+		// Account for the size of the list header.
+		let topics_list_header_length =
+			topics_len.saturating_add(rlp::length_of_length(topics_len));
+		// Compute the total payload length of the log.
+		let payload_length = rlp::Encodable::length(&contract.0)
+			.saturating_add(rlp::Encodable::length(&data))
+			.saturating_add(topics_list_header_length);
+		(topics_len, payload_length)
 	}
 
 	/// Add the log into the accumulated receipt.
@@ -110,19 +151,7 @@ impl AccumulateReceipt {
 		// Accrue the log bloom.
 		self.bloom.accrue_log(contract, topics);
 
-		// Determine the length of the log RLP encoding.
-		let mut topics_len: usize = 0;
-		for topic in topics {
-			// Topics are represented by 32 bytes. However, their encoding
-			// can produce different lengths depending on their value.
-			topics_len = topics_len.saturating_add(rlp::Encodable::length(&topic.0));
-		}
-		// Account for the size of the list header.
-		let topics_list_header_length = topics_len + rlp::length_of_length(topics_len);
-		// Compute the total payload length of the log.
-		let payload_length = rlp::Encodable::length(&contract.0) +
-			rlp::Encodable::length(&data) +
-			topics_list_header_length;
+		let (topics_len, payload_length) = Self::log_lengths(contract, data, topics);
 
 		let header = rlp::Header { list: true, payload_length };
 		header.encode(&mut self.encoding);
@@ -271,6 +300,26 @@ mod test {
 		alloy_bloom.accrue_bloom(&alloy_bloom2);
 
 		assert_eq!(bloom.bloom, alloy_bloom.0);
+	}
+
+	#[test]
+	fn encoded_log_len_matches_add_log() {
+		let contract = H160::repeat_byte(0x01);
+		for num_topics in 0..=4u8 {
+			let topics: Vec<H256> = (0..num_topics).map(H256::repeat_byte).collect();
+			for data_len in [0, 1, 55, 56, 255, 256, 65_536] {
+				let data = vec![0x42u8; data_len];
+				let mut receipt = AccumulateReceipt::new();
+				receipt.add_log(&contract, &data, &[]);
+				let before = receipt.encoding.len();
+				receipt.add_log(&contract, &data, &topics);
+				assert_eq!(
+					receipt.encoding.len() - before,
+					AccumulateReceipt::encoded_log_len(&contract, &data, &topics),
+					"{num_topics} topics, {data_len} bytes of data",
+				);
+			}
+		}
 	}
 
 	#[test]

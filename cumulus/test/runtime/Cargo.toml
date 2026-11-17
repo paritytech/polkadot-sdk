@@ -133,6 +133,8 @@ velocity-6 = []
 velocity-12 = []
 
 # The default relay parent offset is 0. The following features can be used to change this value:
+# Change the relay parent offset to 1
+relay-parent-offset-1 = []
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
 # Change the relay parent offset to 4
@@ -144,7 +146,6 @@ relay-parent-offset-15 = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []
-
 # A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
 # spec_version so that a set_code upgrade from the default runtime triggers migrations.
 with-authority-discovery = ["spec-version-4"]
