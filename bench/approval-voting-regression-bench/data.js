@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794953666349,
+  "lastUpdate": 1794957540061,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d5876e2565a4fe83c92c8f710778ff49c4ed4a8",
-          "message": "client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order (#11962)\n\n## Problem\n\n#11474 switched `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to\n`BTreeSet<DbHash>` for dedup + canonical ordering. This silently broke\nproof-of-storage verification for any block produced by a multi-renew\nextrinsic.\n\n`build_proof` walks `block_indexed_body(N)` linearly to count chunks and\npick the chunk at `random_chunk(parent_hash, total_chunks)`. The\nconsumer pallet (`pallet_transaction_storage`) stores a parallel\n`Vec<TransactionInfo>` in dispatch order. Both sides resolve\n`selected_chunk_index` to a position; with `BTreeSet`, the off-chain\nside iterates in hash-sorted order while the runtime indexes in dispatch\norder. Different positions point at different `chunk_root`s →\n`blake2_256_verify_proof` returns `false` → `Error::InvalidProof` →\n`BadMandatory` → chain halts at the first proof block after a\nmulti-renew.\n\n## Fix\n\nRevert `MultiRenew.hashes` to `Vec<DbHash>`, append every\n`IndexOperation::Renew` op (no dedup). Insertion order is the\ncross-process contract; duplicates are preserved so column-refcount\ninc/dec stays symmetric per occurrence.\n\n## Tests\n\n- `block_indexed_body_preserves_renew_op_submission_order`\n(sc-client-db) — submits 5 Renew ops in non-sorted order, asserts both\n`MultiRenew.hashes` and `block_indexed_body(N)` come back\nposition-by-position equal to the submission order. Fails immediately\nunder any sort-applying container.\n- `proof_round_trip_against_parallel_runtime_view`\n(sp-transaction-storage-proof) — builds a proof from N transactions in\nsubmission order `[3, 0, 2, 1]`, then verifies it against a parallel\nruntime-side `Vec<TxInfo>` in the same order using the binary-search\nlogic FRAME consumers use. Sweeps 16 parent_hash seeds. Under\n`BTreeSet`, would fail on the first seed.\n- `random_chunk_is_deterministic_for_same_inputs`,\n`encode_index_round_trip_is_compact` — pin the agreement primitives.\n- All 10 pre-existing multi-renew tests updated for Vec semantics\n(duplicates preserved, refcount math adjusted accordingly).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-05-04T09:40:40Z",
-          "tree_id": "da8baadabdd743b604435cda1cea37fd1ceae48b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d5876e2565a4fe83c92c8f710778ff49c4ed4a8"
-        },
-        "date": 1777893545783,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63618.030000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7772608228699698,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8049123345200018,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022381729999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.869298010320001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.349588349673027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005654080810000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.672465176659973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.84604272266,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002234638,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002234638,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4669906848400016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022381729999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.902306520639999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000021858,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb5166f49c6838ad45dfac4921109e9b65527fa9",
+          "message": "pallet-oracle: remove sp-std and make the median provider macro self-contained (#13852)\n\n# Description\n\nRemoves the `sp-std` dependency from `pallet-oracle` in favour of\n`alloc`/`core`.\n\nThe exported `create_median_value_data_provider!` macro expanded to\n`sp_std::collections::btree_set::BTreeSet` and `vec![]`, so callers\nneeded `sp-std` as a direct\ndependency and `vec!` in scope (which a `no_std` runtime does not have\nby default). The macro now\nuses `$crate::__private::{BTreeSet, Vec}`, a hidden re-export module,\nand works without either.\n\nAdvances #2101. Follow-up to #13850, which covers\n`pallet-oracle-runtime-api`.\n\n## Integration\n\nNo action needed. Existing invocations of\n`create_median_value_data_provider!` keep compiling;\ncrates that depended on `sp-std` only for this macro can drop it.\n\n## Review Notes\n\n`__private` is `#[doc(hidden)]` and follows the same pattern as\n`frame_support::__private`. It is\na new public item, hence the `minor` bump.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2026-11-17T21:42:25Z",
+          "tree_id": "eb65056162459dcd4adf4d9ee6cdfb1003742088",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb5166f49c6838ad45dfac4921109e9b65527fa9"
+        },
+        "date": 1794957502212,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.57000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021393190000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.85211892565997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6933037369099995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6642434934,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005318834530000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7038194685899986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.320193202290004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021393190000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020755140000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7985984884399692,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.554607794802879,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6666417015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020755140000000003,
             "unit": "seconds"
           }
         ]
