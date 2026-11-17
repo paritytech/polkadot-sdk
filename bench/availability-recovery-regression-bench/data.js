@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794940298437,
+  "lastUpdate": 1794944673255,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "66b0b1a0a893b8bfa233b20b90c23c99131ad613",
-          "message": "YAP Gaming FTW 🎮  (#10165)\n\nList of changes:\n- enable 12 cores in the YAP runtime\n- add `dev` feature, so it can be run locally without RC\n- add README\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2026-05-04T16:03:33Z",
-          "tree_id": "3c3f5b578df3cf00c682e0647aaf30401fd100d1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/66b0b1a0a893b8bfa233b20b90c23c99131ad613"
-        },
-        "date": 1777915686176,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.891940290700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1243682422,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.11932737603333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5b3d1942368659ab099f93179a4ee33ab0e0f09f",
+          "message": "Bump WAH spec_version to 1_025_005 (#13893)\n\nThe WAH spec_version was bumped in a separate branch:\nhttps://github.com/paritytech/polkadot-sdk/commit/4881359149e59c053267c3ba142b346c67c790c0\nbut it was not backported to master. This PR brings the actual version\nback to master",
+          "timestamp": "2026-11-17T18:13:30Z",
+          "tree_id": "9609f4ce3b1039afad43b9b699e8fdcfb894c1df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b3d1942368659ab099f93179a4ee33ab0e0f09f"
+        },
+        "date": 1794944641167,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12244791966666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.058132495066666,
             "unit": "seconds"
           }
         ]
