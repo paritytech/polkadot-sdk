@@ -307,6 +307,17 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
+/// The locations of the `ValidatorCollatorChains`.
+pub struct ValidatorCollatorChainLocations;
+impl Contains<Location> for ValidatorCollatorChainLocations {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(1, [Parachain(id)]) if crate::ValidatorCollatorChains::get().contains(&(*id).into())
+		)
+	}
+}
+
 pub struct SystemChainAccumulationAccounts;
 impl Contains<Location> for SystemChainAccumulationAccounts {
 	fn contains(location: &Location) -> bool {
@@ -339,7 +350,8 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and sibling system parachains get free execution.
+					// Parent, sibling system parachains and the `ValidatorCollatorChains` get free
+					// execution.
 					AllowExplicitUnpaidExecutionFrom<
 						(
 							IsParentsOnly<ConstU8<1>>,
@@ -347,6 +359,7 @@ pub type Barrier = TrailingSetTopicAsId<
 							FellowshipEntities,
 							AmbassadorEntities,
 							SecretaryEntities,
+							ValidatorCollatorChainLocations,
 						),
 						CheapTrustedAliasers,
 					>,

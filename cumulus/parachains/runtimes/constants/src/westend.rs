@@ -236,9 +236,14 @@ pub mod locations {
 	pub use westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
 	use xcm::latest::prelude::{Location, Parachain};
 
+	/// Bulletin's parachain ID, outside the system parachain range.
+	pub const BULLETIN_ID: u32 = 2487;
+
 	parameter_types! {
 		pub AssetHubLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
 		pub PeopleLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
+		pub BulletinParaId: cumulus_primitives_core::ParaId = BULLETIN_ID.into();
+		pub BulletinLocation: Location = Location::new(1, Parachain(BULLETIN_ID));
 	}
 
 	/// The governance on the AssetHub.
