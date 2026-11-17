@@ -65,18 +65,21 @@ impl AuthToken {
 			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
 		}
 
+		// Count sibling hashes needed to prove membership of the value at position.
+		let mut expected_siblings = 0;
 		let mut width = size;
 		let mut position = collator_index;
-		let mut expected = 0;
+		
 		while width > 1 {
+			// Odd positions have a left sibling; even positions need a node to their right.
 			if position % 2 == 1 || position < width - 1 {
-				expected += 1;
+				expected_siblings += 1;
 			}
 			position /= 2;
 			width = width.div_ceil(2);
 		}
 
-		if self.proof.len() != expected {
+		if self.proof.len() != expected_siblings {
 			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
 		}
 
