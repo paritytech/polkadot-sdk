@@ -50,7 +50,7 @@ pub enum CandidateError {
 /// Describes the collator set authorized to author work items, and the AURA slot-to-collator
 /// mapping used to check which collator is expected to author a given work package.
 ///
-/// The encoding is consensus critical for the Parachain Service. Please don't change it.
+/// Encoding changes must stay compatible with Cumulus authorship.
 #[derive(Debug, Encode, Decode)]
 pub struct AuthConfig {
 	/// Authoritative `ParaId` for each work item, in item order.
