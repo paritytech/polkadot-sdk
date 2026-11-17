@@ -43,7 +43,7 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
+use sp_runtime::traits::{ConvertInto, TryConvertInto};
 use westend_runtime_constants::{
 	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
@@ -87,7 +87,7 @@ parameter_types! {
 	pub TreasuryLocation: Location = TreasuryInteriorLocation::get().into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
-	pub DapBufferAccount: AccountId = crate::staking::DapPalletId::get().into_account_truncating();
+	pub DapStagingAccount: AccountId = pallet_dap::Pallet::<Runtime>::staging_account();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -449,7 +449,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, DapBufferAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapStagingAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases =

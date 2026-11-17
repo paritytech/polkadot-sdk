@@ -27,10 +27,10 @@
 
 use super::common::{
 	account, build_network_config, fetch, fetch_raw, fetch_raw_at, hex_accounts, init_logging,
-	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, session_validators,
-	wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
-	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
-	PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
+	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, para_id_at,
+	session_validators, wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel,
+	NetworkOptions, ASSET_HUB_ID, ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS,
+	PARA_BLOCKS, PEOPLE_ID, PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
 };
 use crate::utils::initialize_network;
 
@@ -365,7 +365,8 @@ async fn wait_for_credits_from_both_chains(
 					},
 					("StakingPointsConverter", "BlocksCredited") => {
 						let fields = event.field_values()?;
-						if let Some(source) = credit_source(&fields).filter(|_| credited > 0) {
+						if let Some(source) = para_id_at(&fields, "source").filter(|_| credited > 0)
+						{
 							log::info!(
 								"Asset Hub #{}: credited the blocks of {source}",
 								block.number()
@@ -433,12 +434,6 @@ async fn wait_for_early_report(
 	tokio::time::timeout(EARLY_REPORT_TIMEOUT, wait).await.map_err(|_| {
 		anyhow!("{chain} did not report before the era end within {EARLY_REPORT_TIMEOUT:?}")
 	})?
-}
-
-/// The parachain id in the `source` field of `BlocksCredited`.
-fn credit_source(fields: &Composite<u32>) -> Option<u128> {
-	let source = fields.at("source")?;
-	source.as_u128().or_else(|| source.at(0).and_then(|id| id.as_u128()))
 }
 
 async fn wait_for_session_validators(
