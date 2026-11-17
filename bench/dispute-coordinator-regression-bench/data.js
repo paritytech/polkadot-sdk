@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794940478566,
+  "lastUpdate": 1794944897639,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1d65ee942a42bd25836c1d63aa56afe1d77d9045",
-          "message": "Recovery pallet modernization (#10482)\n\n# Recovery Pallet\n\nPallet Recovery allows you to have friends or family recover access to\nyour account if you lose\n your seed phrase or private key.\n\n ## Terminology\n\n- `lost`: An account that has lost access to its private key and needs\nto be recovered.\n - `friend`: A befriended account that can approve a recovery process.\n - `initiator`: An account that initiated a recovery attempt.\n - `recovered`: An account that has been successfully recovered.\n- `inheritor`: An account that is inheriting access to a lost account\nafter recovery.\n - `attempt`: An attempt to recover a lost account by an initiator.\n - `order`: The level of trust that an account has in a friend group.\n- `deposit`: The amount that a friends of this group needs to reserve to\ninitiate an attempt.\n - `threshold`: The number of friends that need to approve an attempt.\n- `inheritance delay`: How long an attempt will be delayed before it can\nsucceed.\n- `provided block`: The blocks that are *provided* by the\n`T::BlockNumberProvider`.\n\n ## Scenario: Recovering a lost account\n\nStory of how the user Alice loses access and is recovered by her\nfriends.\n\n1. Alice uses the recovery pallet to configure one or more friends\ngroups:\n- Alice picks a suitable `inheritor` account that will inherit the\naccess to her account for\n     each friend group. This could be a multisig.\n   - Alice configures all groups with via `set_friend_groups`.\n 2. Alice loses access to her account and becomes a `lost` account.\n3. Any member (aka `initiator`) of Alice's friend groups become aware of\nthe situation and\n    starts a recovery `attempt` via `initiate_attempt`.\n4. The friend group self-organizes and one-by-one approve the ongoing\nattempt via\n    `approve_attempt`.\n5. Exactly `threshold` friends approve the attempt (further approvals\nwill fail since they are\n    useless).\n6. Any account finishes the attempt via `finish_attempt` after at least\n*inheritance delay*\n    blocks since the initiation have passed.\n7. Alice's account is now officially `recovered` and accessible by the\n`inheritor` account.\n8. The `inheritor` may call `control_inherited_account` at any point to\ntransfer Alice's funds\n    to her new account.\n\n ## Scenario: Multiple friend group try to recover an account\n\nAlice may have configured multiple friend groups that all try to recover\nher account at the same\ntime. This can lead to a conflict of which friend group should\neventually inherit the access.\n\n1. Alice configures groups *Family* (delay 10d, order 0) and *Friends*\n(delay 20d, order 1).\n 1. Day 0: Alice loses access to her account.\n 1. Day 6: *Friends* initiate a recovery attempt for Alice.\n1. Day 15: *Family* finally understands Polkadot and initiates an\nattempt as well.\n 1. Day 25: *Family* inherits access to Alice account.\n1. Day 26: *Friends* group gets nothing since inheritance order is\nhigher the one from *Family*.\n\nIn the case above you see how the *Friends* group is now unable to\nrecover Alice account since\n the *Family* group already did it and has a lower inheritance order.  \nNow, imagine the case that the *Friends* group would have started on day\n4 and would have\nalready recovered the account on day 24. Two days later, the *Family*\ngroup can take access back\nand will replace the inheritor account with their own. The *Friends*\ngroup had access for two\n days since they were faster.  \nIf Alice account has most balance locked in 28 day staking this would\nnot make a big difference,\n since only the free balance would be immediately transferable.\n\nAfter a recovery attempt was completed, friend groups with a higher\ninheritance order cannot\n open a new attempt to recover the account.\n\n ## Data Structures\n\nThe pallet has three storage items, see the in-code docs\n[`FriendGroups`], [`Attempts`] and\n[`Inheritor`]. Storage items may contain deposit \"tickets\" or similar\nnoise and should therefore\n not be read directly but only through the API.\n\n ## API\n\n *Reading* data can be done through the view functions:\n\n- `provided_block_number`: The block number that will be used to measure\ntime.\n- `friend_groups`: The friend groups of an account that can initiate\nrecovery attempts.\n - `attempts`: Ongoing recovery attempts for a lost account.\n- `inheritor`: The account that inherited full access to the lost\naccount.\n- `inheritance`: All the recovered accounts that an account inherited\naccess to.\n\n## TODO\n\n- [x] Create migration from old format for Kusama\n- [ ] Weights\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: claravanstaden <claravanstaden64@gmail.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
-          "timestamp": "2026-04-30T23:07:53Z",
-          "tree_id": "2efea1b77f4dd4d639f2a0cfea7bdbe0061b8786",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d65ee942a42bd25836c1d63aa56afe1d77d9045"
-        },
-        "date": 1777595483429,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00935459657999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00964755136999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267426247,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002608905400000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5b3d1942368659ab099f93179a4ee33ab0e0f09f",
+          "message": "Bump WAH spec_version to 1_025_005 (#13893)\n\nThe WAH spec_version was bumped in a separate branch:\nhttps://github.com/paritytech/polkadot-sdk/commit/4881359149e59c053267c3ba142b346c67c790c0\nbut it was not backported to master. This PR brings the actual version\nback to master",
+          "timestamp": "2026-11-17T18:13:30Z",
+          "tree_id": "9609f4ce3b1039afad43b9b699e8fdcfb894c1df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b3d1942368659ab099f93179a4ee33ab0e0f09f"
+        },
+        "date": 1794944865719,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01090722876,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025470450300000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00946464620999998,
             "unit": "seconds"
           }
         ]
