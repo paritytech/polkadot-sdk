@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794925101301,
+  "lastUpdate": 1794939272675,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -262847,6 +262847,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2323380640,
             "range": "± 20838399",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9f3743bce6f3f6b25be482ad16ba62b3788999df",
+          "message": "Westend system chains: derive KickThreshold from the largest collator set (#13873)\n\n`pallet-collator-selection` kicks a bonded candidate at session start if\nit has not authored a block in the last `KickThreshold` blocks. Asset\nHub Westend and People Westend set it to one session (3600 blocks).\n\n`pallet-validator-collators` adds up to `MaxValidators` validators to\nthe Aura set. Each collator authors the blocks of one Aura slot (12\nblocks). A full round exceeds a session well before the largest set:\n\n- Polkadot after the reduction to 320 validators, with the same slot and\nsession as here: `(320 + 20 + 100) × 12 = 5280` blocks, about one and a\nhalf sessions.\n- The largest set, `MaxValidators` of 1000: `(1000 + 20 + 100) × 12 =\n13440` blocks, almost four sessions.\n\nA good candidate would then be kicked between its own slots, and would\nhave to register again.\n\n## Changes\n\n`parachains-common` adds `impls::KickThreshold<Runtime, ExtraCollators,\nBlocksPerAuraSlot, SessionLength>`, a `Get` for collator selection on a\nchain whose Aura set holds more collators than collator selection's own.\nFor validator collators, `ExtraCollators` is `MaxValidators` of\n`pallet-validator-collators`. It computes the threshold from the largest\ncollator set (`ExtraCollators` plus collator selection's invulnerables\nand candidates) with the following rule\n\n_Two full Aura rounds plus two slots, rounded to the first whole number\nof sessions above that, since candidates are only kicked at session\nstart. With a stable set, two turns of the same collator are at most one\nround plus one slot apart. A change of the set length at a session\nboundary can add up to one more round._\n\nAsset Hub and People Westend use it with 12 blocks per slot: `2 × (1000\n+ 20 + 100 + 1) × 12 = 26904`, which gives `28800` blocks (eight\nsessions). Each runtime only declares `BlocksPerAuraSlot`.\n\n## Notes\n\n- The threshold uses `MaxValidators`, not the number of validators\ndrawn. `KickThreshold` is exposed as a pallet constant in the metadata,\nso it should not read storage. On a chain that draws few or no\nvalidators, a candidate that stopped authoring is kicked after four\nsessions instead of one. Asset Hub Polkadot also uses a\n`MaxValidatorSet` of 1000, so with 320 validators drawn the threshold\nwould still be 14400, where 7200 would do easily.\n\n## Follow-ups\n\n- Polkadot and Kusama system chains in the fellowship runtimes use one\nsession too. They need the same derivation when they wire validator\ncollators\n- [Bulletin Westend WIP\nPR](https://github.com/paritytech/polkadot-bulletin-chain/pull/856)\nswitches to this helper once its pinned polkadot-sdk commit includes\nthis PR.",
+          "timestamp": "2026-11-17T16:55:06Z",
+          "tree_id": "c63335e3a487c8ee34815cfb575a87da9890eb9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f3743bce6f3f6b25be482ad16ba62b3788999df"
+        },
+        "date": 1794939234331,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4067200,
+            "range": "± 31784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 300635,
+            "range": "± 6300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4164131,
+            "range": "± 24992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 371151,
+            "range": "± 5801",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4832651,
+            "range": "± 39435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 889103,
+            "range": "± 6751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10480048,
+            "range": "± 79323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4861243,
+            "range": "± 33210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43592148,
+            "range": "± 275452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37482622,
+            "range": "± 454163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 347588919,
+            "range": "± 3339738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 301684136,
+            "range": "± 1869085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2573391638,
+            "range": "± 9614103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2361861360,
+            "range": "± 21915084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3442145,
+            "range": "± 17861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1916990,
+            "range": "± 10929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3575614,
+            "range": "± 29293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2018387,
+            "range": "± 10184",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4263399,
+            "range": "± 20409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2280949,
+            "range": "± 23831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7847038,
+            "range": "± 70991",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5312473,
+            "range": "± 50576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37399015,
+            "range": "± 254937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36830133,
+            "range": "± 279115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 317889941,
+            "range": "± 2305752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 288746661,
+            "range": "± 1265198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2605903717,
+            "range": "± 31363402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2422757636,
+            "range": "± 32800196",
             "unit": "ns/iter"
           }
         ]
