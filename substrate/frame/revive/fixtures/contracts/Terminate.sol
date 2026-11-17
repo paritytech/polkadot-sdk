@@ -9,6 +9,7 @@ contract Terminate {
 	uint8 public constant METHOD_SYSCALL = 2;
     receive() external payable {}
 	constructor(bool skip, uint8 method, address beneficiary) payable {
+		ISystem(SYSTEM_ADDR).allowTermination();
 		if (skip) {
 			return;
 		}

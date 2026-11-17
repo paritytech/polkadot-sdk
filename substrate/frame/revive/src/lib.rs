@@ -692,6 +692,10 @@ pub mod pallet {
 		/// The logs of the ethereum transaction would exceed
 		/// [`limits::MAX_RECEIPT_LOGS_BYTES`] in its receipt.
 		ReceiptTooLarge = 0x45,
+		/// `System.terminate` was called by a contract without a [`TerminationAllowed`] entry.
+		TerminationNotAllowed = 0x46,
+		/// `System.allowTermination` was called by a contract that is not running its constructor.
+		AllowTerminationOutsideConstructor = 0x47,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -765,6 +769,11 @@ pub mod pallet {
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+
+	/// The contracts that `System.terminate` can terminate. A contract gets its entry by calling
+	/// `System.allowTermination` from its constructor and loses it when it is terminated.
+	#[pallet::storage]
+	pub type TerminationAllowed<T: Config> = StorageMap<_, Identity, H160, ()>;
 
 	/// Terminated contracts that await lazy cleanup.
 	///

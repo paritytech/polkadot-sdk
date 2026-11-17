@@ -23,7 +23,18 @@ use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	api::call(
+		uapi::CallFlags::empty(),
+		&uapi::SYSTEM_PRECOMPILE_ADDR,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&[0u8; 32],
+		&uapi::solidity_selector("allowTermination()"),
+		None,
+	).unwrap();
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

@@ -147,12 +147,16 @@ impl Error {
 		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
 		let construct = CrateError::<T>::TerminatedInConstructor.into();
 		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
+		let not_allowed = CrateError::<T>::TerminationNotAllowed.into();
+		let not_in_ctor = CrateError::<T>::AllowTerminationOutsideConstructor.into();
 		let message = match () {
 			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
 			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
 			_ if e == cannot_terminate_delegated => {
 				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
 			},
+			_ if e == not_allowed => "allowTermination was not called in the constructor",
+			_ if e == not_in_ctor => "allowTermination can only be called from the constructor",
 			_ => return e.into(),
 		};
 		Self::Revert(message.into())

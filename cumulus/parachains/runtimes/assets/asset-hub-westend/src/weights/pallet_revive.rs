@@ -970,6 +970,8 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(90_415, 0).saturating_mul(r.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 	}
+	/// Storage: `Revive::TerminationAllowed` (r:1 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:2 w:2)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
@@ -1002,13 +1004,24 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
 	fn seal_terminate_logic() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `9589`
-		//  Estimated: `18004`
+		//  Measured:  `9629`
+		//  Estimated: `18044`
 		// Minimum execution time: 396_678_000 picoseconds.
 		Weight::from_parts(416_751_000, 0)
-			.saturating_add(Weight::from_parts(0, 18004))
-			.saturating_add(T::DbWeight::get().reads(16))
-			.saturating_add(T::DbWeight::get().writes(18))
+			.saturating_add(Weight::from_parts(0, 18044))
+			.saturating_add(T::DbWeight::get().reads(17))
+			.saturating_add(T::DbWeight::get().writes(19))
+	}
+	/// Storage: `Revive::TerminationAllowed` (r:0 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
+	fn allow_termination() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_400_000 picoseconds.
+		Weight::from_parts(2_935_555, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// The range of component `t` is `[0, 4]`.
 	/// The range of component `n` is `[0, 65536]`.

@@ -2097,6 +2097,7 @@ mod benchmarks {
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
+		TerminationAllowed::<T>::insert(instance.address, ());
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
@@ -2121,6 +2122,8 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
+			// The check that `System.terminate` does when it is called.
+			assert!(TerminationAllowed::<T>::contains_key(instance.address));
 			result = crate::exec::bench_do_terminate::<T>(
 				&mut transaction_meter,
 				&exec_config,
@@ -2134,6 +2137,7 @@ mod benchmarks {
 
 		// Check that the contract is removed
 		assert!(PristineCode::<T>::get(code_hash).is_none());
+		assert!(!TerminationAllowed::<T>::contains_key(instance.address));
 
 		// Check that the balance has been transferred away
 		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
@@ -2144,6 +2148,27 @@ mod benchmarks {
 		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
 
 		Ok(())
+	}
+
+	/// `System.allowTermination` called by a contract running its constructor.
+	#[benchmark(pov_mode = Measured)]
+	fn allow_termination() {
+		let input_bytes =
+			ISystem::ISystemCalls::allowTermination(ISystem::allowTerminationCall {}).abi_encode();
+		let system = H160(BenchmarkSystem::<T>::MATCHER.base_address());
+		let mut setup = CallSetup::<T>::default();
+		let address = setup.contract().address;
+		let (mut ext, _) = setup.ext();
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
+		ext.bench_push_precompile_frame(system);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(&mut ext, system.as_fixed_bytes(), input_bytes);
+		}
+		assert_ok!(result);
+		assert!(TerminationAllowed::<T>::contains_key(address));
 	}
 
 	// Benchmark the overhead that topics generate.

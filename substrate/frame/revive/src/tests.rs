@@ -200,9 +200,10 @@ pub mod test_utils {
 		let info_size = contract_info.encoded_size() as u128;
 		let code_deposit = CodeHashLockupDepositPercent::get()
 			.mul_ceil(get_code_deposit(&contract_info.code_hash));
+		let allowed = crate::TerminationAllowed::<Test>::contains_key(addr) as u128;
 		let deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
-			.saturating_add(DepositPerItem::get())
+			.saturating_add(DepositPerItem::get().saturating_mul(1 + allowed))
 			.saturating_add(code_deposit);
 		let immutable_size = contract_info.immutable_data_len() as u128;
 		if immutable_size > 0 {

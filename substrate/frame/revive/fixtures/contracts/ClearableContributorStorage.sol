@@ -16,6 +16,10 @@ import "@revive/ISystem.sol";
 contract ClearableContributorStorage {
 	mapping(address => bytes) private slots;
 
+	constructor() {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
+
 	function growStorage() external {
 		bytes memory payload = new bytes(64);
 		for (uint i = 0; i < payload.length; i++) {

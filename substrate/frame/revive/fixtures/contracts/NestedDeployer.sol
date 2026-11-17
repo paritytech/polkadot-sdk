@@ -23,6 +23,7 @@ contract NestedChild {
 
     constructor() {
         state = 42;
+        ISystem(SYSTEM_ADDR).allowTermination();
     }
 
     /// Self-terminate via the SELFDESTRUCT opcode (`only_if_same_tx: true`,

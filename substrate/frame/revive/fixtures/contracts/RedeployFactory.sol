@@ -8,6 +8,10 @@ import "@revive/ISystem.sol";
 /// uses the SELFDESTRUCT opcode and deletes the contract only if it was created in the same
 /// transaction.
 contract RedeployFactory {
+	constructor() {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
+
 	function deployChild() external returns (address) {
 		return address(new RedeployChild{salt: bytes32(0)}());
 	}
@@ -37,6 +41,10 @@ contract RedeployFactory {
 contract RedeployChild {
 	uint256 public value;
 	uint256 public other;
+
+	constructor() {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
 
 	function setValue(uint256 newValue) external {
 		value = newValue;

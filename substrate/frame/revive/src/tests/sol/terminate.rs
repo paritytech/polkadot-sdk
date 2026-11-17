@@ -18,14 +18,14 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config,
 	DeletionQueue, DeletionQueueCounter, Deposit, ExecReturnValue, H160, H256, HoldReason,
-	NativeDepositOf, Pallet, StorageDeposit, U256,
+	NativeDepositOf, Pallet, StorageDeposit, TerminationAllowed, U256,
 	address::{AddressMapper, create1},
 	metering::TransactionLimits,
 	precompiles::Precompile,
 	storage::AccountType,
 	test_utils::{
 		ALICE, BOB, BOB_ADDR, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT,
-		builder::{BareCallBuilder, Contract},
+		builder::{BareCallBuilder, BareInstantiateBuilder, Contract},
 		deposit_limit,
 	},
 	tests::{
@@ -34,8 +34,8 @@ use crate::{
 		pallet_dummy,
 		precompiles::{IWithInfo, WithInfo},
 		test_utils::{
-			get_balance, get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
-			set_balance_with_dust,
+			contract_base_deposit, get_balance, get_balance_on_hold, get_code_deposit,
+			get_contract, get_contract_checked, set_balance_with_dust,
 		},
 	},
 };
@@ -51,7 +51,8 @@ use frame_support::{
 };
 use pallet_revive_fixtures::{
 	Caller, FixtureType, RedeployChild, RedeployDeployer, RedeployFactory, Terminate,
-	TerminateCaller, TerminateDelegator, compile_module_with_type,
+	TerminateCaller, TerminateDelegator, TerminationOptIn, TerminationOptInFactory,
+	compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use sp_runtime::{
@@ -2138,5 +2139,181 @@ fn precompile_trie_id_does_not_depend_on_terminations(fixture_type: FixtureType)
 		let expected = ("bcontract_trie_v1", precompile, nonce)
 			.using_encoded(<Test as frame_system::Config>::Hashing::hash);
 		assert_eq!(get_contract(&precompile).trie_id.to_vec(), expected.as_ref().to_vec());
+	});
+}
+
+/// The revert reason of `System.terminate` for a contract without a `TerminationAllowed` entry.
+const NOT_ALLOWED: &str = "allowTermination was not called in the constructor";
+
+/// Builds the instantiation of `TerminationOptIn` by ALICE. The fixture describes `mode`.
+fn opt_in(code: &[u8], mode: u8, helper: H160) -> BareInstantiateBuilder<Test> {
+	let data = TerminationOptIn::constructorCall { mode, helper: helper.0.into() }.abi_encode();
+	builder::bare_instantiate(Code::Upload(code.to_vec())).constructor_data(data)
+}
+
+/// ALICE calls `terminate(DJANGO_ADDR)` on `addr`. Returns the revert reason if it reverts.
+fn terminate_opt_in(addr: H160) -> Result<(), String> {
+	let data = TerminationOptIn::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode();
+	let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
+	(!result.did_revert()).then_some(()).ok_or_else(|| decode_error(&result.data))
+}
+
+/// Instantiates `TerminationOptInFactory`, whose constructor creates a `TerminationOptIn`. PVM
+/// can only create it from uploaded code.
+fn opt_in_factory(fixture_type: FixtureType) -> H160 {
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+	let (code, _) = compile_module_with_type("TerminationOptIn", fixture_type).unwrap();
+	let (factory, _) = compile_module_with_type("TerminationOptInFactory", fixture_type).unwrap();
+	if fixture_type == FixtureType::Resolc {
+		let origin = RuntimeOrigin::signed(ALICE);
+		assert_ok!(Contracts::upload_code(origin, code, deposit_limit::<Test>()));
+	}
+	let factory = builder::bare_instantiate(Code::Upload(factory)).build_and_unwrap_contract();
+	factory.addr
+}
+
+/// Calls `create(mode, beneficiary)` on the factory and returns the address it returns.
+fn factory_create(factory: H160, mode: u8, beneficiary: H160) -> H160 {
+	let beneficiary = beneficiary.0.into();
+	let data = TerminationOptInFactory::createCall { mode_: mode, beneficiary }.abi_encode();
+	H160::from_slice(&call_ok(factory, data).data[12..])
+}
+
+/// A contract whose constructor called `System.allowTermination` pays one item more base deposit
+/// for its `TerminationAllowed` entry. `System.terminate` deletes it in a later transaction: the
+/// origin gets the whole deposit back and the beneficiary the balance.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn opted_in_contract_is_terminated_in_later_transaction(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("TerminationOptIn", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+		// The instance without an entry keeps the code in use when the other one is terminated.
+		let without = opt_in(&code, 0, H160::zero()).build_and_unwrap_contract();
+		let Contract { addr, account_id } =
+			opt_in(&code, 1, H160::zero()).native_value(1_000).build_and_unwrap_contract();
+		assert!(TerminationAllowed::<Test>::contains_key(addr));
+		assert!(!TerminationAllowed::<Test>::contains_key(without.addr));
+		let base = |addr: &H160| get_contract(addr).storage_base_deposit();
+		assert_eq!(base(&addr), base(&without.addr) + crate::tests::DepositPerItem::get());
+		for (addr, account) in [(addr, &account_id), (without.addr, &without.account_id)] {
+			assert_eq!(base(&addr), contract_base_deposit(&addr));
+			assert_eq!(deposit_held(account), get_contract(&addr).total_deposit());
+		}
+		let held = deposit_held(&account_id);
+		let (alice, django) = (get_balance(&ALICE), get_balance(&DJANGO));
+
+		assert_eq!(terminate_opt_in(addr), Ok(()));
+
+		assert!(get_contract_checked(&addr).is_none());
+		assert!(!TerminationAllowed::<Test>::contains_key(addr));
+		assert_eq!(deposit_held(&account_id), 0);
+		assert_eq!(get_balance(&ALICE), alice + held);
+		assert_eq!(get_balance(&DJANGO), django + 1_000);
+	});
+}
+
+/// `System.terminate` fails for a contract whose constructor did not call
+/// `System.allowTermination` and changes nothing. `System.allowTermination` fails outside of the
+/// constructor, so `System.terminate` keeps failing.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn terminate_fails_without_opt_in(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("TerminationOptIn", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, account_id } =
+			opt_in(&code, 0, H160::zero()).native_value(1_000).build_and_unwrap_contract();
+		let state = || {
+			let balances = [&account_id, &ALICE, &DJANGO].map(get_balance);
+			let queued = DeletionQueue::<Test>::iter().count();
+			(get_contract_checked(&addr), deposit_held(&account_id), balances, queued)
+		};
+		let before = state();
+
+		assert_eq!(terminate_opt_in(addr), Err(NOT_ALLOWED.into()));
+		let data = TerminationOptIn::allowTerminationCall {}.abi_encode();
+		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
+		assert!(result.did_revert());
+		let reason = "allowTermination can only be called from the constructor";
+		assert_eq!(decode_error(&result.data), reason);
+		assert_eq!(terminate_opt_in(addr), Err(NOT_ALLOWED.into()));
+
+		assert!(!TerminationAllowed::<Test>::contains_key(addr));
+		assert_eq!(state(), before);
+	});
+}
+
+/// A constructor fails if it reaches `System.allowTermination` through a delegate call, to the
+/// precompile (mode 2) or to a contract that calls it (mode 3), or if it reverts after the call
+/// (mode 4). It leaves neither a contract nor a `TerminationAllowed` entry.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [2, 3, 4])]
+fn failed_constructor_leaves_no_entry(fixture_type: FixtureType, mode: u8) {
+	let (code, _) = compile_module_with_type("TerminationOptIn", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let helper = opt_in(&code, 0, H160::zero()).build_and_unwrap_contract().addr;
+
+		let result = opt_in(&code, mode, helper).build_and_unwrap_result();
+
+		assert!(result.result.did_revert());
+		let reason = match mode {
+			4 => "constructor reverted",
+			_ => "illegal to call this pre-compile via delegate call",
+		};
+		assert_eq!(decode_error(&result.result.data), reason);
+		assert!(get_contract_checked(&result.addr).is_none());
+		assert_eq!(TerminationAllowed::<Test>::iter().count(), 0);
+	});
+}
+
+/// A contract created with CREATE2 at the address of a terminated contract has no
+/// `TerminationAllowed` entry unless its own constructor called `System.allowTermination`.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
+fn recreated_contract_needs_own_opt_in(fixture_type: FixtureType, allow_again: bool) {
+	ExtBuilder::default().build().execute_with(|| {
+		let factory = opt_in_factory(fixture_type);
+		let child = factory_create(factory, 1, H160::zero());
+		assert!(TerminationAllowed::<Test>::contains_key(child));
+		assert_eq!(terminate_opt_in(child), Ok(()));
+		assert!(get_contract_checked(&child).is_none());
+		assert!(!TerminationAllowed::<Test>::contains_key(child));
+		// The address is free once the deletion queue cleared the child's native deposit rows.
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		assert_eq!(factory_create(factory, allow_again as u8, H160::zero()), child);
+		assert_eq!(TerminationAllowed::<Test>::contains_key(child), allow_again);
+		let expected = allow_again.then_some(()).ok_or(NOT_ALLOWED.to_string());
+		assert_eq!(terminate_opt_in(child), expected);
+		assert_eq!(get_contract_checked(&child).is_some(), !allow_again);
+	});
+}
+
+/// A constructor that creates a contract whose constructor calls `System.allowTermination` gets
+/// no `TerminationAllowed` entry and pays for none. A created contract whose constructor reverts
+/// after the call leaves no entry. `SELFDESTRUCT` deletes a contract created in the same
+/// transaction although it has no entry.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn opt_in_of_contract_created_by_contract(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let factory = opt_in_factory(fixture_type);
+		let child = call_ok(factory, TerminationOptInFactory::childCall {}.abi_encode());
+		let child = H160::from_slice(&child.data[12..]);
+		assert!(TerminationAllowed::<Test>::contains_key(child));
+		assert_eq!(TerminationAllowed::<Test>::iter().count(), 1);
+		for addr in [factory, child] {
+			assert_eq!(get_contract(&addr).storage_base_deposit(), contract_base_deposit(&addr));
+		}
+
+		assert_eq!(factory_create(factory, 4, H160::zero()), H160::zero());
+		assert_eq!(TerminationAllowed::<Test>::iter().count(), 1);
+
+		let destroyed = factory_create(factory, 0, DJANGO_ADDR);
+		assert_ne!(destroyed, H160::zero());
+		assert!(get_contract_checked(&destroyed).is_none());
+		assert_eq!(TerminationAllowed::<Test>::iter().count(), 1);
 	});
 }

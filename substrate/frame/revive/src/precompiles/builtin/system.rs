@@ -44,7 +44,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() => {
+			ISystemCalls::terminate(_) | ISystemCalls::allowTermination(_)
+				if env.is_read_only() =>
+			{
 				Err(crate::Error::<T>::StateChangeDenied.into())
 			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -104,6 +106,11 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
+				Ok(Vec::new())
+			},
+			ISystemCalls::allowTermination(ISystem::allowTerminationCall {}) => {
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::AllowTermination)?;
+				env.allow_termination().map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
 			},
 			ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {

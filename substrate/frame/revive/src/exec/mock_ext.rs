@@ -235,6 +235,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::terminate_caller")
 	}
 
+	fn allow_termination(&mut self) -> Result<(), DispatchError> {
+		panic!("MockExt::allow_termination")
+	}
+
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
 		panic!("MockExt::to_account_id")
 	}

@@ -6,7 +6,9 @@ import "@revive/ISystem.sol";
 /// Terminates itself through the system precompile, so the destruction is carried out at
 /// the end of the call stack and works across transactions.
 contract TerminateStorageInner {
-	constructor() payable {}
+	constructor() payable {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
 
 	receive() external payable {}
 

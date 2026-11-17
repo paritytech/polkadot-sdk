@@ -18,7 +18,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, ContractLogTopics, Error, Event, ImmutableData,
-	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts,
+	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TerminationAllowed,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -529,8 +529,13 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Transfer all funds to `beneficiary`.
 	/// Contract is deleted at the end of the call stack.
 	///
-	/// This function will fail if called from constructor.
+	/// Fails if called from constructor or if the caller has no [`TerminationAllowed`] entry.
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError>;
+
+	/// Adds the [`TerminationAllowed`] entry of the caller of the current precompile.
+	///
+	/// Fails unless the caller is running its constructor.
+	fn allow_termination(&mut self) -> Result<(), DispatchError>;
 
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
@@ -705,6 +710,9 @@ struct Frame<T: Config> {
 	contracts_created: BTreeSet<T::AccountId>,
 	/// The set of contracts that are registered for destruction at the end of this call stack.
 	contracts_to_be_destroyed: BTreeMap<T::AccountId, TerminateArgs<T>>,
+	/// Whether this frame, or a precompile it called, added the [`TerminationAllowed`] entry of
+	/// its contract. Taken when the constructor's base deposit is charged, which covers the entry.
+	termination_allowed: bool,
 }
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
@@ -1291,6 +1299,7 @@ where
 			last_frame_output: Default::default(),
 			contracts_created,
 			contracts_to_be_destroyed: Default::default(),
+			termination_allowed: false,
 		};
 
 		Ok(Some((frame, executable)))
@@ -1596,8 +1605,11 @@ where
 
 				// Root pays no storage deposit, so a base deposit recorded here would never be
 				// held. It stays zero, as storage refunds are bounded by the deposit held above it.
+				let termination_allowed = mem::take(&mut frame.termination_allowed);
 				let deposit = match &self.origin {
-					Origin::Signed(_) => frame.contract_info().update_base_deposit(code_deposit),
+					Origin::Signed(_) => {
+						frame.contract_info().update_base_deposit(code_deposit, termination_allowed)
+					},
 					Origin::Root => Zero::zero(),
 				};
 				frame.frame_meter.charge_contract_deposit_and_transfer(
@@ -1792,6 +1804,7 @@ where
 			for (account, args) in frame.contracts_to_be_destroyed {
 				prev.schedule_termination(account, args);
 			}
+			prev.termination_allowed |= frame.termination_allowed;
 
 			if let Some(contract) = contract {
 				// Persist the info and invalidate the first stale cache we find.
@@ -2015,6 +2028,7 @@ where
 			(dust != 0).then(|| AccountInfo { account_type: AccountType::EOA, dust }),
 		);
 		ImmutableDataOf::<T>::remove(contract_address);
+		TerminationAllowed::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract
 		transaction_meter.terminate(contract_account.clone(), args.refunded.saturating_add(refund));
@@ -2126,6 +2140,15 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
+	}
+
+	/// Pushes the frame of a call from the top frame to the precompile at `address`.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_push_precompile_frame(&mut self, address: H160) {
+		let dest = T::AddressMapper::to_account_id(&address);
+		let args = FrameArgs::Call { dest, cached_info: None, delegated_call: None };
+		self.push_frame(args, U256::zero(), &CallResources::NoLimits, false, &[])
+			.expect("benchmarks push the frame below the call depth limit; qed");
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2808,6 +2831,10 @@ where
 			!AccountInfo::<T>::is_delegated(&contract_address),
 			Error::<T>::CannotTerminateDelegatedAccount,
 		);
+		ensure!(
+			TerminationAllowed::<T>::contains_key(contract_address),
+			Error::<T>::TerminationNotAllowed,
+		);
 
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
@@ -2834,6 +2861,19 @@ where
 		let args = TerminateArgs { beneficiary, only_if_same_tx: false, refunded };
 		self.top_frame_mut().schedule_termination(parent_account_id, args);
 
+		Ok(())
+	}
+
+	fn allow_termination(&mut self) -> Result<(), DispatchError> {
+		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		let parent = self.frames().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
+		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		ensure!(
+			parent.entry_point == ExportedFunction::Constructor,
+			Error::<T>::AllowTerminationOutsideConstructor,
+		);
+		TerminationAllowed::<T>::insert(T::AddressMapper::to_address(&parent.account_id), ());
+		self.top_frame_mut().termination_allowed = true;
 		Ok(())
 	}
 
