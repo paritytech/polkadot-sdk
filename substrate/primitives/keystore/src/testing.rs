@@ -25,7 +25,6 @@ use sp_core::{
 	bls381,
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ecdsa_bls381, ed25519,
-	key_proofs::KeyProofGenerator,
 	sr25519, KeccakHasher,
 };
 
@@ -127,17 +126,6 @@ impl MemoryKeystore {
 		Ok(pre_output)
 	}
 
-	fn generate_key_proofs<T: Pair + KeyProofGenerator>(
-		&self,
-		key_type: KeyTypeId,
-		public: &T::Public,
-		owner: &[u8],
-	) -> Result<Option<T::KeyProofs>, Error> {
-		let key_proofs = self
-			.pair::<T>(key_type, public)
-			.map(|mut pair| pair.generate_key_proofs(owner));
-		Ok(key_proofs)
-	}
 }
 
 impl Keystore for MemoryKeystore {

@@ -4,9 +4,14 @@ doc:
   description: |-
     This implements the host functions introduced by
     [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145) and
-    [RFC-156](https://github.com/polkadot-fellows/RFCs/pull/156).
+    [RFC-156](https://github.com/polkadot-fellows/RFCs/pull/156) by removing
+    the `bls-experimental` feature gate;
 
-    Also upgrades `w3f-bls` to 0.3.4 (post-audit version).
+    it upgrades `w3f-bls` to 0.3.4 (post-audit version) which triggers renaming
+    in the API.
+
+    it renames `ProofOfPossession` to more appropriate `KeyProofs` as they contains
+    both proof of possession and proof of owneship.
 
 crates:
 - name: sp-io

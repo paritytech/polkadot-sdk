@@ -13,7 +13,7 @@
 // under the License.
 
 //! Utilities for proving various facts about a public key
-//! (possession of its secret key, attestation of the deligating long term key,...)
+//! (possession of its secret key, attestation of the delegating long term key,...)
 
 use crate::crypto::{CryptoType, Pair, Signature};
 use sp_std::vec::Vec;

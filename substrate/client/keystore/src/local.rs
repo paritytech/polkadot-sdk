@@ -38,7 +38,7 @@ use sp_core::bandersnatch;
 }
 
 use sp_core::{
-	bls381, ecdsa_bls381, key_proofs::KeyProofGenerator, KeccakHasher,
+	bls381, ecdsa_bls381, KeccakHasher,
 };
 
 use crate::{Error, Result};
@@ -142,19 +142,6 @@ impl LocalKeystore {
 		Ok(pre_output)
 	}
 
-	fn generate_key_proofs<T: CorePair + KeyProofGenerator>(
-		&self,
-		key_type: KeyTypeId,
-		public: &T::Public,
-		owner: &[u8],
-	) -> std::result::Result<Option<T::KeyProofs>, TraitError> {
-		let key_proofs = self
-			.0
-			.read()
-			.key_pair_by_type::<T>(public, key_type)?
-			.map(|mut pair| pair.generate_key_proofs(owner));
-		Ok(key_proofs)
-	}
 }
 
 impl Keystore for LocalKeystore {
