@@ -1181,6 +1181,10 @@ where
 	}
 
 	/// Create a subsequent nested frame.
+	///
+	/// When the new frame runs PVM code, the interpreter cache of the innermost PVM frame that
+	/// waits on a sub-call is reset first (see `vm::pvm::reset_caller_cache`), so that only one
+	/// PVM frame of the call stack holds a cache. Pre-compiles and EVM frames reset nothing.
 	fn push_frame(
 		&mut self,
 		frame_args: FrameArgs<T, E>,
@@ -1227,6 +1231,24 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+<<<<<<< HEAD
+=======
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
+			if executable.is_pvm() {
+				crate::vm::pvm::reset_caller_cache().map_err(|err| {
+					log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+					Error::<T>::ExecutionFailed
+				})?;
+			}
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {

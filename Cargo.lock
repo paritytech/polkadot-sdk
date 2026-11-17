@@ -14573,8 +14573,13 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
+<<<<<<< HEAD
  "polkavm 0.33.1",
  "polkavm-common 0.33.0",
+=======
+ "polkavm 0.38.0",
+ "polkavm-common 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "pretty_assertions",
  "proptest",
  "rand 0.8.5",
@@ -14690,7 +14695,11 @@ dependencies = [
  "hex-literal",
  "pallet-revive-proc-macro",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkavm-derive 0.30.0",
+=======
+ "polkavm-derive 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "scale-info",
 ]
 
@@ -18750,12 +18759,26 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-assembler"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4859a29e1f4ad64610c4bc2bfc40bb9a535068a034933a5b56b5e7a0febf105a"
+=======
+name = "polkavm"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053068016d5c59042e1607a54c16da3e72a0a2c4e5d57ad19ca1eb40a681d13a"
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 dependencies = [
  "log",
+<<<<<<< HEAD
+=======
+ "picosimd",
+ "polkavm-assembler 0.38.0",
+ "polkavm-common 0.38.0",
+ "polkavm-linux-raw 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 ]
 
 [[package]]
@@ -18768,10 +18791,17 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-common"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49a5794b695626ba70d29e66e3f4f4835767452a6723f3a0bc20884b07088fe8"
+=======
+name = "polkavm-assembler"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4307946f8468993c33899720975e1e8e5f6950bc6d41a9b95ac7ec090992519"
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 dependencies = [
  "log",
  "polkavm-assembler 0.26.0",
@@ -18799,6 +18829,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-derive"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18814,6 +18845,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acb4463fb0b9dbfafdc1d1a1183df4bf7afa3350d124f29d5700c6bee54556b5"
 dependencies = [
  "polkavm-derive-impl-macro 0.30.0",
+=======
+name = "polkavm-common"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ef35bc7f93dff55723e05cde93c618a2ba4bba2b92947136091220671fe8718"
+dependencies = [
+ "blake3",
+ "log",
+ "picosimd",
+ "polkavm-assembler 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 ]
 
 [[package]]
@@ -18826,6 +18868,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-derive-impl"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18847,6 +18890,14 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+=======
+name = "polkavm-derive"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc9e460fcd402d621d38bb36547aa4f4bdb1e726fc66461352c2bc2b9cfa2d4b"
+dependencies = [
+ "polkavm-derive-impl-macro 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 ]
 
 [[package]]
@@ -18862,6 +18913,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-derive-impl-macro"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18878,6 +18930,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a4f5352e13c1ca5f0e4d7b4a804fbb85b0e02c45cae435d101fe71081bc8ed8"
 dependencies = [
  "polkavm-derive-impl 0.30.0",
+=======
+name = "polkavm-derive-impl"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaf470f87d5fb45dfa3e8a5f3d07e16ddf8322b7aef43bee004d5238aa63bb72"
+dependencies = [
+ "polkavm-common 0.38.0",
+ "proc-macro2 1.0.107",
+ "quote 1.0.40",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "syn 2.0.98",
 ]
 
@@ -18892,17 +18954,38 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkavm-linker"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6739125c4f8f44b4282b6531d765d599f20514e9b608737c6c3544594d08f995"
+=======
+name = "polkavm-derive-impl-macro"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "313d4d5f7f592ca7e73db3d03915788aadded0093930a16a843c0e21a3ef7bc8"
+dependencies = [
+ "polkavm-derive-impl 0.38.0",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "polkavm-linker"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8068b9b96e228d96c92ec1844eaa527e42015c9ba82b27414f5ea1ca4239c888"
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 dependencies = [
  "dirs",
  "gimli 0.31.1",
  "hashbrown 0.14.5",
  "log",
  "object 0.36.7",
+<<<<<<< HEAD
  "polkavm-common 0.30.0",
+=======
+ "polkavm-common 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -18936,6 +19019,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42063d4a1c52e569f7794df27dab3e19c9fa8946184023257bdbb43eb4a94be5"
 
 [[package]]
+<<<<<<< HEAD
 name = "polling"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18950,6 +19034,12 @@ dependencies = [
  "pin-project-lite",
  "windows-sys 0.48.0",
 ]
+=======
+name = "polkavm-linux-raw"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ccde7555db1eb513da81c4bcc036ad0e2eca56aaff74fb477a04a3025883e26"
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 
 [[package]]
 name = "polling"
@@ -21953,10 +22043,17 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d81bc77ad5df120ef1ffab877d71539aae878e916c0946a067e8d6b0508a7ea5"
 dependencies = [
+<<<<<<< HEAD
  "polkavm 0.26.0",
  "sc-allocator 34.0.0",
  "sp-maybe-compressed-blob 11.1.0",
  "sp-wasm-interface 24.0.0",
+=======
+ "polkavm 0.38.0",
+ "sc-allocator 23.0.0",
+ "sp-maybe-compressed-blob 11.0.0",
+ "sp-wasm-interface 20.0.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "thiserror 1.0.65",
  "wasm-instrument",
 ]
@@ -21980,9 +22077,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8976f310f09818f42ec389e727c91c0a75a8c363a29e3ac97d56492d83fc144f"
 dependencies = [
  "log",
+<<<<<<< HEAD
  "polkavm 0.26.0",
  "sc-executor-common 0.41.0",
  "sp-wasm-interface 24.0.0",
+=======
+ "polkavm 0.38.0",
+ "sc-executor-common 0.29.0",
+ "sp-runtime-interface 24.0.0",
+ "sp-wasm-interface 20.0.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 ]
 
 [[package]]
@@ -23069,9 +23173,15 @@ name = "sc-virtualization"
 version = "0.3.0"
 dependencies = [
  "log",
+<<<<<<< HEAD
  "polkavm 0.33.1",
  "sp-io 48.0.0",
  "sp-storage 25.0.0",
+=======
+ "polkavm 0.38.0",
+ "sp-io 30.0.0",
+ "sp-storage 19.0.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "sp-tracing 16.0.0",
  "sp-virtualization",
  "sp-virtualization-test-fixture",
@@ -25622,7 +25732,11 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkavm-derive 0.26.0",
+=======
+ "polkavm-derive 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 38.1.0",
@@ -25896,6 +26010,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkavm-derive 0.26.0",
  "sp-externalities 0.30.0",
  "sp-runtime-interface-proc-macro 20.0.0",
@@ -25904,6 +26019,20 @@ dependencies = [
  "sp-tracing 19.0.0",
  "sp-wasm-interface 24.0.0",
  "static_assertions",
+=======
+ "polkavm-derive 0.38.0",
+ "rustversion",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-runtime-interface-proc-macro 17.0.0",
+ "sp-runtime-interface-test-wasm",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-wasm-interface 20.0.0",
+ "trybuild",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
 ]
 
 [[package]]
@@ -26321,7 +26450,11 @@ dependencies = [
 name = "sp-virtualization-test-fixture"
 version = "0.3.0"
 dependencies = [
+<<<<<<< HEAD
  "polkavm-derive 0.33.0",
+=======
+ "polkavm-derive 0.38.0",
+>>>>>>> 797efbf6 (pallet-revive: bump PolkaVM to 0.38 and meter interpreter compilation (#13624))
  "substrate-wasm-builder",
 ]
 
