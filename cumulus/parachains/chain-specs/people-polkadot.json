@@ -9,7 +9,8 @@
     "/dns/polkadot-people-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWSSfWY3fTGJvGkuNUNBSNVCdLLNJnwkZSNQt7GCRYXu4o",
     "/dns/boot-people-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWCS5ENtYsyHMSpK7LjvhKrKF7hVas7qDBQvRSUtCNnd1Z",
     "/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt",
-    "/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt"
+    "/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt",
+    "/dns/bootnode1-people-polkadot.helixstreet.io/udp/22070/webrtc-direct/certhash/uEiBPair0mkO5QRbhY8f1Id_iqzdaD-agfKEKXN7nQpjY-A/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

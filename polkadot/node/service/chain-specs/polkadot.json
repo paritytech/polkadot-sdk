@@ -22,7 +22,8 @@
     "/dns/boot.interweb-it.com/tcp/13012/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF",
     "/dns/boot.interweb-it.com/tcp/13016/wss/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF",
     "/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf",
-    "/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf"
+    "/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf",
+    "/dns/bootnode1-polkadot.helixstreet.io/udp/22010/webrtc-direct/certhash/uEiBT-7RjwWWhkp9DcD0ZL0So1ikh6P8lq3r9NcEJF9pHSw/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf"
   ],
   "telemetryEndpoints": [
     [

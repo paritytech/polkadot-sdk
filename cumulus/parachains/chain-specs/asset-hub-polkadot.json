@@ -10,7 +10,8 @@
     "/dns/boot-polkadot-assethub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWDR9M7CjV1xdjCRbRwkFn1E7sjMaL4oYxGyDWxuLrFc2J",
     "/dns/boot-asset-hub-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWD8pxR4Ervm4tLsmsxNc82ouSQxaYWYWmVnrT5bYhAxQv",
     "/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC",
-    "/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC"
+    "/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC",
+    "/dns/bootnode1-asset-hub-polkadot.helixstreet.io/udp/22081/webrtc-direct/certhash/uEiA2d1xnFfaJaZl6AsPA97K8iT8t_webQ2j6pkSQhSqmMw/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
