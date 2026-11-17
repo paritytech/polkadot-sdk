@@ -98,7 +98,6 @@ pub trait WeightInfo {
 	fn poke_channel_deposits() -> Weight;
 	fn establish_channel_with_system() -> Weight;
 	fn count_request() -> Weight;
-	fn prune_request_window() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -142,9 +141,6 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn count_request() -> Weight {
-		Weight::MAX
-	}
-	fn prune_request_window() -> Weight {
 		Weight::MAX
 	}
 }
@@ -554,27 +550,11 @@ pub mod pallet {
 	/// For each non-system parachain, the block at which its current request window started and
 	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
 	///
-	/// A window that is over is removed in `on_idle`, see [`PruneCursor`].
+	/// The entry of a parachain stays once its window is over, and is removed when the parachain
+	/// is offboarded.
 	#[pallet::storage]
 	pub type RequestWindows<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
-
-	/// The parachain whose entry of [`RequestWindows`] `on_idle` looked at last: it looks at the
-	/// one after it next, in the order the map iterates. `None` to look at the first one.
-	#[pallet::storage]
-	pub type PruneCursor<T: Config> = StorageValue<_, ParaId, OptionQuery>;
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_: BlockNumberFor<T>, remaining: Weight) -> Weight {
-			let weight = <T as Config>::WeightInfo::prune_request_window();
-			if !remaining.all_gte(weight) {
-				return Weight::zero();
-			}
-			Self::prune_request_window();
-			weight
-		}
-	}
 
 	/// Preopen the given HRMP channels.
 	///
@@ -1059,23 +1039,6 @@ impl<T: Config> Pallet<T> {
 		now.saturating_sub(start) >= T::RequestWindow::get()
 	}
 
-	/// Looks at one entry of [`RequestWindows`], the one after [`PruneCursor`], and removes it if
-	/// its window is over. Starts over from the first entry once past the last.
-	fn prune_request_window() {
-		let mut windows = match PruneCursor::<T>::get() {
-			Some(para) => RequestWindows::<T>::iter_from_key(para),
-			None => RequestWindows::<T>::iter(),
-		};
-		let Some((para, (start, _))) = windows.next() else {
-			PruneCursor::<T>::kill();
-			return;
-		};
-		if Self::is_window_over(start) {
-			RequestWindows::<T>::remove(para);
-		}
-		PruneCursor::<T>::put(para);
-	}
-
 	/// The weight of the heaviest call a parachain makes for itself, with its own origin: opening,
 	/// accepting, cancelling or closing a channel, poking its deposits, or establishing a channel
 	/// with a system chain. The cancel is weighed for [`MAX_OPEN_REQUESTS_WITNESS`] pending
@@ -1220,6 +1183,7 @@ impl<T: Config> Pallet<T> {
 	fn clean_hrmp_after_outgoing(outgoing_para: &ParaId) {
 		HrmpOpenChannelRequestCount::<T>::remove(outgoing_para);
 		HrmpAcceptedChannelRequestCount::<T>::remove(outgoing_para);
+		RequestWindows::<T>::remove(outgoing_para);
 
 		let ingress = HrmpIngressChannelsIndex::<T>::take(outgoing_para)
 			.into_iter()

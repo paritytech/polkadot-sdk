@@ -1609,71 +1609,29 @@ fn window_restarts_at_the_next_request() {
 	});
 }
 
-/// `on_idle` looks at one window per block and removes it if it is over. Past the last one, it
-/// starts over from the first.
+/// The window of a para stays once it is over, and is removed when the para is offboarded. The
+/// window of another para is left alone.
 #[test]
-fn on_idle_removes_the_windows_that_are_over() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let len = RequestWindow::get();
-		let idle = || Hrmp::on_idle(1, Weight::MAX);
-		let windows = || RequestWindows::<Test>::iter().count();
-		let start = |para: u32, at| RequestWindows::<Test>::insert(ParaId::from(para), (at, 1));
-
-		// Nothing to look at.
-		idle();
-		assert_eq!(PruneCursor::<Test>::get(), None);
-
-		for para in 2001..2004 {
-			start(para, 1);
+fn window_is_removed_when_the_para_is_offboarded() {
+	new_test_ext(free_channels_genesis()).execute_with(|| {
+		for para in [2001, 2002] {
+			register_parachain(para.into());
 		}
-		// The window of 2004 starts later than the others.
-		start(2004, 2);
+		run_to_block(5, Some(vec![4, 5]));
 
-		// No window is over yet: a whole round removes nothing, then starts over.
-		System::set_block_number(len);
-		for _ in 0..4 {
-			idle();
-			assert!(PruneCursor::<Test>::get().is_some());
-		}
-		idle();
-		assert_eq!(PruneCursor::<Test>::get(), None);
-		assert_eq!(windows(), 4);
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_origin(2001), 2002.into(), 2, 8));
+		assert_ok!(Hrmp::hrmp_accept_open_channel(para_origin(2002), 2001.into()));
+		assert_eq!((window(2001), window(2002)), (Some((5, 1)), Some((5, 1))));
 
-		// All are over but the one of 2004: one is removed per block.
-		System::set_block_number(1 + len);
-		for looked_at in 1..=4 {
-			idle();
-			let over = (2001..2004).filter(|para| window(*para).is_none()).count();
-			assert!(over == looked_at || over == looked_at - 1);
-		}
-		assert_eq!(windows(), 1);
-		assert_eq!(window(2004), Some((2, 1)));
+		// Nothing removes a window that is over.
+		let over = 5 + RequestWindow::get();
+		run_to_block(over, None);
+		assert_eq!((window(2001), window(2002)), (Some((5, 1)), Some((5, 1))));
 
-		// The round ends, and the next one removes the last window once it is over.
-		idle();
-		assert_eq!(PruneCursor::<Test>::get(), None);
-		System::set_block_number(2 + len);
-		idle();
-		assert_eq!(windows(), 0);
-		assert_eq!(PruneCursor::<Test>::get(), Some(ParaId::from(2004)));
-		idle();
-		assert_eq!(PruneCursor::<Test>::get(), None);
-	});
-}
-
-/// `on_idle` does nothing without the weight to look at a window.
-#[test]
-fn on_idle_respects_remaining_weight() {
-	new_test_ext(Default::default()).execute_with(|| {
-		RequestWindows::<Test>::insert(ParaId::from(2001), (0, 1));
-		System::set_block_number(RequestWindow::get());
-
-		let weight = <Test as Config>::WeightInfo::prune_request_window();
-		let short = weight.saturating_sub(Weight::from_parts(1, 0));
-		assert_eq!(Hrmp::on_idle(1, short), Weight::zero());
-		assert_eq!(window(2001), Some((0, 1)));
-
-		assert_eq!(Hrmp::on_idle(1, weight), weight);
-		assert_eq!(window(2001), None);
+		deregister_parachain(2001.into());
+		run_to_block(over + 2, Some(vec![over + 1, over + 2]));
+		assert!(!Paras::is_valid_para(2001.into()));
+		assert_eq!((window(2001), window(2002)), (None, Some((5, 1))));
+		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }

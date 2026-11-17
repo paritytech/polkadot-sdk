@@ -280,11 +280,15 @@ mod benchmarks {
 		// all in all, we have created this many channels.
 		assert_eq!(HrmpChannels::<T>::iter().count() as u32, i + e);
 
+		// the leaving parachain has a request window, which is removed with the rest.
+		start_request_window::<T>(para);
+
 		#[extrinsic_call]
 		_(frame_system::Origin::<T>::Root, para, i, e);
 
 		// all in all, all of them must be gone by now.
 		assert_eq!(HrmpChannels::<T>::iter().count() as u32, 0);
+		assert!(!RequestWindows::<T>::contains_key(para));
 		// borrow this function from the tests to make sure state is clear, given that we do a lot
 		// of out-of-ordinary ops here.
 		Hrmp::<T>::assert_storage_consistency_exhaustive();
@@ -585,25 +589,6 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(RequestWindows::<T>::get(para).map(|(_, used)| used), Some(1));
-	}
-
-	/// A window that is over, found after the cursor and removed.
-	#[benchmark]
-	fn prune_request_window() {
-		for para in [PREFIX_0, PREFIX_0 + 1] {
-			RequestWindows::<T>::insert(ParaId::from(para), (BlockNumberFor::<T>::default(), 1));
-		}
-		frame_system::Pallet::<T>::set_block_number(T::RequestWindow::get());
-		// Removes one of the two, and leaves the cursor on it.
-		Hrmp::<T>::prune_request_window();
-		assert_eq!(RequestWindows::<T>::iter().count(), 1);
-
-		#[block]
-		{
-			Hrmp::<T>::prune_request_window();
-		}
-
-		assert_eq!(RequestWindows::<T>::iter().count(), 0);
 	}
 
 	impl_benchmark_test_suite!(
