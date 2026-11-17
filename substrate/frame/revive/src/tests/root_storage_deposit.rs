@@ -49,6 +49,11 @@ const TWO_SLOTS: u128 = 132;
 const FIFTY_SLOTS: u128 = 3300;
 const FIFTY_SLOTS_BYTES: u32 = 3200;
 
+/// What a caller keeps so a nested frame still receives `amount` under the 63/64 rule.
+fn kept_by_caller(amount: u128) -> u128 {
+	amount.div_ceil(63)
+}
+
 trait Runtime: Config<Balance = u128> + frame_system::Config<AccountId = AccountId32> {}
 impl<T: Config<Balance = u128> + frame_system::Config<AccountId = AccountId32>> Runtime for T {}
 
@@ -292,11 +297,14 @@ fn root_limit_is_enforced<T: Runtime>(fixture_type: FixtureType) {
 		assert_eq!(churn_below.snap, start, "signer {signer:?}");
 	}
 
-	let root_churn = call_with_limit::<T>(None, addr, write_then_clear(0, 50), FIFTY_SLOTS);
+	// `write_then_clear` writes from a nested frame, which gets 63/64 of the limit.
+	let churn_limit = FIFTY_SLOTS + kept_by_caller(FIFTY_SLOTS);
+	let root_churn = call_with_limit::<T>(None, addr, write_then_clear(0, 50), churn_limit);
 	assert_eq!(root_churn.result, Ok(false));
-	assert_eq!(root_churn.max_storage_deposit, StorageDeposit::Charge(FIFTY_SLOTS));
+	assert_eq!(root_churn.max_storage_deposit, StorageDeposit::Charge(churn_limit));
 	assert_eq!(root_churn.snap, start);
 
+	// `write` runs in the first frame, which the rule exempts.
 	let root_exact = call_with_limit::<T>(None, addr, write(0, 50), FIFTY_SLOTS);
 	assert_eq!(root_exact.result, Ok(false));
 	assert_eq!(root_exact.snap.recorded, start.recorded);
@@ -324,10 +332,13 @@ fn root_created_child_records_zero_base<T: Runtime>(fixture_type: FixtureType) {
 		.data(RootStorageDeployer::deployCall { n: 2 }.abi_encode())
 		.build();
 	assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
-	// Nothing is settled, but the two slots `deploy` writes into the child are metered at the
-	// list price. The child's base deposit and the code it runs are not: Root pays no fixed
-	// cost for creating a contract, so neither reaches the deposit limit.
-	assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(TWO_SLOTS));
+	// Nothing is settled, but the two slots `deploy` writes into the child are metered. The
+	// child's base deposit and the code it runs are not: Root pays no fixed cost for creating
+	// a contract, so neither reaches the deposit limit.
+	assert_eq!(
+		result.max_storage_deposit,
+		StorageDeposit::Charge(TWO_SLOTS + kept_by_caller(TWO_SLOTS))
+	);
 	let output = result.result.unwrap();
 	assert!(!output.did_revert());
 	let child: Address = RootStorageDeployer::deployCall::abi_decode_returns(&output.data).unwrap();
