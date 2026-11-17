@@ -175,10 +175,12 @@ where
 /// `ExtraCollators` more collators than collator selection's invulnerables and candidates, for
 /// example validators drawn by `pallet-validator-collators`.
 ///
-/// The blocks between two turns of the same collator in the largest collator set, plus one slot,
-/// then the first whole number of sessions above that, since candidates are only kicked at session
-/// start. The largest set is `ExtraCollators` plus the invulnerables and candidates. A candidate
-/// authors a block within that time and is not kicked as stale.
+/// Two rounds of the largest collator set plus two slots, then the first whole number of sessions
+/// above that, since candidates are only kicked at session start. The largest set is
+/// `ExtraCollators` plus the invulnerables and candidates. Aura picks the author as the slot modulo
+/// the set length, so a change of the set length at a session boundary can delay a collator's next
+/// turn by up to one more round. A candidate authors a block within that time, across one such
+/// change, and is not kicked as stale.
 ///
 /// `BlocksPerAuraSlot` is the number of blocks the chain authors in one Aura slot, at least one.
 pub struct KickThreshold<R, ExtraCollators, BlocksPerAuraSlot, SessionLength>(
@@ -197,14 +199,15 @@ where
 		let collators = ExtraCollators::get()
 			.saturating_add(R::MaxInvulnerables::get())
 			.saturating_add(R::MaxCandidates::get());
-		let round: BlockNumberFor<R> = collators
+		let two_rounds: BlockNumberFor<R> = collators
 			.saturating_add(1)
+			.saturating_mul(2)
 			.saturating_mul(BlocksPerAuraSlot::get().max(1))
 			.into();
 		let session = SessionLength::get();
-		round
-			.checked_div(&session)
-			.map_or(round, |sessions| session.saturating_mul(sessions.saturating_add(One::one())))
+		two_rounds.checked_div(&session).map_or(two_rounds, |sessions| {
+			session.saturating_mul(sessions.saturating_add(One::one()))
+		})
 	}
 }
 
@@ -364,25 +367,25 @@ mod tests {
 	}
 
 	#[test]
-	fn kick_threshold_rounds_one_round_plus_a_slot_up_to_whole_sessions() {
+	fn kick_threshold_rounds_two_rounds_plus_two_slots_up_to_whole_sessions() {
 		use frame_support::traits::ConstU64;
-		// GIVEN 90 collators (50 extra, 20 invulnerables, 20 candidates), so one round plus one
-		// slot is 91 slots
+		// GIVEN 90 collators (50 extra, 20 invulnerables, 20 candidates), so two rounds plus two
+		// slots are 182 slots
 		type Threshold<BlocksPerSlot, Session> =
 			KickThreshold<Test, ConstU32<50>, BlocksPerSlot, Session>;
 		// WHEN each case below sets the blocks per Aura slot and the session length
-		// THEN it is the first whole number of sessions above 91 slots
+		// THEN it is the first whole number of sessions above 182 slots
 
-		// 2 blocks per slot, sessions of 50 blocks: 91 x 2 = 182 blocks, so 4 sessions = 200
-		assert_eq!(Threshold::<ConstU32<2>, ConstU64<50>>::get(), 200);
-		// 2 blocks per slot, sessions of 181 blocks: 182 blocks, so 2 sessions = 362
-		// (without the extra slot, 180 blocks would fit in 1 session)
-		assert_eq!(Threshold::<ConstU32<2>, ConstU64<181>>::get(), 362);
-		// 1 block per slot, sessions of 91 blocks: exactly 1 session, so 2 sessions = 182
-		assert_eq!(Threshold::<ConstU32<1>, ConstU64<91>>::get(), 182);
-		// 1 block per slot, sessions of 0 blocks: returns 91 blocks instead of dividing by zero
-		assert_eq!(Threshold::<ConstU32<1>, ConstU64<0>>::get(), 91);
-		// 0 blocks per slot (counted as 1), sessions of 50 blocks: 91 blocks, so 2 sessions = 100
-		assert_eq!(Threshold::<ConstU32<0>, ConstU64<50>>::get(), 100);
+		// 2 blocks per slot, sessions of 50 blocks: 182 x 2 = 364 blocks, so 8 sessions = 400
+		assert_eq!(Threshold::<ConstU32<2>, ConstU64<50>>::get(), 400);
+		// 2 blocks per slot, sessions of 181 blocks: 364 blocks, so 3 sessions = 543
+		// (without the two extra slots, 360 blocks would fit in 2 sessions)
+		assert_eq!(Threshold::<ConstU32<2>, ConstU64<181>>::get(), 543);
+		// 1 block per slot, sessions of 91 blocks: exactly 2 sessions, so 3 sessions = 273
+		assert_eq!(Threshold::<ConstU32<1>, ConstU64<91>>::get(), 273);
+		// 1 block per slot, sessions of 0 blocks: returns 182 blocks instead of dividing by zero
+		assert_eq!(Threshold::<ConstU32<1>, ConstU64<0>>::get(), 182);
+		// 0 blocks per slot (counted as 1), sessions of 50 blocks: 182 blocks, so 4 sessions = 200
+		assert_eq!(Threshold::<ConstU32<0>, ConstU64<50>>::get(), 200);
 	}
 }
