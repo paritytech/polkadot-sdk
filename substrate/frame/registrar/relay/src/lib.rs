@@ -187,10 +187,10 @@ pub enum QueuedRequest<MaxHeadDataSize: Get<u32>> {
 pub type QueuedRequestOf<T> = QueuedRequest<<T as Config>::MaxHeadDataSize>;
 
 impl<S: Get<u32>> QueuedRequest<S> {
-	fn head_len(&self) -> u32 {
+	fn head_len(&self) -> Option<u32> {
 		match self {
-			Self::SetCurrentHead { head } => head.len() as u32,
-			_ => 0,
+			Self::SetCurrentHead { head } => Some(head.len() as u32),
+			_ => None,
 		}
 	}
 }
@@ -791,7 +791,7 @@ pub mod pallet {
 					oldest = oldest.wrapping_add(1);
 					continue;
 				};
-				meter.consume(forward_weight(request.head_len()));
+				meter.consume(forward_weight(request.head_len().unwrap_or(0)));
 
 				let message = MessageToPara::V1(MessageToParaV1::Relayed {
 					para_id,
