@@ -1,15 +1,10 @@
-title: 'Asset Hub Westend: accept WND teleports from Bulletin Westend'
+title: 'Asset Hub Westend: teleport WND to and from Bulletin Westend'
 doc:
 - audience: Runtime Dev
   description: |-
     Bulletin Westend is a sibling parachain outside the system parachain range, so Asset Hub
-    Westend did not trust WND teleported from it.
-    Asset Hub Westend now trusts WND teleports from Bulletin, and gives Bulletin's accumulation account
-    the same explicit unpaid execution as the accumulation accounts of the system parachains.
-    This lets Bulletin forward its fees and dust to the DAP staging account with `pallet-accumulate-and-forward`,
-    and lets accounts on Bulletin teleport WND back to Asset Hub.
-    The Bulletin Westend runtime is built outside this repository, so its accumulation account must use the same
-    pallet ID as the other Westend chains.
+    Westend did not trust it for WND teleports, in either direction. Asset Hub Westend now trusts
+    WND teleports with Bulletin, so WND can be teleported from Asset Hub to Bulletin and back.
 crates:
 - name: asset-hub-westend-runtime
   bump: minor

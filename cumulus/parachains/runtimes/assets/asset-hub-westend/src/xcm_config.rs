@@ -49,7 +49,7 @@ use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::{
 	accumulate_forward::AccumulateForwardPalletId,
-	locations::{AssetHubParaId, BulletinLocation, BULLETIN_ID},
+	locations::{AssetHubParaId, BulletinLocation},
 };
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
@@ -93,6 +93,8 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
+	// TODO: remove once Bulletin Westend runs on a system parachain id, see
+	// https://github.com/paritytech/polkadot-bulletin-chain/issues/857.
 	pub WndFromBulletin: (AssetFilter, Location) = (
 		Wild(AllOf { fun: WildFungible, id: AssetId(WestendLocation::get()) }),
 		BulletinLocation::get(),
@@ -331,8 +333,6 @@ impl Contains<Location> for SystemChainAccumulationAccounts {
 		match location.unpack() {
 			// Relay chain (parent) accumulation account.
 			(1, [AccountId32 { id, .. }]) => *id == accumulation_account,
-			// Bulletin's accumulation account.
-			(1, [Parachain(BULLETIN_ID), AccountId32 { id, .. }]) => *id == accumulation_account,
 			// Sibling system parachain accumulation account.
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
 				ParaId::from(*id).is_system() &&
