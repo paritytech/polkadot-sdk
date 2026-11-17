@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794863212087,
+  "lastUpdate": 1794892750476,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -146879,6 +146879,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3062602380,
             "range": "± 55245984",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce059ae2a008272bc9574ff78aa6471659e92f27",
+          "message": "statement-store: rerun expiry sweep while a backlog remains (#13824)\n\n# Description\n\nThe statement store has a background task that removes expired\nstatements. It runs every 31 s\nand removes at most 10,000 statements each time, so a node can only\nremove about 320 statements\nper second. On Versi (#13634), about 833 statements per second expired\non each node. The expired\nstatements piled up until the store hit its 2 GiB limit, and then it\nrejected new statements with\n`StoreFull`.\n\nAfter each pass, the task now checks whether more expired statements are\nleft. If there are, it\nruns again right away instead of waiting for 31 seconds. When none are\nleft, it goes back to running\nevery 31 second.\n\nFixes #13634\n\n## Integration\n\nNothing to do. `Store::enforce_limits` now returns `true` if expired\nstatements are still left.\nIt is `#[doc(hidden)]` and only the benchmarks use it.\n\n## Review Notes\n\n- To check for leftovers, I added `has_due_expiry`. It reads the first\nentry of\n`INDEX_BY_EXPIRY`. The index is sorted by expiry, so if the first entry\nhasn't expired, nothing\nelse has.\n- A pass only asks to run again if it removed at least one statement.\nThis way the task can't\nget stuck rerunning on a row it can't remove.\n- To run again right away, the task calls\n`Interval::reset_immediately()`. `maintain` still gets\nto run between passes.\n- The extra passes also run the allowance check (phase 2). It has its\nown limits, so I think\nrunning it more often is fine.",
+          "timestamp": "2026-11-17T03:57:24Z",
+          "tree_id": "d45587eae67d27c5ce44f2bb5d5510293ded8ab5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce059ae2a008272bc9574ff78aa6471659e92f27"
+        },
+        "date": 1794892709169,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19692009,
+            "range": "± 133268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20104717,
+            "range": "± 218818",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21847944,
+            "range": "± 104199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25679290,
+            "range": "± 180777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58032292,
+            "range": "± 1213375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 354743420,
+            "range": "± 4976232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2685056432,
+            "range": "± 145710260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16904571,
+            "range": "± 134201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17071327,
+            "range": "± 148729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17716221,
+            "range": "± 128661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22768847,
+            "range": "± 219963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59717590,
+            "range": "± 1204124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 353584010,
+            "range": "± 3205039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2776037063,
+            "range": "± 22651637",
             "unit": "ns/iter"
           }
         ]
