@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794893577707,
+  "lastUpdate": 1794908128477,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6597bb572c1eca3a21395380fb6e20bebc1a41c",
-          "message": "Additional improvements for the DAP satellite pallet generalization (#11949)\n\nAdditional fixes / improvements for\nhttps://github.com/paritytech/polkadot-sdk/pull/11881:\n- Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since\nit only works on `AccountId32`-type accounts (used in all system\nparachains), but future users with different account types will need\ndifferent trait implementations\n- Improved account migration testing\n- Additional comments to clarify important corner-cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-01T10:51:45Z",
-          "tree_id": "0f8488b30bd2480d173d9bcbac1ab43adb0be7fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6597bb572c1eca3a21395380fb6e20bebc1a41c"
-        },
-        "date": 1777637666021,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.340000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000026030540000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002591917,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 15.091812269069973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00530067861,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002591917,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9659351219699994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.5718482308799984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.507311521603046,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9276147355000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000026030540000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.907311332939998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.918980580909999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7948215882599767,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.499634080002897,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4dff985e283e223ad10f72054752a6195ed3827",
+          "message": "Asset Hub Westend: validators collate on Bulletin Westend (#13866)\n\nValidators of the active era collate on Asset Hub and People Westend and\nearn era points for the blocks they author there. This PR extends the\nsame to Bulletin Westend. The Bulletin runtime side lives in\n`paritytech/polkadot-bulletin-chain` and will require a companion PR to\nwire `pallet-validator-collators` there (see more-than-WIP\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/856).\n\n## Implementation details\n\n- One list, `ValidatorCollatorChains: Vec<ParaId>` (currently People and\nBulletin), names the chains other than AH that collate with validators.\nIt drives the announcer destinations, the origins allowed to report\nauthored blocks, the testnet preset points and the barrier. Adding a\nchain in the future becomes one entry.\n- Asset Hub sends the era's validator set to each listed chain as an\nunpaid `Transact` of `set_validators`, with the `Xcm` origin kind. The\ncall is encoded once, with the same index of `ValidatorCollators` on\nevery receiving chain. Bulletin's own tests _will_ pin that index on its\nside.\n- The announcer destination is now the `ParaId`. The `destination` field\nof `AnnouncementSent` and `AnnouncementFailed` changes type from an enum\nto a `ParaId`, which indexers will see. No migration is needed since the\nannouncer has no storage.\n- Bulletin's para ID on Westend is outside the system parachain range,\nso the barrier allows explicit unpaid execution of any message from the\nlisted chains.\n\n## Rollout on Westend\n\n- `set_points_per_service(Bulletin, Collation, x)` on Asset Hub,\notherwise Bulletin's reports credit nothing.\n- Either upgrade order is safe. With Asset Hub first, `set_validators`\nfails to decode on Bulletin once per era until Bulletin upgrades. With\nBulletin first, no set arrives.\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-11-17T08:00:36Z",
+          "tree_id": "c1b6aa65a7a5717788de1d2883f27c350693cbb2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4dff985e283e223ad10f72054752a6195ed3827"
+        },
+        "date": 1794908089460,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.79,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.981081007779986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.699029788010002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005430004519999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3431117106200023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7975134325099804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019824169999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.330419935652812,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019971170000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6954820243899995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019971170000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7499918332699993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019824169999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6905222144600005,
             "unit": "seconds"
           }
         ]
