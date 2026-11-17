@@ -299,8 +299,9 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
-/// Admission sequence a detour hash queues under. A journal walk skips a peer outside the
-/// routing targets, so a failed detour must not move a resync's start.
+/// Admission sequence a dead-end hash queues under, as a detour or as a direct send to a routing
+/// target its sync missed. A journal walk skips a detour peer, and a direct send must not move a
+/// resync's start back to an old admission, so a failed one does not start a resync.
 pub(crate) const DETOUR_SEQ: u64 = u64::MAX;
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
@@ -2389,7 +2390,7 @@ where
 				detours.extend(detour.map(|peer| (*peer, dead_end.hash)));
 			} else {
 				let missed = targets.iter().filter(missed_by_sync);
-				sends.extend(missed.map(|peer| (*peer, dead_end.seq, dead_end.hash)));
+				sends.extend(missed.map(|peer| (*peer, dead_end.hash)));
 			}
 		}
 		// The outbox takes its own hold on a hash before the dead end gives up its one. A detour
@@ -2401,11 +2402,19 @@ where
 				self.try_send_next_chunk(peer);
 			}
 		}
-		// A routing target that refuses the hash gets it from the resync walk instead.
-		for (peer, seq, hash) in sends {
-			self.push_outbox_hashes(&peer, vec![(seq, hash)]);
-			resolved.insert(hash);
+		// The same holds for a direct send. A target that took the hash counts as a sender, so
+		// the dead end, kept while another target's outbox is full, is not sent to it again.
+		let mut refused = HashSet::new();
+		for (peer, hash) in &sends {
+			if self.propagation_outboxes.push(*peer, &[(DETOUR_SEQ, *hash)]) == 1 {
+				self.propagation_outboxes.add_dead_end_sender(hash, *peer);
+				self.try_send_next_chunk(*peer);
+			} else {
+				refused.insert(*hash);
+			}
 		}
+		resolved
+			.extend(sends.into_iter().map(|(_, hash)| hash).filter(|hash| !refused.contains(hash)));
 		self.propagation_outboxes
 			.retain_dead_ends(|dead_end| !resolved.contains(&dead_end.hash));
 	}

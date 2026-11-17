@@ -49,7 +49,7 @@ pub(crate) struct DeadEnd {
 	pub(crate) topics: Vec<Topic>,
 	/// Unix time in seconds at which the statement expires.
 	pub(crate) expires_at: u64,
-	/// Peers that sent the statement to this node.
+	/// Peers that have the statement: they sent it to this node, or their outbox took it.
 	pub(crate) senders: HashSet<PeerId>,
 }
 
@@ -131,6 +131,13 @@ impl PropagationOutboxes {
 	/// The held dead-end statements, oldest first.
 	pub(crate) fn dead_ends(&self) -> &[DeadEnd] {
 		&self.dead_ends
+	}
+
+	/// Record that `peer` has the dead-end statement `hash`, so it is not sent to `peer` again.
+	pub(crate) fn add_dead_end_sender(&mut self, hash: &Hash, peer: PeerId) {
+		for dead_end in self.dead_ends.iter_mut().filter(|dead_end| dead_end.hash == *hash) {
+			dead_end.senders.insert(peer);
+		}
 	}
 
 	/// Release the dead-end statements that `is_stuck` rejects.
