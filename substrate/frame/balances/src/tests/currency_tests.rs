@@ -1478,6 +1478,22 @@ fn under_backed_account_keeps_holds_backed_first() {
 
 			// the named ones act on what is not backing the hold, and report the rest as missing.
 			assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Bar)), 5);
+			hypothetically!({
+				let issuance = Balances::total_issuance();
+				let (slashed, not_slashed) = Balances::slash_reserved_named(&TestId::Bar, &1, 20);
+				assert_eq!((slashed.peek(), not_slashed), (5, 15));
+				drop(slashed);
+				assert_eq!(Balances::total_issuance(), issuance - 5);
+				assert_eq!(reserved_held_named(), (10, 10, 15));
+			});
+			hypothetically!({
+				assert_eq!(
+					Balances::repatriate_reserved_named(&TestId::Bar, &1, &2, 20, Free),
+					Ok(15)
+				);
+				assert_eq!(reserved_held_named(), (10, 10, 15));
+				assert_eq!(Balances::free_balance(2), 105);
+			});
 			assert_eq!(Balances::unreserve_named(&TestId::Bar, &1, 20), 15);
 			assert_eq!(reserved_held_named(), (10, 10, 15));
 

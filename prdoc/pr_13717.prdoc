@@ -9,7 +9,8 @@ doc:
     the `force_unreserve` call now act on that remainder only, and the `NamedReservableCurrency`
     operations act on their own named reserve only.
 
-    Callers that only release, slash or move what they have reserved themselves see no change.
+    Callers that only release, slash or move what they have reserved themselves see no change, as
+    long as the account's reserved balance covers all of its holds and named reserves
 
     A new Root-only `force_unreserve_named` call is the named counterpart of `force_unreserve`.
 
@@ -18,3 +19,15 @@ crates:
   bump: major
 - name: pallet-preimage
   bump: none
+- name: westend-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
