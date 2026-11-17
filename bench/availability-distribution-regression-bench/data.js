@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794940343551,
+  "lastUpdate": 1794944732165,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d5876e2565a4fe83c92c8f710778ff49c4ed4a8",
-          "message": "client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order (#11962)\n\n## Problem\n\n#11474 switched `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to\n`BTreeSet<DbHash>` for dedup + canonical ordering. This silently broke\nproof-of-storage verification for any block produced by a multi-renew\nextrinsic.\n\n`build_proof` walks `block_indexed_body(N)` linearly to count chunks and\npick the chunk at `random_chunk(parent_hash, total_chunks)`. The\nconsumer pallet (`pallet_transaction_storage`) stores a parallel\n`Vec<TransactionInfo>` in dispatch order. Both sides resolve\n`selected_chunk_index` to a position; with `BTreeSet`, the off-chain\nside iterates in hash-sorted order while the runtime indexes in dispatch\norder. Different positions point at different `chunk_root`s →\n`blake2_256_verify_proof` returns `false` → `Error::InvalidProof` →\n`BadMandatory` → chain halts at the first proof block after a\nmulti-renew.\n\n## Fix\n\nRevert `MultiRenew.hashes` to `Vec<DbHash>`, append every\n`IndexOperation::Renew` op (no dedup). Insertion order is the\ncross-process contract; duplicates are preserved so column-refcount\ninc/dec stays symmetric per occurrence.\n\n## Tests\n\n- `block_indexed_body_preserves_renew_op_submission_order`\n(sc-client-db) — submits 5 Renew ops in non-sorted order, asserts both\n`MultiRenew.hashes` and `block_indexed_body(N)` come back\nposition-by-position equal to the submission order. Fails immediately\nunder any sort-applying container.\n- `proof_round_trip_against_parallel_runtime_view`\n(sp-transaction-storage-proof) — builds a proof from N transactions in\nsubmission order `[3, 0, 2, 1]`, then verifies it against a parallel\nruntime-side `Vec<TxInfo>` in the same order using the binary-search\nlogic FRAME consumers use. Sweeps 16 parent_hash seeds. Under\n`BTreeSet`, would fail on the first seed.\n- `random_chunk_is_deterministic_for_same_inputs`,\n`encode_index_round_trip_is_compact` — pin the agreement primitives.\n- All 10 pre-existing multi-renew tests updated for Vec semantics\n(duplicates preserved, refcount math adjusted accordingly).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-05-04T09:40:40Z",
-          "tree_id": "da8baadabdd743b604435cda1cea37fd1ceae48b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d5876e2565a4fe83c92c8f710778ff49c4ed4a8"
-        },
-        "date": 1777893515512,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007094334806666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009316231579999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023885636720000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14149715552666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007761535026666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5b3d1942368659ab099f93179a4ee33ab0e0f09f",
+          "message": "Bump WAH spec_version to 1_025_005 (#13893)\n\nThe WAH spec_version was bumped in a separate branch:\nhttps://github.com/paritytech/polkadot-sdk/commit/4881359149e59c053267c3ba142b346c67c790c0\nbut it was not backported to master. This PR brings the actual version\nback to master",
+          "timestamp": "2026-11-17T18:13:30Z",
+          "tree_id": "9609f4ce3b1039afad43b9b699e8fdcfb894c1df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b3d1942368659ab099f93179a4ee33ab0e0f09f"
+        },
+        "date": 1794944698974,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010063892193333292,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024028680086666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007621972273333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14140041834,
             "unit": "seconds"
           }
         ]
