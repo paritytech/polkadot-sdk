@@ -227,6 +227,7 @@ fast-runtime = [
 	"rococo-runtime?/fast-runtime",
 	"westend-runtime?/fast-runtime",
 ]
+short-health-tick = ["polkadot-node-core-health?/short-health-tick"]
 
 malus = ["full-node"]
 runtime-metrics = [
