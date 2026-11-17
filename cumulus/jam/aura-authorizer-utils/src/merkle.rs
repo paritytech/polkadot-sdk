@@ -64,6 +64,45 @@ pub fn build_collator_proof(
 	Ok((proof.root, proof.proof))
 }
 
+/// Verify collator membership, including the leaf index and proof length.
+pub(crate) fn verify_collator_proof(
+	root: &H256,
+	proof: &[H256],
+	size: u32,
+	collator_index: u32,
+	key: &CollatorKey,
+) -> bool {
+	if collator_index >= size || proof.len() != expected_siblings(size, collator_index) {
+		return false;
+	}
+
+	binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
+		root,
+		proof.iter().copied(),
+		size,
+		collator_index,
+		binary_merkle_tree::Leaf::Value(key),
+	)
+}
+
+/// Count sibling hashes needed to prove membership of the value at the position.
+///
+/// This is used to ensure that the right number of hashes was provided by the proof.
+pub(crate) fn expected_siblings(mut width: u32, mut position: u32) -> usize {
+	let mut siblings = 0;
+
+	while width > 1 {
+		// Odd positions have a left sibling; even positions need a node to their right.
+		if position % 2 == 1 || position < width - 1 {
+			siblings += 1;
+		}
+		position /= 2;
+		width = width.div_ceil(2);
+	}
+
+	siblings
+}
+
 #[cfg(test)]
 mod tests {
 	#[test]

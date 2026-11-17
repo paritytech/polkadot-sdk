@@ -19,7 +19,9 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use primitive_types::H256;
 
-use crate::{config::AuthConfig, merkle::CollatorHasher, AuthorizationError, SignatureVerifier};
+use crate::{
+	config::AuthConfig, merkle::verify_collator_proof, AuthorizationError, SignatureVerifier,
+};
 
 /// Raw 32-byte collator public key.
 pub type CollatorKey = [u8; 32];
@@ -60,35 +62,12 @@ impl AuthToken {
 		config: &AuthConfig,
 		collator_index: u32,
 	) -> Result<(), AuthorizationError> {
-		let size = config.collator_set_size.get();
-		if collator_index >= size {
-			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
-		}
-
-		// Count sibling hashes needed to prove membership of the value at position.
-		let mut expected_siblings = 0;
-		let mut width = size;
-		let mut position = collator_index;
-		
-		while width > 1 {
-			// Odd positions have a left sibling; even positions need a node to their right.
-			if position % 2 == 1 || position < width - 1 {
-				expected_siblings += 1;
-			}
-			position /= 2;
-			width = width.div_ceil(2);
-		}
-
-		if self.proof.len() != expected_siblings {
-			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
-		}
-
-		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
+		verify_collator_proof(
 			&config.collator_set_root,
-			self.proof.iter().copied(),
-			size,
+			&self.proof,
+			config.collator_set_size.get(),
 			collator_index,
-			binary_merkle_tree::Leaf::Value(&self.key),
+			&self.key,
 		)
 		.then_some(())
 		.ok_or(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
