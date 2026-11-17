@@ -16,7 +16,8 @@
 // limitations under the License.
 
 //! Tests of when reports are processed, which of them are accepted, how reports and votes are
-//! anchored and expired, how votes become prices, and what a pause stops.
+//! anchored and expired, how votes become prices, what a pause stops, and what the admin calls
+//! check.
 
 use crate::{self as pallet_price_oracle, *};
 use core::{
@@ -111,6 +112,9 @@ impl Config for Test {
 const PAIR: PairId = PairId(1);
 /// A second pair, registered by the tests that use it.
 const PAIR_B: PairId = PairId(2);
+/// A venue and a market, registered by the tests that use them.
+const VENUE: VenueId = VenueId(1);
+const MARKET: MarketId = MarketId(1);
 /// Chain time at the start of every test.
 const START_MS: u64 = 1_800_000_000_000;
 const PARAMS: Parameters =
@@ -156,6 +160,23 @@ fn report_quotes(
 
 fn report(signer: u64, block: u32, timestamp_ms: u64, price: u128) -> SignedPriceReportOf<Test> {
 	report_quotes(signer, Anchor::new(block, timestamp_ms), &[(PAIR, price as u32)])
+}
+
+/// A market of `pair` on [`VENUE`], with the least pricing parameters that are valid.
+fn market(pair: PairId) -> StoredMarketOf<Test> {
+	StoredMarket {
+		venue: VENUE,
+		pair,
+		pricing: order_book::OrderBookParams {
+			queries: Default::default(),
+			contract_size: Price::from_u32(1),
+			limits: order_book::HealthLimits {
+				impact_size: Price::from_u32(1),
+				max_trade_age_ms: 1,
+			},
+		},
+		active: true,
+	}
 }
 
 /// Process `reports` in a block of its own.
@@ -850,5 +871,179 @@ fn on_price_update_is_called_after_publishing_pause_is_lifted() {
 		System::set_block_number(102);
 		process(vec![report(1, 102, START_MS, 7)]);
 		assert_eq!(take_price_updates(), vec![(PAIR, Price::from_u32(7))]);
+	});
+}
+
+#[test]
+fn only_admin_can_configure() {
+	new_test_ext().execute_with(|| {
+		let signed = || RuntimeOrigin::signed(1);
+		let pair_config = PairConfig { market_quorum: 1 };
+		assert_noop!(PriceOracle::set_parameters(signed(), PARAMS), DispatchError::BadOrigin);
+		assert_noop!(
+			PriceOracle::set_venue(signed(), VENUE, Venue { name: Default::default() }),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(PriceOracle::remove_venue(signed(), VENUE), DispatchError::BadOrigin);
+		assert_noop!(
+			PriceOracle::set_market(signed(), MARKET, market(PAIR)),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(PriceOracle::remove_market(signed(), MARKET), DispatchError::BadOrigin);
+		assert_noop!(PriceOracle::set_pair(signed(), PAIR, pair_config), DispatchError::BadOrigin);
+		assert_noop!(
+			PriceOracle::set_cross_rates(signed(), PAIR, Default::default()),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(PriceOracle::remove_pair(signed(), PAIR), DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn report_window_and_quorum_must_be_set() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			PriceOracle::set_parameters(
+				RuntimeOrigin::root(),
+				Parameters { report_window: 0, ..PARAMS }
+			),
+			Error::<Test>::InvalidParameters
+		);
+		assert_noop!(
+			PriceOracle::set_parameters(RuntimeOrigin::root(), Parameters { quorum: 0, ..PARAMS }),
+			Error::<Test>::InvalidParameters
+		);
+	});
+}
+
+#[test]
+fn venue_with_markets_cannot_be_removed() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_noop!(PriceOracle::remove_venue(root(), VENUE), Error::<Test>::UnknownVenue);
+
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		assert_noop!(PriceOracle::remove_venue(root(), VENUE), Error::<Test>::VenueInUse);
+
+		// Without its market, the venue is removed.
+		assert_ok!(PriceOracle::remove_market(root(), MARKET));
+		assert_ok!(PriceOracle::remove_venue(root(), VENUE));
+		assert!(!Venues::<Test>::contains_key(VENUE));
+		assert_eq!(
+			take_events(),
+			vec![
+				Event::VenueSet { id: VENUE },
+				Event::MarketSet { id: MARKET },
+				Event::MarketRemoved { id: MARKET },
+				Event::VenueRemoved { id: VENUE },
+			]
+		);
+	});
+}
+
+#[test]
+fn market_needs_registered_venue_and_pair() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		// `VENUE` is not registered yet.
+		assert_noop!(
+			PriceOracle::set_market(root(), MARKET, market(PAIR)),
+			Error::<Test>::UnknownVenue
+		);
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		// `PAIR_B` is not registered.
+		assert_noop!(
+			PriceOracle::set_market(root(), MARKET, market(PAIR_B)),
+			Error::<Test>::UnknownPair
+		);
+		// A contract size of zero is not valid for `OrderBookPricing`.
+		let mut invalid = market(PAIR);
+		invalid.pricing.contract_size = Price::from_u32(0);
+		assert_noop!(
+			PriceOracle::set_market(root(), MARKET, invalid),
+			Error::<Test>::InvalidParameters
+		);
+		assert_noop!(PriceOracle::remove_market(root(), MARKET), Error::<Test>::UnknownMarket);
+
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		assert_eq!(Markets::<Test>::get(MARKET), Some(market(PAIR)));
+	});
+}
+
+#[test]
+fn pair_needs_market_quorum() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_noop!(
+			PriceOracle::set_pair(root(), PAIR_B, PairConfig { market_quorum: 0 }),
+			Error::<Test>::InvalidParameters
+		);
+		assert_noop!(PriceOracle::remove_pair(root(), PAIR_B), Error::<Test>::UnknownPair);
+
+		assert_ok!(PriceOracle::set_pair(root(), PAIR_B, PairConfig { market_quorum: 2 }));
+		assert_eq!(Pairs::<Test>::get(PAIR_B), Some(PairConfig { market_quorum: 2 }));
+	});
+}
+
+#[test]
+fn cross_rates_need_registered_pairs() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		let (source, rate, unregistered) = (PAIR_B, PairId(3), PairId(9));
+		for pair in [source, rate] {
+			assert_ok!(PriceOracle::set_pair(root(), pair, PairConfig { market_quorum: 1 }));
+		}
+		let cross_rates =
+			|source, rate| -> BoundedVec<_, _> { vec![(source, rate)].try_into().unwrap() };
+
+		// The pair, the source and the rate must all be registered.
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), unregistered, cross_rates(source, rate)),
+			Error::<Test>::UnknownPair
+		);
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), PAIR, cross_rates(unregistered, rate)),
+			Error::<Test>::UnknownPair
+		);
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), PAIR, cross_rates(source, unregistered)),
+			Error::<Test>::UnknownPair
+		);
+
+		assert_ok!(PriceOracle::set_cross_rates(root(), PAIR, cross_rates(source, rate)));
+		assert_eq!(CrossRates::<Test>::get(PAIR).into_inner(), vec![(source, rate)]);
+		// An empty list removes them.
+		assert_ok!(PriceOracle::set_cross_rates(root(), PAIR, Default::default()));
+		assert!(!CrossRates::<Test>::contains_key(PAIR));
+	});
+}
+
+#[test]
+fn remove_pair_removes_cross_rates_votes_and_price() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		let (source, rate) = (PAIR_B, PairId(3));
+		for pair in [source, rate] {
+			assert_ok!(PriceOracle::set_pair(root(), pair, PairConfig { market_quorum: 1 }));
+		}
+		// `PAIR` with cross rates, a vote and a price.
+		assert_ok!(PriceOracle::set_cross_rates(
+			root(),
+			PAIR,
+			vec![(source, rate)].try_into().unwrap()
+		));
+		process(vec![report(1, 100, START_MS, 5)]);
+		assert!(CrossRates::<Test>::contains_key(PAIR));
+		assert!(Votes::<Test>::contains_key(PAIR));
+		assert!(Prices::<Test>::contains_key(PAIR));
+		take_events();
+
+		assert_ok!(PriceOracle::remove_pair(root(), PAIR));
+		assert!(!Pairs::<Test>::contains_key(PAIR));
+		assert!(!CrossRates::<Test>::contains_key(PAIR));
+		assert!(!Votes::<Test>::contains_key(PAIR));
+		assert!(!Prices::<Test>::contains_key(PAIR));
+		assert_eq!(take_events(), vec![Event::PairRemoved { pair: PAIR }]);
 	});
 }
