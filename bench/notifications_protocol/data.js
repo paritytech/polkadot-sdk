@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794907016761,
+  "lastUpdate": 1794925101301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -262655,6 +262655,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2302845888,
             "range": "± 11923443",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f15542a9a7b0998480b00b7e10cd7445eca99882",
+          "message": "Send XCM fees to the DAP staging account on AHW and staking-async parachain (#13847)\n\nDOT in the DAP buffer is inactive issuance: `pallet-dap` deactivates it\nwhen `on_idle` drains the staging account into the buffer. On Asset Hub\nWestend and the staking-async parachain runtime, the XCM fee manager\nsends fees straight to the buffer, so they are never deactivated. Signed\nelection rewards are paid from the buffer through `ReactivatingPot`,\nwhich reactivates the paid amount. A reward paid out of XCM fees\nreactivates DOT that was never deactivated, and `InactiveIssuance`\ndrifts down.\n\n## Change\n\n- Both runtimes send XCM fees to the DAP staging account, **as Asset Hub\nPolkadot already does.**\n- The `staking-async parachain` genesis preset funds the staging account\nwith ED, as Asset Hub Westend does, so fees below ED are not burned.\n- A new AHW test checks that an XCM fee lands in staging and becomes\ninactive issuance after `on_idle`.\n- Tests asserting the old destination are updated.\n\n## Not part of this PR\n\n- Election rewards still use `ReactivatingPot`. Routing them through\n`pallet-dap` is left to the change that adds DAP-side accounting on\nbuffer outflows (see #13305)\n- The drift accumulated so far is accepted on Westend, no migration. On\nPolkadot, the drift around total issuance is meant to be fixed as final\nreconciliation step in\nhttps://github.com/polkadot-fellows/runtimes/issues/1283",
+          "timestamp": "2026-11-17T12:56:30Z",
+          "tree_id": "a8466d07822929410052e847a451c2723f49fda6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f15542a9a7b0998480b00b7e10cd7445eca99882"
+        },
+        "date": 1794925063542,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4112409,
+            "range": "± 35221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296588,
+            "range": "± 3151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4214859,
+            "range": "± 53439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 369613,
+            "range": "± 4010",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4835148,
+            "range": "± 38153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 878971,
+            "range": "± 8874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10347310,
+            "range": "± 74229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4814101,
+            "range": "± 52379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43858267,
+            "range": "± 321074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37349481,
+            "range": "± 324481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 344994730,
+            "range": "± 3582251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 297556140,
+            "range": "± 3529370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2535917696,
+            "range": "± 7030363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2304018311,
+            "range": "± 24340190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3448289,
+            "range": "± 16431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1896036,
+            "range": "± 15835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3581885,
+            "range": "± 13044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1994244,
+            "range": "± 9652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4305729,
+            "range": "± 28708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2262950,
+            "range": "± 8799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7925719,
+            "range": "± 60808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5333734,
+            "range": "± 51861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38422058,
+            "range": "± 360608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36317023,
+            "range": "± 355432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 313260290,
+            "range": "± 1949871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 290286910,
+            "range": "± 1678011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2483483947,
+            "range": "± 14559775",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2323380640,
+            "range": "± 20838399",
             "unit": "ns/iter"
           }
         ]
