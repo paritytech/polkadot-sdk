@@ -1,0 +1,12 @@
+title: 'Registrar: retry refused reports'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-registrar-relay` keeps a report the transport refuses in `FailedReports`, bounded by
+      the new `Config::MaxFailedReports`, and resends it in `on_poll`. Adds `retry_failed_reports`
+      to `WeightInfo`.
+
+crates:
+  - name: pallet-registrar-relay
+    bump: major
