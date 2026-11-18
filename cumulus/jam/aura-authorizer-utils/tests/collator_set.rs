@@ -23,7 +23,9 @@ use cumulus_aura_authorizer_utils::{
 use primitive_types::H256;
 
 fn keys(count: u32) -> Vec<CollatorKey> {
-	(0..count).map(|index| [index as u8 + 1; 32]).collect()
+	(0..count)
+		.map(|index| sp_crypto_hashing::blake2_256(&index.to_le_bytes()))
+		.collect()
 }
 
 fn config(keys: &[CollatorKey], index: u32) -> (AuthConfig, Vec<H256>) {
@@ -48,8 +50,10 @@ fn token(key: CollatorKey, proof: Vec<H256>) -> AuthToken {
 
 #[test]
 fn built_proofs_works() {
-	for size in [1u32, 2, 3, 4, 5, 15, 16, 17] {
+	for size in (1..=100).chain((0..=1000).step_by(100)) {
+		print!("{}\n", size);
 		let keys = keys(size);
+
 		for index in 0..size {
 			let (config, proof) = config(&keys, index);
 			let token = token(keys[index as usize], proof);
