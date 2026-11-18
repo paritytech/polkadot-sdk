@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_MMR_HASHES","MAX_MMR_LEAF_COUNT"],"fn":["bag_peaks","empty_root"],"struct":["FrontierFull","MessagePosition","MmrFrontier","MmrRoot","SpecMerge"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_MMR_HASHES","MAX_MMR_LEAF_COUNT"],"enum":["ProofError"],"fn":["bag_peaks","empty_root","leaf_hash","leaf_hash_with_version"],"struct":["FrontierFull","MessagePosition","MmrExtensionProof","MmrFrontier","MmrRoot","SpecMerge"]};

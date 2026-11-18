@@ -177,7 +177,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>arbitrary::Arbitrary;
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>codec::{Decode, Encode};
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>cumulus_primitives_spec_messaging::{
-<a href=#30 id=30 data-nosnippet>30</a>	leaf_hash,
+<a href=#30 id=30 data-nosnippet>30</a>	leaf_hash_with_version,
 <a href=#31 id=31 data-nosnippet>31</a>	mmr::{bag_peaks, empty_root, SpecMerge, MAX_MMR_LEAF_COUNT},
 <a href=#32 id=32 data-nosnippet>32</a>	FrontierFull, MmrFrontier, MmrRoot, INNER_TAG, PEAK_TAG, ROOT_TAG,
 <a href=#33 id=33 data-nosnippet>33</a>};
@@ -421,7 +421,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#271 id=271 data-nosnippet>271</a>			FrontierOp::Append(choice) =&gt; append(<span class="kw-2">&amp;mut </span>frontier, choice.resolve(palette)),
 <a href=#272 id=272 data-nosnippet>272</a>			FrontierOp::AppendMany { n, seed } =&gt; {
 <a href=#273 id=273 data-nosnippet>273</a>				<span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="kw-2">*</span>n {
-<a href=#274 id=274 data-nosnippet>274</a>					append(<span class="kw-2">&amp;mut </span>frontier, leaf_hash(<span class="kw-2">*</span>seed, <span class="kw-2">&amp;</span>[j]));
+<a href=#274 id=274 data-nosnippet>274</a>					append(<span class="kw-2">&amp;mut </span>frontier, leaf_hash_with_version(<span class="kw-2">*</span>seed, <span class="kw-2">&amp;</span>[j]));
 <a href=#275 id=275 data-nosnippet>275</a>				}
 <a href=#276 id=276 data-nosnippet>276</a>			},
 <a href=#277 id=277 data-nosnippet>277</a>			FrontierOp::RoundTrip =&gt; check_round_trip(<span class="kw-2">&amp;</span>frontier),

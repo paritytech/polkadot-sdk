@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_MESSAGES_PER_RESPONSE","MAX_SPECULATIVE_MESSAGE_LEN"],"enum":["FetchError","VerifyError"],"fn":["verify_channel_messages","verify_messages"],"struct":["MessagesRequest","MessagesResponse"],"type":["FetchResponse"]};

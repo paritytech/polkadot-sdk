@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ChannelPhase"],"struct":["ChannelId","InChannelState","OutChannelState","RegisterRead"]};
+window.SIDEBAR_ITEMS = {"enum":["ChannelMessage","RegisterStatus"],"struct":["AppliedRegister","BroadcastId","InChannelId","InChannelState","OpenSession","OutChannelId","OutChannelState","Register","SessionParams"]};

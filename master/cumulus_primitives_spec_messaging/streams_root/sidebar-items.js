@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["gen_stream_proof","read_streams_root","streams_root","streams_root_from_proof"],"struct":["StreamProof","StreamsRoot","TreeStep"]};
+window.SIDEBAR_ITEMS = {"enum":["TreeChild","TreeError","TreeRootEntry"],"fn":["gen_stream_proof","gen_stream_proof_from_nodes","read_streams_root","streams_root","streams_root_from_proof","update_tree_leaf"],"struct":["InnerNode","NodeKey","StreamProof","StreamsRoot","StreamsTree","TreeStep"],"trait":["NodeLookup","NodeStore"]};
