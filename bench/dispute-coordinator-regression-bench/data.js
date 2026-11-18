@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795033902233,
+  "lastUpdate": 1795044065386,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "104af7915ab0a8ab5bf5a3c9f09bf134560a877c",
-          "message": "Version bumps and prdocs reordering after stable2603-1 (#11977)\n\nThis PR backports regualr node version bumps and prdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-05-04T14:02:52Z",
-          "tree_id": "e770ffce4ae7ef632b9289707c4e3a17b1eaef2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/104af7915ab0a8ab5bf5a3c9f09bf134560a877c"
-        },
-        "date": 1777908535319,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00926891445999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009527479029999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026605525400000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010123834000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdcbed2600a536622aa049b27d05a69a5917d447",
+          "message": "Improve flaky ZN test (#13908)\n\nBoth tests restart `one`/`two`/`three` on purpose: they are the\ncollators'\n`--relay-chain-rpc-url` endpoints, and the tests check RPC failover.\n\nWith teardown-on-failure (the default), zombienet's node monitor checks\nevery 15s\nthat each running node serves `process_start_time_seconds` within 5s,\nand kills the\ntest process if one does not. A restarted node counts as running as soon\nas its\nprocess is spawned, so the first check after a restart can catch it\nbefore it serves\nmetrics. The monitor has a grace window for recently restarted nodes,\nbut it never\napplies: it finds the node with `n.name() == e.to_string()`, while the\nerror reads\n\"<name>: Timeout (5), ...\". Every observed CI failure of\n`rpc_collator_builds_blocks`\nwas this (\"One of the nodes crashed: two: Timeout (5) ...\").\n\n(Fix in zombienet-sdk (`spawn_watching_task`,\ncrates/orchestrator/src/network.rs, still\npresent upstream): poll each node separately and keep the node with its\nresult, so the\ngrace window check uses the failing node itself rather than parsing the\nerror. Once\na zombienet-sdk release with that fix is used here, remove this\noverride.)\n\nDisabling the monitor is safe here: a node that really dies makes the\ntest's own\nmetric checks time out.\n\n---\n\nAbove is what claude found, but reads sensible to me. I have seen\n`with_tear_down_on_failure ` in a few other tests that also restart\nnodes with a comment saying it helps in the CI.\n\nExample flaky run:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43845739265/job/133234755346",
+          "timestamp": "2026-11-18T21:42:47Z",
+          "tree_id": "0d3ab4467dd2d1166f0a069faa052ac7c0ad1b39",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bdcbed2600a536622aa049b27d05a69a5917d447"
+        },
+        "date": 1795044029023,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00256004797,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00954370438999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011314757979999989,
             "unit": "seconds"
           }
         ]
