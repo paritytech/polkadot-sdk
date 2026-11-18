@@ -308,7 +308,7 @@ fn setup_store_with_config(
 	.unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
-		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
+		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![topic(u64::MAX)] };
 		let statement = create_signed_statement(i as u64, &topics, &keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
@@ -340,7 +340,8 @@ fn empty_store() -> (Store, tempfile::TempDir) {
 fn setup_scaled(keypair: &sp_core::ed25519::Pair, n: usize) -> (Store, tempfile::TempDir) {
 	let (store, temp) = empty_store();
 	for i in 0..n {
-		let topics: Vec<Topic> = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
+		let topics: Vec<Topic> =
+			if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![topic(u64::MAX)] };
 		let statement = create_signed_statement(i as u64, &topics, keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
@@ -385,7 +386,7 @@ fn bench_submit(c: &mut Criterion) {
 /// Marginal cost of the on-disk index writes on the submit hot path. Every submitted statement
 /// writes one `INDEX_BY_DEC_KEY` entry plus one `INDEX_BY_TOPIC` entry per topic, all folded into
 /// the same commit under the `submit_index` write lock. Varying the topic count moves the index
-/// writes per submit from 1 (0 topics) to `MAX_TOPICS + 1`. The plain data is shrunk by one topic's
+/// writes per submit from 2 (1 topic) to `MAX_TOPICS + 1`. The plain data is shrunk by one topic's
 /// worth per topic so the encoded statement size stays ~constant across arms — otherwise a larger
 /// body would confound the measurement — leaving the number of index writes as the only variable.
 /// Signature verification runs off the lock, so under the 64-thread harness throughput is bound by
@@ -396,7 +397,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 
 	let mut group = c.benchmark_group("submit_index_cost");
 	group.sample_size(10);
-	for &num_topics in &[0usize, 1, MAX_TOPICS] {
+	for &num_topics in &[1usize, MAX_TOPICS] {
 		let topics: Vec<Topic> = (0..num_topics).map(|t| topic(t as u64)).collect();
 		// Hold the encoded size ~constant: a `Topic` is 32 bytes, so drop 32 data bytes per topic.
 		let data_size = STATEMENT_DATA_SIZE.saturating_sub(num_topics * 32);
