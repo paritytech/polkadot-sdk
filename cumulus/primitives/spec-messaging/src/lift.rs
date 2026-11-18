@@ -28,18 +28,10 @@
 //! gap is a forward extension, see [`stitch`]), and one lift binds the chain's endpoint to a
 //! committed root, which binds everything consumed.
 //!
-//! The record is STF output and trusted; the lifts are PoV data and verified here. Lifts are
-//! matched to a source's `StreamId`-sorted record streams by position. A mispaired lift cannot
-//! verify, because the `tree_proof` walk binds the record's key
-//! ([`crate::streams_root::streams_root_from_proof`]).
+//! The record is STF output and trusted; the lifts are PoV data and verified here.
 
-use alloc::{collections::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode};
-use mmr_lib::{
-	helper::{get_peak_map, get_peaks, is_valid_mmr_size},
-	leaf_index_to_pos, MerkleProof, NodeMerkleProof,
-};
-use polkadot_core_primitives::Hash;
+use alloc::{collections::BTreeMap, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, RequiresSet};
 use scale_info::TypeInfo;
@@ -47,224 +39,10 @@ use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	mmr::{
-		mmr_size, MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_HASHES,
-		MAX_MMR_LEAF_COUNT,
-	},
+	mmr::{MmrExtensionProof, MmrFrontier, MmrRoot},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
-
-/// The keyed-tree proof a lift walks from a stream root to the `StreamsRoot`.
-pub type TreeInclusionProof = StreamProof;
-
-/// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
-/// height plus the other peaks, each at most 63; this constant is a ceiling no valid proof reaches.
-/// Enforced at decode, which bounds `calculate_root`'s work on untrusted input.
-pub const MAX_INCLUSION_PROOF_ITEMS: u32 = 2 * 64;
-
-/// Why an MMR proof verification rejected its input. Typed so callers can tell a malformed or
-/// forged proof from an out-of-range or non-forward one.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ProofError {
-	/// The proof is structurally malformed: an invalid `mmr_size`, a wrong item/node count, or
-	/// `mmr_lib` could not reconstruct a root from it.
-	InvalidProof,
-	/// A leaf position is at or past the proven MMR's leaf count (an empty MMR has no head).
-	PositionOutOfRange,
-	/// An extension does not go strictly forward (its target is not newer than the frontier).
-	NotForward,
-	/// A leaf count exceeds [`MAX_MMR_LEAF_COUNT`].
-	LeafCountTooLarge,
-}
-
-/// An append-only MMR extension proof: O(log n) connecting nodes that, with a frontier's own peaks,
-/// reconstruct a newer root. The `mmr_lib` `gen_ancestry_proof` form of the design's
-/// `connecting_nodes`. Verification computes the new root; it is never declared alongside the
-/// proof. It holds node hashes only, no message payloads.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
-pub struct MMRExtensionProof {
-	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
-	/// independent size can be smuggled in. `0` with empty `connecting_nodes` is the identity
-	/// extension.
-	/// Compact-encoded, since this is PoV-carried.
-	#[codec(compact)]
-	pub leaf_count: u64,
-	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
-	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
-	/// (`ancestry_proof_positions`). Empty for the identity. At most [`MAX_MMR_HASHES`], enforced
-	/// at decode.
-	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
-}
-
-impl MMRExtensionProof {
-	/// The identity extension. Yields a frontier's own root for the caught-up case.
-	pub fn identity() -> Self {
-		Self { leaf_count: 0, connecting_nodes: BoundedVec::new() }
-	}
-
-	/// Extend `from` and return the new root, computed from `from`'s peaks and the connecting
-	/// nodes; `Err` if the proof does not fit that placement. The identity extension yields
-	/// `from`'s own root. Comparing the root is the caller's job. `from`'s contents are not
-	/// re-checked: a forged peak yields a root no committed `StreamsRoot` can bind.
-	pub fn calculate_root(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
-		// `mmr_lib` accepts counts up to 2^63; bound the proof's to `MAX_MMR_LEAF_COUNT` first.
-		// `from` is already in range by construction.
-		if self.leaf_count > MAX_MMR_LEAF_COUNT {
-			return Err(ProofError::LeafCountTooLarge);
-		}
-		// `0` is the identity only without connecting nodes. This also keeps the `leaf_count - 1`
-		// below from underflowing.
-		if self.leaf_count == 0 {
-			return if self.connecting_nodes.is_empty() {
-				Ok(from.root())
-			} else {
-				Err(ProofError::InvalidProof)
-			};
-		}
-		// Strictly forward: the extended MMR must have more leaves than the frontier.
-		if self.leaf_count <= from.leaf_count() {
-			return Err(ProofError::NotForward);
-		}
-		let new_mmr_size = mmr_size(self.leaf_count);
-
-		// Extending from the empty stream: nothing binds, so the connecting nodes must be the new
-		// MMR's peaks in `get_peaks` order.
-		if from.leaf_count() == 0 {
-			// The nodes must form a frontier of exactly `self.leaf_count` leaves; `from_parts`
-			// checks that.
-			return MmrFrontier::from_parts(self.connecting_nodes.to_vec(), self.leaf_count)
-				.map(|f| f.root())
-				.ok_or(ProofError::InvalidProof);
-		}
-
-		// `from`'s peaks are complete subtrees of the new MMR at unchanged positions; with the
-		// connecting nodes they reconstruct the new root under `SpecMerge`.
-		let old_mmr_size = from.mmr_size();
-		let old_positions = get_peaks(old_mmr_size);
-		// Positions are not carried: derive them from the two sizes and pair them with the hashes
-		// in `mmr_lib`'s proof order. A length mismatch means the proof does not fit the claimed
-		// extension.
-		let positions =
-			mmr_lib::ancestry_proof::ancestry_proof_positions(old_mmr_size, new_mmr_size)
-				.map_err(|_| ProofError::InvalidProof)?;
-		if positions.len() != self.connecting_nodes.len() {
-			return Err(ProofError::InvalidProof);
-		}
-		let proof: Vec<(u64, Hash)> =
-			positions.into_iter().zip(self.connecting_nodes.iter().copied()).collect();
-		let nodes: Vec<(u64, Hash)> =
-			old_positions.into_iter().zip(from.peaks().iter().copied()).collect();
-		NodeMerkleProof::<Hash, SpecMerge>::new(new_mmr_size, proof)
-			.calculate_root(nodes)
-			.map(|bag| MmrRoot::from_bag(self.leaf_count, bag))
-			.map_err(|_| ProofError::InvalidProof)
-	}
-}
-
-/// A single-leaf MMR inclusion proof: `mmr_lib`'s [`MerkleProof`] items (the sibling path plus the
-/// other peaks) and the node count it was generated against. Used by the event and register head
-/// read. Where [`MMRExtensionProof`] moves a frontier forward, this places one leaf under a fixed
-/// MMR. The root is derived, never declared.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub struct MmrInclusionProof {
-	/// `mmr_lib` node count of the MMR the proof was generated against. With the leaf count it
-	/// derives (`get_peak_map`), it pins a head read.
-	pub mmr_size: u64,
-	/// The leaf's sibling path plus the other peaks, in `mmr_lib` order.
-	pub items: BoundedVec<Hash, ConstU32<MAX_INCLUSION_PROOF_ITEMS>>,
-}
-
-impl MmrInclusionProof {
-	/// Leaf count of the proven MMR. `mmr_lib` accepts counts up to 2^63; ours is lower.
-	fn checked_leaf_count(&self) -> Result<u64, ProofError> {
-		if !is_valid_mmr_size(self.mmr_size) {
-			return Err(ProofError::InvalidProof);
-		}
-		let leaf_count = get_peak_map(self.mmr_size);
-		if leaf_count > MAX_MMR_LEAF_COUNT {
-			return Err(ProofError::LeafCountTooLarge);
-		}
-		Ok(leaf_count)
-	}
-
-	/// Verify `leaf` (already hashed by [`crate::message::leaf_hash`]) as the last leaf of the
-	/// proven MMR. Returns the head position and the frontier of that MMR; `Err` on any structural
-	/// defect.
-	///
-	/// The expected shape is what `gen_proof` produces for the last leaf: the other peaks left to
-	/// right, then the head's left siblings bottom up. The item count
-	/// is checked exactly.
-	///
-	/// Only reconstructs a frontier; does not bind it to any committed `StreamsRoot`. `Ok` is not
-	/// authentication. Prefer [`crate::message::verify_event`], which binds the result to a trusted
-	/// `under`.
-	pub fn verify_head(&self, leaf: Hash) -> Result<(MessagePosition, MmrFrontier), ProofError> {
-		let leaf_count = self.checked_leaf_count()?;
-		if leaf_count == 0 {
-			return Err(ProofError::PositionOutOfRange);
-		}
-		if self.items.len() != leaf_proof_len(leaf_count, leaf_count - 1) {
-			return Err(ProofError::InvalidProof);
-		}
-
-		let other_peaks = leaf_count.count_ones() as usize - 1;
-		let (peak_items, path) = self.items.split_at(other_peaks);
-		let mut last_peak = leaf;
-		for sibling in path {
-			last_peak = <SpecMerge as mmr_lib::Merge>::merge(sibling, &last_peak)
-				.expect("SpecMerge::merge is infallible; qed");
-		}
-		let peaks: Vec<Hash> =
-			peak_items.iter().copied().chain(core::iter::once(last_peak)).collect();
-		// `other_peaks + 1 == leaf_count.count_ones()` and the ceiling was checked, so this is
-		// `Some`.
-		let frontier =
-			MmrFrontier::from_parts(peaks, leaf_count).ok_or(ProofError::InvalidProof)?;
-
-		Ok((MessagePosition(leaf_count - 1), frontier))
-	}
-
-	/// Verify `leaf` (already hashed by [`crate::message::leaf_hash`]) at `position` and return the
-	/// implied [`MmrRoot`]. `Err` if the position is out of range or the proof malformed. Only
-	/// reconstructs the root; `Ok` is not authentication. Prefer [`crate::message::verify_event`],
-	/// which binds the result to a trusted `under`.
-	pub fn verify_leaf(
-		&self,
-		position: MessagePosition,
-		leaf: Hash,
-	) -> Result<MmrRoot, ProofError> {
-		let leaf_count = self.checked_leaf_count()?;
-		if position.0 >= leaf_count {
-			return Err(ProofError::PositionOutOfRange);
-		}
-		// `calculate_root` ignores the items of a 1-leaf proof, so padding would slip through.
-		if self.items.len() != leaf_proof_len(leaf_count, position.0) {
-			return Err(ProofError::InvalidProof);
-		}
-		let pos = leaf_index_to_pos(position.0);
-		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.to_vec())
-			.calculate_root(vec![(pos, leaf)])
-			.map(|bag| MmrRoot::from_bag(leaf_count, bag))
-			.map_err(|_| ProofError::InvalidProof)
-	}
-}
-
-/// Proof length `gen_proof` produces for leaf `index`: siblings up to its peak, the peaks to its
-/// left, and one bagged item for any peaks to its right.
-fn leaf_proof_len(leaf_count: u64, index: u64) -> usize {
-	let mut first = 0;
-	let heights = (0..u64::BITS).rev().filter(|h| leaf_count >> h & 1 == 1);
-	for (left_peaks, height) in heights.enumerate() {
-		let peak_leaves = 1u64 << height;
-		if index < first + peak_leaves {
-			let right_peaks = leaf_count.count_ones() as usize - left_peaks - 1;
-			return height as usize + left_peaks + usize::from(right_peaks > 0);
-		}
-		first += peak_leaves;
-	}
-	unreachable!("index < leaf_count lies under some peak; qed")
-}
 
 /// Per stream and block: consumption entered the block at `start` and left it at `end`.
 ///
@@ -274,12 +52,14 @@ fn leaf_proof_len(leaf_count: u64, index: u64) -> usize {
 ///
 /// - Channels: `start` is the frontier root before the block's incoming messages, `end` the
 /// frontier after. `start == previous end` holds by construction, so the chain check is free.
-/// - Register and event reads: `end` is the context the reads were verified against, `start` its
-/// root; nothing advances. Contexts can jump between blocks, so a fabricated context breaks the
-/// chain instead of hiding behind a later genuine one.
+/// - Register and event reads: `start` is the root of the frontier before the read's payloads, and
+/// `end` is the frontier after appending them. Contexts can skip leaves between blocks, so a skip
+/// is a gap and must be proven forward.
 ///
 /// `end` is a full frontier because the next gap check, or the lift, extends from it.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
+)]
 pub struct Interval {
 	/// Root the block's consumption on this stream started from.
 	pub start: MmrRoot,
@@ -288,13 +68,12 @@ pub struct Interval {
 }
 
 /// Written per block: the streams this block touched and the interval consumed on each, grouped by
-/// source. One interval per stream, keyed so the type enforces it; per-source order is the
-/// canonical `StreamId` order the lifts match against. The API view of a flat, host-append-only
-/// outbox vec. Encodes as the sorted vec of pairs would.
+/// source. The API view of a flat, host-append-only outbox vec.
 #[derive(Clone, Encode, Decode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct ConsumptionRecord {
-	/// `source -> stream -> interval`.
-	pub entries: BTreeMap<ParaId, BTreeMap<StreamId, Interval>>,
+	/// Per source, one interval per stream in `StreamId` order, the order the lifts match against.
+	/// A list rather than a map, so a duplicate stays visible and [`build_requires`] rejects it.
+	pub entries: BTreeMap<ParaId, Vec<(StreamId, Interval)>>,
 }
 
 /// One source's streams with their intervals across a bundle, in block order. [`build_requires`]
@@ -302,17 +81,17 @@ pub struct ConsumptionRecord {
 pub type SourceStreams = BTreeMap<StreamId, Vec<Interval>>;
 
 /// One lift, carried in the PoV. Matched by position to a source's `StreamId`-sorted record
-/// streams; a mispaired lift cannot verify because `tree_proof` binds the record's key.
+/// streams.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct RequiresLift {
 	/// One extension per gap in the stream's interval chain, in gap order. Empty when there are no
 	/// gaps.
-	pub advances: Vec<MMRExtensionProof>,
-	/// Extends the chain's endpoint to the stream's current root. The identity extension when the
-	/// endpoint already is that root.
-	pub extension: MMRExtensionProof,
+	pub advances: Vec<MmrExtensionProof>,
+	/// Extends the chain's endpoint to the stream's current root. The identity of the endpoint's
+	/// frontier when it already is that root.
+	pub extension: MmrExtensionProof,
 	/// Keyed walk from the current stream root to the `StreamsRoot` the requires entry becomes.
-	pub tree_proof: TreeInclusionProof,
+	pub tree_proof: StreamProof,
 }
 
 /// The candidate's lifts, grouped per source: the PoV transport form. `Decode` enforces strictly
@@ -376,6 +155,8 @@ impl DecodeWithMemTracking for LiftsBySource {}
 pub enum LiftError {
 	/// A stream's interval list was empty.
 	EmptyRecord,
+	/// A block's record listed a source's streams out of order or more than once.
+	UnsortedRecord,
 	/// A gap needed a forward-extension proof but `advances` was exhausted.
 	MissingAdvance,
 	/// `advances` carried more proofs than there were gaps.
@@ -402,7 +183,7 @@ pub enum LiftError {
 /// that is the STF's to hold.
 pub fn stitch(
 	intervals: &[Interval],
-	advances: &[MMRExtensionProof],
+	advances: &[MmrExtensionProof],
 ) -> Result<MmrFrontier, LiftError> {
 	let (first, rest) = intervals.split_first().ok_or(LiftError::EmptyRecord)?;
 	let mut gaps = advances.iter();
@@ -446,8 +227,7 @@ pub fn build_requires_entry(
 		// The endpoint is contained in the stream's current root, computed rather than declared,
 		let current =
 			lift.extension.calculate_root(&endpoint).map_err(|_| LiftError::BadExtension)?;
-		// and the keyed walk from it yields the `StreamsRoot`. The walk binds the record's `stream`
-		// key, so a mispaired lift cannot verify.
+		// and the walk from it, keyed by the record's `stream`, yields the `StreamsRoot`.
 		let root = streams_root_from_proof(*stream, current.0, &lift.tree_proof)
 			.ok_or(LiftError::BadTreeProof)?;
 		match entry {
@@ -473,6 +253,9 @@ pub fn build_requires(
 	let mut merged: BTreeMap<ParaId, SourceStreams> = BTreeMap::new();
 	for record in records {
 		for (source, streams) in &record.entries {
+			if streams.windows(2).any(|w| w[0].0 >= w[1].0) {
+				return Err(LiftError::UnsortedRecord);
+			}
 			let by_stream = merged.entry(*source).or_default();
 			for (stream, interval) in streams {
 				by_stream.entry(*stream).or_default().push(interval.clone());
@@ -502,145 +285,17 @@ pub fn build_requires(
 mod tests {
 	use super::*;
 	use crate::{
+		mmr::{ProofError, MAX_MMR_LEAF_COUNT},
 		streams_root::{gen_stream_proof, streams_root, TreeStep},
-		test_utils::{ch, extension, frontier_at, leaves, mmr_size},
+		test_utils::{ch, extension, frontier_at, leaves},
 	};
-	use mmr_lib::{
-		ancestry_proof::ancestry_proof_positions,
-		util::{MemMMR, MemStore},
-	};
+	use polkadot_core_primitives::Hash;
 	use polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES;
 	use sp_core::H256;
 
 	/// Root over the first `k` leaves.
 	fn root_at(all: &[Hash], k: usize) -> MmrRoot {
 		frontier_at(all, k).root()
-	}
-
-	#[test]
-	fn extension_computes_root_and_rejects_tampering() {
-		let all = leaves(5);
-		let ext = extension(&all, 2, 5);
-		// Computes root@5 from frontier@2 + O(log n) connecting nodes (never a declared root).
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Ok(root_at(&all, 5)));
-		// Wrong starting frontier → does not reconstruct the extended root.
-		assert_ne!(ext.calculate_root(&frontier_at(&all, 3)), Ok(root_at(&all, 5)));
-		// Tampered connecting node → a different computed root.
-		let mut bad = ext.clone();
-		bad.connecting_nodes[0] = H256::repeat_byte(0xff);
-		assert_ne!(bad.calculate_root(&frontier_at(&all, 2)), Ok(root_at(&all, 5)));
-		// Identity extension yields the frontier's own root.
-		let id = MMRExtensionProof::identity();
-		assert_eq!(id.calculate_root(&frontier_at(&all, 3)), Ok(root_at(&all, 3)));
-	}
-
-	/// `connecting_nodes` stores bare hashes, so the positions we derive must match what
-	/// `gen_ancestry_proof` emits. Checked for every `(old, new)` pair up to 256 leaves, which
-	/// includes the seven- and eight-peak sizes 127 and 255. A change in `mmr_lib` trips this;
-	/// `Cargo.lock` pins it.
-	#[test]
-	fn ancestry_positions_matches_mmr_lib() {
-		for n in 2..=256usize {
-			let all = leaves(n as u64);
-			let store = MemStore::<Hash>::default();
-			let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-			for l in &all {
-				mmr.push(*l).unwrap();
-			}
-			for k in 1..n {
-				let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-				let expected: Vec<u64> =
-					ap.prev_peaks_proof.proof_items().iter().map(|(p, _)| *p).collect();
-				let got = ancestry_proof_positions(mmr_size(k), mmr_size(n)).unwrap();
-				assert_eq!(got, expected, "position mismatch at k={k}, n={n}");
-			}
-		}
-	}
-
-	#[test]
-	fn extension_leaf_count_disambiguates_equal_node_counts() {
-		// 1→3 and 1→4 both take two nodes, placed differently, so only `leaf_count` tells them
-		// apart.
-		let all = leaves(4);
-		let to3 = extension(&all, 1, 3);
-		let to4 = extension(&all, 1, 4);
-		assert_eq!(to3.connecting_nodes.len(), 2);
-		assert_eq!(to4.connecting_nodes.len(), 2);
-		let from1 = frontier_at(&all, 1);
-		assert_eq!(to3.calculate_root(&from1), Ok(root_at(&all, 3)));
-		assert_eq!(to4.calculate_root(&from1), Ok(root_at(&all, 4)));
-		// The same two nodes under the other count place differently and reach neither root.
-		let relabelled =
-			MMRExtensionProof { leaf_count: 4, connecting_nodes: to3.connecting_nodes };
-		let got = relabelled.calculate_root(&from1);
-		assert_ne!(got, Ok(root_at(&all, 3)));
-		assert_ne!(got, Ok(root_at(&all, 4)));
-	}
-
-	#[test]
-	fn extension_verify_rejects_non_forward() {
-		let all = leaves(5);
-		// A real (non-identity) extension pointed *back* to the frontier's own size is not strictly
-		// forward → rejected up front, before any crypto work.
-		let mut ext = extension(&all, 2, 5);
-		ext.leaf_count = 2;
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::NotForward));
-	}
-
-	#[test]
-	fn extension_verify_bounds_untrusted_leaf_counts() {
-		let all = leaves(5);
-		// The proof's own count. A value whose derived node count would overflow `u64` is rejected
-		// before any position is computed from it.
-		let mut ext = extension(&all, 2, 5);
-		ext.leaf_count = u64::MAX;
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
-		ext.leaf_count = MAX_MMR_LEAF_COUNT + 1;
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
-		// The frontier's count is not this function's to check. An out-of-range `MmrFrontier`
-		// cannot be built, from `from_parts` or from `Decode`.
-		assert!(MmrFrontier::from_parts(vec![all[0]], 1 << 63).is_none());
-	}
-
-	#[test]
-	fn extension_verify_rejects_zero_leaf_count() {
-		let all = leaves(5);
-		// `0` with connecting nodes is not the identity: malformed, not merely non-forward.
-		let mut ext = extension(&all, 2, 5);
-		ext.leaf_count = 0;
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::InvalidProof));
-	}
-
-	#[test]
-	fn extension_identity_on_empty_frontier_yields_empty_root() {
-		// Yields `empty_root()`. An empty stream is never in the tree, so the tree walk is what
-		// fails.
-		assert_eq!(
-			MMRExtensionProof::identity().calculate_root(&MmrFrontier::default()),
-			Ok(MmrFrontier::default().root()),
-		);
-	}
-
-	#[test]
-	fn the_longest_valid_extension_fits_the_node_ceiling() {
-		// Worst case, one node per set bit: 1 → the largest all-ones count. The lift's PoV
-		// reservation relies on it.
-		let nodes =
-			ancestry_proof_positions(mmr_size(1), mmr_size((MAX_MMR_LEAF_COUNT - 1) as usize))
-				.unwrap()
-				.len();
-		assert_eq!(nodes, 48);
-		assert!(nodes <= MAX_MMR_HASHES as usize);
-	}
-
-	#[test]
-	fn over_long_extension_proof_fails_to_decode() {
-		// The bound is in the type, so an over-long proof is rejected at the length prefix.
-		let max = MAX_MMR_HASHES as usize;
-		let at_bound = (codec::Compact(5u64), vec![H256::zero(); max]).encode();
-		assert!(MMRExtensionProof::decode(&mut &at_bound[..]).is_ok());
-		let over = (codec::Compact(5u64), vec![H256::zero(); max + 1]).encode();
-		assert!(MMRExtensionProof::decode(&mut &over[..]).is_err());
 	}
 
 	#[test]
@@ -708,30 +363,27 @@ mod tests {
 		// The pallet records a source only with a stream. An entry with none has nothing to lift,
 		// so the candidate is invalid rather than silently requiring nothing from that source.
 		let source = ParaId::from(1000);
-		let record = ConsumptionRecord { entries: BTreeMap::from([(source, BTreeMap::new())]) };
+		let record = ConsumptionRecord { entries: BTreeMap::from([(source, Vec::new())]) };
 		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, Vec::new())])).unwrap();
 		assert_eq!(build_requires(&[record], &lifts), Err(LiftError::EmptyRecord));
 	}
 
 	#[test]
-	fn consumption_record_encodes_as_the_sorted_vec_of_pairs() {
-		// The record crosses the runtime-API boundary; keying it must not move a byte relative to
-		// the design's `Vec<(StreamId, Interval)>` view of the same sorted, unique entries.
+	fn a_duplicate_or_unsorted_record_fails_closed() {
 		let all = leaves(3);
+		let source = ParaId::from(7);
 		let (a, b) = (ch(1), ch(2));
 		let (ia, ib) = (
 			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 1) },
 			Interval { start: root_at(&all, 1), end: frontier_at(&all, 3) },
 		);
-		let keyed = ConsumptionRecord {
-			entries: BTreeMap::from([(
-				ParaId::from(7),
-				BTreeMap::from([(b, ib.clone()), (a, ia.clone())]),
-			)]),
-		};
-		let as_vec: BTreeMap<ParaId, Vec<(StreamId, Interval)>> =
-			BTreeMap::from([(ParaId::from(7), vec![(a, ia), (b, ib)])]);
-		assert_eq!(keyed.encode(), as_vec.encode());
+		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, Vec::new())])).unwrap();
+		for streams in [vec![(a, ia.clone()), (a, ib.clone())], vec![(b, ib), (a, ia)]] {
+			let record = ConsumptionRecord { entries: BTreeMap::from([(source, streams)]) };
+			// The decode keeps the bad entries for the check to see.
+			let decoded = ConsumptionRecord::decode(&mut &record.encode()[..]).unwrap();
+			assert_eq!(build_requires(&[decoded], &lifts), Err(LiftError::UnsortedRecord));
+		}
 	}
 
 	#[test]
@@ -748,7 +400,7 @@ mod tests {
 		let interval = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) };
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([(stream, vec![interval])]);
@@ -769,10 +421,10 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				BTreeMap::from([(
+				vec![(
 					stream,
 					Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
-				)]),
+				)],
 			)]),
 		};
 		let mut lifts = BTreeMap::new();
@@ -780,7 +432,7 @@ mod tests {
 			source,
 			vec![RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			}],
 		);
@@ -803,7 +455,7 @@ mod tests {
 	fn lifts_by_source_decode_enforces_canonical_form() {
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&MmrFrontier::new()),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let pair = |id: u32| (ParaId::from(id), vec![lift()]);
@@ -851,9 +503,9 @@ mod tests {
 		let (_pa, proof_a) = gen_stream_proof(&entries, a).unwrap();
 		let (_pb, proof_b) = gen_stream_proof(&entries, b).unwrap();
 
-		let lift = |tree_proof| RequiresLift {
+		let lift = |tree_proof, n| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, n)),
 			tree_proof,
 		};
 		// SourceStreams is keyed, so it iterates a, b — the order the lifts must match.
@@ -862,7 +514,7 @@ mod tests {
 			(b, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 5) }]),
 		]);
 		assert_eq!(
-			build_requires_entry(&streams, &[lift(proof_a), lift(proof_b)]).unwrap(),
+			build_requires_entry(&streams, &[lift(proof_a, 3), lift(proof_b, 5)]).unwrap(),
 			expected
 		);
 	}
@@ -882,15 +534,15 @@ mod tests {
 			let record = ConsumptionRecord {
 				entries: BTreeMap::from([(
 					source,
-					BTreeMap::from([(
+					vec![(
 						stream,
 						Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
-					)]),
+					)],
 				)]),
 			};
 			let lift = RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			};
 			(record, lift)
@@ -922,8 +574,9 @@ mod tests {
 			Interval { start: root_at(&all, 4), end: frontier_at(&all, 5) }, // gap @2 → @4
 		];
 		let lift = RequiresLift {
-			advances: vec![extension(&all, 2, 4)],    // bridges the gap
-			extension: MMRExtensionProof::identity(), // endpoint @5 already the committed root
+			advances: vec![extension(&all, 2, 4)], // bridges the gap
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 5)), /* endpoint @5 already
+			                                        * the committed root */
 			tree_proof,
 		};
 		let streams = SourceStreams::from([(stream, intervals)]);
@@ -940,7 +593,7 @@ mod tests {
 		)]);
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		// One stream, no lifts, and one stream, two lifts — both mismatch.
@@ -967,7 +620,7 @@ mod tests {
 		// BadExtension.
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof { leaf_count: 1, connecting_nodes: BoundedVec::new() },
+			extension: MmrExtensionProof { leaf_count: 1, connecting_nodes: BoundedVec::new() },
 			tree_proof,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadExtension));
@@ -1000,7 +653,7 @@ mod tests {
 		};
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: bad,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadTreeProof));
@@ -1016,7 +669,7 @@ mod tests {
 		let mk = |intervals, advances| {
 			let lift = RequiresLift {
 				advances,
-				extension: MMRExtensionProof::identity(),
+				extension: MmrExtensionProof::identity(&frontier_at(&all, 5)),
 				tree_proof: tree_proof.clone(),
 			};
 			build_requires_entry(&SourceStreams::from([(stream, intervals)]), &[lift])
@@ -1049,7 +702,7 @@ mod tests {
 
 		let mk = |tree_proof| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([
@@ -1062,155 +715,140 @@ mod tests {
 		);
 	}
 
-	/// Single-leaf inclusion proof for leaf `index` of an `n`-leaf MMR (`mmr_lib`'s `gen_proof`).
-	fn inclusion(all: &[Hash], n: usize, index: usize) -> MmrInclusionProof {
-		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		for l in &all[..n] {
-			mmr.push(*l).unwrap();
+	#[test]
+	fn encoded_len_for_matches_generated_proofs_and_rejects_other_node_counts() {
+		// Out-of-range inputs return None without panicking.
+		assert_eq!(MmrExtensionProof::encoded_len_for(0, 1), None);
+		assert_eq!(MmrExtensionProof::encoded_len_for(5, 4), None);
+		assert_eq!(MmrExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT + 1), None);
+		assert_eq!(
+			MmrExtensionProof::encoded_len_for(MAX_MMR_LEAF_COUNT + 1, MAX_MMR_LEAF_COUNT + 1),
+			None,
+		);
+
+		// Equal counts need no skip proof (0 bytes).
+		for n in [1, 2, 64, 1 << 20, MAX_MMR_LEAF_COUNT] {
+			assert_eq!(MmrExtensionProof::encoded_len_for(n, n), Some(0));
 		}
-		let proof = mmr.gen_proof(vec![leaf_index_to_pos(index as u64)]).unwrap();
-		MmrInclusionProof {
-			mmr_size: mmr_size(n),
-			items: BoundedVec::truncate_from(proof.proof_items().to_vec()),
-		}
-	}
 
-	#[test]
-	fn inclusion_verify_head_pins_head_and_derives_root() {
-		let all = leaves(6);
-		// 6 leaves → head = index 5 (a lone smallest peak with a 1-step sibling path AND one other
-		// peak: count_ones(6) - 1 = 1), exercising both halves of the item split.
-		let proof = inclusion(&all, 6, 5);
-
-		// Correct head leaf → head position 5 + the frontier of exactly these 6 leaves.
-		let (pos, frontier) = proof.verify_head(all[5]).expect("well-formed head proof");
-		assert_eq!(pos, MessagePosition(5));
-		assert_eq!(frontier.leaf_count(), 6);
-		assert_eq!(frontier.root(), root_at(&all, 6));
-
-		// Another leaf under the same proof gives a different root, so an old leaf can't pass as
-		// the head.
-		let (_, forged) = proof.verify_head(all[0]).expect("shape still parses");
-		assert_ne!(forged.root(), root_at(&all, 6));
-
-		// Wrong item count (one extra item) → structural reject.
-		let mut bad = proof.clone();
-		bad.items.try_push(H256::zero()).expect("below the bound; qed");
-		assert_eq!(bad.verify_head(all[5]), Err(ProofError::InvalidProof));
-
-		// Invalid `mmr_size` (2 is not a valid MMR node count) → reject, no panic.
-		assert_eq!(
-			MmrInclusionProof { mmr_size: 2, items: BoundedVec::new() }.verify_head(all[5]),
-			Err(ProofError::InvalidProof),
-		);
-	}
-
-	#[test]
-	fn inclusion_verify_head_boundary_shapes() {
-		// The `path_len = trailing_zeros` / `other_peaks = count_ones - 1` formulas at their
-		// extremes.
-
-		// n = 1: a single-leaf MMR. The head proof has zero items (no sibling path, no other
-		// peak).
-		let all1 = leaves(1);
-		let (pos1, f1) = inclusion(&all1, 1, 0).verify_head(all1[0]).expect("n=1 head");
-		assert_eq!(pos1, MessagePosition(0));
-		assert_eq!(f1.leaf_count(), 1);
-		assert_eq!(f1.root(), root_at(&all1, 1));
-
-		// n = 8: a perfect single-peak MMR. A full 3-step sibling path with no other peaks.
-		let all8 = leaves(8);
-		let (pos8, f8) = inclusion(&all8, 8, 7).verify_head(all8[7]).expect("n=8 head");
-		assert_eq!(pos8, MessagePosition(7));
-		assert_eq!(f8.leaf_count(), 8);
-		assert_eq!(f8.root(), root_at(&all8, 8));
-	}
-
-	#[test]
-	fn inclusion_verify_leaf_binds_position_and_value() {
-		let all = leaves(6);
-		let want = root_at(&all, 6);
-		let proof = inclusion(&all, 6, 3);
-
-		// Correct leaf at its position → the committed stream root.
-		assert_eq!(proof.verify_leaf(MessagePosition(3), all[3]), Ok(want));
-		// Tampered leaf value → a different root (never the committed one).
-		assert_ne!(proof.verify_leaf(MessagePosition(3), H256::repeat_byte(0xAA)), Ok(want));
-		// Correct leaf claimed at the wrong position → a different root.
-		assert_ne!(proof.verify_leaf(MessagePosition(4), all[3]), Ok(want));
-		// Position at/after the leaf count (6 leaves → valid 0..=5) → reject.
-		assert_eq!(
-			proof.verify_leaf(MessagePosition(6), all[3]),
-			Err(ProofError::PositionOutOfRange)
-		);
-		// Invalid `mmr_size` → reject, no panic.
-		assert_eq!(
-			MmrInclusionProof { mmr_size: 2, items: BoundedVec::new() }
-				.verify_leaf(MessagePosition(0), all[0]),
-			Err(ProofError::InvalidProof),
-		);
-	}
-
-	#[test]
-	fn oversized_inclusion_proof_fails_to_decode() {
-		// The bound is in the type, so an oversized proof is rejected at the length prefix.
-		let max = MAX_INCLUSION_PROOF_ITEMS as usize;
-		let at_bound = (mmr_size(6) as u64, vec![H256::zero(); max]).encode();
-		assert!(MmrInclusionProof::decode(&mut &at_bound[..]).is_ok());
-		let over = (mmr_size(6) as u64, vec![H256::zero(); max + 1]).encode();
-		assert!(MmrInclusionProof::decode(&mut &over[..]).is_err());
-	}
-
-	/// Found by the `lift_inclusion` fuzzer: a padded 1-leaf proof used to verify.
-	#[test]
-	fn inclusion_verify_leaf_rejects_padding() {
-		let all = leaves(6);
-		let one = inclusion(&all, 1, 0);
-		assert!(one.items.is_empty());
-		assert_eq!(one.verify_leaf(MessagePosition(0), all[0]), Ok(root_at(&all, 1)));
-		let mut padded = one.clone();
-		padded.items.try_push(H256::repeat_byte(0xAB)).expect("below the bound; qed");
-		assert_eq!(padded.verify_leaf(MessagePosition(0), all[0]), Err(ProofError::InvalidProof));
-
-		let mut longer = inclusion(&all, 6, 3);
-		longer.items.try_push(H256::zero()).expect("below the bound; qed");
-		assert_eq!(longer.verify_leaf(MessagePosition(3), all[3]), Err(ProofError::InvalidProof));
-	}
-
-	/// 130 leaves gets us past 127, the first count with seven peaks.
-	#[test]
-	fn leaf_proof_len_matches_mmr_lib() {
-		let all = leaves(130);
-		for n in 1..=130 {
-			for i in 0..n {
+		// Exhaustively check every pair up to 64 leaves against real generated proofs, and verify
+		// that padded or truncated connecting_nodes are rejected by `verify`.
+		let all = leaves(64);
+		for n2 in 2..=64usize {
+			for n1 in 1..n2 {
+				let from = frontier_at(&all, n1);
+				let proof = extension(&all, n1, n2);
 				assert_eq!(
-					leaf_proof_len(n as u64, i as u64),
-					inclusion(&all, n, i).items.len(),
-					"leaf {i} of {n}"
+					MmrExtensionProof::encoded_len_for(n1 as u64, n2 as u64),
+					Some(proof.encoded_size()),
+					"encoded_len_for mismatch at {n1} -> {n2}"
+				);
+				assert!(proof.encoded_size() <= MmrExtensionProof::max_encoded_len());
+
+				// Truncated proof must fail verify.
+				let mut truncated = proof.clone();
+				truncated.connecting_nodes.pop();
+				assert_eq!(truncated.calculate_root(&from), Err(ProofError::InvalidProof));
+
+				// Padded proof must fail verify.
+				let mut padded = proof;
+				padded.connecting_nodes.try_push(H256::zero()).expect("<= 64 leaves < 48; qed");
+				assert_eq!(padded.calculate_root(&from), Err(ProofError::InvalidProof));
+			}
+		}
+
+		// Power-of-two and worst-case edge pairs up to MAX_MMR_LEAF_COUNT.
+		let edge_counts = [
+			1,
+			2,
+			3,
+			(1 << 16) - 1,
+			1 << 16,
+			(1 << 32) - 1,
+			1 << 32,
+			(1 << 47) - 1,
+			1 << 47,
+			MAX_MMR_LEAF_COUNT - 1,
+			MAX_MMR_LEAF_COUNT,
+		];
+		for (i, &n1) in edge_counts.iter().enumerate() {
+			for &n2 in &edge_counts[i + 1..] {
+				let len = MmrExtensionProof::encoded_len_for(n1, n2).unwrap();
+				assert!(
+					len <= MmrExtensionProof::max_encoded_len(),
+					"{n1} -> {n2}: {len} > {}",
+					MmrExtensionProof::max_encoded_len()
 				);
 			}
 		}
+		// Worst-case extension (1 -> 2^48 - 1) takes 48 hashes: 7 + 1 + 48*32 = 1,544 bytes
+		// (`Compact(2^48 - 1)` is 7 bytes; `MaxEncodedLen` reserves 8 bytes for `#[codec(compact)]
+		// u64` = 1,545 bytes).
+		assert_eq!(MmrExtensionProof::encoded_len_for(1, MAX_MMR_LEAF_COUNT - 1), Some(1_544));
+		assert_eq!(MmrExtensionProof::max_encoded_len(), 1_545);
+		assert_eq!(StreamProof::max_encoded_len(), 2_114);
+	}
+
+	/// The PoV reservation for a lossy read is `encoded_len_for(previous end, read start)`. Over
+	/// random read sequences (adjacent reads, skips, cut reads), the reserved bytes must equal the
+	/// encoded advances that `stitch` accepts.
+	#[test]
+	fn reserved_skip_bytes_equal_the_advances_stitch_accepts() {
+		const N: usize = 256;
+		let all = leaves(N as u64);
+		let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+		let mut next = |bound: usize| {
+			seed ^= seed << 13;
+			seed ^= seed >> 7;
+			seed ^= seed << 17;
+			seed as usize % bound
+		};
+
+		for _ in 0..300 {
+			let first = next(N / 2);
+			let mut prev_end = first + 1 + next(8);
+			let mut intervals =
+				vec![Interval { start: root_at(&all, first), end: frontier_at(&all, prev_end) }];
+			let (mut reserved, mut advances) = (0, Vec::new());
+			loop {
+				// A third of reads continue where the last one ended; the rest skip ahead.
+				let skip_bound = 1 << next(7);
+				let start = prev_end + if next(3) == 0 { 0 } else { 1 + next(skip_bound) };
+				let end = start + 1 + next(8);
+				if end > N {
+					break;
+				}
+				reserved += MmrExtensionProof::encoded_len_for(prev_end as u64, start as u64)
+					.expect("1 <= prev_end <= start <= N; qed");
+				if start > prev_end {
+					advances.push(extension(&all, prev_end, start));
+				}
+				intervals
+					.push(Interval { start: root_at(&all, start), end: frontier_at(&all, end) });
+				prev_end = end;
+			}
+
+			assert_eq!(stitch(&intervals, &advances), Ok(frontier_at(&all, prev_end)));
+			assert_eq!(reserved, advances.iter().map(Encode::encoded_size).sum::<usize>());
+		}
 	}
 
 	#[test]
-	fn inclusion_verify_head_rejects_non_head_proof() {
-		let all = leaves(6);
-		// Leaf 2's proof has 3 items; a 6-leaf head proof has 2.
-		let non_head = inclusion(&all, 6, 2);
-		assert_eq!(non_head.verify_head(all[2]), Err(ProofError::InvalidProof));
-	}
+	fn extension_proof_frozen_layout() {
+		assert_eq!(MmrExtensionProof::identity(&MmrFrontier::new()).encode(), vec![0x00, 0x00]);
 
-	#[test]
-	fn inclusion_head_and_leaf_agree_on_root() {
-		// `verify_head`'s own peak walk and `mmr_lib::calculate_root` must agree.
-		let all = leaves(6);
-		let proof = inclusion(&all, 6, 5);
-		let (pos, frontier) = proof.verify_head(all[5]).expect("head verifies");
-		assert_eq!(pos, MessagePosition(5));
-		let via_head = frontier.root();
-		let via_leaf = proof.verify_leaf(pos, all[5]).expect("leaf verifies");
-		assert_eq!(via_head, via_leaf);
-		assert_eq!(via_head, root_at(&all, 6));
+		let proof = MmrExtensionProof {
+			leaf_count: 1 << 47,
+			connecting_nodes: BoundedVec::truncate_from(vec![
+				H256::repeat_byte(0x01),
+				H256::repeat_byte(0x02),
+			]),
+		};
+		// Compact `2^47` takes the big-integer mode: a 0x0B length byte (6 bytes), then LE.
+		let mut expected = vec![0x0B, 0, 0, 0, 0, 0, 0x80, 0x08];
+		expected.extend([0x01; 32]);
+		expected.extend([0x02; 32]);
+		assert_eq!(proof.encode(), expected);
+		assert_eq!(MmrExtensionProof::decode(&mut &expected[..]).unwrap(), proof);
 	}
 }

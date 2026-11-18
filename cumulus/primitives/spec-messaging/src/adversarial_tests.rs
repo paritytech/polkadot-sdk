@@ -20,19 +20,18 @@
 //! verifier; this module covers well-formed lies, grouped by what the attacker controls.
 
 use crate::{
-	lift::{stitch, Interval, LiftError, MMRExtensionProof, MmrInclusionProof},
-	message::leaf_hash,
-	mmr::{bag_peaks, MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
+	fetch::{verify_messages, MessagesRequest, MessagesResponse, VerifyError},
+	lift::{stitch, Interval, LiftError},
+	mmr::{
+		bag_peaks, leaf_hash, leaf_hash_with_version, MmrExtensionProof, MmrFrontier, MmrRoot,
+		SpecMerge, MAX_MMR_LEAF_COUNT,
+	},
 	streams_root::{gen_stream_proof, streams_root, streams_root_from_proof},
-	test_utils::{extension, frontier_at, leaves, mmr_size},
+	test_utils::{extension, frontier_at, leaves},
 	StreamId, INNER_TAG, PEAK_TAG, ROOT_TAG,
 };
 use alloc::collections::BTreeMap;
-use mmr_lib::{
-	leaf_index_to_mmr_size, leaf_index_to_pos,
-	util::{MemMMR, MemStore},
-	Merge,
-};
+use mmr_lib::Merge;
 use polkadot_core_primitives::Hash;
 use sp_core::H256;
 use sp_runtime::BoundedVec;
@@ -44,9 +43,9 @@ fn claimable_counts() -> impl Iterator<Item = u64> {
 		.chain(MAX_MMR_LEAF_COUNT - 64..=MAX_MMR_LEAF_COUNT)
 }
 
-/// A1, the frontier hints (`base`, `start_peaks`). Peaks do not commit their heights, so one set of
-/// peaks is a valid frontier at every count with the same number of set bits, and bags the same at
-/// each. No other count may reproduce the root.
+/// A1, the frontier's `leaf_count`. Peaks do not commit their heights, so one set of peaks is a
+/// valid frontier at every count with the same number of set bits, and bags the same at each. No
+/// other count may reproduce the root.
 #[test]
 fn forged_count_never_reproduces_a_root() {
 	let all = leaves(64);
@@ -65,51 +64,72 @@ fn forged_count_never_reproduces_a_root() {
 	}
 }
 
-/// A2, the inclusion proof's `mmr_size` and the claimed position. A leaf proven at one position
-/// must not verify at another, under the honest size or a forged one.
+/// A2, the head read's `frontier` leaf count. A lossy head read (`start: None`) takes the frontier
+/// at `m - 1` and appends the head payload to reach `m`. If a peer claims the `k` peaks of `m - 1`
+/// leaves sit at a different count with `k` set bits, appending the head payload produces a
+/// frontier at a forged position whose root does not match the committed `StreamsRoot`.
 #[test]
-fn forged_inclusion_never_moves_a_leaf() {
-	let all = leaves(13);
-	let store = MemStore::<Hash>::default();
-	let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-	for leaf in &all {
-		mmr.push(*leaf).unwrap();
-	}
-	let root = frontier_at(&all, all.len()).root();
-	for (k, leaf) in all.iter().enumerate() {
-		let items =
-			mmr.gen_proof(vec![leaf_index_to_pos(k as u64)]).unwrap().proof_items().to_vec();
-		let honest = MmrInclusionProof {
-			mmr_size: mmr_size(all.len()),
-			items: BoundedVec::truncate_from(items.clone()),
+fn forged_head_frontier_never_moves_a_leaf() {
+	let stream = StreamId::Channel { recipient: 2000.into(), domain: 0, num: 0 };
+	let payloads: Vec<Vec<u8>> = (0..13u8).map(|i| vec![i; 4]).collect();
+	let all: Vec<Hash> = payloads.iter().map(|p| leaf_hash(p)).collect();
+	for m in 1..=all.len() {
+		let committed_stream_root = frontier_at(&all, m).root();
+		let entries = BTreeMap::from([(stream, committed_stream_root.0)]);
+		let (under, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+		let req = MessagesRequest { stream, under, start: None, max_bytes: 64 };
+		let honest_frontier = frontier_at(&all, m - 1);
+		let honest = MessagesResponse {
+			frontier: honest_frontier.clone(),
+			payloads: BoundedVec::truncate_from(vec![payloads[m - 1].clone()]),
+			extension: MmrExtensionProof::identity(&frontier_at(&all, m)),
+			tree_proof: tree_proof.clone(),
 		};
-		assert_eq!(honest.verify_leaf(MessagePosition(k as u64), *leaf), Ok(root));
-		for count in claimable_counts() {
-			let size = leaf_index_to_mmr_size(count - 1);
-			let proof = MmrInclusionProof {
-				mmr_size: size,
-				items: BoundedVec::truncate_from(items.clone()),
+		assert_eq!(verify_messages(&req, &honest), Ok(()));
+
+		for count in claimable_counts()
+			.filter(|count| *count != (m - 1) as u64 && *count < MAX_MMR_LEAF_COUNT)
+		{
+			let Some(forged_frontier) =
+				MmrFrontier::from_parts(honest_frontier.peaks().to_vec(), count)
+			else {
+				continue;
 			};
-			for position in [0, k as u64, k as u64 + 1, count - 1, count / 2] {
-				if (size, position) == (honest.mmr_size, k as u64) {
-					continue;
-				}
-				assert_ne!(proof.verify_leaf(MessagePosition(position), *leaf), Ok(root));
-			}
+			// The honest extension does not end at the forged head.
+			let moved = MessagesResponse { frontier: forged_frontier.clone(), ..honest.clone() };
+			assert_eq!(verify_messages(&req, &moved), Err(VerifyError::NotAtHead));
+			// An extension that fits the forged head passes the head rule and misses the root.
+			let mut forged_end = forged_frontier.clone();
+			forged_end.append(all[m - 1]);
+			let forged =
+				MessagesResponse { extension: MmrExtensionProof::identity(&forged_end), ..moved };
+			assert_eq!(verify_messages(&req, &forged), Err(VerifyError::RootMismatch));
+		}
+		if let Some(ceiling_frontier) =
+			MmrFrontier::from_parts(honest_frontier.peaks().to_vec(), MAX_MMR_LEAF_COUNT)
+		{
+			// The extension names the head's end count, one past the ceiling.
+			let past_ceiling = MmrExtensionProof {
+				leaf_count: MAX_MMR_LEAF_COUNT + 1,
+				..honest.extension.clone()
+			};
+			let at_ceiling = MessagesResponse {
+				frontier: ceiling_frontier,
+				extension: past_ceiling,
+				..honest.clone()
+			};
+			assert_eq!(verify_messages(&req, &at_ceiling), Err(VerifyError::MalformedResponse));
 		}
 	}
 
-	// The head read: the two peaks of 3 leaves, claimed as `2^47 + 1` leaves, put the head at
-	// position `2^47`. The frontier is rebuilt, but its root is not the committed one.
-	let all = leaves(3);
-	let forged = MmrInclusionProof {
-		mmr_size: leaf_index_to_mmr_size(1 << 47),
-		items: BoundedVec::truncate_from(frontier_at(&all, 2).peaks().to_vec()),
-	};
-	let (position, frontier) = forged.verify_head(all[2]).unwrap();
-	assert_eq!(position, MessagePosition(1 << 47));
-	assert_ne!(frontier.root(), frontier_at(&all, 3).root());
-	assert_ne!(forged.verify_leaf(position, all[2]), Ok(frontier_at(&all, 3).root()));
+	// Specifically: the single peak of 2 leaves, claimed as `2^47` leaves, puts the head at
+	// position `2^47`. The frontier after appending leaf 2 has `2^47 + 1` leaves, and its root is
+	// not the committed 3-leaf root.
+	let mut forged = MmrFrontier::from_parts(frontier_at(&all, 2).peaks().to_vec(), 1 << 47)
+		.expect("2^47 has one set bit, matching 2 leaves; qed");
+	forged.append(all[2]);
+	assert_eq!(forged.leaf_count(), (1 << 47) + 1);
+	assert_ne!(forged.root(), frontier_at(&all, 3).root());
 }
 
 /// A3, the extension's `leaf_count` and the frontier it extends. Neither the honest connecting
@@ -125,7 +145,7 @@ fn forged_extension_never_reaches_the_committed_root() {
 		assert_eq!(honest.calculate_root(&from), Ok(target));
 
 		for count in claimable_counts().filter(|count| *count != n as u64) {
-			let forged = MMRExtensionProof { leaf_count: count, ..honest.clone() };
+			let forged = MmrExtensionProof { leaf_count: count, ..honest.clone() };
 			assert_ne!(
 				forged.calculate_root(&from),
 				Ok(target),
@@ -161,7 +181,7 @@ fn payload_bytes_never_pose_as_a_node() {
 	];
 	for version in [0, 1, u8::MAX] {
 		for (node, payload) in &disguises {
-			assert_ne!(leaf_hash(version, payload), *node);
+			assert_ne!(leaf_hash_with_version(version, payload), *node);
 		}
 	}
 
