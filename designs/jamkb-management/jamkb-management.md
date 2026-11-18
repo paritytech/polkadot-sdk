@@ -186,9 +186,9 @@ come back to the Parachain Service are minted (`Reclaim`, `Eject`, §4.4).
 A mint can fail, for example into an account with no JAMKB account and no
 native balance to create one. The pallet books the amount of a failed mint
 as `Unclaimed` for that account (`UnclaimedBooked`), minted later by
-`claim`. Every cross-system operation is asynchronous and is finalized by settlement
-in `on_poll`. On failure the pallet undoes what the call did, unless the
-payload says otherwise.
+`claim`. Every cross-system operation is asynchronous and is finalized by
+settlement in `on_poll`. On failure the pallet undoes what the call did,
+unless the payload says otherwise.
 
 To resolve operations, the pallet receives each operation's outcome from the
 parachain-system pallet (§3.4): the timeslot it was accumulated at and its
@@ -387,8 +387,9 @@ enum OperationPayload {
     ///
     /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
     /// set to the operation's `accumulated_at`.
-    /// Failed: a release returns to `Approved`; a lease is removed and its
-    /// units are minted to the approver (§3.2).
+    /// Failed: a release's units are minted back to custody and it returns
+    /// to `Approved`; a lease is removed and its units are minted to the
+    /// approver (§3.2).
     Delivery {
         allocation: AllocationId,
         amount: Balance,              // the units burned for the transfer
@@ -399,7 +400,7 @@ enum OperationPayload {
     ///
     /// Confirmed: the allocation's amount rises by `additional`; the lease
     /// stays `Delivered`.
-    /// Failed: no further state change.
+    /// Failed: `additional` is minted back to the approver (§3.2).
     Increase {
         allocation: AllocationId,
         additional: Balance,
@@ -486,8 +487,7 @@ enum OperationPayload {
     /// on the target is removed and its `amount`, or what is left of
     /// `credited`, is minted to its approver; the rest of
     /// `credited` is recorded as `Excess[target]` (`ExcessRecorded`). The
-    /// target's `FrozenTargets`, `ServiceAccounts` and `ForgetDue` entries are
-    /// removed.
+    /// target's `FrozenTargets` and `ServiceAccounts` entries are removed.
     /// Confirmed without a `ServiceEjected` entry: the settlement fails
     /// until `force_settle` supplies it.
     /// Failed: every lease keeps its state.
@@ -623,7 +623,7 @@ reported in the events. A signed call that records an operation pays the
 delivery fee of its messages (§3.4). A governance call and a `Move` pay no
 fee.
 
-The common errors are listed in `Error`; a call's names only the errors
+The common errors are listed in `Error`; a call's doc names only the errors
 specific to it.
 
 ```rust
@@ -768,7 +768,7 @@ fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
 /// Destroys the emptied target, crediting its regular and supervisor
 /// balances to the Parachain Service's regular balance. Origin: the approver
-/// of lease on the target, or governance. Legal while a lease
+/// of a lease on the target, or governance. Legal while a lease
 /// on the target is `Reclaiming`. Rejected with `UnsettledOperation`
 /// while a lease on the target has an unsettled allocation operation, or any
 /// other transfer to the target is unsettled (§3.2). Records an `Eject`
