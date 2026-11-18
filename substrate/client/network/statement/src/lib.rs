@@ -144,7 +144,7 @@ use prometheus_endpoint::{
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
-	config::{NetworkConfiguration, NonReservedPeerMode, SetConfig},
+	config::{NetworkBackendType, NetworkConfiguration, NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
@@ -619,6 +619,15 @@ impl StatementHandlerPrototype {
 		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
 		// disconnecting.
 		let set_config = if v2dht_enabled() {
+			// Only litep2p emits the discovery and identify events the topology learns peers from.
+			if matches!(network_config.network_backend, NetworkBackendType::Libp2p) {
+				log::warn!(
+					target: LOG_TARGET,
+					"The statement v2 DHT path learns peers only from litep2p, so on the libp2p \
+					 backend it reserves and dials no statement peer. Use `--network-backend \
+					 litep2p`.",
+				);
+			}
 			SetConfig {
 				in_peers: in_peers_full.saturating_add(in_peers_light),
 				out_peers: DEFAULT_OUT_PEERS,
