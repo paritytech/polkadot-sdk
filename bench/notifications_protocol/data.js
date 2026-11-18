@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795040703205,
+  "lastUpdate": 1795042875402,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -264767,6 +264767,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2465104705,
             "range": "± 14094042",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdcbed2600a536622aa049b27d05a69a5917d447",
+          "message": "Improve flaky ZN test (#13908)\n\nBoth tests restart `one`/`two`/`three` on purpose: they are the\ncollators'\n`--relay-chain-rpc-url` endpoints, and the tests check RPC failover.\n\nWith teardown-on-failure (the default), zombienet's node monitor checks\nevery 15s\nthat each running node serves `process_start_time_seconds` within 5s,\nand kills the\ntest process if one does not. A restarted node counts as running as soon\nas its\nprocess is spawned, so the first check after a restart can catch it\nbefore it serves\nmetrics. The monitor has a grace window for recently restarted nodes,\nbut it never\napplies: it finds the node with `n.name() == e.to_string()`, while the\nerror reads\n\"<name>: Timeout (5), ...\". Every observed CI failure of\n`rpc_collator_builds_blocks`\nwas this (\"One of the nodes crashed: two: Timeout (5) ...\").\n\n(Fix in zombienet-sdk (`spawn_watching_task`,\ncrates/orchestrator/src/network.rs, still\npresent upstream): poll each node separately and keep the node with its\nresult, so the\ngrace window check uses the failing node itself rather than parsing the\nerror. Once\na zombienet-sdk release with that fix is used here, remove this\noverride.)\n\nDisabling the monitor is safe here: a node that really dies makes the\ntest's own\nmetric checks time out.\n\n---\n\nAbove is what claude found, but reads sensible to me. I have seen\n`with_tear_down_on_failure ` in a few other tests that also restart\nnodes with a comment saying it helps in the CI.\n\nExample flaky run:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43845739265/job/133234755346",
+          "timestamp": "2026-11-18T21:42:47Z",
+          "tree_id": "0d3ab4467dd2d1166f0a069faa052ac7c0ad1b39",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bdcbed2600a536622aa049b27d05a69a5917d447"
+        },
+        "date": 1795042835024,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4443561,
+            "range": "± 42866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 326053,
+            "range": "± 5666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4345031,
+            "range": "± 106203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 407911,
+            "range": "± 5760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5031814,
+            "range": "± 80255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 929438,
+            "range": "± 13977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10874651,
+            "range": "± 155877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5141805,
+            "range": "± 92565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46535783,
+            "range": "± 1192076",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39942342,
+            "range": "± 363431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 380522846,
+            "range": "± 5895016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 305102199,
+            "range": "± 4349261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2650630313,
+            "range": "± 27516712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2360730048,
+            "range": "± 31729494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3850607,
+            "range": "± 88695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1942752,
+            "range": "± 12365",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3907271,
+            "range": "± 70032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2040502,
+            "range": "± 12873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4536083,
+            "range": "± 63865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2370661,
+            "range": "± 20540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8622028,
+            "range": "± 79923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5542778,
+            "range": "± 55591",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39229892,
+            "range": "± 371596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37882929,
+            "range": "± 649826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 331494496,
+            "range": "± 4153824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289744869,
+            "range": "± 2861854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2715988694,
+            "range": "± 34129777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2384244711,
+            "range": "± 27626699",
             "unit": "ns/iter"
           }
         ]
