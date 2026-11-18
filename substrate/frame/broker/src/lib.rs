@@ -64,7 +64,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{Balanced, Credit, Mutate},
+			fungible::{Balanced, Credit, Inspect, Mutate},
 			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -72,7 +72,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -629,7 +629,12 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			frame_system::Pallet::<T>::inc_providers(&Pallet::<T>::account_id());
+			let pot = Pallet::<T>::account_id();
+			frame_system::Pallet::<T>::inc_providers(&pot);
+			// The pot keeps the existential deposit, which is never paid out, so that it does
+			// not get dusted when the revenue left in it is below the existential deposit.
+			T::Currency::mint_into(&pot, T::Currency::minimum_balance())
+				.expect("minting the existential deposit into the pot cannot fail; qed");
 		}
 	}
 

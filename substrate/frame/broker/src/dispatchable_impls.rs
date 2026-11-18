@@ -20,7 +20,10 @@ use core::cmp;
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Mutate, tokens::Preservation::Expendable},
+	traits::{
+		fungible::Mutate,
+		tokens::Preservation::{Expendable, Preserve},
+	},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
@@ -485,7 +488,7 @@ impl<T: Config> Pallet<T> {
 		// The steps above removed the contribution and reduced the stored payouts. If the
 		// transfer fails, the error must revert them. The storage changes and the payment
 		// must both happen, or neither.
-		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
+		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Preserve)?;
 		let next = if contribution.length > 0 { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
@@ -543,7 +546,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let record = InstaPoolHistory::<T>::take(when).ok_or(Error::<T>::NoHistory)?;
 		if let Some(payout) = record.maybe_payout {
-			let _ = Self::charge(&Self::account_id(), payout);
+			let _ = Self::charge_pot(payout);
 		}
 		let revenue = record.maybe_payout.unwrap_or_default();
 		Self::deposit_event(Event::HistoryDropped { when, revenue });
