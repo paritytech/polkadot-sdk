@@ -33,6 +33,9 @@
 //! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
+//! A peer the handler disconnects for its behavior is paused for [`DISCONNECT_PAUSE`]: steering
+//! leaves it unreserved and the handler rejects its inbound substream, so it stays away.
+//!
 //! Each connected peer carries a score based on its actions. Undesired peers are
 //! dropped lowest-score first.
 
@@ -70,6 +73,10 @@ pub(super) const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
 /// How long an unreachable peer is passed over before it is tried again.
 pub(super) const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
 
+/// How long a peer disconnected for its behavior stays away. A sooner return would hand it a full
+/// initial sync again.
+pub(super) const DISCONNECT_PAUSE: Duration = Duration::from_secs(5 * 60);
+
 /// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
 ///
 /// The desired set comes from the orchestrator and the connected set from the statement substream
@@ -91,6 +98,9 @@ pub(crate) struct PeerSteering {
 	/// Peers that stayed reserved without a substream for [`UNREACHABLE_AFTER`], each with the
 	/// instant it is tried again.
 	unreachable: HashMap<PeerId, Instant>,
+	/// Peers disconnected for their behavior, each with the instant its pause ends. Unlike an
+	/// unreachable peer, a paused one stays paused when it dials in.
+	paused: HashMap<PeerId, Instant>,
 }
 
 /// The state of one connected peer.
@@ -112,6 +122,7 @@ impl PeerSteering {
 			reserved: HashSet::new(),
 			awaiting_substream: HashMap::new(),
 			unreachable: HashMap::new(),
+			paused: HashMap::new(),
 		}
 	}
 
@@ -184,6 +195,22 @@ impl PeerSteering {
 		self.unreachable.len()
 	}
 
+	/// Keep `peer` away for [`DISCONNECT_PAUSE`] from `now`.
+	pub(crate) fn pause_peer(&mut self, peer: PeerId, now: Instant) {
+		log::debug!(target: LOG_TARGET, "peer_steering: {peer} is paused");
+		self.paused.insert(peer, now + DISCONNECT_PAUSE);
+	}
+
+	/// Clear the pauses that ended by `now`.
+	pub(crate) fn update_paused_peers(&mut self, now: Instant) {
+		self.paused.retain(|_, resume_at| *resume_at > now);
+	}
+
+	/// Whether `peer` was disconnected for its behavior and its pause still runs.
+	pub(crate) fn is_paused(&self, peer: &PeerId) -> bool {
+		self.paused.contains_key(peer)
+	}
+
 	// === Desired set ===
 
 	/// Replace the set of peers the node needs connected.
@@ -220,11 +247,11 @@ impl PeerSteering {
 			.collect()
 	}
 
-	/// Desired peers outside the reserved set.
+	/// Desired peers outside the reserved set. A paused peer stays outside it.
 	pub(crate) fn peers_to_reserve(&self) -> Vec<PeerId> {
 		self.desired
 			.iter()
-			.filter(|peer| !self.reserved.contains(peer))
+			.filter(|peer| !self.reserved.contains(peer) && !self.paused.contains_key(peer))
 			.copied()
 			.collect()
 	}

@@ -282,8 +282,13 @@ impl PeersTopology {
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
 	/// explicit-affinity topics, and selects a minimal set of peers covering every topic,
-	/// independent of connection state.
-	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
+	/// independent of connection state. A peer that `is_paused` is passed over, so the other
+	/// replicas of its topics cover them.
+	pub fn peers_for_topics(
+		&self,
+		topics: &[Topic],
+		is_paused: impl Fn(&PeerId) -> bool,
+	) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
 		}
@@ -292,7 +297,11 @@ impl PeersTopology {
 
 		let closest_pools = topics
 			.iter()
-			.map(|topic| self.closest_known_keyed(*topic, pool_size))
+			.map(|topic| {
+				let mut pool = self.closest_known_keyed(*topic, pool_size);
+				pool.retain(|(peer, _)| !is_paused(peer));
+				pool
+			})
 			.collect::<Vec<_>>();
 
 		let mut uncovered = (0..topics.len()).collect::<HashSet<_>>();
@@ -321,11 +330,11 @@ impl PeersTopology {
 	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 	/// statement for any topic a connected next hop closer to the topic.
 	///
-	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
+	/// A peer that `is_passed_over` is skipped, so the next peer of its bucket takes its place.
 	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
 	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
 	/// peers themselves connect.
-	pub fn peers_for_routing(&self, is_unreachable: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
+	pub fn peers_for_routing(&self, is_passed_over: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
 		let mut last_bucket = None;
@@ -333,7 +342,7 @@ impl PeersTopology {
 		let mut connected_chosen = 0;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
-			if is_unreachable(&peer) {
+			if is_passed_over(&peer) {
 				continue;
 			}
 			let bucket = bucket_of(self.local_key, key);
@@ -810,11 +819,11 @@ mod tests {
 		}
 
 		let connected = topology.closest_known(topic, 1)[0];
-		let before = topology.peers_for_topics(&[topic]);
+		let before = topology.peers_for_topics(&[topic], |_| false);
 		topology.on_substream_opened(connected);
 
-		assert_eq!(topology.peers_for_topics(&[topic]), before);
-		assert!(topology.peers_for_topics(&[topic]).contains(&connected));
+		assert_eq!(topology.peers_for_topics(&[topic], |_| false), before);
+		assert!(topology.peers_for_topics(&[topic], |_| false).contains(&connected));
 	}
 
 	#[test]
@@ -831,8 +840,8 @@ mod tests {
 			dht_peer(&mut reverse, *peer);
 		}
 
-		let selected = forward.peers_for_topics(&topics);
-		assert_eq!(selected, reverse.peers_for_topics(&topics));
+		let selected = forward.peers_for_topics(&topics, |_| false);
+		assert_eq!(selected, reverse.peers_for_topics(&topics, |_| false));
 		assert!(!selected.is_empty());
 		assert!(selected.len() <= topics.len());
 
@@ -1047,9 +1056,8 @@ mod tests {
 					.iter()
 					.filter(|q| **q != peer)
 					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
-					.count() + usize::from(
-					cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
-				);
+					.count() +
+					usize::from(cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less);
 				if closer_entries < 5 {
 					expected.push(peer);
 				} else if distance_to(topic, &peer) < local_distance {

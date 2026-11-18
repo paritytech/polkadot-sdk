@@ -5,9 +5,11 @@ doc:
     On the v2 DHT path a peer that exceeds the statement rate limit is now released from the
     statement protocol's reserved set before it is disconnected, whether or not it has the DHT
     path. The litep2p peerset ignores a disconnect of a reserved peer, so a DHT peer that steering
-    held reserved stayed connected and the rest of its batch was lost. Steering reserves the peer
-    again on its next refresh, and the peer reconnects with a fresh initial sync once its ban
-    expires.
+    held reserved stayed connected and the rest of its batch was lost.
+
+    Peer steering then pauses the peer for 5 minutes: it leaves the peer unreserved, gives its
+    place to the next candidate, and the handler rejects its inbound substream. When the pause
+    ends the peer is an ordinary candidate again.
 crates:
 - name: sc-network-statement
   bump: patch

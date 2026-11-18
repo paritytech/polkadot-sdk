@@ -1780,6 +1780,10 @@ where
 				}
 				// Only accept peers whose role can be determined
 				let result = match role {
+					Some(_) if v2dht_enabled() && self.v2dht.is_paused(&peer) => {
+						log::debug!(target: LOG_TARGET, "Rejecting paused {peer}");
+						ValidationResult::Reject
+					},
 					Some(role)
 						if v2dht_enabled() &&
 							!self.v2dht.is_reserved(&peer) &&
@@ -2061,6 +2065,8 @@ where
 
 				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				if v2dht_enabled() {
+					// The pause keeps steering from reserving the peer again on its next refresh.
+					self.v2dht.pause_peer(who);
 					self.v2dht.release_reserved_peer(&self.network, who);
 				}
 				self.network.disconnect_peer(who, self.protocol_name.clone());
@@ -8114,10 +8120,12 @@ mod tests {
 		assert!(!handler.v2dht.is_reserved(&held));
 		assert!(!handler.v2dht.is_reserved(&routing));
 
-		// The next refresh reserves the peers steering still needs, which reconnects them.
+		// The next refresh reserves the peers steering still needs, which reconnects them, and
+		// leaves a paused one released.
+		handler.v2dht.pause_peer(routing);
 		handler.v2dht.refresh_connections(&network);
 		assert!(handler.v2dht.is_reserved(&held));
-		assert!(handler.v2dht.is_reserved(&routing));
+		assert!(!handler.v2dht.is_reserved(&routing));
 	}
 
 	#[test]

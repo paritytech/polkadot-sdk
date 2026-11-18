@@ -422,12 +422,14 @@ impl V2DhtOrchestrator {
 
 	fn on_pending_affinities_at(&mut self, now: Instant) {
 		self.peer_steering.update_unreachable_peers(now);
+		self.peer_steering.update_paused_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics);
-		desired.extend(
-			self.peers_topology
-				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
-		);
+		let mut desired = self
+			.peers_topology
+			.peers_for_topics(&topics, |peer| self.peer_steering.is_paused(peer));
+		desired.extend(self.peers_topology.peers_for_routing(|peer| {
+			self.peer_steering.is_unreachable(peer) || self.peer_steering.is_paused(peer)
+		}));
 		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
 		// closes its substream, which returns the peer to the index and gets it dialed again.
 		desired.extend(
@@ -451,11 +453,27 @@ impl V2DhtOrchestrator {
 	/// Release `peer` if steering holds it reserved, so that a disconnect sent next closes its
 	/// substream. The litep2p peerset ignores a disconnect of a reserved peer, and it takes both
 	/// commands from one queue, in order. A peer steering still needs is reserved again on the next
-	/// refresh, which reconnects it with a fresh initial sync.
+	/// refresh, which reconnects it with a fresh initial sync, unless it is paused.
 	pub(crate) fn release_reserved_peer<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
 		if self.peer_steering.is_reserved(&peer) {
 			self.peer_steering.release_peer(network, peer);
 		}
+	}
+
+	/// Keep `peer`, about to be disconnected for its behavior, away for
+	/// [`peer_steering::DISCONNECT_PAUSE`]: steering leaves it unreserved and gives its place to
+	/// the next candidate, and the handler rejects its inbound substream.
+	pub(crate) fn pause_peer(&mut self, peer: PeerId) {
+		self.pause_peer_at(peer, Instant::now());
+	}
+
+	fn pause_peer_at(&mut self, peer: PeerId, now: Instant) {
+		self.peer_steering.pause_peer(peer, now);
+	}
+
+	/// Whether `peer` is paused after a disconnect for its behavior.
+	pub(crate) fn is_paused(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_paused(peer)
 	}
 
 	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
@@ -496,7 +514,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
-	use peer_steering::{UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
+	use peer_steering::{DISCONNECT_PAUSE, UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
 	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
@@ -944,7 +962,7 @@ mod tests {
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
@@ -968,6 +986,49 @@ mod tests {
 		connect.sort();
 		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
 		assert_eq!(connect, routing);
+	}
+
+	#[test]
+	fn a_paused_peer_gives_its_place_to_the_next_until_the_pause_ends() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(1),
+			topology_config(2, 3),
+			"/statement/test".into(),
+			None,
+		);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		let start = Instant::now();
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false)[0];
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false)[0];
+		orchestrator.on_pending_affinities_at(start);
+		let places = orchestrator.peer_steering.peers_to_reserve().len();
+
+		orchestrator.pause_peer_at(routing, start);
+		orchestrator.pause_peer_at(coverage, start);
+
+		// A dial-in leaves the pause running, and the pause outlasts the unreachable retry.
+		orchestrator.on_substream_opened(routing);
+		orchestrator.on_substream_closed(routing);
+		orchestrator.on_pending_affinities_at(start + DISCONNECT_PAUSE - Duration::from_secs(1));
+		let reserve = orchestrator.peer_steering.peers_to_reserve();
+		for paused in [routing, coverage] {
+			assert!(orchestrator.is_paused(&paused));
+			assert!(!reserve.contains(&paused));
+		}
+		assert!(reserve.len() >= places, "the next candidates took the places");
+
+		orchestrator.on_pending_affinities_at(start + DISCONNECT_PAUSE);
+		let reserve = orchestrator.peer_steering.peers_to_reserve();
+		for paused in [routing, coverage] {
+			assert!(!orchestrator.is_paused(&paused));
+			assert!(reserve.contains(&paused));
+		}
 	}
 
 	#[test]
@@ -1088,7 +1149,7 @@ mod tests {
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.
