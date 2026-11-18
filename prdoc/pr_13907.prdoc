@@ -1,0 +1,38 @@
+title: 'spec-msg: emit Provides and synthesize Requires in PVF'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
+crates:
+- name: cumulus-primitives-core
+  bump: major
+- name: cumulus-primitives-spec-messaging
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-client-collator
+  bump: minor
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
