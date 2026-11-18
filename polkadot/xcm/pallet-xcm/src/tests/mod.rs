@@ -17,6 +17,7 @@
 #![cfg(test)]
 
 pub(crate) mod assets_transfer;
+mod claim_assets;
 
 use crate::{
 	aliasers_footprint,
