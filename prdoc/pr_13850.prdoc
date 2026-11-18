@@ -1,0 +1,16 @@
+title: Remove sp-std from asset-rewards, meta-tx, derivatives and oracle runtime API
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the `sp-std` dependency from `pallet-asset-rewards`, `pallet-meta-tx`,
+    `pallet-derivatives` and `pallet-oracle-runtime-api` in favour of `alloc`. The public API of
+    these crates is unchanged.
+crates:
+- name: pallet-asset-rewards
+  bump: patch
+- name: pallet-meta-tx
+  bump: patch
+- name: pallet-derivatives
+  bump: patch
+- name: pallet-oracle-runtime-api
+  bump: patch

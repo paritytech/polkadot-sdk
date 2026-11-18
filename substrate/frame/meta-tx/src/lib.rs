@@ -51,6 +51,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -64,6 +66,7 @@ pub use weights::WeightInfo;
 mod extension;
 pub use extension::MetaTxMarker;
 
+use alloc::boxed::Box;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -75,7 +78,6 @@ use sp_runtime::{
 		AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, TransactionExtension,
 	},
 };
-use sp_std::prelude::*;
 
 /// Meta Transaction type.
 ///
