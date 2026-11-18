@@ -1,0 +1,22 @@
+title: Introduce the pallet unpaid-transact for Polkadot
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add the pallet `unpaid_transact` in `polkadot-runtime-parachains`, and its XCM barrier
+    `AllowUnpaidTransact`.
+
+    They let a non-system parachain have a few calls dispatched as itself without payment. The
+    barrier lets through a message made of `UnpaidExecution` and one `Transact` with
+    `OriginKind::Native`, for a call in `AllowedCalls`, if the message weighs at most
+    `MaxWeight`, and `MaxPerWindow` times per `Window` blocks for each parachain.
+
+    What the pallet holds for a parachain that is offboarded is removed by the call
+    `remove_offboarded`, which anybody can submit without a signature, and which the offchain
+    worker submits every `CleanupPeriod` blocks.
+
+    Westend has the pallet and the barrier, with no allowed call yet.
+crates:
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: westend-runtime
+  bump: minor
