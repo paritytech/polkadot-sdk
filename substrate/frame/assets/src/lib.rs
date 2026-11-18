@@ -468,7 +468,7 @@ pub mod pallet {
 		type AssetDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved for a non-provider asset account to be
-		/// maintained.
+		/// maintained. The freezer also reserves it to `block` an account its holder can refund.
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type AssetAccountDeposit: Get<DepositBalanceOf<Self, I>>;
@@ -1243,7 +1243,9 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be frozen.
 		///
-		/// Freezing a blocked account returns its block deposit, unless its holder refunded it.
+		/// Freezing a blocked account returns its block deposit. Fails with `NoAccount` on an
+		/// entry left by refunding a blocked account, since a frozen entry can receive and nothing
+		/// would back a balance there; `thaw` removes such an entry.
 		///
 		/// Emits `Frozen`.
 		///
@@ -1291,8 +1293,9 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be unfrozen.
 		///
-		/// A blocked account left with a zero balance by `refund` is removed. The block deposit, if
-		/// any, is returned.
+		/// A blocked account left with a zero balance by `refund` is removed, which fails with
+		/// `ContainsHolds` or `ContainsFreezes` while it has a hold or freeze. The block deposit,
+		/// if any, is returned.
 		///
 		/// Emits `Thawed`.
 		///
