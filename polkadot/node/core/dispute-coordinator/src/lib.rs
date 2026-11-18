@@ -373,7 +373,7 @@ impl DisputeCoordinatorSubsystem {
 			let env = match CandidateEnvironment::new(
 				ctx,
 				runtime_info,
-				highest_session,
+				session,
 				leaf_hash,
 				offchain_disabled_validators.iter(session),
 				&mut controlled_indices,
