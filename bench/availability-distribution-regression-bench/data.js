@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794997130602,
+  "lastUpdate": 1795003378389,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ef30210809ef77767afb5e2a5bb238d41180989e",
-          "message": "Snowbridge: Halt message verifier when Ethereum client is Halted    (#11856)\n\nWhen the Snowbridge Ethereum client is halted, no messages should be\nverified. The Ethereum client currently checks the bridge status, but\n`submit_delivery_receipt` does not explicitly use the Ethereum client -\nit uses the `Verifier` impl. When the Ethereum client is `Halted`, no\nmessages should be processed at all. This PR adds a check if the pallet\nis halted, and if so, return a `VerificationError::Halted` message.\n\nThere is no current vulnerability or exploit that this change fixes, it\nis just good security posture.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2026-05-05T11:05:24Z",
-          "tree_id": "008e20e6e6dfe724cece80b6a831f26ed64256c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef30210809ef77767afb5e2a5bb238d41180989e"
-        },
-        "date": 1777984590398,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006854259213333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02374601873333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14067555889333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009201042346666632,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1465629846733333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53c308902a647f972125b331c1fef48e92c1abfc",
+          "message": "Asset Hub Westend: teleport WND to and from Bulletin Westend (#13890)\n\nAsset Hub Westend does not trust Bulletin Westend for WND teleports.\nBulletin Westend is para 2487, outside the system range, and\n`TrustedTeleporters` only trusts WND with the relay chain and system\nparachains. Asset Hub uses the same check in both directions:\n- WND teleported from Bulletin fails with `UntrustedTeleportLocation`\n- WND teleported to Bulletin fails in `pallet-xcm` with `Filtered`\n\n**On Polkadot, Bulletin is a system parachain, so this only affects\nWestend.**\n\nValidators drawn as collators on Bulletin Westend (#13866) sign\n`set_keys` on Bulletin and need WND there to pay the fee, and anything\nthey earn or have left on Bulletin cannot come back to Asset Hub.\n\n## Changes\n\n`TrustedTeleporters` on Asset Hub Westend now trusts WND with Bulletin,\nas the Westend relay chain does for its system parachains.\n\nThis is a short-term fix. The long-term solution is to move Bulletin\nWestend to para 1010, as on Polkadot\n(paritytech/polkadot-bulletin-chain#857). Asset Hub's system-chain rules\nthen cover it, and this exception is removed.",
+          "timestamp": "2026-11-18T10:27:48Z",
+          "tree_id": "d664b0e79f417ec29ec55c5827f6ed128b3c01cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53c308902a647f972125b331c1fef48e92c1abfc"
+        },
+        "date": 1795003343030,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009953978179999979,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00770489756666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024373097513333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14602382918000006,
             "unit": "seconds"
           }
         ]
