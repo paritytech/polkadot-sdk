@@ -8,7 +8,9 @@ doc:
     They let a non-system parachain have a few calls dispatched as itself without payment. The
     barrier lets through a message made of `UnpaidExecution` and one `Transact` with
     `OriginKind::Native`, for a call in `AllowedCalls`, if the message weighs at most
-    `MaxWeight`, and `MaxPerWindow` times per `Window` blocks for each parachain.
+    `MaxWeight`, and `MaxPerWindow` times per `Window` blocks for each parachain. A message is
+    counted before its call is decoded: one that is refused because its call does not decode or is
+    not in `AllowedCalls` is counted too.
 
     What the pallet holds for a parachain that is offboarded is removed by the call
     `remove_offboarded`, which anybody can submit without a signature, and which the offchain

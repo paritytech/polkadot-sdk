@@ -126,7 +126,7 @@ fn window_restarts_at_the_next_message() {
 	});
 }
 
-/// A message that is refused is not counted.
+/// A message that is refused before its call is looked at is not counted.
 #[test]
 fn other_messages_are_refused_and_not_counted() {
 	new_test_ext(Default::default()).execute_with(|| {
@@ -136,7 +136,7 @@ fn other_messages_are_refused_and_not_counted() {
 		let refused = |origin: Location, message: Xcm<()>, weight, error| {
 			assert_storage_noop!(assert_eq!(run(origin, message, weight), Err(error)));
 		};
-		use ProcessMessageError::{BadFormat, Unsupported};
+		use ProcessMessageError::Unsupported;
 
 		// Only a child parachain that is not a system one.
 		for origin in [
@@ -169,21 +169,58 @@ fn other_messages_are_refused_and_not_counted() {
 		let bare = Xcm(vec![transact(OriginKind::Native, allowed_call())]);
 		refused(para.clone(), bare, max, Unsupported);
 
-		// Only the allowed calls.
-		let remark = RuntimeCall::from(frame_system::Call::<Test>::remark { remark: vec![] });
-		refused(para.clone(), message(remark.encode()), max, Unsupported);
-		// Not a call, or one followed by more bytes.
-		refused(para.clone(), message(vec![]), max, BadFormat);
-		refused(para.clone(), message(vec![0xff]), max, BadFormat);
-		let mut trailing = allowed_call();
-		trailing.push(0);
-		refused(para.clone(), message(trailing), max, BadFormat);
-
 		// A weight limit that covers the message is fine.
 		let mut limited = message(allowed_call());
 		limited.0[0] = UnpaidExecution { weight_limit: Limited(max), check_origin: None };
 		assert_ok!(run(para, limited, max));
 		assert_eq!(window(PARA), Some((System::block_number(), 1)));
+	});
+}
+
+/// A message that is refused for its call is counted: the call is decoded only for a parachain
+/// that has messages left in its window.
+#[test]
+fn messages_refused_for_their_call_are_counted() {
+	new_test_ext(Default::default()).execute_with(|| {
+		System::set_block_number(5);
+		let max = UnpaidTransactMaxPerWindow::get();
+		use ProcessMessageError::{BadFormat, Unsupported};
+
+		// A call that is not allowed.
+		let remark =
+			RuntimeCall::from(frame_system::Call::<Test>::remark { remark: vec![] }).encode();
+		// A call followed by more bytes.
+		let mut trailing = allowed_call();
+		trailing.push(0);
+
+		let mut para = PARA;
+		for (call, error) in [
+			(remark, Unsupported),
+			(vec![], BadFormat),
+			(vec![0xff], BadFormat),
+			(trailing, BadFormat),
+		] {
+			// Each on a parachain of its own, to have every refusal start from no window.
+			para += 1;
+			assert_eq!(run(Parachain(para).into(), message(call), Weight::zero()), Err(error));
+			assert_eq!(window(para), Some((5, 1)));
+		}
+
+		// They use up the window, as the allowed ones do.
+		assert_ok!(run_allowed(PARA));
+		for used in 2..=max {
+			assert_eq!(
+				run(Parachain(PARA).into(), message(vec![0xff]), Weight::zero()),
+				Err(BadFormat)
+			);
+			assert_eq!(window(PARA), Some((5, used)));
+		}
+		assert_storage_noop!(assert_eq!(run_allowed(PARA), Err(Unsupported)));
+		// With no message left the call is not decoded: the error is not the one of the call.
+		assert_storage_noop!(assert_eq!(
+			run(Parachain(PARA).into(), message(vec![0xff]), Weight::zero()),
+			Err(Unsupported)
+		));
 	});
 }
 

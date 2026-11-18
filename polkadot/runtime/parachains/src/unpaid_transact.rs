@@ -21,6 +21,10 @@
 //! [`Config::AllowedCalls`] for the XCM execution weight at most [`Config::MaxWeight`], and at most
 //! [`Config::MaxPerWindow`] of them per [`Config::Window`], be executed without payment.
 //!
+//! A message is counted before its call is decoded, so that a parachain gets only that many calls
+//! decoded for free: one whose call does not decode or is not in [`Config::AllowedCalls`] is
+//! counted too.
+//!
 //! The storage footprint is paid by the parachain deposit, for offboarded parachains it is removed
 //! lazily with the free call [`Call::remove_offboarded`] triggered from the offchain worker.
 
@@ -89,6 +93,8 @@ pub mod pallet {
 
 		/// How many messages a parachain gets executed without payment in one
 		/// [`Config::Window`].
+		///
+		/// The messages that are refused for their call, after it is decoded, count too.
 		#[pallet::constant]
 		type MaxPerWindow: Get<u32>;
 
@@ -110,7 +116,7 @@ pub mod pallet {
 	}
 
 	/// For each parachain, the block at which its current window started and the number of
-	/// messages it got executed without payment since then.
+	/// its messages counted since then.
 	///
 	/// The entry of a parachain stays once its window is over, and once the parachain is
 	/// offboarded, until [`Call::remove_offboarded`] removes it.
@@ -209,7 +215,10 @@ impl<T: Config> Pallet<T> {
 /// limit or one of at least the weight of the message, followed by one `Transact` with
 /// `OriginKind::Native`.
 ///
-/// A message that is let through is counted, whether its call succeeds or not.
+/// A message is counted before its call is decoded, and the call is not decoded for a parachain
+/// that has no message left in its window. So a message is counted even if it is then refused
+/// because its call does not decode or is not in [`Config::AllowedCalls`], and whether its call
+/// succeeds or not. A message that is refused for any other reason is not counted.
 pub struct AllowUnpaidTransact<T>(PhantomData<T>);
 impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 	fn should_execute<RuntimeCall>(
@@ -235,21 +244,24 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 			Limited(limit) => limit.all_gte(max_weight),
 		};
 		ensure!(is_covered, ProcessMessageError::Unsupported);
+
+		// The structure is valid to qualify for an unpaid XCM from the parachain, we now count
+		// the attempt, before decoding the call which is an expensive operation.
+		//
+		// This reads and may write storage, which the executor does not weigh for a barrier.
+		// It may be abusive.
+		Pallet::<T>::try_count(para).map_err(|_| ProcessMessageError::Unsupported)?;
 		// `RuntimeCall` is not known to be decodable here: decode the bytes of the call as the
 		// runtime's, the way the executor does.
 		//
 		// This decodes the call, which the executor does not weigh for a barrier.
-		// It may be abusive.
+		// It may be abusive. But the rate limit at least already applied.
 		let call = <T as frame_system::Config>::RuntimeCall::decode_all_with_depth_limit(
 			MAX_XCM_DECODE_DEPTH,
 			&mut call.encoded(),
 		)
 		.map_err(|_| ProcessMessageError::BadFormat)?;
 		ensure!(T::AllowedCalls::contains(&call), ProcessMessageError::Unsupported);
-		// Last: a message that is refused for another reason is not counted.
-		//
-		// This reads and may write storage, which the executor does not weigh for a barrier.
-		// It may be abusive.
-		Pallet::<T>::try_count(para).map_err(|_| ProcessMessageError::Unsupported)
+		Ok(())
 	}
 }
