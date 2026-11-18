@@ -223,11 +223,12 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		};
 		ensure!(!para.is_system(), ProcessMessageError::Unsupported);
 		ensure!(max_weight.all_lte(T::MaxWeight::get()), ProcessMessageError::Unsupported);
-		let [UnpaidExecution { weight_limit, .. }, Transact { origin_kind: OriginKind::Native, call, .. }] =
+		let [UnpaidExecution { weight_limit, .. }, Transact { origin_kind, call, .. }] =
 			instructions
 		else {
 			return Err(ProcessMessageError::Unsupported);
 		};
+		ensure!(*origin_kind == OriginKind::Native, ProcessMessageError::Unsupported);
 		let is_covered = match weight_limit {
 			Unlimited => true,
 			Limited(limit) => limit.all_gte(max_weight),
