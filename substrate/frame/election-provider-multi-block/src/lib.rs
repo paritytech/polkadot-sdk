@@ -17,23 +17,18 @@
 
 //! # Multi-phase, multi-block, election provider pallet.
 //!
-//! > This pallet is sometimes abbreviated as `EPMB`, and `pallet_election_provider_multi_phase` as
-//! > `EPM`.
+//! > This pallet is sometimes abbreviated as `EPMB`.
 //!
 //! ## Overall idea
 //!
-//! `pallet_election_provider_multi_phase` provides the basic ability for NPoS solutions to be
-//! computed offchain (essentially anywhere) and submitted back to the chain as signed or unsigned
-//! transaction, with sensible configurations and fail-safe mechanisms to ensure system safety.
-//! Nonetheless, it has a limited capacity in terms of number of voters it can process in a **single
-//! block**.
-//!
-//! This pallet takes `EPM` system, keeps most of its ideas and core premises, and extends it to
-//! support paginated, multi-block operations. The final goal of this pallet is to scale linearly
-//! with the number of blocks allocated to the elections. Moreover, the amount of work that it does
-//! in one block should be bounded and measurable, making it suitable for a parachain. In principle,
-//! with large enough blocks (in a dedicated parachain), the number of voters included in the NPoS
-//! system can grow significantly (yet, obviously not indefinitely).
+//! This pallet lets NPoS solutions be computed offchain (essentially anywhere) and submitted back
+//! to the chain as signed or unsigned transactions, with sensible configurations and fail-safe
+//! mechanisms to ensure system safety. It supports paginated, multi-block operations. The final
+//! goal of this pallet is to scale linearly with the number of blocks allocated to the elections.
+//! Moreover, the amount of work that it does in one block should be bounded and measurable, making
+//! it suitable for a parachain. In principle, with large enough blocks (in a dedicated parachain),
+//! the number of voters included in the NPoS system can grow significantly (yet, obviously not
+//! indefinitely).
 //!
 //! Note that this pallet does not consider how the recipient is processing the results. To ensure
 //! scalability, the recipient of this pallet's data (i.e. `pallet-staking`) must also be capable of
@@ -1856,10 +1851,9 @@ where
 		whitelist!(who);
 
 		// Calculate deposit for worst-case scenario: full queue + all pages submitted.
-		// This accounts for the exponential deposit growth in GeometricDepositBase
-		// where deposit = base * (1 + increase_factor)^queue_len.
-		// We use maximum possible queue_len to ensure adequate funding regardless
-		// of queue state changes during benchmark execution.
+		// The base deposit can grow with the queue length, so we use the maximum possible
+		// queue length to ensure adequate funding regardless of queue state changes during
+		// benchmark execution.
 		let worst_case_deposit = {
 			let max_queue_size = T::MaxSubmissions::get() as usize;
 			let base = T::DepositBase::calculate_base_deposit(max_queue_size);

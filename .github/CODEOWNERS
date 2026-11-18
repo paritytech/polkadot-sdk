@@ -68,7 +68,6 @@
 /substrate/frame/revive/ @paritytech/smart-contracts @paritytech/docs-audit
 
 # NPoS and election
-/substrate/frame/election-provider-multi-phase/ @paritytech/staking-core @paritytech/docs-audit
 /substrate/frame/election-provider-support/ @paritytech/staking-core @paritytech/docs-audit
 /substrate/frame/elections-phragmen/ @paritytech/staking-core @paritytech/docs-audit
 /substrate/frame/nomination-pools/ @paritytech/staking-core @paritytech/docs-audit

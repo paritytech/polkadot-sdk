@@ -95,7 +95,6 @@ std = [
 	"pallet-derivatives?/std",
 	"pallet-dev-mode?/std",
 	"pallet-election-provider-multi-block?/std",
-	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen?/std",
 	"pallet-fast-unstake?/std",
@@ -300,7 +299,6 @@ runtime-benchmarks = [
 	"pallet-democracy?/runtime-benchmarks",
 	"pallet-derivatives?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
-	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"pallet-elections-phragmen?/runtime-benchmarks",
 	"pallet-fast-unstake?/runtime-benchmarks",
@@ -451,7 +449,6 @@ try-runtime = [
 	"pallet-derivatives?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
-	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
 	"pallet-fast-unstake?/try-runtime",
 	"pallet-glutton?/try-runtime",
@@ -670,7 +667,6 @@ runtime-full = [
 	"pallet-derivatives",
 	"pallet-dev-mode",
 	"pallet-election-provider-multi-block",
-	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
 	"pallet-elections-phragmen",
 	"pallet-fast-unstake",
@@ -1509,11 +1505,6 @@ path = "../substrate/frame/examples/dev-mode"
 default-features = false
 optional = true
 path = "../substrate/frame/election-provider-multi-block"
-
-[dependencies.pallet-election-provider-multi-phase]
-default-features = false
-optional = true
-path = "../substrate/frame/election-provider-multi-phase"
 
 [dependencies.pallet-election-provider-support-benchmarking]
 default-features = false

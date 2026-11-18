@@ -51,9 +51,8 @@
 //! The verifier pallet provide two modes of functionality:
 //!
 //! 1. Single or multi-page, synchronous verification. This is useful in the context of single-page,
-//!    emergency, or unsigned solutions that need to be verified on the fly. This is similar to how
-//!    the old school `multi-phase` pallet works. See [`Verifier::verify_synchronous`] and
-//!    [`Verifier::verify_synchronous_multi`].
+//!    emergency, or unsigned solutions that need to be verified on the fly. See
+//!    [`Verifier::verify_synchronous`] and [`Verifier::verify_synchronous_multi`].
 //! 2. Multi-page, asynchronous verification. This is useful in the context of multi-page, signed
 //!    solutions. See [`verifier::AsynchronousVerifier`] and [`verifier::SolutionDataProvider`].
 //!

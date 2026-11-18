@@ -492,10 +492,6 @@ pub use pallet_dev_mode;
 #[cfg(feature = "pallet-election-provider-multi-block")]
 pub use pallet_election_provider_multi_block;
 
-/// PALLET two phase election providers.
-#[cfg(feature = "pallet-election-provider-multi-phase")]
-pub use pallet_election_provider_multi_phase;
-
 /// Benchmarking for election provider support onchain config trait.
 #[cfg(feature = "pallet-election-provider-support-benchmarking")]
 pub use pallet_election_provider_support_benchmarking;
