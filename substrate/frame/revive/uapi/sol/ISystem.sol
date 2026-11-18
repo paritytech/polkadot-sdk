@@ -52,7 +52,8 @@ interface ISystem {
 	/// Returns the code hash of the caller.
 	function ownCodeHash() external view returns (bytes32);
 
-	/// Returns the amount of `Weight` left.
+	/// Returns the amount of `Weight` left, without the part the calling contract keeps under the
+	/// EIP-150 63/64 rule.
 	function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
 
 	/// Terminate the calling contract of this function and send balance to `beneficiary`.
