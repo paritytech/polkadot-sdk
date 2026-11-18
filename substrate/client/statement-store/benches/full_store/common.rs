@@ -31,8 +31,8 @@
 //! - `i % 10 == 3`             → topics `T2, T3`        (419,431 statements; the *scaled* ~10% set,
 //!   completing the `read_scaling` 1k/10k/50k curve at 4M);
 //! - `i >= 1000`               → one diverse topic `topic(1000 + i/8)` (~524k distinct topics, 8
-//!   statements each: a deep, realistic topic index);
-//! - none of the above       → one shared filler topic, because the store rejects a statement
+//!   statements each: a deep, realistic topic index).
+//! - none of the above         → one shared filler topic, because the store rejects a statement
 //!   without topics.
 //!
 //! Write benches use a dedicated 65th ("sacrificial") account with fresh high-range ids, so they
@@ -326,7 +326,7 @@ pub fn channel(data: u64) -> sp_statement_store::Channel {
 	channel
 }
 
-/// Like [`create_statement`] (one filler topic), but carrying a channel: admitting such a
+/// Like [`create_statement`] with one filler topic, but carrying a channel: admitting such a
 /// statement forces the store to consult the account's full channel state.
 pub fn create_channel_statement(
 	id: u64,

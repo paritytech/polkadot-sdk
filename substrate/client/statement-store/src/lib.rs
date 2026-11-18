@@ -1729,8 +1729,8 @@ impl Store {
 	}
 
 	/// Brings a database written at `from_version` to [`CURRENT_VERSION`], one version step at a
-	/// time. Every step rewrites rows in place, so it is idempotent and safe to re-run after an
-	/// interruption; the version is bumped only after the step has been committed.
+	/// time. Every step is idempotent and safe to re-run after an interruption. The version is
+	/// bumped only after the step has been committed.
 	fn migrate_database(&self, from_version: u32) -> Result<()> {
 		for version in from_version..CURRENT_VERSION {
 			match version {
@@ -1904,8 +1904,8 @@ impl Store {
 			let admission_op = details.map(|details| {
 				(col::ADMISSION_SEQ, details.admission_seq.to_be_bytes().to_vec(), None)
 			});
-			// The body goes last and the account row, the source of the admission number, right
-			// before it, so a re-run after an interruption still finds every row left behind.
+			// The admission entry goes before the account row that names it, and the body goes
+			// last, so a re-run after an interruption still finds every row left behind.
 			removals.extend(
 				admission_op
 					.into_iter()
@@ -5429,6 +5429,10 @@ mod tests {
 		let (store, temp) = test_store();
 		let kept = signed_statement_with_topics(1, &[topic(1)], None);
 		assert_eq!(store.submit(kept.clone(), StatementSource::Local), SubmitResult::New);
+		submit_one_statement_per_track(&store);
+		let tracks =
+			[RetentionTrack::Transient, RetentionTrack::ExplicitOnly, RetentionTrack::Persistent];
+		let track_sizes = tracks.map(|track| track_size(&store, track));
 
 		// A version-3 store admitted a statement without topics, so its rows are written by hand.
 		let dropped = signed_statement_with_topics(2, &[], None);
@@ -5463,11 +5467,17 @@ mod tests {
 		let account_key = crate::account_index_key(&account, expiry, &hash);
 		assert!(store.db.get(col::INDEX_BY_ACCOUNT, &account_key).unwrap().is_none());
 		assert!(store.db.get(col::ADMISSION_SEQ, &next_seq.to_be_bytes()).unwrap().is_none());
+		let expiry_key = crate::expiry_index_key(expiry, &hash);
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
+		assert_eq!(
+			store.db.get(col::META, &KEY_VERSION).unwrap(),
+			Some(4u32.to_le_bytes().to_vec())
+		);
 
 		assert!(store.statement(&kept.hash()).unwrap().is_some());
 		assert!(store.index_has_topic(&topic(1), &kept.hash()));
-		assert_eq!(store.statement_count(), 1);
-		assert_eq!(store.total_size(), kept.data_len());
+		assert_eq!(store.statement_count(), 4);
+		assert_eq!(tracks.map(|track| track_size(&store, track)), track_sizes);
 		assert_eq!(store.submit_index.read().next_seq, next_seq + 1);
 	}
 

@@ -6889,7 +6889,7 @@ mod tests {
 			.collect();
 		sent_hashes.sort();
 
-		// The matching statement should be sent; non-matching should be filtered.
+		// The matching statement should be sent, the non-matching one filtered.
 		assert!(
 			sent_hashes.contains(&hash_matching),
 			"Statement matching topic affinity should be propagated"
@@ -6924,9 +6924,11 @@ mod tests {
 		stmt_with_topic.set_topic(0, topic_aa.into());
 		let hash_with_topic = stmt_with_topic.hash();
 
-		let mut stmt_no_topic = new_live_statement();
-		stmt_no_topic.set_plain_data(b"no topic".to_vec());
-		let hash_no_topic = stmt_no_topic.hash();
+		let topic_bb: [u8; 32] = [0xBB; 32];
+		let mut stmt_other_topic = new_live_statement();
+		stmt_other_topic.set_plain_data(b"other topic".to_vec());
+		stmt_other_topic.set_topic(0, topic_bb.into());
+		let hash_other_topic = stmt_other_topic.hash();
 
 		statement_store
 			.recent_statements
@@ -6937,7 +6939,7 @@ mod tests {
 			.recent_statements
 			.lock()
 			.unwrap()
-			.insert(hash_no_topic, stmt_no_topic);
+			.insert(hash_other_topic, stmt_other_topic);
 
 		handler.propagate_statements().await;
 		handler.flush_pending_sends().await;
@@ -6957,7 +6959,7 @@ mod tests {
 			"V1 peer should receive all statements regardless of topics"
 		);
 		assert!(sent_hashes.contains(&hash_with_topic));
-		assert!(sent_hashes.contains(&hash_no_topic));
+		assert!(sent_hashes.contains(&hash_other_topic));
 	}
 
 	#[tokio::test]
