@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794957452432,
+  "lastUpdate": 1794997077475,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c3ecf63034924511d6b92e3533c23c15765f16b9",
-          "message": "Fix `claim_rewards_to` benchmark to enable Snowbridge reward claims (#10952)\n\nThe `prepare_rewards_account` benchmark helper was returning `None`,\ncausing `claim_rewards_to` to be assigned `Weight::MAX` and effectively\ndisabling the extrinsic. This fix returns a valid beneficiary account,\nenabling Snowbridge relayers to claim rewards to AssetHub as intended.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-05T12:08:04Z",
-          "tree_id": "a501877d9951c422cf0a742c1ce2ab2b94bd587d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3ecf63034924511d6b92e3533c23c15765f16b9"
-        },
-        "date": 1777989112807,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.737372684366667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13209228909999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.805405593733333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@proton.me",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2826aea0edada06641df5a20546d44a67c072f2",
+          "message": "spec-msg: align primitives with design v0.6 (#13759)\n\nFollow-up to #12676: aligns `cumulus-primitives-spec-messaging` with the\nv0.6 design (#13622).\n\n- Session-based channels: `ChannelMessage` leaves and the `Register` ack\nregister replace `WindowGrant`. Typed channel ids key the channel state,\n`consumed_streams()` and the inherent.\n- One `MessagesRequest`/`MessagesResponse` fetch pair with typed\n`FetchError`, head reads included.\n- `ConsumptionRecord` keeps a sorted stream list per source, and\n`build_requires` rejects unsorted or duplicate entries.\n- Identity extension per Appendix B; skip proofs sized exactly\n(`encoded_len_for`); `MAX_MMR_HASHES` = 48.\n- Incremental node cache for the commitment tree (`StreamsTree`,\n`update_tree_leaf`), with bounded walks that fail with `TreeError` on a\nmissing or corrupt node.\n- `MmrExtensionProof::rebase`: rebases an extension to start at an\nearlier frontier over the leaves in between, checked against the same\nroot. Receiving nodes use it to lift a block the runtime cut short of\nthe planned endpoint. `MMRExtensionProof` is renamed\n`MmrExtensionProof`.\n- Conformance vectors for extension proofs and requires synthesis.",
+          "timestamp": "2026-11-18T08:39:28Z",
+          "tree_id": "5284f1d4de379bb43e6ba9846a423472c9614da8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2826aea0edada06641df5a20546d44a67c072f2"
+        },
+        "date": 1794997044505,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1215906152,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.004785608266673,
             "unit": "seconds"
           }
         ]
