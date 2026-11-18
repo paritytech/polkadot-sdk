@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794996767833,
+  "lastUpdate": 1795002561923,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147743,6 +147743,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2806042692,
             "range": "± 24611736",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53c308902a647f972125b331c1fef48e92c1abfc",
+          "message": "Asset Hub Westend: teleport WND to and from Bulletin Westend (#13890)\n\nAsset Hub Westend does not trust Bulletin Westend for WND teleports.\nBulletin Westend is para 2487, outside the system range, and\n`TrustedTeleporters` only trusts WND with the relay chain and system\nparachains. Asset Hub uses the same check in both directions:\n- WND teleported from Bulletin fails with `UntrustedTeleportLocation`\n- WND teleported to Bulletin fails in `pallet-xcm` with `Filtered`\n\n**On Polkadot, Bulletin is a system parachain, so this only affects\nWestend.**\n\nValidators drawn as collators on Bulletin Westend (#13866) sign\n`set_keys` on Bulletin and need WND there to pay the fee, and anything\nthey earn or have left on Bulletin cannot come back to Asset Hub.\n\n## Changes\n\n`TrustedTeleporters` on Asset Hub Westend now trusts WND with Bulletin,\nas the Westend relay chain does for its system parachains.\n\nThis is a short-term fix. The long-term solution is to move Bulletin\nWestend to para 1010, as on Polkadot\n(paritytech/polkadot-bulletin-chain#857). Asset Hub's system-chain rules\nthen cover it, and this exception is removed.",
+          "timestamp": "2026-11-18T10:27:48Z",
+          "tree_id": "d664b0e79f417ec29ec55c5827f6ed128b3c01cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53c308902a647f972125b331c1fef48e92c1abfc"
+        },
+        "date": 1795002518835,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19892873,
+            "range": "± 104390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20221648,
+            "range": "± 146063",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22109492,
+            "range": "± 191340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26789897,
+            "range": "± 460540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59260225,
+            "range": "± 992190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 404895446,
+            "range": "± 10259874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2729364328,
+            "range": "± 226617937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17489138,
+            "range": "± 187638",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17777633,
+            "range": "± 193843",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18558135,
+            "range": "± 215629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23760592,
+            "range": "± 400814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61964025,
+            "range": "± 873856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352221437,
+            "range": "± 7102258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2725443964,
+            "range": "± 26014221",
             "unit": "ns/iter"
           }
         ]
