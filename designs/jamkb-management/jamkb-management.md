@@ -1209,204 +1209,83 @@ bytes is missing.
    and the reclaim must also be atomic: with several leases on one target,
    their reclaims race for the freed funds, and the lease the cleanup was done
    for should be the one to get them back.
-3. **Service registry pallet.** Service accounts, supervision, service
-   creation and upgrade belong to a service registry pallet that does not
-   exist. Until it does, `pallet-jamkb` sends those messages itself (§3.2).
-   The recovery calls of §4.3 stay here: they apply their origin rule
-   and the recovery deposit, then request through `ServiceRegistry`. The
-   registry is the only sender of service-management messages. It also
-   re-solicits a forgotten code preimage, so that a frozen target can be
-   restored by `unfreeze_target`. It keeps at most one state-changing
-   request (`freeze`, `unfreeze`, `eject`, `set_supervisor`) in flight per
-   service; a second, of any kind, is rejected with `Pending`. A
-   maintenance request (`remove_storage`,
-   `forget`, `solicit`) and a manager's upgrade are not tracked: each is
-   rejected with the transport's `Conflict` while a message of the same
-   `MessageName` is in flight, for any sender: a removal of the same key
-   of the service, a `Forget` of the same preimage of any target, Asset
-   Hub's own code included, a `Solicit` for the service, or an
-   `UpgradeService` of the service. `remove_storage` sends one message per
-   key; a rejected key rolls the call back. The page is reported as one
-   `StorageRemoved` once every key has its outcome. The registry's share
-   fits a full page (§3.4). It takes each outcome from parachain-system
-   and reports it through `OnServiceEvent`. A rejection is synchronous:
-   nothing is sent. The registry's errors include `NotRegistered`,
-   `Frozen`, `NotFrozen`, `Pending` (a request of the
-   service is in flight), `Locked` and `JamSendError`
-   ([parachain-system-interface.md](parachain-system-interface.md)).
-
-   A service is locked by `pallet-jamkb` while it has an accepted lease.
-   While it is locked, the registry's own dispatchables are rejected with
-   `Locked`, for every origin: set its supervisor, eject it, and while it
-   is frozen or a `freeze` of it is in flight, upgrade it, solicit for it,
-   remove its storage or forget its preimages. Calls through `ServiceRegistry`
-   are not. A Root-only `force_unlock` clears a lock. It is not a recovery
-   step: §4.3 needs no registry dispatchable. The registry's migration
-   locks every target that has an accepted lease. `is_frozen` replaces
-   `FrozenTargets`; a freeze by any requester counts.
-
-   Registered means the registry's record that the Parachain Service
-   supervises the service; a service handed to the Parachain Service on
-   JAM is unregistered until `force_register`. A service is registered by
-   Root (`force_register`), which names its manager and pays nothing, for
-   a service created on JAM, or on `Created`; the entry is removed on an
-   `Ejected` or `SupervisorSet` with `Ok`. The manager pays a native
-   `Consideration` for the entry, held while it is registered and dropped
-   with it. The manager or Root may replace the manager, locked or not. A
-   `CreateService` is paid by its creator in JAMKB through
-   `CreationTicket`, which the pallet implements and the registry holds
-   until the outcome. A `create` registers the service on
-   `Created(service)`, with `creator` as manager, not frozen, unlocked.
-   The creator pays the entry's
-   `Consideration` at `create`; the registry holds it by request id with
-   the ticket, keeps it as the entry's on `Created(service)` and drops it
-   on any other result.
+3. **Forced head.** Coretime's `ParachainSetHead` (Parachain Service design
+   §6.3) moves Asset Hub's head, and its state, without accumulating
+   anything. JAM's state does not follow, so the accounting diverges.
+4. **Parachain Service supervisor.** A `Move` needs the Parachain Service to
+   be its own supervisor. The Parachain Service design has to guarantee it.
+5. **parachain-system interface.** parachain-system interface proposal is as
+   follows:
 
    ```rust
-   /// Implemented by the service registry. A request is sent in the call
-   /// through parachain-system; it takes effect in a later block and is
-   /// reported through `OnServiceEvent`.
-   trait ServiceRegistry {
-       /// A raw storage key of a service, and the keys in one page. The
-       /// pallet uses these in place of `Key` and `MAX_KEYS_PER_PAGE` (§3.2).
-       type Key: Parameter + MaxEncodedLen;
-       type MaxKeysPerPage: Get<u32>;
-       /// The Asset Hub account of `service`, if registered.
-       fn manager_of(service: ServiceId) -> Option<AccountId>;
-       /// Whether `service` is registered: the registry's record that the
-       /// Parachain Service supervises it.
-       fn is_registered(service: ServiceId) -> bool {
-           Self::manager_of(service).is_some()
-       }
-       /// Whether `service` is frozen (§4.3): the registry's last upgrade of
-       /// it set `FROZEN_CODE_HASH`. Only the registry upgrades a service,
-       /// and a frozen one cannot run, so nothing else changes it.
-       fn is_frozen(service: ServiceId) -> bool;
-       /// Locks `service` (§4.1) until `unlock`. While locked, the
-       /// registry's own dispatchables are rejected with `Locked`, for every
-       /// origin: set its supervisor, eject it, and while it is frozen or a
-       /// `freeze` of it is in flight, upgrade it, solicit for it, remove
-       /// its storage or forget its preimages. Idempotent. Rejected with
-       /// `NotRegistered` unless `is_registered`, and with `Pending` while
-       /// an `eject` or `set_supervisor` of it is in flight.
-       fn lock(service: ServiceId) -> DispatchResult;
-       /// Clears the lock of `service`. No-op for an unknown or unlocked
-       /// `service`.
-       fn unlock(service: ServiceId);
-       /// Freezes `service`: it stops executing.
-       fn freeze(service: ServiceId) -> DispatchResult;
-       /// Unfreezes `service`: its code hash and gas limits are set to the
-       /// values passed.
-       fn unfreeze(service: ServiceId, code_hash: Hash, min_acc_gas: u64,
-                   min_memo_gas: u64) -> DispatchResult;
-       /// Removes `keys` from `service`'s storage.
-       fn remove_storage(service: ServiceId,
-                         keys: BoundedVec<Self::Key, Self::MaxKeysPerPage>)
-           -> DispatchResult;
-       /// Forgets the preimage `(hash, len)` of `service`.
-       fn forget(service: ServiceId, hash: Hash, len: u32) -> DispatchResult;
-       /// Ejects `service`.
-       fn eject(service: ServiceId) -> DispatchResult;
-       /// Sets `service`'s supervisor. Rejected with `Frozen` while it is
-       /// frozen or a `freeze` of it is in flight: nothing could unfreeze it
-       /// after.
-       fn set_supervisor(service: ServiceId, new_supervisor: ServiceId)
-           -> DispatchResult;
-       /// Creates a service supervised by the Parachain Service from the
-       /// preimage `(code_hash, len)`; `desired_id` as in `CreateService`.
-       /// `creator` pays the `CreationTicket` and the entry's
-       /// `Consideration`, and is the manager on `Created`. Returns the
-       /// `MessageId` of the `CreateService`, which `Created` carries as
-       /// `request`.
-       fn create(creator: AccountId, code_hash: Hash, len: u32,
-                 min_acc_gas: u64, min_memo_gas: u64,
-                 desired_id: Option<ServiceId>, new_supervisor_balance: bool)
-           -> Result<MessageId, DispatchError>;
-       /// Requests the preimage `(hash, len)` into `service`'s own store.
-       fn solicit(service: ServiceId, hash: Hash, len: u32) -> DispatchResult;
-       /// Benchmarks only: the effect of Root's `force_register`, with
-       /// `frozen` as given. Unlocked. Overwrites.
-       #[cfg(feature = "runtime-benchmarks")]
-       fn force_register(service: ServiceId, manager: AccountId, frozen: bool);
+   /// Each sender has its own budget share.
+   type SenderId = u8;
+   /// The id a `TransferOut` or `CreateService` carries, echoed by the
+   /// Parachain Service in `TransferFailed` and `ServiceCreation`. Unique
+   /// and never reused.
+   type MessageId = u64;
+   /// One atomic batch of upward messages.
+   type OperationId = u64;
+
+   /// Implemented by parachain-system: the current timeslot (§3.4), as a
+   /// `BlockNumberProvider<BlockNumber = Timeslot>`.
+   type TimeslotProvider;
+
+   /// Implemented by parachain-system. An operation's messages are sent in
+   /// one block, in the order the sender queued them. An operation is in
+   /// flight from `send` until `on_outcome`.
+   trait JamMessageSender {
+       /// Allocates the id for one `TransferOut` or `CreateService`. The
+       /// sender puts it in the message before `send`.
+       fn next_message_id() -> MessageId;
+       /// Queues `messages` as one operation and returns its id. A message
+       /// is identified by its `MessageId`, or else by (kind, target).
+       /// `Conflict`: a (kind, target) name is in flight for another
+       /// operation, of any sender. `TooBig`: the batch can never fit one
+       /// block. `QueueFull`: no room now. On `Err` nothing is queued.
+       fn send(sender: SenderId, messages: Vec<UpwardMessage>)
+           -> Result<OperationId, MessageSendError>;
    }
 
-   /// Implemented by `pallet-jamkb`: the JAMKB cost of a `CreateService`.
-   /// `new` burns the new service's threshold balance from the creator;
-   /// `burn` ends it on `Created`; `drop` mints it back otherwise. The
-   /// registry keeps it by `CreateService.id`.
-   type CreationTicket: Consideration<AccountId, Footprint>;
-
-   /// The outcome of a `Forget`.
-   enum ForgetOutcome {
-       /// The preimage is expunged.
-       Expunged,
-       /// The preimage is unrequested; a second `Forget` accumulated after
-       /// the carried timeslot expunges it.
-       AgainAt(Timeslot),
-       /// The service never requested the preimage.
-       NotRequested,
+   /// Implemented by each sender. Called by parachain-system.
+   trait OnJamOutcome {
+       /// Operation `id` of `sender` was accumulated. Once per operation,
+       /// in send order. `accumulated_at` is the timeslot it was accumulated
+       /// at; `entries` are its `parachain_log` entries, at most
+       /// one per message. A sender gets only the outcomes of its own
+       /// operations. It cannot fail and charges what it writes to `meter`:
+       /// one bounded record per outcome, which parachain-system budgets in
+       /// its inherent for every outcome it delivers.
+       fn on_outcome(
+           sender: SenderId,
+           id: OperationId,
+           accumulated_at: Timeslot,
+           entries: &[AccumulateLog],
+           meter: &mut WeightMeter,
+       );
    }
 
-   /// Implemented by `pallet-jamkb`. Called by the registry once per
-   /// request, after the registry's settlement; the request is removed
-   /// before the call. It cannot fail and charges what it writes to
-   /// `meter`.
-   #[impl_trait_for_tuples::impl_for_tuples(8)]
-   trait OnServiceEvent {
-       fn on_service_event(event: ServiceEvent, meter: &mut WeightMeter);
-   }
-
-   /// The outcome of one request.
-   enum ServiceEvent {
-       /// A `create` settled. On `Created(service)` the `CreationTicket` is
-       /// burned, and the threshold balance is on the service's supervisor
-       /// balance when `new_supervisor_balance` is set, on its regular
-       /// balance otherwise; the service is registered before the call. On
-       /// any other result the ticket is dropped.
-       Created { request: MessageId, result: ServiceCreationResult,
-                 new_supervisor_balance: bool },
-       /// A freeze or unfreeze of `service` was executed.
-       Frozen { service: ServiceId, frozen: bool },
-       /// A storage page of `service` was executed. `missing` holds each
-       /// key the service did not hold.
-       StorageRemoved { service: ServiceId,
-                        missing: BoundedVec<Hash, MaxKeysPerPage> },
-       /// A `Forget` of `service` was executed.
-       Forgotten { service: ServiceId, outcome: ForgetOutcome },
-       /// A `Service`-targeted `Solicit` of `service` was executed.
-       Solicited { service: ServiceId,
-                   outcome: Result<(), ServiceSolicitError> },
-       /// An `EjectService` of `service` was executed. `Ok` carries
-       /// `credited`; the registry removed the service before the call.
-       Ejected { service: ServiceId,
-                 outcome: Result<Balance, ServiceEjectError> },
-       /// A `SetServiceSupervisor` of `service` was executed. On `Ok` the
-       /// registry removed the service before the call.
-       SupervisorSet { service: ServiceId,
-                       outcome: Result<(), ServiceSupervisorError> },
+   /// Implemented by `pallet-jamkb`. Called by parachain-system.
+   trait OnIncomingTransfers {
+       /// How many buckets `on_incoming_transfers` takes this block. Asked
+       /// before any bucket is read. 0 until attested and while paused.
+       fn capacity() -> u32;
+       /// One whole `incoming_transfers` bucket, in queue order; at most
+       /// `capacity()` buckets per block. The pallet books the bucket's
+       /// transfers to the regular balance in the call and records one
+       /// `Move` for the rest (§3.2), all or nothing, and charges it to
+       /// `meter`. `Ok`: the bucket is cleaned up and not delivered again.
+       /// `Err`: its `Move` cannot be recorded; it is not booked.
+       /// Parachain-system rolls the call back, delivers no more buckets
+       /// this block, cleans up only the ones before it, and delivers it
+       /// again in a later block.
+       fn on_incoming_transfers(
+           transfers: IncomingTransfers,
+           meter: &mut WeightMeter,
+       ) -> Result<(), ()>;
    }
    ```
 
-   The jamkb pallet's `OperationPayload` variants record a pending request,
-   keyed by service. The hook only records the outcome against it, with
-   one exception. An `Ejected` with `Ok` for a target with an accepted
-   lease and no `Eject` operation of its own unsettled records a Confirmed
-   `Eject { target }`;
-   the leases settle as for `eject_target`. Its settlement waits until no
-   lease on the target has an unsettled allocation operation.
-   `offer_lease` is rejected with `NotRegistered` unless
-   `is_registered(target)`. `accept_lease` locks the target before it
-   burns; when the lock is refused it is rejected with the registry's
-   error. The target is unlocked when its last accepted lease is removed.
-   After an `Eject` the unlock is a no-op: the registry removed
-   the service before `Ejected`. A deferred transfer to a target ejected
-   through the registry is discarded (§2). The pallet avoids that only on
-   the targets it ejects.
-4. **Forced head.** Coretime's `ParachainSetHead` (Parachain Service design
-   §6.3) moves Asset Hub's head, and its state, without accumulating
-   anything. JAM's state does not follow, so the accounting diverges.
-5. **Parachain Service supervisor.** A `Move` needs the Parachain Service to
-   be its own supervisor. The Parachain Service design has to guarantee it.
 6. **Transfer to Coretime.** The Coretime chain needs `pallet-assets` with a
    JAMKB asset, its XCM config trusting Asset Hub as the JAMKB reserve, and a
    call that returns units to Asset Hub after lowering the quota. The
