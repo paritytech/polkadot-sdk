@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795002561923,
+  "lastUpdate": 1795020497104,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147851,6 +147851,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2725443964,
             "range": "± 26014221",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7",
+          "message": "Improve unnamed reserves  (#13717)\n\nSome old pallets still use legacy unnamed reserves aka.\n`ReservableCurrency`\n\nFor various reasons these pallets might, due to incorrect bookkeeping,\ntry to unreserve more than they initially reserved.\n\nIn such cases, when mixed up with `Held` and `NamedReserves`, a mistake\noperation on the unnamed reserve might eat into the named/held reserves.\n\nThis PR changes this flow. Henceforth, any operation from the legacy\n`ReservableCurrency` cannot touch the portion of the account's\n`reserved` that is, pun intended, _reserved_ under\n`NamedReservableCurrency` and `FungibleHolds`.\n\nNamed reserves can only slash/reduce up to their corresponding limit\n(already the behavior, now more explicit in the code). Some goes for\nHolds.\n\nSee the PRdoc for the exact functions in `ReservableCurrency` that have\na new behavior now. Users of these APIs should act with caution, and no\nlonger assume that, for example, `ReservableCurrency::unreserve` can\nunreserve both unnamed and named reserves.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-18T14:33:56Z",
+          "tree_id": "9b931009d9b0bda41876c954cc74d6a8b1bf8b3c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7"
+        },
+        "date": 1795020463500,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21840712,
+            "range": "± 173983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22614284,
+            "range": "± 565921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24199921,
+            "range": "± 121574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28460075,
+            "range": "± 248987",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65957117,
+            "range": "± 965831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 408016526,
+            "range": "± 11763863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2957288396,
+            "range": "± 198662391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19359566,
+            "range": "± 322862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19197394,
+            "range": "± 210073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19772712,
+            "range": "± 212141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24686691,
+            "range": "± 672224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67428503,
+            "range": "± 1405626",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 411192833,
+            "range": "± 6866934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2981463766,
+            "range": "± 72907955",
             "unit": "ns/iter"
           }
         ]
