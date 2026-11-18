@@ -258,11 +258,6 @@ impl WarmthSummary {
 		self.total
 	}
 
-	/// Returns how many entries were cold.
-	pub fn cold(&self) -> u32 {
-		self.cold
-	}
-
 	/// Returns how many of the cold entries roll back with the frame.
 	pub fn cold_revertible(&self) -> u32 {
 		self.cold_revertible
@@ -281,11 +276,6 @@ impl WarmthSummary {
 	/// Returns whether every entry was already in the access list.
 	pub fn all_hot(&self) -> bool {
 		self.cold == 0
-	}
-
-	/// Returns how many entries were already in the access list.
-	pub fn hot(&self) -> u32 {
-		self.total.saturating_sub(self.cold)
 	}
 
 	/// Returns the counts with no entry rolling back with the frame.
@@ -855,17 +845,17 @@ impl AccessList {
 
 	/// Warms every entry the access touches, returning the warmth each had
 	/// **before** this call.
-	pub fn warm<A: Access>(&mut self, access: A) -> A::Warmth {
+	pub fn warm_each<A: Access>(&mut self, access: A) -> A::Warmth {
 		access.expand(|entry, op| self.touch(entry, op))
 	}
 
 	/// Warms the access and counts its entries.
-	pub fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
+	pub fn warm<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
 		Summarized::from_access(access, |entry, op| self.touch(entry, op))
 	}
 
-	/// Reports what [`Self::warm_summarized`] would return, without recording anything.
-	pub fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
+	/// Reports what [`Self::warm`] would return, without recording anything.
+	pub fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
 		let in_nested_frame = self.in_nested_frame();
 		let mut visited: [Option<(AccessEntry, Option<StorageOp>)>; MAX_ENTRIES_PER_ACCESS] =
 			[const { None }; MAX_ENTRIES_PER_ACCESS];
@@ -1146,8 +1136,8 @@ mod tests {
 				let mut al = AccessList::new();
 				al.fill_to(entries_before, KeyFamily::ContractStorageSlot);
 				assert_eq!(
-					al.warmth_of_summarized(access.clone()),
-					al.warm_summarized(access.clone()),
+					al.warmth_of(access.clone()),
+					al.warm(access.clone()),
 					"{access_kind}, {list_state}"
 				);
 			}
@@ -1201,7 +1191,7 @@ mod tests {
 			}
 		}
 
-		AccessList::new().warmth_of_summarized(TooManyEntries);
+		AccessList::new().warmth_of(TooManyEntries);
 	}
 
 	#[test]
@@ -1282,8 +1272,8 @@ mod tests {
 			sender_account_info: Warmth::new_cold_non_revertible(),
 			dust: false,
 		};
-		assert_eq!(al.warmth_of_summarized(access).entries, expected);
-		assert_eq!(al.warm(access), expected);
+		assert_eq!(al.warmth_of(access).entries, expected);
+		assert_eq!(al.warm_each(access), expected);
 	}
 
 	#[test]
@@ -1305,8 +1295,8 @@ mod tests {
 		// A second access reports the level the first one recorded.
 		fn recorded<A: Access + Clone>(access: A) -> Summarized<A::Warmth> {
 			let mut al = AccessList::new();
-			al.warm(access.clone());
-			al.warm_summarized(access)
+			al.warm_each(access.clone());
+			al.warm(access)
 		}
 
 		let sender = H160::repeat_byte(1);

@@ -1289,6 +1289,11 @@ pub mod pallet {
 					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
 				"The PVM code load weight per byte must be at least the code map weight per byte"
 			);
+			assert!(
+				ref_time_slope(T::WeightInfo::call_with_pvm_code_per_byte_hot) >=
+					ref_time_slope(T::WeightInfo::interpreter_code_map_per_byte),
+				"The hot PVM code load weight per byte must cover the code map weight per byte"
+			);
 
 			T::FeeInfo::integrity_test();
 

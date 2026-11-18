@@ -1147,12 +1147,12 @@ where
 		if is_precompile::<T, E>(&address) {
 			return access_list;
 		}
-		access_list.warm(CallItems::new(address, false));
+		access_list.warm_each(CallItems::new(address, false));
 		// Only a signed origin has a sender account, and a Root origin cannot move value.
 		if !value.is_zero() &&
 			let Origin::Signed(account) = origin
 		{
-			access_list.warm(access_list::TransferItems {
+			access_list.warm_each(access_list::TransferItems {
 				from: T::AddressMapper::to_address(account),
 				to: address,
 				dust: Contracts::<T>::has_dust(value),
@@ -1167,9 +1167,9 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		code_load_items: access_list::CodeLoadItems,
 	) -> Result<E, DispatchError> {
-		let warmth = access_list.warmth_of_summarized(code_load_items);
+		let warmth = access_list.warmth_of(code_load_items);
 		let executable = E::from_storage_with_warmth(code_load_items.hash, meter, warmth)?;
-		access_list.warm(code_load_items);
+		access_list.warm_each(code_load_items);
 		Ok(executable)
 	}
 
@@ -1679,12 +1679,11 @@ where
 
 					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
 						// New code is in the storage overlay, so its entries can be warmed.
-						let warmth = self.access_list.warm_summarized(
-							access_list::CodeLoadItems::with_info_op(
+						let warmth =
+							self.access_list.warm(access_list::CodeLoadItems::with_info_op(
 								*module.code_hash(),
 								StorageOp::Write,
-							),
-						);
+							));
 						frame.frame_meter.charge_weight_token(
 							RuntimeCosts::AccessListRegistration(warmth.summary()),
 						)?;
@@ -2456,11 +2455,11 @@ where
 	E: Executable<T>,
 {
 	fn warm<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
-		self.access_list.warm_summarized(access)
+		self.access_list.warm(access)
 	}
 
 	fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
-		self.access_list.warmth_of_summarized(access)
+		self.access_list.warmth_of(access)
 	}
 }
 

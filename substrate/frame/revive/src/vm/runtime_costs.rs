@@ -808,7 +808,7 @@ mod tests {
 		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 		let untracked = |op| {
 			let slot = StorageItems::new(H160::repeat_byte(0xab), &Key::Fix([0xab; 32]), op);
-			StorageAccessKind::Persistent(al.warmth_of_summarized(slot))
+			StorageAccessKind::Persistent(al.warmth_of(slot))
 		};
 		let read = |kind| weight(&RuntimeCosts::GetStorage { len: 0, kind });
 		let write = |kind| weight(&RuntimeCosts::SetStorage { new_bytes: 0, old_bytes: 0, kind });
