@@ -199,11 +199,15 @@ impl<Balance, DepositBalance, Extra, AccountId>
 		matches!(self.reason, ExistenceReason::Tombstone)
 	}
 
+	/// Returns `true` if the account's holder can `refund` it.
+	pub fn is_refundable_by_holder(&self) -> bool {
+		matches!(self.reason, ExistenceReason::Consumer | ExistenceReason::DepositHeld(_))
+	}
+
 	/// Returns `true` if blocking the account needs a deposit: its holder can `refund` it while
 	/// blocked, or already did, leaving an entry behind that nothing else pays for.
 	pub fn needs_block_deposit(&self) -> bool {
-		use ExistenceReason::*;
-		matches!(self.reason, Consumer | DepositHeld(_) | Tombstone)
+		self.is_refundable_by_holder() || self.is_tombstone()
 	}
 }
 

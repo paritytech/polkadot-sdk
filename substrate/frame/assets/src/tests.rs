@@ -614,6 +614,34 @@ fn blocking_account_with_deposit_from_other_takes_no_deposit() {
 }
 
 #[test]
+fn block_deposit_is_taken_exactly_for_accounts_their_holder_can_refund() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1));
+		// consumer, own deposit, sufficient, deposit placed by someone else
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 4, 100));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 5));
+
+		for (id, who) in [(0, 2), (0, 3), (1, 4), (0, 5)] {
+			assert_ok!(Assets::block(RuntimeOrigin::signed(1), id, who));
+			assert_eq!(
+				BlockDeposits::<Test>::contains_key(id, &who),
+				Assets::refund(RuntimeOrigin::signed(who), id, true).is_ok()
+			);
+		}
+		assert!(BlockDeposits::<Test>::contains_key(0, &2));
+		assert!(BlockDeposits::<Test>::contains_key(0, &3));
+		assert!(!BlockDeposits::<Test>::contains_key(1, &4));
+		assert!(!BlockDeposits::<Test>::contains_key(0, &5));
+	});
+}
+
+#[test]
 fn approval_lifecycle_works() {
 	build_and_execute(|| {
 		// can't approve non-existent token
