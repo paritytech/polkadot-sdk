@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794997239993,
+  "lastUpdate": 1795003495000,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "franciscoaguirreperez@gmail.com",
-            "name": "Francisco Aguirre",
-            "username": "franciscoaguirre"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3501f2c3c8e46d0b726994065a05615995f03880",
-          "message": "Add sp-hop (#11960)\n\nAdded the primitives needed for HOP (Hand-Off Protocol) in the future\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-02T10:43:06Z",
-          "tree_id": "6dcfaf5a3ff7ff7904888c194880a5c6d94a39f9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3501f2c3c8e46d0b726994065a05615995f03880"
-        },
-        "date": 1777723500040,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.136,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08122882091799993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.039029657595999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038728897237999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53c308902a647f972125b331c1fef48e92c1abfc",
+          "message": "Asset Hub Westend: teleport WND to and from Bulletin Westend (#13890)\n\nAsset Hub Westend does not trust Bulletin Westend for WND teleports.\nBulletin Westend is para 2487, outside the system range, and\n`TrustedTeleporters` only trusts WND with the relay chain and system\nparachains. Asset Hub uses the same check in both directions:\n- WND teleported from Bulletin fails with `UntrustedTeleportLocation`\n- WND teleported to Bulletin fails in `pallet-xcm` with `Filtered`\n\n**On Polkadot, Bulletin is a system parachain, so this only affects\nWestend.**\n\nValidators drawn as collators on Bulletin Westend (#13866) sign\n`set_keys` on Bulletin and need WND there to pay the fee, and anything\nthey earn or have left on Bulletin cannot come back to Asset Hub.\n\n## Changes\n\n`TrustedTeleporters` on Asset Hub Westend now trusts WND with Bulletin,\nas the Westend relay chain does for its system parachains.\n\nThis is a short-term fix. The long-term solution is to move Bulletin\nWestend to para 1010, as on Polkadot\n(paritytech/polkadot-bulletin-chain#857). Asset Hub's system-chain rules\nthen cover it, and this exception is removed.",
+          "timestamp": "2026-11-18T10:27:48Z",
+          "tree_id": "d664b0e79f417ec29ec55c5827f6ed128b3c01cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53c308902a647f972125b331c1fef48e92c1abfc"
+        },
+        "date": 1795003459868,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038321127758,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08163264553199992,
             "unit": "seconds"
           }
         ]
