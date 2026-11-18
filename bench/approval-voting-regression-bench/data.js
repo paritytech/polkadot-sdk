@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795021611111,
+  "lastUpdate": 1795024710516,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ef30210809ef77767afb5e2a5bb238d41180989e",
-          "message": "Snowbridge: Halt message verifier when Ethereum client is Halted    (#11856)\n\nWhen the Snowbridge Ethereum client is halted, no messages should be\nverified. The Ethereum client currently checks the bridge status, but\n`submit_delivery_receipt` does not explicitly use the Ethereum client -\nit uses the `Verifier` impl. When the Ethereum client is `Halted`, no\nmessages should be processed at all. This PR adds a check if the pallet\nis halted, and if so, return a `VerificationError::Halted` message.\n\nThere is no current vulnerability or exploit that this change fixes, it\nis just good security posture.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2026-05-05T11:05:24Z",
-          "tree_id": "008e20e6e6dfe724cece80b6a831f26ed64256c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef30210809ef77767afb5e2a5bb238d41180989e"
-        },
-        "date": 1777984621299,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63618.36,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.3667033852627055,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4800747054600008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005496299460000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.89275294551,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.826505510759999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002339178,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024635489999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024635489999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.780998187550001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002339178,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.87043645521,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8165429739399614,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.672807077889962,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.702876391140002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e6324307e57ed285dc0490564799e3a62b1f698a",
+          "message": "pallet-psm: make the issuance check advisory (#13895)\n\n# Description\n\nAny holder can burn the internal asset outside of the PSM, for example\nwith XCM `BurnAsset`. The issuance then falls below the PSM's debt. The\nreserve holds the difference as surplus, so the PSM is\nover-collateralised, which is a safe state. Governance can mint the\ndifference, or move the surplus out, to wind the asset class down.\n\nCheck 4 of `do_try_state` (\"Total internal issuance is less than total\nPSM debt\") now writes a warning instead of returning an error, like the\nother checks whose state a permitted action can create.\n\n# Integration\n\nNone.\n\n# Review Notes\n\nThe test `warns_on_issuance_below_psm_debt` burns one unit outside of\nthe PSM and expects `do_try_state` to pass.",
+          "timestamp": "2026-11-18T14:57:00Z",
+          "tree_id": "c8aebe150ef075ab9a720050bdb396cfd72f301e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e6324307e57ed285dc0490564799e3a62b1f698a"
+        },
+        "date": 1795024664414,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63555.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.906566467089956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7136744397099983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7057816175099996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019502739999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7949652766499626,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019502739999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6797610183899994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.481299642712951,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3265385824399942,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017715550000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6803175188000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0055280135899999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017715550000000004,
             "unit": "seconds"
           }
         ]
