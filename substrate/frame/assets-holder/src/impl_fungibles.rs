@@ -133,9 +133,17 @@ impl<T: Config<I>, I: 'static> InspectHold<T::AccountId> for Pallet<T, I> {
 			.unwrap_or_else(Zero::zero)
 	}
 
-	// fn hold_available(asset: Self::AssetId, reason: &Self::Reason, who: &T::AccountId) -> bool {
-	// 	pallet_assets::Account::<T, I>::contains_key(asset.clone(), who)
-	// }
+	/// A hold can only be placed on an existing asset account.
+	///
+	/// A balance on hold doesn't give any reason of existence to an asset account. Allowing holds
+	/// on accounts that don't exist would allow to store some held balance, possibly below the
+	/// minimum balance, without any provider reference or deposit backing the state.
+	///
+	/// The number of holds is not a limiting factor: there can be one hold per variant of
+	/// [`Config::RuntimeHoldReason`].
+	fn hold_available(asset: Self::AssetId, _reason: &Self::Reason, who: &T::AccountId) -> bool {
+		pallet_assets::Account::<T, I>::contains_key(asset, who)
+	}
 }
 
 impl<T: Config<I>, I: 'static> Unbalanced<T::AccountId> for Pallet<T, I> {

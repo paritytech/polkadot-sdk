@@ -27,9 +27,14 @@ use frame_support::{
 	},
 };
 use pallet_assets::BalanceOnHold;
+use sp_runtime::TokenError;
 
 const WHO: AccountId = 1;
+/// An account without any asset account at genesis.
+const OTHER: AccountId = 2;
 const ASSET_ID: AssetId = 1;
+/// An asset that doesn't exist.
+const UNKNOWN_ASSET_ID: AssetId = 2;
 
 fn test_hold(id: DummyHoldReason, amount: Balance) {
 	assert_ok!(AssetsHolder::set_balance_on_hold(ASSET_ID, &id, &WHO, amount));
@@ -37,6 +42,13 @@ fn test_hold(id: DummyHoldReason, amount: Balance) {
 
 fn test_release(id: DummyHoldReason) {
 	assert_ok!(AssetsHolder::set_balance_on_hold(ASSET_ID, &id, &WHO, 0));
+}
+
+/// Assert that no hold related state exists for `who`.
+fn assert_holds_nothing(who: &AccountId) {
+	assert!(!Holds::<Test>::contains_key(ASSET_ID, who));
+	assert!(!BalancesOnHold::<Test>::contains_key(ASSET_ID, who));
+	assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, who), 0);
 }
 
 mod impl_balance_on_hold {
@@ -182,6 +194,84 @@ mod impl_hold_inspect {
 			);
 		});
 	}
+
+	#[test]
+	fn hold_available_works() {
+		new_test_ext(|| {
+			// A hold is available on an existing asset account, for any reason.
+			for reason in
+				[DummyHoldReason::Governance, DummyHoldReason::Staking, DummyHoldReason::Other]
+			{
+				assert!(AssetsHolder::hold_available(ASSET_ID, &reason, &WHO));
+			}
+			// Having some balance on hold already doesn't change anything.
+			test_hold(DummyHoldReason::Governance, 1);
+			assert!(AssetsHolder::hold_available(ASSET_ID, &DummyHoldReason::Governance, &WHO));
+			assert!(AssetsHolder::hold_available(ASSET_ID, &DummyHoldReason::Staking, &WHO));
+			test_release(DummyHoldReason::Governance);
+
+			// A hold is not available if the asset account doesn't exist.
+			assert!(!AssetsHolder::hold_available(ASSET_ID, &DummyHoldReason::Governance, &OTHER));
+			// Nor if the asset doesn't exist.
+			assert!(!AssetsHolder::hold_available(
+				UNKNOWN_ASSET_ID,
+				&DummyHoldReason::Governance,
+				&WHO
+			));
+
+			// It becomes available once the asset account is created.
+			assert_ok!(Assets::mint_into(ASSET_ID, &OTHER, 10));
+			assert!(AssetsHolder::hold_available(ASSET_ID, &DummyHoldReason::Governance, &OTHER));
+
+			// And it is not available anymore once the asset account is dead.
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(OTHER), ASSET_ID, WHO, 10));
+			assert!(!pallet_assets::Account::<Test>::contains_key(ASSET_ID, OTHER));
+			assert!(!AssetsHolder::hold_available(ASSET_ID, &DummyHoldReason::Governance, &OTHER));
+		});
+	}
+
+	#[test]
+	fn can_hold_works() {
+		new_test_ext(|| {
+			// Everything but the minimum balance can be put on hold.
+			assert!(AssetsHolder::can_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO, 99));
+			assert_eq!(
+				AssetsHolder::ensure_can_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO, 100),
+				Err(TokenError::FundsUnavailable.into())
+			);
+			assert!(!AssetsHolder::can_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO, 100));
+
+			// Nothing can be put on hold for an account that doesn't exist, not even zero.
+			for amount in [0, 1, 10] {
+				assert_eq!(
+					AssetsHolder::ensure_can_hold(
+						ASSET_ID,
+						&DummyHoldReason::Governance,
+						&OTHER,
+						amount
+					),
+					Err(TokenError::CannotCreateHold.into())
+				);
+				assert!(!AssetsHolder::can_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&OTHER,
+					amount
+				));
+			}
+
+			// Nor for an asset that doesn't exist.
+			assert_eq!(
+				AssetsHolder::ensure_can_hold(
+					UNKNOWN_ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					1
+				),
+				Err(TokenError::CannotCreateHold.into())
+			);
+		});
+	}
 }
 
 mod impl_hold_unbalanced {
@@ -288,8 +378,7 @@ mod impl_hold_unbalanced {
 
 mod impl_hold_mutate {
 	use super::*;
-	use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
-	use sp_runtime::TokenError;
+	use frame_support::traits::tokens::{Fortitude, Precision, Preservation, Restriction};
 
 	#[test]
 	fn hold_works() {
@@ -560,54 +649,292 @@ mod impl_hold_mutate {
 	}
 
 	#[test]
-	fn transfer_and_hold_little_amount_to_tons_of_inexisting_addresses() {
-		// Account 1 (WHO) has 100 balance from genesis
-		const NUM_ACCOUNTS: u64 = 10_000;
-		const HOLD_AMOUNT: Balance = 1;
-
+	fn hold_fails_if_account_does_not_exist() {
 		super::new_test_ext(|| {
-			// Mint enough tokens for WHO to spam thousands of accounts
-			assert_ok!(<Assets as Mutate<AccountId>>::mint_into(ASSET_ID, &WHO, NUM_ACCOUNTS));
-		})
-		.execute_with(|| {
-			// Verify initial state
-			let initial_balance = Assets::balance(ASSET_ID, &WHO);
-			println!("WHO initial balance: {}", initial_balance);
+			for amount in [0, 1, 10] {
+				assert_noop!(
+					AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Governance, &OTHER, amount),
+					TokenError::CannotCreateHold
+				);
+			}
+			assert_noop!(
+				AssetsHolder::hold(UNKNOWN_ASSET_ID, &DummyHoldReason::Governance, &WHO, 1),
+				TokenError::CannotCreateHold
+			);
+			assert_holds_nothing(&OTHER);
+		});
+	}
 
-			// Spam transfer_and_hold with amount 1 to thousands of non-existent accounts
-			for i in 0..NUM_ACCOUNTS {
-				// Generate non-existent account IDs starting from a high number
-				let target_account: AccountId = 1_000_000 + i;
+	#[test]
+	fn hold_works_once_account_is_created() {
+		super::new_test_ext(|| {
+			assert_noop!(
+				AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Governance, &OTHER, 5),
+				TokenError::CannotCreateHold
+			);
 
-				// Verify target account doesn't exist
-				assert_eq!(Assets::balance(ASSET_ID, &target_account), 0);
-				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), 0);
+			assert_ok!(Assets::mint_into(ASSET_ID, &OTHER, 10));
+			assert_ok!(AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Governance, &OTHER, 5));
+			assert_eq!(Assets::balance(ASSET_ID, &OTHER), 5);
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &OTHER), 5);
+			assert_eq!(Assets::total_balance(ASSET_ID, &OTHER), 10);
+		});
+	}
 
-				// Transfer and hold amount 1 to this non-existent account
-				assert_ok!(AssetsHolder::transfer_and_hold(
+	#[test]
+	fn transfer_and_hold_works() {
+		super::new_test_ext(|| {
+			// The destination must be an existing asset account.
+			assert_ok!(Assets::mint_into(ASSET_ID, &OTHER, 10));
+			assert_eq!(Assets::total_issuance(ASSET_ID), 110);
+
+			assert_eq!(
+				AssetsHolder::transfer_and_hold(
 					ASSET_ID,
 					&DummyHoldReason::Governance,
 					&WHO,
-					&target_account,
-					HOLD_AMOUNT,
+					&OTHER,
+					20,
 					Precision::Exact,
 					Preservation::Preserve,
 					Fortitude::Polite,
-				));
+				),
+				Ok(20)
+			);
 
-				// Verify the target account now has 1 held
-				assert_eq!(Assets::balance(ASSET_ID, &target_account), 0);
-				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), HOLD_AMOUNT);
-				assert_eq!(
-					AssetsHolder::total_balance_on_hold(ASSET_ID, &target_account),
-					HOLD_AMOUNT
+			// The amount is taken from the free balance of the source.
+			assert_eq!(Assets::balance(ASSET_ID, &WHO), 80);
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 0);
+			// And put on hold on the destination, leaving its free balance untouched.
+			assert_eq!(Assets::balance(ASSET_ID, &OTHER), 10);
+			assert_eq!(
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&OTHER
+				),
+				20
+			);
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &OTHER), 20);
+			assert_eq!(Assets::total_balance(ASSET_ID, &OTHER), 30);
+			// Total issuance is preserved.
+			assert_eq!(Assets::total_issuance(ASSET_ID), 110);
+
+			// Transferring again for the same reason increases the hold.
+			assert_ok!(AssetsHolder::transfer_and_hold(
+				ASSET_ID,
+				&DummyHoldReason::Governance,
+				&WHO,
+				&OTHER,
+				5,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			));
+			assert_eq!(
+				Holds::<Test>::get(ASSET_ID, OTHER).to_vec(),
+				vec![IdAmount { id: DummyHoldReason::Governance, amount: 25 }]
+			);
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, OTHER), Some(25));
+		});
+	}
+
+	#[test]
+	fn transfer_and_hold_to_inexisting_addresses_fails() {
+		// Without any reason of existence, an account can't receive some balance on hold.
+		// Otherwise anybody able to trigger a `transfer_and_hold` to an arbitrary destination
+		// could bloat the state with held balances, possibly below the minimum balance, which
+		// are not backed by any provider reference or deposit.
+		const NUM_ACCOUNTS: u64 = 100;
+
+		super::new_test_ext(|| {
+			let initial_balance = Assets::balance(ASSET_ID, &WHO);
+
+			for i in 0..NUM_ACCOUNTS {
+				let target_account: AccountId = 1_000_000 + i;
+
+				// The target account doesn't exist.
+				assert!(!pallet_assets::Account::<Test>::contains_key(ASSET_ID, target_account));
+				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), 0);
+
+				// Whether the amount is the minimum balance or more, and whatever the precision,
+				// nothing is transferred.
+				for (amount, precision) in [
+					(1, Precision::Exact),
+					(1, Precision::BestEffort),
+					(50, Precision::Exact),
+					(50, Precision::BestEffort),
+				] {
+					assert_noop!(
+						AssetsHolder::transfer_and_hold(
+							ASSET_ID,
+							&DummyHoldReason::Governance,
+							&WHO,
+							&target_account,
+							amount,
+							precision,
+							Preservation::Preserve,
+							Fortitude::Polite,
+						),
+						TokenError::CannotCreateHold
+					);
+				}
+
+				// The target account still doesn't exist and holds nothing.
+				assert!(!pallet_assets::Account::<Test>::contains_key(ASSET_ID, target_account));
+				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), 0);
+				assert_holds_nothing(&target_account);
+			}
+
+			// No state was created and the source kept its balance.
+			assert_eq!(Holds::<Test>::iter().count(), 0);
+			assert_eq!(BalancesOnHold::<Test>::iter().count(), 0);
+			assert_eq!(Assets::balance(ASSET_ID, &WHO), initial_balance);
+		});
+	}
+
+	#[test]
+	fn transfer_on_hold_works() {
+		// Transferring on hold to an existing account works, the balance stays on hold.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::mint_into(ASSET_ID, &OTHER, 10));
+
+			assert_eq!(
+				AssetsHolder::transfer_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					&OTHER,
+					10,
+					Precision::Exact,
+					Restriction::OnHold,
+					Fortitude::Polite,
+				),
+				Ok(10)
+			);
+
+			assert_eq!(
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
+				20
+			);
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 40);
+			assert_eq!(Assets::balance(ASSET_ID, &WHO), 50);
+			assert_eq!(
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&OTHER
+				),
+				10
+			);
+			assert_eq!(Assets::balance(ASSET_ID, &OTHER), 10);
+			assert_eq!(Assets::total_balance(ASSET_ID, &OTHER), 20);
+			assert_eq!(Assets::total_issuance(ASSET_ID), 110);
+		});
+
+		// Transferring to the free balance of an existing account works.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::mint_into(ASSET_ID, &OTHER, 10));
+
+			assert_eq!(
+				AssetsHolder::transfer_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					&OTHER,
+					10,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				),
+				Ok(10)
+			);
+
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 40);
+			assert_eq!(Assets::balance(ASSET_ID, &OTHER), 20);
+			assert_holds_nothing(&OTHER);
+		});
+	}
+
+	#[test]
+	fn transfer_on_hold_to_inexisting_address_fails_if_on_hold() {
+		new_test_ext().execute_with(|| {
+			for precision in [Precision::Exact, Precision::BestEffort] {
+				assert_noop!(
+					AssetsHolder::transfer_on_hold(
+						ASSET_ID,
+						&DummyHoldReason::Governance,
+						&WHO,
+						&OTHER,
+						10,
+						precision,
+						Restriction::OnHold,
+						Fortitude::Polite,
+					),
+					TokenError::CannotCreateHold
 				);
 			}
 
-			// Check WHO's final balance
-			let final_balance = Assets::balance(ASSET_ID, &WHO);
-			println!("WHO final balance after {} transfers: {}", NUM_ACCOUNTS, final_balance);
-			assert_eq!(final_balance, initial_balance - NUM_ACCOUNTS as Balance * HOLD_AMOUNT);
+			assert!(!pallet_assets::Account::<Test>::contains_key(ASSET_ID, OTHER));
+			assert_holds_nothing(&OTHER);
+			assert_eq!(
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
+				30
+			);
+		});
+	}
+
+	#[test]
+	fn transfer_on_hold_to_inexisting_address_works_if_free() {
+		// No hold is created on the destination, so the hold availability doesn't matter: the
+		// destination account is created with a free balance.
+		new_test_ext().execute_with(|| {
+			assert_eq!(
+				AssetsHolder::transfer_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					&OTHER,
+					10,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				),
+				Ok(10)
+			);
+
+			assert!(pallet_assets::Account::<Test>::contains_key(ASSET_ID, OTHER));
+			assert_eq!(Assets::balance(ASSET_ID, &OTHER), 10);
+			assert_holds_nothing(&OTHER);
+			assert_eq!(
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
+				20
+			);
+
+			// Now that the account exists, it can receive some balance on hold.
+			assert_ok!(AssetsHolder::transfer_on_hold(
+				ASSET_ID,
+				&DummyHoldReason::Governance,
+				&WHO,
+				&OTHER,
+				10,
+				Precision::Exact,
+				Restriction::OnHold,
+				Fortitude::Polite,
+			));
+			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &OTHER), 10);
 		});
 	}
 }
