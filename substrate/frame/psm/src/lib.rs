@@ -89,8 +89,11 @@
 //! The issuance check is advisory because any holder can burn the internal asset
 //! outside of the PSM, for example with XCM `BurnAsset`. A burn leaves the reserve
 //! larger than the issuance it backs. The PSM is then over-collateralised, which
-//! is a safe state. Governance can mint the difference, or move the surplus out,
-//! to wind the asset class down.
+//! is a safe state. The debt that the burn leaves behind can never be redeemed.
+//! To wind the asset class down, governance mints that amount to an account that
+//! redeems it, or moves the surplus reserve out. Both are manual actions: units
+//! of the internal asset carry no record of which minter issued them, so no call
+//! can compute how much of a burn falls on this PSM.
 //!
 //! ### Fee Structure
 //!
@@ -1812,8 +1815,9 @@ pub mod pallet {
 				// outside of the PSM, for example with XCM `BurnAsset`. Such a burn
 				// leaves the reserve larger than the issuance it backs, so the PSM is
 				// over-collateralised, which is a safe state. The debt it leaves
-				// behind can never be redeemed; governance can mint the difference,
-				// or move the surplus reserve out, to wind the asset class down.
+				// behind can never be redeemed. To wind the asset class down,
+				// governance mints that amount to an account that redeems it, or
+				// moves the surplus reserve out. See the module doc.
 				let issuance = T::Fungibles::total_issuance(internal_asset.clone());
 				let total_debt = Self::total_psm_debt(&internal_asset);
 				if issuance < total_debt {
