@@ -1263,13 +1263,20 @@ pub mod pallet {
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
-				ensure!(!account.is_tombstone(), Error::<T, I>::NoAccount);
-				account.status = AccountStatus::Frozen;
-				Ok(())
-			})?;
-			Self::release_block_deposit(&id, &who);
+			let was_blocked = Account::<T, I>::try_mutate(
+				&id,
+				&who,
+				|maybe_account| -> Result<bool, DispatchError> {
+					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
+					ensure!(!account.is_tombstone(), Error::<T, I>::NoAccount);
+					let was_blocked = account.status.is_blocked();
+					account.status = AccountStatus::Frozen;
+					Ok(was_blocked)
+				},
+			)?;
+			if was_blocked {
+				Self::release_block_deposit(&id, &who);
+			}
 
 			Self::deposit_event(Event::<T, I>::Frozen { asset_id: id, who });
 			Ok(())
@@ -1306,6 +1313,7 @@ pub mod pallet {
 			let who = T::Lookup::lookup(who)?;
 
 			let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoAccount)?;
+			let was_blocked = account.status.is_blocked();
 			if account.is_tombstone() {
 				Self::ensure_account_can_die(id.clone(), &who)?;
 				Account::<T, I>::remove(&id, &who);
@@ -1317,7 +1325,9 @@ pub mod pallet {
 				account.status = AccountStatus::Liquid;
 				Account::<T, I>::insert(&id, &who, account);
 			}
-			Self::release_block_deposit(&id, &who);
+			if was_blocked {
+				Self::release_block_deposit(&id, &who);
+			}
 
 			Self::deposit_event(Event::<T, I>::Thawed { asset_id: id, who });
 			Ok(())

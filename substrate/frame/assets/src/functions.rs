@@ -904,7 +904,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 					Account::<T, I>::remove(&id, &who);
-					Self::release_block_deposit(&id, &who);
+					if v.status.is_blocked() {
+						Self::release_block_deposit(&id, &who);
+					}
 					dead_accounts.push(who);
 				} else {
 					// deposit may have been released, need to update `Account`
