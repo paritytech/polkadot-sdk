@@ -1306,6 +1306,10 @@ pub use sc_virtualization;
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
 
+/// Per-block additional data: types, finalizer registry and the finalize host function.
+#[cfg(feature = "sp-additional-data")]
+pub use sp_additional_data;
+
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]
 pub use sp_api;
