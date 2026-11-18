@@ -487,17 +487,34 @@ fn try_state_rejects_tombstone_that_is_not_blocked_with_zero_balance() {
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
 		assert_ok!(Assets::do_try_state());
 
+		let tombstone_error = "Tombstone that is not a blocked zero-balance account found";
 		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().balance = 1);
 		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 1);
-		assert!(Assets::do_try_state().is_err());
+		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
 
 		Account::<Test>::mutate(0, &2, |a| {
 			let a = a.as_mut().unwrap();
 			a.balance = 0;
 			a.status = AccountStatus::Frozen;
 		});
+		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 0);
 		BlockDeposits::<Test>::remove(0, &2);
-		assert!(Assets::do_try_state().is_err());
+		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
+	});
+}
+
+#[test]
+fn try_state_rejects_block_deposit_without_blocked_account() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		let error = "Block deposit without a blocked account found";
+
+		BlockDeposits::<Test>::insert(0, 2, (1, 10));
+		assert_eq!(Assets::do_try_state(), Err(error.into()));
+
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Assets::do_try_state(), Err(error.into()));
 	});
 }
 
