@@ -20,7 +20,7 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, AddressMapper, BalanceOf, CallProtections, CallResources, Code, Config, Error,
+	AccountInfo, AddressMapper, BalanceOf, CallProtections, CallResources, Code, Config,
 	ExecConfig, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
@@ -38,7 +38,7 @@ use crate::{
 	vm::RuntimeCosts,
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+use frame_support::{assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{
 	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse, SendBackOrForward,
 	compile_module_with_type,
@@ -634,20 +634,12 @@ fn a_constructor_cannot_use_the_weight_set_aside_for_its_registration(fixture_ty
 		};
 		let contract_count_before = contract_count();
 
-		let result = builder::bare_call(factory)
+		let output = builder::bare_call(factory)
 			.data(Factory::createGasBurningCall {}.abi_encode())
 			.build()
-			.result;
-
-		if fixture_type == FixtureType::Resolc {
-			// Starting the PVM constructor drops the factory's compiled code.
-			// The weight set aside for the registration is not enough to compile that code again.
-			assert_err!(result, <Error<Test>>::OutOfGas);
-		} else {
-			let output =
-				result.expect("the caller goes on with the weight set aside for the registration");
-			assert!(!output.did_revert(), "the factory catches the failed creation");
-		}
+			.result
+			.expect("the caller goes on with the weight set aside for the registration");
+		assert!(!output.did_revert(), "the factory catches the failed creation");
 		assert_eq!(contract_count(), contract_count_before);
 	});
 }
@@ -843,18 +835,14 @@ mod dry_run {
 	use super::*;
 	use crate::{
 		DispatchError, ExecReturnValue,
-		evm::{CreateCallMode, GenericTransaction, TYPE_EIP1559, fees::InfoT},
+		evm::GenericTransaction,
 		runtime_api::{CallInputPayload, dry_run_call},
 		test_utils::{BOB_ADDR, deposit_limit},
-		tests::sol::eth_extrinsic_revert,
+		tests::test_utils::dispatch_eth_transaction,
 		tracing::{Tracing, trace},
 	};
-	use frame_support::{
-		storage::{TransactionOutcome, with_transaction},
-		traits::fungible::Balanced,
-	};
+	use frame_support::storage::{TransactionOutcome, with_transaction};
 	use pretty_assertions::assert_eq;
-	use sp_runtime::traits::Dispatchable;
 	use test_case::test_case;
 
 	/// Records the weight the contract execution used.
@@ -928,6 +916,8 @@ mod dry_run {
 						.storage_deposit_limit(storage_deposit_limit)
 						.data(data)
 						.build()
+						.map(|_| ())
+						.map_err(|err| err.error)
 				});
 				(dry_run_weight, call)
 			},
@@ -948,32 +938,16 @@ mod dry_run {
 					)
 				});
 				let dry_run = dry_run.expect("the dry run succeeds");
-				// `ALICE_ADDR` cannot sign, so the call is built without a signature.
-				let call_info = GenericTransaction {
-					gas: Some(dry_run.eth_gas),
-					gas_price: Some(crate::Pallet::<Test>::evm_base_fee()),
-					chain_id: Some(<Test as Config>::ChainId::get().into()),
-					r#type: Some(TYPE_EIP1559.into()),
-					..transaction
-				}
-				.into_call::<Test>(CreateCallMode::DryRun)
-				.expect("the estimated gas covers the transaction's base cost");
 				let call = execution_weight_of(|| {
-					// A real transaction fills this pot from its gas before `eth_call` runs.
-					<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
-						call_info.tx_fee + call_info.storage_deposit,
-					));
-					let origin = RuntimeOrigin::from(crate::Origin::<Test>::EthTransaction(ALICE));
-					let result = call_info.call.dispatch(origin);
-					match eth_extrinsic_revert() {
-						Some(error) => Err(error.into()),
-						None => result,
-					}
+					dispatch_eth_transaction(GenericTransaction {
+						gas: Some(dry_run.eth_gas),
+						..transaction
+					})
 				});
 				(dry_run_weight, call)
 			},
 		};
-		(dry_run_weight, result.map(|_| call_weight).map_err(|err| err.error))
+		(dry_run_weight, result.map(|()| call_weight))
 	}
 
 	#[test_case(FixtureType::Solc)]

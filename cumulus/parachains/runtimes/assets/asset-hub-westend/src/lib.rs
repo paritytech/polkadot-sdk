@@ -176,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_004,
+	spec_version: 1_025_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1203,6 +1203,12 @@ parameter_types! {
 
 pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
 
+parameter_types! {
+	/// The blocks the chain authors in one Aura slot.
+	pub const BlocksPerAuraSlot: u32 =
+		(SLOT_DURATION / RELAY_CHAIN_SLOT_DURATION_MILLIS as u64) as u32 * BLOCK_PROCESSING_VELOCITY;
+}
+
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -1211,8 +1217,12 @@ impl pallet_collator_selection::Config for Runtime {
 	type MaxCandidates = ConstU32<100>;
 	type MinEligibleCollators = ConstU32<4>;
 	type MaxInvulnerables = ConstU32<20>;
-	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = Period;
+	type KickThreshold = parachains_common::impls::KickThreshold<
+		Runtime,
+		<Runtime as pallet_validator_collators::Config>::MaxValidators,
+		BlocksPerAuraSlot,
+		Period,
+	>;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
@@ -1254,7 +1264,7 @@ impl pallet_validator_collators::Config for Runtime {
 
 impl pallet_validator_set_announcer::Config for Runtime {
 	type Sender = staking::ValidatorSetToSystemChains;
-	type Destinations = staking::ValidatorSetDestinations;
+	type Destinations = ValidatorCollatorChains;
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
 }
 
@@ -1265,13 +1275,15 @@ parameter_types! {
 		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
 	/// The sibling system chains that run `pallet-validator-collators` and report their authored
 	/// blocks here.
-	pub ReportingSiblings: Vec<ParaId> =
-		vec![testnet_parachains_constants::westend::locations::PeopleParaId::get()];
+	pub ValidatorCollatorChains: Vec<ParaId> = vec![
+		testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+		testnet_parachains_constants::westend::locations::BulletinParaId::get(),
+	];
 }
 
 impl pallet_staking_async_points_converter::Config for Runtime {
 	type Source = ParaId;
-	type ReportOrigin = staking::EnsureReportingSiblings<ReportingSiblings>;
+	type ReportOrigin = staking::EnsureReportingSiblings<ValidatorCollatorChains>;
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
 	type RewardPoints = Staking;
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the

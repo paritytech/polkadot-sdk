@@ -157,7 +157,7 @@ pub(crate) struct PropagationPlan {
 	/// For each connected peer, the indices of the statements it should receive.
 	pub(crate) targets: Vec<(PeerId, Vec<usize>)>,
 	/// Indices of the statements at a dead end: the node is no replica for their topics and has
-	/// no routing target for them.
+	/// no routing target ready to receive them.
 	pub(crate) dead_ends: Vec<usize>,
 }
 
@@ -312,6 +312,15 @@ impl V2DhtOrchestrator {
 		self.report_topology_size();
 	}
 
+	/// Exclude the light `peer` from the DHT index: steering would otherwise dial it and routing
+	/// would count it as a replica.
+	pub(crate) fn on_light_peer(&mut self, peer: PeerId) {
+		if self.peers_topology.on_light_peer(peer) {
+			self.publish_dht_affinity();
+		}
+		self.report_topology_size();
+	}
+
 	// === Forward decision ===
 
 	/// Whether `peer` is a DHT routing target for a statement.
@@ -354,7 +363,8 @@ impl V2DhtOrchestrator {
 	// === Periodic ticks & post-iteration hooks ===
 
 	/// Plan where each of `statements` goes. A statement with topics is also a dead end when the
-	/// node has no routing target for it and is no replica for it, even if a filter matches it.
+	/// node is no replica for it and none of its routing targets `can_receive`, even if a filter
+	/// matches it.
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
@@ -362,6 +372,7 @@ impl V2DhtOrchestrator {
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
+		can_receive: impl Fn(&PeerId) -> bool,
 	) -> PropagationPlan {
 		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
 		let mut dead_ends = Vec::new();
@@ -369,7 +380,10 @@ impl V2DhtOrchestrator {
 		for (index, (_seq, _hash, statement)) in statements.iter().enumerate() {
 			let topics = statement.topics();
 			let mut targets = self.routing_targets(topics);
-			if targets.is_empty() && !topics.is_empty() && !self.is_replica_for(topics) {
+			if !topics.is_empty() &&
+				!targets.iter().any(&can_receive) &&
+				!self.is_replica_for(topics)
+			{
 				dead_ends.push(index);
 			}
 			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
@@ -409,7 +423,9 @@ impl V2DhtOrchestrator {
 	fn on_pending_affinities_at(&mut self, now: Instant) {
 		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self
+			.peers_topology
+			.peers_for_topics(&topics, |peer| self.peer_steering.is_unreachable(peer));
 		desired.extend(
 			self.peers_topology
 				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
@@ -544,7 +560,7 @@ mod tests {
 		let expected = routing_targets(&orchestrator, &topics);
 		assert!(!expected.is_empty(), "fixture must yield routing targets");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]).targets;
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)], |_| true).targets;
 
 		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
 		planned.sort();
@@ -570,7 +586,7 @@ mod tests {
 			.expect("fixture must yield a routing target");
 
 		let plan = orchestrator
-			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])])
+			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])], |_| true)
 			.targets;
 
 		let batch = plan
@@ -785,7 +801,7 @@ mod tests {
 		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
 		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
 
-		let plan = orchestrator.propagation_plan(&statements).targets;
+		let plan = orchestrator.propagation_plan(&statements, |_| true).targets;
 
 		assert_eq!(plan, vec![(light_peer, vec![0])]);
 	}
@@ -803,10 +819,11 @@ mod tests {
 			statement(3, &[]),
 		];
 
-		assert_eq!(orchestrator.propagation_plan(&statements).dead_ends, vec![0]);
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| true).dead_ends, vec![0]);
 
 		orchestrator.on_substream_opened(remote);
-		assert!(orchestrator.propagation_plan(&statements).dead_ends.is_empty());
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| false).dead_ends, vec![0]);
+		assert!(orchestrator.propagation_plan(&statements, |_| true).dead_ends.is_empty());
 	}
 
 	#[test]
@@ -821,7 +838,10 @@ mod tests {
 
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
-		assert_eq!(orchestrator.propagation_plan(&statements).targets, vec![(peer, vec![0])]);
+		assert_eq!(
+			orchestrator.propagation_plan(&statements, |_| true).targets,
+			vec![(peer, vec![0])]
+		);
 	}
 
 	#[test]
@@ -840,6 +860,23 @@ mod tests {
 
 		orchestrator.on_peer_identified(remote, true);
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn an_identified_light_peer_is_no_replica() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_light_peer(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 	}
 
 	#[test]
@@ -908,7 +945,7 @@ mod tests {
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
@@ -976,6 +1013,40 @@ mod tests {
 
 		orchestrator.on_pending_affinities_at(retried_at + UNREACHABLE_AFTER);
 		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
+	}
+
+	#[test]
+	fn affinity_tick_replaces_a_coverage_peer_that_never_connects() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(1),
+			topology_config(2, 3),
+			"/statement/test".into(),
+			None,
+		);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		let topology = &orchestrator.peers_topology;
+		let unreachable = topology.peers_for_topics(&[topic(1)], |_| false)[0];
+		let replacement = topology.peers_for_topics(&[topic(1)], |peer| *peer == unreachable)[0];
+		// A routing peer is dialed anyway, so the replacement must come from coverage alone.
+		assert!(!topology.peers_for_routing(|_| false).contains(&replacement));
+
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
+		assert!(!orchestrator.peer_steering.peers_to_connect().contains(&replacement));
+		orchestrator.peer_steering.reserve([unreachable]);
+
+		orchestrator.on_pending_affinities_at(start);
+		orchestrator.on_pending_affinities_at(start + UNREACHABLE_AFTER);
+
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(connect.contains(&replacement));
+		assert!(!connect.contains(&unreachable));
 	}
 
 	#[test]
@@ -1052,7 +1123,7 @@ mod tests {
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.

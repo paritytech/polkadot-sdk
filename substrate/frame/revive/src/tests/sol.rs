@@ -23,8 +23,7 @@ use crate::{
 	evm::{PrestateTracer, PrestateTracerConfig},
 	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
-		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeEvent, RuntimeOrigin, System, Test,
-		builder,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
@@ -154,23 +153,6 @@ fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
 		EXTCODECOPY,
 		STOP,
 	])
-}
-
-/// Returns the error the Ethereum transaction failed with.
-pub fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
-	System::events().into_iter().find_map(|record| match record.event {
-		// Benchmark builds emit this event for successful transactions too, so it is not a failure.
-		#[cfg(feature = "runtime-benchmarks")]
-		RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error })
-			if dispatch_error == crate::Error::<Test>::BenchmarkingError.into() =>
-		{
-			None
-		},
-		RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-			Some(dispatch_error)
-		},
-		_ => None,
-	})
 }
 
 #[test]
@@ -1796,13 +1778,13 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 /// the transaction's, not the block's synthetic one for logs emitted outside any ethereum
 /// transaction.
 mod emitter_logs {
-	use super::eth_extrinsic_revert;
 	use crate::{
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Origin, Pallet,
 		evm::{block_hash::LogsBloom, fees::InfoT},
 		test_utils::{ALICE, WEIGHT_LIMIT, deposit_limit},
 		tests::{
 			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, System, Test, builder, pallet_dummy,
+			test_utils::eth_extrinsic_revert,
 		},
 	};
 	use alloy_core::sol_types::{SolCall, SolEvent};
@@ -2155,7 +2137,6 @@ mod emitter_logs {
 /// receipt, for a Solc and a Resolc build of the same contract and for logs mirrored from outside
 /// any frame.
 mod receipt_size_limit {
-	use super::eth_extrinsic_revert;
 	use crate::{
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, EthTransactError, Origin,
 		Pallet, RUNTIME_PALLETS_ADDR, RuntimeCosts, WeightToken,
@@ -2171,6 +2152,7 @@ mod receipt_size_limit {
 			PGAS_ASSET_ID, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test, builder,
 			initialize_block, pallet_dummy,
 			precompiles::{INoInfo, NoInfo},
+			test_utils::eth_extrinsic_revert,
 		},
 		tracing::trace,
 	};

@@ -16,11 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	AccountInfo, Code, Config, Error, EthTxInfo, ExecConfig, ExecReturnValue, H160, Pallet, U256,
-	Weight,
+	AccountInfo, Code, Config, Error, EthTxInfo, ExecConfig, ExecReturnValue, H160, Pallet,
+	TransactionLimits, U256, Weight,
 	evm::{CallTrace, CallTracer, fees::InfoT},
-	test_utils::{self, ALICE, BOB, BOB_ADDR, ETH_GAS_LIMIT, builder::Contract},
-	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder, sol::eth_extrinsic_revert},
+	test_utils::{
+		self, ALICE, BOB, BOB_ADDR, ETH_GAS_LIMIT, WEIGHT_LIMIT, builder::Contract, deposit_limit,
+	},
+	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder, test_utils::eth_extrinsic_revert},
 	tracing::trace,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
@@ -174,24 +176,50 @@ fn evm_call_stipends_work_for_send_zero(run_call: fn(H160, Vec<u8>, U256) -> Exe
 	});
 }
 
-#[test_case(FixtureType::Solc, "BalanceReader", false)]
-#[test_case(FixtureType::Resolc, "BalanceReader", false)]
-#[test_case(FixtureType::Solc, "BalanceOfReader", false)]
-#[test_case(FixtureType::Resolc, "BalanceOfReader", false)]
-#[test_case(FixtureType::Solc, "SenderBalanceReader", true)]
-#[test_case(FixtureType::Resolc, "SenderBalanceReader", true)]
-#[test_case(FixtureType::Solc, "SimpleReceiver", false)]
-#[test_case(FixtureType::Solc, "TwoEventsReceiver", true)]
-#[test_case(FixtureType::Resolc, "TwoEventsReceiver", true)]
+#[test_case(FixtureType::Solc, "BalanceReader", true, true)]
+#[test_case(FixtureType::Resolc, "BalanceReader", true, true)]
+#[test_case(FixtureType::Solc, "BalanceOfReader", true, true)]
+#[test_case(FixtureType::Resolc, "BalanceOfReader", true, true)]
+#[test_case(FixtureType::Solc, "SenderBalanceReader", false, false)]
+#[test_case(FixtureType::Resolc, "SenderBalanceReader", false, false)]
+#[test_case(FixtureType::Solc, "SimpleReceiver", true, true)]
+// These receivers are charged more proof size than the stipend's weight contains.
+#[test_case(FixtureType::Solc, "TwoEventsReceiver", false, true)]
+#[test_case(FixtureType::Resolc, "TwoEventsReceiver", false, true)]
+#[test_case(FixtureType::Solc, "ThreeWordEventReceiver", false, true)]
+#[test_case(FixtureType::Resolc, "ThreeWordEventReceiver", false, true)]
 fn call_stipends_cover_own_balance_reads_and_evm_events(
 	fixture_type: FixtureType,
 	receiver_name: &str,
-	reverts: bool,
+	succeeds_in_substrate_mode: bool,
+	succeeds_in_ethereum_mode: bool,
 ) {
 	let (receiver_code, _) = compile_module_with_type(receiver_name, fixture_type).unwrap();
 	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
 	// Half of it moves one native unit plus dust.
 	let value = 2_000_002_u128;
+	let modes = [
+		(
+			"Substrate mode",
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: deposit_limit::<Test>(),
+			},
+			succeeds_in_substrate_mode,
+		),
+		(
+			"Ethereum mode",
+			TransactionLimits::EthereumGas {
+				eth_gas_limit: u64::MAX.into(),
+				weight_limit: WEIGHT_LIMIT,
+				// The base weight is only proof size, so proof size is the larger cost, and the
+				// receiver can use the proof size that the stipend's price pays for.
+				eth_tx_info: EthTxInfo::new(0, Weight::from_parts(0, WEIGHT_LIMIT.proof_size())),
+				authorization_deposit: Default::default(),
+			},
+			succeeds_in_ethereum_mode,
+		),
+	];
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ =
@@ -205,14 +233,18 @@ fn call_stipends_cover_own_balance_reads_and_evm_events(
 		// cost of the balance read.
 		<Test as Config>::Currency::mint_into(&account_id, 10_000_000_000_000).unwrap();
 
-		let result = builder::bare_call(addr)
-			.data(
-				SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }.abi_encode(),
-			)
-			.evm_value(value.into())
-			.build_and_unwrap_result();
+		for (mode, limits, succeeds) in modes {
+			let result = builder::bare_call(addr)
+				.data(
+					SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }
+						.abi_encode(),
+				)
+				.evm_value(value.into())
+				.transaction_limits(limits)
+				.build_and_unwrap_result();
 
-		assert_eq!(result.did_revert(), reverts);
+			assert_eq!(!result.did_revert(), succeeds, "{mode}");
+		}
 	});
 }
 
