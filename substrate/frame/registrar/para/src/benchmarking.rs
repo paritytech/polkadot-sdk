@@ -218,15 +218,15 @@ mod benchmarks {
 	}
 
 	/// What relaying adds around the call it runs, which fails at its first read here. Grows with
-	/// the head it copies into the event.
+	/// the head it hashes for the event.
 	#[benchmark]
 	fn receive_relayed(
 		h: Linear<0, { host_configuration().max_head_data_size }>,
 	) -> Result<(), BenchmarkError> {
 		let para_id: ParaId = u32::MAX;
 		let request = ParaRequestV1::SetCurrentHead { head: alloc::vec![2u8; h as usize] };
-		let message =
-			MessageToPara::V1(MessageToParaV1::Relayed { para_id, request: request.clone() });
+		let summary = RelayedRequestSummary::from(&request);
+		let message = MessageToPara::V1(MessageToParaV1::Relayed { para_id, request });
 
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
@@ -234,7 +234,7 @@ mod benchmarks {
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::RelayedRequest {
 				para_id,
-				request,
+				request: summary,
 				result: Err(Error::<T>::NotReserved.into()),
 			}
 			.into(),

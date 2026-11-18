@@ -272,8 +272,6 @@ pub mod pallet {
 		///
 		/// ## Events
 		/// The `Registered` event is emitted in case of success.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::register())]
 		pub fn register(
@@ -314,9 +312,6 @@ pub mod pallet {
 		///
 		/// The caller must be Root, the `para` owner, or the `para` itself. The para must be an
 		/// on-demand parachain.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration. After that, a
-		/// para with no channel there calls `relay` on `pallet-registrar-relay`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
@@ -336,8 +331,6 @@ pub mod pallet {
 		/// `ParaId` to be a long-term identifier of a notional "parachain". However, their
 		/// scheduling info (i.e. whether they're an on-demand parachain or lease holding
 		/// parachain), auction information and the auction deposit are switched.
-		///
-		/// Deprecated: removed with the registrar migration, without a replacement.
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::swap())]
 		pub fn swap(origin: OriginFor<T>, id: ParaId, other: ParaId) -> DispatchResult {
@@ -390,9 +383,6 @@ pub mod pallet {
 		/// previously locked para to deregister or swap a para without using governance.
 		///
 		/// Can only be called by the Root origin or the parachain.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration. After that, a
-		/// para with no channel there calls `relay` on `pallet-registrar-relay`.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn remove_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
@@ -418,8 +408,6 @@ pub mod pallet {
 		/// ## Events
 		/// The `Reserved` event is emitted in case of success, which provides the ID reserved for
 		/// use.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration.
 		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config>::WeightInfo::reserve())]
 		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
@@ -435,9 +423,6 @@ pub mod pallet {
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration. After that, a
-		/// para with no channel there calls `relay` on `pallet-registrar-relay`.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
@@ -457,9 +442,6 @@ pub mod pallet {
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration. After that, a
-		/// para with no channel there calls `relay` on `pallet-registrar-relay`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -480,9 +462,6 @@ pub mod pallet {
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
-		///
-		/// Deprecated: moves to `pallet-registrar-para` at the registrar migration. After that, a
-		/// para with no channel there calls `relay` on `pallet-registrar-relay`.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_current_head(new_head.0.len() as u32))]
 		pub fn set_current_head(

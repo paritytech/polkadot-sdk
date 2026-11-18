@@ -69,7 +69,11 @@ fn managed_para() -> u32 {
 }
 
 fn relayed_ok(para_id: u32, request: ParaRequestV1) -> pallet_registrar_para::Event<para::Runtime> {
-	pallet_registrar_para::Event::RelayedRequest { para_id, request, result: Ok(()) }
+	pallet_registrar_para::Event::RelayedRequest {
+		para_id,
+		request: (&request).into(),
+		result: Ok(()),
+	}
 }
 
 #[test]
@@ -200,7 +204,7 @@ fn a_failing_relayed_request_is_reported_on_the_registrar_parachain() {
 		assert!(para_event(|e| *e ==
 			pallet_registrar_para::Event::RelayedRequest {
 				para_id,
-				request: ParaRequestV1::RemoveLock,
+				request: pallet_registrar_para::RelayedRequestSummary::RemoveLock,
 				result: Err(pallet_registrar_para::Error::<para::Runtime>::NotLocked.into()),
 			}));
 	});

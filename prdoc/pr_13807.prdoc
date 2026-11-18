@@ -1,4 +1,4 @@
-title: 'Registrar: relayed para requests + deprecations'
+title: 'Registrar: relayed para requests'
 
 doc:
   - audience: Runtime Dev
@@ -18,8 +18,7 @@ doc:
       parachains `Origin`, and `pallet-registrar-para::Config` one built from its own `Origin`.
       `pallet-registrar-relay`'s `WeightInfo` gains `relay`, `poll_relay_queue` and
       `forward_relayed`, `pallet-registrar-para`'s gains `receive_relayed(h)`. `MessageToPara` no
-      longer implements `MaxEncodedLen`. The `paras_registrar` calls get a `Deprecated` doc note
-      saying they move at the registrar migration.
+      longer implements `MaxEncodedLen`.
 
 crates:
   - name: registrar-primitives
@@ -28,5 +27,3 @@ crates:
     bump: major
   - name: pallet-registrar-relay
     bump: major
-  - name: polkadot-runtime-common
-    bump: none
