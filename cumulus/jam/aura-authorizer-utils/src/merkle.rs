@@ -88,7 +88,56 @@ pub(crate) fn verify_collator_proof(
 /// Count sibling hashes needed to prove membership of the value at the position.
 ///
 /// This is used to ensure that the right number of hashes was provided by the proof.
-pub(crate) fn expected_siblings(mut width: u32, mut position: u32) -> usize {
+///
+/// Unpaired nodes are promoted without a sibling, at any level. In the trees below, `(n)` is
+/// the proven leaf, `[s]` a sibling in the proof and `|` a promotion.
+///
+/// No promotion (width 4, position 1, siblings=2):
+///
+/// ```text
+///        root
+///       /    \
+///      .     [s]
+///     / \    / \
+///   [0] (1) 2   3
+/// ```
+///
+/// ```
+/// assert_eq!(cumulus_aura_authorizer_utils::expected_siblings(4, 1), 2);
+/// ```
+///
+/// Promoted at level 0 (width 7, position 6, siblings 2):
+///
+/// ```text
+///             root
+///         /          \
+///       [s]            .
+///      /   \         /   \
+///     .     .      [s]    |
+///    / \   / \     / \    |
+///   0   1 2   3   4   5  (6)
+/// ```
+///
+/// ```
+/// assert_eq!(cumulus_aura_authorizer_utils::expected_siblings(7, 6), 2);
+/// ```
+///
+/// Promoted twice at levels 0 and 1 (width 5, position 4, siblings 1):
+///
+/// ```text
+///           root
+///         /      \
+///       [s]       |
+///      /   \      |
+///     .     .     |
+///    / \   / \    |
+///   0   1 2   3  (4)
+/// ```
+///
+/// ```
+/// assert_eq!(cumulus_aura_authorizer_utils::expected_siblings(5, 4), 1);
+/// ```
+pub fn expected_siblings(mut width: u32, mut position: u32) -> usize {
 	let mut siblings = 0;
 
 	while width > 1 {
@@ -105,6 +154,8 @@ pub(crate) fn expected_siblings(mut width: u32, mut position: u32) -> usize {
 
 #[cfg(test)]
 mod tests {
+	use alloc::vec::Vec;
+
 	#[test]
 	fn build_collator_proof_empty_set_errors() {
 		for index in [0, 1, u32::MAX] {
@@ -121,6 +172,44 @@ mod tests {
 			assert_eq!(
 				super::build_collator_proof(&[[1; 32], [2; 32], [3; 32]], index),
 				Err(super::CollatorProofError::InvalidCollatorIndex)
+			);
+		}
+	}
+
+	/// Every proof the SDK tree builds has exactly the expected number of siblings.
+	#[test]
+	fn expected_siblings_matches_built_proofs_works() {
+		for width in 1u32..=130 {
+			let members: Vec<_> = (0..width).map(|i| [i as u8; 32]).collect();
+
+			for position in 0..width {
+				let (_, proof) = super::build_collator_proof(&members, position).unwrap();
+
+				assert_eq!(
+					super::expected_siblings(width, position),
+					proof.len(),
+					"width {width}, position {position}"
+				);
+			}
+		}
+	}
+
+	#[test]
+	fn expected_siblings_works() {
+		for (width, position, siblings) in [
+			(1, 0, 0), // Single leaf is the root.
+			(2, 0, 1),
+			(2, 1, 1),
+			(6, 4, 2), // Even width, promoted at level 1.
+			(1 << 31, 0, 31),
+			((1 << 31) + 1, 1 << 31, 1), // Promoted at every level but the top.
+			(u32::MAX, 0, 32),           // `width - 1` and `div_ceil` must not overflow.
+			(u32::MAX, u32::MAX - 1, 31),
+		] {
+			assert_eq!(
+				super::expected_siblings(width, position),
+				siblings,
+				"width {width}, position {position}"
 			);
 		}
 	}
