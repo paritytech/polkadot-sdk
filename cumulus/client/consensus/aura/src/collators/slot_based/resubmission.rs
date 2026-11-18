@@ -316,7 +316,10 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 
 #[cfg(test)]
 mod tests {
-	use super::{super::tests::TestRelayClient, *};
+	use super::{
+		super::{tests::TestRelayClient, SlotBasedBlockImport},
+		*,
+	};
 	use codec::Encode;
 	use cumulus_client_resubmission_store::ResubmissionStore;
 	use cumulus_primitives_core::{
@@ -430,22 +433,25 @@ mod tests {
 			.is_none());
 	}
 
-	async fn imported_header(client: &Client, parent: &RelayHeader) -> <Block as BlockT>::Header {
+	async fn imported_block(client: &Client, relay_number: RelayBlockNumber) -> Block {
 		let mut sproof = RelayStateSproofBuilder::default();
 		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
 		sproof.included_para_head = Some(
 			client
-				.header(client.info().genesis_hash)
+				.header(client.info().best_hash)
 				.expect("header lookup succeeds; qed")
-				.expect("genesis exists; qed")
+				.expect("best block exists; qed")
 				.encode()
 				.into(),
 		);
 		let built = client
 			.init_block_builder_builder()
 			.with_relay_sproof_builder(sproof)
+			.with_validation_data(cumulus_primitives_core::PersistedValidationData {
+				relay_parent_number: relay_number,
+				..Default::default()
+			})
 			.with_pre_digests(vec![
-				relay_parent_storage_root_item(parent.state_root, parent.number),
 				CumulusDigestItem::CoreInfo(CoreInfo {
 					selector: 0.into(),
 					claim_queue_offset: 0.into(),
@@ -459,21 +465,129 @@ mod tests {
 			.block_builder
 			.build()
 			.expect("test block builds; qed");
-		let (header, body) = built.block.deconstruct();
+		let block = built.block;
+		let (header, body) = block.clone().deconstruct();
 		let mut params = BlockImportParams::new(BlockOrigin::Own, header.clone());
 		params.body = Some(body);
 		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 		params.state_action =
 			StateAction::ApplyChanges(StorageChanges::Changes(built.storage_changes));
 		client.import_block(params).await.expect("test block imports; qed");
-		header
+		block
+	}
+
+	#[tokio::test]
+	async fn missing_relay_header_bounds_catch_up_and_imports_resume() {
+		let author = TestClientBuilder::default().build();
+		let client = Arc::new(TestClientBuilder::default().build());
+		let mut parents = vec![RelayHeader::new(
+			0,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)];
+		let mut blocks = Vec::new();
+		for number in 1..=3 {
+			let block = imported_block(&author, number).await;
+			let Some(RelayBlockIdentifier::ByStorageRoot { storage_root, block_number }) =
+				CumulusDigestItem::find_relay_block_identifier(block.header.digest())
+			else {
+				panic!("test runtime emits the relay storage root; qed");
+			};
+			assert_eq!(block_number, number);
+			parents.push(RelayHeader::new(
+				number,
+				Default::default(),
+				storage_root,
+				parents.last().expect("genesis is present; qed").hash(),
+				Default::default(),
+			));
+			blocks.push(block);
+		}
+		let mut relay = TestRelayClient::new_with_best(
+			parents.iter().map(|header| (header.hash(), header.clone())).collect(),
+			parents[0].hash(),
+		);
+		let (mut imports, rx) = mpsc::unbounded();
+		*relay.import_notifications.lock().expect("test lock is not poisoned; qed") =
+			Some(Box::pin(rx));
+		let params = |block: Block| {
+			let (header, body) = block.deconstruct();
+			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			params.body = Some(body);
+			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+			params
+		};
+		let (importer, handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
+		let store = ResubmissionStore::<Block, _>::new(client.clone());
+		let backfill = run_resubmission_backfill(
+			handle,
+			relay.clone(),
+			client.clone(),
+			cumulus_test_client::runtime::PARACHAIN_ID.into(),
+		);
+		futures::pin_mut!(backfill);
+
+		importer
+			.import_block(params(blocks[0].clone()))
+			.await
+			.expect("first import succeeds; qed");
+		assert!(poll!(&mut backfill).is_pending());
+		importer
+			.import_block(params(blocks[1].clone()))
+			.await
+			.expect("second import succeeds; qed");
+		assert_eq!(client.info().best_number, 2);
+
+		// An invalid root exposes execution starting before backfill makes room.
+		let mut invalid = params(blocks[2].clone());
+		invalid.header.set_state_root(Default::default());
+		let blocked = importer.import_block(invalid);
+		futures::pin_mut!(blocked);
+		for _ in 0..3 {
+			imports.start_send(parents[0].clone()).expect("relay subscriber is alive; qed");
+			assert!(poll!(&mut backfill).is_pending());
+			assert!(poll!(&mut blocked).is_pending());
+			assert_eq!(client.info().best_number, 2);
+			for block in &blocks {
+				assert!(store
+					.load(block.header.hash())
+					.expect("store lookup succeeds; qed")
+					.is_none());
+			}
+		}
+
+		relay.set_best_hash(Some(parents[3].hash()));
+		imports.start_send(parents[3].clone()).expect("relay subscriber is alive; qed");
+		assert!(poll!(&mut backfill).is_pending());
+		for block in &blocks[..2] {
+			assert!(store.load(block.header.hash()).expect("store lookup succeeds; qed").is_some());
+		}
+		assert!(blocked.await.is_err());
+		assert_eq!(client.info().best_number, 2);
+
+		importer
+			.import_block(params(blocks[2].clone()))
+			.await
+			.expect("catch-up resumes; qed");
+		assert!(poll!(&mut backfill).is_pending());
+		assert_eq!(client.info().best_number, 3);
+		for (block, parent) in blocks.iter().zip(&parents[1..]) {
+			let entry = store
+				.load(block.header.hash())
+				.expect("store lookup succeeds; qed")
+				.expect("imported proof was retained; qed");
+			assert!(entry.proof.iter_nodes().next().is_some());
+			assert_eq!(&entry.relay_parent_header, parent);
+		}
 	}
 
 	#[tokio::test]
 	async fn finality_releases_a_proof_waiting_for_its_relay_header() {
 		let client = Arc::new(TestClientBuilder::default().build());
 		let (relay, _imports, parent) = relay();
-		let header = imported_header(&client, &parent).await;
+		let header = imported_block(&client, parent.number).await.header;
 		let backfill = backfill_resubmission_entry::<Block, _, _>(
 			&relay,
 			&*client,
