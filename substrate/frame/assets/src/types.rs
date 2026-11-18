@@ -195,6 +195,13 @@ impl<Balance: Zero, DepositBalance, Extra, AccountId>
 	pub fn is_tombstone(&self) -> bool {
 		self.balance.is_zero() && matches!(self.reason, ExistenceReason::DepositRefunded)
 	}
+
+	/// Returns `true` if blocking the account needs a deposit: its holder can `refund` it while
+	/// blocked, or already did, leaving an entry behind that nothing else pays for.
+	pub fn needs_block_deposit(&self) -> bool {
+		use ExistenceReason::*;
+		matches!(self.reason, Consumer | DepositHeld(_) | DepositRefunded)
+	}
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Default, Debug, MaxEncodedLen, TypeInfo)]

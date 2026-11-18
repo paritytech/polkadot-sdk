@@ -89,32 +89,26 @@ pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
-fn swap_is_sufficient<T: Config<I>, I: 'static>(s: &mut bool) {
+/// Creates `n` accounts holding their own deposit, each blocked with a block deposit from
+/// `freezer`, so destroying them releases two deposits per account.
+fn add_blocked_accounts<T: Config<I>, I: 'static>(freezer: T::AccountId, n: u32) {
 	let asset_id = default_asset_id::<T, I>();
-	Asset::<T, I>::mutate(&asset_id.into(), |maybe_a| {
-		if let Some(ref mut a) = maybe_a {
-			core::mem::swap(s, &mut a.is_sufficient)
-		}
-	});
-}
-
-fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
-	let asset_id = default_asset_id::<T, I>();
-	let origin = SystemOrigin::Signed(minter);
-	let mut s = true;
-	swap_is_sufficient::<T, I>(&mut s);
+	fund_account_deposits::<T, I>(&freezer, n);
 	for i in 0..n {
-		let target = account("sufficient", i, SEED);
-		let target_lookup = T::Lookup::unlookup(target);
-		assert!(Assets::<T, I>::mint(
-			origin.clone().into(),
+		let target: T::AccountId = account("blocked", i, SEED);
+		fund_account_deposits::<T, I>(&target, 1);
+		assert!(Assets::<T, I>::touch(
+			SystemOrigin::Signed(target.clone()).into(),
+			asset_id.clone()
+		)
+		.is_ok());
+		assert!(Assets::<T, I>::block(
+			SystemOrigin::Signed(freezer.clone()).into(),
 			asset_id.clone(),
-			target_lookup,
-			100u32.into(),
+			T::Lookup::unlookup(target),
 		)
 		.is_ok());
 	}
-	swap_is_sufficient::<T, I>(&mut s);
 }
 
 fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
@@ -204,16 +198,7 @@ benchmarks_instance_pallet! {
 	destroy_accounts {
 		let c in 0 .. T::RemoveItemsLimit::get();
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		add_sufficients::<T, I>(caller.clone(), c);
-		fund_account_deposits::<T, I>(&caller, c);
-		for i in 0..c {
-			let target: T::AccountId = account("sufficient", i, SEED);
-			Assets::<T, I>::block(
-				SystemOrigin::Signed(caller.clone()).into(),
-				asset_id.clone(),
-				T::Lookup::unlookup(target),
-			)?;
-		}
+		add_blocked_accounts::<T, I>(caller.clone(), c);
 		Assets::<T, I>::freeze_asset(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
@@ -313,15 +298,17 @@ benchmarks_instance_pallet! {
 	}
 
 	freeze {
-		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(false, 100u32.into());
 		fund_account_deposits::<T, I>(&caller, 1);
 		Assets::<T, I>::block(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
 			caller_lookup.clone(),
 		)?;
+		assert!(BlockDeposits::<T, I>::contains_key(asset_id.clone().into(), &caller));
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
+		assert!(T::Currency::reserved_balance(&caller).is_zero());
 		assert_last_event::<T, I>(Event::Frozen { asset_id: asset_id.into(), who: caller }.into());
 	}
 
@@ -616,10 +603,11 @@ benchmarks_instance_pallet! {
 	}
 
 	block {
-		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(false, 100u32.into());
 		fund_account_deposits::<T, I>(&caller, 1);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
+		assert!(BlockDeposits::<T, I>::contains_key(asset_id.clone().into(), &caller));
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
 	}
 

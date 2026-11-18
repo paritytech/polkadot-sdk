@@ -1385,7 +1385,6 @@ fn post_dispatch_ok_when_asset_account_blocked_post_withdraw() {
 
 			// Block the caller's asset account — `can_deposit` will now return `Blocked`,
 			// so the refund pre-flight check fails and the swap is skipped entirely.
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), freezer, 1000));
 			assert_ok!(Assets::block(
 				RuntimeOrigin::signed(freezer),
 				asset_id.into(),

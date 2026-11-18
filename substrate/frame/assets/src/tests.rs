@@ -499,7 +499,9 @@ fn refund_trait_on_blocked_account() {
 fn blocking_reserves_deposit_from_freezer() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
 
@@ -527,7 +529,8 @@ fn blocking_reserves_deposit_from_freezer() {
 #[test]
 fn blocking_without_funds_for_deposit_fails() {
 	build_and_execute(|| {
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
 		assert_noop!(
 			Assets::block(RuntimeOrigin::signed(1), 0, 2),
@@ -541,15 +544,47 @@ fn blocking_without_funds_for_deposit_fails() {
 fn blocking_account_blocked_without_deposit_takes_one() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
-		// blocked before block deposits existed
+		// blocked before block deposits existed, then refunded into an entry nothing pays for
 		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Blocked);
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert!(!BlockDeposits::<Test>::contains_key(0, &2));
 
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
 		assert_eq!(BlockDeposits::<Test>::get(0, &2), Some((1, 10)));
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
 		assert_eq!(Balances::reserved_balance(&1), 0);
+	});
+}
+
+#[test]
+fn blocking_sufficient_account_takes_no_deposit() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert!(!BlockDeposits::<Test>::contains_key(0, &2));
+		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::NoDeposit);
+	});
+}
+
+#[test]
+fn blocking_account_with_deposit_from_other_takes_no_deposit() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 2));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert!(!BlockDeposits::<Test>::contains_key(0, &2));
+		assert_noop!(Assets::refund_other(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::Frozen);
 	});
 }
 
@@ -1062,7 +1097,6 @@ fn transferring_from_blocked_account_should_not_work() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 		assert_eq!(Assets::balance(0, 1), 100);
-		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 1));
 		// behaves as frozen when transferring from blocked
 		assert_noop!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50), Error::<Test>::Frozen);
@@ -1080,7 +1114,6 @@ fn transferring_to_blocked_account_should_not_work() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
 		assert_eq!(Assets::balance(0, 1), 100);
 		assert_eq!(Assets::balance(0, 2), 100);
-		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 1));
 		assert_noop!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 50), TokenError::Blocked);
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 1));

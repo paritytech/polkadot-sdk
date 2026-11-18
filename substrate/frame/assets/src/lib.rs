@@ -548,8 +548,9 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	/// The deposit reserved from the freezer when blocking an account, together with the account it
-	/// was reserved from. It backs the account entry, which outlives a `refund` while blocked.
+	/// The deposit reserved from the freezer when blocking an account its holder can `refund`,
+	/// together with the account it was reserved from. It backs the account entry, which outlives
+	/// a `refund` while blocked.
 	pub type BlockDeposits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -1936,8 +1937,11 @@ pub mod pallet {
 		/// - `id`: The identifier of the account's asset.
 		/// - `who`: The account to be unblocked.
 		///
-		/// Reserves `AssetAccountDeposit` from the sender unless the account already has a block
-		/// deposit. It is returned when the account is thawed, frozen or destroyed.
+		/// If the account's holder can `refund` it, which leaves a blocked entry behind, reserves
+		/// `AssetAccountDeposit` from the sender unless the account already has a block deposit.
+		/// Accounts that exist because the asset is sufficient or because someone else placed
+		/// their deposit take none. The deposit is returned when the account is thawed, frozen or
+		/// destroyed.
 		///
 		/// Emits `Blocked`.
 		///
@@ -1959,12 +1963,18 @@ pub mod pallet {
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Blocked;
-				Ok(())
-			})?;
-			Self::take_block_deposit(&id, &who, &origin)?;
+			let needs_deposit = Account::<T, I>::try_mutate(
+				&id,
+				&who,
+				|maybe_account| -> Result<bool, DispatchError> {
+					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
+					account.status = AccountStatus::Blocked;
+					Ok(account.needs_block_deposit())
+				},
+			)?;
+			if needs_deposit {
+				Self::take_block_deposit(&id, &who, &origin)?;
+			}
 
 			Self::deposit_event(Event::<T, I>::Blocked { asset_id: id, who });
 			Ok(())
