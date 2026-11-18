@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795020497104,
+  "lastUpdate": 1795023675295,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147959,6 +147959,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2981463766,
             "range": "± 72907955",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e6324307e57ed285dc0490564799e3a62b1f698a",
+          "message": "pallet-psm: make the issuance check advisory (#13895)\n\n# Description\n\nAny holder can burn the internal asset outside of the PSM, for example\nwith XCM `BurnAsset`. The issuance then falls below the PSM's debt. The\nreserve holds the difference as surplus, so the PSM is\nover-collateralised, which is a safe state. Governance can mint the\ndifference, or move the surplus out, to wind the asset class down.\n\nCheck 4 of `do_try_state` (\"Total internal issuance is less than total\nPSM debt\") now writes a warning instead of returning an error, like the\nother checks whose state a permitted action can create.\n\n# Integration\n\nNone.\n\n# Review Notes\n\nThe test `warns_on_issuance_below_psm_debt` burns one unit outside of\nthe PSM and expects `do_try_state` to pass.",
+          "timestamp": "2026-11-18T14:57:00Z",
+          "tree_id": "c8aebe150ef075ab9a720050bdb396cfd72f301e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e6324307e57ed285dc0490564799e3a62b1f698a"
+        },
+        "date": 1795023632854,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19908037,
+            "range": "± 200123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20138026,
+            "range": "± 172113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21852312,
+            "range": "± 116224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25976018,
+            "range": "± 306077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59439207,
+            "range": "± 443663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 376818621,
+            "range": "± 2556669",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2818654804,
+            "range": "± 167521832",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17419698,
+            "range": "± 78661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17485483,
+            "range": "± 114309",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18061851,
+            "range": "± 112898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22616176,
+            "range": "± 130427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59487814,
+            "range": "± 935726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 345719764,
+            "range": "± 3401364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2732262950,
+            "range": "± 26587023",
             "unit": "ns/iter"
           }
         ]
