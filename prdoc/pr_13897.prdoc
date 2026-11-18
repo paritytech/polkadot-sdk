@@ -1,0 +1,10 @@
+title: 'statement-store: warn when the v2 DHT path runs on the libp2p backend'
+doc:
+- audience: Node Operator
+  description: |-
+    A node started with `--statement-v2-dht` and `--network-backend libp2p` now logs a warning.
+    The v2 DHT path learns peers only from litep2p discovery and identify events, so on libp2p it
+    reserves and dials no statement peer.
+crates:
+- name: sc-network-statement
+  bump: patch
