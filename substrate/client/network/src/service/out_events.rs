@@ -181,6 +181,20 @@ impl OutChannels {
 		self.event_streams.push(sender);
 	}
 
+	/// Sends `events` to a new [`Sender`] and then adds it to the collection, so that a subscriber
+	/// that arrives late still learns the state these events describe.
+	pub fn push_with(&mut self, sender: Sender, events: impl IntoIterator<Item = Event>) {
+		for event in events {
+			if let Some(metrics) = &self.metrics {
+				metrics.event_in(&event, sender.name);
+			}
+			if sender.inner.try_send(event).is_err() {
+				return;
+			}
+		}
+		self.push(sender);
+	}
+
 	/// Sends an event.
 	pub fn send(&mut self, event: Event) {
 		self.event_streams.retain_mut(|sender| {

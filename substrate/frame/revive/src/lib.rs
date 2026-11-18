@@ -67,7 +67,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, evm::EvmDispatch, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1063,8 +1063,10 @@ pub mod pallet {
 		/// The receipt the log goes to is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that
 		/// would take an ethereum transaction's receipt past it fails the contract frame it was
 		/// emitted in with [`Error::ReceiptTooLarge`] when that frame returns, or the transaction
-		/// when it was emitted outside any frame. A log that would take the synthetic
-		/// transaction's receipt past it is not buffered and stays a substrate-only event.
+		/// when it was emitted outside any frame, unless a storage layer inside that frame or
+		/// transaction is rolled back and takes the overflow with it. A log that would take the
+		/// synthetic transaction's receipt past it is not buffered and stays a substrate-only
+		/// event.
 		///
 		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
@@ -1254,6 +1256,8 @@ pub mod pallet {
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
 			T::FeeInfo::integrity_test();
+
+			EvmDispatch::integrity_test::<T>();
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
