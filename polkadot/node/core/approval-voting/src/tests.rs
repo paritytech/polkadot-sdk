@@ -1421,14 +1421,9 @@ async fn coalesced_voting_setup(
 		.build(virtual_overseer)
 		.await;
 
-	let rx = import_assignment(
-		virtual_overseer,
-		block_hash,
-		preapproved_index,
-		ValidatorIndex(2),
-		0,
-	)
-	.await;
+	let rx =
+		import_assignment(virtual_overseer, block_hash, preapproved_index, ValidatorIndex(2), 0)
+			.await;
 	assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
 	let rx = import_approval(
@@ -1446,8 +1441,7 @@ async fn coalesced_voting_setup(
 	assert_eq!(rx.await, Ok(ApprovalCheckResult::Accepted));
 
 	let rx =
-		import_assignment(virtual_overseer, block_hash, assigned_index, ValidatorIndex(0), 0)
-			.await;
+		import_assignment(virtual_overseer, block_hash, assigned_index, ValidatorIndex(0), 0).await;
 	assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
 	(block_hash, candidate_hash0, candidate_hash1, session_index)

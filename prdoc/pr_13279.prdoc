@@ -3,31 +3,23 @@ title: Keep chain-selection notified when a coalesced approval is only partly va
 doc:
   - audience: Node Dev
     description: |
-      `import_approval` processes every candidate named in a coalesced
-      `ImportApproval` in one loop, writing overlay state and accumulating
-      actions as it goes. A later per-candidate failure (typically
-      `NoAssignment`) used to `respond_early!` with an empty action list,
-      discarding `Action::NoteApprovedInChainSelection` even though the
-      overlay already marked the block fully approved.
+      Defensive hardening of `import_approval` in approval-voting. It handles
+      every candidate named in a coalesced `ImportApproval` in one loop,
+      writing overlay state and collecting actions as it goes. A per-candidate
+      failure in the loop (typically `NoAssignment`) used to return early with
+      an empty action list. If an earlier candidate had already completed the
+      block, that dropped `Action::NoteApprovedInChainSelection` while the
+      overlay still recorded the block as approved.
 
-      Approval-distribution rejects a coalesced vote as soon as any named
-      candidate has no known assignment, so this path is not reached from
-      the network. GRANDPA uses `ApprovedAncestor` and does not depend on
-      `ChainSelectionMessage::Approved`. The import change is a defensive
-      check against that early return.
+      This is not reachable from the network: approval-distribution rejects a
+      coalesced vote if any candidate in it has no known assignment. GRANDPA
+      uses `ApprovedAncestor` and does not depend on
+      `ChainSelectionMessage::Approved`.
 
-      Per-candidate errors now skip that candidate and continue. Accumulated
-      actions are always returned. The overall result remains `Bad` if any
+      A per-candidate failure now skips that candidate and moves on, so the
+      valid candidates are imported whatever their order in the vote, and the
+      collected actions are always returned. The result is still `Bad` if any
       named candidate failed.
-
-  - audience: Node Operator
-    description: |
-      Hardens coalesced approval import so a per-candidate failure keeps
-      actions already accumulated for the valid candidates.
-      Approval-distribution already rejects a vote that names an unassigned
-      candidate, and GRANDPA finality does not use this notification, so
-      live chain behavior is unchanged. No CLI, config, or migration
-      changes.
 
 crates:
   - name: polkadot-node-core-approval-voting
