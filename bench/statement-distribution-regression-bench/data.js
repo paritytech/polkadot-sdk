@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794957584927,
+  "lastUpdate": 1794997239993,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45f8331013e6ee2880cf1b4fd22e6676ab14ed23",
-          "message": "Bump WAH spec_version (#11959)",
-          "timestamp": "2026-05-01T16:01:02Z",
-          "tree_id": "76922004ef00887cf6384e4edeb0fe17e10ce938",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45f8331013e6ee2880cf1b4fd22e6676ab14ed23"
-        },
-        "date": 1777656369746,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.12600000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08091442491199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038362711814,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08430038879399993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@proton.me",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2826aea0edada06641df5a20546d44a67c072f2",
+          "message": "spec-msg: align primitives with design v0.6 (#13759)\n\nFollow-up to #12676: aligns `cumulus-primitives-spec-messaging` with the\nv0.6 design (#13622).\n\n- Session-based channels: `ChannelMessage` leaves and the `Register` ack\nregister replace `WindowGrant`. Typed channel ids key the channel state,\n`consumed_streams()` and the inherent.\n- One `MessagesRequest`/`MessagesResponse` fetch pair with typed\n`FetchError`, head reads included.\n- `ConsumptionRecord` keeps a sorted stream list per source, and\n`build_requires` rejects unsorted or duplicate entries.\n- Identity extension per Appendix B; skip proofs sized exactly\n(`encoded_len_for`); `MAX_MMR_HASHES` = 48.\n- Incremental node cache for the commitment tree (`StreamsTree`,\n`update_tree_leaf`), with bounded walks that fail with `TreeError` on a\nmissing or corrupt node.\n- `MmrExtensionProof::rebase`: rebases an extension to start at an\nearlier frontier over the leaves in between, checked against the same\nroot. Receiving nodes use it to lift a block the runtime cut short of\nthe planned endpoint. `MMRExtensionProof` is renamed\n`MmrExtensionProof`.\n- Conformance vectors for extension proofs and requires synthesis.",
+          "timestamp": "2026-11-18T08:39:28Z",
+          "tree_id": "5284f1d4de379bb43e6ba9846a423472c9614da8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2826aea0edada06641df5a20546d44a67c072f2"
+        },
+        "date": 1794997207721,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08170649302199992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038728897237999986,
             "unit": "seconds"
           }
         ]
