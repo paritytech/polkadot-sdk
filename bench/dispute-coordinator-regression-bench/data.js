@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795003552429,
+  "lastUpdate": 1795021726762,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "franciscoaguirreperez@gmail.com",
-            "name": "Francisco Aguirre",
-            "username": "franciscoaguirre"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3501f2c3c8e46d0b726994065a05615995f03880",
-          "message": "Add sp-hop (#11960)\n\nAdded the primitives needed for HOP (Hand-Off Protocol) in the future\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-02T10:43:06Z",
-          "tree_id": "6dcfaf5a3ff7ff7904888c194880a5c6d94a39f9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3501f2c3c8e46d0b726994065a05615995f03880"
-        },
-        "date": 1777723530872,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026909396399999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009373211109999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009501191269999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009965998169999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7",
+          "message": "Improve unnamed reserves  (#13717)\n\nSome old pallets still use legacy unnamed reserves aka.\n`ReservableCurrency`\n\nFor various reasons these pallets might, due to incorrect bookkeeping,\ntry to unreserve more than they initially reserved.\n\nIn such cases, when mixed up with `Held` and `NamedReserves`, a mistake\noperation on the unnamed reserve might eat into the named/held reserves.\n\nThis PR changes this flow. Henceforth, any operation from the legacy\n`ReservableCurrency` cannot touch the portion of the account's\n`reserved` that is, pun intended, _reserved_ under\n`NamedReservableCurrency` and `FungibleHolds`.\n\nNamed reserves can only slash/reduce up to their corresponding limit\n(already the behavior, now more explicit in the code). Some goes for\nHolds.\n\nSee the PRdoc for the exact functions in `ReservableCurrency` that have\na new behavior now. Users of these APIs should act with caution, and no\nlonger assume that, for example, `ReservableCurrency::unreserve` can\nunreserve both unnamed and named reserves.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-18T14:33:56Z",
+          "tree_id": "9b931009d9b0bda41876c954cc74d6a8b1bf8b3c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7"
+        },
+        "date": 1795021685351,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00253429515,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009335949379999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010005451190000002,
             "unit": "seconds"
           }
         ]
