@@ -90,7 +90,7 @@ PS regular balance = Asset Hub supply + Σ Unclaimed + Σ Excess
 `Unclaimed` and `Excess` are units booked on Asset Hub and not yet minted
 (§3.2).
 
-It can drift in three cases:
+The equation can drift in three cases:
 
 - The Parachain Service does not record an incoming transfer: it cannot pay
   for its queue entry, or its processing fails. The funds stay on the
@@ -410,6 +410,7 @@ enum OperationPayload {
     /// to `target`'s regular balance, with the memo and gas of §5.2.
     ///
     /// Confirmed: no further state change.
+    /// Failed: `amount` is minted back to the holder (§3.2).
     Redemption {
         holder: AccountId,            // the redeemer
         target: ServiceId,
@@ -497,14 +498,15 @@ enum OperationPayload {
     /// A release from supervision (`unsupervise`, §4.3).
     /// One `SetServiceSupervisor { service: target, new_supervisor: target }`.
     ///
-    /// Confirmed and Failed: no further state change.
+    /// Confirmed: the target's `ServiceAccounts` entry is removed.
+    /// Failed: no further state change.
     Unsupervise {
         target: ServiceId,
     },
     /// A move of a bucket's transfers from the Parachain Service's supervisor
     /// balance to its regular balance (§3.2). One plain `TransferOut` of their
     /// sum between the two. It cannot fail while the Parachain Service is its
-    /// own supervisor and nothing else spends its supervisor balance (§7.5).
+    /// own supervisor and nothing else spends its supervisor balance (§7.4).
     ///
     /// Confirmed: each transfer is booked (§4.4).
     /// Failed: nothing is booked; the units stay on the supervisor balance.
@@ -582,8 +584,8 @@ enum Event {
     LeaseOffered { id: AllocationId, target: ServiceId, amount: Balance,
                    duration: Timeslot },
     AllocationCancelled { id: AllocationId },
-    /// A lease was removed (a Failed `Delivery`, `Reclaim`, `Eject`,
-    /// `close_lease`); `amount` is what was not returned.
+    /// A lease was removed (a Failed `Delivery`, a Confirmed `Reclaim` or
+    /// `Eject`, `close_lease`); `amount` is what was not returned.
     LeaseClosed { id: AllocationId, amount: Balance },
     LeaseIncreased { id: AllocationId, additional: Balance },
     LeaseExtended { id: AllocationId, duration: Timeslot },
@@ -693,7 +695,7 @@ fn redeem(amount: Balance, target: ServiceId, memo: [u8; 128]);
 /// `Allocation{mode: Lease, state: Approved}`. `valid_from` `None` means the
 /// current timeslot. Rejected with `InsufficientBalance` when the caller
 /// cannot cover `amount`, with `NoServiceAccount` when the target has no
-/// service account and when it is the
+/// service account and with `TargetIsParachainService` when it is the
 /// Parachain Service.
 fn offer_lease(target: ServiceId, amount: Balance, duration: Timeslot,
                valid_from: Option<Timeslot>, valid_for: Timeslot);
@@ -786,7 +788,7 @@ fn unsupervise(target: ServiceId);
 
 // ── Returns and disposal ───────────────────────────────────────────────────
 
-/// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
+/// Claims the unclaimed balance to `beneficiary`'s account (§3.2).
 /// Origin: any signed account. Mints `Unclaimed[beneficiary]` to
 /// `beneficiary`. Rejected with `NothingToClaim` when it is zero, and with
 /// the mint's error when the mint fails (§3.2); the unclaimed balance stays
@@ -834,14 +836,13 @@ which the System precompile's `toAccountId` returns. A left-padded
 a voluntary return with it as the beneficiary loses the units.
 
 No governance call is exposed, and a Root caller is rejected. The precompile
-rejects a delegate call and a state-changing call in a read-only frame. It
-returns the new allocation id or the new operation id. On failure the call
-reverts with the pallet error name. The precompile does not emit Solidity
-events. A contract follows its operation with `operationState`. A settled
+rejects a delegate call and a state-changing call in a read-only frame. A
+function that records an allocation or an operation returns its id. On
+failure the call reverts with the pallet error name. The precompile does
+not emit Solidity events. A contract follows its operation with `operationState`. A settled
 operation is removed. Its outcome is read from the state it changed: the
 allocation's state and amount, `isFrozen`, `leasesOf`, `serviceAccount` or
-the caller's balance. A `Cleanup`, `Forget` or `Unsupervise` changes no such
-state.
+the caller's balance. A `Cleanup` or `Forget` changes no such state.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -992,7 +993,7 @@ The transport layer responsibilities:
 - the outcome of each operation: once, in send order, in the first block
   whose anchor has the sending block accumulated, with its `AccumulateLog`
   events from the log entries past the parent's anchor;
-  `accumulated_at`, the timeslot it was accumulated at (§7.6);
+  `accumulated_at`, the timeslot it was accumulated at (§7.5);
 - `incoming_transfers` delivered as whole buckets, up to the number
   `pallet-jamkb` can process; a bucket not processed is delivered again;
 - `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
@@ -1037,7 +1038,7 @@ Phase 1: Offer        `offer_lease(target, amount, duration, ..)` holds the
                       units and records the lease offer.
 Phase 2: Accept       `accept_lease(id)` starts delivery to the target's
                       supervisor balance.
-Phase 3: Confirm       The operation settles, the output:
+Phase 3: Confirm       The operation settles, the outcome:
                       Confirmed: the credit sits on the target's supervisor
                       balance; the allocation moves to Delivered.
                       Failed: JAM rejected the transfer; the units are minted
@@ -1062,7 +1063,7 @@ Phase 1: Approve      `approve_release(target, amount, memo, ..)` records the
                       release allocation.
 Phase 2: Execute      `execute_release(id)` starts delivery to the target's
                       regular balance.
-Phase 3: Confirm       The operation settles, the output:
+Phase 3: Confirm       The operation settles, the outcome:
                       Confirmed: the credit sits on the target's regular
                       balance, outside DAO control; the allocation moves to
                       Delivered.
@@ -1078,7 +1079,7 @@ bypassing governance:
 ```
 Phase 1: Redeem       `redeem(amount, target, memo)` starts delivery to
                       the target's regular balance.
-Phase 2: Confirm       The operation settles, the output:
+Phase 2: Confirm       The operation settles, the outcome:
                       Confirmed: the credit sits on the target's regular
                       balance.
                       Failed: JAM rejected the transfer; the units are minted
@@ -1094,7 +1095,7 @@ Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
 Phase 2: Reclaim      `reclaim` starts a return from the target's supervisor
                       balance back to the Parachain Service.
-Phase 3: Confirm       The operation settles, the output:
+Phase 3: Confirm       The operation settles, the outcome:
                       Confirmed: `amount` is minted to the approver; a
                       fully returned lease is removed. Once the target
                       has no accepted lease, `unsupervise` may be called.
@@ -1156,7 +1157,7 @@ Phase 2: Book         pallet-jamkb mints the amount:
 
 An `OperationId` is unique and never reused.
 An operation is resolved when parachain-system reports its outcome and its log
-entries (§7.6).
+entries (§7.5).
 
 A `Delivery`, `Increase`, `Redemption`, `Reclaim`, `Refund` or `Move` sends one
 `TransferOut` carrying a `MessageId`. A `TransferFailed`
