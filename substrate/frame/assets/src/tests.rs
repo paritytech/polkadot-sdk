@@ -437,6 +437,26 @@ fn refunding_blocked_account_burns_now_and_calls_died_hooks_on_thaw() {
 }
 
 #[test]
+fn refunded_blocked_account_prevents_raising_min_balance_until_thawed() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
+
+		assert_noop!(
+			Assets::set_min_balance(RuntimeOrigin::signed(1), 0, 5),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::set_min_balance(RuntimeOrigin::signed(1), 0, 5));
+	});
+}
+
+#[test]
 fn thawing_refunded_blocked_account_with_freeze_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
