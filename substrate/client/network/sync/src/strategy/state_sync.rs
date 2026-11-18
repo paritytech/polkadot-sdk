@@ -24,7 +24,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use sc_client_api::{
 	partial_state::{PartialStateTarget, ResumablePartialState},
 	CompactProof, PartialStateImport, ProofProvider,
@@ -376,7 +376,7 @@ where
 			(!values.update_last_key(completed, &mut next_key) ||
 				next_key == self.metadata.last_key)
 		{
-			debug!(target: LOG_TARGET, "State response makes no progress at depth {completed}");
+			warn!(target: LOG_TARGET, "State response makes no progress at depth {completed}");
 			return ImportResult::BadResponse;
 		}
 
