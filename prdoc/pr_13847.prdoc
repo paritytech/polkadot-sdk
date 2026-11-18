@@ -1,0 +1,15 @@
+title: 'Asset Hub Westend and staking-async parachain: send XCM fees to the DAP staging account'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The Asset Hub Westend and staking-async parachain XCM fee managers currently send fees to the
+    `pallet-dap` staging account instead of the DAP buffer account. `pallet-dap` drains the
+    staging account into the buffer in `on_idle` and deactivates the drained amount, so XCM fees
+    in the buffer count as inactive issuance like the other DAP inflows.
+
+    Fix the issue, replacing in both runtimes `xcm_config::DapBufferAccount` with `xcm_config::DapStagingAccount`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major

@@ -46,6 +46,8 @@ struct PeerInfo {
 	supports_protocol: bool,
 	/// The peer speaks the protocol without the DHT path, so identify must not index it.
 	without_dht: bool,
+	/// A light peer stores and routes nothing, so identify must not index it.
+	is_light: bool,
 	/// The statement notification substream to the peer is open.
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
@@ -53,6 +55,12 @@ struct PeerInfo {
 	/// Monotonic timestamp of the most recent event observing this peer; the eviction key for both
 	/// staleness and the capacity backstop.
 	last_seen: Instant,
+}
+
+impl PeerInfo {
+	fn can_join_dht(&self) -> bool {
+		!self.without_dht && !self.is_light
+	}
 }
 
 /// Evict a disconnected peer unseen by any event for this long.
@@ -115,7 +123,7 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		info.supports_protocol = supports_statement_protocol && !info.without_dht;
+		info.supports_protocol = supports_statement_protocol && info.can_join_dht();
 		if info.supports_protocol {
 			self.discovered_index.insert(key, peer);
 		} else {
@@ -145,6 +153,18 @@ impl PeersTopology {
 		info.without_dht = true;
 		self.discovered_index.remove(key, &peer);
 		self.connected.remove(key, &peer);
+	}
+
+	/// Drop the light `peer` from the DHT index until eviction: a light peer id never turns into a
+	/// full node. Returns whether the DHT index changed.
+	pub fn on_light_peer(&mut self, peer: PeerId) -> bool {
+		let info = self.get_or_insert_peer(peer);
+		let key = info.key;
+		let was_indexed = info.supports_protocol;
+		info.is_light = true;
+		info.supports_protocol = false;
+		self.discovered_index.remove(key, &peer);
+		was_indexed
 	}
 
 	/// Record that the statement notification substream closed. A peer without the DHT path
@@ -340,6 +360,7 @@ impl PeersTopology {
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
 			without_dht: false,
+			is_light: false,
 			connected: false,
 			key: peer_key(&peer),
 			last_seen: now,
@@ -576,6 +597,36 @@ mod tests {
 		assert!(!topology.is_connected(&peer));
 		assert_eq!(topology.dht_eligible_peers_count(), 1);
 		assert!(topology.evict(Instant::now() + PEER_STALENESS_TTL));
+	}
+
+	#[test]
+	fn identify_keeps_a_light_peer_out_of_the_index() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+
+		assert!(!topology.on_light_peer(peer));
+		topology.on_peer_identified(peer, true);
+
+		assert_eq!(topology.known_peers_count(), 1);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+	}
+
+	#[test]
+	fn an_indexed_light_peer_leaves_the_index_until_eviction() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 1);
+
+		assert!(topology.on_light_peer(peer));
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		assert!(!topology.on_substream_closed(peer));
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		assert!(!topology.evict(Instant::now() + PEER_STALENESS_TTL));
+		assert_eq!(topology.known_peers_count(), 0);
 	}
 
 	#[test]
