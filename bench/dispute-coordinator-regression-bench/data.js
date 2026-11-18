@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794997296038,
+  "lastUpdate": 1795003552429,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45f8331013e6ee2880cf1b4fd22e6676ab14ed23",
-          "message": "Bump WAH spec_version (#11959)",
-          "timestamp": "2026-05-01T16:01:02Z",
-          "tree_id": "76922004ef00887cf6384e4edeb0fe17e10ce938",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45f8331013e6ee2880cf1b4fd22e6676ab14ed23"
-        },
-        "date": 1777656400861,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026758450400000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009062181229999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009178484959999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011239935690000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53c308902a647f972125b331c1fef48e92c1abfc",
+          "message": "Asset Hub Westend: teleport WND to and from Bulletin Westend (#13890)\n\nAsset Hub Westend does not trust Bulletin Westend for WND teleports.\nBulletin Westend is para 2487, outside the system range, and\n`TrustedTeleporters` only trusts WND with the relay chain and system\nparachains. Asset Hub uses the same check in both directions:\n- WND teleported from Bulletin fails with `UntrustedTeleportLocation`\n- WND teleported to Bulletin fails in `pallet-xcm` with `Filtered`\n\n**On Polkadot, Bulletin is a system parachain, so this only affects\nWestend.**\n\nValidators drawn as collators on Bulletin Westend (#13866) sign\n`set_keys` on Bulletin and need WND there to pay the fee, and anything\nthey earn or have left on Bulletin cannot come back to Asset Hub.\n\n## Changes\n\n`TrustedTeleporters` on Asset Hub Westend now trusts WND with Bulletin,\nas the Westend relay chain does for its system parachains.\n\nThis is a short-term fix. The long-term solution is to move Bulletin\nWestend to para 1010, as on Polkadot\n(paritytech/polkadot-bulletin-chain#857). Asset Hub's system-chain rules\nthen cover it, and this exception is removed.",
+          "timestamp": "2026-11-18T10:27:48Z",
+          "tree_id": "d664b0e79f417ec29ec55c5827f6ed128b3c01cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53c308902a647f972125b331c1fef48e92c1abfc"
+        },
+        "date": 1795003517007,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025198313999999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00944553243999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009965998169999999,
             "unit": "seconds"
           }
         ]
