@@ -1,0 +1,19 @@
+title: 'pallet-revive: drop cfg-gated host functions from the upload import allowlist'
+doc:
+- audience: Runtime User
+  description: |-
+    Contracts that import the benchmark-only `noop` host function are now rejected at upload with
+    `CodeRejected` on production runtimes. Previously such uploads were accepted, and the contract
+    then trapped with `InvalidSyscall` as soon as it called `noop`. Code already on chain is not
+    affected, because it is not validated again. A contract that imports `noop` without calling it
+    can no longer have the same code uploaded a second time.
+- audience: Runtime Dev
+  description: |-
+    `list_syscalls()` now respects each host function's `#[cfg]`, so builds without
+    `runtime-benchmarks` no longer list `noop`. With `runtime-benchmarks`, `check_pvm_code` still
+    accepts blobs importing `noop`, and its docs now say so. The trace op list is unchanged.
+crates:
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-revive
+  bump: patch

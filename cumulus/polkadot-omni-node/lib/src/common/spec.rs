@@ -435,6 +435,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					let proto = new_statement_handler_proto(
 						&*client,
 						&parachain_config,
+						&config,
 						&metrics,
 						&mut net_config,
 					);

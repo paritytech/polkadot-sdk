@@ -72,7 +72,7 @@ impl Convert<TrackId, Rank> for MinRankOfClass {
 			// A promotion vote; the track ID turns out to be 18 more than the minimum required
 			// rank.
 			promotion @ 21..=26 => promotion - 18,
-			_ => Rank::max_value(),
+			_ => Rank::MAX,
 		}
 	}
 }

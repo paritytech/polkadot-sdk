@@ -1,0 +1,27 @@
+title: 'pallet-validator-collators: store MaxCollators as CollatorDraw'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The new enum `CollatorDraw` sets how many validators of the stored set are drawn as
+    collators: `None` draws no validator, `UpTo(n)` up to `n` validators with registered keys, and
+    `All` every validator with registered keys. Every variant draws in random order, and a
+    validator that registers keys after a draw waits for the next validator set or cap change.
+
+    `MaxCollators` stores a `CollatorDraw` with `DefaultMaxCollators` as default, and
+    `set_max_collators` takes one.
+
+    The new migration `MigrateV0ToV1` rewrites a cap stored as `u32` as `UpTo(cap)`. A cap stored
+    as `Option<u32>` already reads as the `CollatorDraw` of the same meaning and is left as it is.
+    Without a stored cap, `MaxCollators` reads `DefaultMaxCollators`, and when a validator set is
+    stored the migration draws the collators again under it, as `set_max_collators` does.
+
+    Asset Hub Westend and People Westend run the migration.
+crates:
+- name: pallet-validator-collators
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-validator-set-announcer
+  bump: none

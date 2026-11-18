@@ -88,11 +88,12 @@ pub trait HostFn: private::Sealed {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `callee`: The address of the callee. Should be decodable as an `T::AccountId`. Traps
 	///   otherwise.
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit`: The storage deposit limit for the call. The callee gets the smaller of this
+	///   limit and 63/64 of the storage deposit the caller has left.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
@@ -122,7 +123,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Adds the EVM gas stipend for non-zero value calls.
 	///
-	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	/// If gas is `u64::MAX`, the call sets no gas limit of its own.
 	fn call_evm(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -193,11 +194,12 @@ pub trait HostFn: private::Sealed {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `address`: The address of the code to be executed. Should be decodable as an
 	///   `T::AccountId`. Traps otherwise.
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
-	///   no specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit_limit`: The storage deposit limit for the delegate call. The call gets the
+	///   smaller of this limit and 63/64 of the storage deposit the caller has left.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -222,7 +224,7 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
 	///
-	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	/// If gas is `u64::MAX`, the call sets no gas limit of its own.
 	fn delegate_call_evm(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -231,14 +233,21 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
-	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
-	/// on the maximum number of topics specified by `event_topics`.
-	///
-	/// There should not be any duplicates in `topics`.
+	/// Deposit a contract event with the data buffer and optional list of topics.
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The topics list. It can't contain duplicates.
+	/// - `topics`: At most 4 topics (`NUM_EVENT_TOPICS`).
+	/// - `data`: At most 64 KiB (`EVENT_BYTES`).
+	///
+	/// # Traps
+	///
+	/// Fails the calling frame if either bound is exceeded. Inside an Ethereum transaction
+	/// (`eth_transact`, `eth_substrate_call` and their dry runs) it also fails the frame if the
+	/// event would take the transaction's receipt logs past 2 MiB (`MAX_RECEIPT_LOGS_BYTES`). That
+	/// depends on the logs the transaction already kept, from any contract or mirrored by the
+	/// runtime, not only on this call's arguments. The caller can handle the failure. The receipt
+	/// limit does not apply outside an Ethereum transaction, such as under `Revive::call`.
 	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
 	/// Retrieve the value under the given key from storage.
@@ -312,11 +321,12 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit`: The storage deposit limit for instantiation. The instantiation gets the smaller
+	///   of this limit and 63/64 of the storage deposit the caller has left.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The code hash and constructor input data buffer. The first 32 bytes are the code
 	///   hash of the code to be instantiated. The remaining bytes are the constructor call data.

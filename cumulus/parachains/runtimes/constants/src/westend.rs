@@ -201,6 +201,24 @@ pub mod staking {
 	/// Maximum number of validators elected by Asset Hub, and so the bound of the validator set
 	/// that system chains accept from it.
 	pub const MAX_VALIDATOR_SET: u32 = 1000;
+
+	/// The max message size of the HRMP channels between Asset Hub and People on Polkadot and
+	/// Kusama, in both directions, as read on 2026-10-20 from `hrmp.hrmpChannels({ sender,
+	/// recipient })`.
+	///
+	/// The system chains that send the validator set and the authored blocks over HRMP return it
+	/// as their limit, which the pallets check in their `integrity_test`. Recheck it when the relay
+	/// chain changes it.
+	pub const LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE: u32 = 102_400;
+
+	/// Expected time from the arrival of a validator set on a system chain to the end of its era,
+	/// in milliseconds: six relay chain sessions of one hour, the era length of Asset Hub's
+	/// staking.
+	///
+	/// The value of `ExpectedEraDuration` in `pallet-validator-collators` on every Westend system
+	/// chain until governance sets it. Asset Hub's runtime tests check that it matches the era
+	/// length of its staking configuration.
+	pub const EXPECTED_ERA_DURATION_MILLIS: u64 = 6 * 60 * 60 * 1000;
 }
 
 /// DAP-related constants, shared across all Westend system parachain runtimes.
@@ -218,9 +236,14 @@ pub mod locations {
 	pub use westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
 	use xcm::latest::prelude::{Location, Parachain};
 
+	/// Bulletin's parachain ID, outside the system parachain range.
+	pub const BULLETIN_ID: u32 = 2487;
+
 	parameter_types! {
 		pub AssetHubLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
 		pub PeopleLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
+		pub BulletinParaId: cumulus_primitives_core::ParaId = BULLETIN_ID.into();
+		pub BulletinLocation: Location = Location::new(1, Parachain(BULLETIN_ID));
 	}
 
 	/// The governance on the AssetHub.

@@ -237,7 +237,7 @@ impl State {
 					// during the initial assignment-gathering phase, we want to accept assignments
 					// from any tranche. Note that honest validators will still not broadcast their
 					// assignment until it is time to do so, regardless of this value.
-					maximum_broadcast: DelayTranche::max_value(),
+					maximum_broadcast: DelayTranche::MAX,
 					clock_drift,
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
@@ -544,7 +544,7 @@ mod tests {
 				clock_drift: 0,
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 	}
 
 	#[test]
@@ -596,7 +596,7 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 		assert!(!check_approval(
 			&candidate,
 			&approval_entry,
@@ -607,7 +607,7 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 		assert!(check_approval(
 			&candidate,
 			&approval_entry,
@@ -618,7 +618,7 @@ mod tests {
 				last_assignment_tick: None
 			},
 		)
-		.is_approved(Tick::max_value()));
+		.is_approved(Tick::MAX));
 	}
 
 	#[test]
@@ -675,26 +675,24 @@ mod tests {
 		};
 
 		assert!(!check_approval(&candidate, &approval_entry, RequiredTranches::All,)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
-		assert!(!check_approval(&candidate, &approval_entry, exact_all.clone(),)
-			.is_approved(Tick::max_value()));
+		assert!(
+			!check_approval(&candidate, &approval_entry, exact_all.clone(),).is_approved(Tick::MAX)
+		);
 
 		assert!(!check_approval(&candidate, &approval_entry, pending_all.clone(),)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
 		// This creates a set of 4/10 approvals, which is always an approval.
 		candidate.mark_approval(ValidatorIndex(3));
 
 		assert!(check_approval(&candidate, &approval_entry, RequiredTranches::All,)
-			.is_approved(Tick::max_value()));
+			.is_approved(Tick::MAX));
 
-		assert!(
-			check_approval(&candidate, &approval_entry, exact_all,).is_approved(Tick::max_value())
-		);
+		assert!(check_approval(&candidate, &approval_entry, exact_all,).is_approved(Tick::MAX));
 
-		assert!(check_approval(&candidate, &approval_entry, pending_all,)
-			.is_approved(Tick::max_value()));
+		assert!(check_approval(&candidate, &approval_entry, pending_all,).is_approved(Tick::MAX));
 	}
 
 	#[test]
@@ -779,7 +777,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: Some(block_tick + no_show_duration),
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -824,7 +822,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 11,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -1164,7 +1162,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 10,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);
@@ -1446,7 +1444,7 @@ mod tests {
 			RequiredTranches::Pending {
 				considered: 0,
 				next_no_show: None,
-				maximum_broadcast: DelayTranche::max_value(),
+				maximum_broadcast: DelayTranche::MAX,
 				clock_drift: 0,
 			},
 		);

@@ -22,14 +22,21 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	AddressMapper, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, LOG_TARGET,
+	Pallet, StorageDeposit as Deposit,
+	deposit_payment::Deposit as _,
+	metering::math::eip_150::{self, BalanceEip150, Peak},
+	storage::{AccountInfo, ContractInfo},
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
+use frame_support::{
+	DebugNoBound, DefaultNoBound,
+	traits::{Defensive, Get},
+};
+use sp_arithmetic::MultiplyRational;
 use sp_runtime::{
-	DispatchError, FixedPointNumber, FixedU128,
+	DispatchError, Rounding,
 	traits::{Saturating, Zero},
 };
 
@@ -57,12 +64,17 @@ pub trait Ext<T: Config> {
 	/// The balance transfer can either flow from `origin` to `contract` or the other way
 	/// around depending on whether `amount` constitutes a `Charge` or a `Refund`.
 	/// It will fail in case the `origin` has not enough balance to cover all storage deposits.
+	///
+	/// Returns the deposit that was transferred. A charge is always transferred in full. For a
+	/// refund this is the amount released from the contract's hold, which can be smaller than
+	/// `amount`: it is bounded by the deposit the contract holds above its base deposit, and the
+	/// deposit backend may release less than requested.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(), DispatchError>;
+	) -> Result<DepositOf<T>, DispatchError>;
 }
 
 /// This [`Ext`] is used for actual on-chain execution when balance needs to be charged.
@@ -88,10 +100,15 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// The maximal consumed deposit that occurred at any point during the execution of this
 	/// storage deposit meter
 	max_charged: BalanceOf<T>,
+	/// The deposit the parent had consumed before it created this meter, as returned by
+	/// [`RawMeter::consumed`].
+	parent_consumed: DepositOf<T>,
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
+	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
+	eip_150_peak: Peak<BalanceEip150<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -112,6 +129,13 @@ pub struct Diff {
 impl Diff {
 	/// Calculate how much of a charge or refund results from applying the diff and store it
 	/// in the passed `info` if any.
+	///
+	/// Added and removed storage are netted against each other before a rate is applied. A net
+	/// addition is charged at the current `DepositPerByte` and `DepositPerChildTrieItem`, a net
+	/// removal is refunded pro rata of the deposit the contract holds, which is its average
+	/// historical rate. Storage that is replaced within the same diff is therefore free, even
+	/// after a rate change. This is intended: `Diff` only carries counters, so a replacement
+	/// cannot be told apart from a key that was created and deleted again in the same frame.
 	///
 	/// # Note
 	///
@@ -136,16 +160,24 @@ impl Diff {
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
 		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
 		let items_removed = self.items_removed.saturating_sub(self.items_added);
-		let ratio = FixedU128::checked_from_rational(bytes_removed, info.storage_bytes)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		bytes_deposit = bytes_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_byte_deposit)));
-		let ratio = FixedU128::checked_from_rational(items_removed, info.storage_items)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		items_deposit = items_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_item_deposit)));
+		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(
+			info.storage_byte_deposit
+				.multiply_rational(
+					bytes_removed.min(info.storage_bytes).into(),
+					info.storage_bytes.into(),
+					Rounding::Down,
+				)
+				.unwrap_or_default(),
+		));
+		items_deposit = items_deposit.saturating_add(&Deposit::Refund(
+			info.storage_item_deposit
+				.multiply_rational(
+					items_removed.min(info.storage_items).into(),
+					info.storage_items.into(),
+					Rounding::Down,
+				)
+				.unwrap_or_default(),
+		));
 
 		// We need to update the contract info structure with the new deposits
 		info.storage_bytes =
@@ -249,7 +281,7 @@ where
 			limit = Some(new_limit.min(old_limit));
 		}
 
-		RawMeter { limit, ..Default::default() }
+		RawMeter { limit, parent_consumed: self.consumed(), ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -273,6 +305,8 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		self.update_eip_150_peak(&absorbed);
+
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
 		// now have the contract information `info`. Before that we only took net charges related to
 		// the contract storage into account but ignored net refunds.
@@ -280,9 +314,12 @@ where
 		// `absorbed` here before we absorb it because the actual final net charge will not be more
 		// than the net charge we observed before (as we only ignored net refunds but not net
 		// charges).
-		self.max_charged = self
-			.max_charged
-			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+		self.max_charged = self.max_charged.max(
+			absorbed
+				.parent_consumed
+				.saturating_add(&absorbed.max_charged())
+				.charge_or_zero(),
+		);
 
 		let own_deposit = absorbed.own_contribution.update_contract(info);
 		self.total_deposit = self
@@ -309,9 +346,14 @@ where
 	///
 	/// - `absorbed`: The child storage meter
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
-		self.max_charged = self
-			.max_charged
-			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+		self.update_eip_150_peak(&absorbed);
+
+		self.max_charged = self.max_charged.max(
+			absorbed
+				.parent_consumed
+				.saturating_add(&absorbed.max_charged())
+				.charge_or_zero(),
+		);
 	}
 
 	/// Record a charge that has taken place externally.
@@ -325,8 +367,9 @@ where
 
 	/// The amount of balance that this meter has consumed.
 	///
-	/// This disregards any refunds pending in the current frame. This
-	/// is because we can calculate refunds only at the end of each frame.
+	/// This disregards any refunds pending in the current frame. This is because we can calculate
+	/// refunds only when the frame ends, or, if the contract is reentered before that, when the
+	/// reentrant call returns without reverting.
 	pub fn consumed(&self) -> DepositOf<T> {
 		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
 	}
@@ -339,6 +382,38 @@ where
 	/// Recaluclate the max deposit value
 	fn recalulculate_max_charged(&mut self) {
 		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
+	}
+
+	/// Returns the deposit required, including the part each caller keeps under the 63/64 rule.
+	pub fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
+		Deposit::Charge(self.eip_150_peak.get()).max(self.max_charged())
+	}
+
+	/// Raises the 63/64 peak to the deposit this meter needed for `child`, if that is higher.
+	fn update_eip_150_peak(&mut self, child: &RawMeter<T, E, Nested>) {
+		// Without a deposit limit, the child can use a refund the caller received before the call.
+		// With a limit, a refund cannot raise the child's limit, which is capped at this meter's
+		// limit, so a net refund counts as zero.
+		let consumed_before_call = match self.limit {
+			Some(_) => Deposit::Charge(child.parent_consumed.charge_or_zero()),
+			None => child.parent_consumed.clone(),
+		};
+		let child_deposit_required = child.max_charged().charge_or_zero();
+		let child_deposit_overhead = child.eip_150_total_overhead(S::EIP_150_RULE);
+		let child_deposit_peak =
+			Deposit::Charge(child_deposit_required.saturating_add(child_deposit_overhead));
+		let current_deposit_peak =
+			consumed_before_call.saturating_add(&child_deposit_peak).charge_or_zero();
+		self.eip_150_peak.update(current_deposit_peak);
+	}
+
+	/// Returns the extra deposit the parent needs beyond `max_charged()` to cover the part each
+	/// caller keeps at and below this level.
+	///
+	/// `rule` must be the `State::EIP_150_RULE` of the meter that created this one.
+	fn eip_150_total_overhead(&self, rule: eip_150::Rule) -> BalanceOf<T> {
+		self.eip_150_peak
+			.total_overhead(self.max_charged().charge_or_zero(), rule, Zero::zero())
 	}
 
 	/// The amount of balance still available from the current meter.
@@ -371,17 +446,27 @@ where
 		}
 	}
 
-	/// The total amount of deposit that should change hands as result of the execution
-	/// that this meter was passed into. This will also perform all the charges accumulated
-	/// in the whole contract stack.
-	pub fn execute_postponed_deposits(
+	/// Pay the refunds accumulated in the whole contract stack.
+	///
+	/// This is the first half of settling the deposits and must be followed by
+	/// [`Self::execute_postponed_charges`]. Refunds are paid first so that the origin can pay
+	/// for the charges using the refunds.
+	///
+	/// The deposit consumed by this meter can rise here, so the caller must enforce its limit
+	/// again before any charge is paid. Coalescing drops the refunds recorded for a contract that
+	/// was terminated, since its termination already refunded its whole hold. A refund can also
+	/// be released from the contract's hold only in part: it is bounded by the deposit the
+	/// contract holds above its base deposit, and the deposit backend may release less than
+	/// requested, for example when the origin is not entitled to the part held in a particular
+	/// currency. The part that was not released is added to the deposit consumed.
+	pub fn execute_postponed_refunds(
 		&mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<DepositOf<T>, DispatchError> {
+	) -> Result<(), DispatchError> {
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
-			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+			Origin::Root => return Ok(()),
 			Origin::Signed(o) => o,
 		};
 
@@ -420,12 +505,37 @@ where
 			coalesced
 		};
 
-		// refunds first so origin is able to pay for the charges using the refunds
+		let mut unreleased: BalanceOf<T> = Zero::zero();
 		for charge in self.charges.iter() {
 			if let ContractState::Alive { amount: amount @ Deposit::Refund(_) } = &charge.state {
-				E::charge(origin, &charge.contract, amount, exec_config)?;
+				let released = E::charge(origin, &charge.contract, amount, exec_config)?;
+				unreleased =
+					unreleased.saturating_add(released.saturating_sub(amount).charge_or_zero());
 			}
 		}
+		// Account for the refunds that were released, not the ones that were requested.
+		if !unreleased.is_zero() {
+			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unreleased));
+		}
+		self.recalulculate_max_charged();
+		Ok(())
+	}
+
+	/// Pay the charges accumulated in the whole contract stack.
+	///
+	/// Must be called after [`Self::execute_postponed_refunds`]. Returns the total amount of
+	/// deposit that changed hands as result of the execution that this meter was passed into.
+	pub fn execute_postponed_charges(
+		&mut self,
+		origin: &Origin<T>,
+		exec_config: &ExecConfig<T>,
+	) -> Result<DepositOf<T>, DispatchError> {
+		// Only refund or charge deposit if the origin is not root.
+		let origin = match origin {
+			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+			Origin::Signed(o) => o,
+		};
+
 		for charge in self.charges.iter() {
 			if let ContractState::Alive { amount: amount @ Deposit::Charge(_) } = &charge.state {
 				E::charge(origin, &charge.contract, amount, exec_config)?;
@@ -469,7 +579,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// separately from the storage charge.
 	///
 	/// If this functions is used the amount of the charge has to be stored by the caller somewhere
-	/// alese in order to be able to refund it.
+	/// else in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
 		// will not fail in a nested meter
 		self.record_charge(&amount);
@@ -526,27 +636,63 @@ impl<T: Config> Ext<T> for ReservingExt {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(), DispatchError> {
-		match amount {
-			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => (),
-			Deposit::Charge(amount) => {
+	) -> Result<DepositOf<T>, DispatchError> {
+		match *amount {
+			Deposit::Charge(value) | Deposit::Refund(value) if value.is_zero() => {
+				Ok(amount.clone())
+			},
+			Deposit::Charge(value) => {
 				<Pallet<T>>::charge_deposit(
 					HoldReason::StorageDepositReserve,
 					origin,
 					contract,
-					*amount,
+					value,
 					exec_config,
 				)?;
+				Ok(Deposit::Charge(value))
 			},
-			Deposit::Refund(amount) => {
+			Deposit::Refund(value) => {
+				// The refund is derived from the item and byte deposits recorded in the contract
+				// info. Bound it by what the contract holds above its base deposit, so that the
+				// base deposit is only released when the contract is terminated. A contract
+				// instantiated by `Origin::Root` records a base deposit of zero, since none was
+				// placed on hold. A contract instantiated by `Origin::Root` on an older runtime can
+				// record a base deposit that is not held. Its refunds stay bounded by the deposit
+				// held above it.
+				//
+				// A refund is only recorded for a contract whose info was loaded during the call
+				// stack. That info is only removed by termination, and the charges of a
+				// terminated contract are never paid out. The info of a delegated EOA is written
+				// when its authorization is processed, before execution starts. The info
+				// therefore exists here. Should it be missing anyway, refund nothing: without it
+				// the base deposit is unknown.
+				let held = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, contract);
+				let refundable =
+					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
+						.map(|info| held.saturating_sub(info.storage_base_deposit()))
+						.defensive_unwrap_or_default();
+				if value > refundable {
+					log::debug!(
+						target: LOG_TARGET,
+						"Storage deposit refund of contract {contract:?} bounded by the deposit \
+						 held above the base deposit: requested={value:?}, bounded={refundable:?}",
+					);
+				}
 				<Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
 					exec_config.funds(origin),
-					*amount,
+					value.min(refundable),
 				)?;
+				// The deposit backend may release less than requested, for example when the
+				// origin is not entitled to the part held in a particular currency. Report the
+				// amount that was released from the hold.
+				let released = held.saturating_sub(T::Deposit::total_on_hold(
+					HoldReason::StorageDepositReserve,
+					contract,
+				));
+				Ok(Deposit::Refund(released))
 			},
 		}
-		Ok(())
 	}
 }

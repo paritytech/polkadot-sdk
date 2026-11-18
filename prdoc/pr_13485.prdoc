@@ -1,0 +1,13 @@
+title: 'sc-rpc: Mark `state_getKeys` and `childstate_getKeys` as unsafe'
+doc:
+- audience: Node Operator
+  description: |
+    `state_getKeys` and `childstate_getKeys` are now treated as unsafe RPC methods, in line
+    with `state_getPairs`. When the node runs with `--rpc-methods=safe`, external callers
+    are no longer allowed to use them. Both methods are deprecated; use the paginated
+    `state_getKeysPaged` and `childstate_getKeysPaged` instead.
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major

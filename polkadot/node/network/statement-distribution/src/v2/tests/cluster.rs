@@ -1268,7 +1268,7 @@ fn delayed_reputation_changes() {
 		async move {
 			let mut virtual_overseer = test_fut.await;
 			// Ensure we have handled all responses.
-			if let Ok(Some(msg)) = virtual_overseer.rx.try_next() {
+			if let Ok(msg) = virtual_overseer.rx.try_recv() {
 				panic!("Did not handle all responses: {:?}", msg);
 			}
 			// Conclude.

@@ -475,7 +475,7 @@ mod benchmarks {
 			1
 		);
 		// Set the current era
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		whitelist_account!(pool_account);
 
@@ -525,7 +525,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		whitelist_account!(joiner);
 
@@ -580,7 +580,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::MAX);
 
 		// Some last checks that storage items we expect to get cleaned up are present
 		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));

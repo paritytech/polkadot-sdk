@@ -16,8 +16,8 @@
 //! > in the network need to support all host functions forever in order to be able to sync
 //! > historical blocks.
 //!
-//! Adding host functions is only possible when you are using a node-template, so that you have
-//! access to the boilerplate of building your node.
+//! Adding host functions is only possible when you build your own node (for example from the
+//! solochain template), so that you have access to the boilerplate of building your node.
 //!
 //! A group of host functions can always be grouped to gether as a tuple:
 #![doc = docify::embed!("../../substrate/primitives/io/src/relay_chain.rs", SubstrateHostFunctions)]
