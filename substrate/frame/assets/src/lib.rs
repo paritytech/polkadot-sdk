@@ -548,6 +548,18 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	/// The deposit reserved from the freezer when blocking an account, together with the account it
+	/// was reserved from. It backs the account entry, which outlives a `refund` while blocked.
+	pub type BlockDeposits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AssetId,
+		Blake2_128Concat,
+		T::AccountId,
+		(T::AccountId, DepositBalanceOf<T, I>),
+	>;
+
+	#[pallet::storage]
 	/// Approved balance transfers. First balance is the amount approved for transfer. Second
 	/// is the amount of `T::Currency` reserved for storing this.
 	/// First key is the asset ID, second key is the owner and third key is the delegate.
@@ -1228,6 +1240,8 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be frozen.
 		///
+		/// Freezing a blocked account returns its block deposit.
+		///
 		/// Emits `Frozen`.
 		///
 		/// Weight: `O(1)`
@@ -1254,6 +1268,7 @@ pub mod pallet {
 				account.status = AccountStatus::Frozen;
 				Ok(())
 			})?;
+			Self::release_block_deposit(&id, &who);
 
 			Self::deposit_event(Event::<T, I>::Frozen { asset_id: id, who });
 			Ok(())
@@ -1266,7 +1281,8 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be unfrozen.
 		///
-		/// A blocked account left with a zero balance by `refund` is removed.
+		/// A blocked account left with a zero balance by `refund` is removed. The block deposit, if
+		/// any, is returned.
 		///
 		/// Emits `Thawed`.
 		///
@@ -1300,6 +1316,7 @@ pub mod pallet {
 				account.status = AccountStatus::Liquid;
 				Account::<T, I>::insert(&id, &who, account);
 			}
+			Self::release_block_deposit(&id, &who);
 
 			Self::deposit_event(Event::<T, I>::Thawed { asset_id: id, who });
 			Ok(())
@@ -1919,6 +1936,9 @@ pub mod pallet {
 		/// - `id`: The identifier of the account's asset.
 		/// - `who`: The account to be unblocked.
 		///
+		/// Reserves `AssetAccountDeposit` from the sender unless the account already has a block
+		/// deposit. It is returned when the account is thawed, frozen or destroyed.
+		///
 		/// Emits `Blocked`.
 		///
 		/// Weight: `O(1)`
@@ -1944,6 +1964,7 @@ pub mod pallet {
 					AccountStatus::Blocked;
 				Ok(())
 			})?;
+			Self::take_block_deposit(&id, &who, &origin)?;
 
 			Self::deposit_event(Event::<T, I>::Blocked { asset_id: id, who });
 			Ok(())
@@ -2110,6 +2131,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for (asset_id, _) in Account::<T, I>::iter_keys() {
 			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Account found");
+		}
+
+		for (asset_id, who) in BlockDeposits::<T, I>::iter_keys() {
+			ensure!(
+				Account::<T, I>::get(&asset_id, &who).is_some_and(|a| a.status.is_blocked()),
+				"Block deposit without a blocked account found"
+			);
 		}
 
 		for (asset_id, details) in Asset::<T, I>::iter() {

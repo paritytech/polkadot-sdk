@@ -127,6 +127,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Remove
 	}
 
+	pub(super) fn take_block_deposit(
+		id: &T::AssetId,
+		who: &T::AccountId,
+		depositor: &T::AccountId,
+	) -> DispatchResult {
+		if BlockDeposits::<T, I>::contains_key(id, who) {
+			return Ok(());
+		}
+		let deposit = T::AssetAccountDeposit::get();
+		T::Currency::reserve(depositor, deposit)?;
+		BlockDeposits::<T, I>::insert(id, who, (depositor.clone(), deposit));
+		Ok(())
+	}
+
+	pub(super) fn release_block_deposit(id: &T::AssetId, who: &T::AccountId) {
+		if let Some((depositor, deposit)) = BlockDeposits::<T, I>::take(id, who) {
+			T::Currency::unreserve(&depositor, deposit);
+		}
+	}
+
 	/// Returns `true` when the balance of `account` can be increased by `amount`.
 	///
 	/// - `id`: The id of the asset that should be increased.
@@ -884,6 +904,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 					Account::<T, I>::remove(&id, &who);
+					Self::release_block_deposit(&id, &who);
 					dead_accounts.push(who);
 				} else {
 					// deposit may have been released, need to update `Account`

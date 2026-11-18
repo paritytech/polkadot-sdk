@@ -147,6 +147,13 @@ fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	}
 }
 
+fn fund_account_deposits<T: Config<I>, I: 'static>(who: &T::AccountId, n: u32) {
+	T::Currency::make_free_balance_be(
+		who,
+		T::AssetAccountDeposit::get() * n.into() + T::Currency::minimum_balance(),
+	);
+}
+
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
@@ -198,18 +205,28 @@ benchmarks_instance_pallet! {
 		let c in 0 .. T::RemoveItemsLimit::get();
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
 		add_sufficients::<T, I>(caller.clone(), c);
+		fund_account_deposits::<T, I>(&caller, c);
+		for i in 0..c {
+			let target: T::AccountId = account("sufficient", i, SEED);
+			Assets::<T, I>::block(
+				SystemOrigin::Signed(caller.clone()).into(),
+				asset_id.clone(),
+				T::Lookup::unlookup(target),
+			)?;
+		}
 		Assets::<T, I>::freeze_asset(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
 		)?;
 		Assets::<T,I>::start_destroy(SystemOrigin::Signed(caller.clone()).into(), asset_id.clone())?;
-	}:_(SystemOrigin::Signed(caller), asset_id.clone())
+	}:_(SystemOrigin::Signed(caller.clone()), asset_id.clone())
 	verify {
 		assert_last_event::<T, I>(Event::AccountsDestroyed {
 			asset_id: asset_id.into(),
 			accounts_destroyed: c,
 			accounts_remaining: 0,
 		}.into());
+		assert!(T::Currency::reserved_balance(&caller).is_zero());
 	}
 
 	destroy_approvals {
@@ -297,21 +314,35 @@ benchmarks_instance_pallet! {
 
 	freeze {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
-	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
-	verify {
-		assert_last_event::<T, I>(Event::Frozen { asset_id: asset_id.into(), who: caller }.into());
-	}
-
-	thaw {
-		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		Assets::<T, I>::freeze(
+		fund_account_deposits::<T, I>(&caller, 1);
+		Assets::<T, I>::block(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
 			caller_lookup.clone(),
 		)?;
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
-		assert_last_event::<T, I>(Event::Thawed { asset_id: asset_id.into(), who: caller }.into());
+		assert_last_event::<T, I>(Event::Frozen { asset_id: asset_id.into(), who: caller }.into());
+	}
+
+	thaw {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		fund_account_deposits::<T, I>(&caller, 1);
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		fund_account_deposits::<T, I>(&target, 1);
+		Assets::<T, I>::touch(SystemOrigin::Signed(target.clone()).into(), asset_id.clone())?;
+		Assets::<T, I>::block(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			target_lookup.clone(),
+		)?;
+		Assets::<T, I>::refund(SystemOrigin::Signed(target.clone()).into(), asset_id.clone(), true)?;
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup)
+	verify {
+		assert!(!Account::<T, I>::contains_key(asset_id.clone().into(), &target));
+		assert!(T::Currency::reserved_balance(&caller).is_zero());
+		assert_last_event::<T, I>(Event::Thawed { asset_id: asset_id.into(), who: target }.into());
 	}
 
 	freeze_asset {
@@ -586,6 +617,7 @@ benchmarks_instance_pallet! {
 
 	block {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		fund_account_deposits::<T, I>(&caller, 1);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());

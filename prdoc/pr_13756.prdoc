@@ -11,6 +11,15 @@ doc:
     a consumer reference forced on them by an asset owner, but can no longer lift the block.
     `freeze` fails with `NoAccount` on such an entry.
 
+    To back this entry with a deposit, `block` now reserves `AssetAccountDeposit` from the
+    freezer, recorded in the new `BlockDeposits` storage item. Accounts blocked before this
+    change hold no such deposit until they are blocked again.
+    It is returned to the account that placed it when the account is thawed, frozen or
+    destroyed together with the asset. Blocking an account that already has a block deposit
+    takes no further deposit. The freezer must hold enough free balance to block an account.
+
 crates:
 - name: pallet-assets
-  bump: patch
+  bump: minor
+- name: pallet-asset-conversion-tx-payment
+  bump: none
