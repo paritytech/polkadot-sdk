@@ -439,11 +439,12 @@ impl V2DhtOrchestrator {
 		self.peer_steering.refresh_connections(network);
 	}
 
-	/// Release `peer` if steering holds it reserved as a peer without the DHT path, so that a
-	/// disconnect sent next closes its substream. The litep2p peerset ignores a disconnect of a
-	/// reserved peer, and it takes both commands from one queue, in order.
-	pub(crate) fn release_peer_without_dht<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
-		if self.peer_steering.is_reserved(&peer) && self.peers_topology.is_without_dht(&peer) {
+	/// Release `peer` if steering holds it reserved, so that a disconnect sent next closes its
+	/// substream. The litep2p peerset ignores a disconnect of a reserved peer, and it takes both
+	/// commands from one queue, in order. A peer steering still needs is reserved again on the next
+	/// refresh, which reconnects it with a fresh initial sync.
+	pub(crate) fn release_reserved_peer<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		if self.peer_steering.is_reserved(&peer) {
 			self.peer_steering.release_peer(network, peer);
 		}
 	}

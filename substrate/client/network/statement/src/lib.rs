@@ -1648,7 +1648,7 @@ where
 		);
 
 		if v2dht_enabled() {
-			self.v2dht.release_peer_without_dht(&self.network, peer_id);
+			self.v2dht.release_reserved_peer(&self.network, peer_id);
 			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 			return;
 		}
@@ -2054,7 +2054,7 @@ where
 
 				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				if v2dht_enabled() {
-					self.v2dht.release_peer_without_dht(&self.network, who);
+					self.v2dht.release_reserved_peer(&self.network, who);
 				}
 				self.network.disconnect_peer(who, self.protocol_name.clone());
 
@@ -8085,7 +8085,7 @@ mod tests {
 	}
 
 	#[test]
-	fn only_a_held_peer_without_dht_is_released_for_a_disconnect() {
+	fn a_reserved_peer_is_released_for_a_disconnect() {
 		let (mut handler, _store, network, _notification_service) = build_handler_no_peers();
 		let held = PeerId::random();
 		let routing = PeerId::random();
@@ -8100,11 +8100,16 @@ mod tests {
 		handler.v2dht.refresh_connections(&network);
 
 		for peer in [held, routing, unreserved] {
-			handler.v2dht.release_peer_without_dht(&network, peer);
+			handler.v2dht.release_reserved_peer(&network, peer);
 		}
 
-		assert_eq!(network.get_removed_reserved(), vec![vec![held]]);
+		assert_eq!(network.get_removed_reserved(), vec![vec![held], vec![routing]]);
 		assert!(!handler.v2dht.is_reserved(&held));
+		assert!(!handler.v2dht.is_reserved(&routing));
+
+		// The next refresh reserves the peers steering still needs, which reconnects them.
+		handler.v2dht.refresh_connections(&network);
+		assert!(handler.v2dht.is_reserved(&held));
 		assert!(handler.v2dht.is_reserved(&routing));
 	}
 
