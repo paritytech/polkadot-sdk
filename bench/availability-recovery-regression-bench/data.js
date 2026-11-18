@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795024568350,
+  "lastUpdate": 1795033667521,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bbaa06f68d1e10fcd4aa43ee136819e16cf760eb",
-          "message": "Update `TargetBlockRate` impl to match configured runtime block processing velocity on all test chains (#12005)\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
-          "timestamp": "2026-05-07T07:17:47Z",
-          "tree_id": "46be5d023cdc50bbba42833314e69d5bc79bea93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbaa06f68d1e10fcd4aa43ee136819e16cf760eb"
-        },
-        "date": 1778143264668,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.914753135233337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1260184562666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.8826577523,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "53312868+helixstreet@users.noreply.github.com",
+            "name": "helixstreet",
+            "username": "helixstreet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea042997ff92b26c6458d85a04e6b9d1fff0856",
+          "message": "Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot (#13571)\n\n# Description\n\nAdds eight dual-stack (IPv4 + IPv6) Helixstreet bootnode multiaddrs (WS\nand WSS `/tcp/443/wss`) to the embedded relay and system parachain chain\nspecifications:\n\n1. **Polkadot Relay\n(`polkadot/node/service/chain-specs/polkadot.json`):**\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n2. **Kusama Relay (`polkadot/node/service/chain-specs/kusama.json`):**\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n3. **Polkadot Asset Hub\n(`cumulus/parachains/chain-specs/asset-hub-polkadot.json`):**\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n4. **Polkadot People\n(`cumulus/parachains/chain-specs/people-polkadot.json`):**\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n\nNo existing bootnodes were removed or reordered. No crate or runtime\ncode changes.\n\nReachability checked over both IPv4 (`85.195.201.203`) and IPv6\n(`2a02:168:e7f2:0:15::d1..d4`) before opening:\n- All four DNS hostnames resolve to both `A` and `AAAA` records\n- All four `/tcp/443/wss` endpoints have valid TLS certificates and\ncomplete WebSocket (`101 Switching Protocols`) + libp2p noise/yamux\nhandshakes\n- All four direct `/ws` endpoints (`22010`, `22011`, `22081`, `22070`)\naccept connections over IPv4 and IPv6\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships these chainspecs. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nAppends two multiaddrs (`ws` and `wss`) per chain to the existing\n`bootNodes` array in the four embedded JSON chain specs, plus the\ncorresponding `prdoc` file.\n\nSuggested labels:\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T18:52:39Z",
+          "tree_id": "98aa7629d185a2624fcd0e36d8d1cd15a1fda9c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea042997ff92b26c6458d85a04e6b9d1fff0856"
+        },
+        "date": 1795033625111,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.969847489366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12661104546666668,
             "unit": "seconds"
           }
         ]
