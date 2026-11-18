@@ -39,6 +39,7 @@ use sc_network::{config::parse_addr, Multiaddr};
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::{Keystore, KeystorePtr};
 
+use polkadot_node_core_health::{HealthHandle, Observation};
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery, peer_set::PeerSet, GossipSupportNetworkMessage,
 	PeerId, ValidationProtocols,
@@ -139,6 +140,8 @@ pub struct GossipSupport<AD> {
 	finalized_needed_session: Option<u32>,
 	/// Subsystem metrics.
 	metrics: Metrics,
+	/// The handle the connected authorities are reported through.
+	health: HealthHandle,
 }
 
 #[overseer::contextbounds(GossipSupport, prefix = self::overseer)]
@@ -147,7 +150,12 @@ where
 	AD: AuthorityDiscovery,
 {
 	/// Create a new instance of the [`GossipSupport`] subsystem.
-	pub fn new(keystore: KeystorePtr, authority_discovery: AD, metrics: Metrics) -> Self {
+	pub fn new(
+		keystore: KeystorePtr,
+		authority_discovery: AD,
+		metrics: Metrics,
+		health: HealthHandle,
+	) -> Self {
 		// Initialize metrics to `0`.
 		metrics.on_is_not_authority();
 		metrics.on_is_not_parachain_validator();
@@ -166,6 +174,7 @@ where
 			finalized_needed_session: None,
 			is_authority_now: false,
 			metrics,
+			health,
 		}
 	}
 
@@ -208,6 +217,12 @@ where
 					if let Err(e) = self.handle_active_leaves(ctx.sender(), leaves).await {
 						gum::debug!(target: LOG_TARGET, error = ?e);
 					}
+
+					// On each new leaf send the currently connected authorities to the health
+					// subsystem
+					self.health.report(Observation::ConnectedValidators {
+						authorities: self.connected_authorities.keys().cloned().collect(),
+					});
 				},
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {
 					if let Some(session_index) = self.last_session_index {

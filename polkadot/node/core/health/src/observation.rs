@@ -16,11 +16,16 @@
 
 //! What the producers report.
 
+use polkadot_primitives::AuthorityDiscoveryId;
 use sc_network_types::PeerId;
+use std::collections::HashSet;
 
 /// One measurement = one variant. Fields are the concrete values.
 #[derive(Debug, Clone)]
 pub enum Observation {
+	/// The authorities we hold a validation peer set connection with, a snapshot gossip support
+	/// reports at every active leaf. May contain authorities of past, current and next sessions.
+	ConnectedValidators { authorities: HashSet<AuthorityDiscoveryId> },
 	/// A peer opened a connection to us.
 	InboundConnection { peer: PeerId },
 }
