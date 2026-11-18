@@ -42,8 +42,9 @@ pub(crate) mod partial_state_keys {
 	pub const TARGET: &[u8] = b"partial_state_target";
 	/// Where the download continues: the cursor the last written chunk ended at, SCALE encoded.
 	pub const CURSOR: &[u8] = b"partial_state_cursor";
-	/// Set with the final chunk. Every node is in and only the block import is left, so a restart
-	/// does not download the last range again.
+	/// Set with the final chunk. The value is empty, only the presence of the key counts. Every
+	/// node is in and only the block import is left, so a restart does not download the last
+	/// range again.
 	pub const DOWNLOADED: &[u8] = b"partial_state_downloaded";
 	/// The state root of an attempt we are removing from `STATE`, SCALE encoded. A start that finds
 	/// it finishes the removal. It replaces `TARGET`, the two are never found together.
