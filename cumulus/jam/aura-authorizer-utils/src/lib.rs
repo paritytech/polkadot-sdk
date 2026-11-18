@@ -80,7 +80,9 @@ impl AuthTrace {
 		config.check_work_items(&package.items).map_err(AuthorizationError::BadConfig)?;
 
 		let collator_index = config.expected_collator_index(slot);
-		token.check_proof(config, collator_index)?;
+		token
+			.check_proof(config, collator_index)
+			.map_err(AuthorizationError::BadToken)?;
 		token
 			.check_signature::<S>(signable_work_package_hash(package))
 			.map_err(AuthorizationError::BadToken)?;

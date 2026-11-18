@@ -19,9 +19,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use primitive_types::H256;
 
-use crate::{
-	config::AuthConfig, merkle::verify_collator_proof, AuthorizationError, SignatureVerifier,
-};
+use crate::{config::AuthConfig, merkle::verify_collator_proof, SignatureVerifier};
 
 /// Raw 32-byte collator public key.
 pub type CollatorKey = [u8; 32];
@@ -57,11 +55,7 @@ impl AuthToken {
 	/// Verify that `key` sits at zero-based leaf index `collator_index` of the collator-set tree.
 	///
 	/// Use [`crate::merkle::build_collator_proof`] to generate a valid proof.
-	pub fn check_proof(
-		&self,
-		config: &AuthConfig,
-		collator_index: u32,
-	) -> Result<(), AuthorizationError> {
+	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
 		verify_collator_proof(
 			&config.collator_set_root,
 			&self.proof,
@@ -70,7 +64,7 @@ impl AuthToken {
 			&self.key,
 		)
 		.then_some(())
-		.ok_or(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
+		.ok_or(TokenError::BadCollatorSetProof)
 	}
 
 	/// Verify the signature over the work-package signing hash (see
@@ -143,7 +137,7 @@ mod tests {
 			assert!(token.check_proof(&config, index).is_ok());
 			assert!(matches!(
 				token.check_proof(&config, index - 1),
-				Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
+				Err(TokenError::BadCollatorSetProof)
 			));
 		}
 	}
