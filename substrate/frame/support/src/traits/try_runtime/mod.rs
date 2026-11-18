@@ -18,7 +18,9 @@
 //! Try-runtime specific traits and types.
 
 pub mod decode_entire_state;
-pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageError};
+pub use decode_entire_state::{
+	TryDecodeEntireStorage, TryDecodeEntireStorageError, UndecodableStoragePart,
+};
 
 use super::StorageInstance;
 
