@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795023614254,
+  "lastUpdate": 1795032764750,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -264383,6 +264383,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2293974774,
             "range": "± 11567303",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "53312868+helixstreet@users.noreply.github.com",
+            "name": "helixstreet",
+            "username": "helixstreet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea042997ff92b26c6458d85a04e6b9d1fff0856",
+          "message": "Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot (#13571)\n\n# Description\n\nAdds eight dual-stack (IPv4 + IPv6) Helixstreet bootnode multiaddrs (WS\nand WSS `/tcp/443/wss`) to the embedded relay and system parachain chain\nspecifications:\n\n1. **Polkadot Relay\n(`polkadot/node/service/chain-specs/polkadot.json`):**\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n2. **Kusama Relay (`polkadot/node/service/chain-specs/kusama.json`):**\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n3. **Polkadot Asset Hub\n(`cumulus/parachains/chain-specs/asset-hub-polkadot.json`):**\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n4. **Polkadot People\n(`cumulus/parachains/chain-specs/people-polkadot.json`):**\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n\nNo existing bootnodes were removed or reordered. No crate or runtime\ncode changes.\n\nReachability checked over both IPv4 (`85.195.201.203`) and IPv6\n(`2a02:168:e7f2:0:15::d1..d4`) before opening:\n- All four DNS hostnames resolve to both `A` and `AAAA` records\n- All four `/tcp/443/wss` endpoints have valid TLS certificates and\ncomplete WebSocket (`101 Switching Protocols`) + libp2p noise/yamux\nhandshakes\n- All four direct `/ws` endpoints (`22010`, `22011`, `22081`, `22070`)\naccept connections over IPv4 and IPv6\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships these chainspecs. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nAppends two multiaddrs (`ws` and `wss`) per chain to the existing\n`bootNodes` array in the four embedded JSON chain specs, plus the\ncorresponding `prdoc` file.\n\nSuggested labels:\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T18:52:39Z",
+          "tree_id": "98aa7629d185a2624fcd0e36d8d1cd15a1fda9c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea042997ff92b26c6458d85a04e6b9d1fff0856"
+        },
+        "date": 1795032721501,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4141908,
+            "range": "± 23050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304588,
+            "range": "± 2268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4267603,
+            "range": "± 30592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 376863,
+            "range": "± 2750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4886662,
+            "range": "± 32924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 891766,
+            "range": "± 7323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10522013,
+            "range": "± 94023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4892292,
+            "range": "± 40293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44455670,
+            "range": "± 268560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37687807,
+            "range": "± 324640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 353572802,
+            "range": "± 2795923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 297962757,
+            "range": "± 2187362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2572536888,
+            "range": "± 8457116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2306709434,
+            "range": "± 14246326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3467829,
+            "range": "± 20385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1909452,
+            "range": "± 13191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3617071,
+            "range": "± 46398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1996422,
+            "range": "± 13258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4185071,
+            "range": "± 48673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2294555,
+            "range": "± 12378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8015220,
+            "range": "± 31539",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5460542,
+            "range": "± 60989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37913473,
+            "range": "± 191899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37288599,
+            "range": "± 280956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321210637,
+            "range": "± 2778283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 286019086,
+            "range": "± 2318118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2604540523,
+            "range": "± 25796832",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2311855551,
+            "range": "± 28238342",
             "unit": "ns/iter"
           }
         ]
