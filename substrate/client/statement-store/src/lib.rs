@@ -93,7 +93,7 @@ pub use subscription::{
 use subscription::{ReplayBatch, ReplaySnapshotProvider, REPLAY_CHUNK_RAW_BYTES};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
-const CURRENT_VERSION: u32 = 3;
+const CURRENT_VERSION: u32 = 4;
 
 /// Meta column key of the persisted global counters, SCALE-encoded as
 /// `(totals: StoreTotals, next_seq: u64)`. The row is rewritten as part of
@@ -1736,6 +1736,7 @@ impl Store {
 			match version {
 				1 => self.migrate_v1_to_v2()?,
 				2 => self.migrate_v2_to_v3()?,
+				3 => self.migrate_v3_to_v4()?,
 				_ => {
 					return Err(Error::Db(format!("No migration from database version {version}")))
 				},
@@ -1863,6 +1864,70 @@ impl Store {
 			target: LOG_TARGET,
 			"Migrated the statement store index to per-track totals ({} rows)",
 			migrated_entries
+		);
+		Ok(())
+	}
+
+	/// Version 4 holds no statement without topics. Each such statement leaves the database with
+	/// its index rows and its admission entry, and the totals are recounted from the statements
+	/// that stay.
+	fn migrate_v3_to_v4(&self) -> Result<()> {
+		let next_seq =
+			match self.db.get(col::META, KEY_COUNTERS).map_err(|e| Error::Db(e.to_string()))? {
+				Some(counters) => {
+					<(StoreTotals, u64)>::decode(&mut counters.as_slice())
+						.map_err(|_| Error::Db("Error reading the store counters".into()))?
+						.1
+				},
+				None => 0,
+			};
+		let mut totals = StoreTotals::default();
+		let mut dropped = 0usize;
+		// Collected first, so the pass over the statements column never sees its own deletions.
+		let mut removals = Vec::new();
+		self.for_each_stored_statement(|hash, statement, account| {
+			let expiry = Expiry(statement.expiry());
+			let details = self
+				.db
+				.get(col::INDEX_BY_ACCOUNT, &account_index_key(account, expiry, hash))
+				.map_err(|e| Error::Db(e.to_string()))?
+				.as_deref()
+				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
+			if !statement.topics().is_empty() {
+				match details {
+					Some(details) => totals.add(details.track, details.data_len),
+					None => totals.add(RetentionTrack::ExplicitOnly, statement.data_len()),
+				}
+				return Ok(());
+			}
+			dropped += 1;
+			let admission_op = details.map(|details| {
+				(col::ADMISSION_SEQ, details.admission_seq.to_be_bytes().to_vec(), None)
+			});
+			// The body goes last and the account row, the source of the admission number, right
+			// before it, so a re-run after an interruption still finds every row left behind.
+			removals.extend(
+				admission_op
+					.into_iter()
+					.chain(statement_index_ops(hash, statement, false))
+					.chain(account_index_ops(account, expiry, hash, None))
+					.chain([(col::STATEMENTS, hash.to_vec(), None)])
+					.map(DbOperation::from),
+			);
+			Ok(())
+		})?;
+
+		let mut migration = MigrationBatch::new(&self.db);
+		for operation in removals {
+			migration.push(operation)?;
+		}
+		migration.push(SubmitIndex::counters_op(&totals, next_seq).into())?;
+		migration.finish()?;
+		Self::set_db_version(&self.db, 4)?;
+		log::info!(
+			target: LOG_TARGET,
+			"Dropped {} statements without topics from the statement store",
+			dropped
 		);
 		Ok(())
 	}
@@ -5357,6 +5422,53 @@ mod tests {
 		let (key, _) = journal.next().unwrap().unwrap();
 		assert_eq!(parse_time_index_key(&key), Some((purge_at, banned)));
 		assert!(journal.next().unwrap().is_none());
+	}
+
+	#[test]
+	fn migration_from_v3_drops_statements_without_topics() {
+		let (store, temp) = test_store();
+		let kept = signed_statement_with_topics(1, &[topic(1)], None);
+		assert_eq!(store.submit(kept.clone(), StatementSource::Local), SubmitResult::New);
+
+		// A version-3 store admitted a statement without topics, so its rows are written by hand.
+		let dropped = signed_statement_with_topics(2, &[], None);
+		let hash = dropped.hash();
+		let account = dropped.account_id().unwrap();
+		let expiry = crate::Expiry(dropped.expiry());
+		let (mut totals, next_seq) = <(StoreTotals, u64)>::decode(
+			&mut store.db.get(col::META, crate::KEY_COUNTERS).unwrap().unwrap().as_slice(),
+		)
+		.unwrap();
+		let details = crate::EntryDetails {
+			channel: None,
+			data_len: dropped.data_len(),
+			admission_seq: next_seq,
+			track: RetentionTrack::ExplicitOnly,
+		};
+		totals.add(details.track, details.data_len);
+		let mut commit = vec![
+			(col::STATEMENTS, hash.to_vec(), Some(dropped.encode())),
+			(col::ADMISSION_SEQ, next_seq.to_be_bytes().to_vec(), Some(hash.to_vec())),
+			crate::SubmitIndex::counters_op(&totals, next_seq + 1),
+			(col::META, KEY_VERSION.to_vec(), Some(3u32.to_le_bytes().to_vec())),
+		];
+		commit.extend(crate::statement_index_ops(&hash, &dropped, true));
+		commit.extend(crate::account_index_ops(&account, expiry, &hash, Some(&details)));
+		store.db.commit(commit).unwrap();
+
+		let store = reopen(store, &temp);
+
+		assert!(store.statement(&hash).unwrap().is_none());
+		assert!(!store.index_has_dec_key(&None, &hash));
+		let account_key = crate::account_index_key(&account, expiry, &hash);
+		assert!(store.db.get(col::INDEX_BY_ACCOUNT, &account_key).unwrap().is_none());
+		assert!(store.db.get(col::ADMISSION_SEQ, &next_seq.to_be_bytes()).unwrap().is_none());
+
+		assert!(store.statement(&kept.hash()).unwrap().is_some());
+		assert!(store.index_has_topic(&topic(1), &kept.hash()));
+		assert_eq!(store.statement_count(), 1);
+		assert_eq!(store.total_size(), kept.data_len());
+		assert_eq!(store.submit_index.read().next_seq, next_seq + 1);
 	}
 
 	fn transient_max_size(max_size: usize) -> Config {
