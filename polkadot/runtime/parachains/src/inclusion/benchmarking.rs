@@ -126,10 +126,17 @@ mod benchmarks {
 		let mut commitments =
 			create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
 
+		// Enactment decodes the entire Requires signal even when the candidate has no Provides.
+		let requires = RequiresSet::try_from_iter(
+			(0..MAX_COMMITMENT_ENTRIES).map(|i| (ParaId::from(i), root(i as u64))),
+		)
+		.expect("distinct sources within the commitment bound; qed");
+		commitments.upward_messages.force_push(UMP_SEPARATOR);
+		commitments.upward_messages.force_push(UMPSignal::Requires(requires).encode());
+
 		// With `p`, carry a `Provides` into a full window, so the record reads the whole window,
 		// drops the oldest root and writes it back.
 		if p != 0 {
-			commitments.upward_messages.force_push(UMP_SEPARATOR);
 			commitments
 				.upward_messages
 				.force_push(UMPSignal::Provides(root(u64::MAX)).encode());
