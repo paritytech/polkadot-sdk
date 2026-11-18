@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795024780889,
+  "lastUpdate": 1795033842938,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "104af7915ab0a8ab5bf5a3c9f09bf134560a877c",
-          "message": "Version bumps and prdocs reordering after stable2603-1 (#11977)\n\nThis PR backports regualr node version bumps and prdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-05-04T14:02:52Z",
-          "tree_id": "e770ffce4ae7ef632b9289707c4e3a17b1eaef2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/104af7915ab0a8ab5bf5a3c9f09bf134560a877c"
-        },
-        "date": 1777908504005,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.178,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038336088550000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07695714079399987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08673901049999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "53312868+helixstreet@users.noreply.github.com",
+            "name": "helixstreet",
+            "username": "helixstreet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea042997ff92b26c6458d85a04e6b9d1fff0856",
+          "message": "Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot (#13571)\n\n# Description\n\nAdds eight dual-stack (IPv4 + IPv6) Helixstreet bootnode multiaddrs (WS\nand WSS `/tcp/443/wss`) to the embedded relay and system parachain chain\nspecifications:\n\n1. **Polkadot Relay\n(`polkadot/node/service/chain-specs/polkadot.json`):**\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n2. **Kusama Relay (`polkadot/node/service/chain-specs/kusama.json`):**\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n3. **Polkadot Asset Hub\n(`cumulus/parachains/chain-specs/asset-hub-polkadot.json`):**\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n4. **Polkadot People\n(`cumulus/parachains/chain-specs/people-polkadot.json`):**\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n\nNo existing bootnodes were removed or reordered. No crate or runtime\ncode changes.\n\nReachability checked over both IPv4 (`85.195.201.203`) and IPv6\n(`2a02:168:e7f2:0:15::d1..d4`) before opening:\n- All four DNS hostnames resolve to both `A` and `AAAA` records\n- All four `/tcp/443/wss` endpoints have valid TLS certificates and\ncomplete WebSocket (`101 Switching Protocols`) + libp2p noise/yamux\nhandshakes\n- All four direct `/ws` endpoints (`22010`, `22011`, `22081`, `22070`)\naccept connections over IPv4 and IPv6\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships these chainspecs. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nAppends two multiaddrs (`ws` and `wss`) per chain to the existing\n`bootNodes` array in the four embedded JSON chain specs, plus the\ncorresponding `prdoc` file.\n\nSuggested labels:\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T18:52:39Z",
+          "tree_id": "98aa7629d185a2624fcd0e36d8d1cd15a1fda9c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea042997ff92b26c6458d85a04e6b9d1fff0856"
+        },
+        "date": 1795033800108,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.106,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038701640384,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08848266042599995,
             "unit": "seconds"
           }
         ]
