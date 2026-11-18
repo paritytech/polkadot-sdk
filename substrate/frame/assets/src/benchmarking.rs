@@ -89,11 +89,41 @@ pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
-/// Creates `n` accounts holding their own deposit, each blocked with a block deposit from
-/// `freezer`, so destroying them releases two deposits per account.
-fn add_blocked_accounts<T: Config<I>, I: 'static>(freezer: T::AccountId, n: u32) {
+/// Blocks `target` as `freezer`, which places the block deposit, then hands the freezer role back
+/// to `owner`. The deposit then sits on an account that is not whitelisted, as it does when the
+/// freezer was rotated or the admin thaws.
+fn block_as<T: Config<I>, I: 'static>(
+	owner: &T::AccountId,
+	freezer: T::AccountId,
+	target: T::AccountId,
+) {
 	let asset_id = default_asset_id::<T, I>();
-	fund_account_deposits::<T, I>(&freezer, n);
+	let owner_lookup = T::Lookup::unlookup(owner.clone());
+	let set_freezer = |freezer: AccountIdLookupOf<T>| {
+		assert!(Assets::<T, I>::set_team(
+			SystemOrigin::Signed(owner.clone()).into(),
+			asset_id.clone(),
+			owner_lookup.clone(),
+			owner_lookup.clone(),
+			freezer,
+		)
+		.is_ok());
+	};
+	fund_account_deposits::<T, I>(&freezer, 1);
+	set_freezer(T::Lookup::unlookup(freezer.clone()));
+	assert!(Assets::<T, I>::block(
+		SystemOrigin::Signed(freezer).into(),
+		asset_id.clone(),
+		T::Lookup::unlookup(target),
+	)
+	.is_ok());
+	set_freezer(owner_lookup.clone());
+}
+
+/// Creates `n` accounts holding their own deposit, each blocked with a block deposit from its own
+/// freezer, so destroying them releases two deposits per account to two distinct accounts.
+fn add_blocked_accounts<T: Config<I>, I: 'static>(owner: T::AccountId, n: u32) {
+	let asset_id = default_asset_id::<T, I>();
 	for i in 0..n {
 		let target: T::AccountId = account("blocked", i, SEED);
 		fund_account_deposits::<T, I>(&target, 1);
@@ -102,12 +132,7 @@ fn add_blocked_accounts<T: Config<I>, I: 'static>(freezer: T::AccountId, n: u32)
 			asset_id.clone()
 		)
 		.is_ok());
-		assert!(Assets::<T, I>::block(
-			SystemOrigin::Signed(freezer.clone()).into(),
-			asset_id.clone(),
-			T::Lookup::unlookup(target),
-		)
-		.is_ok());
+		block_as::<T, I>(&owner, account("freezer", i, SEED), target);
 	}
 }
 
@@ -204,14 +229,15 @@ benchmarks_instance_pallet! {
 			asset_id.clone(),
 		)?;
 		Assets::<T,I>::start_destroy(SystemOrigin::Signed(caller.clone()).into(), asset_id.clone())?;
+		assert_eq!(BlockDeposits::<T, I>::iter_prefix(asset_id.clone().into()).count() as u32, c);
 	}:_(SystemOrigin::Signed(caller.clone()), asset_id.clone())
 	verify {
 		assert_last_event::<T, I>(Event::AccountsDestroyed {
-			asset_id: asset_id.into(),
+			asset_id: asset_id.clone().into(),
 			accounts_destroyed: c,
 			accounts_remaining: 0,
 		}.into());
-		assert!(T::Currency::reserved_balance(&caller).is_zero());
+		assert!(BlockDeposits::<T, I>::iter_prefix(asset_id.into()).next().is_none());
 	}
 
 	destroy_approvals {
@@ -299,36 +325,35 @@ benchmarks_instance_pallet! {
 
 	freeze {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(false, 100u32.into());
-		fund_account_deposits::<T, I>(&caller, 1);
-		Assets::<T, I>::block(
-			SystemOrigin::Signed(caller.clone()).into(),
-			asset_id.clone(),
-			caller_lookup.clone(),
-		)?;
-		assert!(BlockDeposits::<T, I>::contains_key(asset_id.clone().into(), &caller));
+		let freezer: T::AccountId = account("freezer", 0, SEED);
+		block_as::<T, I>(&caller, freezer.clone(), caller.clone());
+		assert_eq!(
+			BlockDeposits::<T, I>::get(asset_id.clone().into(), &caller).map(|(d, _)| d),
+			Some(freezer.clone())
+		);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
-		assert!(T::Currency::reserved_balance(&caller).is_zero());
+		assert!(T::Currency::reserved_balance(&freezer).is_zero());
 		assert_last_event::<T, I>(Event::Frozen { asset_id: asset_id.into(), who: caller }.into());
 	}
 
 	thaw {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		fund_account_deposits::<T, I>(&caller, 1);
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		fund_account_deposits::<T, I>(&target, 1);
 		Assets::<T, I>::touch(SystemOrigin::Signed(target.clone()).into(), asset_id.clone())?;
-		Assets::<T, I>::block(
-			SystemOrigin::Signed(caller.clone()).into(),
-			asset_id.clone(),
-			target_lookup.clone(),
-		)?;
+		let freezer: T::AccountId = account("freezer", 0, SEED);
+		block_as::<T, I>(&caller, freezer.clone(), target.clone());
 		Assets::<T, I>::refund(SystemOrigin::Signed(target.clone()).into(), asset_id.clone(), true)?;
+		assert_eq!(
+			BlockDeposits::<T, I>::get(asset_id.clone().into(), &target).map(|(d, _)| d),
+			Some(freezer.clone())
+		);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup)
 	verify {
 		assert!(!Account::<T, I>::contains_key(asset_id.clone().into(), &target));
-		assert!(T::Currency::reserved_balance(&caller).is_zero());
+		assert!(T::Currency::reserved_balance(&freezer).is_zero());
 		assert_last_event::<T, I>(Event::Thawed { asset_id: asset_id.into(), who: target }.into());
 	}
 
