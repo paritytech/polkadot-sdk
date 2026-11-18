@@ -298,6 +298,43 @@ fn validate_block_works() {
 }
 
 #[test]
+fn validate_block_rejects_lifts_for_unconsumed_sources() {
+	use cumulus_primitives_spec_messaging::{
+		LiftsBySource, MmrExtensionProof, RequiresLift, StreamProof,
+	};
+	use std::collections::BTreeMap;
+
+	sp_tracing::try_init_simple();
+	let (client, parent_head) = create_test_client();
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		Vec::new(),
+		parent_head.clone(),
+		Default::default(),
+		Default::default(),
+	);
+	let (blocks, proof) = block.into_inner();
+	let validate = |lifts| {
+		let pov = ParachainBlockData::new_with_lifts(blocks.clone(), proof.clone(), None, lifts);
+		call_validate_block(parent_head.clone(), pov, validation_data.relay_parent_storage_root)
+	};
+
+	assert_eq!(validate(LiftsBySource::default()).expect("valid V3 PoV"), *blocks[0].header());
+
+	let lift = RequiresLift {
+		advances: Vec::new(),
+		extension: MmrExtensionProof::identity(&Default::default()),
+		tree_proof: StreamProof { steps: Default::default() },
+	};
+	let lifts = LiftsBySource::try_from(BTreeMap::from([(ParaId::from(2000), vec![lift])]))
+		.expect("one source fits the bound; qed");
+	let logs = capture_test_logs!({
+		validate(lifts).expect_err("the block consumed nothing from this source");
+	});
+	assert!(logs.contains("LiftSourceMismatch"), "{}", logs.get_logs());
+}
+
+#[test]
 fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 
