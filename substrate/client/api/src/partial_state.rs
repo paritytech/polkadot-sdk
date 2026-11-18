@@ -70,7 +70,7 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// sync up.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
-	/// This returns and the work runs in a blocking task, and the receiver gets its result. 
+	/// This returns and the work runs in a blocking task, and the receiver gets its result.
 	/// Fails, and records nothing, if the database already holds block state.
 	fn begin_partial_state(
 		&self,
@@ -78,9 +78,9 @@ pub trait PartialStateImport<Block: BlockT> {
 	) -> oneshot::Receiver<sp_blockchain::Result<()>>;
 
 	/// Write the chunk's nodes and its range end as the new cursor, in one transaction. A chunk
-	/// with no end marks the download complete. On `Err` nothing was written and the same chunk
-	/// may be sent again. A chunk for another block or state root, one not starting at the
-	/// cursor, or one after the final chunk is refused.
+	/// with no end marks the download complete. On `Err` nothing was written and the cursor did
+	/// not move. A chunk for another block or state root, one not starting at the cursor, or one
+	/// after the final chunk is refused.
 	fn import_partial_state(
 		&self,
 		partial_state: &PartialStateFor<Block>,

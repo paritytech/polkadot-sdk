@@ -1026,16 +1026,11 @@ where
 				self.attempt_state_sync(hash, number);
 			}
 		}
-		// Finish a pending write.
-		match self.state_sync.as_mut().and_then(|sync| sync.retry_pending_write()) {
-			Some(ImportResult::Import(block)) => self.queue_target_import(block),
-			Some(ImportResult::Abort) => self.abort_state_sync(),
-			// A justification request may have cleared the allowed requests during the wait.
-			// Let the next state request go out.
-			Some(ImportResult::Continue | ImportResult::BadResponse) => {
-				self.allowed_requests.set_all()
-			},
-			None => {},
+		// The client records the target in a task. If that failed, the sync is over.
+		if let Some(ImportResult::Abort) =
+			self.state_sync.as_mut().and_then(|sync| sync.poll_pending_write())
+		{
+			self.abort_state_sync();
 		}
 
 		let block_requests = self
@@ -2237,8 +2232,7 @@ where
 			return None;
 		}
 		if let Some(sync) = &self.state_sync {
-			// Nothing to ask while the target is being recorded or a chunk waits to be written:
-			// the retry decides what is next.
+			// Nothing to ask while the target is being recorded.
 			if sync.is_complete() || sync.has_pending_write() {
 				return None;
 			}

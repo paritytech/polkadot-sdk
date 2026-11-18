@@ -1828,18 +1828,13 @@ fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 	assert!(matches!(sync.mode, ChainSyncMode::Full));
 }
 
-/// A chunk the database refused is kept and written again a second later, with no new request:
-/// the retry completes the download and the target import lands. The refusal comes from another
-/// target recorded under the sync's feet, right before the response arrives.
+/// A chunk the database refuses ends the state sync at once: the sync is dropped and nothing is
+/// imported. The refusal comes from another target recorded under the sync's feet, right before
+/// the response arrives. The mode stays, so the next finalized block starts a state sync again.
 #[test]
-fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
+fn refused_chunk_aborts_the_state_sync() {
 	let remote = TestClientBuilder::new().build();
 	let header = build_block(&remote, None, true).header().clone();
-	let target = |header: &Header| PartialStateTarget {
-		header: header.clone(),
-		body: None,
-		justifications: None,
-	};
 	let client = client_knowing_header_only(&header);
 	let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
 	for _ in 0..2 {
@@ -1851,33 +1846,22 @@ fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
 	assert!(request.start.is_empty());
 
 	let other = build_block(&remote, Some(header.hash()), false).header().clone();
-	begin_and_wait(&*client, target(&other)).unwrap();
+	let other = PartialStateTarget { header: other, body: None, justifications: None };
+	begin_and_wait(&*client, other).unwrap();
 	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX).unwrap();
 	let response = StateResponse { entries: vec![], proof: proof.encode() }.encode_to_vec();
 	assert!(sync.on_state_data(&peer, &response).is_ok());
 
-	let network_provider = NetworkServiceProvider::new();
-	let network_handle = network_provider.handle();
-	assert_eq!(sync.take_actions().count(), 0, "nothing imported yet");
-	assert!(sync.state_request().is_none(), "no request while the chunk waits");
-	assert!(sync.block_requests().is_empty(), "block sync waits for the state");
-	assert!(sync.actions(&network_handle).unwrap().is_empty(), "the retry waits for its delay");
-
-	begin_and_wait(&*client, target(&header)).unwrap();
-	sync.state_sync.as_mut().expect("the state sync goes on").expire_write_delay();
-	let actions = sync.actions(&network_handle).unwrap();
-	assert!(matches!(
-		actions.as_slice(),
-		[SyncingAction::ImportBlocks { blocks, .. }]
-			if blocks.len() == 1 && blocks[0].hash == header.hash() && blocks[0].state.is_some()
-	));
-	sync.on_blocks_processed(
-		1,
-		1,
-		vec![(Ok(BlockImportStatus::ImportedUnknown(1, Default::default(), None)), header.hash())],
+	assert!(sync.state_sync.is_none(), "the state sync is dropped");
+	assert!(
+		!sync
+			.take_actions()
+			.any(|action| matches!(action, SyncingAction::ImportBlocks { .. })),
+		"nothing is imported"
 	);
-	assert!(sync.state_sync.is_none());
-	assert!(matches!(sync.mode, ChainSyncMode::Full));
+	assert!(matches!(sync.mode, ChainSyncMode::LightState));
+	sync.on_block_finalized(&header.hash(), 1);
+	assert!(sync.state_sync.is_some(), "the next finalized block starts a state sync again");
 }
 
 /// Replacing a block download must let another peer retry it before ancestry search finishes.

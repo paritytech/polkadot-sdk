@@ -24,7 +24,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use sc_client_api::{
 	partial_state::{PartialStateTarget, ResumablePartialState},
 	CompactProof, PartialStateImport, ProofProvider,
@@ -35,18 +35,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
-use std::{
-	fmt,
-	sync::Arc,
-	time::{Duration, Instant},
-};
-
-/// Retries of a failed chunk write before the state sync gives up on its target. The chunk stays
-/// in memory between the attempts, nothing is downloaded again.
-const MAX_PARTIAL_STATE_WRITE_RETRIES: u32 = 4;
-
-/// The wait between two write attempts of the same chunk.
-const PARTIAL_STATE_WRITE_RETRY_DELAY: Duration = Duration::from_secs(1);
+use std::{fmt, sync::Arc};
 
 /// A resumed target this many blocks or more below the finalized head a parachain is given at
 /// startup is too old to download. Peers keep the state of the last 256 finalized blocks by
@@ -103,12 +92,11 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// only the import is left. Handed out once. A download in progress returns `None`: its
 	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
-	/// Finish the work that waits on the database, if it is ready.
-	// `None` means there is no result: nothing is pending, the task still runs,
-	// or the delay has not passed.
-	fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
-	/// The target is still being recorded, or a verified chunk waits to be written. No state
-	/// request goes out meanwhile.
+	/// The result of recording the target, handed out once, when the client's task has ended:
+	/// `Continue` lets the download start, `Abort` means the target could not be recorded.
+	/// `None` while the task runs and after its result was handed out.
+	fn poll_pending_write(&mut self) -> Option<ImportResult<B>>;
+	/// The target is still being recorded. No state request goes out meanwhile.
 	fn has_pending_write(&self) -> bool;
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool;
@@ -158,17 +146,8 @@ pub enum ImportResult<B: BlockT> {
 	Continue,
 	/// Bad state chunk.
 	BadResponse,
-	/// Chunks keep failing to write to the database. Give up on this target.
+	/// The database did not take the target or a chunk. Give up on this target.
 	Abort,
-}
-
-/// A verified chunk whose database write failed. Kept for a retry, nothing is downloaded again.
-struct PendingWrite<B: BlockT> {
-	/// The chunk. Its `end` is the cursor once written, `None` on the final chunk.
-	chunk: PartialStateFor<B>,
-	proof_size: u64,
-	retries: u32,
-	next_attempt: Instant,
 }
 
 struct StateSyncMetadata<B: BlockT> {
@@ -240,14 +219,13 @@ impl<B: BlockT> StateSyncMetadata<B> {
 /// State sync state machine.
 ///
 /// Every verified chunk goes straight to the database, and the cursor only moves once that write
-/// succeeded. Between two responses only a chunk whose write failed lives in memory, for a retry.
+/// succeeded. No chunk stays in memory between two responses, and a failed write ends the sync.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	client: Arc<Client>,
 	/// Gets the result of the task in which the client records the target, see
-	/// [`StateSync::new`]. `None` once `retry_pending_write` has taken that result.
+	/// [`StateSync::new`]. `None` once `poll_pending_write` has taken that result.
 	begin: Option<oneshot::Receiver<sp_blockchain::Result<()>>>,
-	pending_write: Option<PendingWrite<B>>,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -260,7 +238,7 @@ where
 	/// one by one, tens of seconds on a large state, so the client does all of this in a task of
 	/// its own and `new` returns at once. Until that task has ended the sync reports a pending
 	/// write: no state request goes out and a response is ignored. Then
-	/// [`StateSyncProvider::retry_pending_write`] lets the download start, or aborts the sync if
+	/// [`StateSyncProvider::poll_pending_write`] lets the download start, or aborts the sync if
 	/// the target could not be recorded.
 	pub fn new(
 		client: Arc<Client>,
@@ -321,68 +299,15 @@ where
 				imported_bytes: 0,
 			},
 			begin: None,
-			pending_write: None,
 		}
 	}
 
-	/// Write `pending`; on failure keep it for a retry after the delay, up to the limit.
-	fn try_write(&mut self, mut pending: PendingWrite<B>) -> ImportResult<B> {
-		match self.client.import_partial_state(&pending.chunk) {
-			Ok(()) => {
-				self.metadata.imported_bytes += pending.proof_size;
-				match pending.chunk.end {
-					Some(end) => {
-						self.metadata.last_key = SmallVec::from_vec(end);
-						ImportResult::Continue
-					},
-					None => {
-						// Everything is in the database. The block import now checks that the
-						// state is complete and marks it as available.
-						self.metadata.complete = true;
-						ImportResult::Import(self.metadata.target_block())
-					},
-				}
-			},
-			Err(e) if pending.retries >= MAX_PARTIAL_STATE_WRITE_RETRIES => {
-				error!(
-					target: LOG_TARGET,
-					"Failed to write a state chunk to the database after {} retries, giving up on \
-					 the state sync: {e}",
-					pending.retries,
-				);
-				ImportResult::Abort
-			},
-			Err(e) => {
-				pending.retries += 1;
-				warn!(
-					target: LOG_TARGET,
-					"Failed to write a state chunk to the database ({}/{} retries), retrying in \
-					 {} s: {e}",
-					pending.retries,
-					MAX_PARTIAL_STATE_WRITE_RETRIES,
-					PARTIAL_STATE_WRITE_RETRY_DELAY.as_secs(),
-				);
-				pending.next_attempt = Instant::now() + PARTIAL_STATE_WRITE_RETRY_DELAY;
-				self.pending_write = Some(pending);
-				ImportResult::Continue
-			},
-		}
-	}
-
-	/// Makes the pending write due now, so tests need not wait for the delay.
-	#[cfg(test)]
-	pub(crate) fn expire_write_delay(&mut self) {
-		if let Some(pending) = &mut self.pending_write {
-			pending.next_attempt = Instant::now();
-		}
-	}
-
-	/// Waits for the task of `new` and returns what `retry_pending_write` makes of its result,
+	/// Waits for the task of `new` and returns what `poll_pending_write` makes of its result,
 	/// so tests need not poll.
 	#[cfg(test)]
 	pub(crate) fn wait_for_begin(&mut self) -> Option<ImportResult<B>> {
 		loop {
-			let result = self.retry_pending_write();
+			let result = self.poll_pending_write();
 			if self.begin.is_none() {
 				return result;
 			}
@@ -405,8 +330,8 @@ where
 			return ImportResult::Continue;
 		}
 		if self.has_pending_write() {
-			// No request is out while the target is being recorded or a chunk waits to be written:
-			// this answers a cancelled one, or one of an earlier state sync.
+			// No request is out while the target is being recorded: this answers a cancelled one,
+			// or one of an earlier state sync.
 			debug!(target: LOG_TARGET, "Ignoring a state response while a write is pending");
 			return ImportResult::Continue;
 		}
@@ -456,8 +381,7 @@ where
 		}
 
 		// Write the chunk before moving the cursor. The chunk carries the range it proves, and its
-		// end becomes the cursor a restart continues from. If the write fails, the chunk is kept
-		// and `retry_pending_write` tries again, nothing is downloaded twice.
+		// end becomes the cursor a restart continues from.
 		let chunk = PartialStateFor::<B> {
 			block_hash: self.metadata.target_hash(),
 			state_root: self.metadata.target_root(),
@@ -466,41 +390,55 @@ where
 			end: (!complete).then(|| next_key.to_vec()),
 			child_trie_copies: values.child_trie_copies(),
 		};
-		self.try_write(PendingWrite { chunk, proof_size, retries: 0, next_attempt: Instant::now() })
+		if let Err(e) = self.client.import_partial_state(&chunk) {
+			// Not retried. A chunk the store refuses is refused again, and after a failed commit
+			// the database usually takes no more writes until the node restarts. Nothing was
+			// written and the cursor stays, so the next attempt continues from it.
+			error!(
+				target: LOG_TARGET,
+				"Failed to write a state chunk to the database, giving up on the state sync: {e}",
+			);
+			return ImportResult::Abort;
+		}
+		self.metadata.imported_bytes += proof_size;
+		match chunk.end {
+			Some(end) => {
+				self.metadata.last_key = SmallVec::from_vec(end);
+				ImportResult::Continue
+			},
+			None => {
+				// Everything is in the database. The block import now checks that the state is
+				// complete and marks it as available.
+				self.metadata.complete = true;
+				ImportResult::Import(self.metadata.target_block())
+			},
+		}
 	}
 
-	fn retry_pending_write(&mut self) -> Option<ImportResult<B>> {
-		let recorded = self.begin.as_mut().and_then(|begin| begin.try_recv().transpose());
-		if let Some(recorded) = recorded {
-			self.begin = None;
-			// The sender is gone without a result: the task panicked or was never run.
-			let recorded = recorded.unwrap_or_else(|_| {
-				Err(sp_blockchain::Error::Backend("the task recording it did not finish".into()))
-			});
-			return Some(match recorded {
-				Ok(()) => ImportResult::Continue,
-				Err(e) => {
-					error!(
-						target: LOG_TARGET,
-						"Failed to record the state sync target #{} ({}), giving up on the state \
-						 sync: {e}",
-						self.metadata.target_number(),
-						self.metadata.target_hash(),
-					);
-					ImportResult::Abort
-				},
-			});
-		}
-		// No chunk is pending while the target is still being recorded: responses are ignored.
-		if Instant::now() < self.pending_write.as_ref()?.next_attempt {
-			return None;
-		}
-		let pending = self.pending_write.take()?;
-		Some(self.try_write(pending))
+	fn poll_pending_write(&mut self) -> Option<ImportResult<B>> {
+		let recorded = self.begin.as_mut()?.try_recv().transpose()?;
+		self.begin = None;
+		// The sender is gone without a result: the task panicked or was never run.
+		let recorded = recorded.unwrap_or_else(|_| {
+			Err(sp_blockchain::Error::Backend("the task recording it did not finish".into()))
+		});
+		Some(match recorded {
+			Ok(()) => ImportResult::Continue,
+			Err(e) => {
+				error!(
+					target: LOG_TARGET,
+					"Failed to record the state sync target #{} ({}), giving up on the state \
+					 sync: {e}",
+					self.metadata.target_number(),
+					self.metadata.target_hash(),
+				);
+				ImportResult::Abort
+			},
+		})
 	}
 
 	fn has_pending_write(&self) -> bool {
-		self.begin.is_some() || self.pending_write.is_some()
+		self.begin.is_some()
 	}
 
 	/// Produce next state request.
@@ -641,69 +579,19 @@ mod tests {
 		// A late answer to the final request, another peer answered it first.
 		let late = response(&remote, &header, &cursor, usize::MAX);
 		assert!(matches!(sync.import(late), ImportResult::Continue));
-		assert!(!sync.has_pending_write());
 	}
 
-	/// A chunk the database refused is kept: nothing is written, the cursor stays, and a response
-	/// that arrives meanwhile is ignored. Once the delay has passed the retry writes it, and the
-	/// cursor moves without a second download.
+	/// A chunk the database refuses ends the sync at once: nothing is written and the cursor stays.
 	#[test]
-	fn failed_write_is_retried_from_memory() {
+	fn refused_chunk_aborts_the_sync() {
 		let (remote, header) = remote();
 		let (client, mut sync) = syncing(&header);
 		// Another target recorded under the sync's feet: the database refuses its chunks.
 		begin_and_wait(&*client, other_target(&header)).unwrap();
 
-		assert!(matches!(sync.import(response(&remote, &header, &[], 1)), ImportResult::Continue));
-		assert!(sync.has_pending_write());
-		assert!(sync.next_request().start.is_empty(), "the cursor did not move");
-		assert!(record(&client).cursor.is_empty());
-		// Not even decoded: with nothing pending a missing proof is a bad response.
-		let no_proof = StateResponse { entries: vec![], proof: vec![] };
-		assert!(matches!(sync.import(no_proof), ImportResult::Continue), "ignored while pending");
-		assert!(sync.retry_pending_write().is_none(), "no retry before the delay");
-
-		begin_and_wait(&*client, target(&header)).unwrap();
-		sync.expire_write_delay();
-		assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
-		assert!(!sync.has_pending_write());
-		let cursor = sync.next_request().start;
-		assert!(!cursor.is_empty());
-		assert_eq!(record(&client).cursor, cursor, "the retry wrote the chunk kept in memory");
-	}
-
-	/// The last retry can still succeed. If it fails too, the state sync gives up: nothing was
-	/// written and the cursor stayed.
-	#[test]
-	fn the_limit_is_four_retries() {
-		let (remote, header) = remote();
-		let after_the_last_retry = |recover: bool| {
-			let (client, mut sync) = syncing(&header);
-			begin_and_wait(&*client, other_target(&header)).unwrap();
-			let whole_state = response(&remote, &header, &[], usize::MAX);
-			assert!(matches!(sync.import(whole_state), ImportResult::Continue));
-			for _ in 1..MAX_PARTIAL_STATE_WRITE_RETRIES {
-				sync.expire_write_delay();
-				assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
-				assert!(sync.has_pending_write());
-			}
-			if recover {
-				begin_and_wait(&*client, target(&header)).unwrap();
-			}
-			sync.expire_write_delay();
-			let last = sync.retry_pending_write();
-			assert!(!sync.has_pending_write());
-			(client, sync, last)
-		};
-
-		let (client, sync, last) = after_the_last_retry(true);
-		assert!(matches!(last, Some(ImportResult::Import(_))));
-		assert!(sync.is_complete() && record(&client).complete);
-
-		let (client, sync, last) = after_the_last_retry(false);
-		assert!(matches!(last, Some(ImportResult::Abort)));
+		assert!(matches!(sync.import(response(&remote, &header, &[], 1)), ImportResult::Abort));
 		assert!(!sync.is_complete());
-		assert!(sync.next_request().start.is_empty());
+		assert!(sync.next_request().start.is_empty(), "the cursor did not move");
 		let untouched = ResumablePartialState {
 			target: other_target(&header),
 			cursor: vec![],
@@ -726,7 +614,7 @@ mod tests {
 		let import_lock = backend.get_import_lock().write();
 		let mut sync = StateSync::new(client.clone(), header.clone(), None, None);
 		assert!(sync.has_pending_write());
-		assert!(sync.retry_pending_write().is_none(), "the thread has not ended");
+		assert!(sync.poll_pending_write().is_none(), "the thread has not ended");
 		// Not even decoded: with nothing pending a missing proof is a bad response.
 		let no_proof = StateResponse { entries: vec![], proof: vec![] };
 		assert!(matches!(sync.import(no_proof), ImportResult::Continue), "ignored while pending");

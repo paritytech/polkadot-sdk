@@ -597,8 +597,8 @@ where
 				_ = self.tick_timeout.tick() => {
 					// TODO: This tick should not be necessary, but
 					//  `self.process_strategy_actions()` is not called in some cases otherwise and
-					//  some tests fail because of this. State sync also relies on it: a chunk whose
-					//  database write failed is retried from `actions()` with no network event.
+					//  some tests fail because of this. State sync also relies on it: the task that
+					//  records its target ends with no network event, and `actions()` polls it.
 				},
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
