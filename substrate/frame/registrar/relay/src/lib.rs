@@ -55,16 +55,14 @@
 //!
 //! ## Relaying para requests
 //!
-//! A para with no channel to the parachain calls [`Pallet::relay`] instead. The request is queued
-//! in [`RelayQueue`] under the para id of the caller's origin and forwarded as
-//! [`MessageToParaV1::Relayed`] in `on_poll`, where the parachain decides whether it is allowed.
+//! A para with no channel to the parachain calls [`Pallet::relay`] instead. The request is sent on
+//! at once as [`MessageToParaV1::Relayed`], under the para id of the caller's origin, and the
+//! parachain decides whether it is allowed.
 //!
-//! Any para can call this, so the queue is bounded three ways: [`Config::MaxQueuedRequests`] in
-//! total, [`Config::MaxQueuedPerPara`] per para so no single para can fill it, and
-//! [`Config::MaxForwardedPerBlock`] going out per block so the parachain is not flooded.
-//!
-//! A request the transport refuses stays first in line. One that no longer fits
-//! [`SendToPara::max_message_size`] is dropped instead, so it cannot block the queue for good.
+//! [`Config::RelayOrigin`] picks the paras that may call it, so a runtime can keep it closed until
+//! the registry has moved to the parachain. Each may relay [`Config::MaxRequestsPerWindow`]
+//! requests per [`Config::RequestWindow`], which bounds what it can push into the parachain's
+//! queue.
 //!
 //! ## Code upgrades
 //!
@@ -85,13 +83,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::Get,
-	weights::{Weight, WeightMeter},
+	traits::{EnsureOrigin, Get},
+	weights::Weight,
 	BoundedVec,
 };
 pub use pallet::*;
 use polkadot_primitives::{HeadData, Id};
-use polkadot_runtime_parachains::{ensure_parachain, paras::OnNewHead, Origin as ParachainOrigin};
+use polkadot_runtime_parachains::{paras::OnNewHead, Origin as ParachainOrigin};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 	ParaId, ParaRequest, ParaRequestV1, ParachainRegistrar,
@@ -112,15 +110,9 @@ mod mock;
 mod tests;
 
 pub trait SendToPara {
-	/// Send `message` to the parachain.
-	///
-	/// `Err(())` means the transport refused the message; callers log and carry on rather than
-	/// unwind committed state.
+	/// Send `message` to the parachain. `Err(())` means the transport refused it.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
-
-	/// The largest encoded [`MessageToPara`] [`Self::send`] carries right now.
-	fn max_message_size() -> u32;
 }
 
 #[cfg(feature = "std")]
@@ -128,9 +120,26 @@ impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
 	}
+}
 
-	fn max_message_size() -> u32 {
-		u32::MAX
+/// Accepts any parachain origin, yielding its para id.
+pub struct EnsureParachain<O>(core::marker::PhantomData<O>);
+
+impl<O> EnsureOrigin<O> for EnsureParachain<O>
+where
+	O: Into<Result<ParachainOrigin, O>> + From<ParachainOrigin>,
+{
+	type Success = ParaId;
+
+	fn try_origin(o: O) -> Result<ParaId, O> {
+		o.into().map(|origin| match origin {
+			ParachainOrigin::Parachain(id) => id.into(),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(ParachainOrigin::Parachain(Id::from(2000)).into())
 	}
 }
 
@@ -172,62 +181,6 @@ pub struct PendingCodeUpgrade<BlockNumber> {
 	pub expire_at: BlockNumber,
 }
 
-/// [`ParaRequestV1`] with its head data bounded, as [`RelayQueue`] stores it.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
-#[scale_info(skip_type_params(MaxHeadDataSize))]
-pub enum QueuedRequest<MaxHeadDataSize: Get<u32>> {
-	AddLock,
-	RemoveLock,
-	Deregister,
-	ScheduleCodeUpgrade { code_hash: H256, code_len: u32 },
-	SetCurrentHead { head: BoundedVec<u8, MaxHeadDataSize> },
-}
-
-/// [`QueuedRequest`] as this pallet stores it.
-pub type QueuedRequestOf<T> = QueuedRequest<<T as Config>::MaxHeadDataSize>;
-
-impl<S: Get<u32>> QueuedRequest<S> {
-	fn head_len(&self) -> Option<u32> {
-		match self {
-			Self::SetCurrentHead { head } => Some(head.len() as u32),
-			_ => None,
-		}
-	}
-}
-
-impl<S: Get<u32>> TryFrom<ParaRequestV1> for QueuedRequest<S> {
-	/// The head data is over the bound.
-	type Error = ();
-
-	fn try_from(request: ParaRequestV1) -> Result<Self, ()> {
-		Ok(match request {
-			ParaRequestV1::AddLock => Self::AddLock,
-			ParaRequestV1::RemoveLock => Self::RemoveLock,
-			ParaRequestV1::Deregister => Self::Deregister,
-			ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len } => {
-				Self::ScheduleCodeUpgrade { code_hash, code_len }
-			},
-			ParaRequestV1::SetCurrentHead { head } => {
-				Self::SetCurrentHead { head: head.try_into().map_err(|_| ())? }
-			},
-		})
-	}
-}
-
-impl<S: Get<u32>> From<QueuedRequest<S>> for ParaRequestV1 {
-	fn from(request: QueuedRequest<S>) -> Self {
-		match request {
-			QueuedRequest::AddLock => Self::AddLock,
-			QueuedRequest::RemoveLock => Self::RemoveLock,
-			QueuedRequest::Deregister => Self::Deregister,
-			QueuedRequest::ScheduleCodeUpgrade { code_hash, code_len } => {
-				Self::ScheduleCodeUpgrade { code_hash, code_len }
-			},
-			QueuedRequest::SetCurrentHead { head } => Self::SetCurrentHead { head: head.into() },
-		}
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -236,11 +189,7 @@ pub mod pallet {
 	use sp_runtime::traits::{BlakeTwo256, Hash, SaturatedConversion, Saturating};
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<
-		RuntimeOrigin: Into<Result<ParachainOrigin, <Self as frame_system::Config>::RuntimeOrigin>>,
-	>
-	{
+	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -280,17 +229,18 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
 
-		/// How many relayed requests may wait to be forwarded at once.
-		#[pallet::constant]
-		type MaxQueuedRequests: Get<u32>;
+		/// The paras that may [`Pallet::relay`]. `NeverEnsureOrigin` keeps the call closed.
+		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
 
-		/// How many of those may come from one para, so no single para can fill the queue.
+		/// How many requests a para may relay per [`Config::RequestWindow`].
 		#[pallet::constant]
-		type MaxQueuedPerPara: Get<u32>;
+		type MaxRequestsPerWindow: Get<u32>;
 
-		/// How many queued requests are forwarded per block, to bound the load on the parachain.
+		/// The length, in blocks, of the window a para's relayed requests are counted over.
+		///
+		/// A para's window opens at its first request once the previous one is over.
 		#[pallet::constant]
-		type MaxForwardedPerBlock: Get<u32>;
+		type RequestWindow: Get<BlockNumberFor<Self>>;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -315,17 +265,10 @@ pub mod pallet {
 	pub type PendingCodeUpgrades<T: Config> =
 		StorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade<BlockNumberFor<T>>>;
 
-	/// Relayed requests waiting to be forwarded in `on_poll`, by queue position.
+	/// Per para, the block its request window started at and how many requests it relayed since.
 	#[pallet::storage]
-	pub type RelayQueue<T: Config> = StorageMap<_, Twox64Concat, u32, (ParaId, QueuedRequestOf<T>)>;
-
-	/// Position of the oldest queued request, and of the next free slot.
-	#[pallet::storage]
-	pub type RelayQueueBounds<T: Config> = StorageValue<_, (u32, u32), ValueQuery>;
-
-	/// How many requests each para has in [`RelayQueue`].
-	#[pallet::storage]
-	pub type QueuedPerPara<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, u32, ValueQuery>;
+	pub type RequestWindows<T: Config> =
+		StorageMap<_, Blake2_128Concat, ParaId, (BlockNumberFor<T>, u32)>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -365,12 +308,8 @@ pub mod pallet {
 		HeadUpdated { para_id: ParaId, message_id: u64 },
 		/// A head update was refused.
 		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
-		/// A para's request about itself was queued for the parachain.
-		RelayQueued { para_id: ParaId },
-		/// A queued request was forwarded to the parachain.
+		/// A para's request about itself was sent to the parachain.
 		Relayed { para_id: ParaId },
-		/// A queued request no longer fits the transport and was dropped.
-		RelayDropped { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -387,32 +326,12 @@ pub mod pallet {
 		AuthorizationExpired,
 		/// The registry would refuse this code upgrade right now.
 		CannotUpgradeCode,
-		/// The relay queue is full.
-		QueueFull,
-		/// This para already holds its share of the relay queue.
-		TooManyQueued,
-		/// The head data is larger than this pallet will hold or the transport can carry.
+		/// The para relayed all the requests it may in its current window.
+		TooManyRequests,
+		/// The transport refused the message.
+		SendFailed,
+		/// The head data is larger than this pallet will relay.
 		HeadDataTooLarge,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
-			Self::forward_queued(meter);
-		}
-
-		fn integrity_test() {
-			assert!(
-				(1..T::MaxQueuedRequests::get()).contains(&T::MaxQueuedPerPara::get()),
-				"MaxQueuedPerPara must be at least 1 and below MaxQueuedRequests",
-			);
-			assert!(T::MaxForwardedPerBlock::get() > 0, "MaxForwardedPerBlock must be at least 1");
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state()
-		}
 	}
 
 	#[pallet::call]
@@ -545,38 +464,29 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Queue a para's request about itself for the parachain it has no channel to.
+		/// Send a para's request about itself to the parachain it has no channel to.
 		///
-		/// The para id comes from the origin and the parachain checks the request. It goes out in
-		/// `on_poll`, oldest first.
+		/// The para id comes from the origin and the parachain checks the request.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::relay(match request {
 			ParaRequest::V1(ParaRequestV1::SetCurrentHead { head }) => head.len() as u32,
 			_ => 0,
 		}))]
 		pub fn relay(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
-			let para_id: ParaId = ensure_parachain(origin)?.into();
+			let para_id = T::RelayOrigin::ensure_origin(origin)?;
 			let ParaRequest::V1(request) = request;
-			// Refused here, so the para hears now instead of through a dropped request later.
-			let message =
-				MessageToPara::V1(MessageToParaV1::Relayed { para_id, request: request.clone() });
-			ensure!(
-				message.encoded_size() <= T::SendToPara::max_message_size() as usize,
-				Error::<T>::HeadDataTooLarge
-			);
-			let request: QueuedRequestOf<T> =
-				request.try_into().map_err(|()| Error::<T>::HeadDataTooLarge)?;
+			if let ParaRequestV1::SetCurrentHead { head } = &request {
+				ensure!(
+					head.len() <= T::MaxHeadDataSize::get() as usize,
+					Error::<T>::HeadDataTooLarge
+				);
+			}
 
-			let queued = QueuedPerPara::<T>::get(para_id);
-			ensure!(queued < T::MaxQueuedPerPara::get(), Error::<T>::TooManyQueued);
-			let (oldest, next) = RelayQueueBounds::<T>::get();
-			ensure!(next.wrapping_sub(oldest) < T::MaxQueuedRequests::get(), Error::<T>::QueueFull);
+			Self::count_request(para_id)?;
+			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Relayed { para_id, request }))
+				.map_err(|()| Error::<T>::SendFailed)?;
 
-			RelayQueue::<T>::insert(next, (para_id, request));
-			RelayQueueBounds::<T>::put((oldest, next.wrapping_add(1)));
-			QueuedPerPara::<T>::insert(para_id, queued.saturating_add(1));
-
-			Self::deposit_event(Event::RelayQueued { para_id });
+			Self::deposit_event(Event::Relayed { para_id });
 			Ok(())
 		}
 	}
@@ -759,94 +669,23 @@ pub mod pallet {
 				Error::<T>::CodeTooLarge => 3,
 				Error::<T>::AuthorizationExpired => 4,
 				Error::<T>::CannotUpgradeCode => 5,
-				Error::<T>::QueueFull => 6,
-				Error::<T>::TooManyQueued => 7,
+				Error::<T>::TooManyRequests => 6,
+				Error::<T>::SendFailed => 7,
 				Error::<T>::HeadDataTooLarge => 8,
 			}
 		}
 
-		/// Forward queued requests, oldest first, while `meter` and
-		/// [`Config::MaxForwardedPerBlock`] allow and the transport takes them.
-		pub(crate) fn forward_queued(meter: &mut WeightMeter) {
-			if meter.try_consume(T::WeightInfo::poll_relay_queue()).is_err() {
-				return;
-			}
-
-			let forward_weight = |head_len| {
-				T::WeightInfo::forward_relayed(head_len)
-					.saturating_sub(T::WeightInfo::poll_relay_queue())
+		/// Count one more request relayed by `para_id`, opening a new window if its last is over.
+		fn count_request(para_id: ParaId) -> Result<(), Error<T>> {
+			let now = frame_system::Pallet::<T>::block_number();
+			let (start, used) = match RequestWindows::<T>::get(para_id) {
+				Some((start, used)) if now.saturating_sub(start) < T::RequestWindow::get() => {
+					(start, used)
+				},
+				_ => (now, 0),
 			};
-			let worst = forward_weight(T::MaxHeadDataSize::get());
-			let (start, next) = RelayQueueBounds::<T>::get();
-			let mut oldest = start;
-			let mut forwarded = 0;
-
-			while oldest != next &&
-				forwarded < T::MaxForwardedPerBlock::get() &&
-				meter.can_consume(worst)
-			{
-				let Some((para_id, request)) = RelayQueue::<T>::get(oldest) else {
-					frame_support::defensive!("registrar-relay: gap in the relay queue");
-					meter.consume(forward_weight(0));
-					oldest = oldest.wrapping_add(1);
-					continue;
-				};
-				meter.consume(forward_weight(request.head_len().unwrap_or(0)));
-
-				let message = MessageToPara::V1(MessageToParaV1::Relayed {
-					para_id,
-					request: request.into(),
-				});
-				// The limit can shrink after a request is queued, and waiting would not help.
-				let too_large = message.encoded_size() > T::SendToPara::max_message_size() as usize;
-				if !too_large && T::SendToPara::send(message).is_err() {
-					// Left at the front, so it still goes first once the transport recovers.
-					log::debug!(
-						target: LOG_TARGET,
-						"transport refused a relayed request, retrying next block",
-					);
-					break;
-				}
-
-				RelayQueue::<T>::remove(oldest);
-				QueuedPerPara::<T>::mutate_exists(para_id, |queued| {
-					*queued = queued.and_then(|n| n.checked_sub(1)).filter(|n| *n > 0);
-				});
-				oldest = oldest.wrapping_add(1);
-				if too_large {
-					Self::deposit_event(Event::RelayDropped { para_id });
-				} else {
-					forwarded += 1;
-					Self::deposit_event(Event::Relayed { para_id });
-				}
-			}
-
-			if oldest != start {
-				RelayQueueBounds::<T>::put((oldest, next));
-			}
-		}
-
-		/// Check that the relay queue, its bounds and the per-para counts agree.
-		#[cfg(any(feature = "try-runtime", test))]
-		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			let (oldest, next) = RelayQueueBounds::<T>::get();
-			let len = next.wrapping_sub(oldest);
-			ensure!(len <= T::MaxQueuedRequests::get(), "registrar-relay: relay queue too long");
-
-			let mut counts = alloc::collections::BTreeMap::<ParaId, u32>::new();
-			for (position, (para_id, _)) in RelayQueue::<T>::iter() {
-				ensure!(
-					position.wrapping_sub(oldest) < len,
-					"registrar-relay: relay queue entry outside its bounds"
-				);
-				*counts.entry(para_id).or_default() += 1;
-			}
-			ensure!(counts.values().sum::<u32>() == len, "registrar-relay: relay queue has gaps");
-			ensure!(
-				QueuedPerPara::<T>::iter().collect::<alloc::collections::BTreeMap<_, _>>() ==
-					counts,
-				"registrar-relay: per-para counts do not match the relay queue"
-			);
+			ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
+			RequestWindows::<T>::insert(para_id, (start, used.saturating_add(1)));
 			Ok(())
 		}
 
@@ -888,6 +727,7 @@ pub mod pallet {
 			AwaitingFirstHead::<T>::remove(para_id);
 			// Nothing prunes it, and not every registry refuses an offboarding para.
 			PendingCodeUpgrades::<T>::remove(para_id);
+			RequestWindows::<T>::remove(para_id);
 			Self::report_deregistration(para_id, message_id, Ok(()));
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}

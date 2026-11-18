@@ -2692,10 +2692,6 @@ impl pallet_registrar_relay::SendToPara for DiscardRegistrarMessages {
 	fn send(_message: registrar_primitives::MessageToPara) -> Result<(), ()> {
 		Ok(())
 	}
-
-	fn max_message_size() -> u32 {
-		u32::MAX
-	}
 }
 
 parameter_types! {
@@ -2840,9 +2836,9 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxPendingRegistrations = ConstU32<128>;
 	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
-	type MaxQueuedRequests = ConstU32<1024>;
-	type MaxQueuedPerPara = ConstU32<4>;
-	type MaxForwardedPerBlock = ConstU32<16>;
+	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
+	type MaxRequestsPerWindow = ConstU32<10>;
+	type RequestWindow = ConstU32<DAYS>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
 

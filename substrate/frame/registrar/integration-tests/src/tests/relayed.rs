@@ -44,15 +44,6 @@ fn send_from_para(requests: impl IntoIterator<Item = ParaRequestV1>) {
 	});
 }
 
-/// [`send_from_para`] one request and let the relay chain forward it.
-fn relay_from_para(request: ParaRequestV1) {
-	send_from_para([request]);
-	Relay::execute_with(|| {
-		assert!(relay_event(|e| matches!(e, pallet_registrar_relay::Event::RelayQueued { .. })));
-		relay::poll();
-	});
-}
-
 /// Whether the relay chain's registrar emitted an event matching `f`.
 fn relay_event(f: impl Fn(&pallet_registrar_relay::Event<relay::Runtime>) -> bool) -> bool {
 	relay::System::events().iter().any(|e| match &e.event {
@@ -84,7 +75,7 @@ fn a_locked_para_unlocks_itself_through_the_relay_chain() {
 	note_head_on_relay(para_id);
 	RegistrarPara::execute_with(|| assert_eq!(para_lock(para_id), Some(true)));
 
-	relay_from_para(ParaRequestV1::RemoveLock);
+	send_from_para([ParaRequestV1::RemoveLock]);
 
 	Relay::execute_with(|| {
 		assert!(relay_event(|e| *e == pallet_registrar_relay::Event::Relayed { para_id }));
@@ -100,7 +91,7 @@ fn a_relayed_lock_shuts_the_manager_out() {
 	MockNet::reset();
 
 	let para_id = managed_para();
-	relay_from_para(ParaRequestV1::AddLock);
+	send_from_para([ParaRequestV1::AddLock]);
 
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_lock(para_id), Some(true));
@@ -123,7 +114,7 @@ fn a_relayed_head_lands_on_the_relay_chain_while_the_manager_is_locked_out() {
 	let para_id = managed_para();
 	note_head_on_relay(para_id);
 
-	relay_from_para(ParaRequestV1::SetCurrentHead { head: head(64) });
+	send_from_para([ParaRequestV1::SetCurrentHead { head: head(64) }]);
 
 	Relay::execute_with(|| assert_eq!(relay_head(para_id), Some(HeadData(head(64)))));
 	// Registration was message 0, so the head update is message 1.
@@ -143,7 +134,10 @@ fn a_relayed_code_upgrade_is_authorized_and_the_upload_schedules_it() {
 	let para_id = managed_para();
 	let blob = upgrade_code(96);
 
-	relay_from_para(ParaRequestV1::ScheduleCodeUpgrade { code_hash: hash_of(&blob), code_len: 96 });
+	send_from_para([ParaRequestV1::ScheduleCodeUpgrade {
+		code_hash: hash_of(&blob),
+		code_len: 96,
+	}]);
 
 	Relay::execute_with(|| {
 		assert!(
@@ -177,7 +171,7 @@ fn a_locked_para_deregisters_itself_through_the_relay_chain() {
 	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128);
 	RegistrarPara::execute_with(|| assert_eq!(para_held(&ALICE), deposit));
 
-	relay_from_para(ParaRequestV1::Deregister);
+	send_from_para([ParaRequestV1::Deregister]);
 
 	Relay::execute_with(|| {
 		assert!(!relay_has_record(para_id));
@@ -197,7 +191,7 @@ fn a_failing_relayed_request_is_reported_on_the_registrar_parachain() {
 	let para_id = managed_para();
 
 	// The para never produced a head, so there is no lock to lift.
-	relay_from_para(ParaRequestV1::RemoveLock);
+	send_from_para([ParaRequestV1::RemoveLock]);
 
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_lock(para_id), None);
@@ -211,42 +205,21 @@ fn a_failing_relayed_request_is_reported_on_the_registrar_parachain() {
 }
 
 #[test]
-fn a_relayed_request_waits_for_on_poll() {
-	MockNet::reset();
-
-	let para_id = managed_para();
-	send_from_para([ParaRequestV1::AddLock]);
-
-	RegistrarPara::execute_with(|| {
-		assert_eq!(para_lock(para_id), None);
-		assert!(!para_event(|e| matches!(e, pallet_registrar_para::Event::RelayedRequest { .. })));
-	});
-
-	Relay::execute_with(relay::poll);
-	RegistrarPara::execute_with(|| assert_eq!(para_lock(para_id), Some(true)));
-}
-
-#[test]
-fn a_para_over_its_share_is_refused_and_the_rest_still_go_out() {
+fn a_para_over_its_window_is_refused() {
 	use frame_support::traits::Get;
 	MockNet::reset();
 
 	let para_id = managed_para();
-	let share: u32 = <relay::Runtime as pallet_registrar_relay::Config>::MaxQueuedPerPara::get();
-	assert_eq!(share, 2);
+	let max: u32 = <relay::Runtime as pallet_registrar_relay::Config>::MaxRequestsPerWindow::get();
+	assert_eq!(max, 2);
 
-	// One more than its share, all before the relay chain forwards any.
 	send_from_para([ParaRequestV1::AddLock, ParaRequestV1::RemoveLock, ParaRequestV1::AddLock]);
 
-	// The simulator clears events between UMP messages, so the queue itself is the witness.
 	Relay::execute_with(|| {
-		let (oldest, next) = pallet_registrar_relay::RelayQueueBounds::<relay::Runtime>::get();
-		assert_eq!(next.wrapping_sub(oldest), share);
-		assert_eq!(pallet_registrar_relay::QueuedPerPara::<relay::Runtime>::get(para_id), share);
-		relay::poll();
+		let window = pallet_registrar_relay::RequestWindows::<relay::Runtime>::get(para_id);
+		assert_eq!(window.map(|(_, used)| used), Some(max));
 	});
-
-	// On and off again, in order. Had the refused `AddLock` arrived, the para would be locked.
+	// On and off again. Had the refused `AddLock` gone out, the para would be locked.
 	RegistrarPara::execute_with(|| assert_eq!(para_lock(para_id), Some(false)));
 }
 

@@ -265,48 +265,21 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Queueing a para's request. Dominated by the head data it carries.
+	/// Relaying a para's request. Dominated by the head data it carries.
 	#[benchmark]
 	fn relay(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
-		let origin = ParachainOrigin::Parachain(PARA_ID.into());
+		let origin =
+			T::RelayOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let para_id = T::RelayOrigin::ensure_origin(origin.clone())
+			.map_err(|_| BenchmarkError::Weightless)?;
 		let request =
 			ParaRequest::V1(ParaRequestV1::SetCurrentHead { head: alloc::vec![2u8; h as usize] });
 
 		#[extrinsic_call]
-		_(origin, request);
+		_(origin as T::RuntimeOrigin, request);
 
 		frame_system::Pallet::<T>::assert_last_event(
-			<T as Config>::RuntimeEvent::from(Event::<T>::RelayQueued { para_id: PARA_ID }).into(),
-		);
-		Ok(())
-	}
-
-	/// `on_poll` finding nothing queued, paid every block.
-	#[benchmark]
-	fn poll_relay_queue() {
-		#[block]
-		{
-			Pallet::<T>::forward_queued(&mut WeightMeter::new());
-		}
-	}
-
-	/// `on_poll` forwarding one queued request. Dominated by the head data it carries.
-	#[benchmark]
-	fn forward_relayed(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
-		let request = ParaRequestV1::SetCurrentHead { head: alloc::vec![2u8; h as usize] };
-		Pallet::<T>::relay(
-			ParachainOrigin::Parachain(PARA_ID.into()).into(),
-			ParaRequest::V1(request),
-		)?;
-
-		#[block]
-		{
-			Pallet::<T>::forward_queued(&mut WeightMeter::new());
-		}
-
-		assert!(!RelayQueue::<T>::contains_key(0));
-		frame_system::Pallet::<T>::assert_last_event(
-			<T as Config>::RuntimeEvent::from(Event::<T>::Relayed { para_id: PARA_ID }).into(),
+			<T as Config>::RuntimeEvent::from(Event::<T>::Relayed { para_id }).into(),
 		);
 		Ok(())
 	}
