@@ -113,6 +113,7 @@ pub trait StatementApi {
 	///
 	/// On success the result is `{ "status": "new" }`. Other outcomes are `known`, `knownExpired`,
 	/// `rejected` and `invalid` (each with a reason), and `internalError`.
+	/// A statement without topics is `invalid` with the reason `noTopics`.
 	#[method(name = "statement_submit", blocking)]
 	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 }

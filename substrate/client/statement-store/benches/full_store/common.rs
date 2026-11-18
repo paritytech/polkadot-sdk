@@ -338,6 +338,7 @@ pub fn create_channel_statement(
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
 	statement.set_channel(chan);
+	statement.set_topic(0, topic(u64::MAX));
 	statement.set_expiry(expiry);
 	statement.sign_ed25519_private(keypair);
 	statement

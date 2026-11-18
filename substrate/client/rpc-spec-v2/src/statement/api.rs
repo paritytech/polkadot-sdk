@@ -51,6 +51,8 @@ pub trait StatementSpecApi {
 	) -> Result<(), Error>;
 
 	/// Submits a SCALE-encoded statement to the store
+	///
+	/// A statement without topics is `invalid` with the reason `noTopics`.
 	#[method(name = "statement_unstable_submit", blocking)]
 	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error>;
 }

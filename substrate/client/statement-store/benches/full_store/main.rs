@@ -292,7 +292,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 					.map(|k| {
 						create_statement(
 							base + k,
-							&[],
+							&[topic(u64::MAX)],
 							STATEMENT_DATA_SIZE,
 							LOW_EXPIRY,
 							&keypairs[k as usize % ACCOUNTS],
@@ -413,7 +413,15 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 				let expiry = EVICT_EXPIRY.fetch_add(1, Ordering::Relaxed);
 				let base = fresh_id_base();
 				let batch: Vec<_> = (0..TOTAL_OPS as u64)
-					.map(|k| create_statement(base + k, &[], STATEMENT_DATA_SIZE, expiry, &acc0))
+					.map(|k| {
+						create_statement(
+							base + k,
+							&[topic(u64::MAX)],
+							STATEMENT_DATA_SIZE,
+							expiry,
+							&acc0,
+						)
+					})
 					.collect();
 				added.extend(batch.iter().map(|s| s.hash()));
 				batch

@@ -281,7 +281,8 @@ fn main() {
 	PEAK.store(baseline, Ordering::Relaxed);
 
 	for i in 0..n {
-		let topics: Vec<Topic> = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
+		let topics: Vec<Topic> =
+			if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![topic(2)] };
 		let key = if i % 10 == 5 { Some(dec_key(42)) } else { None };
 		let statement = create_signed_statement(i as u64, &topics, key, &keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));

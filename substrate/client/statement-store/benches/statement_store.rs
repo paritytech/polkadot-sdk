@@ -350,7 +350,7 @@ fn setup_scaled(keypair: &sp_core::ed25519::Pair, n: usize) -> (Store, tempfile:
 fn bench_submit(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
-		.map(|i| create_signed_statement(i as u64, &[], &keypair))
+		.map(|i| create_signed_statement(i as u64, &[topic(u64::MAX)], &keypair))
 		.collect();
 
 	c.bench_function("submit", |b| {
@@ -439,7 +439,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 	group.finish();
 }
 
-/// A store whose per-account cap is `cap`, pre-filled with `cap` topicless statements at expiry
+/// A store whose per-account cap is `cap`, pre-filled with `cap` statements at expiry
 /// `expiry` so the account is exactly full. A later, higher-expiry statement then evicts one.
 fn capped_store(
 	keypair: &sp_core::ed25519::Pair,
@@ -461,8 +461,13 @@ fn capped_store(
 	)
 	.unwrap();
 	for i in 0..cap {
-		let statement =
-			create_signed_statement_sized(i as u64, &[], STATEMENT_DATA_SIZE, expiry, keypair);
+		let statement = create_signed_statement_sized(
+			i as u64,
+			&[topic(u64::MAX)],
+			STATEMENT_DATA_SIZE,
+			expiry,
+			keypair,
+		);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
 	(store, temp_dir)
@@ -482,7 +487,7 @@ fn bench_submit_with_eviction(c: &mut Criterion) {
 		.map(|i| {
 			create_signed_statement_sized(
 				EVICTION_CAP as u64 + i as u64,
-				&[],
+				&[topic(u64::MAX)],
 				STATEMENT_DATA_SIZE,
 				high_expiry,
 				&keypair,
@@ -684,7 +689,7 @@ fn bench_subscribe_topic(c: &mut Criterion) {
 fn bench_propagate(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let statements: Vec<Statement> = (0..PROPAGATE_BATCH)
-		.map(|i| create_signed_statement(i as u64, &[], &keypair))
+		.map(|i| create_signed_statement(i as u64, &[topic(u64::MAX)], &keypair))
 		.collect();
 
 	let mut group = c.benchmark_group("propagate");

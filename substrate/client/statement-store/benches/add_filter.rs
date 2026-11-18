@@ -135,8 +135,13 @@ fn main() {
 		});
 		std::thread::sleep(Duration::from_millis(10));
 
-		let statement =
-			create_statement(fresh_id_base(), &[], STATEMENT_DATA_SIZE, LOW_EXPIRY, &sacrifice);
+		let statement = create_statement(
+			fresh_id_base(),
+			&[topic(u64::MAX)],
+			STATEMENT_DATA_SIZE,
+			LOW_EXPIRY,
+			&sacrifice,
+		);
 		let submit_started = Instant::now();
 		let result = store.submit(statement, StatementSource::Local);
 		let submit_during_scan = submit_started.elapsed().as_secs_f64();
@@ -146,8 +151,13 @@ fn main() {
 		assert!(filter_ok, "add_filter(Any) must succeed");
 		drop(stream);
 
-		let statement =
-			create_statement(fresh_id_base() | 1, &[], STATEMENT_DATA_SIZE, LOW_EXPIRY, &sacrifice);
+		let statement = create_statement(
+			fresh_id_base() | 1,
+			&[topic(u64::MAX)],
+			STATEMENT_DATA_SIZE,
+			LOW_EXPIRY,
+			&sacrifice,
+		);
 		let submit_started = Instant::now();
 		let result = store.submit(statement, StatementSource::Local);
 		let submit_no_scan = submit_started.elapsed().as_secs_f64();
