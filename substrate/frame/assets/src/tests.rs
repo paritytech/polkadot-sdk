@@ -615,6 +615,27 @@ fn block_deposit_is_reserved_from_freezer_not_owner() {
 }
 
 #[test]
+fn only_admin_returns_block_deposit_after_holder_refund() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&4, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 5, 4));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		assert_noop!(Assets::freeze(RuntimeOrigin::signed(4), 0, 2), Error::<Test>::NoAccount);
+		assert_noop!(Assets::thaw(RuntimeOrigin::signed(4), 0, 2), Error::<Test>::NoPermission);
+		assert_eq!(Balances::reserved_balance(&4), 10);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(5), 0, 2));
+		assert_eq!(Balances::reserved_balance(&4), 0);
+	});
+}
+
+#[test]
 fn blocking_without_funds_for_deposit_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&2, 100);

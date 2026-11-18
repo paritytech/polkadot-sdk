@@ -1243,7 +1243,7 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be frozen.
 		///
-		/// Freezing a blocked account returns its block deposit.
+		/// Freezing a blocked account returns its block deposit, unless its holder refunded it.
 		///
 		/// Emits `Frozen`.
 		///
@@ -1953,7 +1953,8 @@ pub mod pallet {
 		/// `AssetAccountDeposit` from the sender unless the account already has a block deposit.
 		/// Accounts that exist because the asset is sufficient or because someone else placed
 		/// their deposit take none. The deposit is returned when the account is thawed, frozen or
-		/// destroyed.
+		/// destroyed. Once the holder has refunded the account, only `thaw` by the admin or
+		/// destroying the asset returns it.
 		///
 		/// Emits `Blocked`.
 		///
