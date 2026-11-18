@@ -1773,8 +1773,13 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
+				let role = self.network.peer_role(peer, handshake);
+				// A light peer rejected below has answered identify too, so it is marked here.
+				if v2dht_enabled() && role.is_some_and(|role| role.is_light()) {
+					self.v2dht.on_light_peer(peer);
+				}
 				// Only accept peers whose role can be determined
-				let result = match self.network.peer_role(peer, handshake) {
+				let result = match role {
 					Some(role)
 						if v2dht_enabled() &&
 							!self.v2dht.is_reserved(&peer) &&
@@ -1852,9 +1857,11 @@ where
 						// like a peer assumed match-all and stays out of the DHT index.
 						self.v2dht.on_peer_filter_update(peer, AffinityFilter::match_all(0));
 					} else if !is_light {
-						// A light peer stores and routes nothing, so it stays out of the topology
-						// and reaches the propagation plan through its filter alone.
 						self.v2dht.on_substream_opened(peer);
+					} else {
+						// A light peer stores and routes nothing, so it stays out of the DHT index
+						// and reaches the propagation plan through its filter alone.
+						self.v2dht.on_light_peer(peer);
 					}
 					self.send_local_filter(&peer).await;
 				}
