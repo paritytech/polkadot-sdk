@@ -2837,8 +2837,6 @@ where
 			Error::<T>::TerminationNotAllowed,
 		);
 
-		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
-
 		let parent_account_id = parent.account_id.clone();
 
 		// Refund the storage deposit before the payout. The hold counts towards any freeze on
@@ -2847,12 +2845,31 @@ where
 		let refunded =
 			Self::refund_on_terminate(&self.exec_config, &parent_account_id, &self.origin)?;
 
+		// Tracers read the beneficiary's balance when they are told, so tell them before the
+		// payout.
+		let value = <Contracts<T>>::evm_balance(&contract_address);
+		if_tracing(|tracer| {
+			tracer.terminate(
+				contract_address,
+				*beneficiary,
+				self.top_frame()
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
+				value,
+			);
+		});
+
+		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
+
 		// balance transfer is immediate
 		Self::transfer(
 			&self.origin,
 			&parent_account_id,
 			&beneficiary,
-			<Contracts<T>>::evm_balance(&contract_address),
+			value,
 			Preservation::Preserve,
 			&mut top_frame_mut!(self).frame_meter,
 			&self.exec_config,

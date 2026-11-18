@@ -20,6 +20,10 @@ use crate::{
 	DeletionQueue, DeletionQueueCounter, Deposit, ExecReturnValue, H160, H256, HoldReason,
 	NativeDepositOf, Pallet, StorageDeposit, TerminationAllowed, U256,
 	address::{AddressMapper, create1},
+	evm::{
+		CallTracer, CallType, PrestateTrace, PrestateTraceInfo, PrestateTracer,
+		PrestateTracerConfig,
+	},
 	metering::TransactionLimits,
 	precompiles::Precompile,
 	storage::AccountType,
@@ -38,6 +42,7 @@ use crate::{
 			get_contract, get_contract_checked, set_balance_with_dust,
 		},
 	},
+	tracing::trace,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor};
 use codec::Encode;
@@ -2139,6 +2144,111 @@ fn precompile_trie_id_does_not_depend_on_terminations(fixture_type: FixtureType)
 		let expected = ("bcontract_trie_v1", precompile, nonce)
 			.using_encoded(<Test as frame_system::Config>::Hashing::hash);
 		assert_eq!(get_contract(&precompile).trie_id.to_vec(), expected.as_ref().to_vec());
+	});
+}
+
+/// The call tracer reports `System.terminate` as it reports `SELFDESTRUCT`: as a call from the
+/// contract to the beneficiary that carries the payout. It is recorded below the call to the
+/// pre-compile.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn precompile_terminate_is_reported_to_call_tracer(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let Contract { addr, .. } = encumbered_contract(fixture_type, Encumbrance::None);
+
+		let mut tracer = CallTracer::new(Default::default());
+		trace(&mut tracer, || {
+			assert!(!call_terminate(addr, METHOD_PRECOMPILE).did_revert());
+		});
+
+		assert!(get_contract_checked(&addr).is_none());
+		let top = tracer.collect_trace().unwrap();
+		let [precompile] = &top.calls[..] else {
+			panic!("expected the call to the pre-compile, got {:?}", top.calls)
+		};
+		assert_eq!(
+			(precompile.from, precompile.to, &precompile.call_type),
+			(addr, H160(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR), &CallType::Call),
+		);
+		let [payout] = &precompile.calls[..] else {
+			panic!("expected the payout, got {:?}", precompile.calls)
+		};
+		assert_eq!(
+			(payout.from, payout.to, &payout.call_type, payout.value),
+			(addr, DJANGO_ADDR, &CallType::Selfdestruct, Some(evm_value(SPENDABLE, 0))),
+		);
+	});
+}
+
+/// The prestate tracer learns of the beneficiary of `System.terminate`, which no call frame
+/// names. Its balance before the payout is part of the prestate. In diff mode its balance after
+/// the payout is part of the post state.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
+fn precompile_terminate_is_reported_to_prestate_tracer(fixture_type: FixtureType, diff_mode: bool) {
+	ExtBuilder::default().build().execute_with(|| {
+		let Contract { addr, .. } = encumbered_contract(fixture_type, Encumbrance::None);
+		let django = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+		let payout = evm_value(SPENDABLE, 0);
+		let balance = |info: Option<&PrestateTraceInfo>| info.and_then(|info| info.balance);
+
+		let config = PrestateTracerConfig { diff_mode, ..Default::default() };
+		let mut tracer = PrestateTracer::<Test>::new(config);
+		trace(&mut tracer, || {
+			assert!(!call_terminate(addr, METHOD_PRECOMPILE).did_revert());
+		});
+
+		assert!(get_contract_checked(&addr).is_none());
+		let (pre, post) = match tracer.collect_trace() {
+			PrestateTrace::Prestate(pre) => (pre, None),
+			PrestateTrace::DiffMode { pre, post } => (pre, Some(post)),
+		};
+		assert_eq!(post.is_some(), diff_mode);
+		assert_eq!(balance(pre.get(&DJANGO_ADDR)), Some(django));
+		assert_eq!(balance(pre.get(&addr)), Some(payout));
+		if let Some(post) = post {
+			assert_eq!(balance(post.get(&DJANGO_ADDR)), Some(django + payout));
+			assert_eq!(balance(post.get(&addr)), Some(U256::zero()));
+		}
+	});
+}
+
+/// A contract created and terminated in the same transaction is left out of the post state of
+/// the prestate tracer, whether it is terminated through `System.terminate` or `SELFDESTRUCT`.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [METHOD_PRECOMPILE, METHOD_SYSCALL])]
+fn created_and_terminated_contract_is_left_out_of_post_state(
+	fixture_type: FixtureType,
+	method: u8,
+) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		if fixture_type == FixtureType::Resolc {
+			// PVM can only create it from uploaded code.
+			let origin = RuntimeOrigin::signed(ALICE);
+			assert_ok!(Contracts::upload_code(origin, code, deposit_limit::<Test>()));
+		}
+		let caller = builder::bare_instantiate(Code::Upload(caller_code))
+			.native_value(125)
+			.build_and_unwrap_contract()
+			.addr;
+		let data = TerminateCaller::createAndTerminateCall {
+			value: alloy_core::primitives::U256::from(123_000_000u64),
+			method,
+			beneficiary: DJANGO_ADDR.0.into(),
+		};
+
+		let config = PrestateTracerConfig { diff_mode: true, ..Default::default() };
+		let mut tracer = PrestateTracer::<Test>::new(config);
+		let result = trace(&mut tracer, || call_ok(caller, data.abi_encode()));
+
+		let created = H160::from_slice(&result.data[12..]);
+		assert!(get_contract_checked(&created).is_none());
+		let PrestateTrace::DiffMode { post, .. } = tracer.collect_trace() else {
+			panic!("the tracer runs in diff mode")
+		};
+		assert!(post.contains_key(&caller), "the creating contract changed");
+		assert!(!post.contains_key(&created));
 	});
 }
 
