@@ -62,7 +62,6 @@ pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
 pallet-conviction-voting = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-identity = { workspace = true }
@@ -153,7 +152,6 @@ std = [
 	"pallet-beefy-mmr/std",
 	"pallet-beefy/std",
 	"pallet-conviction-voting/std",
-	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-fast-unstake/std",
 	"pallet-grandpa/std",
@@ -237,7 +235,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
@@ -297,7 +294,6 @@ try-runtime = [
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-beefy/try-runtime",
 	"pallet-conviction-voting/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
