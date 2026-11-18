@@ -1,0 +1,9 @@
+title: Retain catch-up proofs for segment resubmission
+doc:
+  - audience: Node Operator
+    description: >-
+      Retain execution proofs for unfinalized catch-up imports so a replacement
+      collator can resubmit blocks after the original author goes offline.
+crates:
+  - name: cumulus-client-consensus-aura
+    bump: patch
