@@ -1,0 +1,5 @@
+title: 'Beefy ancestry prof: additional check'
+doc:
+- audience: Runtime Dev
+  description: Also check the leaf count when verifying the ancestry proof
+crates: []
