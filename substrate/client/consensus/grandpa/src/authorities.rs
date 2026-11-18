@@ -728,6 +728,17 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 		self.0.push((set_id, block_number));
 	}
 
+	/// The changes known right after importing the state of a finalized block. A block that
+	/// enacts a change is already in set `set_id` and is never finalized through GRANDPA, so the
+	/// end of the previous set is recorded here.
+	pub(crate) fn after_state_import(enacts_change: bool, set_id: u64, block_number: N) -> Self {
+		let mut changes = Self::empty();
+		if let Some(previous_set_id) = set_id.checked_sub(1).filter(|_| enacts_change) {
+			changes.append(previous_set_id, block_number);
+		}
+		changes
+	}
+
 	pub(crate) fn get_set_id(&self, block_number: N) -> AuthoritySetChangeId<N> {
 		if self
 			.0
@@ -1695,6 +1706,33 @@ mod tests {
 
 		assert_eq!(authorities.pending_forced_changes.len(), 1);
 		assert_eq!(authorities.pending_forced_changes.first().unwrap().canon_hash, "D");
+	}
+
+	#[test]
+	fn authority_set_changes_after_state_import() {
+		// The imported block does not enact a change.
+		assert_eq!(
+			AuthoritySetChanges::after_state_import(false, 5, 50),
+			AuthoritySetChanges::empty()
+		);
+		// The state can not be past a change of the first set.
+		assert_eq!(
+			AuthoritySetChanges::after_state_import(true, 0, 50),
+			AuthoritySetChanges::empty()
+		);
+
+		// The imported block ends set 4. Later changes are appended and the history below it
+		// is inserted, as gap sync does, which leaves no hole in the set ids.
+		let mut changes = AuthoritySetChanges::after_state_import(true, 5, 50);
+		assert_eq!(changes, AuthoritySetChanges(vec![(4, 50)]));
+		changes.append(5, 60);
+		for number in [10, 20, 30, 40] {
+			changes.insert(number).unwrap();
+		}
+		assert_eq!(
+			changes,
+			AuthoritySetChanges(vec![(0, 10), (1, 20), (2, 30), (3, 40), (4, 50), (5, 60)]),
+		);
 	}
 
 	#[test]
