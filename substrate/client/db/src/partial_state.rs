@@ -37,18 +37,18 @@ use sp_trie::partial_state::{chunk_nodes, TrieNodeInfo};
 use std::sync::Arc;
 
 /// Keys in `STATE_META` that track a state sync in progress. `DbPartialState` writes them.
-pub(crate) mod partial_state_keys {
+pub(crate) mod state_sync_keys {
 	/// The block whose state we are syncing, a SCALE encoded `PartialStateTarget`.
-	pub const TARGET: &[u8] = b"partial_state_target";
+	pub const TARGET: &[u8] = b"state_sync_target";
 	/// Where the download continues: the cursor the last written chunk ended at, SCALE encoded.
-	pub const CURSOR: &[u8] = b"partial_state_cursor";
+	pub const CURSOR: &[u8] = b"state_sync_cursor";
 	/// Set with the final chunk. The value is empty, only the presence of the key counts. Every
 	/// node is in and only the block import is left, so a restart does not download the last
 	/// range again.
-	pub const DOWNLOADED: &[u8] = b"partial_state_downloaded";
+	pub const DOWNLOADED: &[u8] = b"state_sync_downloaded";
 	/// The state root of an attempt we are removing from `STATE`, SCALE encoded. A start that finds
 	/// it finishes the removal. It replaces `TARGET`, the two are never found together.
-	pub const DISCARDING: &[u8] = b"partial_state_discarding";
+	pub const DISCARDING: &[u8] = b"state_sync_discarding";
 }
 
 /// How many node removals go into one commit while discarding an attempt.
@@ -106,9 +106,9 @@ fn decode_partial_state_marker<Block: BlockT>(raw: &[u8]) -> ClientResult<Block:
 
 /// Removes the target, the cursor and the downloaded marker of an attempt.
 fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
-	transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
-	transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
-	transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
+	transaction.remove(columns::STATE_META, state_sync_keys::TARGET);
+	transaction.remove(columns::STATE_META, state_sync_keys::CURSOR);
+	transaction.remove(columns::STATE_META, state_sync_keys::DOWNLOADED);
 }
 
 /// The state sync in progress on the database, if any: its records in `STATE_META`, its status
@@ -201,8 +201,8 @@ impl<Block: BlockT> DbPartialState<Block> {
 	pub(crate) fn load(&self) -> ClientResult<()> {
 		let mut status = self.status.lock();
 		match (
-			self.storage.db.get(columns::STATE_META, partial_state_keys::DISCARDING),
-			self.storage.db.get(columns::STATE_META, partial_state_keys::TARGET),
+			self.storage.db.get(columns::STATE_META, state_sync_keys::DISCARDING),
+			self.storage.db.get(columns::STATE_META, state_sync_keys::TARGET),
 		) {
 			(Some(_), Some(_)) => {
 				return Err(ClientError::Backend(
@@ -237,7 +237,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 
 	/// Reads the cursor and the downloaded marker of the recorded attempt.
 	fn progress(&self) -> ClientResult<PartialStateProgress> {
-		let cursor = match self.storage.db.get(columns::STATE_META, partial_state_keys::CURSOR) {
+		let cursor = match self.storage.db.get(columns::STATE_META, state_sync_keys::CURSOR) {
 			Some(raw) => Vec::<Vec<u8>>::decode(&mut &raw[..]).map_err(|e| {
 				ClientError::Backend(format!(
 					"The cursor of a state sync in progress does not decode ({e}): the database \
@@ -246,11 +246,8 @@ impl<Block: BlockT> DbPartialState<Block> {
 			})?,
 			None => Vec::new(),
 		};
-		let complete = self
-			.storage
-			.db
-			.get(columns::STATE_META, partial_state_keys::DOWNLOADED)
-			.is_some();
+		let complete =
+			self.storage.db.get(columns::STATE_META, state_sync_keys::DOWNLOADED).is_some();
 		Ok(PartialStateProgress { cursor, complete })
 	}
 
@@ -294,7 +291,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 		remove_partial_state_records(&mut transaction);
 		transaction.set_from_vec(
 			columns::STATE_META,
-			partial_state_keys::DISCARDING,
+			state_sync_keys::DISCARDING,
 			state_root.encode(),
 		);
 		self.storage.db.commit(transaction)?;
@@ -393,7 +390,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 			}
 		}
 		// The marker goes with the last batch. Once it is gone, the removal is complete.
-		transaction.remove(columns::STATE_META, partial_state_keys::DISCARDING);
+		transaction.remove(columns::STATE_META, state_sync_keys::DISCARDING);
 		self.storage.db.commit(transaction)?;
 
 		// The next attempt must not see nodes of this one. So wait until the removal lands.
@@ -437,9 +434,9 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 			self.discard(&mut status)?;
 		}
 		let mut transaction = Transaction::new();
-		transaction.set_from_vec(columns::STATE_META, partial_state_keys::TARGET, target.encode());
-		transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
-		transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
+		transaction.set_from_vec(columns::STATE_META, state_sync_keys::TARGET, target.encode());
+		transaction.remove(columns::STATE_META, state_sync_keys::CURSOR);
+		transaction.remove(columns::STATE_META, state_sync_keys::DOWNLOADED);
 		self.storage.db.commit(transaction)?;
 		*status =
 			Some(PartialStateStatus::Syncing { hash, state_root: *target.header.state_root() });
@@ -512,12 +509,10 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 		// continues exactly where the last committed chunk ended. The final chunk has no end and
 		// sets the downloaded marker instead, so its range is not fetched again.
 		match &partial_state.end {
-			Some(end) => transaction.set_from_vec(
-				columns::STATE_META,
-				partial_state_keys::CURSOR,
-				end.encode(),
-			),
-			None => transaction.set(columns::STATE_META, partial_state_keys::DOWNLOADED, &[]),
+			Some(end) => {
+				transaction.set_from_vec(columns::STATE_META, state_sync_keys::CURSOR, end.encode())
+			},
+			None => transaction.set(columns::STATE_META, state_sync_keys::DOWNLOADED, &[]),
 		}
 		self.storage.db.commit(transaction)?;
 		self.state_usage.tally_writes_nodes(ops, bytes);
@@ -527,7 +522,7 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 	fn resumable(&self) -> ClientResult<Option<ResumablePartialState<Block>>> {
 		// Under the mutex, so the three keys are read as one consistent record.
 		let _status = self.status.lock();
-		let Some(raw) = self.storage.db.get(columns::STATE_META, partial_state_keys::TARGET) else {
+		let Some(raw) = self.storage.db.get(columns::STATE_META, state_sync_keys::TARGET) else {
 			return Ok(None);
 		};
 		let target = decode_partial_state_target::<Block>(&raw)?;
@@ -789,7 +784,7 @@ mod tests {
 
 			import_synced_block(&backend, &header).unwrap();
 			assert_eq!(backend.partial_state.resumable().unwrap(), None);
-			assert_eq!(db.get(columns::STATE_META, partial_state_keys::DOWNLOADED), None);
+			assert_eq!(db.get(columns::STATE_META, state_sync_keys::DOWNLOADED), None);
 			let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap();
 			for (name, fill) in DOWNLOAD_CHILD_TRIES {
 				let child_info = ChildInfo::new_default(name);
@@ -871,7 +866,7 @@ mod tests {
 			let block_0 = commit_block_0(&backend, set_state).unwrap();
 			assert_eq!(backend.partial_state.resumable().unwrap(), None);
 			assert!(db.get(columns::STATE, &root_key).is_none(), "the attempt's nodes are gone");
-			assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
+			assert!(db.get(columns::STATE_META, state_sync_keys::TARGET).is_none());
 			assert!(backend.have_state_at(block_0.hash(), 0));
 			// From now on a state sync only ever runs on a database that holds no block state.
 			assert!(backend.partial_state.begin(partial_state_target(&header)).is_err());
@@ -925,14 +920,14 @@ mod tests {
 		// the records swapped for the marker, the nodes still there.
 		backend.partial_state.abandon().unwrap();
 		assert_eq!(backend.partial_state.resumable().unwrap(), None);
-		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_some());
+		assert!(db.get(columns::STATE_META, state_sync_keys::DISCARDING).is_some());
 		assert!(db.get(columns::STATE, &root_key).is_some());
 		drop(backend);
 
 		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
 		assert_eq!(backend.partial_state.resumable().unwrap(), None);
 		assert!(db.get(columns::STATE, &root_key).is_none(), "the removal was finished");
-		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
+		assert!(db.get(columns::STATE_META, state_sync_keys::DISCARDING).is_none());
 		backend.partial_state.begin(partial_state_target(&header)).unwrap();
 	}
 
@@ -1014,7 +1009,7 @@ mod tests {
 		for key in &keys {
 			assert!(db.get(columns::STATE, key).is_none(), "every reference is gone");
 		}
-		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
+		assert!(db.get(columns::STATE_META, state_sync_keys::DISCARDING).is_none());
 	}
 
 	/// Builds a one-level trie holding `key_values` and returns its nodes as a state-sync chunk
