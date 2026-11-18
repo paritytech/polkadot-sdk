@@ -193,9 +193,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| n.with_name("dave"))
 				.with_collator(|n| n.with_name("eve"))
 		})
-		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-			Ok(val) => global_settings.with_base_dir(val),
-			_ => global_settings,
+		.with_global_settings(|global_settings| {
+			let global_settings = match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+				Ok(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			};
+			global_settings.with_tear_down_on_failure(false)
 		})
 		.build()
 		.map_err(|e| {
