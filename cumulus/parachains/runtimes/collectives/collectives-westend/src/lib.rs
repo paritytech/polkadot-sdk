@@ -189,6 +189,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
 }
 
@@ -729,6 +730,65 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = (xcm_migration::Migration,);
+	// Benchmarks need mocked migrations to guarantee that they succeed.
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
+}
+
+/// Multi-block migration upgrading the XCM data stored by pallets to the latest XCM version.
+pub mod xcm_migration {
+	use super::{fellowship::FellowshipTreasuryInstance, weights, Runtime};
+	use polkadot_runtime_common::xcm_migration::{
+		AssetRateStage, MigrateXcmToLatest, TreasurySpendsStage, VersionedLocatableAssetToLatest,
+		VersionedLocationToLatest,
+	};
+
+	/// Upgrades the asset kinds of `AssetRate`.
+	pub type AssetRate = AssetRateStage<
+		Runtime,
+		VersionedLocatableAssetToLatest,
+		weights::polkadot_runtime_common_xcm_migration_asset_rate_stage::WeightInfo<Runtime>,
+	>;
+
+	/// Upgrades the spends of `FellowshipTreasury`.
+	pub type FellowshipSpends = TreasurySpendsStage<
+		Runtime,
+		FellowshipTreasuryInstance,
+		VersionedLocatableAssetToLatest,
+		VersionedLocationToLatest,
+		weights::polkadot_runtime_common_xcm_migration_fellowship_spends_stage::WeightInfo<Runtime>,
+	>;
+
+	/// The migration, running every stage above.
+	pub type Migration = MigrateXcmToLatest<(AssetRate, FellowshipSpends)>;
+}
+
+/// Benchmarks of [`xcm_migration::AssetRate`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
+
+/// Benchmarks of [`xcm_migration::FellowshipSpends`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type FellowshipSpendsStage = polkadot_runtime_common::xcm_migration::benchmarking::Pallet<
+	Runtime,
+	xcm_migration::FellowshipSpends,
+>;
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -739,6 +799,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
 		WeightReclaim: cumulus_pallet_weight_reclaim = 4,
+		MultiBlockMigrations: pallet_migrations = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -911,6 +972,7 @@ mod benches {
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
+		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
@@ -939,6 +1001,8 @@ mod benches {
 		[pallet_ranked_collective, SecretaryCollective]
 		[pallet_salary, SecretarySalary]
 		[pallet_asset_rate, AssetRate]
+		[polkadot_runtime_common::xcm_migration, AssetRateStage]
+		[polkadot_runtime_common::xcm_migration, FellowshipSpendsStage]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]

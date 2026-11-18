@@ -1375,6 +1375,7 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
 		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+		xcm_migration::Migration,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1386,6 +1387,11 @@ impl pallet_migrations::Config for Runtime {
 	type MaxServiceWeight = MbmServiceWeight;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
+
+/// Benchmarks of [`xcm_migration::AssetRate`].
+#[cfg(feature = "runtime-benchmarks")]
+pub type AssetRateStage =
+	polkadot_runtime_common::xcm_migration::benchmarking::Pallet<Runtime, xcm_migration::AssetRate>;
 
 parameter_types! {
 	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
@@ -1868,6 +1874,24 @@ pub mod migrations {
 	);
 }
 
+/// Multi-block migration upgrading the XCM data stored by pallets to the latest XCM version.
+pub mod xcm_migration {
+	use super::{weights, Runtime};
+	use polkadot_runtime_common::xcm_migration::{
+		AssetRateStage, MigrateXcmToLatest, VersionedLocatableAssetToLatest,
+	};
+
+	/// Upgrades the asset kinds of `AssetRate`.
+	pub type AssetRate = AssetRateStage<
+		Runtime,
+		VersionedLocatableAssetToLatest,
+		weights::polkadot_runtime_common_xcm_migration_asset_rate_stage::WeightInfo<Runtime>,
+	>;
+
+	/// The migration, running every stage above.
+	pub type Migration = MigrateXcmToLatest<(AssetRate,)>;
+}
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -1898,6 +1922,7 @@ mod benches {
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		[polkadot_runtime_common::paras_registrar, Registrar]
 		[polkadot_runtime_common::slots, Slots]
+		[polkadot_runtime_common::xcm_migration, AssetRateStage]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::disputes, ParasDisputes]
 		[polkadot_runtime_parachains::dmp, Dmp]

@@ -530,11 +530,30 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 				})
 				.count();
 
+		let number_of_authorized_aliases_to_migrate = crate::AuthorizedAliases::<T>::iter()
+			.filter_map(|(key, data)| {
+				if (&key, data, core::marker::PhantomData::<T>).needs_migration(latest) {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?key,
+						"AuthorizedAliases item was not migrated!"
+					);
+					Some(true)
+				} else {
+					None
+				}
+			})
+			.count();
+
 		ensure!(number_of_queries_to_migrate == 0, "must migrate all `Queries`.");
 		ensure!(number_of_locked_fungibles_to_migrate == 0, "must migrate all `LockedFungibles`.");
 		ensure!(
 			number_of_remote_locked_fungibles_to_migrate == 0,
 			"must migrate all `RemoteLockedFungibles`."
+		);
+		ensure!(
+			number_of_authorized_aliases_to_migrate == 0,
+			"must migrate all `AuthorizedAliases`."
 		);
 
 		Ok(())

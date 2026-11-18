@@ -35,13 +35,14 @@ sp-staking = { features = ["serde"], workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-asset-rate = { optional = true, workspace = true }
+pallet-asset-rate = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-broker = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-identity = { workspace = true }
+pallet-multi-asset-bounties = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-reward-fn = { workspace = true }
@@ -66,6 +67,7 @@ xcm-executor = { optional = true, workspace = true }
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
 pallet-treasury = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 serde_json = { workspace = true, default-features = true }
@@ -84,13 +86,14 @@ std = [
 	"frame-system/std",
 	"k256/std",
 	"log/std",
-	"pallet-asset-rate?/std",
+	"pallet-asset-rate/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
+	"pallet-multi-asset-bounties/std",
 	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
 	"pallet-staking/std",
@@ -130,6 +133,8 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -158,6 +163,8 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
+	"pallet-preimage/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
