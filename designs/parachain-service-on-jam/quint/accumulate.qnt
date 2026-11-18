@@ -97,6 +97,49 @@ module accumulate {
 
   // ---- Replay a single upward message -----------------------------------
 
+  /// Releases one `(h, len)` entry of a `Forget`.
+  pure def forgetPreimage(
+    acc: AccumulateOutcome,
+    target: Target,
+    h: Hash,
+    len: int,
+    now: Timeslot
+  ): AccumulateOutcome = {
+    match target {
+      | Service(s) =>
+        val o = foreignForget(acc.foreign, s, h, len, now)
+        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | Parachain(para) =>
+        // §5.4: Asset Hub holds the service's own active code, which must never
+        // be expunged.
+        if (para == AssetHubParaId and h == acc.state.serviceCodeHash and
+            len == acc.state.serviceCodeLen)
+          { ...acc, logs: acc.logs.append(CanNotRemoveCode({ hash: h, len: len })) }
+        else if (not(acc.state.isLive(para))) acc
+        else {
+          val pi = acc.state.paraInfo(para)
+          val isActive =
+            match pi.validationCode { | Some(vc) => refIs(vc, h, len) | None => false }
+          val isAnnounced =
+            match pi.announcedUpgrade { | Some(vc) => refIs(vc, h, len) | None => false }
+          if (isActive or isAnnounced)
+            // The target's active or announced code: refused, so the referencer
+            // and the balance both stay (§5.2). This is what stops a forced call
+            // from stripping running validation code.
+            { ...acc, logs: acc.logs.append(CanNotRemoveCode({ hash: h, len: len })) }
+          else {
+            val d = acc.state.removeReferencer(para, h, len, now)
+            {
+              ...acc,
+              state: d.state,
+              preimageOps: acc.preimageOps.append(Forgotten((para, h, len))),
+              logs: acc.logs.appendOption(d.log)
+            }
+          }
+        }
+    }
+  }
+
   pure def applyUpwardMessage(
     acc: AccumulateOutcome,
     para_id: ParaId,
@@ -162,55 +205,8 @@ module accumulate {
         )
         { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Forget(payload) =>
-        match payload.target {
-          | Service(s) =>
-            val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
-            { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-          | Parachain(target) =>
-            // §5.4: Asset Hub holds the service's own active code, which must never
-            // be expunged.
-            if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash and
-                payload.len == acc.state.serviceCodeLen)
-              {
-                ...acc,
-                logs: acc.logs.append(
-                  CanNotRemoveCode({ hash: payload.hash, len: payload.len })
-                )
-              }
-            else if (not(acc.state.isLive(target))) acc
-            else {
-              val pi = acc.state.paraInfo(target)
-              val activeVc = pi.validationCode
-              val isActive =
-                match activeVc { | Some(vc) => refIs(vc, payload.hash, payload.len) | None => false }
-              val isAnnounced =
-                match pi.announcedUpgrade {
-                  | None => false
-                  | Some(vc) => refIs(vc, payload.hash, payload.len)
-                }
-              if (isActive or isAnnounced) {
-                // The target's active or announced code: refused, so the referencer
-                // and the balance both stay (§5.2). This is what stops a forced call
-                // from stripping running validation code.
-                {
-                  ...acc,
-                  logs: acc.logs.append(
-                    CanNotRemoveCode({ hash: payload.hash, len: payload.len })
-                  )
-                }
-              } else {
-                val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
-                {
-                  state: d.state,
-                  jamDesignate: acc.jamDesignate,
-                  preimageOps: acc.preimageOps.append(Forgotten((target, payload.hash, payload.len))),
-                  jamAssigns: acc.jamAssigns,
-                  logs: acc.logs.appendOption(d.log),
-                  foreign: acc.foreign
-                }
-              }
-            }
-        }
+        payload.preimages.foldl(acc, (a, p) =>
+          forgetPreimage(a, payload.target, p._1, p._2, now))
       | SetValidatorKeys(payload) =>
         // Both Refine and `accumulateOkPrefix`'s service-restriction check
         // (§4.3) reject upward messages from non-Asset-Hub paras before we
@@ -381,8 +377,10 @@ module accumulate {
           }
         }
       | RemoveServiceStorage(payload) =>
-        val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
-        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        payload.keys.foldl(acc, (a, key) => {
+          val o = foreignRemoveStorage(a.foreign, payload.service, key)
+          { ...a, foreign: o.services, logs: a.logs.appendOption(o.log) }
+        })
       | RemoveKV(payload) =>
         // No-op for an unregistered or deregistering para (§6.4).
         if (not(acc.state.isLive(payload.paraId))
@@ -635,7 +633,7 @@ module accumulate {
     logs: List[AccumulateLog]
   } = {
     val due = s.pendingAssignCores.keys().filter(c => s.pendingAssignCores.get(c) <= now)
-    val n = if (budget < due.size()) budget else due.size()
+    val n = min(budget, due.size())
     // The cores to fire, in firing order, paired with the same cores as a set.
     val fired = range(0, n).foldl((List(), Set()), (sel, _) => {
       val c = firstDueCore(s, due.exclude(sel._2))

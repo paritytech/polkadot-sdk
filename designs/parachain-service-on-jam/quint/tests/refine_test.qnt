@@ -106,11 +106,11 @@ module refine_test {
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code is untouched.
     val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
-      Forget({ target: Parachain(para), hash: h, len: otherLen }))
+      Forget({ target: Parachain(para), preimages: List((h, otherLen)) }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: it is the active code, so refused.
     val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
-      Forget({ target: Parachain(para), hash: h, len: FixedCodeLen }))
+      Forget({ target: Parachain(para), preimages: List((h, FixedCodeLen)) }))
     all {
       assert(isValidationCodeOf(pi0, h, FixedCodeLen)),
       // (1) re-soliciting the active code is a no-op: no entry, no charge.
@@ -240,19 +240,19 @@ module refine_test {
     all {
       // Asset Hub reaching for Coretime's state: Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ target: Parachain(CoretimeParaId), hash: h, len: 1024 })))
+        List(Forget({ target: Parachain(CoretimeParaId), preimages: List((h, 1024)) })))
         == refineCallsErr(initialState, AssetHubParaId, RestrictedHostFunction)),
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
         == refineCallsErr(initialState, AssetHubParaId, RestrictedHostFunction)),
       // Asset Hub releasing its own state: refines fine.
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), preimages: List((h, 1024)) }))))),
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: AssetHubParaId, key: List(0) }))))),
       // Coretime may name anyone.
       assert(isOkDigest(refineWithMsgs(initialState, CoretimeParaId,
-        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), preimages: List((h, 1024)) }))))),
       init
     }
   }

@@ -287,7 +287,7 @@ module foreign_services {
     MkServiceId(
       MinPublicServiceIndex.to(MinPublicServiceIndex + 64)
         .filter(i => not(fs.keys().contains(MkServiceId(i))))
-        .fold(MinPublicServiceIndex + 64, (acc, i) => if (i < acc) i else acc)
+        .fold(MinPublicServiceIndex + 64, min)
     )
 
   /// The index a create lands at.
@@ -317,11 +317,19 @@ module foreign_services {
     val cost = foreignThreshold(created)
     val funder = s.jamAccount.debit(cost, c.sourceSupervisorBalance)
     if (isOverdrawn(funder, serviceThreshold(s)))
-      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: CannotAfford })) }
+      {
+        state: s,
+        services: fs,
+        log: Some(ServiceCreation({ messageId: c.messageId, result: CannotAfford }))
+      }
     else if (createdOf(fs, fresh) != None)
       // Only reachable for a protected `desiredId`: the allocator never
       // returns a live index.
-      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: IdTaken })) }
+      {
+        state: s,
+        services: fs,
+        log: Some(ServiceCreation({ messageId: c.messageId, result: IdTaken }))
+      }
     else
       {
         state: { ...s, jamAccount: funder },
@@ -329,7 +337,7 @@ module foreign_services {
           ...created,
           account: created.account.credit(cost, c.newSupervisorBalance)
         }),
-        log: Some(ServiceCreation({ id: c.id, result: Created(fresh) }))
+        log: Some(ServiceCreation({ messageId: c.messageId, result: Created(fresh) }))
       }
   }
 
@@ -359,10 +367,18 @@ module foreign_services {
       })
       transferFailed(s, fs, t, GasBelowDestinationMinimum)
     else {
-      val afterDebit = withAccount(s, fs, source,
-        accountOf(s, fs, source).debit(t.amount, t.sourceSupervisorBalance))
+      val src = accountOf(s, fs, source)
+      val amount = match t.amount {
+        | Exact(a) => a
+        | Max(cap) =>
+          val selectedBalance =
+            if (t.sourceSupervisorBalance) src.supervisorBalance else src.balance
+          val aboveThreshold = src.balance + src.supervisorBalance - thresholdOf(s, fs, source)
+          max(0, min(cap, min(selectedBalance, aboveThreshold)))
+      }
+      val afterDebit = withAccount(s, fs, source, src.debit(amount, t.sourceSupervisorBalance))
       val afterCredit = withAccount(afterDebit._1, afterDebit._2, t.dest,
-        accountOf(afterDebit._1, afterDebit._2, t.dest).credit(t.amount, t.destSupervisorBalance))
+        accountOf(afterDebit._1, afterDebit._2, t.dest).credit(amount, t.destSupervisorBalance))
       // JAM checks `source` after a plain move's credit but before a deferred
       // transfer's, which only matters when `source` is `dest`.
       val checked = if (plainMove) afterCredit else afterDebit
@@ -371,7 +387,14 @@ module foreign_services {
       // JAM credits a deferred transfer when `dest` accumulates later in the
       // block, which the model folds into this step. One to this service is
       // therefore not recorded in `incomingTransfers`.
-      else { state: afterCredit._1, services: afterCredit._2, log: None }
+      else {
+        state: afterCredit._1,
+        services: afterCredit._2,
+        log: match t.amount {
+          | Exact(_) => None
+          | Max(_) => Some(TransferredAmount({ id: t.id, amount: amount }))
+        }
+      }
     }
   }
 }

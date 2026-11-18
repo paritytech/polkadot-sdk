@@ -48,26 +48,32 @@ module refine {
       | EjectService(_) => 4
       // service 4 + newSupervisor 4.
       | SetServiceSupervisor(_) => 8
-      // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + id Compact<u64>
+      // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + messageId Compact<u64>
       // + Option<ServiceId> desiredId (1 tag + 4 when Some)
       // + two balance selectors 2.
       | CreateService(p) =>
-        50 + compactLen(p.len) + compactLen(p.id)
+        50 + compactLen(p.len) + compactLen(p.messageId)
           + (match p.desiredId { | Some(_) => 5 | None => 1 })
-      // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
-      | Forget(p) => 37 + compactLen(p.len)
-      // service 4 + Vec<u8> key (compact len prefix + bytes).
-      | RemoveServiceStorage(p) => 4 + compactLen(p.key.length()) + p.key.length()
+      // Target (1 tag + 4 id) + Vec<(hash 32, Compact<u32> len)>.
+      | Forget(p) =>
+        5 + compactLen(p.preimages.length())
+          + p.preimages.foldl(0, (sum, e) => sum + 32 + compactLen(e._2))
+      // service 4 + Vec<Vec<u8>> keys (compact len prefix + per key compact
+      // len prefix + bytes).
+      | RemoveServiceStorage(p) =>
+        4 + compactLen(p.keys.length())
+          + p.keys.foldl(0, (sum, k) => sum + compactLen(k.length()) + k.length())
       | SetKV(p) =>
         compactLen(p.key.length()) + p.key.length()
           + compactLen(p.value.length()) + p.value.length()
       // paraId 4 + Vec<u8> key (compact len prefix + bytes).
       | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
-      // dest 4 + two balance selectors 2 + amount Compact<u64> + id Compact<u64>
+      // dest 4 + two balance selectors 2 + amount (1 tag + Compact<u64>)
+      // + id Compact<u64>
       // + Option<ServiceId> source (1 tag + 4 when Some)
       // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
       | TransferOut(p) =>
-        6 + compactLen(p.amount) + compactLen(p.id)
+        7 + compactLen(match p.amount { | Exact(a) => a | Max(a) => a }) + compactLen(p.id)
           + (match p.source { | Some(_) => 5 | None => 1 })
           + (match p.deferred { | Some(_) => 137 | None => 1 })
       // core 4 + jamSlot 4 + Vec<AuthorizerHash> (compact len + 32 per entry)

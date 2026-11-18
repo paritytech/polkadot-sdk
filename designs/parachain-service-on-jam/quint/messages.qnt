@@ -125,8 +125,8 @@ module messages {
     | DestinationNotSupervised
     // The supplied gas is below dest's `min_memo_gas`.
     | GasBelowDestinationMinimum
-    // The source service cannot cover the amount: the debited balance is too
-    // small, or the transfer would leave it below its threshold balance.
+    // The source service cannot cover an `Exact` amount: the debited balance is
+    // too small, or the transfer would leave it below its threshold balance.
     | InsufficientServiceBalance
 
   /// Why `parachain_set_state_balance` was rejected (§6.1).
@@ -171,6 +171,9 @@ module messages {
     // `TransferOut`, echoed back so Asset Hub can match the failure to its
     // request. See §5.1 step 7.
     | TransferFailed({ id: int, error: TransferError })
+    // The `TransferOut` with this `id` and a `Max` amount went through, moving
+    // `amount`. See §5.1 outgoing transfers.
+    | TransferredAmount({ id: int, amount: Balance })
     // A `forget` removed the last referencer without expunging the preimage;
     // the caller must `forget(hash, len)` again after `due` to free it. See §6.1.
     | ForgetAgainAt({ target: Target, hash: Hash, len: int, due: Timeslot })
@@ -185,10 +188,10 @@ module messages {
     // An eject succeeded; `credited` is what JAM moved to our regular balance.
     | ServiceEjected({ service: ServiceId, credited: Balance })
     | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
-    // Announces a CreateService outcome to Asset Hub. `id` is the caller-supplied
+    // Announces a CreateService outcome to Asset Hub. `messageId` is the caller-supplied
     // identifier from the CreateService, echoed back so Asset Hub can match the
     // outcome to its request.
-    | ServiceCreation({ id: int, result: ServiceCreationResult })
+    | ServiceCreation({ messageId: int, result: ServiceCreationResult })
     // `parachain_clean_up` rejected: the parachain still holds state beyond its
     // baseline and validation code(s) and must release the rest first. See §6.4.
     | TooMuchStateHeld
@@ -215,18 +218,24 @@ module messages {
     len: int,
     minItemGas: int,
     minMemoGas: int,
-    id: int,
+    messageId: int,
     // Index to create the service at, in JAM's protected range.
     desiredId: Option[ServiceId],
     sourceSupervisorBalance: bool,
     newSupervisorBalance: bool
   }
 
+  /// How much a `TransferOut` moves (§5.1 outgoing transfers): exactly this
+  /// much or nothing, or as much as `source` can spare up to this much.
+  type TransferAmount =
+    | Exact(Balance)
+    | Max(Balance)
+
   /// `transfer_out`'s arguments (§5.1).
   type TransferOutArgs = {
     source: Option[ServiceId],
     dest: ServiceId,
-    amount: Balance,
+    amount: TransferAmount,
     id: int,
     sourceSupervisorBalance: bool,
     destSupervisorBalance: bool,
@@ -247,16 +256,17 @@ module messages {
     | EjectService({ service: ServiceId })
     // set_service_supervisor(service, newSupervisor).
     | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
-    // `id` is a caller-supplied identifier, echoed back in the ServiceCreation
+    // `messageId` is a caller-supplied identifier, echoed back in the ServiceCreation
     // entry so Asset Hub can match the outcome to its request.
     | CreateService(CreateServiceArgs)
     // forget(para_id, hash, len). `paraId` names whose reference is released; a
     // para may only name itself, while the Coretime chain may name any para, which
     // is how a para that can no longer produce blocks gets drained (§6.4).
-    // forget(target, hash, len): §6.1 for a Parachain target.
-    | Forget({ target: Target, hash: Hash, len: int })
-    // remove_service_storage(service, key).
-    | RemoveServiceStorage({ service: ServiceId, key: List[int] })
+    // forget(target, hash, len) for each `(hash, len)` in `preimages`, in order:
+    // §6.1 for a Parachain target.
+    | Forget({ target: Target, preimages: List[(Hash, int)] })
+    // remove_service_storage(service, key) for each key in `keys`, in order.
+    | RemoveServiceStorage({ service: ServiceId, keys: List[List[int]] })
     // kv_set(key, value): write to key_value_storage.
     | SetKV({ key: List[int], value: List[int] })
     // kv_remove(para_id, key): remove from key_value_storage. Same `paraId`
@@ -270,8 +280,8 @@ module messages {
     // sentinel. The two selectors choose the balance on each side: which of
     // source's is debited and which of dest's receives the funds; true means the
     // supervisor balance (§5.1 outgoing transfers). `id` is a caller-supplied
-    // identifier, echoed back in the TransferFailed entry so Asset Hub can match
-    // a failure to its request.
+    // identifier, echoed back in the TransferFailed or TransferredAmount entry so
+    // Asset Hub can match the outcome to its request.
     | TransferOut(TransferOutArgs)
     // assign_core(core, queue, new_assigner, jam_slot): Coretime only. Mirrors
     // JAM's `assign`, which writes a core's authorizer queue AND its assigner
@@ -382,7 +392,7 @@ module messages {
   /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
   /// it in a `Refine` (design §3.3).
   pure def truncateAuthTrace(t: AuthTrace): AuthTrace =
-    if (t > StoredAuthTraceCap) StoredAuthTraceCap else t
+    min(t, StoredAuthTraceCap)
 
   // --- Per-parachain log entries (design §3.1) ---------------------------
 

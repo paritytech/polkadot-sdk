@@ -136,7 +136,7 @@ module transfers_test {
         List(TransferOut({
           source: None,
           dest: dest,
-          amount: 100,
+          amount: Exact(100),
           id: 77,
           sourceSupervisorBalance: false,
           destSupervisorBalance: false,
@@ -151,7 +151,7 @@ module transfers_test {
         List(TransferOut({
           source: None,
           dest: dest,
-          amount: 100,
+          amount: Exact(100),
           id: 78,
           sourceSupervisorBalance: false,
           destSupervisorBalance: false,
@@ -164,7 +164,7 @@ module transfers_test {
         List(TransferOut({
           source: None,
           dest: ParachainServiceId,
-          amount: 100,
+          amount: Exact(100),
           id: 79,
           sourceSupervisorBalance: false,
           destSupervisorBalance: true,
@@ -177,7 +177,7 @@ module transfers_test {
         List(TransferOut({
           source: None,
           dest: ParachainServiceId,
-          amount: 100,
+          amount: Exact(100),
           id: 80,
           sourceSupervisorBalance: true,
           destSupervisorBalance: false,
@@ -189,7 +189,7 @@ module transfers_test {
         List(TransferOut({
           source: Some(dest),
           dest: MkServiceId(6),
-          amount: 100,
+          amount: Exact(100),
           id: 81,
           sourceSupervisorBalance: false,
           destSupervisorBalance: false,
@@ -202,7 +202,7 @@ module transfers_test {
         List(TransferOut({
           source: None,
           dest: ParachainServiceId,
-          amount: 100,
+          amount: Exact(100),
           id: 82,
           sourceSupervisorBalance: false,
           destSupervisorBalance: false,
@@ -227,7 +227,7 @@ module transfers_test {
   pure val payFive: TransferOutArgs = {
     source: None,
     dest: MkServiceId(5),
-    amount: 100,
+    amount: Exact(100),
     id: 1,
     sourceSupervisorBalance: false,
     destSupervisorBalance: false,
@@ -260,9 +260,9 @@ module transfers_test {
         == refusal(GasBelowDestinationMinimum)),
       assert(sendOut(s, fs, { ...payFive, deferred: Some((0, 100)) }).logs == List()),
       // Everything above the threshold may go, and not one unit more.
-      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).logs
+      assert(sendOut(s, fs, { ...payFive, amount: Exact(slack + 1) }).logs
         == refusal(InsufficientServiceBalance)),
-      assert(sendOut(s, fs, { ...payFive, amount: slack }).logs == List()),
+      assert(sendOut(s, fs, { ...payFive, amount: Exact(slack) }).logs == List()),
       // The supervisor balance starts out empty.
       assert(sendOut(s, fs, { ...payFive, sourceSupervisorBalance: true }).logs
         == refusal(InsufficientServiceBalance)),
@@ -273,7 +273,7 @@ module transfers_test {
       assert(sendOut(atThreshold, fs, { ...intoOwnSupervisor, deferred: Some((0, 1000)) }).logs
         == refusal(InsufficientServiceBalance)),
       // A refused transfer moves nothing.
-      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).state == s),
+      assert(sendOut(s, fs, { ...payFive, amount: Exact(slack + 1) }).state == s),
       // One that goes through debits the source and credits the chosen balance.
       assert(paid.state.jamAccount.balance == s.jamAccount.balance - 100),
       assert(paid.foreign.get(MkServiceId(5)).account.balance ==
@@ -297,14 +297,64 @@ module transfers_test {
       storage: Map(),
       account: { balance: BaseDeposit + 500, supervisorBalance: 0, minMemoGas: 0 }
     })
-    val fromOurs = { ...payFive, source: Some(ours), amount: 500 }
+    val fromOurs = { ...payFive, source: Some(ours), amount: Exact(500) }
     val out = sendOut(initialState, fs, fromOurs)
+    val maxed = sendOut(initialState, fs, { ...fromOurs, amount: Max(1000) })
+    val maxedToUs = sendOut(initialState, fs, {
+      ...fromOurs,
+      dest: ParachainServiceId,
+      amount: Max(1000),
+      deferred: None
+    })
     all {
       assert(out.logs == List()),
       assert(out.foreign.get(ours).account.balance == BaseDeposit),
       assert(out.state.jamAccount == initialState.jamAccount),
-      assert(sendOut(initialState, fs, { ...fromOurs, amount: 501 }).logs
+      assert(sendOut(initialState, fs, { ...fromOurs, amount: Exact(501) }).logs
         == refusal(InsufficientServiceBalance)),
+      // A `Max` drains it down to its own threshold, and not ours.
+      assert(maxed.logs == List(TransferredAmount({ id: 1, amount: 500 }))),
+      assert(maxed.foreign.get(ours).account.balance == BaseDeposit),
+      assert(maxed.foreign.get(MkServiceId(5)).account.balance
+        == fs.get(MkServiceId(5)).account.balance + 500),
+      assert(maxed.state.jamAccount == initialState.jamAccount),
+      // The same into this service's own balance.
+      assert(maxedToUs.logs == List(TransferredAmount({ id: 1, amount: 500 }))),
+      assert(maxedToUs.foreign.get(ours).account.balance == BaseDeposit),
+      assert(maxedToUs.state.jamAccount.balance == initialState.jamAccount.balance + 500),
+      // Still refused from a service this one does not supervise.
+      assert(sendOut(initialState, fs, {
+        ...payFive,
+        source: Some(MkServiceId(6)),
+        amount: Max(1000)
+      }).logs == refusal(SourceNotSupervised)),
+      init
+    }
+  }
+
+  /// A `Max` moves what `source` can spare, capped by the request, and reports
+  /// the amount in `TransferredAmount`.
+  run transferOutMaxTest = {
+    val s = initialState
+    val fs = counterparties
+    val slack = s.jamAccount.balance - serviceThreshold(s)
+    val atThreshold = { ...s, jamAccount: { ...s.jamAccount, balance: serviceThreshold(s) } }
+    val maxed = { ...payFive, amount: Max(slack + 1000) }
+    val drained = sendOut(s, fs, maxed)
+    all {
+      assert(drained.logs == List(TransferredAmount({ id: 1, amount: slack }))),
+      assert(drained.state.jamAccount.balance == serviceThreshold(s)),
+      assert(sendOut(s, fs, { ...payFive, amount: Max(10) }).logs
+        == List(TransferredAmount({ id: 1, amount: 10 }))),
+      // Nothing to spare: zero moves, and that is reported.
+      assert(sendOut(atThreshold, fs, maxed).logs
+        == List(TransferredAmount({ id: 1, amount: 0 }))),
+      // The selected balance caps it too: the supervisor balance is empty.
+      assert(sendOut(s, fs, { ...maxed, sourceSupervisorBalance: true }).logs
+        == List(TransferredAmount({ id: 1, amount: 0 }))),
+      // Refusals unrelated to the balance still apply.
+      assert(sendOut(s, fs, { ...maxed, deferred: Some((0, 99)) }).logs
+        == refusal(GasBelowDestinationMinimum)),
       init
     }
   }

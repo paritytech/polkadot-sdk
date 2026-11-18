@@ -222,8 +222,7 @@ module state {
           { ...s, incomingTransfers: Map(), incomingTransferBuckets: None }
         else {
           // What survives is a suffix, so its first id is the smallest left.
-          val newFirst =
-            survivors.keys().fold(buckets.lastBucket, (m, k) => if (k < m) k else m)
+          val newFirst = survivors.keys().fold(buckets.lastBucket, min)
           val removed = s.incomingTransfers.keys().fold(0, (acc, k) =>
             if (k <= upTo) acc + s.incomingTransfers.get(k).length() else acc)
           {
@@ -362,6 +361,8 @@ module state {
       | CoreNotAssignable(_) => 2
       // id Compact<u64> + TransferError tag 1.
       | TransferFailed(p) => compactLen(p.id) + 1
+      // id Compact<u64> + amount Compact<u64>.
+      | TransferredAmount(p) => compactLen(p.id) + compactLen(p.amount)
       // Target (1 tag + 4 id) + hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
       | ForgetAgainAt(p) => 5 + 32 + compactLen(p.len) + 4
       // service 4 + error tag 1, for each of the three failure entries.
@@ -374,8 +375,8 @@ module state {
       | ServiceKeyNotFound(_) => 36
       // service 4 + Compact<Balance> credited.
       | ServiceEjected(p) => 4 + compactLen(p.credited)
-      // id Compact<u64> + result (1 tag, + 4 when Created).
-      | ServiceCreation(p) => compactLen(p.id) + 1 + creationPayload(p.result)
+      // messageId Compact<u64> + result (1 tag, + 4 when Created).
+      | ServiceCreation(p) => compactLen(p.messageId) + 1 + creationPayload(p.result)
       | TooMuchStateHeld => 0
     }
 

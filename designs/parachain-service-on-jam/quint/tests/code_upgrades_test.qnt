@@ -72,7 +72,7 @@ module code_upgrades_test {
       // Only now can the para reclaim codeA: it is no longer validation code,
       // so the forget goes through (two-step, since codeA is available).
       .then(applyHappyPath(para, codeB, List(
-        Forget({ target: Parachain(para), hash: codeA.asPreimage(), len: FixedCodeLen })
+        Forget({ target: Parachain(para), preimages: List((codeA.asPreimage(), FixedCodeLen)) })
       )))
       .then(expectThat(
         isUnrequested(svc.preimageStatus.get((codeA.asPreimage(), FixedCodeLen)))
@@ -225,12 +225,12 @@ module code_upgrades_test {
     val s2 = announceCodeUpgrade(s1, para, hB, FixedCodeLen, 0).state
     // Refused while announced: nothing changes, and the refusal is logged.
     val refused = replay(s2, para, 0,
-      Forget({ target: Parachain(para), hash: hB.asPreimage(), len: FixedCodeLen }))
+      Forget({ target: Parachain(para), preimages: List((hB.asPreimage(), FixedCodeLen)) }))
     val s3 = refused.state
     // Supersede, which displaces hB, and only then does the forget take effect.
     val s4 = announceCodeUpgrade(s3, para, hC, FixedCodeLen, 0).state
     val s5 = replay(s4, para, 0,
-      Forget({ target: Parachain(para), hash: hB.asPreimage(), len: FixedCodeLen })).state
+      Forget({ target: Parachain(para), preimages: List((hB.asPreimage(), FixedCodeLen)) })).state
     all {
       assert(s3 == s2),
       assert(refused.logs == List(

@@ -317,6 +317,9 @@ enum AccumulateLog {
     CoreNotAssignable { core: CoreIndex },
     /// The JAM `transfer` for the `TransferOut` with this `id` failed. See §5.1.
     TransferFailed { id: Compact<u64>, error: TransferError },
+    /// The `TransferOut` with this `id` and a `TransferAmount::Max` went through,
+    /// moving `amount`. See §5.1.
+    TransferredAmount { id: Compact<u64>, amount: Compact<Amount> },
     /// A `forget` left the preimage in place. `Forget` it again after `due`.
     /// See §6.1.
     ForgetAgainAt { target: Target, hash: Hash, len: Compact<u32>, due: Timeslot },
@@ -334,8 +337,8 @@ enum AccumulateLog {
     ServiceEjected { service: ServiceId, credited: Compact<Balance> },
     /// A `SetServiceSupervisor` failed.
     ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
-    /// Outcome of the `CreateService` with this `id`.
-    ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
+    /// Outcome of the `CreateService` with this `message_id`.
+    ServiceCreation { message_id: Compact<u64>, result: ServiceCreationResult },
     /// `ParachainCleanUp` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s). See §6.4.
     TooMuchStateHeld,
@@ -393,6 +396,14 @@ enum ServiceCreationResult {
     IdTaken,
 }
 
+/// How much a `TransferOut` moves. See §5.1.
+enum TransferAmount {
+    /// Exactly this much, or nothing.
+    Exact(Compact<Amount>),
+    /// As much as `source` can spare, up to this much.
+    Max(Compact<Amount>),
+}
+
 /// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 6.
 enum TransferError {
     /// `source` is not a known service.
@@ -408,9 +419,9 @@ enum TransferError {
     DestinationNotSupervised,
     /// The supplied gas is below `dest`'s `min_memo_gas`.
     GasBelowDestinationMinimum,
-    /// The `source` service cannot cover `amount`, either because the debited
-    /// balance is too small or because the transfer would leave it below its
-    /// threshold balance.
+    /// The `source` service cannot cover a `TransferAmount::Exact`, either because
+    /// the debited balance is too small or because the transfer would leave it
+    /// below its threshold balance.
     InsufficientServiceBalance,
 }
 
@@ -571,26 +582,28 @@ enum UpwardMessage {
     /// free. **Asset Hub only.**
     SetServiceSupervisor { service: ServiceId, new_supervisor: ServiceId },
     /// Create a service supervised by this one, funded from this service's
-    /// balance. `id` is a caller-supplied identifier, echoed back in the
-    /// `ServiceCreation` log entry so Asset Hub can match the outcome to its
-    /// request. **Asset Hub only.**
+    /// balance. The amount is the new service's minimum balance, as defined by
+    /// the Gray Paper (`new`). `message_id` is a caller-supplied identifier,
+    /// echoed back in the `ServiceCreation` log entry so Asset Hub can match
+    /// the outcome to its request. **Asset Hub only.**
     CreateService {
         code_hash: Hash,
         len: Compact<u32>,
         min_item_gas: u64,
         min_memo_gas: u64,
-        id: Compact<u64>,
+        message_id: Compact<u64>,
         /// Index to create the service at, in JAM's protected range. Only
         /// honoured while the Parachain Service is the registrar (§3).
         desired_id: Option<ServiceId>,
         source_supervisor_balance: bool,
         new_supervisor_balance: bool,
     },
-    /// Release a previously solicited preimage of `target`. See §6.1. A
-    /// `Service` target is **Asset Hub only**.
-    Forget { target: Target, hash: Hash, len: Compact<u32> },
-    /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
-    RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
+    /// Release previously solicited preimages of `target`, one `(hash, len)` at a
+    /// time in order. See §6.1. A `Service` target is **Asset Hub only**.
+    Forget { target: Target, preimages: Vec<(Hash, Compact<u32>)> },
+    /// Delete `keys` from a supervised service's own storage, one at a time in
+    /// order. **Asset Hub only.**
+    RemoveServiceStorage { service: ServiceId, keys: Vec<Vec<u8>> },
     /// Upsert `key_value_storage[(para_id, key)] = value`. An empty `key` or `value`
     /// aborts Refine with `Err(RefineLog::EmptyKVKeyOrValue)`. See §6.1.
     SetKV { key: Vec<u8>, value: Vec<u8> },
@@ -598,12 +611,13 @@ enum UpwardMessage {
     /// `Err(RefineLog::EmptyKVKeyOrValue)`. See §6.1.
     RemoveKV { para_id: ParaId, key: Vec<u8> },
     /// Transfer balance via JAM `transfer`. `id` is a caller-supplied
-    /// identifier, echoed back in `TransferFailed` so Asset Hub can match a
-    /// failure to its request. See §5.1. **Asset Hub only.**
+    /// identifier, echoed back in `TransferFailed` and `TransferredAmount` so
+    /// Asset Hub can match the outcome to its request. See §5.1.
+    /// **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
-        amount: Compact<Amount>,
+        amount: TransferAmount,
         id: Compact<u64>,
         source_supervisor_balance: bool,
         dest_supervisor_balance: bool,
@@ -1032,6 +1046,11 @@ candidate registered.
 `source_supervisor_balance` and `dest_supervisor_balance` pick which balance is used
 on each side: the supervisor balance when true, the regular balance when false.
 
+`amount` is `Exact(a)` or `Max(a)`. `Max(a)` moves `min(a, selected_balance, balance +
+supervisor_balance - threshold_balance)` of `source`, where `selected_balance` is the
+balance picked by `source_supervisor_balance`, and on success logs the moved amount in
+`AccumulateLog::TransferredAmount`.
+
 ### 5.2 Parachain Code Upgrade Lifecycle
 
 A parachain switches to new validation code in two explicit steps, both carried by
@@ -1145,7 +1164,7 @@ Phase 4: Activate
 
 Phase 5: Forget
     Asset Hub observes the new codehash in Parachain Service state
-    and emits Forget { target: Parachain(asset_hub_para_id), hash: old_code_hash, len } (§6.1).
+    and emits Forget { target: Parachain(asset_hub_para_id), preimages: [(old_code_hash, len)] } (§6.1).
 ```
 
 ### 5.5 Parachain Head Commitment
@@ -1294,7 +1313,7 @@ bookkeeping for this. When a `forget` removes the last referencer without expung
 preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { target, hash, len, due }`, where
 `due = now + C_expungeperiod`, to the log of the parachain that emitted the `Forget`
 (§5.1). The last referencer stays in `referencers` and is still charged the full
-footprint. That parachain emits `Forget { target: Parachain(para_id), hash, len }` again
+footprint. That parachain emits `Forget { target: Parachain(para_id), preimages: [(hash, len)] }` again
 once the timeslot is *strictly after* `due` to complete the expunge and free the
 footprint.
 

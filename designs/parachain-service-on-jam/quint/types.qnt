@@ -225,6 +225,10 @@ module types {
       | None => None
     }
 
+  pure def min(a: int, b: int): int = if (a < b) a else b
+
+  pure def max(a: int, b: int): int = if (a > b) a else b
+
   /// `Option`'s value or a default when `None`.
   pure def optionGetOr(opt: Option[a], fallback: a): a =
     match opt {

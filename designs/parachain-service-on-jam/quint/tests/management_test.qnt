@@ -102,7 +102,7 @@ module management_test {
     val len = 1024
     val before = initialState.paraInfo(target).usedStateBalance
     val held = initialState.addReferencer(target, h, len, 0).state
-    val forced = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), hash: h, len: len }))
+    val forced = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), preimages: List((h, len)) }))
     all {
       assert(held.paraInfo(target).usedStateBalance == before + preimageFootprint(len)),
       assert(forced.state.paraInfo(target).usedStateBalance == before),
@@ -121,7 +121,7 @@ module management_test {
     val len = 2048
     val before = initialState.paraInfo(target).usedStateBalance
     val held = markProvided(initialState.addReferencer(target, h, len, 0).state, h, len)
-    val msg = Forget({ target: Parachain(target), hash: h, len: len })
+    val msg = Forget({ target: Parachain(target), preimages: List((h, len)) })
     val first = replay(held, CoretimeParaId, 5, msg)
     val due = 5 + ExpungePeriod
     val second = replay(first.state, CoretimeParaId, due + 1, msg)
@@ -150,7 +150,7 @@ module management_test {
       )
     }
     val forced = replay(activeCodeState, CoretimeParaId, 0,
-      Forget({ target: Parachain(target), hash: h, len: FixedCodeLen }))
+      Forget({ target: Parachain(target), preimages: List((h, FixedCodeLen)) }))
     all {
       assert(isValidationCodeOf(activeCodeState.paraInfo(target), h, FixedCodeLen)),
       // Nothing at all changed: code, balance and registry slot all stand.
@@ -189,11 +189,11 @@ module management_test {
     val h: Hash = { hashBytes: 5555 }
     all {
       assert(replay(initialState, CoretimeParaId, 0,
-        Forget({ target: Parachain(ghost), hash: h, len: 1024 })).state == initialState),
+        Forget({ target: Parachain(ghost), preimages: List((h, 1024)) })).state == initialState),
       assert(replay(initialState, CoretimeParaId, 0,
         RemoveKV({ paraId: ghost, key: List(0) })).state == initialState),
       assert(replay(initialState, CoretimeParaId, 0,
-        Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 })).state == initialState),
+        Forget({ target: Parachain(AssetHubParaId), preimages: List((h, 1024)) })).state == initialState),
       init
     }
   }
@@ -209,7 +209,7 @@ module management_test {
     val withPreimage = initialState.addReferencer(target, h, len, 0).state
     val held = applySetKV(withPreimage, target, key, List(7)).state
     val refused = parachainCleanUp(held, target, 0)
-    val d1 = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), hash: h, len: len }))
+    val d1 = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), preimages: List((h, len)) }))
     val d2 = replay(d1.state, CoretimeParaId, 0, RemoveKV({ paraId: target, key: key }))
     val cleaned = parachainCleanUp(d2.state, target, 0)
     all {

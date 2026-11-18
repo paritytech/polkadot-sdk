@@ -225,12 +225,17 @@ module accumulate_test {
       serviceCodeHash: ownCode,
       serviceCodeLen: len
     }
-    val forgetOwn = Forget({ target: Parachain(ah), hash: ownCode, len: len })
+    val forgetOwn = Forget({ target: Parachain(ah), preimages: List((ownCode, len)) })
     val own = replay(held, ah, 0, forgetOwn)
     val byCoretime = replay(held, CoretimeParaId, 0, forgetOwn)
-    val other = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: otherCode, len: len }))
+    val other = replay(held, ah, 0, Forget({ target: Parachain(ah), preimages: List((otherCode, len)) }))
     // The active code's hash at another length is a different preimage.
-    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: 100 }))
+    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), preimages: List((ownCode, 100)) }))
+    // All three in one `Forget`: each entry is handled on its own, in order.
+    val batched = replay(held, ah, 0, Forget({
+      target: Parachain(ah),
+      preimages: List((otherCode, len), (ownCode, len), (ownCode, 100))
+    }))
     all {
       assert(Set(own, byCoretime).forall(out => and {
         out.state == held,
@@ -244,6 +249,10 @@ module accumulate_test {
       assert(not(otherLen.state.hasReferencer(ownCode, 100, ah))),
       assert(otherLen.state.hasReferencer(ownCode, len, ah)),
       assert(otherLen.logs == List()),
+      assert(batched.state.hasReferencer(ownCode, len, ah)),
+      assert(batched.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))),
+      assert(batched.preimageOps
+        == List(Forgotten((ah, otherCode, len)), Forgotten((ah, ownCode, 100)))),
       init
     }
   }

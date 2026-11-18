@@ -421,15 +421,15 @@ module main {
     // it is rejected (§5.2).
     Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(para_id), preimages: List((anyHash, 1024)) }),
     // Solicit/forget of the para's OWN active code, exercising the
     // validation-code path (§5.2).
     Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
-      Forget({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), preimages: List((activeCode.asPreimage(), FixedCodeLen)) }),
     // AH-only operations on a supervised service.
-    Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+    Forget({ target: Service(MkServiceId(4)), preimages: List((anyHash, 1024)) }),
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
-      RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
+      RemoveServiceStorage({ service: MkServiceId(4), keys: List(List(1, 2)) }),
       EjectService({ service: MkServiceId(4) }),
       UpgradeService({
         service: Some(MkServiceId(4)),
@@ -446,7 +446,7 @@ module main {
         len: FixedCodeLen,
         minItemGas: 0,
         minMemoGas: 100,
-        id: 1,
+        messageId: 1,
         desiredId: None,
         sourceSupervisorBalance: false,
         newSupervisorBalance: false
@@ -457,7 +457,7 @@ module main {
       len: FixedCodeLen,
       minItemGas: 0,
       minMemoGas: 0,
-      id: 2,
+      messageId: 2,
       desiredId: Some(MkServiceId(42)),
       sourceSupervisorBalance: false,
       newSupervisorBalance: false
@@ -469,7 +469,7 @@ module main {
     TransferOut({
       source: None,
       dest: created,
-      amount: 100,
+      amount: Exact(100),
       id: 1,
       sourceSupervisorBalance: false,
       destSupervisorBalance: false,
@@ -478,7 +478,7 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: 100,
+        amount: Exact(100),
         id: 2,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
@@ -487,7 +487,7 @@ module main {
       TransferOut({
         source: None,
         dest: ParachainServiceId,
-        amount: 100,
+        amount: Exact(100),
         id: 3,
         sourceSupervisorBalance: false,
         destSupervisorBalance: true,
@@ -496,7 +496,7 @@ module main {
       TransferOut({
         source: None,
         dest: ParachainServiceId,
-        amount: 100,
+        amount: Exact(100),
         id: 4,
         sourceSupervisorBalance: true,
         destSupervisorBalance: false,
@@ -505,7 +505,7 @@ module main {
       TransferOut({
         source: Some(created),
         dest: MkServiceId(42),
-        amount: 100,
+        amount: Exact(100),
         id: 5,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
@@ -514,7 +514,7 @@ module main {
       TransferOut({
         source: None,
         dest: MkServiceId(9),
-        amount: 100,
+        amount: Exact(100),
         id: 6,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
@@ -523,7 +523,7 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: 100,
+        amount: Exact(100),
         id: 7,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
@@ -532,8 +532,18 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: TotalSupply,
+        amount: Exact(TotalSupply),
         id: 8,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
+      // Drains everything above the threshold.
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: Max(TotalSupply),
+        id: 9,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))
@@ -599,8 +609,8 @@ module main {
     // Coretime chain, which drains a para that can no longer release its own
     // state, and rejected as `RestrictedHostFunction` from every other caller.
     // Both outcomes are reachable since the emitting para is sampled.
-    Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
+    Forget({ target: Parachain(MkParaId(3)), preimages: List((anyHash, 1024)) }),
+      Forget({ target: Parachain(MkParaId(3)), preimages: List((codeHashB.asPreimage(), FixedCodeLen)) }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
     // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
     // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty

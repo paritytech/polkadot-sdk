@@ -31,16 +31,16 @@ module service_ops_test {
 
   pure val emptyOurs: ForeignServices = Map(victim -> supervised(Map(), Map(), 0))
 
-  pure val forgetIt = Forget({ target: Service(victim), hash: someHash, len: someLen })
+  pure val forgetIt = Forget({ target: Service(victim), preimages: List((someHash, someLen)) })
   pure val solicitIt = Solicit({ target: Service(victim), hash: someHash, len: someLen })
-  pure val removeIt = RemoveServiceStorage({ service: victim, key: someKey })
+  pure val removeIt = RemoveServiceStorage({ service: victim, keys: List(someKey) })
   pure val ejectIt = EjectService({ service: victim })
   pure def createWith(desired: Option[ServiceId]): UpwardMessage = CreateService({
     codeHash: someHash,
     len: FixedCodeLen,
     minItemGas: 0,
     minMemoGas: 0,
-    id: 77,
+    messageId: 77,
     desiredId: desired,
     sourceSupervisorBalance: false,
     newSupervisorBalance: false
@@ -65,7 +65,7 @@ module service_ops_test {
   run createMakesUsSupervisorTest = {
     val out = replayForeign(Map(), AssetHubParaId, 5, createIt)
     init.then(expectThat(all {
-      out.logs == List(ServiceCreation({ id: 77, result: Created(victim) })),
+      out.logs == List(ServiceCreation({ messageId: 77, result: Created(victim) })),
       supervisedByUs(out.foreign, victim),
       out.foreign.get(victim).created == 5,
       // Starts holding only the request for its own code.
@@ -82,14 +82,14 @@ module service_ops_test {
     val wanted = MkServiceId(42)
     val atWanted = replayForeign(Map(), AssetHubParaId, 5, createWith(Some(wanted)))
     init.then(expectThat(all {
-      atWanted.logs == List(ServiceCreation({ id: 77, result: Created(wanted) })),
+      atWanted.logs == List(ServiceCreation({ messageId: 77, result: Created(wanted) })),
       supervisedByUs(atWanted.foreign, wanted),
       logsOf(atWanted.foreign, createWith(Some(wanted)), 6)
-        == List(ServiceCreation({ id: 77, result: IdTaken })),
+        == List(ServiceCreation({ messageId: 77, result: IdTaken })),
       after(atWanted.foreign, createWith(Some(wanted)), 6) == atWanted.foreign,
       // Including our own index, which sits in the protected range.
       logsOf(Map(), createWith(Some(ParachainServiceId)), 6)
-        == List(ServiceCreation({ id: 77, result: IdTaken })),
+        == List(ServiceCreation({ messageId: 77, result: IdTaken })),
       after(Map(), createWith(Some(ParachainServiceId)), 6) == Map(),
     }))
   }
@@ -190,6 +190,8 @@ module service_ops_test {
 
   /// Removing a storage key shrinks the store; a missing key is reported.
   run removeStorageReportsMissingKeyTest = {
+    val removeMany =
+      RemoveServiceStorage({ service: victim, keys: List(someKey, List(7), List(3)) })
     val withStorage: ForeignServices =
       Map(victim -> supervised(Map(), Map(someKey -> List(), List(3) -> List()), 0))
     init.then(expectThat(all {
@@ -199,6 +201,10 @@ module service_ops_test {
       after(emptyOurs, removeIt, 0).get(victim).storage == Map(),
       logsOf(emptyOurs, removeIt, 0)
         == List(ServiceKeyNotFound({ service: victim, keyHash: listHash(someKey) })),
+      // Several keys: each is removed on its own, a missing one does not stop the rest.
+      after(withStorage, removeMany, 0).get(victim).storage == Map(),
+      logsOf(withStorage, removeMany, 0)
+        == List(ServiceKeyNotFound({ service: victim, keyHash: listHash(List(7)) })),
     }))
   }
 
@@ -300,7 +306,7 @@ module service_ops_test {
       len: FixedCodeLen,
       minItemGas: 0,
       minMemoGas: 0,
-      id: 77,
+      messageId: 77,
       desiredId: None,
       sourceSupervisorBalance: false,
       newSupervisorBalance: true
@@ -310,7 +316,7 @@ module service_ops_test {
       len: FixedCodeLen,
       minItemGas: 0,
       minMemoGas: 0,
-      id: 77,
+      messageId: 77,
       desiredId: None,
       sourceSupervisorBalance: true,
       newSupervisorBalance: false
@@ -323,7 +329,7 @@ module service_ops_test {
       intoSupervisor.foreign.get(victim).account ==
         { balance: 0, supervisorBalance: cost, minMemoGas: 0 },
       // This service's supervisor balance starts out empty.
-      fromSupervisor.logs == List(ServiceCreation({ id: 77, result: CannotAfford })),
+      fromSupervisor.logs == List(ServiceCreation({ messageId: 77, result: CannotAfford })),
       fromSupervisor.foreign == Map(),
     }))
   }
@@ -340,10 +346,10 @@ module service_ops_test {
     val taken: ForeignServices = Map(wanted -> supervised(Map(), Map(), 0))
     init.then(expectThat(all {
       replayWith(poor, Map(), createIt, 5).logs
-        == List(ServiceCreation({ id: 77, result: CannotAfford })),
+        == List(ServiceCreation({ messageId: 77, result: CannotAfford })),
       replayWith(poor, Map(), createIt, 5).state == poor,
       replayWith(poor, taken, createWith(Some(wanted)), 5).logs
-        == List(ServiceCreation({ id: 77, result: CannotAfford })),
+        == List(ServiceCreation({ messageId: 77, result: CannotAfford })),
     }))
   }
 
@@ -399,7 +405,7 @@ module service_ops_test {
       not(targetsForeignPara(forgetIt, AssetHubParaId)),
       not(targetsForeignPara(solicitIt, AssetHubParaId)),
       targetsForeignPara(
-        Forget({ target: Parachain(CoretimeParaId), hash: someHash, len: someLen }),
+        Forget({ target: Parachain(CoretimeParaId), preimages: List((someHash, someLen)) }),
         AssetHubParaId
       ),
       targetsForeignPara(
