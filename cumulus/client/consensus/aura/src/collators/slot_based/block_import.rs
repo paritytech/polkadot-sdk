@@ -403,6 +403,7 @@ mod tests {
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use futures::FutureExt;
+	use rstest::rstest;
 	use sc_consensus::{BlockImportParams, ForkChoiceStrategy};
 
 	fn block(client: &Client) -> Block {
@@ -456,15 +457,19 @@ mod tests {
 		assert_eq!(client.info().best_hash, block.header.hash());
 	}
 
+	#[rstest]
+	#[case::catch_up(BlockOrigin::NetworkInitialSync)]
+	#[case::network_broadcast(BlockOrigin::NetworkBroadcast)]
+	#[case::consensus_broadcast(BlockOrigin::ConsensusBroadcast)]
 	#[tokio::test]
-	async fn catch_up_waits_for_backfill_before_executing_more_blocks() {
+	async fn imports_wait_for_backfill_when_proof_capacity_is_full(#[case] origin: BlockOrigin) {
 		let client = Arc::new(TestClientBuilder::default().build());
 		let (importer, mut handle) = SlotBasedBlockImport::new(client.clone(), client.clone());
 		let mut previous = None;
 		for number in 1..=32 {
 			let block = block(&client);
 			let (header, body) = block.clone().deconstruct();
-			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+			let mut params = BlockImportParams::new(origin, header);
 			params.body = Some(body);
 			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 			let clone = importer.clone();
@@ -478,7 +483,7 @@ mod tests {
 				assert_eq!(forwarded, previous);
 				assert!(proof.iter_nodes().next().is_some());
 			}
-			import.await.expect("catch-up import succeeds after backfill drains; qed");
+			import.await.expect("import succeeds after backfill drains; qed");
 			assert_eq!(client.info().best_number, number);
 			previous = Some(block);
 		}
@@ -520,7 +525,7 @@ mod tests {
 			params.body = Some(body);
 			params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 			params.finalized = finalized;
-			importer.import_block(params).await.expect("finalized import succeeds; qed");
+			importer.import_block(params).await.expect("catch-up import succeeds; qed");
 			assert!(handle.next().now_or_never().is_none());
 			assert_eq!(client.info().finalized_number, 1);
 		}

@@ -329,7 +329,7 @@ mod tests {
 		runtime::Block, BuildBlockBuilder, Client, TestClientBuilder, TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use futures::{channel::mpsc, poll};
+	use futures::poll;
 	use sc_client_api::backend::Finalizer;
 	use sc_consensus::{
 		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges,
@@ -337,7 +337,7 @@ mod tests {
 	use sp_consensus::BlockOrigin;
 	use std::collections::HashMap;
 
-	fn relay() -> (TestRelayClient, mpsc::UnboundedSender<RelayHeader>, RelayHeader) {
+	fn relay() -> (TestRelayClient, RelayHeader) {
 		let old = RelayHeader::new(
 			63,
 			Default::default(),
@@ -352,20 +352,17 @@ mod tests {
 			old.hash(),
 			Default::default(),
 		);
-		let mut client = TestRelayClient::new_with_best(
+		let client = TestRelayClient::new_with_best(
 			HashMap::from([(old.hash(), old.clone()), (parent.hash(), parent.clone())]),
 			old.hash(),
 		);
-		let (tx, rx) = mpsc::unbounded();
-		*client.import_notifications.lock().unwrap() = Some(Box::pin(rx));
-		client.set_best_hash(Some(old.hash()));
-		(client, tx, parent)
+		(client, parent)
 	}
 
 	#[tokio::test]
 	async fn backfill_retains_proof_until_relay_header_arrives() {
 		let client = Arc::new(TestClientBuilder::default().build());
-		let (mut relay, mut imports, parent) = relay();
+		let (mut relay, parent) = relay();
 		let header = <Block as BlockT>::Header::new(
 			1,
 			Default::default(),
@@ -389,8 +386,13 @@ mod tests {
 		assert!(poll!(&mut backfill).is_pending());
 		assert!(store.load(header.hash()).expect("store lookup succeeds; qed").is_none());
 
+		let mut observer = relay
+			.import_notification_stream()
+			.await
+			.expect("second relay subscription succeeds; qed");
 		relay.set_best_hash(Some(parent.hash()));
-		imports.start_send(parent.clone()).expect("relay subscriber is alive; qed");
+		relay.notify_import(parent.clone());
+		assert_eq!(observer.next().now_or_never(), Some(Some(parent.clone())));
 		backfill.await;
 		let entry = store
 			.load(header.hash())
@@ -405,7 +407,7 @@ mod tests {
 	#[tokio::test]
 	async fn backfill_rejects_a_relay_header_from_another_fork() {
 		let client = Arc::new(TestClientBuilder::default().build());
-		let (mut relay, _imports, parent) = relay();
+		let (mut relay, parent) = relay();
 		relay.set_best_hash(Some(parent.hash()));
 		let header = <Block as BlockT>::Header::new(
 			1,
@@ -509,9 +511,6 @@ mod tests {
 			parents.iter().map(|header| (header.hash(), header.clone())).collect(),
 			parents[0].hash(),
 		);
-		let (mut imports, rx) = mpsc::unbounded();
-		*relay.import_notifications.lock().expect("test lock is not poisoned; qed") =
-			Some(Box::pin(rx));
 		let params = |block: Block| {
 			let (header, body) = block.deconstruct();
 			let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
@@ -540,13 +539,14 @@ mod tests {
 			.expect("second import succeeds; qed");
 		assert_eq!(client.info().best_number, 2);
 
-		// An invalid root exposes execution starting before backfill makes room.
+		// An invalid state root fails at execution, so a pending import shows it is still
+		// waiting for capacity.
 		let mut invalid = params(blocks[2].clone());
 		invalid.header.set_state_root(Default::default());
 		let blocked = importer.import_block(invalid);
 		futures::pin_mut!(blocked);
 		for _ in 0..3 {
-			imports.start_send(parents[0].clone()).expect("relay subscriber is alive; qed");
+			relay.notify_import(parents[0].clone());
 			assert!(poll!(&mut backfill).is_pending());
 			assert!(poll!(&mut blocked).is_pending());
 			assert_eq!(client.info().best_number, 2);
@@ -559,7 +559,7 @@ mod tests {
 		}
 
 		relay.set_best_hash(Some(parents[3].hash()));
-		imports.start_send(parents[3].clone()).expect("relay subscriber is alive; qed");
+		relay.notify_import(parents[3].clone());
 		assert!(poll!(&mut backfill).is_pending());
 		for block in &blocks[..2] {
 			assert!(store.load(block.header.hash()).expect("store lookup succeeds; qed").is_some());
@@ -586,7 +586,7 @@ mod tests {
 	#[tokio::test]
 	async fn finality_releases_a_proof_waiting_for_its_relay_header() {
 		let client = Arc::new(TestClientBuilder::default().build());
-		let (relay, _imports, parent) = relay();
+		let (relay, parent) = relay();
 		let header = imported_block(&client, parent.number).await.header;
 		let backfill = backfill_resubmission_entry::<Block, _, _>(
 			&relay,

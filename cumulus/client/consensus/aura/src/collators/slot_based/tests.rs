@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
-use futures::Stream;
+use futures::{channel::mpsc, Stream};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
@@ -283,7 +283,7 @@ async fn determine_core_no_cores_available() {
 
 #[derive(Clone)]
 pub struct TestRelayClient {
-	pub import_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>>>,
+	import_notifications: Arc<Mutex<Vec<mpsc::UnboundedSender<RelayHeader>>>>,
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
@@ -310,6 +310,13 @@ impl TestRelayClient {
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
 		*self.best_hash.lock().unwrap() = best_hash;
+	}
+
+	pub fn notify_import(&self, header: RelayHeader) {
+		let mut subscribers =
+			self.import_notifications.lock().expect("test lock is not poisoned; qed");
+		subscribers.retain(|sender| sender.unbounded_send(header.clone()).is_ok());
+		assert!(!subscribers.is_empty(), "relay subscriber is alive");
 	}
 
 	pub fn set_best_notifications(
@@ -404,7 +411,12 @@ impl RelayChainInterface for TestRelayClient {
 	async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
-		Ok(self.import_notifications.lock().unwrap().take().unwrap())
+		let (sender, receiver) = mpsc::unbounded();
+		self.import_notifications
+			.lock()
+			.expect("test lock is not poisoned; qed")
+			.push(sender);
+		Ok(Box::pin(receiver))
 	}
 
 	async fn finality_notification_stream(
