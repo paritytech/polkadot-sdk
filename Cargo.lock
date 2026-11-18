@@ -4935,6 +4935,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-aura-authorizer-utils"
+version = "0.1.0"
+dependencies = [
+ "binary-merkle-tree 13.0.0",
+ "blake2b_simd",
+ "hash-db",
+ "hash256-std-hasher",
+ "jam-codec",
+ "jam-types",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "primitive-types 0.13.1",
+ "sp-crypto-hashing 0.1.0",
+]
+
+[[package]]
 name = "cumulus-client-bootnodes"
 version = "0.1.0"
 dependencies = [
@@ -9842,9 +9858,9 @@ dependencies = [
 
 [[package]]
 name = "jam-types"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658ebd3553ff9639a66d4d42b62b6a4c5a0d31923c36aa90a2dbf243545126ca"
+checksum = "3786d33c67f2a29311a5d21781f828de51a1fbb34dc6362f4039dea11786bab9"
 dependencies = [
  "atomic-traits",
  "base64 0.22.1",
@@ -12321,7 +12337,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -18134,6 +18150,7 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -20015,7 +20032,7 @@ dependencies = [
  "libc",
  "socket2 0.6.5",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -21379,7 +21396,7 @@ dependencies = [
  "security-framework 3.5.1",
  "security-framework-sys",
  "webpki-root-certs 1.0.3",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -25236,7 +25253,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
