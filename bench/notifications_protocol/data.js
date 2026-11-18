@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794956453383,
+  "lastUpdate": 1794996708789,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -263615,6 +263615,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2274305601,
             "range": "± 12734751",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@proton.me",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2826aea0edada06641df5a20546d44a67c072f2",
+          "message": "spec-msg: align primitives with design v0.6 (#13759)\n\nFollow-up to #12676: aligns `cumulus-primitives-spec-messaging` with the\nv0.6 design (#13622).\n\n- Session-based channels: `ChannelMessage` leaves and the `Register` ack\nregister replace `WindowGrant`. Typed channel ids key the channel state,\n`consumed_streams()` and the inherent.\n- One `MessagesRequest`/`MessagesResponse` fetch pair with typed\n`FetchError`, head reads included.\n- `ConsumptionRecord` keeps a sorted stream list per source, and\n`build_requires` rejects unsorted or duplicate entries.\n- Identity extension per Appendix B; skip proofs sized exactly\n(`encoded_len_for`); `MAX_MMR_HASHES` = 48.\n- Incremental node cache for the commitment tree (`StreamsTree`,\n`update_tree_leaf`), with bounded walks that fail with `TreeError` on a\nmissing or corrupt node.\n- `MmrExtensionProof::rebase`: rebases an extension to start at an\nearlier frontier over the leaves in between, checked against the same\nroot. Receiving nodes use it to lift a block the runtime cut short of\nthe planned endpoint. `MMRExtensionProof` is renamed\n`MmrExtensionProof`.\n- Conformance vectors for extension proofs and requires synthesis.",
+          "timestamp": "2026-11-18T08:39:28Z",
+          "tree_id": "5284f1d4de379bb43e6ba9846a423472c9614da8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2826aea0edada06641df5a20546d44a67c072f2"
+        },
+        "date": 1794996667682,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4068272,
+            "range": "± 32536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 299460,
+            "range": "± 2368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4182946,
+            "range": "± 33449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 369028,
+            "range": "± 2811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4764230,
+            "range": "± 42629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 887807,
+            "range": "± 7206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10438400,
+            "range": "± 51807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4718385,
+            "range": "± 59732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 42917280,
+            "range": "± 352148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36653907,
+            "range": "± 539471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 335665174,
+            "range": "± 1796808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 291555696,
+            "range": "± 1235281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2511663736,
+            "range": "± 9288021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2269088548,
+            "range": "± 23610327",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3363946,
+            "range": "± 20859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1874791,
+            "range": "± 2510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3506516,
+            "range": "± 21731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1977903,
+            "range": "± 9404",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4132482,
+            "range": "± 19142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2270681,
+            "range": "± 14128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7824465,
+            "range": "± 32801",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5216255,
+            "range": "± 40906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37313494,
+            "range": "± 225400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36615520,
+            "range": "± 353156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 316593483,
+            "range": "± 2754945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 283356952,
+            "range": "± 1890717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2540299303,
+            "range": "± 32252946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2332673208,
+            "range": "± 16635480",
             "unit": "ns/iter"
           }
         ]
