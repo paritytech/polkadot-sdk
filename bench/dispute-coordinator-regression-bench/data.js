@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795024852106,
+  "lastUpdate": 1795033902233,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d5876e2565a4fe83c92c8f710778ff49c4ed4a8",
-          "message": "client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order (#11962)\n\n## Problem\n\n#11474 switched `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to\n`BTreeSet<DbHash>` for dedup + canonical ordering. This silently broke\nproof-of-storage verification for any block produced by a multi-renew\nextrinsic.\n\n`build_proof` walks `block_indexed_body(N)` linearly to count chunks and\npick the chunk at `random_chunk(parent_hash, total_chunks)`. The\nconsumer pallet (`pallet_transaction_storage`) stores a parallel\n`Vec<TransactionInfo>` in dispatch order. Both sides resolve\n`selected_chunk_index` to a position; with `BTreeSet`, the off-chain\nside iterates in hash-sorted order while the runtime indexes in dispatch\norder. Different positions point at different `chunk_root`s →\n`blake2_256_verify_proof` returns `false` → `Error::InvalidProof` →\n`BadMandatory` → chain halts at the first proof block after a\nmulti-renew.\n\n## Fix\n\nRevert `MultiRenew.hashes` to `Vec<DbHash>`, append every\n`IndexOperation::Renew` op (no dedup). Insertion order is the\ncross-process contract; duplicates are preserved so column-refcount\ninc/dec stays symmetric per occurrence.\n\n## Tests\n\n- `block_indexed_body_preserves_renew_op_submission_order`\n(sc-client-db) — submits 5 Renew ops in non-sorted order, asserts both\n`MultiRenew.hashes` and `block_indexed_body(N)` come back\nposition-by-position equal to the submission order. Fails immediately\nunder any sort-applying container.\n- `proof_round_trip_against_parallel_runtime_view`\n(sp-transaction-storage-proof) — builds a proof from N transactions in\nsubmission order `[3, 0, 2, 1]`, then verifies it against a parallel\nruntime-side `Vec<TxInfo>` in the same order using the binary-search\nlogic FRAME consumers use. Sweeps 16 parent_hash seeds. Under\n`BTreeSet`, would fail on the first seed.\n- `random_chunk_is_deterministic_for_same_inputs`,\n`encode_index_round_trip_is_compact` — pin the agreement primitives.\n- All 10 pre-existing multi-renew tests updated for Vec semantics\n(duplicates preserved, refcount math adjusted accordingly).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-05-04T09:40:40Z",
-          "tree_id": "da8baadabdd743b604435cda1cea37fd1ceae48b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d5876e2565a4fe83c92c8f710778ff49c4ed4a8"
-        },
-        "date": 1777893606781,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00949610240999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010182362350000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027038210100000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025775235899999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "53312868+helixstreet@users.noreply.github.com",
+            "name": "helixstreet",
+            "username": "helixstreet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea042997ff92b26c6458d85a04e6b9d1fff0856",
+          "message": "Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot (#13571)\n\n# Description\n\nAdds eight dual-stack (IPv4 + IPv6) Helixstreet bootnode multiaddrs (WS\nand WSS `/tcp/443/wss`) to the embedded relay and system parachain chain\nspecifications:\n\n1. **Polkadot Relay\n(`polkadot/node/service/chain-specs/polkadot.json`):**\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n2. **Kusama Relay (`polkadot/node/service/chain-specs/kusama.json`):**\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n3. **Polkadot Asset Hub\n(`cumulus/parachains/chain-specs/asset-hub-polkadot.json`):**\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n4. **Polkadot People\n(`cumulus/parachains/chain-specs/people-polkadot.json`):**\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n\nNo existing bootnodes were removed or reordered. No crate or runtime\ncode changes.\n\nReachability checked over both IPv4 (`85.195.201.203`) and IPv6\n(`2a02:168:e7f2:0:15::d1..d4`) before opening:\n- All four DNS hostnames resolve to both `A` and `AAAA` records\n- All four `/tcp/443/wss` endpoints have valid TLS certificates and\ncomplete WebSocket (`101 Switching Protocols`) + libp2p noise/yamux\nhandshakes\n- All four direct `/ws` endpoints (`22010`, `22011`, `22081`, `22070`)\naccept connections over IPv4 and IPv6\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships these chainspecs. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nAppends two multiaddrs (`ws` and `wss`) per chain to the existing\n`bootNodes` array in the four embedded JSON chain specs, plus the\ncorresponding `prdoc` file.\n\nSuggested labels:\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T18:52:39Z",
+          "tree_id": "98aa7629d185a2624fcd0e36d8d1cd15a1fda9c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea042997ff92b26c6458d85a04e6b9d1fff0856"
+        },
+        "date": 1795033858934,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025636301599999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00946826964999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010123834000000002,
             "unit": "seconds"
           }
         ]
