@@ -51,7 +51,6 @@ fn token(key: CollatorKey, proof: Vec<H256>) -> AuthToken {
 #[test]
 fn built_proofs_works() {
 	for size in (1..=100).chain((0..=1000).step_by(100)) {
-		print!("{}\n", size);
 		let keys = keys(size);
 
 		for index in 0..size {

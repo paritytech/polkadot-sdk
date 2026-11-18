@@ -44,6 +44,7 @@ impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackage) -> Self {
 		// Keep this exhaustive so new fields require an explicit signing decision.
 		let WorkPackage { authorization: _, auth_code_host, authorizer, context, items } = package;
+
 		Self {
 			auth_code_host: *auth_code_host,
 			auth_code_hash: &authorizer.code_hash,
@@ -58,6 +59,7 @@ impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackageBody) -> Self {
 		// Keep this exhaustive so new fields require an explicit signing decision.
 		let WorkPackageBody { auth_code_host, authorizer, context, items } = package;
+
 		Self {
 			auth_code_host: *auth_code_host,
 			auth_code_hash: &authorizer.code_hash,
@@ -81,10 +83,7 @@ pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
 
 /// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,
 /// authorizer config, and work items, with the AURA domain separator.
-///
-/// Adapters for other JAM versions must preserve their version's complete context encoding
-/// and exclude the authorization token.
-pub fn hash_signing_payload(payload: &[u8]) -> H256 {
+pub(crate) fn hash_signing_payload(payload: &[u8]) -> H256 {
 	let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
 	state.update(WORK_PACKAGE_SIGN_CTX);
 	state.update(payload);
