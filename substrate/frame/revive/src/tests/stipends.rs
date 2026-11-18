@@ -18,19 +18,19 @@
 use crate::{
 	AccountInfo, Code, Config, Error, EthTxInfo, ExecConfig, ExecReturnValue, H160, Pallet,
 	TransactionLimits, U256, Weight,
-	evm::{CallTrace, CallTracer, fees::InfoT},
+	evm::{CallTrace, CallTracer, GenericTransaction},
 	test_utils::{
-		self, ALICE, BOB, BOB_ADDR, ETH_GAS_LIMIT, WEIGHT_LIMIT, builder::Contract, deposit_limit,
+		self, ALICE, ALICE_ADDR, BOB, BOB_ADDR, ETH_GAS_LIMIT, WEIGHT_LIMIT, builder::Contract,
+		deposit_limit,
 	},
-	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder, test_utils::eth_extrinsic_revert},
+	tests::{
+		ExtBuilder, GasScale, RuntimeOrigin, Test, builder, test_utils::dispatch_eth_transaction,
+	},
 	tracing::trace,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use codec::Encode;
-use frame_support::{
-	assert_ok,
-	traits::fungible::{Balanced, Mutate},
-};
+use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType,
 	NestedWritingReceiver, NestedWritingReceiver::Nesting, SendAndTransferTest, StipendSender,
@@ -84,19 +84,19 @@ fn run_call_in_substrate_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecRetur
 		.build_and_unwrap_result()
 }
 
-/// Dispatches `eth_call` to `dest`.
+/// Calls `dest` in an Ethereum transaction that `ALICE` signs.
 fn run_call_in_eth_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecReturnValue {
-	// A real transaction fills this pot from its gas before `eth_call` runs.
-	<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
-		EthTxInfo::<Test>::new(0, Weight::zero()).max_deposit(ETH_GAS_LIMIT.into()),
-	));
+	let transaction = GenericTransaction {
+		from: Some(ALICE_ADDR),
+		to: Some(dest),
+		value: Some(value),
+		input: data.into(),
+		gas: Some(ETH_GAS_LIMIT.into()),
+		..Default::default()
+	};
 	let mut tracer = CallTracer::new(Default::default());
-	trace(&mut tracer, || {
-		assert_ok!(builder::eth_call(dest).data(data).value(value).build());
-	});
-	// A failed `eth_call` still dispatches successfully, and reports its failure as an event.
-	let flags =
-		if eth_extrinsic_revert().is_some() { ReturnFlags::REVERT } else { ReturnFlags::empty() };
+	let result = trace(&mut tracer, || dispatch_eth_transaction(transaction));
+	let flags = if result.is_ok() { ReturnFlags::empty() } else { ReturnFlags::REVERT };
 	let output = tracer.collect_trace().expect("the transaction runs the call").output;
 	ExecReturnValue { flags, data: output.0 }
 }
@@ -635,22 +635,14 @@ fn call_warm_write_sender(
 			}
 			.abi_encode(),
 		};
-		let mut tracer = CallTracer::new(Default::default());
-		trace(&mut tracer, || match execution_mode {
-			ExecutionMode::Substrate => {
-				builder::bare_call(sender)
-					.data(call_data)
-					.evm_value(value.into())
-					.build_and_unwrap_result();
-			},
-			ExecutionMode::Ethereum => {
-				<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
-					1_000_000_000_000,
-				));
-				assert_ok!(builder::eth_call(sender).data(call_data).value(value.into()).build());
-			},
-		});
-		let denied = bool::abi_decode(&tracer.collect_trace().unwrap().output.0).unwrap();
+		let output = match execution_mode {
+			ExecutionMode::Substrate => builder::bare_call(sender)
+				.data(call_data)
+				.evm_value(value.into())
+				.build_and_unwrap_result(),
+			ExecutionMode::Ethereum => run_call_in_eth_tx(sender, call_data, value.into()),
+		};
+		let denied = bool::abi_decode(&output.data).unwrap();
 		let sender_counter = builder::bare_call(sender)
 			.data(WarmWriteSender::counterCall {}.abi_encode())
 			.build_and_unwrap_result();

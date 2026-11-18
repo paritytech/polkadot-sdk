@@ -136,7 +136,7 @@ doc:
     always pays for creating the precompile's `frame_system` account.
 
     A contract creation now sets aside the worst-case weight of registering the new contract in the
-    access list before the constructor runs, so the constructor gets that much less weight. When
+    access list before the constructor runs, so the constructor cannot use that weight. When
     the creation ends, the caller gets back the part of that weight the registration did not use,
     or all of it if the creation failed or reverted, even when the constructor used up all of its
     own weight.
