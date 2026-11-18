@@ -822,12 +822,10 @@ impl onchain::Config for OnChainSeqPhragmen {
 
 type OnChainElection = onchain::OnChainExecution<OnChainSeqPhragmen>;
 
-/// The staking election provider: `onchain::OnChainExecution` with no ongoing election.
+/// The staking election provider: an on-chain election that is never in progress between blocks.
 ///
-/// `pallet_staking` treats an `Ok` election status as an ongoing election, and
-/// `pallet_fast_unstake` does no work while an election is ongoing. The on-chain election
-/// completes inside `elect`, so no election is ongoing between blocks. `pallet_staking` reads the
-/// status only for this check, so `Err` does not stop it from calling `elect`.
+/// `elect` runs the whole election with `onchain::OnChainExecution`, so `status` always reports
+/// that no election is in progress.
 pub struct StakingElection;
 impl ElectionProvider for StakingElection {
 	type AccountId = <OnChainElection as ElectionProvider>::AccountId;
