@@ -5178,9 +5178,10 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		// No topic, so every filter matches it and the previous one delivered it.
+		// On topic 7, so the previous filter matched it and delivered it.
 		let mut statement = new_live_statement();
 		statement.set_plain_data(b"queued before the filter change".to_vec());
+		statement.set_topic(0, topic(7));
 		let hash = statement.hash();
 		statement_store.insert(statement);
 		handler.propagation_outboxes.push(peer_id, vec![hash]);
@@ -6849,7 +6850,7 @@ mod tests {
 		// Affinity is deferred; process it.
 		handler.process_pending_affinities();
 
-		// Create statements: one matching, one not matching, one with no topics.
+		// Create statements: one matching, one not matching.
 		let mut stmt_matching = new_live_statement();
 		stmt_matching.set_plain_data(b"matching".to_vec());
 		stmt_matching.set_topic(0, topic_aa.into());
@@ -6859,10 +6860,6 @@ mod tests {
 		stmt_not_matching.set_plain_data(b"not matching".to_vec());
 		stmt_not_matching.set_topic(0, topic_bb.into());
 		let hash_not_matching = stmt_not_matching.hash();
-
-		let mut stmt_no_topic = new_live_statement();
-		stmt_no_topic.set_plain_data(b"no topic".to_vec());
-		let hash_no_topic = stmt_no_topic.hash();
 
 		statement_store
 			.recent_statements
@@ -6874,11 +6871,6 @@ mod tests {
 			.lock()
 			.unwrap()
 			.insert(hash_not_matching, stmt_not_matching);
-		statement_store
-			.recent_statements
-			.lock()
-			.unwrap()
-			.insert(hash_no_topic, stmt_no_topic);
 
 		handler.propagate_statements().await;
 		handler.flush_pending_sends().await;
@@ -6897,14 +6889,10 @@ mod tests {
 			.collect();
 		sent_hashes.sort();
 
-		// Matching and no-topic statements should be sent; non-matching should be filtered.
+		// The matching statement should be sent; non-matching should be filtered.
 		assert!(
 			sent_hashes.contains(&hash_matching),
 			"Statement matching topic affinity should be propagated"
-		);
-		assert!(
-			sent_hashes.contains(&hash_no_topic),
-			"Statement with no topics should be propagated (broadcast)"
 		);
 		assert!(
 			!sent_hashes.contains(&hash_not_matching),
@@ -6993,13 +6981,15 @@ mod tests {
 		stmt_bb.set_topic(0, topic_bb.into());
 		let hash_bb = stmt_bb.hash();
 
-		let mut stmt_no_topic = new_live_statement();
-		stmt_no_topic.set_plain_data(b"no topic".to_vec());
-		let hash_no_topic = stmt_no_topic.hash();
+		let mut stmt_both = new_live_statement();
+		stmt_both.set_plain_data(b"stmt_both".to_vec());
+		stmt_both.set_topic(0, topic_aa.into());
+		stmt_both.set_topic(1, topic_bb.into());
+		let hash_both = stmt_both.hash();
 
 		statement_store.insert(stmt_aa);
 		statement_store.insert(stmt_bb);
-		statement_store.insert(stmt_no_topic);
+		statement_store.insert(stmt_both);
 
 		// Connect peer as v2.
 		handler
@@ -7037,7 +7027,7 @@ mod tests {
 			"Initial sync should be scheduled after setting affinity"
 		);
 
-		// Drain initial sync — only stmt_aa and stmt_no_topic should be sent.
+		// Drain initial sync — only stmt_aa and stmt_both should be sent.
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
 			handler.process_initial_sync_burst();
 			handler.flush_pending_sends().await;
@@ -7055,10 +7045,7 @@ mod tests {
 			.map(|s| s.hash())
 			.collect();
 		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be sent (matches affinity)");
-		assert!(
-			sent_hashes.contains(&hash_no_topic),
-			"stmt_no_topic should be sent (broadcast, no topic)"
-		);
+		assert!(sent_hashes.contains(&hash_both), "stmt_both should be sent (matches affinity)");
 		assert!(!sent_hashes.contains(&hash_bb), "stmt_bb should NOT be sent (filtered)");
 
 		// Now change affinity to topic_bb — triggers re-sync.
@@ -7103,10 +7090,10 @@ mod tests {
 			sent_hashes_bb.contains(&hash_bb),
 			"stmt_bb should now be sent after affinity changed to topic_bb"
 		);
-		// The first sync delivered the broadcast statement under the previous filter.
+		// The first sync delivered the statement on both topics under the previous filter.
 		assert!(
-			!sent_hashes_bb.contains(&hash_no_topic),
-			"stmt_no_topic should not be re-sent after the affinity change"
+			!sent_hashes_bb.contains(&hash_both),
+			"stmt_both should not be re-sent after the affinity change"
 		);
 	}
 
