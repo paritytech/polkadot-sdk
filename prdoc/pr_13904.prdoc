@@ -1,0 +1,29 @@
+title: 'statement-store: reject statements without topics'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store rejects a statement without topics on submit from every source: the
+    network, an RPC client and the runtime. The result is `SubmitResult::Invalid` with the new
+    `InvalidReason::NoTopics`, which has the metrics label `no_topics` and the RPC reason
+    `noTopics`. Such a statement was treated as a broadcast and went to every peer whatever
+    filter the peer advertised.
+
+    The affinity filter matches a statement only by its topics. A database migration to version 4
+    drops the statements without topics that a store already holds. The migration is one way: an
+    older binary refuses to open the migrated database.
+- audience: Node Operator
+  description: |-
+    The statement store migrates its database to version 4 at the first startup and drops the
+    stored statements without topics. A node that has started with this change refuses to start
+    on an older binary until its statement database is removed.
+crates:
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: patch
+- name: sc-network-statement
+  bump: patch
+- name: sc-rpc-api
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
