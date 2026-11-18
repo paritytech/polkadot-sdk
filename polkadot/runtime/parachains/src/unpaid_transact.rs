@@ -25,6 +25,7 @@
 //! lazily with the free call [`Call::remove_offboarded`] triggered from the offchain worker.
 
 use crate::paras;
+use codec::DecodeLimit;
 use core::marker::PhantomData;
 use frame_support::{
 	ensure,
@@ -38,7 +39,7 @@ use frame_system::{
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{Saturating, Zero};
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::{Properties, ShouldExecute};
 
 pub use pallet::*;
@@ -234,15 +235,16 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 			Limited(limit) => limit.all_gte(max_weight),
 		};
 		ensure!(is_covered, ProcessMessageError::Unsupported);
-		// `RuntimeCall` is not known to be decodable here: decode the call as the runtime's.
+		// `RuntimeCall` is not known to be decodable here: decode the bytes of the call as the
+		// runtime's, the way the executor does.
 		//
 		// This decodes the call, which the executor does not weigh for a barrier.
 		// It may be abusive.
-		let call: <T as frame_system::Config>::RuntimeCall = call
-			.clone()
-			.transmute_encoded()
-			.try_into()
-			.map_err(|_| ProcessMessageError::BadFormat)?;
+		let call = <T as frame_system::Config>::RuntimeCall::decode_all_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut call.encoded(),
+		)
+		.map_err(|_| ProcessMessageError::BadFormat)?;
 		ensure!(T::AllowedCalls::contains(&call), ProcessMessageError::Unsupported);
 		// Last: a message that is refused for another reason is not counted.
 		//
