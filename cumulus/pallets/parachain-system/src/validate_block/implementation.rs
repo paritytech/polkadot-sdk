@@ -169,11 +169,7 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	// The speculative-messaging lifts ride in the collator-supplied `ParachainBlockData`, never
-	// in the blocks or the host-filled params.
-	let lifts = block_data.lifts().cloned();
-
-	let (blocks, proof) = block_data.into_inner();
+	let (blocks, proof, lifts) = block_data.into_parts();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
@@ -347,8 +343,6 @@ where
 					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
-				// The block's consumption record, in bundle order: the same read the
-				// `consumption_record()` runtime API serves node-side, executed in-wasm.
 				consumption_records
 					.push(<PSC as crate::Config>::ConsumptionRecordSource::consumption_record());
 

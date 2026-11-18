@@ -235,12 +235,18 @@ impl<Block> ParachainBlockData<Block> {
 		}
 	}
 
-	/// Deconstruct into the inner parts.
+	/// Returns the blocks and storage proof.
 	pub fn into_inner(self) -> (Vec<Block>, CompactProof) {
+		let (blocks, proof, _) = self.into_parts();
+		(blocks, proof)
+	}
+
+	/// Returns the blocks, storage proof and optional speculative-messaging lifts.
+	pub fn into_parts(self) -> (Vec<Block>, CompactProof, Option<LiftsBySource>) {
 		match self {
-			Self::V0 { block, proof } => (block.into_iter().collect(), proof),
-			Self::V1 { blocks, proof } => (blocks, proof),
-			Self::V2 { blocks, proof, .. } | Self::V3 { blocks, proof, .. } => (blocks, proof),
+			Self::V0 { block, proof } => (block.into_iter().collect(), proof, None),
+			Self::V1 { blocks, proof } | Self::V2 { blocks, proof, .. } => (blocks, proof, None),
+			Self::V3 { blocks, proof, lifts, .. } => (blocks, proof, Some(lifts)),
 		}
 	}
 
@@ -276,29 +282,13 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 
 	/// Converts into [`ParachainBlockData::V0`].
 	///
-	/// Returns `None` if there is not exactly one block.
+	/// Returns `None` for bundles other than one block or for non-empty lifts.
 	pub fn as_v0(&self) -> Option<Self> {
-		match self {
-			Self::V0 { .. } => Some(self.clone()),
-			Self::V1 { blocks, proof } => {
-				if blocks.len() != 1 {
-					return None;
-				}
-
-				blocks
-					.first()
-					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
-			},
-			Self::V2 { blocks, proof, .. } | Self::V3 { blocks, proof, .. } => {
-				if blocks.len() != 1 {
-					return None;
-				}
-
-				blocks
-					.first()
-					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
-			},
+		let [block] = self.blocks() else { return None };
+		if self.lifts().is_some_and(|lifts| !lifts.is_empty()) {
+			return None;
 		}
+		Some(Self::V0 { block: [block.clone()], proof: self.proof().clone() })
 	}
 }
 
@@ -485,8 +475,20 @@ mod tests {
 			assert_eq!(v3.proof(), decoded.proof());
 			assert_eq!(v3.scheduling_proof(), decoded.scheduling_proof());
 			assert_eq!(decoded.scheduling_proof().is_some(), scheduling_proof.is_some());
-			assert_eq!(decoded.lifts(), Some(&lifts));
+			assert!(decoded.as_v0().is_none());
+			let (blocks, proof, owned_lifts) = decoded.into_parts();
+			assert_eq!(blocks, v3.blocks());
+			assert_eq!(&proof, v3.proof());
+			assert_eq!(owned_lifts.as_ref(), Some(&lifts));
 		}
+
+		let empty = ParachainBlockData::<TestBlock>::new_with_lifts(
+			vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			CompactProof { encoded_nodes: vec![] },
+			None,
+			LiftsBySource::default(),
+		);
+		assert!(empty.as_v0().is_some());
 
 		// Earlier versions carry no lifts.
 		let v1 = ParachainBlockData::<TestBlock>::V1 {
