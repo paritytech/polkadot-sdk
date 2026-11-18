@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795021553007,
+  "lastUpdate": 1795024639620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9df45c241230ca446b9a3e73a51ea554a9cf1ef1",
-          "message": "Use app token to create post crates release PR  (#11987)\n\nThis PR replaces standard GH token with the one generated for the GH app\nso that CI checks will be triggered automatically when PR is created\nfrom the Post Crates Activities flow\nCloses: https://github.com/paritytech/release-engineering/issues/296",
-          "timestamp": "2026-05-06T06:43:34Z",
-          "tree_id": "791084a12542353030f2e25f92f9666f5caa0e70",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9df45c241230ca446b9a3e73a51ea554a9cf1ef1"
-        },
-        "date": 1778054909480,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009422408906666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007271219986666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023750151179999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14083155966666677,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14530904068000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e6324307e57ed285dc0490564799e3a62b1f698a",
+          "message": "pallet-psm: make the issuance check advisory (#13895)\n\n# Description\n\nAny holder can burn the internal asset outside of the PSM, for example\nwith XCM `BurnAsset`. The issuance then falls below the PSM's debt. The\nreserve holds the difference as surplus, so the PSM is\nover-collateralised, which is a safe state. Governance can mint the\ndifference, or move the surplus out, to wind the asset class down.\n\nCheck 4 of `do_try_state` (\"Total internal issuance is less than total\nPSM debt\") now writes a warning instead of returning an error, like the\nother checks whose state a permitted action can create.\n\n# Integration\n\nNone.\n\n# Review Notes\n\nThe test `warns_on_issuance_below_psm_debt` burns one unit outside of\nthe PSM and expects `do_try_state` to pass.",
+          "timestamp": "2026-11-18T14:57:00Z",
+          "tree_id": "c8aebe150ef075ab9a720050bdb396cfd72f301e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e6324307e57ed285dc0490564799e3a62b1f698a"
+        },
+        "date": 1795024593054,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007930453240000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024163817180000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1460748236466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009810893606666643,
             "unit": "seconds"
           }
         ]
