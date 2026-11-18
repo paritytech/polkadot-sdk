@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795023675295,
+  "lastUpdate": 1795032826721,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -148067,6 +148067,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2732262950,
             "range": "± 26587023",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "53312868+helixstreet@users.noreply.github.com",
+            "name": "helixstreet",
+            "username": "helixstreet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea042997ff92b26c6458d85a04e6b9d1fff0856",
+          "message": "Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot (#13571)\n\n# Description\n\nAdds eight dual-stack (IPv4 + IPv6) Helixstreet bootnode multiaddrs (WS\nand WSS `/tcp/443/wss`) to the embedded relay and system parachain chain\nspecifications:\n\n1. **Polkadot Relay\n(`polkadot/node/service/chain-specs/polkadot.json`):**\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/22010/ws/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n-\n`/dns/bootnode1-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWCfvfPyg4eYxhyKqFLrVpFrsanb7YHZ7ayEDo2TijZuwf`\n2. **Kusama Relay (`polkadot/node/service/chain-specs/kusama.json`):**\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/22011/ws/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n-\n`/dns/bootnode1-kusama.helixstreet.io/tcp/443/wss/p2p/12D3KooWP24LUgpoii7QCTim2q2tgseZpywVefuHQMLEXgQotDBA`\n3. **Polkadot Asset Hub\n(`cumulus/parachains/chain-specs/asset-hub-polkadot.json`):**\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/22081/ws/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n-\n`/dns/bootnode1-asset-hub-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWACcsvNT1Kdt6iMUaZPLSnzx5pjMP7DgbNJco2pPkH2cC`\n4. **Polkadot People\n(`cumulus/parachains/chain-specs/people-polkadot.json`):**\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/22070/ws/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n-\n`/dns/bootnode1-people-polkadot.helixstreet.io/tcp/443/wss/p2p/12D3KooWRyNdjUiBRqDrpKjQce8T3ghP3c5BnGJzEjrz2jPSuPEt`\n\nNo existing bootnodes were removed or reordered. No crate or runtime\ncode changes.\n\nReachability checked over both IPv4 (`85.195.201.203`) and IPv6\n(`2a02:168:e7f2:0:15::d1..d4`) before opening:\n- All four DNS hostnames resolve to both `A` and `AAAA` records\n- All four `/tcp/443/wss` endpoints have valid TLS certificates and\ncomplete WebSocket (`101 Switching Protocols`) + libp2p noise/yamux\nhandshakes\n- All four direct `/ws` endpoints (`22010`, `22011`, `22081`, `22070`)\naccept connections over IPv4 and IPv6\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships these chainspecs. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nAppends two multiaddrs (`ws` and `wss`) per chain to the existing\n`bootNodes` array in the four embedded JSON chain specs, plus the\ncorresponding `prdoc` file.\n\nSuggested labels:\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T18:52:39Z",
+          "tree_id": "98aa7629d185a2624fcd0e36d8d1cd15a1fda9c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea042997ff92b26c6458d85a04e6b9d1fff0856"
+        },
+        "date": 1795032783091,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21512675,
+            "range": "± 373317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21715928,
+            "range": "± 245649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23485265,
+            "range": "± 222351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27521487,
+            "range": "± 427160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61584701,
+            "range": "± 1169652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 362446177,
+            "range": "± 4922845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2885401031,
+            "range": "± 158682000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18129831,
+            "range": "± 228050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18184998,
+            "range": "± 196233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18925535,
+            "range": "± 252430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23488330,
+            "range": "± 140100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63537107,
+            "range": "± 661872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368305588,
+            "range": "± 5715072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2859632975,
+            "range": "± 35668338",
             "unit": "ns/iter"
           }
         ]
