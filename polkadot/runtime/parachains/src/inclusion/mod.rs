@@ -377,9 +377,7 @@ pub mod pallet {
 	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
 	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
 	/// Reverted with the chain, dropped when the sender offboards.
-	/// Not cleared by a forced head update (`force_set_current_head`, `force_note_new_head`): that
-	/// is a Root recovery, and undoing what receivers already consumed is an off-chain runbook
-	/// step.
+	/// Forced head updates preserve the window.
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
@@ -618,21 +616,7 @@ impl<T: Config> Pallet<T> {
 								commitments: candidate.commitments,
 							};
 
-							let has_runtime_upgrade =
-								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
-							let u = receipt.commitments.upward_messages.len() as u32;
-							let h = receipt.commitments.horizontal_messages.len() as u32;
-							let has_provides = receipt
-								.commitments
-								.ump_signals()
-								.is_ok_and(|signals| signals.provides().is_some());
-							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
-								u,
-								h,
-								has_runtime_upgrade,
-								has_provides as u32,
-							);
-							Self::enact_candidate(
+							let enact_weight = Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -894,13 +878,18 @@ impl<T: Config> Pallet<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) {
+	) -> Weight {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
 
-		// Read `Provides` before `commitments` is moved out below.
-		let provides = commitments.ump_signals().ok().and_then(|s| s.provides().copied());
+		let (upward_messages, provides) = Self::upward_message_weight_inputs(&commitments);
+		let weight = <T as Config>::WeightInfo::enact_candidate(
+			upward_messages,
+			commitments.horizontal_messages.len() as u32,
+			commitments.new_validation_code.is_some() as u32,
+			provides.is_some() as u32,
+		);
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -965,6 +954,17 @@ impl<T: Config> Pallet<T> {
 			commitments.head_data,
 			relay_parent_number,
 		);
+
+		weight
+	}
+
+	fn upward_message_weight_inputs(
+		commitments: &CandidateCommitments,
+	) -> (u32, Option<StreamsRoot>) {
+		let messages = skip_ump_signals(commitments.upward_messages.iter()).count() as u32;
+		let provides =
+			commitments.ump_signals().ok().and_then(|signals| signals.provides().copied());
+		(messages, provides)
 	}
 
 	/// Whether `root` is present in `source`'s provides window.

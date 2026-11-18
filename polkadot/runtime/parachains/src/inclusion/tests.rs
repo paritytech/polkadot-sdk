@@ -3229,6 +3229,24 @@ mod speculative_provides_window {
 	}
 
 	#[test]
+	fn enactment_counts_only_queued_upward_messages() {
+		let root = sr(1);
+		for (messages, count) in [(vec![], 0), (vec![vec![1]], 1)] {
+			let mut commitments = CandidateCommitments {
+				upward_messages: messages.try_into().expect("at most one ordinary message; qed"),
+				..Default::default()
+			};
+			commitments.upward_messages.force_push(UMP_SEPARATOR);
+			commitments.upward_messages.force_push(UMPSignal::Provides(root).encode());
+
+			assert_eq!(
+				ParaInclusion::upward_message_weight_inputs(&commitments),
+				(count, Some(root))
+			);
+		}
+	}
+
+	#[test]
 	fn record_provides_trims_to_window_and_keeps_newest() {
 		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
 			let source = ParaId::from(1000);
