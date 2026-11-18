@@ -552,6 +552,23 @@ fn blocking_reserves_deposit_from_freezer() {
 }
 
 #[test]
+fn block_deposit_is_reserved_from_freezer_not_owner() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&4, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert_eq!(Balances::reserved_balance(&4), 10);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(BlockDeposits::<Test>::get(0, &2), Some((4, 10)));
+	});
+}
+
+#[test]
 fn blocking_without_funds_for_deposit_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&2, 100);
