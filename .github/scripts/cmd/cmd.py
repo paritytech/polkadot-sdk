@@ -12,9 +12,9 @@ import difflib
 _HelpAction = _help._HelpAction
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..', '..'))
+SCRIPT_REPO_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..', '..'))
 
-f = open(os.path.join(_REPO_ROOT, '.github/workflows/runtimes-matrix.json'), 'r')
+f = open(os.path.join(SCRIPT_REPO_ROOT, '.github/workflows/runtimes-matrix.json'), 'r')
 runtimesMatrix = json.load(f)
 
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
@@ -187,7 +187,7 @@ for arg, config in common_args.items():
 PRDOC
 """
 # Import generate-prdoc.py dynamically
-spec = importlib.util.spec_from_file_location("generate_prdoc", os.path.join(_REPO_ROOT, ".github/scripts/generate-prdoc.py"))
+spec = importlib.util.spec_from_file_location("generate_prdoc", os.path.join(SCRIPT_REPO_ROOT, ".github/scripts/generate-prdoc.py"))
 generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
@@ -300,7 +300,14 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
-        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        # Build the bencher from upstream master, so the PR under test cannot change it.
+        bencher_src = '/tmp/omni-bencher-master'
+        compile_bencher = os.system(
+            f"rm -rf {bencher_src} && "
+            f"git clone -q --depth 1 --branch master https://github.com/paritytech/polkadot-sdk {bencher_src} && "
+            f"cd {bencher_src} && "
+            f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}"
+        )
         if compile_bencher != 0:
             print_and_log('❌ Failed to compile frame-omni-bencher')
             sys.exit(1)
@@ -448,7 +455,8 @@ def main():
                 print_and_log(f'-- {runtime}: {pallets}')
 
     elif args.command == 'fmt':
-        command = f"cargo +nightly fmt"
+        # `cargo-fmt` directly, so `[alias]` entries in the PR's `.cargo/config.toml` cannot replace it.
+        command = "rustup run nightly cargo-fmt"
         print(f'Formatting with `{command}`')
         nightly_status = os.system(f'{command}')
         taplo_status = os.system('taplo format --config .config/taplo.toml')
@@ -458,7 +466,7 @@ def main():
             sys.exit(1)
 
     elif args.command == 'update-ui':
-        command = 'sh ./scripts/update-ui-tests.sh'
+        command = f"sh {os.path.join(SCRIPT_REPO_ROOT, 'scripts/update-ui-tests.sh')}"
         print(f'Updating ui with `{command}`')
         status = os.system(f'{command}')
 

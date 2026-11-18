@@ -449,6 +449,30 @@ jobs:
 
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
+
+            # The patch comes from a job that executed PR code; only push the files the command produces.
+            SUBCOMMAND=""
+            for word in $CMD; do
+              case "$word" in
+                -*) ;;
+                *) SUBCOMMAND="$word"; break ;;
+              esac
+            done
+            case "$SUBCOMMAND" in
+              bench|bench-omni) ALLOWED='(^|/)weights(\.rs|/.+\.rs)$' ;;
+              fmt) ALLOWED='\.(rs|toml)$' ;;
+              update-ui) ALLOWED='\.stderr$' ;;
+              prdoc) ALLOWED='^prdoc/[^/]+\.prdoc$' ;;
+              *) ALLOWED='^$' ;;
+            esac
+            CHANGED=$(git diff --cached --name-only --no-renames)
+            REJECTED=$( (echo "$CHANGED" | grep -Ev "$ALLOWED"; echo "$CHANGED" | grep -E '^\.github/|(^|/)\.cargo/|(^|/)rust-toolchain(\.toml)?$') | grep . | sort -u || true)
+            if [ -n "$REJECTED" ]; then
+              echo "Refusing to push files that '$SUBCOMMAND' does not produce:"
+              echo "$REJECTED"
+              exit 1
+            fi
+
             git commit -m "Update from ${{ github.actor }} running command '$CMD'" || true
 
             # Attempt to push changes

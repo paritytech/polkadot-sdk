@@ -378,7 +378,7 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            mock_system.assert_any_call('cargo +nightly fmt')
+            mock_system.assert_any_call('rustup run nightly cargo-fmt')
             mock_system.assert_any_call('taplo format --config .config/taplo.toml')
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui'), []))
@@ -388,7 +388,7 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            mock_system.assert_called_with('sh ./scripts/update-ui-tests.sh')
+            mock_system.assert_called_with(f"sh {os.path.join(cmd.SCRIPT_REPO_ROOT, 'scripts/update-ui-tests.sh')}")
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
     @patch('os.system', return_value=0)
