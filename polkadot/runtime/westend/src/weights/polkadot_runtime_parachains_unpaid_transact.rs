@@ -29,25 +29,20 @@ use core::marker::PhantomData;
 /// Weight functions for `polkadot_runtime_parachains::unpaid_transact`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> polkadot_runtime_parachains::unpaid_transact::WeightInfo for WeightInfo<T> {
-	/// Storage: `UnpaidTransact::Windows` (r:0 w:128)
+	/// Storage: `UnpaidTransact::Windows` (r:0 w:1)
 	/// Proof: `UnpaidTransact::Windows` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `p` is `[1, 128]`.
-	fn remove_offboarded(p: u32, ) -> Weight {
-		Weight::from_parts(10_000_000, 0)
+	fn remove_offboarded() -> Weight {
+		Weight::from_parts(12_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(Weight::from_parts(2_000_000, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `UnpaidTransact::Windows` (r:128 w:0)
+	/// Storage: `UnpaidTransact::Windows` (r:1 w:0)
 	/// Proof: `UnpaidTransact::Windows` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::ParaLifecycles` (r:128 w:0)
+	/// Storage: `Paras::ParaLifecycles` (r:1 w:0)
 	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `p` is `[1, 128]`.
-	fn authorize_remove_offboarded(p: u32, ) -> Weight {
-		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 1500))
-			.saturating_add(Weight::from_parts(8_000_000, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p.into())))
-			.saturating_add(Weight::from_parts(0, 5100).saturating_mul(p.into()))
+	fn authorize_remove_offboarded() -> Weight {
+		Weight::from_parts(18_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6600))
+			.saturating_add(T::DbWeight::get().reads(2))
 	}
 }

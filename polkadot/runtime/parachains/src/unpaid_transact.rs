@@ -25,7 +25,6 @@
 //! lazily with the free call [`Call::remove_offboarded`] triggered from the offchain worker.
 
 use crate::paras;
-use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::{
 	ensure,
@@ -52,25 +51,19 @@ mod benchmarking;
 
 const LOG_TARGET: &str = "runtime::unpaid-transact";
 
-/// How many parachains one [`Call::remove_offboarded`] removes at most.
-pub const MAX_REMOVED_PER_CALL: u32 = 128;
-
-/// The parachains of one [`Call::remove_offboarded`].
-pub type OffboardedParas = BoundedVec<ParaId, ConstU32<MAX_REMOVED_PER_CALL>>;
-
 pub trait WeightInfo {
-	fn remove_offboarded(p: u32) -> Weight;
-	fn authorize_remove_offboarded(p: u32) -> Weight;
+	fn remove_offboarded() -> Weight;
+	fn authorize_remove_offboarded() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	fn remove_offboarded(_: u32) -> Weight {
+	fn remove_offboarded() -> Weight {
 		Weight::MAX
 	}
-	fn authorize_remove_offboarded(_: u32) -> Weight {
+	fn authorize_remove_offboarded() -> Weight {
 		Weight::MAX
 	}
 }
@@ -126,17 +119,18 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			// A window of no block is over at once: nothing would be counted.
+			assert!(!T::Window::get().is_zero(), "`Window` must not be zero");
+		}
+
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			let period = T::CleanupPeriod::get();
 			if period.is_zero() || !(now % period).is_zero() {
 				return;
 			}
-			let mut offboarded =
-				Windows::<T>::iter_keys().filter(Self::is_offboarded).collect::<Vec<_>>();
-			offboarded.sort();
-			for paras in offboarded.chunks(MAX_REMOVED_PER_CALL as usize) {
-				let paras = OffboardedParas::truncate_from(paras.to_vec());
-				let call = Call::remove_offboarded { paras };
+			for para in Windows::<T>::iter_keys().filter(Self::is_offboarded) {
+				let call = Call::remove_offboarded { para };
 				let xt = T::create_authorized_transaction(call.into());
 				if SubmitTransaction::<T, Call<T>>::submit_transaction(xt).is_err() {
 					log::debug!(target: LOG_TARGET, "Failed to submit `remove_offboarded`");
@@ -147,22 +141,17 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Removes the windows of `paras`.
+		/// Removes the window of `para`.
 		///
 		/// Anybody can submit it, as a general transaction without a signature. It is valid if
-		/// `paras` is sorted, without duplicates, and all of them are offboarded and have a
-		/// window.
+		/// `para` is offboarded and has a window.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::remove_offboarded(paras.len() as u32))]
-		#[pallet::weight_of_authorize(
-			<T as Config>::WeightInfo::authorize_remove_offboarded(paras.len() as u32)
-		)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_offboarded())]
+		#[pallet::weight_of_authorize(<T as Config>::WeightInfo::authorize_remove_offboarded())]
 		#[pallet::authorize(Self::authorize_remove_offboarded)]
-		pub fn remove_offboarded(origin: OriginFor<T>, paras: OffboardedParas) -> DispatchResult {
+		pub fn remove_offboarded(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			ensure_authorized(origin)?;
-			for para in paras {
-				Windows::<T>::remove(para);
-			}
+			Windows::<T>::remove(para);
 			Ok(())
 		}
 	}
@@ -192,28 +181,22 @@ impl<T: Config> Pallet<T> {
 		paras::Pallet::<T>::lifecycle(*para).is_none()
 	}
 
-	/// A [`Call::remove_offboarded`] is valid if it only removes windows, of parachains that are
-	/// offboarded, each once. It provides one tag per parachain, so that only one of the calls
-	/// that remove the same window is kept. It has the lowest priority: nothing waits for it.
+	/// A [`Call::remove_offboarded`] is valid if it removes a window, of a parachain that is
+	/// offboarded. It has the lowest priority: nothing waits for it.
 	fn authorize_remove_offboarded(
 		_source: TransactionSource,
-		paras: &OffboardedParas,
+		para: &ParaId,
 	) -> TransactionValidityWithRefund {
-		let is_sorted = paras.windows(2).all(|pair| pair[0] < pair[1]);
-		if paras.is_empty() || !is_sorted {
-			return Err(InvalidTransaction::Call.into());
+		if !Windows::<T>::contains_key(para) || !Self::is_offboarded(para) {
+			return Err(InvalidTransaction::Stale.into());
 		}
-		let mut validity = ValidTransaction::with_tag_prefix("UnpaidTransactRemoveOffboarded")
+		ValidTransaction::with_tag_prefix("UnpaidTransactRemoveOffboarded")
 			.priority(TransactionPriority::MIN)
+			.and_provides(para)
 			.longevity(64)
-			.propagate(true);
-		for para in paras {
-			if !Windows::<T>::contains_key(para) || !Self::is_offboarded(para) {
-				return Err(InvalidTransaction::Stale.into());
-			}
-			validity = validity.and_provides(para);
-		}
-		validity.build().map(|validity| (validity, Weight::zero()))
+			.propagate(true)
+			.build()
+			.map(|validity| (validity, Weight::zero()))
 	}
 }
 
@@ -251,6 +234,9 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		};
 		ensure!(is_covered, ProcessMessageError::Unsupported);
 		// `RuntimeCall` is not known to be decodable here: decode the call as the runtime's.
+		//
+		// This decodes the call, which the executor does not weigh for a barrier.
+		// It may be abusive.
 		let call: <T as frame_system::Config>::RuntimeCall = call
 			.clone()
 			.transmute_encoded()
@@ -260,7 +246,7 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		// Last: a message that is refused for another reason is not counted.
 		//
 		// This reads and may write storage, which the executor does not weigh for a barrier.
-		// It may be absuive.
+		// It may be abusive.
 		Pallet::<T>::try_count(para).map_err(|_| ProcessMessageError::Unsupported)
 	}
 }

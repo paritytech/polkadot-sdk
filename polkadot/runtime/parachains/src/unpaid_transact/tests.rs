@@ -203,10 +203,9 @@ fn genesis_with_paras(paras: &[u32]) -> MockGenesisConfig {
 	}
 }
 
-/// The call that removes the windows of `paras`.
-fn remove_offboarded(paras: &[u32]) -> RuntimeCall {
-	let paras = paras.iter().map(|para| ParaId::from(*para)).collect::<Vec<_>>();
-	Call::<Test>::remove_offboarded { paras: OffboardedParas::truncate_from(paras) }.into()
+/// The call that removes the window of `para`.
+fn remove_offboarded(para: u32) -> RuntimeCall {
+	Call::<Test>::remove_offboarded { para: para.into() }.into()
 }
 
 /// Whether `call` is authorized.
@@ -216,60 +215,51 @@ fn authorize(call: &RuntimeCall) -> TransactionValidityWithRefund {
 }
 
 /// The window of a parachain stays once it is over and once the parachain is offboarded, until
-/// anybody removes it. The window of a registered parachain cannot be removed.
+/// anybody removes it.
 #[test]
-fn windows_of_offboarded_paras_are_removed() {
-	// 2000 and 2002 are registered, 2001 and 2003 are not.
-	new_test_ext(genesis_with_paras(&[2000, 2002])).execute_with(|| {
+fn window_of_an_offboarded_para_is_removed() {
+	// 2000 is registered, 2001 is not.
+	new_test_ext(genesis_with_paras(&[2000])).execute_with(|| {
 		System::set_block_number(1);
-		for para in 2000..2004 {
-			assert_ok!(run_allowed(para));
-		}
+		assert_ok!(run_allowed(2000));
+		assert_ok!(run_allowed(2001));
 		System::set_block_number(1 + UnpaidTransactWindow::get());
-		assert_eq!(Windows::<Test>::iter().count(), 4);
+		assert_eq!((window(2000), window(2001)), (Some((1, 1)), Some((1, 1))));
 
-		let call = remove_offboarded(&[2001, 2003]);
+		let call = remove_offboarded(2001);
 		let (validity, _) = authorize(&call).unwrap();
-		assert_eq!(validity.provides.len(), 2);
+		assert_eq!(validity.priority, 0);
 		assert_ok!(call.clone().dispatch(RawOrigin::Authorized.into()));
-		assert_eq!(
-			(window(2000), window(2001), window(2002), window(2003)),
-			(Some((1, 1)), None, Some((1, 1)), None)
-		);
+		assert_eq!((window(2000), window(2001)), (Some((1, 1)), None));
 
 		// Nothing left to remove: the same call is not valid any more.
 		assert_eq!(authorize(&call), Err(InvalidTransaction::Stale.into()));
 	});
 }
 
-/// A removal is only valid for windows of offboarded parachains, each given once and sorted. And
-/// it is only dispatched as an authorized call.
+/// A removal is only valid for the window of an offboarded parachain. And it is only dispatched
+/// as an authorized call.
 #[test]
 fn other_removals_are_refused() {
 	new_test_ext(genesis_with_paras(&[2000])).execute_with(|| {
-		for para in 2000..2003 {
-			assert_ok!(run_allowed(para));
-		}
-		assert_ok!(authorize(&remove_offboarded(&[2001, 2002])));
+		assert_ok!(run_allowed(2000));
+		assert_ok!(run_allowed(2001));
+		assert_ok!(authorize(&remove_offboarded(2001)));
 
-		let invalid: TransactionValidityWithRefund = Err(InvalidTransaction::Call.into());
 		let stale: TransactionValidityWithRefund = Err(InvalidTransaction::Stale.into());
-		assert_eq!(authorize(&remove_offboarded(&[])), invalid);
-		assert_eq!(authorize(&remove_offboarded(&[2002, 2001])), invalid);
-		assert_eq!(authorize(&remove_offboarded(&[2001, 2001])), invalid);
 		// A parachain that is registered.
-		assert_eq!(authorize(&remove_offboarded(&[2000, 2001])), stale);
+		assert_eq!(authorize(&remove_offboarded(2000)), stale);
 		// A parachain that has no window.
-		assert_eq!(authorize(&remove_offboarded(&[2001, 2003])), stale);
+		assert_eq!(authorize(&remove_offboarded(2002)), stale);
 
 		for origin in [RuntimeOrigin::signed(1), RuntimeOrigin::root(), RuntimeOrigin::none()] {
-			assert_noop!(remove_offboarded(&[2001]).dispatch(origin), BadOrigin);
+			assert_noop!(remove_offboarded(2001).dispatch(origin), BadOrigin);
 		}
 	});
 }
 
-/// Every `CleanupPeriod`, the offchain worker submits the removal of the windows of all the
-/// offboarded parachains.
+/// Every `CleanupPeriod`, the offchain worker submits the removal of the window of each
+/// offboarded parachain.
 #[test]
 fn offchain_worker_submits_removals() {
 	let mut ext = new_test_ext(genesis_with_paras(&[2000]));
@@ -283,20 +273,21 @@ fn offchain_worker_submits_removals() {
 		let period = UnpaidTransactCleanupPeriod::get();
 		let submitted = || {
 			let transactions = core::mem::take(&mut pool_state.write().transactions);
-			transactions
+			let mut calls = transactions
 				.into_iter()
 				.map(|tx| UncheckedExtrinsic::decode(&mut &tx[..]).unwrap().function)
-				.collect::<Vec<_>>()
+				.collect::<Vec<_>>();
+			calls.sort_by_key(|call| call.encode());
+			calls
 		};
 
 		// Nothing to remove.
 		UnpaidTransact::offchain_worker(period);
 		assert_eq!(submitted(), vec![]);
 
-		// One more offboarded parachain than fits in one call, and a registered one.
-		let offboarded = (3000..3001 + MAX_REMOVED_PER_CALL).collect::<Vec<_>>();
-		for para in offboarded.iter().chain(&[2000]) {
-			Windows::<Test>::insert(ParaId::from(*para), (0, 1));
+		// Three offboarded parachains, and a registered one.
+		for para in [2000, 3000, 3001, 3002] {
+			Windows::<Test>::insert(ParaId::from(para), (0, 1));
 		}
 
 		// Not at this block.
@@ -304,9 +295,8 @@ fn offchain_worker_submits_removals() {
 		assert_eq!(submitted(), vec![]);
 
 		UnpaidTransact::offchain_worker(2 * period);
-		let (first, last) = offboarded.split_at(MAX_REMOVED_PER_CALL as usize);
-		let calls = vec![remove_offboarded(first), remove_offboarded(last)];
-		assert_eq!(submitted(), calls);
+		let calls = submitted();
+		assert_eq!(calls, (3000..3003).map(remove_offboarded).collect::<Vec<_>>());
 		for call in calls {
 			assert_ok!(authorize(&call));
 			assert_ok!(call.dispatch(RawOrigin::Authorized.into()));
