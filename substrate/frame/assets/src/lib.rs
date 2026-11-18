@@ -550,7 +550,9 @@ pub mod pallet {
 	#[pallet::storage]
 	/// The deposit reserved from the freezer when blocking an account its holder can `refund`,
 	/// together with the account it was reserved from. It backs the account entry, which outlives
-	/// a `refund` while blocked.
+	/// a `refund` while blocked. An entry exists only while the account is blocked. Accounts
+	/// blocked before block deposits existed have none until they are blocked again, so a
+	/// tombstone of such an account is not backed.
 	pub type BlockDeposits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,

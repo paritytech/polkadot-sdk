@@ -112,8 +112,13 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// An account with such a reason might not be referenced in `system`.
 	#[codec(index = 4)]
 	DepositFrom(AccountId, Balance),
-	/// The account holder refunded the account while it was blocked. It holds no balance and
-	/// is kept only to stay blocked until thawed.
+	/// The account holder refunded the account while it was blocked. It is kept only to stay
+	/// blocked until thawed:
+	/// - it is always `Blocked` and holds a zero balance;
+	/// - it holds no consumer reference and no deposit of its holder;
+	/// - its entry is paid for by the freezer's deposit in `BlockDeposits`, unless the account was
+	///   blocked before block deposits existed and has not been blocked since;
+	/// - it is removed only by `thaw` or by destroying the asset, which also return that deposit.
 	#[codec(index = 5)]
 	Tombstone,
 }
