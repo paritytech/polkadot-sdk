@@ -30,7 +30,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
 use sp_staking::ServiceKind;
 use testnet_parachains_constants::westend::{
-	currency::UNITS as WND, locations::PeopleParaId, xcm_version::SAFE_XCM_VERSION,
+	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
 use xcm::latest::prelude::*;
 use xcm_builder::GlobalConsensusConvertsFor;
@@ -54,7 +54,7 @@ fn asset_hub_westend_genesis(
 	// `RewardBase` rather than tracking whatever endowment a preset picked.
 	balances
 		.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED + staking::RewardBase::get() * 1_000));
-	// The staging account only receives, so ED is enough for it to exist.
+	// Deposits below ED into a missing account fail, so staging starts with ED.
 	balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -203,10 +203,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					),
 				],
 				// Era points per block authored on each chain that reports its blocks.
-				vec![
-					(id, ServiceKind::Collation, 20),
-					(PeopleParaId::get(), ServiceKind::Collation, 20),
-				],
+				core::iter::once(id)
+					.chain(ValidatorCollatorChains::get())
+					.map(|id| (id, ServiceKind::Collation, 20))
+					.collect(),
 			)
 		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
