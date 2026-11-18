@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795033784455,
+  "lastUpdate": 1795043946237,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9df45c241230ca446b9a3e73a51ea554a9cf1ef1",
-          "message": "Use app token to create post crates release PR  (#11987)\n\nThis PR replaces standard GH token with the one generated for the GH app\nso that CI checks will be triggered automatically when PR is created\nfrom the Post Crates Activities flow\nCloses: https://github.com/paritytech/release-engineering/issues/296",
-          "timestamp": "2026-05-06T06:43:34Z",
-          "tree_id": "791084a12542353030f2e25f92f9666f5caa0e70",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9df45c241230ca446b9a3e73a51ea554a9cf1ef1"
-        },
-        "date": 1778054940812,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63620.6,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7833387544199819,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.809044927140002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002219913,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005250545799999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8201736189400006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002219913,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002302752,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8995205029699984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.636395206839984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4660002514400023,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.367293970942769,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8530666061299996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002302752,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.848553636459943,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdcbed2600a536622aa049b27d05a69a5917d447",
+          "message": "Improve flaky ZN test (#13908)\n\nBoth tests restart `one`/`two`/`three` on purpose: they are the\ncollators'\n`--relay-chain-rpc-url` endpoints, and the tests check RPC failover.\n\nWith teardown-on-failure (the default), zombienet's node monitor checks\nevery 15s\nthat each running node serves `process_start_time_seconds` within 5s,\nand kills the\ntest process if one does not. A restarted node counts as running as soon\nas its\nprocess is spawned, so the first check after a restart can catch it\nbefore it serves\nmetrics. The monitor has a grace window for recently restarted nodes,\nbut it never\napplies: it finds the node with `n.name() == e.to_string()`, while the\nerror reads\n\"<name>: Timeout (5), ...\". Every observed CI failure of\n`rpc_collator_builds_blocks`\nwas this (\"One of the nodes crashed: two: Timeout (5) ...\").\n\n(Fix in zombienet-sdk (`spawn_watching_task`,\ncrates/orchestrator/src/network.rs, still\npresent upstream): poll each node separately and keep the node with its\nresult, so the\ngrace window check uses the failing node itself rather than parsing the\nerror. Once\na zombienet-sdk release with that fix is used here, remove this\noverride.)\n\nDisabling the monitor is safe here: a node that really dies makes the\ntest's own\nmetric checks time out.\n\n---\n\nAbove is what claude found, but reads sensible to me. I have seen\n`with_tear_down_on_failure ` in a few other tests that also restart\nnodes with a comment saying it helps in the CI.\n\nExample flaky run:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43845739265/job/133234755346",
+          "timestamp": "2026-11-18T21:42:47Z",
+          "tree_id": "0d3ab4467dd2d1166f0a069faa052ac7c0ad1b39",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bdcbed2600a536622aa049b27d05a69a5917d447"
+        },
+        "date": 1795043910229,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63571.380000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7600694700700013,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.231996823312831,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020214589999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001898595,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.99960846435999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6904379168699997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020214589999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.707483471319999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005763170410000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.704515961939999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001898595,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3345333776700015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7968050960799926,
             "unit": "seconds"
           }
         ]
