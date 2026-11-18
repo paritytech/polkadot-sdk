@@ -38,6 +38,13 @@
 //! be cancelled at any time—unless a payment has already been attempted and is awaiting status
 //! confirmation.
 //!
+//! If the funding source cannot pay when a bounty is funded (for example, the treasury does not
+//! hold enough of the asset when the approving referendum is enacted), the bounty is still created
+//! with a failed funding payment. Anyone can retry the payment once the funding source can pay, or
+//! the `RejectOrigin` can close the bounty. Like a treasury spend, the approval expires: once
+//! `FundingRetryPeriod` has passed since the funding first failed, the payment can no longer be
+//! retried and anyone can remove the bounty.
+//!
 //! > NOTE: A parent bounty cannot be closed if it has any active child bounties associated with it.
 //!
 //! ### Terminology
@@ -87,6 +94,7 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	dispatch_context::with_context,
 	pallet_prelude::*,
+	storage::with_storage_layer,
 	traits::{
 		tokens::{
 			Balance, ConversionFromAssetBalance, ConversionToAssetBalance, PayWithSource,
@@ -102,12 +110,15 @@ use frame_system::pallet_prelude::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, BadOrigin, CheckedAdd, Convert, Saturating, StaticLookup, TryConvert,
-		Zero,
+		AccountIdConversion, BadOrigin, BlockNumberProvider, CheckedAdd, Convert, Saturating,
+		StaticLookup, TryConvert, Zero,
 	},
 	Debug, Permill,
 };
 
+/// The block number type of the [`Config::BlockNumberProvider`].
+pub type ProvidedBlockNumberFor<T, I = ()> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 /// Lookup type for beneficiary addresses.
 pub type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 /// An index of a bounty. Just a `u32`.
@@ -180,6 +191,11 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// Call `check_status` to confirm whether the funding payment succeeded. If successful, the
 	/// child-/bounty transitions to [`BountyStatus::Funded`]. Otherwise, use `retry_payment` to
 	/// reinitiate the funding payment.
+	///
+	/// A parent bounty starts here with a [`PaymentState::Failed`] payment when the funding
+	/// payment could not be initiated at creation; it can then be retried with `retry_payment`
+	/// or closed by `RejectOrigin`. Once a parent bounty's funding has failed, it can only be
+	/// retried until `FundingExpiresAt`; after that anyone can remove it with `check_status`.
 	FundingAttempted {
 		/// The proposed curator of this child-/bounty.
 		curator: AccountId,
@@ -369,6 +385,20 @@ pub mod pallet {
 		/// may vary based on this converted balance.
 		type Consideration: Consideration<Self::AccountId, Self::Balance>;
 
+		/// Provider for the block number used to measure [`Config::FundingRetryPeriod`].
+		///
+		/// Use the same provider as the treasury, e.g. the relay chain block number on a
+		/// parachain.
+		type BlockNumberProvider: BlockNumberProvider;
+
+		/// How long a parent bounty whose funding payment failed can still be funded, counted
+		/// from the first failure.
+		///
+		/// Once it has passed, `retry_payment` is refused and anyone can remove the bounty with
+		/// `check_status`. A natural choice is the treasury's spend `PayoutPeriod`.
+		#[pallet::constant]
+		type FundingRetryPeriod: Get<ProvidedBlockNumberFor<Self, I>>;
+
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: benchmarking::ArgumentsFactory<
@@ -419,12 +449,15 @@ pub mod pallet {
 		InsufficientBountyValue,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The bounty's funding payment failed and its [`Config::FundingRetryPeriod`] has passed.
+		FundingExpired,
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// A new bounty was created and funding has been initiated.
+		/// A new bounty was created and funding has been initiated, unless it is followed by
+		/// [`Event::BountyFundingFailed`].
 		BountyCreated { index: BountyIndex },
 		/// A new child-bounty was created and funding has been initiated.
 		ChildBountyCreated { index: BountyIndex, child_index: BountyIndex },
@@ -472,6 +505,14 @@ pub mod pallet {
 		Paid { index: BountyIndex, child_index: Option<BountyIndex>, payment_id: PaymentIdOf<T, I> },
 		/// A bounty's value was increased by its curator.
 		BountyValueIncreased { index: BountyIndex, old_value: T::Balance, new_value: T::Balance },
+		/// The funding payment of a new bounty could not be initiated, e.g. because the funding
+		/// source does not hold enough of the asset. The bounty is kept with a failed funding
+		/// payment: call `retry_payment` once the funding source can pay, or close it with
+		/// `RejectOrigin`.
+		BountyFundingFailed { index: BountyIndex },
+		/// A bounty whose funding payment failed was removed because its
+		/// [`Config::FundingRetryPeriod`] passed.
+		BountyFundingExpired { index: BountyIndex },
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -547,6 +588,19 @@ pub mod pallet {
 		T::Consideration,
 	>;
 
+	/// The block number (per [`Config::BlockNumberProvider`]) from which a parent bounty whose
+	/// funding payment failed can no longer be funded and can be removed by anyone.
+	///
+	/// Set when the funding payment of a parent bounty first fails, to that block plus
+	/// [`Config::FundingRetryPeriod`]. Later failures do not extend it. Removed once the funding
+	/// succeeds or the bounty is removed, so an entry only exists while the bounty is in
+	/// [`BountyStatus::FundingAttempted`].
+	///
+	/// Indexed by `parent_bounty_id`.
+	#[pallet::storage]
+	pub type FundingExpiresAt<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, ProvidedBlockNumberFor<T, I>>;
+
 	/// Temporarily tracks spending limits within the current context to prevent overspending.
 	#[derive(Default)]
 	pub struct SpendContext<Balance> {
@@ -569,7 +623,13 @@ pub mod pallet {
 		///
 		/// - The `SpendOrigin` must have sufficient permissions to fund the bounty.
 		/// - The bounty `value` (in asset balance) is converted to native balance for validation.
-		/// - In case of a funding failure, the bounty status must be updated with the
+		/// - If the funding payment cannot be initiated (e.g. the funding source does not hold
+		///   enough of the asset), the call still succeeds: the bounty is stored in
+		///   `FundingAttempted` with a `Failed` payment and [`Event::BountyFundingFailed`] is
+		///   emitted, so the approval is not lost. Call `retry_payment` once the funding source can
+		///   pay, or close the bounty with `RejectOrigin`. After [`Config::FundingRetryPeriod`] the
+		///   approval lapses and anyone can remove the bounty with `check_status`.
+		/// - In case of a later funding failure, the bounty status must be updated with the
 		///   `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
@@ -580,7 +640,9 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful.
+		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful, or
+		/// [`Event::BountyCreated`] and [`Event::BountyFundingFailed`] if the funding payment could
+		/// not be initiated.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty())]
 		pub fn fund_bounty(
@@ -613,8 +675,18 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let index = BountyCount::<T, I>::get();
-			let payment_status =
-				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)?;
+			// `SpendOrigin` has approved this bounty, usually through a referendum. If the funding
+			// payment cannot be initiated (e.g. the funding source does not hold enough of the
+			// asset yet), keep the bounty with a failed payment rather than discarding the
+			// approval. The payment runs in its own storage layer so a failure leaves no
+			// partial writes behind.
+			let (payment_status, funding_failed) = match with_storage_layer(|| {
+				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)
+			}) {
+				Ok(payment_status) => (payment_status, false),
+				Err(e) if e == Error::<T, I>::FundingError.into() => (PaymentState::Failed, true),
+				Err(e) => return Err(e),
+			};
 
 			let bounty = BountyOf::<T, I> {
 				asset_kind: *asset_kind,
@@ -627,6 +699,10 @@ pub mod pallet {
 			BountyCount::<T, I>::put(index + 1);
 
 			Self::deposit_event(Event::<T, I>::BountyCreated { index });
+			if funding_failed {
+				Self::start_funding_retry_period(index);
+				Self::deposit_event(Event::<T, I>::BountyFundingFailed { index });
+			}
 
 			Ok(())
 		}
@@ -1060,7 +1136,10 @@ pub mod pallet {
 		/// - If the child-/bounty is in the `Funded` state, a refund payment is initiated.
 		/// - If the child-/bounty is in the `Active` state, a refund payment is initiated and the
 		///   child-/bounty status is updated with the curator account/location.
-		/// - If the child-/bounty is in the funding or payout phase, it cannot be canceled.
+		/// - If a parent bounty is in `FundingAttempted` with a `Failed` payment, no funds reached
+		///   the bounty account: `RejectOrigin` can close it and it is removed without a refund.
+		/// - Otherwise, if the child-/bounty is in the funding or payout phase, it cannot be
+		///   canceled.
 		/// - In case of a refund failure, the child-/bounty status must be updated with the
 		/// `check_status` call before retrying with `retry_payment` call.
 		///
@@ -1085,7 +1164,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (asset_kind, value, _, status, parent_curator) =
+			let (asset_kind, value, metadata, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let maybe_curator = match status {
@@ -1093,6 +1172,20 @@ pub mod pallet {
 					Some(curator)
 				},
 				BountyStatus::CuratorUnassigned => None,
+				// The funding payment of this parent bounty failed, so no funds reached the bounty
+				// account and there is nothing to refund: `RejectOrigin` removes it directly.
+				BountyStatus::FundingAttempted { payment_status: PaymentState::Failed, .. }
+					if child_bounty_id.is_none() =>
+				{
+					ensure!(maybe_sender.is_none(), BadOrigin);
+					FundingExpiresAt::<T, I>::remove(parent_bounty_id);
+					Self::remove_bounty(parent_bounty_id, None, metadata);
+					Self::deposit_event(Event::<T, I>::BountyCanceled {
+						index: parent_bounty_id,
+						child_index: None,
+					});
+					return Ok(());
+				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
 
@@ -1154,6 +1247,8 @@ pub mod pallet {
 		///
 		/// - If the child-/bounty status is `FundingAttempted`, it checks if the funding payment
 		///   has succeeded. If successful, the bounty status becomes `Funded`.
+		/// - If a parent bounty's funding payment failed and its [`FundingExpiresAt`] block has
+		///   been reached, the bounty is removed and [`Event::BountyFundingExpired`] is emitted.
 		/// - If the child-/bounty status is `RefundAttempted`, it checks if the refund payment has
 		///   succeeded. If successful, the child-/bounty is removed from storage.
 		/// - If the child-/bounty status is `PayoutAttempted`, it checks if the payout payment has
@@ -1185,6 +1280,18 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
+				// The funding payment failed and the retry period has passed: the approval lapses
+				// and anyone can remove the bounty. No funds reached the bounty account.
+				FundingAttempted { payment_status: PaymentState::Failed, .. }
+					if child_bounty_id.is_none() && Self::funding_expired(parent_bounty_id) =>
+				{
+					FundingExpiresAt::<T, I>::remove(parent_bounty_id);
+					Self::remove_bounty(parent_bounty_id, None, metadata);
+					Self::deposit_event(Event::<T, I>::BountyFundingExpired {
+						index: parent_bounty_id,
+					});
+					return Ok(Pays::No.into());
+				},
 				FundingAttempted { ref payment_status, curator } => {
 					let new_payment_status = Self::do_check_funding_payment_status(
 						parent_bounty_id,
@@ -1193,17 +1300,29 @@ pub mod pallet {
 					)?;
 
 					let new_status = match new_payment_status {
-						PaymentState::Succeeded => match (child_bounty_id, parent_curator) {
-							(Some(_), Some(parent_curator)) if curator == parent_curator => {
-								BountyStatus::Active { curator }
-							},
-							_ => BountyStatus::Funded { curator },
+						PaymentState::Succeeded => {
+							if child_bounty_id.is_none() {
+								FundingExpiresAt::<T, I>::remove(parent_bounty_id);
+							}
+							match (child_bounty_id, parent_curator) {
+								(Some(_), Some(parent_curator)) if curator == parent_curator => {
+									BountyStatus::Active { curator }
+								},
+								_ => BountyStatus::Funded { curator },
+							}
 						},
 						PaymentState::Pending |
 						PaymentState::Failed |
-						PaymentState::Attempted { .. } => BountyStatus::FundingAttempted {
-							payment_status: new_payment_status,
-							curator,
+						PaymentState::Attempted { .. } => {
+							if child_bounty_id.is_none() &&
+								matches!(new_payment_status, PaymentState::Failed)
+							{
+								Self::start_funding_retry_period(parent_bounty_id);
+							}
+							BountyStatus::FundingAttempted {
+								payment_status: new_payment_status,
+								curator,
+							}
 						},
 					};
 
@@ -1307,7 +1426,8 @@ pub mod pallet {
 		/// ## Details
 		///
 		/// - If the child-/bounty status is `FundingAttempted`, it retries the funding payment from
-		///   funding source the child-/bounty account/location.
+		///   funding source the child-/bounty account/location. For a parent bounty this fails with
+		///   [`Error::FundingExpired`] once its [`FundingExpiresAt`] block has been reached.
 		/// - If the child-/bounty status is `RefundAttempted`, it retries the refund payment from
 		///   the child-/bounty account/location to the funding source.
 		/// - If the child-/bounty status is `PayoutAttempted`, it retries the payout payment from
@@ -1337,6 +1457,10 @@ pub mod pallet {
 
 			let (new_status, weight) = match status {
 				FundingAttempted { ref payment_status, ref curator } => {
+					ensure!(
+						child_bounty_id.is_some() || !Self::funding_expired(parent_bounty_id),
+						Error::<T, I>::FundingExpired
+					);
 					let new_payment_status = Self::do_process_funding_payment(
 						parent_bounty_id,
 						child_bounty_id,
@@ -1501,6 +1625,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for parent_bounty_id in Bounties::<T, I>::iter_keys() {
 			Self::try_state_child_bounties_count(parent_bounty_id)?;
+		}
+
+		Self::try_state_funding_expiry()?;
+
+		Ok(())
+	}
+
+	/// # Funding expiry invariant
+	///
+	/// * Every `FundingExpiresAt` entry belongs to a parent bounty in `FundingAttempted`.
+	fn try_state_funding_expiry() -> Result<(), sp_runtime::TryRuntimeError> {
+		for parent_bounty_id in FundingExpiresAt::<T, I>::iter_keys() {
+			ensure!(
+				matches!(
+					Bounties::<T, I>::get(parent_bounty_id).map(|b| b.status),
+					Some(BountyStatus::FundingAttempted { .. })
+				),
+				"`FundingExpiresAt` must only hold bounties in `FundingAttempted`"
+			);
 		}
 
 		Ok(())
@@ -1682,6 +1825,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		T::Preimages::unrequest(&metadata);
+	}
+
+	/// Starts the funding retry period of a parent bounty whose funding payment failed, unless it
+	/// is already running.
+	fn start_funding_retry_period(parent_bounty_id: BountyIndex) {
+		FundingExpiresAt::<T, I>::mutate(parent_bounty_id, |expires_at| {
+			if expires_at.is_none() {
+				let now = T::BlockNumberProvider::current_block_number();
+				*expires_at = Some(now.saturating_add(T::FundingRetryPeriod::get()));
+			}
+		});
+	}
+
+	/// Whether the funding retry period of a parent bounty has passed.
+	fn funding_expired(parent_bounty_id: BountyIndex) -> bool {
+		FundingExpiresAt::<T, I>::get(parent_bounty_id).map_or(false, |expires_at| {
+			T::BlockNumberProvider::current_block_number() >= expires_at
+		})
 	}
 
 	/// Initiates payment from the funding source to the child-/bounty account/location.

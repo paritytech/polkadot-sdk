@@ -252,6 +252,235 @@ fn fund_bounty_fails() {
 }
 
 #[test]
+fn fund_bounty_keeps_bounty_when_funding_payment_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: the funding source cannot pay, e.g. the treasury does not hold enough of the
+		// asset when the referendum that approved the bounty is enacted.
+		let asset_kind = 1;
+		let value = 50;
+		let curator = 4;
+		let parent_bounty_id = 0;
+		let metadata = note_preimage(1);
+		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
+		let bounty_account =
+			Bounties::bounty_account(parent_bounty_id, asset_kind).expect("conversion failed");
+		set_funding_source_empty(true);
+
+		// When
+		assert_ok!(Bounties::fund_bounty(
+			RuntimeOrigin::root(),
+			Box::new(asset_kind),
+			value,
+			curator,
+			metadata
+		));
+
+		// Then: the approved bounty is kept, with a failed funding payment.
+		assert_eq!(paid(bounty_account, asset_kind), 0);
+		expect_events(vec![
+			BountiesEvent::BountyCreated { index: parent_bounty_id },
+			BountiesEvent::BountyFundingFailed { index: parent_bounty_id },
+		]);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(parent_bounty_id).unwrap(),
+			Bounty {
+				asset_kind,
+				value,
+				metadata,
+				status: BountyStatus::FundingAttempted {
+					curator,
+					payment_status: PaymentState::Failed
+				},
+			}
+		);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+		assert!(Preimage::is_requested(&metadata));
+		assert_eq!(
+			pallet_bounties::FundingExpiresAt::<Test>::get(parent_bounty_id),
+			Some(1 + FundingRetryPeriod::get())
+		);
+
+		// When/Then: a retry while the funding source still cannot pay changes nothing.
+		assert_noop!(
+			Bounties::retry_payment(RuntimeOrigin::signed(1), parent_bounty_id, None),
+			Error::<Test>::FundingError
+		);
+
+		// Given: the funding source is topped up.
+		set_funding_source_empty(false);
+
+		// When: anyone retries the funding payment.
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), parent_bounty_id, None));
+
+		// Then: the bounty is funded and continues as usual.
+		let payment_id = get_payment_id(parent_bounty_id, None).expect("no payment attempt");
+		assert_eq!(
+			last_event(),
+			BountiesEvent::Paid { index: parent_bounty_id, child_index: None, payment_id }
+		);
+		approve_payment(bounty_account, parent_bounty_id, None, asset_kind, value);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(parent_bounty_id).unwrap().status,
+			BountyStatus::Funded { curator }
+		);
+		assert_eq!(pallet_bounties::FundingExpiresAt::<Test>::get(parent_bounty_id), None);
+	});
+}
+
+#[test]
+fn failed_funding_expires_after_retry_period() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a bounty whose funding failed at block 1, so it expires at block 11.
+		let asset_kind = 1;
+		let value = 50;
+		let curator = 4;
+		let parent_bounty_id = 0;
+		let metadata = note_preimage(1);
+		set_funding_source_empty(true);
+		assert_ok!(Bounties::fund_bounty(
+			RuntimeOrigin::root(),
+			Box::new(asset_kind),
+			value,
+			curator,
+			metadata
+		));
+		let expires_at = 1 + FundingRetryPeriod::get();
+
+		// When/Then: before expiry, nobody can remove it through `check_status`.
+		System::set_block_number(expires_at - 1);
+		assert_noop!(
+			Bounties::check_status(RuntimeOrigin::signed(1), parent_bounty_id, None),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Given: the retry period has passed, even though the funding source can pay again.
+		System::set_block_number(expires_at);
+		set_funding_source_empty(false);
+
+		// When/Then: the funding can no longer be retried.
+		assert_noop!(
+			Bounties::retry_payment(RuntimeOrigin::signed(1), parent_bounty_id, None),
+			Error::<Test>::FundingExpired
+		);
+
+		// When: anyone removes the lapsed bounty.
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), parent_bounty_id, None));
+
+		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyFundingExpired { index: parent_bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(parent_bounty_id), None);
+		assert_eq!(pallet_bounties::FundingExpiresAt::<Test>::get(parent_bounty_id), None);
+		assert!(!Preimage::is_requested(&metadata));
+	});
+}
+
+#[test]
+fn async_funding_failure_starts_retry_period_once() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a parent bounty whose funding payment is in flight.
+		let s = create_parent_bounty();
+		let bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		assert_eq!(pallet_bounties::FundingExpiresAt::<Test>::get(s.parent_bounty_id), None);
+
+		// When: the payment is reported as failed at block 3.
+		System::set_block_number(3);
+		reject_payment(bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+
+		// Then: the retry period starts.
+		let expires_at = 3 + FundingRetryPeriod::get();
+		assert_eq!(
+			pallet_bounties::FundingExpiresAt::<Test>::get(s.parent_bounty_id),
+			Some(expires_at)
+		);
+
+		// When: a retry fails again later.
+		System::set_block_number(8);
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		reject_payment(bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+
+		// Then: the retry period is not extended.
+		assert_eq!(
+			pallet_bounties::FundingExpiresAt::<Test>::get(s.parent_bounty_id),
+			Some(expires_at)
+		);
+
+		// When: a retry succeeds before the period ends.
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		approve_payment(bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+
+		// Then: the bounty is funded and no longer expires.
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::Funded { curator: s.curator }
+		);
+		assert_eq!(pallet_bounties::FundingExpiresAt::<Test>::get(s.parent_bounty_id), None);
+	});
+}
+
+#[test]
+fn close_bounty_removes_parent_bounty_with_failed_funding() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a bounty whose funding payment failed.
+		let asset_kind = 1;
+		let value = 50;
+		let curator = 4;
+		let parent_bounty_id = 0;
+		let metadata = note_preimage(1);
+		set_funding_source_empty(true);
+		assert_ok!(Bounties::fund_bounty(
+			RuntimeOrigin::root(),
+			Box::new(asset_kind),
+			value,
+			curator,
+			metadata
+		));
+
+		// When/Then: the proposed curator cannot close it, only `RejectOrigin` can.
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::signed(curator), parent_bounty_id, None),
+			BadOrigin
+		);
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), parent_bounty_id, None));
+
+		// Then: no funds reached the bounty account, so it is removed without a refund.
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyCanceled { index: parent_bounty_id, child_index: None }
+		);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(parent_bounty_id), None);
+		assert_eq!(pallet_bounties::FundingExpiresAt::<Test>::get(parent_bounty_id), None);
+		assert!(!Preimage::is_requested(&metadata));
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn fund_child_bounty_reverts_when_funding_payment_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty whose account no longer holds the funds.
+		let s = create_active_parent_bounty();
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		unpay(parent_bounty_account, s.asset_kind, s.value);
+
+		// When/Then: child-bounty funding stays atomic, the curator can simply resubmit.
+		assert_noop!(
+			Bounties::fund_child_bounty(
+				RuntimeOrigin::signed(s.curator),
+				s.parent_bounty_id,
+				s.child_value,
+				s.metadata,
+				Some(s.child_curator),
+			),
+			Error::<Test>::FundingError
+		);
+	});
+}
+
+#[test]
 fn fund_child_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
