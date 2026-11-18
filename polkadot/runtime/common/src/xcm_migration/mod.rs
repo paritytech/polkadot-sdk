@@ -41,29 +41,33 @@
 //! );
 //! ```
 //!
+//! The stages read storage with the types it held before the upgrade (see [`legacy`]), so they
+//! also handle values that the current types can no longer decode, like the XCM v3 variant of
+//! [`VersionedLocatableAsset`].
+//!
 //! Every stage is idempotent: entries that are already in the latest version are left as they are.
 //! Entries that can't be upgraded (e.g. XCM v3 abstract asset ids, which no longer exist) are
-//! logged and left untouched.
+//! logged and removed, as they could no longer be decoded.
 
-#[cfg(feature = "try-runtime")]
+#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test))]
 use alloc::vec::Vec;
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::marker::PhantomData;
+use codec::{Decode, Encode, FullCodec, FullEncode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	storage::{IterableStorageMap, PrefixIterator},
+	storage::{generator, migration::storage_key_iter, PrefixIterator},
 	traits::ConstU32,
 	weights::WeightMeter,
-	BoundedVec,
+	BoundedVec, ReversibleStorageHasher,
 };
 use scale_info::TypeInfo;
-use xcm::{IdentifyVersion, IntoVersion, VersionedLocation};
+use xcm::{IdentifyVersion, IntoVersion, VersionedAssetId, VersionedLocation};
 
-use crate::impls::{LocatableAssetConverter, VersionedLocatableAsset};
-use sp_runtime::traits::TryConvert;
+use crate::impls::VersionedLocatableAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod legacy;
 mod stages;
 #[cfg(test)]
 mod tests;
@@ -78,18 +82,45 @@ const LOG_TARGET: &str = "runtime::xcm-migration";
 /// The maximum length of a [`RawKey`].
 ///
 /// Enough for a storage map key hashed with `Blake2_128Concat` and holding a
-/// [`VersionedLocatableAsset`], which is the largest key migrated.
+/// [`legacy::VersionedLocatableAsset`], which is the largest key migrated.
 pub const MAX_RAW_KEY_LEN: u32 = 2048;
 
 /// A raw storage key, as used to resume iterating over a storage map.
 pub type RawKey = BoundedVec<u8, ConstU32<MAX_RAW_KEY_LEN>>;
 
+/// The result of [`UpgradeToLatest::upgrade`].
+#[derive(Debug, PartialEq)]
+pub enum Upgraded<T> {
+	/// The value was already in the latest XCM version, its encoding is the same.
+	Unchanged(T),
+	/// The value was upgraded, its encoding changed.
+	Changed(T),
+}
+
+impl<T> Upgraded<T> {
+	/// Whether the value was upgraded.
+	pub fn is_changed(&self) -> bool {
+		matches!(self, Upgraded::Changed(_))
+	}
+
+	/// The value in the latest XCM version.
+	pub fn into_inner(self) -> T {
+		match self {
+			Upgraded::Unchanged(value) | Upgraded::Changed(value) => value,
+		}
+	}
+}
+
 /// Upgrades a stored value to the latest XCM version.
 pub trait UpgradeToLatest<T> {
-	/// Returns the upgraded value, or `None` if `value` is already in the latest version.
+	/// The type values were stored as before the upgrade.
 	///
-	/// Fails if `value` can't be represented in the latest version.
-	fn upgrade(value: &T) -> Result<Option<T>, ()>;
+	/// It must decode every encoding of `T`, as storage can hold values in either type.
+	type Stored: FullCodec + Clone + Debug + From<T>;
+
+	/// Returns `value` in the latest XCM version, or `value` itself if it can't be represented
+	/// in it.
+	fn upgrade(value: Self::Stored) -> Result<Upgraded<T>, Self::Stored>;
 
 	/// Returns a value of the largest size that `upgrade` changes, used as the worst case in
 	/// benchmarks.
@@ -97,33 +128,51 @@ pub trait UpgradeToLatest<T> {
 	/// `None` means `upgrade` doesn't change any value; benchmarks then use a value from the
 	/// benchmark helper of the pallet being migrated.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn worst_case_outdated() -> Option<T> {
+	fn worst_case_outdated() -> Option<Self::Stored> {
 		None
 	}
 }
 
 /// Leaves values as they are, for stored values that hold no outdated XCM data.
-impl<T> UpgradeToLatest<T> for sp_runtime::traits::Identity {
-	fn upgrade(_: &T) -> Result<Option<T>, ()> {
-		Ok(None)
+impl<T: FullCodec + Clone + Debug> UpgradeToLatest<T> for sp_runtime::traits::Identity {
+	type Stored = T;
+
+	fn upgrade(value: T) -> Result<Upgraded<T>, T> {
+		Ok(Upgraded::Unchanged(value))
 	}
 }
 
-/// Upgrades a [`VersionedLocatableAsset`] to the latest XCM version.
+/// Upgrades a [`VersionedLocatableAsset`] to the latest XCM version, including the values of its
+/// removed XCM v3 variant.
 pub struct VersionedLocatableAssetToLatest;
 impl UpgradeToLatest<VersionedLocatableAsset> for VersionedLocatableAssetToLatest {
-	fn upgrade(asset: &VersionedLocatableAsset) -> Result<Option<VersionedLocatableAsset>, ()> {
-		if matches!(asset, VersionedLocatableAsset::V5 { .. }) {
-			return Ok(None);
+	type Stored = legacy::VersionedLocatableAsset;
+
+	fn upgrade(
+		asset: legacy::VersionedLocatableAsset,
+	) -> Result<Upgraded<VersionedLocatableAsset>, legacy::VersionedLocatableAsset> {
+		use legacy::VersionedLocatableAsset::*;
+
+		let (location, asset_id) = match &asset {
+			V3 { location, asset_id } => {
+				(VersionedLocation::V3(*location), VersionedAssetId::V3(*asset_id))
+			},
+			V4 { location, asset_id } => {
+				(VersionedLocation::V4(location.clone()), VersionedAssetId::V4(asset_id.clone()))
+			},
+			V5 { location, asset_id } => {
+				return Ok(Upgraded::Unchanged((location.clone(), asset_id.clone()).into()))
+			},
+		};
+		match (xcm::v5::Location::try_from(location), xcm::v5::AssetId::try_from(asset_id)) {
+			(Ok(location), Ok(asset_id)) => Ok(Upgraded::Changed((location, asset_id).into())),
+			_ => Err(asset),
 		}
-		let xcm_builder::LocatableAssetId { location, asset_id } =
-			LocatableAssetConverter::try_convert(asset.clone()).map_err(|_| ())?;
-		Ok(Some((location, asset_id).into()))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn worst_case_outdated() -> Option<VersionedLocatableAsset> {
-		Some(VersionedLocatableAsset::V3 {
+	fn worst_case_outdated() -> Option<legacy::VersionedLocatableAsset> {
+		Some(legacy::VersionedLocatableAsset::V3 {
 			location: worst_case_v3_location(),
 			asset_id: xcm::v3::AssetId::Concrete(worst_case_v3_location()),
 		})
@@ -133,11 +182,15 @@ impl UpgradeToLatest<VersionedLocatableAsset> for VersionedLocatableAssetToLates
 /// Upgrades a [`VersionedLocation`] to the latest XCM version.
 pub struct VersionedLocationToLatest;
 impl UpgradeToLatest<VersionedLocation> for VersionedLocationToLatest {
-	fn upgrade(location: &VersionedLocation) -> Result<Option<VersionedLocation>, ()> {
+	type Stored = VersionedLocation;
+
+	fn upgrade(
+		location: VersionedLocation,
+	) -> Result<Upgraded<VersionedLocation>, VersionedLocation> {
 		if location.identify_version() == xcm::latest::VERSION {
-			return Ok(None);
+			return Ok(Upgraded::Unchanged(location));
 		}
-		location.clone().into_latest().map(Some)
+		location.clone().into_latest().map(Upgraded::Changed).map_err(|()| location)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -146,8 +199,22 @@ impl UpgradeToLatest<VersionedLocation> for VersionedLocationToLatest {
 	}
 }
 
+/// Returns the worst case value of `Upgrade` to benchmark with, or `fallback` if it has none.
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn worst_case_stored<Upgrade: UpgradeToLatest<T>, T>(
+	fallback: impl FnOnce() -> T,
+) -> Upgrade::Stored {
+	Upgrade::worst_case_outdated().unwrap_or_else(|| fallback().into())
+}
+
+/// Whether `value` is in the latest XCM version, i.e. `Upgrade` leaves it as it is.
+#[cfg(feature = "try-runtime")]
+pub(crate) fn is_latest<Upgrade: UpgradeToLatest<T>, T: Clone>(value: &T) -> bool {
+	matches!(Upgrade::upgrade(value.clone().into()), Ok(Upgraded::Unchanged(_)))
+}
+
 /// The largest XCM v3 location that can be upgraded to the latest XCM version.
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn worst_case_v3_location() -> xcm::v3::Location {
 	use xcm::v3::{Junction, Junctions, NetworkId};
 
@@ -303,19 +370,62 @@ impl<Stages: MigrationStages> SteppedMigration for MigrateXcmToLatest<Stages> {
 	}
 }
 
+/// Iterates over the entries of the storage map `Map`, following `last_key` or from the first
+/// entry if it's `None`.
+///
+/// Keys are decoded as `K` and values as `V`: the types the map held before the upgrade. Entries
+/// that can't be decoded are logged and skipped.
+pub(crate) fn old_entries<Map, MapKey, MapValue, K, V>(
+	last_key: Option<RawKey>,
+) -> PrefixIterator<(K, V)>
+where
+	Map: generator::StorageMap<MapKey, MapValue>,
+	Map::Hasher: ReversibleStorageHasher,
+	MapKey: FullEncode,
+	MapValue: FullCodec,
+	K: Decode,
+	V: Decode,
+{
+	let mut entries =
+		storage_key_iter::<K, V, Map::Hasher>(Map::pallet_prefix(), Map::storage_prefix());
+	if let Some(last_key) = last_key {
+		entries.set_last_raw_key(last_key.into_inner());
+	}
+	entries
+}
+
+/// Returns the raw key of `key` in the storage map `Map`, for a key of the type the map held
+/// before the upgrade.
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub(crate) fn old_key<Map, MapKey, MapValue>(key: &impl Encode) -> Vec<u8>
+where
+	Map: generator::StorageMap<MapKey, MapValue>,
+	MapKey: FullEncode,
+	MapValue: FullCodec,
+{
+	use frame_support::StorageHasher;
+
+	let mut raw_key = Map::prefix_hash().to_vec();
+	raw_key.extend(Map::Hasher::hash(&key.encode()).as_ref());
+	raw_key
+}
+
 /// Runs a [`MigrationStage::step`] over the storage map `Map`.
 ///
-/// Calls `upgrade` with every entry following `last_key`, or from the first entry if it's `None`,
-/// as long as `meter` allows.
-pub(crate) fn step_over_map<Map, K, V, W>(
+/// Calls `upgrade` with the raw key and the [`old_entries`] of every entry following `last_key`,
+/// or from the first entry if it's `None`, as long as `meter` allows.
+pub(crate) fn step_over_map<Map, MapKey, MapValue, K, V, W>(
 	last_key: Option<RawKey>,
 	meter: &mut WeightMeter,
-	mut upgrade: impl FnMut(K, V),
+	mut upgrade: impl FnMut(&[u8], K, V),
 ) -> Result<Option<RawKey>, SteppedMigrationError>
 where
-	Map: IterableStorageMap<K, V, Iterator = PrefixIterator<(K, V)>>,
-	K: FullCodec,
-	V: FullCodec,
+	Map: generator::StorageMap<MapKey, MapValue>,
+	Map::Hasher: ReversibleStorageHasher,
+	MapKey: FullEncode,
+	MapValue: FullCodec,
+	K: Decode,
+	V: Decode,
 	W: WeightInfo,
 {
 	let base = W::step_base();
@@ -328,13 +438,10 @@ where
 
 	// `PrefixIterator` reads the key following its last one on every call, so it sees the entries
 	// that `upgrade` inserts or removes.
-	let mut entries = match last_key {
-		Some(last_key) => Map::iter_from(last_key.into_inner()),
-		None => Map::iter(),
-	};
+	let mut entries = old_entries::<Map, MapKey, MapValue, K, V>(last_key);
 	while meter.try_consume(item).is_ok() {
 		let Some((key, value)) = entries.next() else { return Ok(None) };
-		upgrade(key, value);
+		upgrade(entries.last_raw_key(), key, value);
 	}
 
 	// At least one entry was upgraded, as `meter` was checked to fit one.
@@ -344,45 +451,60 @@ where
 	})
 }
 
-/// Checks that every entry of `Map` is decoded and upgraded.
+/// Returns the state for [`MigrationStage::post_upgrade`]: the number of entries of `Map` that
+/// `upgradable` accepts, decoded with the types the map held before the upgrade.
+#[cfg(feature = "try-runtime")]
+pub(crate) fn count_upgradable<Map, MapKey, MapValue, K, V>(
+	upgradable: impl Fn(&K, &V) -> bool,
+) -> Vec<u8>
+where
+	Map: generator::StorageMap<MapKey, MapValue>,
+	Map::Hasher: ReversibleStorageHasher,
+	MapKey: FullEncode,
+	MapValue: FullCodec,
+	K: Decode,
+	V: Decode,
+{
+	let count = old_entries::<Map, MapKey, MapValue, K, V>(None)
+		.filter(|(key, value)| upgradable(key, value))
+		.count() as u64;
+	count.encode()
+}
+
+/// Checks that every entry of `Map` can be decoded and is in the latest XCM version.
 ///
-/// `outdated` returns whether an entry still needs upgrading, or `None` if it can't be upgraded.
-/// Returns the number of entries before (from `state`, the encoded [`count_entries`] of
-/// `pre_upgrade`) and after.
+/// Returns the number of upgradable entries before the upgrade (from `state`, the result of
+/// [`count_upgradable`]) and the number of entries after.
 #[cfg(feature = "try-runtime")]
 pub(crate) fn check_upgraded<Map, K, V>(
 	state: Vec<u8>,
 	name: &str,
-	outdated: impl Fn(&K, &V) -> Option<bool>,
+	is_latest: impl Fn(&K, &V) -> bool,
 ) -> Result<(u64, u64), sp_runtime::TryRuntimeError>
 where
-	Map: IterableStorageMap<K, V> + frame_support::storage::StoragePrefixedMap<V>,
-	K: FullCodec + core::fmt::Debug,
+	Map: frame_support::IterableStorageMap<K, V> + frame_support::storage::StoragePrefixedMap<V>,
+	K: FullCodec + Debug,
 	V: FullCodec,
 {
-	let count_before = u64::decode(&mut &state[..]).map_err(|_| "invalid state")?;
+	let upgradable = u64::decode(&mut &state[..]).map_err(|_| "invalid state")?;
 	let raw_count = count_entries::<Map, V>();
 	let mut decoded_count = 0u64;
 	for (key, value) in Map::iter() {
 		decoded_count += 1;
-		match outdated(&key, &value) {
-			Some(true) => {
-				log::error!(target: LOG_TARGET, "{name} entry {key:?} still needs upgrading");
-				return Err("an entry still needs upgrading".into());
-			},
-			Some(false) => {},
-			None => log::warn!(target: LOG_TARGET, "{name} entry {key:?} can't be upgraded"),
+		if !is_latest(&key, &value) {
+			log::error!(target: LOG_TARGET, "{name} entry {key:?} still needs upgrading");
+			return Err("an entry still needs upgrading".into());
 		}
 	}
 	if raw_count != decoded_count {
 		log::error!(target: LOG_TARGET, "{name} holds entries that cannot be decoded");
 		return Err("an entry cannot be decoded".into());
 	}
-	Ok((count_before, raw_count))
+	Ok((upgradable, raw_count))
 }
 
 /// Counts the raw entries of `Map`, including those whose key or value can't be decoded.
-#[cfg(feature = "try-runtime")]
+#[cfg(any(feature = "try-runtime", test))]
 pub(crate) fn count_entries<Map, V>() -> u64
 where
 	Map: frame_support::storage::StoragePrefixedMap<V>,

@@ -9,7 +9,13 @@ doc:
       Adds `polkadot_runtime_common::xcm_migration::MigrateXcmToLatest`, a multi-block migration
       that upgrades the versioned XCM data stored by pallets to the latest XCM version. It covers
       `pallet_asset_rate::ConversionRateToNative`, `pallet_treasury::Spends` and
-      `pallet_multi_asset_bounties::Bounties`.
+      `pallet_multi_asset_bounties::Bounties`. Entries that can't be represented in the latest
+      version (e.g. XCM v3 abstract asset ids) are removed.
+
+      The `V3` variant of `polkadot_runtime_common::impls::VersionedLocatableAsset` is removed.
+      Stored values of it are read by the migration through
+      `polkadot_runtime_common::xcm_migration::legacy::VersionedLocatableAsset` and upgraded to
+      the latest version. `parachains_common::pay::LocalPay` no longer handles the `V3` variant.
 
       The `try-runtime` checks of `pallet_xcm::migration::MigrateToLatestXcmVersion` now also
       cover `AuthorizedAliases`.
@@ -19,7 +25,9 @@ doc:
 
 crates:
   - name: polkadot-runtime-common
-    bump: minor
+    bump: major
+  - name: parachains-common
+    bump: major
   - name: pallet-xcm
     bump: patch
   - name: asset-hub-westend-runtime

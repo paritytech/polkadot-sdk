@@ -21,6 +21,7 @@ use super::*;
 use crate::impls::benchmarks::{AssetRateArguments, TreasuryArguments};
 use frame_support::{
 	derive_impl, parameter_types,
+	storage::unhashed,
 	traits::{
 		tokens::{Pay, PayWithSource, PaymentStatus, UnityAssetBalanceConversion},
 		NeverEnsureOrigin,
@@ -31,7 +32,10 @@ use frame_support::{
 use pallet_asset_rate::ConversionRateToNative;
 use pallet_multi_asset_bounties::{Bounties, Bounty, BountyStatus};
 use pallet_treasury::{PaymentState, SpendStatus, Spends};
-use sp_runtime::{traits::IdentityLookup, BuildStorage, FixedU128};
+use sp_runtime::{
+	traits::{IdentityLookup, TryConvert},
+	BuildStorage, FixedU128,
+};
 use xcm::{latest::prelude::*, v3::Junctions as V3Junctions};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -234,14 +238,22 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-fn v3_asset(para_id: u32, general_index: u128) -> VersionedLocatableAsset {
+fn v3_asset(para_id: u32, general_index: u128) -> legacy::VersionedLocatableAsset {
 	use xcm::v3::Junction::*;
-	VersionedLocatableAsset::V3 {
+	legacy::VersionedLocatableAsset::V3 {
 		location: xcm::v3::Location::new(0, V3Junctions::X1(Parachain(para_id))),
 		asset_id: xcm::v3::AssetId::Concrete(xcm::v3::Location::new(
 			0,
 			V3Junctions::X2(PalletInstance(50), GeneralIndex(general_index)),
 		)),
+	}
+}
+
+fn v4_asset(para_id: u32, general_index: u128) -> legacy::VersionedLocatableAsset {
+	use xcm::v4::{AssetId, Junction::*, Location};
+	legacy::VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(para_id)]),
+		asset_id: AssetId(Location::new(0, [PalletInstance(50), GeneralIndex(general_index)])),
 	}
 }
 
@@ -254,8 +266,8 @@ fn latest_asset(para_id: u32, general_index: u128) -> VersionedLocatableAsset {
 }
 
 /// Can't be upgraded, as abstract asset ids don't exist after XCM v3.
-fn abstract_asset() -> VersionedLocatableAsset {
-	VersionedLocatableAsset::V3 {
+fn abstract_asset() -> legacy::VersionedLocatableAsset {
+	legacy::VersionedLocatableAsset::V3 {
 		location: xcm::v3::Location::here(),
 		asset_id: xcm::v3::AssetId::Abstract([1; 32]),
 	}
@@ -272,10 +284,10 @@ fn latest_beneficiary(account: u8) -> VersionedLocation {
 	Location::new(0, [AccountId32 { network: None, id: [account; 32] }]).into()
 }
 
-fn spend(
-	asset_kind: VersionedLocatableAsset,
+fn spend<AssetKind>(
+	asset_kind: AssetKind,
 	beneficiary: VersionedLocation,
-) -> SpendStatus<VersionedLocatableAsset, Balance, VersionedLocation, u64, u64> {
+) -> SpendStatus<AssetKind, Balance, VersionedLocation, u64, u64> {
 	SpendStatus {
 		asset_kind,
 		amount: 10,
@@ -286,7 +298,16 @@ fn spend(
 	}
 }
 
-fn bounty(asset_kind: VersionedLocatableAsset) -> pallet_multi_asset_bounties::BountyOf<Test, ()> {
+fn bounty<AssetKind>(
+	asset_kind: AssetKind,
+) -> Bounty<
+	AccountId,
+	Balance,
+	AssetKind,
+	<Test as frame_system::Config>::Hash,
+	u64,
+	VersionedLocation,
+> {
 	Bounty {
 		asset_kind,
 		value: 10,
@@ -295,30 +316,46 @@ fn bounty(asset_kind: VersionedLocatableAsset) -> pallet_multi_asset_bounties::B
 	}
 }
 
+/// Inserts a conversion rate, with an asset kind of any version, as it was stored before the
+/// migration.
+fn insert_rate(asset_kind: impl Encode, rate: FixedU128) {
+	unhashed::put(&old_key::<ConversionRateToNative<Test>, _, _>(&asset_kind), &rate);
+}
+
+/// Inserts a spend, with an asset kind of any version, as it was stored before the migration.
+fn insert_spend(index: u32, spend: impl Encode) {
+	unhashed::put(&Spends::<Test>::hashed_key_for(index), &spend);
+}
+
+/// Inserts a bounty, with an asset kind of any version, as it was stored before the migration.
+fn insert_bounty(index: u32, bounty: impl Encode) {
+	unhashed::put(&Bounties::<Test>::hashed_key_for(index), &bounty);
+}
+
 /// Fills storage with entries covering every case, returning a check of the expected result.
 fn setup() -> impl Fn() {
 	let rate = FixedU128::from_u32;
 	// Moved to a new key.
-	ConversionRateToNative::<Test>::insert(v3_asset(1000, 1), rate(1));
+	insert_rate(v3_asset(1000, 1), rate(1));
 	// Collides with an entry already at the new key, which is kept.
-	ConversionRateToNative::<Test>::insert(v3_asset(1000, 2), rate(2));
-	ConversionRateToNative::<Test>::insert(latest_asset(1000, 2), rate(20));
-	// Can't be upgraded, so it's left as is.
-	ConversionRateToNative::<Test>::insert(abstract_asset(), rate(3));
+	insert_rate(v3_asset(1000, 2), rate(2));
+	insert_rate(latest_asset(1000, 2), rate(20));
+	// Can't be upgraded, so it's removed.
+	insert_rate(abstract_asset(), rate(3));
 	// Already up to date.
-	ConversionRateToNative::<Test>::insert(latest_asset(1000, 4), rate(4));
+	insert_rate(latest_asset(1000, 4), rate(4));
 
-	Spends::<Test>::insert(0, spend(v3_asset(1000, 1), v3_beneficiary(1)));
+	insert_spend(0, spend(v3_asset(1000, 1), v3_beneficiary(1)));
 	// Only the beneficiary needs upgrading.
-	Spends::<Test>::insert(1, spend(latest_asset(1000, 1), v3_beneficiary(2)));
-	// The asset kind can't be upgraded, so the whole spend is left as is.
-	Spends::<Test>::insert(2, spend(abstract_asset(), v3_beneficiary(3)));
+	insert_spend(1, spend(latest_asset(1000, 1), v3_beneficiary(2)));
+	// The asset kind can't be upgraded, so the whole spend is removed.
+	insert_spend(2, spend(abstract_asset(), v3_beneficiary(3)));
 	// Already up to date.
-	Spends::<Test>::insert(3, spend(latest_asset(1000, 4), latest_beneficiary(4)));
+	insert_spend(3, spend(latest_asset(1000, 4), latest_beneficiary(4)));
 
-	Bounties::<Test>::insert(0, bounty(v3_asset(1000, 1)));
-	Bounties::<Test>::insert(1, bounty(abstract_asset()));
-	Bounties::<Test>::insert(2, bounty(latest_asset(1000, 2)));
+	insert_bounty(0, bounty(v3_asset(1000, 1)));
+	insert_bounty(1, bounty(abstract_asset()));
+	insert_bounty(2, bounty(latest_asset(1000, 2)));
 
 	move || {
 		let mut rates: Vec<_> = ConversionRateToNative::<Test>::iter().collect();
@@ -326,11 +363,12 @@ fn setup() -> impl Fn() {
 		let mut expected = vec![
 			(latest_asset(1000, 1), rate(1)),
 			(latest_asset(1000, 2), rate(20)),
-			(abstract_asset(), rate(3)),
 			(latest_asset(1000, 4), rate(4)),
 		];
 		expected.sort_by_key(|(asset_kind, _)| asset_kind.encode());
 		assert_eq!(rates, expected);
+		// No entry is left that can't be decoded.
+		assert_eq!(count_entries::<ConversionRateToNative<Test>, _>(), 3);
 
 		assert_eq!(
 			Spends::<Test>::get(0),
@@ -340,17 +378,17 @@ fn setup() -> impl Fn() {
 			Spends::<Test>::get(1),
 			Some(spend(latest_asset(1000, 1), latest_beneficiary(2)))
 		);
-		assert_eq!(Spends::<Test>::get(2), Some(spend(abstract_asset(), v3_beneficiary(3))));
+		assert_eq!(unhashed::get_raw(&Spends::<Test>::hashed_key_for(2)), None);
 		assert_eq!(
 			Spends::<Test>::get(3),
 			Some(spend(latest_asset(1000, 4), latest_beneficiary(4)))
 		);
-		assert_eq!(Spends::<Test>::iter().count(), 4);
+		assert_eq!(Spends::<Test>::iter().count(), 3);
 
 		assert_eq!(Bounties::<Test>::get(0), Some(bounty(latest_asset(1000, 1))));
-		assert_eq!(Bounties::<Test>::get(1), Some(bounty(abstract_asset())));
+		assert_eq!(unhashed::get_raw(&Bounties::<Test>::hashed_key_for(1)), None);
 		assert_eq!(Bounties::<Test>::get(2), Some(bounty(latest_asset(1000, 2))));
-		assert_eq!(Bounties::<Test>::iter().count(), 3);
+		assert_eq!(Bounties::<Test>::iter().count(), 2);
 	}
 }
 
@@ -450,38 +488,65 @@ fn empty_storage_finishes_right_away() {
 #[test]
 fn identity_leaves_values_as_they_are() {
 	assert_eq!(
-		<sp_runtime::traits::Identity as UpgradeToLatest<_>>::upgrade(&v3_beneficiary(1)),
-		Ok(None)
+		<sp_runtime::traits::Identity as UpgradeToLatest<_>>::upgrade(v3_beneficiary(1)),
+		Ok(Upgraded::Unchanged(v3_beneficiary(1)))
 	);
 }
 
 #[test]
-fn converters_upgrade_v3_values() {
-	assert_eq!(
-		VersionedLocatableAssetToLatest::upgrade(&v3_asset(1000, 1)),
-		Ok(Some(latest_asset(1000, 1)))
-	);
-	assert_eq!(VersionedLocatableAssetToLatest::upgrade(&latest_asset(1000, 1)), Ok(None));
-	assert_eq!(VersionedLocatableAssetToLatest::upgrade(&abstract_asset()), Err(()));
+fn converters_upgrade_older_values() {
+	type Converter = VersionedLocatableAssetToLatest;
+	let latest = latest_asset(1000, 1);
+	assert_eq!(Converter::upgrade(v3_asset(1000, 1)), Ok(Upgraded::Changed(latest.clone())));
+	assert_eq!(Converter::upgrade(v4_asset(1000, 1)), Ok(Upgraded::Changed(latest.clone())));
+	assert_eq!(Converter::upgrade(latest.clone().into()), Ok(Upgraded::Unchanged(latest)));
+	assert_eq!(Converter::upgrade(abstract_asset()), Err(abstract_asset()));
 
 	assert_eq!(
-		VersionedLocationToLatest::upgrade(&v3_beneficiary(1)),
-		Ok(Some(latest_beneficiary(1)))
+		VersionedLocationToLatest::upgrade(v3_beneficiary(1)),
+		Ok(Upgraded::Changed(latest_beneficiary(1)))
 	);
-	assert_eq!(VersionedLocationToLatest::upgrade(&latest_beneficiary(1)), Ok(None));
+	assert_eq!(
+		VersionedLocationToLatest::upgrade(latest_beneficiary(1)),
+		Ok(Upgraded::Unchanged(latest_beneficiary(1)))
+	);
 }
 
 #[test]
-fn worst_case_v3_location_can_be_upgraded() {
-	let location = VersionedLocation::V3(worst_case_v3_location());
-	assert!(matches!(VersionedLocationToLatest::upgrade(&location), Ok(Some(_))));
+fn legacy_asset_decodes_the_current_one() {
+	let v4: VersionedLocatableAsset = VersionedLocatableAsset::V4 {
+		location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(1000)]),
+		asset_id: xcm::v4::AssetId(xcm::v4::Location::here()),
+	};
+	for (current, version) in [(v4, 4), (latest_asset(1000, 1), 5)] {
+		let legacy = legacy::VersionedLocatableAsset::decode(&mut &current.encode()[..]).unwrap();
+		assert_eq!(legacy, current.clone().into());
+		let legacy_version = match legacy {
+			legacy::VersionedLocatableAsset::V3 { .. } => 3,
+			legacy::VersionedLocatableAsset::V4 { .. } => 4,
+			legacy::VersionedLocatableAsset::V5 { .. } => 5,
+		};
+		assert_eq!(legacy_version, version);
+		assert_eq!(legacy.encode(), current.encode());
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn worst_cases_can_be_upgraded() {
+	let location = VersionedLocationToLatest::worst_case_outdated().unwrap();
+	assert!(matches!(VersionedLocationToLatest::upgrade(location), Ok(Upgraded::Changed(_))));
+	let asset = VersionedLocatableAssetToLatest::worst_case_outdated().unwrap();
+	assert!(matches!(VersionedLocatableAssetToLatest::upgrade(asset), Ok(Upgraded::Changed(_))));
 }
 
 #[test]
 fn raw_keys_fit_the_cursor() {
 	// The largest key migrated: `ConversionRateToNative`, hashed with `Blake2_128Concat`.
 	let max_key_len = 32 +
-		<frame_support::Blake2_128Concat as StorageHasher>::max_len::<VersionedLocatableAsset>();
+		<frame_support::Blake2_128Concat as StorageHasher>::max_len::<
+			legacy::VersionedLocatableAsset,
+		>();
 	assert!(max_key_len <= MAX_RAW_KEY_LEN as usize, "{max_key_len} > {MAX_RAW_KEY_LEN}");
 }
 
@@ -493,21 +558,20 @@ fn worst_case_entries_are_upgraded() {
 		TreasuryMigration::setup_worst_case_entry();
 		BountiesMigration::setup_worst_case_entry();
 
-		let before = (
-			ConversionRateToNative::<Test>::iter_keys().next().unwrap(),
-			Spends::<Test>::get(0).unwrap(),
-			Bounties::<Test>::get(0).unwrap(),
-		);
+		// The worst cases are outdated, so they can't be decoded before the migration.
+		assert_eq!(ConversionRateToNative::<Test>::iter().count(), 0);
+		assert_eq!(Spends::<Test>::get(0), None);
+		assert_eq!(Bounties::<Test>::get(0), None);
 		run_all();
 
-		let rate_key = ConversionRateToNative::<Test>::iter_keys().next().unwrap();
-		assert_ne!(rate_key.encode(), before.0.encode());
+		let rates: Vec<_> = ConversionRateToNative::<Test>::iter_keys().collect();
+		assert!(matches!(rates[..], [VersionedLocatableAsset::V5 { .. }]));
 		let spend = Spends::<Test>::get(0).unwrap();
-		assert_ne!(spend.asset_kind.encode(), before.1.asset_kind.encode());
-		assert_ne!(spend.beneficiary.encode(), before.1.beneficiary.encode());
+		assert!(matches!(spend.asset_kind, VersionedLocatableAsset::V5 { .. }));
+		assert!(matches!(spend.beneficiary, VersionedLocation::V5(_)));
 		assert_eq!(spend.amount, Balance::max_value());
 		let bounty = Bounties::<Test>::get(0).unwrap();
-		assert_ne!(bounty.asset_kind.encode(), before.2.asset_kind.encode());
+		assert!(matches!(bounty.asset_kind, VersionedLocatableAsset::V5 { .. }));
 	});
 }
 
