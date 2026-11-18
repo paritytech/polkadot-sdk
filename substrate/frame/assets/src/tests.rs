@@ -408,6 +408,35 @@ fn refunding_blocked_account_releases_forced_consumer_reference() {
 }
 
 #[test]
+fn refunding_blocked_account_burns_now_and_calls_died_hooks_on_thaw() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		take_hooks();
+		storage::clear(AssetsCallbackHandle::BURNED.as_bytes());
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		System::assert_last_event(RuntimeEvent::Assets(crate::Event::Burned {
+			asset_id: 0,
+			owner: 2,
+			balance: 50,
+		}));
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(0u32, 2u64, 50u64).encode()]
+		);
+		assert!(hooks().is_empty());
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(take_hooks(), vec![Hook::Died(0, 2), Hook::Died(0, 2)]);
+	});
+}
+
+#[test]
 fn thawing_refunded_blocked_account_with_freeze_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
