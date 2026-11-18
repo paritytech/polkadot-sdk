@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794956512831,
+  "lastUpdate": 1794996767833,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -147635,6 +147635,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2653660284,
             "range": "± 20668599",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@proton.me",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2826aea0edada06641df5a20546d44a67c072f2",
+          "message": "spec-msg: align primitives with design v0.6 (#13759)\n\nFollow-up to #12676: aligns `cumulus-primitives-spec-messaging` with the\nv0.6 design (#13622).\n\n- Session-based channels: `ChannelMessage` leaves and the `Register` ack\nregister replace `WindowGrant`. Typed channel ids key the channel state,\n`consumed_streams()` and the inherent.\n- One `MessagesRequest`/`MessagesResponse` fetch pair with typed\n`FetchError`, head reads included.\n- `ConsumptionRecord` keeps a sorted stream list per source, and\n`build_requires` rejects unsorted or duplicate entries.\n- Identity extension per Appendix B; skip proofs sized exactly\n(`encoded_len_for`); `MAX_MMR_HASHES` = 48.\n- Incremental node cache for the commitment tree (`StreamsTree`,\n`update_tree_leaf`), with bounded walks that fail with `TreeError` on a\nmissing or corrupt node.\n- `MmrExtensionProof::rebase`: rebases an extension to start at an\nearlier frontier over the leaves in between, checked against the same\nroot. Receiving nodes use it to lift a block the runtime cut short of\nthe planned endpoint. `MMRExtensionProof` is renamed\n`MmrExtensionProof`.\n- Conformance vectors for extension proofs and requires synthesis.",
+          "timestamp": "2026-11-18T08:39:28Z",
+          "tree_id": "5284f1d4de379bb43e6ba9846a423472c9614da8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2826aea0edada06641df5a20546d44a67c072f2"
+        },
+        "date": 1794996726385,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20393825,
+            "range": "± 166765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20669289,
+            "range": "± 200494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22110703,
+            "range": "± 92170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26336533,
+            "range": "± 323214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60746758,
+            "range": "± 1006808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 381078571,
+            "range": "± 6038142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2745166400,
+            "range": "± 218863589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17692690,
+            "range": "± 100185",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17764303,
+            "range": "± 138590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18574603,
+            "range": "± 186760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23131637,
+            "range": "± 186111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62772808,
+            "range": "± 549725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 373062119,
+            "range": "± 3402003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2806042692,
+            "range": "± 24611736",
             "unit": "ns/iter"
           }
         ]
