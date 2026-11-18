@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795003320823,
+  "lastUpdate": 1795021493961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "94f200baf9d331175b678cc090a7eb92bb41802c",
-          "message": "Pass -Zjson-target-spec when building with a .json target spec (#11992)\n\nRecent rustc requires `-Z json-target-spec` to opt into the JSON target\nspec format whenever `--target=*.json` is used. Without this, builds\nthat go through `polkavm-linker::target_json_path` fail with:\n\n  error: `.json` target specs require -Zjson-target-spec\n\nFix the two places in the workspace that invoke cargo with a JSON target\nspec for the Riscv runtime:\n\n- substrate-wasm-builder (`wasm_project.rs`): pass the flag for\n`RuntimeTarget::Riscv`. `RUSTC_BOOTSTRAP=1` is already set by the\npreceding `-Z build-std` block (Riscv always opts into build-std).\n- pallet-revive-fixtures (`builder.rs`): refactor the inline rustc\nversion detection to expose major/minor and derive both\n`new_immediate_abort` (1.92+) and `needs_json_target_spec` (1.95+) from\nthem.\n\nThe flag is gated on rustc 1.95+ where it was introduced. Older rustc\ndoesn't recognize it; later rustc requires it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-06T11:41:37Z",
-          "tree_id": "91939c04d1951ca428ac9018d45388f45ca1b32c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94f200baf9d331175b678cc090a7eb92bb41802c"
-        },
-        "date": 1778072496253,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1319725178,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.921666121533335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1294582752,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7",
+          "message": "Improve unnamed reserves  (#13717)\n\nSome old pallets still use legacy unnamed reserves aka.\n`ReservableCurrency`\n\nFor various reasons these pallets might, due to incorrect bookkeeping,\ntry to unreserve more than they initially reserved.\n\nIn such cases, when mixed up with `Held` and `NamedReserves`, a mistake\noperation on the unnamed reserve might eat into the named/held reserves.\n\nThis PR changes this flow. Henceforth, any operation from the legacy\n`ReservableCurrency` cannot touch the portion of the account's\n`reserved` that is, pun intended, _reserved_ under\n`NamedReservableCurrency` and `FungibleHolds`.\n\nNamed reserves can only slash/reduce up to their corresponding limit\n(already the behavior, now more explicit in the code). Some goes for\nHolds.\n\nSee the PRdoc for the exact functions in `ReservableCurrency` that have\na new behavior now. Users of these APIs should act with caution, and no\nlonger assume that, for example, `ReservableCurrency::unreserve` can\nunreserve both unnamed and named reserves.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-11-18T14:33:56Z",
+          "tree_id": "9b931009d9b0bda41876c954cc74d6a8b1bf8b3c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a6e254d69ff3a1e70e9009f0f91d815d3ddd2d7"
+        },
+        "date": 1795021452572,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12720042503333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.014412699666666,
             "unit": "seconds"
           }
         ]
