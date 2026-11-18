@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795032826721,
+  "lastUpdate": 1795040762627,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -148175,6 +148175,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2859632975,
             "range": "± 35668338",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7eee6783e016d9a5be9127ccfc95fa8cf6a186fe",
+          "message": "Bump WAH spec_version to 1_025_006 (#13911)\n\nThis PR bumps `spec_version` on AHW to let a build of master that\nincludes #13866 and #13890 be enacted on AHW, so Bulletin Westend can be\ntested with validators as collators\n(paritytech/polkadot-bulletin-chain#856).",
+          "timestamp": "2026-11-18T21:08:28Z",
+          "tree_id": "abff0162085d9ccc46956bd1c7f2797a1c6f6f95",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7eee6783e016d9a5be9127ccfc95fa8cf6a186fe"
+        },
+        "date": 1795040726643,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19607604,
+            "range": "± 165343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20024663,
+            "range": "± 197446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21626162,
+            "range": "± 178379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25651902,
+            "range": "± 126279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58999411,
+            "range": "± 288929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 366238070,
+            "range": "± 4168827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2680094354,
+            "range": "± 52853469",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17156034,
+            "range": "± 114579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17192357,
+            "range": "± 166144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17835845,
+            "range": "± 99308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22628904,
+            "range": "± 128411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61581184,
+            "range": "± 949674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 372173441,
+            "range": "± 4012728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2773449208,
+            "range": "± 16251293",
             "unit": "ns/iter"
           }
         ]
