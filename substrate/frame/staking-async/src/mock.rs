@@ -84,7 +84,8 @@ parameter_types! {
 	pub static BlockWeights: frame_system::limits::BlockWeights = Default::default();
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
-	pub static SlashRewardDecayWindow: EraIndex = 4;
+	pub static SlashRewardDecayFn: fn(EraIndex) -> Perbill =
+		<() as SlashRewardDecay>::reward_portion;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
 	pub static NominatorFastUnbondDuration: EraIndex = 2;
@@ -260,6 +261,15 @@ impl crate::IsValidatorInactive<AccountId> for MockIsValidatorInactive {
 		points: &[(ServiceKind, RewardPoint)],
 	) -> bool {
 		InactivityCheck::get()(points)
+	}
+}
+
+/// Decays the reporter reward with [`SlashRewardDecayFn`], which is no decay unless a test sets
+/// one with [`ExtBuilder::slash_reward_decay`].
+pub struct MockSlashRewardDecay;
+impl SlashRewardDecay for MockSlashRewardDecay {
+	fn reward_portion(elapsed: EraIndex) -> Perbill {
+		SlashRewardDecayFn::get()(elapsed)
 	}
 }
 
@@ -570,7 +580,7 @@ impl Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type SlashRewardDecay = crate::LinearDecay<SlashRewardDecayWindow>;
+	type SlashRewardDecay = MockSlashRewardDecay;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = TestEraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -711,8 +721,8 @@ impl ExtBuilder {
 		SlashDeferDuration::set(eras);
 		self
 	}
-	pub(crate) fn slash_reward_decay_window(self, eras: EraIndex) -> Self {
-		SlashRewardDecayWindow::set(eras);
+	pub(crate) fn slash_reward_decay<D: SlashRewardDecay>(self) -> Self {
+		SlashRewardDecayFn::set(D::reward_portion);
 		self
 	}
 	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {

@@ -2,11 +2,10 @@ title: 'pallet-staking-async: decay the slash reporter reward with the delay of 
 doc:
 - audience: Runtime Dev
   description: |-
-    Addresses the first part of #13769. The reward of the reporter of an offence was a flat
-    `SlashRewardFraction` of the slash, regardless of how late the offence was reported. This lets
-    an offender hold back the reports of its own offences, collect more of them while it stays in
-    the validator set, and report them as late as possible, which also leaves governance less time
-    to cancel the slash.
+    The reward of the reporter of an offence was a flat `SlashRewardFraction` of the slash,
+    regardless of how late the offence was reported. A runtime can now make this reward decrease
+    with the delay of the report, so that reporting late pays less than reporting early. Reports
+    are still accepted for as long as before, and the decay is off unless the runtime opts in.
 
     `pallet_staking_async::Config` gains a new item, `SlashRewardDecay`, of the new trait
     `SlashRewardDecay`. Given the number of eras between the era of an offence and the era in which

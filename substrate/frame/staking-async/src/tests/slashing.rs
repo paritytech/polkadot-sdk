@@ -318,7 +318,7 @@ fn late_report_gets_decayed_reward() {
 	ExtBuilder::default()
 		.nominate(false)
 		.bonding_duration(10)
-		.slash_reward_decay_window(4)
+		.slash_reward_decay::<LinearDecay<ConstU32<4>>>()
 		.build_and_execute(|| {
 			// Given: an offence of era 1 that is only reported in era 3, 2 eras late.
 			assert_eq!(SlashRewardFraction::<T>::get(), Perbill::from_percent(10));
@@ -354,7 +354,7 @@ fn late_report_gets_decayed_reward() {
 fn late_report_decays_reward_of_nominator_slash() {
 	ExtBuilder::default()
 		.bonding_duration(10)
-		.slash_reward_decay_window(4)
+		.slash_reward_decay::<LinearDecay<ConstU32<4>>>()
 		.build_and_execute(|| {
 			// Given: an offence of era 1, with 101 exposed to 11, reported in era 3.
 			assert_eq!(
@@ -394,11 +394,55 @@ fn late_report_decays_reward_of_nominator_slash() {
 }
 
 #[test]
+fn late_report_decays_reward_of_validator_only_slash() {
+	ExtBuilder::default()
+		.bonding_duration(10)
+		.set_nominators_slashable(false)
+		.slash_reward_decay::<HalvingDecay<ConstU32<1>>>()
+		.build_and_execute(|| {
+			// Given: an offence of era 1, in which nominators are not slashable, reported in era 3.
+			assert!(!Eras::<T>::are_nominators_slashable(1));
+			assert_eq!(
+				Staking::eras_stakers(1, &11),
+				Exposure {
+					total: 1250,
+					own: 1000,
+					others: vec![IndividualExposure { who: 101, value: 250 }]
+				}
+			);
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			let initial_balance_1 = asset::total_balance::<T>(&1);
+
+			// When
+			add_slash_in_era_with_reporters(11, 1, Perbill::from_percent(40), vec![1]);
+			Session::roll_next();
+
+			// Then: only the validator is slashed.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 11,
+						fraction: Perbill::from_percent(40)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: 400 },
+				]
+			);
+
+			// and the 10% reward is halved for each of the 2 eras of delay: 2.5% of 400.
+			assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + 10);
+		});
+}
+
+#[test]
 fn report_after_decay_window_gets_no_reward() {
 	ExtBuilder::default()
 		.nominate(false)
 		.bonding_duration(10)
-		.slash_reward_decay_window(2)
+		.slash_reward_decay::<LinearDecay<ConstU32<2>>>()
 		.build_and_execute(|| {
 			// Given: an offence of era 1 that is only reported in era 3, as late as the window.
 			Session::roll_until_active_era(3);
@@ -1146,8 +1190,8 @@ fn remove_deferred() {
 						own: 50,
 						others: bounded_vec![(101, 12)],
 						reporter: None,
-						// reported 1 era late, so 3/4 of 10% of each slash: 3.75 + 0.9, rounded.
-						payout: 4 + 1
+						// 10% of the slash
+						payout: (50 + 12) / 10
 					}
 				),
 			]
