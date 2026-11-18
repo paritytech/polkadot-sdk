@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794957540061,
+  "lastUpdate": 1794997185266,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "104af7915ab0a8ab5bf5a3c9f09bf134560a877c",
-          "message": "Version bumps and prdocs reordering after stable2603-1 (#11977)\n\nThis PR backports regualr node version bumps and prdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-05-04T14:02:52Z",
-          "tree_id": "e770ffce4ae7ef632b9289707c4e3a17b1eaef2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/104af7915ab0a8ab5bf5a3c9f09bf134560a877c"
-        },
-        "date": 1777908473678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.509999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8536052360599995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8441577695799998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022856440000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8585108779600006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7977940454599656,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.508883211949997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.583045513792966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.761743382589964,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024417090000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.892993389110002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022856440000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024417090000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0057988524700000035,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.000020755140000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@proton.me",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2826aea0edada06641df5a20546d44a67c072f2",
+          "message": "spec-msg: align primitives with design v0.6 (#13759)\n\nFollow-up to #12676: aligns `cumulus-primitives-spec-messaging` with the\nv0.6 design (#13622).\n\n- Session-based channels: `ChannelMessage` leaves and the `Register` ack\nregister replace `WindowGrant`. Typed channel ids key the channel state,\n`consumed_streams()` and the inherent.\n- One `MessagesRequest`/`MessagesResponse` fetch pair with typed\n`FetchError`, head reads included.\n- `ConsumptionRecord` keeps a sorted stream list per source, and\n`build_requires` rejects unsorted or duplicate entries.\n- Identity extension per Appendix B; skip proofs sized exactly\n(`encoded_len_for`); `MAX_MMR_HASHES` = 48.\n- Incremental node cache for the commitment tree (`StreamsTree`,\n`update_tree_leaf`), with bounded walks that fail with `TreeError` on a\nmissing or corrupt node.\n- `MmrExtensionProof::rebase`: rebases an extension to start at an\nearlier frontier over the leaves in between, checked against the same\nroot. Receiving nodes use it to lift a block the runtime cut short of\nthe planned endpoint. `MMRExtensionProof` is renamed\n`MmrExtensionProof`.\n- Conformance vectors for extension proofs and requires synthesis.",
+          "timestamp": "2026-11-18T08:39:28Z",
+          "tree_id": "5284f1d4de379bb43e6ba9846a423472c9614da8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2826aea0edada06641df5a20546d44a67c072f2"
+        },
+        "date": 1794997152990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63574.4,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001940392,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005301406349999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.671233070800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3433517890200046,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001940392,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7159097980099993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001898499,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.898095994479956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.659622004910001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.711392429979998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7912854954099543,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.403501887082598,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001898499,
             "unit": "seconds"
           }
         ]
