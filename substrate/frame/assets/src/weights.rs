@@ -75,6 +75,7 @@ pub trait WeightInfo {
 	fn force_create() -> Weight;
 	fn start_destroy() -> Weight;
 	fn destroy_accounts(c: u32, ) -> Weight;
+	fn destroy_blocked_accounts(c: u32, ) -> Weight;
 	fn destroy_approvals(a: u32, ) -> Weight;
 	fn finish_destroy() -> Weight;
 	fn mint() -> Weight;
@@ -182,6 +183,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 2609).saturating_mul(c.into()))
+	}
+	fn destroy_blocked_accounts(c: u32, ) -> Weight {
+		Self::destroy_accounts(c)
+			.saturating_add(T::DbWeight::get().reads_writes(2, 2).saturating_mul(c.into()))
+			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(c.into()))
 	}
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
@@ -730,6 +736,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 2609).saturating_mul(c.into()))
+	}
+	fn destroy_blocked_accounts(c: u32, ) -> Weight {
+		Self::destroy_accounts(c)
+			.saturating_add(RocksDbWeight::get().reads_writes(2, 2).saturating_mul(c.into()))
+			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(c.into()))
 	}
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)

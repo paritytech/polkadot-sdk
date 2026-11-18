@@ -89,6 +89,34 @@ pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
+fn swap_is_sufficient<T: Config<I>, I: 'static>(s: &mut bool) {
+	let asset_id = default_asset_id::<T, I>();
+	Asset::<T, I>::mutate(&asset_id.into(), |maybe_a| {
+		if let Some(ref mut a) = maybe_a {
+			core::mem::swap(s, &mut a.is_sufficient)
+		}
+	});
+}
+
+fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
+	let asset_id = default_asset_id::<T, I>();
+	let origin = SystemOrigin::Signed(minter);
+	let mut s = true;
+	swap_is_sufficient::<T, I>(&mut s);
+	for i in 0..n {
+		let target = account("sufficient", i, SEED);
+		let target_lookup = T::Lookup::unlookup(target);
+		assert!(Assets::<T, I>::mint(
+			origin.clone().into(),
+			asset_id.clone(),
+			target_lookup,
+			100u32.into(),
+		)
+		.is_ok());
+	}
+	swap_is_sufficient::<T, I>(&mut s);
+}
+
 /// Blocks `target` as `freezer`, which places the block deposit, then hands the freezer role back
 /// to `owner`. The deposit then sits on an account that is not whitelisted, as it does when the
 /// freezer was rotated or the admin thaws.
@@ -223,6 +251,28 @@ benchmarks_instance_pallet! {
 	destroy_accounts {
 		let c in 0 .. T::RemoveItemsLimit::get();
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		add_sufficients::<T, I>(caller.clone(), c);
+		Assets::<T, I>::freeze_asset(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+		)?;
+		Assets::<T,I>::start_destroy(SystemOrigin::Signed(caller.clone()).into(), asset_id.clone())?;
+	}:_(SystemOrigin::Signed(caller), asset_id.clone())
+	verify {
+		assert_last_event::<T, I>(Event::AccountsDestroyed {
+			asset_id: asset_id.into(),
+			accounts_destroyed: c,
+			accounts_remaining: 0,
+		}.into());
+		for i in 0..c {
+			let target: T::AccountId = account("sufficient", i, SEED);
+			assert!(!frame_system::Pallet::<T>::account_exists(&target));
+		}
+	}
+
+	destroy_blocked_accounts {
+		let c in 0 .. T::RemoveItemsLimit::get();
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
 		add_blocked_accounts::<T, I>(caller.clone(), c);
 		Assets::<T, I>::freeze_asset(
 			SystemOrigin::Signed(caller.clone()).into(),
@@ -230,7 +280,7 @@ benchmarks_instance_pallet! {
 		)?;
 		Assets::<T,I>::start_destroy(SystemOrigin::Signed(caller.clone()).into(), asset_id.clone())?;
 		assert_eq!(BlockDeposits::<T, I>::iter_prefix(asset_id.clone().into()).count() as u32, c);
-	}:_(SystemOrigin::Signed(caller.clone()), asset_id.clone())
+	}: destroy_accounts(SystemOrigin::Signed(caller.clone()), asset_id.clone())
 	verify {
 		assert_last_event::<T, I>(Event::AccountsDestroyed {
 			asset_id: asset_id.clone().into(),

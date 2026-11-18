@@ -877,6 +877,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Weight of `destroy_accounts` removing `n` accounts: an account is either reaped through
+	/// the asset or releases a block deposit, so each one costs at most the costlier of the two.
+	pub(super) fn destroy_accounts_weight(n: u32) -> frame_support::weights::Weight {
+		T::WeightInfo::destroy_accounts(n).max(T::WeightInfo::destroy_blocked_accounts(n))
+	}
+
 	/// Destroy accounts associated with a given asset up to the max (T::RemoveItemsLimit).
 	///
 	/// Each call emits the `Event::DestroyedAccounts` event.

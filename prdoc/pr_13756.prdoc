@@ -22,6 +22,14 @@ doc:
     placed, cannot be refunded while blocked and take no block deposit. Accounts blocked before
     this change hold no block deposit until they are blocked again.
 
+    `WeightInfo` gains `destroy_blocked_accounts`, which prices `destroy_accounts` for accounts
+    that return a block deposit. The `destroy_accounts` call is charged the larger of the two
+    weights, since an account is either reaped through the asset or returns a block deposit.
+
 crates:
 - name: pallet-assets
   bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor

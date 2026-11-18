@@ -120,6 +120,11 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 2884).saturating_mul(c.into()))
 	}
+	fn destroy_blocked_accounts(c: u32, ) -> Weight {
+		Self::destroy_accounts(c)
+			.saturating_add(T::DbWeight::get().reads_writes(2, 2).saturating_mul(c.into()))
+			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(c.into()))
+	}
 	/// Storage: `PoolAssets::Asset` (r:1 w:1)
 	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
 	/// Storage: `PoolAssets::Approvals` (r:1001 w:1000)
