@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795033667521,
+  "lastUpdate": 1795043827376,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "912969a78efada22616c5f3f74ed12274e872545",
-          "message": "ci: fix resolc download (#12008)\n\nPR adds some logic to retry download resolc to avoid\n[such](https://github.com/paritytech/polkadot-sdk/actions/runs/25483886193/job/74774666969)\nproblems\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-07T14:16:45Z",
-          "tree_id": "4240b9e11b6c4949c5bfcea8a5dae01bdde6b367",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/912969a78efada22616c5f3f74ed12274e872545"
-        },
-        "date": 1778169814958,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.795414433833335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13327503870000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12661104546666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdcbed2600a536622aa049b27d05a69a5917d447",
+          "message": "Improve flaky ZN test (#13908)\n\nBoth tests restart `one`/`two`/`three` on purpose: they are the\ncollators'\n`--relay-chain-rpc-url` endpoints, and the tests check RPC failover.\n\nWith teardown-on-failure (the default), zombienet's node monitor checks\nevery 15s\nthat each running node serves `process_start_time_seconds` within 5s,\nand kills the\ntest process if one does not. A restarted node counts as running as soon\nas its\nprocess is spawned, so the first check after a restart can catch it\nbefore it serves\nmetrics. The monitor has a grace window for recently restarted nodes,\nbut it never\napplies: it finds the node with `n.name() == e.to_string()`, while the\nerror reads\n\"<name>: Timeout (5), ...\". Every observed CI failure of\n`rpc_collator_builds_blocks`\nwas this (\"One of the nodes crashed: two: Timeout (5) ...\").\n\n(Fix in zombienet-sdk (`spawn_watching_task`,\ncrates/orchestrator/src/network.rs, still\npresent upstream): poll each node separately and keep the node with its\nresult, so the\ngrace window check uses the failing node itself rather than parsing the\nerror. Once\na zombienet-sdk release with that fix is used here, remove this\noverride.)\n\nDisabling the monitor is safe here: a node that really dies makes the\ntest's own\nmetric checks time out.\n\n---\n\nAbove is what claude found, but reads sensible to me. I have seen\n`with_tear_down_on_failure ` in a few other tests that also restart\nnodes with a comment saying it helps in the CI.\n\nExample flaky run:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/43845739265/job/133234755346",
+          "timestamp": "2026-11-18T21:42:47Z",
+          "tree_id": "0d3ab4467dd2d1166f0a069faa052ac7c0ad1b39",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bdcbed2600a536622aa049b27d05a69a5917d447"
+        },
+        "date": 1795043790315,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.994063156233333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12771214983333334,
             "unit": "seconds"
           }
         ]
