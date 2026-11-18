@@ -112,6 +112,10 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// An account with such a reason might not be referenced in `system`.
 	#[codec(index = 4)]
 	DepositFrom(AccountId, Balance),
+	/// The account holder refunded the account while it was blocked. It holds no balance and
+	/// is kept only to stay blocked until thawed.
+	#[codec(index = 5)]
+	Tombstone,
 }
 
 impl<Balance, AccountId> ExistenceReason<Balance, AccountId>
@@ -187,20 +191,19 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	pub extra: Extra,
 }
 
-impl<Balance: Zero, DepositBalance, Extra, AccountId>
+impl<Balance, DepositBalance, Extra, AccountId>
 	AssetAccount<Balance, DepositBalance, Extra, AccountId>
 {
-	/// Returns `true` if the account holds nothing and no longer references its owner, as left
-	/// behind by refunding a blocked account.
+	/// Returns `true` if the account was left behind by refunding it while blocked.
 	pub fn is_tombstone(&self) -> bool {
-		self.balance.is_zero() && matches!(self.reason, ExistenceReason::DepositRefunded)
+		matches!(self.reason, ExistenceReason::Tombstone)
 	}
 
 	/// Returns `true` if blocking the account needs a deposit: its holder can `refund` it while
 	/// blocked, or already did, leaving an entry behind that nothing else pays for.
 	pub fn needs_block_deposit(&self) -> bool {
 		use ExistenceReason::*;
-		matches!(self.reason, Consumer | DepositHeld(_) | DepositRefunded)
+		matches!(self.reason, Consumer | DepositHeld(_) | Tombstone)
 	}
 }
 

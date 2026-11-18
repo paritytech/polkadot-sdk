@@ -119,7 +119,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				d.sufficients = d.sufficients.saturating_sub(1);
 				frame_system::Pallet::<T>::dec_sufficients(who);
 			},
-			DepositRefunded => {},
+			DepositRefunded | Tombstone => {},
 			DepositHeld(_) | DepositFrom(..) if !force => return Keep,
 			DepositHeld(_) | DepositFrom(..) => {},
 		}
@@ -412,7 +412,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if let Consumer = account.reason {
 				frame_system::Pallet::<T>::dec_consumers(&who);
 			}
-			account.reason = DepositRefunded;
+			account.reason = Tombstone;
 			Account::<T, I>::insert(&id, &who, account);
 		} else if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
 			Account::<T, I>::remove(&id, &who);

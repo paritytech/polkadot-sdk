@@ -2169,10 +2169,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					calculated_sufficients += 1;
 				}
 
+				if account.is_tombstone() {
+					ensure!(
+						account.status.is_blocked() && account.balance.is_zero(),
+						"Tombstone that is not a blocked zero-balance account found"
+					);
+				}
+
 				let total_balance = account.balance.saturating_add(held);
 				if total_balance < details.min_balance {
-					let blocked_tombstone = account.is_tombstone() && account.status.is_blocked();
-					if !blocked_tombstone &&
+					if !account.is_tombstone() &&
 						!matches!(
 							account.reason,
 							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)

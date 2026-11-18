@@ -448,6 +448,31 @@ fn refunded_blocked_account_passes_try_state() {
 }
 
 #[test]
+fn try_state_rejects_tombstone_that_is_not_blocked_with_zero_balance() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_ok!(Assets::do_try_state());
+
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().balance = 1);
+		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 1);
+		assert!(Assets::do_try_state().is_err());
+
+		Account::<Test>::mutate(0, &2, |a| {
+			let a = a.as_mut().unwrap();
+			a.balance = 0;
+			a.status = AccountStatus::Frozen;
+		});
+		BlockDeposits::<Test>::remove(0, &2);
+		assert!(Assets::do_try_state().is_err());
+	});
+}
+
+#[test]
 fn destroying_asset_removes_refunded_blocked_account() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);

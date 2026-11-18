@@ -9,11 +9,12 @@ doc:
     deposit or consumer reference as before, but keeps a zero-balance entry that stays blocked
     until the admin thaws it, which removes the entry. A blocked holder can therefore still free
     a consumer reference forced on them by an asset owner, but can no longer lift the block.
-    `freeze` fails with `NoAccount` on such an entry.
+    Such an entry has the new `ExistenceReason::Tombstone`, and `freeze` fails with `NoAccount`
+    on it.
 
     To back this entry with a deposit, `block` now reserves `AssetAccountDeposit` from the
     freezer when the account's holder can refund it, that is when it exists through a consumer
-    reference or its own deposit, or is already such an entry. The deposit is recorded in the
+    reference or its own deposit, or is already a tombstone. The deposit is recorded in the
     new `BlockDeposits` storage item and returned to the account that placed it when the
     account is thawed, frozen or destroyed together with the asset. Blocking an account that
     already has a block deposit takes no further deposit, and the freezer must hold enough free
@@ -23,4 +24,4 @@ doc:
 
 crates:
 - name: pallet-assets
-  bump: minor
+  bump: major
