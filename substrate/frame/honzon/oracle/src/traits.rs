@@ -17,8 +17,8 @@
 
 //! This module provides traits for data feeding and provisioning.
 
+use alloc::vec::Vec;
 use sp_runtime::DispatchResult;
-use sp_std::vec::Vec;
 
 /// A trait for feeding data to a data provider.
 pub trait DataFeeder<Key, Value, AccountId> {
@@ -58,7 +58,7 @@ macro_rules! create_median_value_data_provider {
 		pub struct $name;
 		impl $crate::DataProvider<$key, $value> for $name {
 			fn get(key: &$key) -> Option<$value> {
-				let mut values = vec![];
+				let mut values = $crate::__private::Vec::new();
 				$(
 					if let Some(v) = <$provider as $crate::DataProvider<$key, $value>>::get(&key) {
 						values.push(v);
@@ -69,7 +69,7 @@ macro_rules! create_median_value_data_provider {
 		}
 		impl $crate::DataProviderExtended<$key, $timestamped_value> for $name {
 			fn get_all_values() -> impl Iterator<Item = ($key, Option<$timestamped_value>)> {
-				let mut keys = sp_std::collections::btree_set::BTreeSet::new();
+				let mut keys = $crate::__private::BTreeSet::new();
 				$(
 					<$provider as $crate::DataProviderExtended<$key, $timestamped_value>>::get_all_values()
 						.into_iter()
@@ -101,7 +101,7 @@ pub trait OnNewData<AccountId, Key, Value> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_std::cell::RefCell;
+	use core::cell::RefCell;
 
 	thread_local! {
 		static MOCK_PRICE_1: RefCell<Option<u8>> = RefCell::new(None);
