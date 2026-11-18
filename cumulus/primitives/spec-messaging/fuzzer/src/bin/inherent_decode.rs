@@ -14,16 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `cargo hfuzz run message_event`. See the crate docs.
+//! `cargo hfuzz run inherent_decode`. See the crate docs.
 
-use cumulus_primitives_spec_messaging_fuzzer::{EventInput, MessageOracle};
+use cumulus_primitives_spec_messaging_fuzzer::check_inherent_decode;
 use honggfuzz::fuzz;
 
 fn main() {
-	let oracle = MessageOracle::new();
 	loop {
-		fuzz!(|input: EventInput| {
-			oracle.check_event_input(&input);
+		fuzz!(|data: &[u8]| {
+			check_inherent_decode(data);
 		});
 	}
 }
