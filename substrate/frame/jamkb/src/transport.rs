@@ -28,7 +28,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{pallet_prelude::DispatchResult, weights::WeightMeter};
+use frame_support::{
+	pallet_prelude::{BoundedVec, DispatchResult, Get},
+	weights::WeightMeter,
+};
 use scale_info::TypeInfo;
 
 /// Identifies a sender; each sender has its own budget share.
@@ -63,14 +66,17 @@ pub trait JamMessageSender<Balance> {
 /// Charges the delivery fee of an operation's messages to the signed caller that records it.
 /// The runtime implements it with the transport's fee factor, which grows with the queued
 /// size; `()` charges nothing.
-pub trait ChargeDeliveryFee<AccountId, Balance> {
+///
+/// `MessageBalance` is the amount type inside [`UpwardMessage`]. The fee itself is in the native
+/// currency, chosen by the implementation.
+pub trait ChargeDeliveryFee<AccountId, MessageBalance> {
 	/// Charges `payer` for sending `messages`. On `Err` the call that records the operation
 	/// fails.
-	fn charge(payer: &AccountId, messages: &[UpwardMessage<Balance>]) -> DispatchResult;
+	fn charge(payer: &AccountId, messages: &[UpwardMessage<MessageBalance>]) -> DispatchResult;
 }
 
-impl<AccountId, Balance> ChargeDeliveryFee<AccountId, Balance> for () {
-	fn charge(_: &AccountId, _: &[UpwardMessage<Balance>]) -> DispatchResult {
+impl<AccountId, MessageBalance> ChargeDeliveryFee<AccountId, MessageBalance> for () {
+	fn charge(_: &AccountId, _: &[UpwardMessage<MessageBalance>]) -> DispatchResult {
 		Ok(())
 	}
 }
@@ -105,22 +111,24 @@ pub struct IncomingTransfer<Balance> {
 	pub memo: Memo,
 }
 
-/// One whole `incoming_transfers` bucket, in queue order.
-pub type IncomingTransfers<Balance> = Vec<IncomingTransfer<Balance>>;
+/// One whole `incoming_transfers` bucket, in queue order, of at most `Max` transfers.
+pub type IncomingTransfers<Balance, Max> = BoundedVec<IncomingTransfer<Balance>, Max>;
 
 /// Implemented by `pallet-jamkb`. Called by parachain-system.
 pub trait OnIncomingTransfers<Balance> {
+	/// The most transfers in one bucket: at least the Parachain Service's bucket size. The
+	/// transport never hands over a larger bucket.
+	type MaxTransfers: Get<u32>;
 	/// How many buckets `on_incoming_transfers` takes this block. Asked before any bucket
 	/// is read. 0 until attested and while paused.
 	fn capacity() -> u32;
 	/// One whole bucket, in queue order; at most `capacity()` buckets per block. The pallet
 	/// books the bucket in the call, all or nothing, and charges it to `meter`. `Ok`: the
-	/// bucket is cleaned up and not delivered again. `Err`: `released` cannot cover the
-	/// bucket, or its `Move` cannot be recorded; it is not booked. Parachain-system rolls the
-	/// call back, delivers no more buckets this block, cleans up only the ones before it, and
-	/// delivers it again in a later block.
+	/// bucket is cleaned up and not delivered again. `Err`: its `Move` cannot be recorded; it
+	/// is not booked. Parachain-system rolls the call back, delivers no more buckets this
+	/// block, cleans up only the ones before it, and delivers it again in a later block.
 	fn on_incoming_transfers(
-		transfers: IncomingTransfers<Balance>,
+		transfers: IncomingTransfers<Balance, Self::MaxTransfers>,
 		meter: &mut WeightMeter,
 	) -> Result<(), ()>;
 }

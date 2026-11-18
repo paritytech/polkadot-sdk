@@ -42,18 +42,26 @@ pub trait WeightInfo {
 	fn redeem() -> Weight;
 	/// Weight of `cancel_allocation`.
 	fn cancel_allocation() -> Weight;
-	/// Weight of settling one operation, by `settle` or by `on_poll`.
+	/// Weight of settling one operation other than a `Move`, by `settle` or by `on_poll`.
 	fn settle() -> Weight;
+	/// Weight of settling one `Move` of `n` transfers, by `settle` or by `on_poll`.
+	fn settle_move(n: u32) -> Weight;
 	/// Weight of recording one operation's outcome.
 	fn on_outcome() -> Weight;
-	/// Weight of `force_transfer`.
-	fn force_transfer() -> Weight;
+	/// Weight of `force_mint`.
+	fn force_mint() -> Weight;
 	/// Weight of `claim`.
 	fn claim() -> Weight;
 	/// Weight of `dispose_excess`.
 	fn dispose_excess() -> Weight;
 	/// Weight of booking one `incoming_transfers` bucket of `n` transfers.
 	fn on_incoming_transfers(n: u32) -> Weight;
+	/// Weight of `retry_move`.
+	fn retry_move() -> Weight;
+	/// Weight of `force_resolve`.
+	fn force_resolve() -> Weight;
+	/// Weight of `force_burn`.
+	fn force_burn() -> Weight;
 }
 
 const PLACEHOLDER: Weight = Weight::from_parts(10_000_000, 10_000);
@@ -89,10 +97,13 @@ impl WeightInfo for () {
 	fn settle() -> Weight {
 		PLACEHOLDER
 	}
+	fn settle_move(n: u32) -> Weight {
+		PLACEHOLDER.saturating_add(PLACEHOLDER.saturating_mul(n.into()))
+	}
 	fn on_outcome() -> Weight {
 		PLACEHOLDER
 	}
-	fn force_transfer() -> Weight {
+	fn force_mint() -> Weight {
 		PLACEHOLDER
 	}
 	fn claim() -> Weight {
@@ -103,5 +114,14 @@ impl WeightInfo for () {
 	}
 	fn on_incoming_transfers(n: u32) -> Weight {
 		PLACEHOLDER.saturating_add(PLACEHOLDER.saturating_mul(n.into()))
+	}
+	fn retry_move() -> Weight {
+		PLACEHOLDER
+	}
+	fn force_resolve() -> Weight {
+		PLACEHOLDER
+	}
+	fn force_burn() -> Weight {
+		PLACEHOLDER
 	}
 }

@@ -14009,7 +14009,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-assets",
- "pallet-assets-holder",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -14022,14 +14021,13 @@ dependencies = [
 name = "pallet-jamkb-precompiles"
 version = "0.1.0"
 dependencies = [
- "alloy-core",
  "frame-support",
  "frame-system",
  "pallet-assets",
- "pallet-assets-holder",
  "pallet-balances",
  "pallet-jamkb",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "parity-scale-codec",
  "scale-info",
  "sp-io 30.0.0",

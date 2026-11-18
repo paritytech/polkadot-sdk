@@ -27,11 +27,12 @@ use frame_support::{
 use pallet_jamkb::{
 	messages::{MessageId, UpwardMessage},
 	transport::{JamMessageSender, MessageSendError, OnJamOutcome, OperationId, SenderId},
-	ServiceId, Timeslot,
+	MapAccount, ServiceId, Timeslot,
 };
+use pallet_revive::AddressMapper;
 use sp_runtime::{
 	traits::{BlockNumberProvider, IdentityLookup},
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, DispatchResult,
 };
 
 pub type AccountId = AccountId32;
@@ -40,6 +41,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const ALICE: AccountId = AccountId::new([1u8; 32]);
 pub const BOB: AccountId = AccountId::new([2u8; 32]);
+/// An account with no native balance, so it cannot hold the non-sufficient JAMKB.
+pub const CAROL: AccountId = AccountId::new([3u8; 32]);
 pub const JAMKB: u32 = 7;
 pub const CAP: Balance = 1_000_000;
 pub const SERVICE: ServiceId = 42;
@@ -65,8 +68,6 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(20)]
 	pub type Assets = pallet_assets;
-	#[runtime::pallet_index(21)]
-	pub type AssetsHolder = pallet_assets_holder;
 	#[runtime::pallet_index(30)]
 	pub type Revive = pallet_revive;
 	#[runtime::pallet_index(40)]
@@ -93,12 +94,6 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type Holder = AssetsHolder;
-}
-
-impl pallet_assets_holder::Config for Test {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeEvent = RuntimeEvent;
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
@@ -111,7 +106,8 @@ impl pallet_revive::Config for Test {
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
-/// Allocates increasing message and operation ids and queues nothing.
+/// Allocates increasing message and operation ids and queues nothing. A test can make every send
+/// fail with [`SendFailure`].
 pub struct MockSender;
 
 impl JamMessageSender<Balance> for MockSender {
@@ -123,10 +119,26 @@ impl JamMessageSender<Balance> for MockSender {
 	}
 
 	fn send(_: SenderId, _: Vec<UpwardMessage<Balance>>) -> Result<OperationId, MessageSendError> {
+		if let Some(error) = SendFailure::get() {
+			return Err(error);
+		}
 		Ok(LastOperationId::mutate(|id| {
 			*id += 1;
 			*id
 		}))
+	}
+}
+
+/// Maps an account in pallet-revive as a runtime would: without a deposit, and only when it is
+/// not mapped yet.
+pub struct ReviveMapping;
+
+impl MapAccount<AccountId> for ReviveMapping {
+	fn map(who: &AccountId) -> DispatchResult {
+		if <Test as pallet_revive::Config>::AddressMapper::is_mapped(who) {
+			return Ok(());
+		}
+		<Test as pallet_revive::Config>::AddressMapper::map_no_deposit_unchecked(who)
 	}
 }
 
@@ -150,6 +162,7 @@ parameter_types! {
 	pub static LastMessageId: MessageId = 1_000;
 	pub static LastOperationId: OperationId = 100;
 	pub static CurrentTimeslot: Timeslot = 1;
+	pub static SendFailure: Option<MessageSendError> = None;
 	pub const JamkbAssetId: u32 = JAMKB;
 	pub const Cap: Balance = CAP;
 	pub const MinTransfer: Balance = 10;
@@ -159,17 +172,16 @@ parameter_types! {
 	pub const JamkbPalletId: PalletId = PalletId(*b"py/jamkb");
 	pub const ParachainService: ServiceId = 0;
 	pub const MaxUnsettledOperations: u32 = 16;
+	pub const MaxUserOperations: u32 = 8;
 	pub const MaxBucketsPerBlock: u32 = 2;
 	pub const MaxTransfersPerBucket: u32 = 4;
 }
 
 impl pallet_jamkb::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type AssetId = u32;
 	type Balance = Balance;
 	type Assets = Assets;
-	type AssetsHolder = AssetsHolder;
 	type MessageSender = MockSender;
 	type DeliveryFee = ();
 	type TimeslotProvider = Timeslots;
@@ -182,16 +194,31 @@ impl pallet_jamkb::Config for Test {
 	type PalletId = JamkbPalletId;
 	type ParachainService = ParachainService;
 	type MaxUnsettledOperations = MaxUnsettledOperations;
+	type MaxUserOperations = MaxUserOperations;
 	type MaxBucketsPerBlock = MaxBucketsPerBlock;
 	type MaxTransfersPerBucket = MaxTransfersPerBucket;
-	type CustodyMapping = ();
+	type CustodyMapping = ReviveMapping;
 	type GovernanceOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 }
 
-/// A fresh state with an initialized and attested pallet; `released` units sit in the
-/// `released` account.
+/// A fresh state with an initialized and attested pallet; `released` units are outside the
+/// Parachain Service, so custody holds `CAP − released`.
 pub fn new_test_ext(released: Balance) -> sp_io::TestExternalities {
+	let mut ext = new_uninitialized_ext();
+	ext.execute_with(|| {
+		frame_support::assert_ok!(Jamkb::initialize(RuntimeOrigin::root()));
+		frame_support::assert_ok!(Jamkb::attest(
+			RuntimeOrigin::root(),
+			[0xAA; 32].into(),
+			released
+		));
+	});
+	ext
+}
+
+/// A fresh state where the pallet is neither initialized nor attested.
+pub fn new_uninitialized_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(ALICE, 1_000_000_000_000), (BOB, 1_000_000_000_000)],
@@ -209,12 +236,6 @@ pub fn new_test_ext(released: Balance) -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		CurrentTimeslot::set(1);
-		frame_support::assert_ok!(Jamkb::initialize(RuntimeOrigin::root()));
-		frame_support::assert_ok!(Jamkb::attest(
-			RuntimeOrigin::root(),
-			[0xAA; 32].into(),
-			released
-		));
 	});
 	ext
 }

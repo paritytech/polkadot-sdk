@@ -57,7 +57,7 @@ pub enum AllocationMode {
 /// Lifecycle of an allocation. Index 3 is reserved for `Reclaiming`.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo)]
 pub enum AllocationState {
-	/// Approved; the units are held.
+	/// Approved; nothing is burned yet.
 	#[codec(index = 0)]
 	Approved,
 	/// A delivery is in flight. On Failed, back to `Approved`.
@@ -80,7 +80,7 @@ pub struct Allocation<AccountId, Balance> {
 	pub mode: AllocationMode,
 	/// The credited JAM service.
 	pub target: ServiceId,
-	/// The units held for the allocation.
+	/// The units of the allocation, burned from custody when the delivery is recorded.
 	pub amount: Balance,
 	/// Lifecycle state.
 	pub state: AllocationState,
@@ -111,28 +111,28 @@ pub enum OperationPayload<
 	/// A permanent release: one deferred `TransferOut` from the Parachain Service's regular
 	/// balance to the target's regular balance, with the allocation's memo.
 	///
-	/// Confirmed: the allocation moves to `Delivered`, `delivered_at` is set to the operation's
-	/// `accumulated_at`, and the held units move from custody to the `released` account. Failed:
-	/// the allocation returns to `Approved`.
+	/// Confirmed: the allocation moves to `Delivered` and `delivered_at` is set to the
+	/// operation's `accumulated_at`. Failed: the units are minted back to custody and the
+	/// allocation returns to `Approved`.
 	#[codec(index = 0)]
 	Delivery {
 		/// The allocation delivered.
 		allocation: AllocationId,
-		/// The units locked for the transfer.
+		/// The units burned for the transfer.
 		amount: Balance,
 	},
 	/// A redemption of holder funds: one deferred `TransferOut` from the Parachain Service's
 	/// regular balance to `target`'s regular balance, with the redeemer's memo.
 	///
-	/// Confirmed: the held units move from `holder` to the `released` account. Failed: the
-	/// hold is released.
+	/// Confirmed: no further state change. Failed: the units are minted back to `holder`, or
+	/// booked as `Unclaimed` for it when it cannot receive them.
 	#[codec(index = 2)]
 	Redemption {
-		/// The redeemer; the hold sits on it.
+		/// The redeemer.
 		holder: AccountId,
 		/// The credited JAM service.
 		target: ServiceId,
-		/// The units locked for the transfer.
+		/// The units burned for the transfer.
 		amount: Balance,
 		/// The memo the transfer carries.
 		memo: Memo,
@@ -140,8 +140,8 @@ pub enum OperationPayload<
 	/// A move of a bucket's transfers from the Parachain Service's supervisor balance to its
 	/// regular balance: one plain `TransferOut` of their sum between the two.
 	///
-	/// Confirmed: each transfer is booked. Failed: nothing is booked; the units stay in the
-	/// `released` account, as they stay on the supervisor balance.
+	/// Confirmed: each transfer is booked. Failed: nothing is booked; the units stay on the
+	/// supervisor balance and the transfers are kept in `Unmoved` for `retry_move`.
 	#[codec(index = 10)]
 	Move {
 		/// The transfers that landed on the supervisor balance, in queue order.
@@ -151,17 +151,32 @@ pub enum OperationPayload<
 	/// `TransferOut` from the Parachain Service's regular balance to `source`'s regular
 	/// balance, with governance's memo.
 	///
-	/// Confirmed: the held units move from the `excess` account to the `released` account.
-	/// Failed: the hold is released and `Excess[source]` restored.
+	/// Confirmed: no further state change. Failed: `Excess[source]` is restored.
 	#[codec(index = 11)]
 	Refund {
 		/// The refunded service.
 		source: ServiceId,
-		/// The units locked for the transfer.
+		/// The units taken from `Excess[source]` for the transfer.
 		amount: Balance,
 		/// The memo the transfer carries.
 		memo: Memo,
 	},
+}
+
+impl<AccountId, Balance, MaxTransfers> OperationPayload<AccountId, Balance, MaxTransfers>
+where
+	AccountId: Clone + PartialEq + Eq + core::fmt::Debug,
+	Balance: Clone + PartialEq + Eq + core::fmt::Debug,
+	MaxTransfers: Get<u32>,
+{
+	/// Whether a signed call records it: a `Delivery` or a `Redemption`. These count against
+	/// `MaxUserOperations`; a `Move` or a `Refund` does not.
+	pub fn is_user(&self) -> bool {
+		match self {
+			Self::Delivery { .. } | Self::Redemption { .. } => true,
+			Self::Move { .. } | Self::Refund { .. } => false,
+		}
+	}
 }
 
 /// The success entry of an operation that has one, cut to what the settlement reads. None of
@@ -238,26 +253,15 @@ pub struct Operation<
 	pub message_id: MessageId,
 }
 
-/// The booking class of an uncredited return (design §4.4).
+/// The booking class of a return (design §4.4).
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ReturnClass<AccountId> {
-	/// The owner is known; reserved for this beneficiary.
+	/// Minted to the beneficiary.
+	Credited(AccountId),
+	/// The beneficiary cannot receive a mint; booked for its `claim`.
 	Unclaimed(AccountId),
 	/// The owner is unknown; disposed by governance.
 	Excess,
-}
-
-/// A pallet account in a `force_transfer`.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub enum PalletAccount<AccountId> {
-	/// The `custody` account.
-	Custody,
-	/// The `released` account.
-	Released,
-	/// The `unclaimed` account, as `Unclaimed[account]`.
-	Unclaimed(AccountId),
-	/// The `excess` account, as `Excess[source]`.
-	Excess(ServiceId),
 }
 
 /// Convenience alias for the allocation record.

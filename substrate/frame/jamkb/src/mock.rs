@@ -71,14 +71,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 /// The JAMKB asset id in the test runtime.
 pub const JAMKB: u32 = 7;
-/// The fixed supply minted at `initialize`.
+/// The JAMKB units on JAM at genesis.
 pub const CAP: Balance = 1_000_000;
 /// The least amount a release or redemption accepts.
 pub const MIN_TRANSFER: Balance = 10;
 /// The gas every deferred transfer carries.
 pub const MEMO_GAS: u64 = 5_000;
-/// The operations one block settles within `SettlementWeight`.
-pub const SETTLEMENTS_PER_BLOCK: u64 = 3;
+/// The operations other than a `Move` one block settles within `SettlementWeight`.
+pub const SETTLEMENTS_PER_BLOCK: u64 = 4;
 /// The pallet's sender id at the transport.
 pub const JAMKB_SENDER: SenderId = 3;
 /// The default number of operations the mock transport queues before it reports `QueueFull`.
@@ -112,7 +112,12 @@ pub const NOBODY: AccountId = 99;
 /// The buckets the pallet takes per block.
 pub const BUCKETS_PER_BLOCK: u32 = 2;
 /// The most transfers in one bucket.
-pub const TRANSFERS_PER_BUCKET: u32 = 4;
+pub const TRANSFERS_PER_BUCKET: u32 = 3;
+/// The most unsettled operations.
+pub const MAX_OPERATIONS: u32 = 8;
+/// The most unsettled `Delivery` and `Redemption` operations. Above the transport capacity, so
+/// that a full queue and a full user bound can be told apart.
+pub const MAX_USER_OPERATIONS: u32 = 6;
 
 #[frame_support::runtime]
 mod runtime {
@@ -134,8 +139,6 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(20)]
 	pub type Assets = pallet_assets;
-	#[runtime::pallet_index(21)]
-	pub type AssetsHolder = pallet_assets_holder;
 	#[runtime::pallet_index(30)]
 	pub type Jamkb = pallet_jamkb;
 }
@@ -160,12 +163,6 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u128>>;
 	type ForceOrigin = frame_system::EnsureRoot<u128>;
 	type Currency = Balances;
-	type Holder = AssetsHolder;
-}
-
-impl pallet_assets_holder::Config for Test {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeEvent = RuntimeEvent;
 }
 
 /// One operation queued at the mock transport.
@@ -374,23 +371,25 @@ parameter_types! {
 	pub const Cap: Balance = CAP;
 	pub const MinTransfer: Balance = MIN_TRANSFER;
 	pub const MemoGas: u64 = MEMO_GAS;
-	pub SettlementWeight: Weight = settlement_overhead()
-		.saturating_add(<() as WeightInfo>::settle().saturating_mul(SETTLEMENTS_PER_BLOCK));
+	pub SettlementWeight: Weight = settlement_overhead().saturating_add(
+		settling(<() as WeightInfo>::settle())
+			.saturating_mul(SETTLEMENTS_PER_BLOCK)
+			.max(settling(<() as WeightInfo>::settle_move(TRANSFERS_PER_BUCKET))),
+	);
 	pub const JamkbSender: SenderId = JAMKB_SENDER;
 	pub const JamkbPalletId: PalletId = PalletId(*b"py/jamkb");
 	pub const ParachainService: ServiceId = PARACHAIN_SERVICE;
-	pub const MaxUnsettledOperations: u32 = 6;
+	pub const MaxUnsettledOperations: u32 = MAX_OPERATIONS;
+	pub const MaxUserOperations: u32 = MAX_USER_OPERATIONS;
 	pub const MaxBucketsPerBlock: u32 = BUCKETS_PER_BLOCK;
 	pub const MaxTransfersPerBucket: u32 = TRANSFERS_PER_BUCKET;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type AssetId = u32;
 	type Balance = Balance;
 	type Assets = Assets;
-	type AssetsHolder = AssetsHolder;
 	type MessageSender = MockSender;
 	type DeliveryFee = DeliveryFee;
 	type TimeslotProvider = Timeslots;
@@ -403,6 +402,7 @@ impl Config for Test {
 	type PalletId = JamkbPalletId;
 	type ParachainService = ParachainService;
 	type MaxUnsettledOperations = MaxUnsettledOperations;
+	type MaxUserOperations = MaxUserOperations;
 	type MaxBucketsPerBlock = MaxBucketsPerBlock;
 	type MaxTransfersPerBucket = MaxTransfersPerBucket;
 	type CustodyMapping = RecordingMapping;
@@ -487,6 +487,11 @@ pub fn settlement_overhead() -> Weight {
 	MockDbWeight::get().reads_writes(1, 1)
 }
 
+/// What `on_poll` charges for one settlement of weight `settlement`: the operation's read too.
+pub fn settling(settlement: Weight) -> Weight {
+	MockDbWeight::get().reads(1).saturating_add(settlement)
+}
+
 /// Every queued operation is accumulated on JAM at timeslot `at`.
 pub fn accumulate_all(at: Timeslot) -> Weight {
 	accumulate(sent().len(), at)
@@ -512,12 +517,21 @@ pub fn return_from(
 	IncomingTransfer { source, amount, to_supervisor_balance: to_supervisor, memo }
 }
 
+/// One bucket as the transport hands it over. Panics when it exceeds the bound, which the
+/// transport never does.
+pub fn bucket(
+	transfers: Vec<IncomingTransfer<Balance>>,
+) -> IncomingTransfers<Balance, MaxTransfersPerBucket> {
+	IncomingTransfers::try_from(transfers).expect("a bucket fits `MaxTransfersPerBucket`")
+}
+
 /// Hands one bucket to the pallet as parachain-system does: within the capacity, and rolled
 /// back on `Err`.
-pub fn deliver(bucket: IncomingTransfers<Balance>) -> Result<(), ()> {
+pub fn deliver(transfers: Vec<IncomingTransfer<Balance>>) -> Result<(), ()> {
 	if <Jamkb as OnIncomingTransfers<Balance>>::capacity() == 0 {
 		return Err(());
 	}
+	let bucket = bucket(transfers);
 	with_storage_layer(|| {
 		<Jamkb as OnIncomingTransfers<Balance>>::on_incoming_transfers(
 			bucket,
@@ -548,12 +562,6 @@ pub fn poll_within(remaining: Weight) -> Weight {
 	meter.consumed()
 }
 
-/// Runs the settlement hook without checking the invariants, for a test that breaks one on
-/// purpose to make a settlement fail.
-pub fn poll_unchecked() {
-	<Jamkb as Hooks<u64>>::on_poll(System::block_number(), &mut WeightMeter::new());
-}
-
 /// Runs `f` on a fresh test state and checks the pallet's invariants afterwards.
 pub fn build_and_execute(f: impl FnOnce()) {
 	new_test_ext().execute_with(|| {
@@ -572,21 +580,6 @@ pub fn custody() -> AccountId {
 	Jamkb::custody_account()
 }
 
-/// The released account.
-pub fn released() -> AccountId {
-	Jamkb::released_account()
-}
-
-/// The unclaimed account.
-pub fn unclaimed() -> AccountId {
-	Jamkb::unclaimed_account()
-}
-
-/// The excess account.
-pub fn excess() -> AccountId {
-	Jamkb::excess_account()
-}
-
 /// The native balance of `who`.
 pub fn native(who: AccountId) -> u64 {
 	Balances::free_balance(who)
@@ -597,19 +590,47 @@ pub fn free(who: AccountId) -> Balance {
 	<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::balance(JAMKB, &who)
 }
 
-/// The JAMKB held on `who` under the `Releasing` reason.
-pub fn held(who: AccountId) -> Balance {
-	<AssetsHolder as frame_support::traits::fungibles::InspectHold<AccountId>>::balance_on_hold(
-		JAMKB,
-		&RuntimeHoldReason::Jamkb(HoldReason::Releasing),
-		&who,
-	)
+/// The JAMKB supply on Asset Hub.
+pub fn supply() -> Balance {
+	<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::total_issuance(JAMKB)
+}
+
+/// The sum of the `Unclaimed` books.
+pub fn unclaimed_total() -> Balance {
+	crate::Unclaimed::<Test>::iter_values().sum()
+}
+
+/// The sum of the `Excess` books.
+pub fn excess_total() -> Balance {
+	crate::Excess::<Test>::iter_values().sum()
 }
 
 /// The design's balance invariant once every operation has settled: the Parachain Service's
-/// regular balance equals the supply minus the units Asset Hub records as released.
+/// regular balance equals the Asset Hub supply plus the units booked and not yet minted.
 pub fn assert_books_match_jam() {
-	assert_eq!(Jam::balance(PARACHAIN_SERVICE), CAP - free(released()));
+	assert_eq!(Jam::balance(PARACHAIN_SERVICE), supply() + unclaimed_total() + excess_total());
+}
+
+/// Mints to `BOB` all the supply has room for, so that every later mint fails with an overflow.
+/// Returns the amount, for [`drain_supply`].
+pub fn fill_supply() -> Balance {
+	use frame_support::traits::fungibles::Mutate;
+	let room = Balance::MAX - supply();
+	assert_ok!(<Assets as Mutate<AccountId>>::mint_into(JAMKB, &BOB, room));
+	room
+}
+
+/// Burns from `BOB` what [`fill_supply`] minted.
+pub fn drain_supply(amount: Balance) {
+	use frame_support::traits::fungibles::Mutate;
+	assert_ok!(<Assets as Mutate<AccountId>>::burn_from(
+		JAMKB,
+		&BOB,
+		amount,
+		Preservation::Expendable,
+		Precision::Exact,
+		Fortitude::Polite,
+	));
 }
 
 /// The last event emitted.

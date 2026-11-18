@@ -6,7 +6,8 @@ pragma solidity ^0.8.20;
 ///
 /// Every account is an AccountId32 passed as `bytes32`. For a contract, and any unmapped Ethereum
 /// account, it is `H160 ++ 0xEE * 12`, which the System precompile's `toAccountId` returns.
-/// On failure a call reverts with the pallet error name.
+/// On failure a call reverts with the pallet error name for a module error, and with the error's
+/// `Debug` form for any other dispatch error (e.g. `BadOrigin`, `Token(FundsUnavailable)`).
 address constant JAMKB_ADDR = 0x0000000000000000000000000000000009030000;
 
 interface IJamkb {
