@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795021726762,
+  "lastUpdate": 1795024852106,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cdfcd62fc27725404673f0de011447f7e5b6ac6d",
-          "message": "Fix recursive XCM decoding (#11964)\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-04T07:56:55Z",
-          "tree_id": "d30ee20b19e2cbfe555c940a911507690837d2a2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cdfcd62fc27725404673f0de011447f7e5b6ac6d"
-        },
-        "date": 1777886437366,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009492015779999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010045868619999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002681848579999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010005451190000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e6324307e57ed285dc0490564799e3a62b1f698a",
+          "message": "pallet-psm: make the issuance check advisory (#13895)\n\n# Description\n\nAny holder can burn the internal asset outside of the PSM, for example\nwith XCM `BurnAsset`. The issuance then falls below the PSM's debt. The\nreserve holds the difference as surplus, so the PSM is\nover-collateralised, which is a safe state. Governance can mint the\ndifference, or move the surplus out, to wind the asset class down.\n\nCheck 4 of `do_try_state` (\"Total internal issuance is less than total\nPSM debt\") now writes a warning instead of returning an error, like the\nother checks whose state a permitted action can create.\n\n# Integration\n\nNone.\n\n# Review Notes\n\nThe test `warns_on_issuance_below_psm_debt` burns one unit outside of\nthe PSM and expects `do_try_state` to pass.",
+          "timestamp": "2026-11-18T14:57:00Z",
+          "tree_id": "c8aebe150ef075ab9a720050bdb396cfd72f301e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e6324307e57ed285dc0490564799e3a62b1f698a"
+        },
+        "date": 1795024805697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01159262962,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009722666179999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025775235899999993,
             "unit": "seconds"
           }
         ]
