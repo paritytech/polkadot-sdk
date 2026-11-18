@@ -39,7 +39,6 @@ pallet-asset-rate = { optional = true, workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-broker = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-session = { workspace = true }
@@ -88,7 +87,6 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
-	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
 	"pallet-session/std",
@@ -127,7 +125,6 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
@@ -155,7 +152,6 @@ try-runtime = [
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-session/try-runtime",
