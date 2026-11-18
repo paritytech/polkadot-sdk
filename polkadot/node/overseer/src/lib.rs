@@ -659,7 +659,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	prospective_parachains: ProspectiveParachains,
 
-	#[subsystem(HealthMessage, sends: [])]
+	#[subsystem(HealthMessage, sends: [RuntimeApiMessage])]
 	health: Health,
 
 	/// External listeners waiting for a hash to be in the active-leave set.

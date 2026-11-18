@@ -19,12 +19,21 @@
 //! where its inputs come from.
 
 mod reachability;
+mod validator_connectivity;
 
 use crate::{Observation, LOG_TARGET};
+use polkadot_primitives::AuthorityDiscoveryId;
 use reachability::Reachability;
+use std::collections::HashSet;
+use validator_connectivity::ValidatorConnectivity;
 
 /// What the subsystem tells the checks.
 pub enum Event {
+	/// A new session started.
+	NewSession {
+		/// The other validators of the session. `None` when we are not one of them.
+		validators: Option<HashSet<AuthorityDiscoveryId>>,
+	},
 	/// The tick interval elapsed.
 	Tick,
 }
@@ -33,6 +42,7 @@ pub enum Event {
 #[derive(Default)]
 pub struct Checks {
 	reachability: Reachability,
+	validator_connectivity: ValidatorConnectivity,
 }
 
 impl Checks {
@@ -42,16 +52,25 @@ impl Checks {
 		gum::trace!(target: LOG_TARGET, ?observation, "Applying report");
 
 		match observation {
+			Observation::ConnectedValidators { authorities } => {
+				self.validator_connectivity.on_connected_validators(authorities)
+			},
 			Observation::InboundConnection { peer } => {
 				self.reachability.on_inbound_connection(peer)
 			},
 		}
 	}
 
-	/// The subsystem's clock moved on.
+	/// The subsystem's clock or the chain moved on.
 	pub fn on_event(&mut self, event: Event) {
 		match event {
-			Event::Tick => self.reachability.on_tick(),
+			Event::NewSession { validators } => {
+				self.validator_connectivity.on_new_session(validators)
+			},
+			Event::Tick => {
+				self.reachability.on_tick();
+				self.validator_connectivity.on_tick();
+			},
 		}
 	}
 }

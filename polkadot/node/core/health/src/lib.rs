@@ -29,8 +29,15 @@ pub use observation::Observation;
 use checks::{Checks, Event};
 use futures::{FutureExt, StreamExt};
 use polkadot_node_subsystem::{
-	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
+use polkadot_node_subsystem_util::{
+	request_session_index_for_child, request_session_info,
+	runtime::{self, recv_runtime},
+};
+use polkadot_primitives::{AuthorityDiscoveryId, Hash, SessionIndex};
+use sp_application_crypto::{AppCrypto, ByteArray};
+use sp_keystore::{Keystore, KeystorePtr};
 use std::time::Duration;
 
 const LOG_TARGET: &str = "parachain::health";
@@ -45,10 +52,15 @@ const TICK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 const TICK_INTERVAL: Duration = Duration::from_secs(60);
 
 /// The producers' end: cloneable, cheap, and never waits.
+/// `None` is a no-op handle. Used for tests, mocks, etc.
 #[derive(Clone)]
 pub struct HealthHandle(Option<async_channel::Sender<Observation>>);
 
 impl HealthHandle {
+	pub fn create_dummy_handle() -> Self {
+		Self(None)
+	}
+
 	/// Report an observation. On a full or closed channel it is dropped.
 	pub fn report(&self, observation: Observation) {
 		// TODO: count the drops per observation kind, so that the subsystem can say whose data
@@ -70,27 +82,36 @@ pub fn health_channel() -> (HealthHandle, HealthReceiver) {
 }
 
 pub struct HealthSubsystem {
+	keystore: KeystorePtr,
 	receiver: HealthReceiver,
 }
 
 impl HealthSubsystem {
-	pub fn new(receiver: HealthReceiver) -> Self {
-		Self { receiver }
+	pub fn new(keystore: KeystorePtr, receiver: HealthReceiver) -> Self {
+		Self { keystore, receiver }
 	}
 }
 
 #[overseer::subsystem(Health, error = SubsystemError, prefix = self::overseer)]
 impl<Context> HealthSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = run(ctx, self.receiver).map(|()| Ok(())).boxed();
+		let future = run(ctx, self.keystore, self.receiver).map(|()| Ok(())).boxed();
 		SpawnedSubsystem { name: "health-subsystem", future }
 	}
 }
 
+/// The chain context the subsystem tracks for the checks.
+struct State {
+	keystore: KeystorePtr,
+	/// The last session handed to the checks.
+	session: Option<SessionIndex>,
+}
+
 #[overseer::contextbounds(Health, prefix = self::overseer)]
-async fn run<Context>(mut ctx: Context, mut reports: HealthReceiver) {
+async fn run<Context>(mut ctx: Context, keystore: KeystorePtr, mut reports: HealthReceiver) {
 	gum::info!(target: LOG_TARGET, capacity = reports.capacity(), "Health subsystem running");
 
+	let mut state = State { keystore, session: None };
 	let mut checks = Checks::default();
 	let mut tick = futures_timer::Delay::new(TICK_INTERVAL).fuse();
 
@@ -98,6 +119,14 @@ async fn run<Context>(mut ctx: Context, mut reports: HealthReceiver) {
 		futures::select! {
 			from_overseer = ctx.recv().fuse() => match from_overseer {
 				Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => return,
+				Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
+					activated: Some(leaf),
+					..
+				}))) => if let Err(err) =
+					handle_active_leaf(&mut ctx, &mut state, &mut checks, leaf.hash).await
+				{
+					gum::warn!(target: LOG_TARGET, leaf = ?leaf.hash, ?err, "Failed to process the leaf");
+				},
 				Ok(_) => {},
 			},
 			observation = reports.next() => match observation {
@@ -111,4 +140,37 @@ async fn run<Context>(mut ctx: Context, mut reports: HealthReceiver) {
 			},
 		}
 	}
+}
+
+/// Track the session from the new leaf, and hand the validators of a new session to the checks.
+#[overseer::contextbounds(Health, prefix = self::overseer)]
+async fn handle_active_leaf<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	checks: &mut Checks,
+	leaf: Hash,
+) -> Result<(), runtime::Error> {
+	let session = recv_runtime(request_session_index_for_child(leaf, ctx.sender()).await).await?;
+
+	if state.session.is_some_and(|current| session <= current) {
+		return Ok(());
+	}
+
+	let Some(info) = recv_runtime(request_session_info(leaf, session, ctx.sender()).await).await?
+	else {
+		// The session is not remembered: the next leaf retries.
+		gum::debug!(target: LOG_TARGET, session, ?leaf, "No session info for the new session");
+		return Ok(());
+	};
+	state.session = Some(session);
+
+	let (ours, others): (Vec<_>, Vec<_>) = info.discovery_keys.into_iter().partition(|key| {
+		Keystore::has_keys(&*state.keystore, &[(key.to_raw_vec(), AuthorityDiscoveryId::ID)])
+	});
+	// Not judged when we are not a validator of the session.
+	let validators = (!ours.is_empty()).then(|| others.into_iter().collect());
+
+	checks.on_event(Event::NewSession { validators });
+
+	Ok(())
 }

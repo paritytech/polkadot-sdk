@@ -481,6 +481,7 @@ where
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
 				reputation_config,
+				health_handle: health_handle.clone(),
 				health_receiver,
 			})
 		};
