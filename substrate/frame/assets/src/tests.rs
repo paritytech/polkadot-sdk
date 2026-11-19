@@ -518,6 +518,11 @@ fn try_state_rejects_tombstone_that_is_not_blocked_with_zero_balance() {
 			a.status = AccountStatus::Frozen;
 		});
 		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 0);
+		assert_eq!(
+			Assets::do_try_state(),
+			Err("Block deposit without a blocked account found".into())
+		);
+
 		BlockDeposits::<Test>::remove(0, &2);
 		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
 	});
