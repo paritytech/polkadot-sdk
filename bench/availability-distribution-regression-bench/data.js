@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795104310640,
+  "lastUpdate": 1795107363488,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "67190176f144a642c3e3831dc13248d4327bbdf1",
-          "message": "[Staking] Use offence era for proportional slash distribution (#11999)\n\n## Bug\nWhen a slash is applied, `StakingLedger::slash` decides which unlocking\nchunks are still slashable based on `bonding_duration` from a reference\nera. We were passing the **slash application era** (offence_era +\n`SlashDeferDuration`) instead of the **offence era** in the extrinsic\nbased apply slash.\n\n## Impact\nNo funds escape slashing, only the distribution between active and\nunlocking chunks is off.\n\n### Example\nGiven: Total balance 1000 (active 100, unlock chunk 900), 50% slash:\n- Correct slash: 50 from active + 450 from chunk\n- Buggy slash: 100 from active + 400 from chunk\n\nShown in [test\nhere](https://github.com/paritytech/polkadot-sdk/compare/ankn-slash-test).",
-          "timestamp": "2026-05-08T06:13:29Z",
-          "tree_id": "01a271b5374c1fcd629189e61b0cb68018102061",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/67190176f144a642c3e3831dc13248d4327bbdf1"
-        },
-        "date": 1778227028160,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023758468406666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0069647516733333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009514444653333304,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14046393767999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009795865293333315,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a41a7e7d7440b32b85059689e8aa53fb8646fa4d",
+          "message": "AHMv2 HRMP Part 3 : impl migration hooks (#13656)\n\nImplement the trait so the migrator can put the deposit in the\nhrmp-para.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T15:21:30Z",
+          "tree_id": "4c6e7c046130e55070d8de65964f2aab2c4160b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a41a7e7d7440b32b85059689e8aa53fb8646fa4d"
+        },
+        "date": 1795107324613,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009871550426666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024202228419999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14576212170000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007806126180000003,
             "unit": "seconds"
           }
         ]
