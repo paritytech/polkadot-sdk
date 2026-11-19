@@ -5,3 +5,5 @@ doc:
 crates:
   - name: pallet-beefy-mmr
     bump: minor
+  - name: westend-runtime
+    bump: patch
