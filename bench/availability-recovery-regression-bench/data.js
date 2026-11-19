@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795099084303,
+  "lastUpdate": 1795104249920,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b18fb34a8ae348df5866e4b718d82871d744e60d",
-          "message": "Improve the sync (#12017)\n\nWe should not panic and handle it more gracefully.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T07:25:10Z",
-          "tree_id": "4f8e0ac1191f5681370fde931673c8105e7d75fe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b18fb34a8ae348df5866e4b718d82871d744e60d"
-        },
-        "date": 1778229977098,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.956468210966664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1326447821,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12181031309999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8deb3b21aec038c29c40761f9335aab601680082",
+          "message": "Remove sp-std from election-provider-multi-block and election-provider-support (#13860)\n\n# Description\n\nRemoves the `sp-std` dependency from\n`pallet-election-provider-multi-block` and\n`frame-election-provider-support`, using `core` and `alloc` directly\ninstead.\n\nAdvances #2101\n\n## Integration\n\nNo action needed. The public API of the affected crates is unchanged.\n\n## Review Notes\n\nPurely mechanical: `sp_std::prelude::*` is replaced with explicit\n`alloc` imports (`Vec`, `vec!`,\n`Box`, `ToOwned`) and the remaining `sp_std::` paths with their\n`core`/`alloc` equivalents.\n\nVerified with `asset-hub-westend-runtime` built for WASM with\n`runtime-benchmarks`, plus the unit\ntests of both crates.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T14:27:29Z",
+          "tree_id": "6ad6929fc8b21c73cca98709950f0fec1f293eca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8deb3b21aec038c29c40761f9335aab601680082"
+        },
+        "date": 1795104213334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.688624854700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12029609200000002,
             "unit": "seconds"
           }
         ]
