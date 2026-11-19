@@ -193,7 +193,7 @@ pub mod pallet {
 	use sp_runtime::{
 		traits::{
 			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
-			EnsureSub, EnsureSubAssign,
+			EnsureSub, EnsureSubAssign, Saturating,
 		},
 		DispatchResult,
 	};
@@ -583,6 +583,7 @@ pub mod pallet {
 				PoolStakers::<T>::get(pool_id, &staker).ok_or(Error::<T>::NonExistentStaker)?;
 			let (pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
+			Pools::<T>::insert(pool_id, &pool_info);
 
 			// Transfer unclaimed rewards from the pool to the staker.
 			T::Assets::transfer(
@@ -791,9 +792,10 @@ pub mod pallet {
 				return Ok(pool_info.reward_per_token_stored);
 			}
 
+			// Zero once the pool was last updated after expiry.
 			let rewardable_blocks_elapsed: u32 =
 				match Self::last_block_reward_applicable(pool_info.expiry_block)
-					.ensure_sub(pool_info.last_update_block)?
+					.saturating_sub(pool_info.last_update_block)
 					.try_into()
 				{
 					Ok(b) => b,
