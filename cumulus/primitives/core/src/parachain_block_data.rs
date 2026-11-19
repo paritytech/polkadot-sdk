@@ -86,14 +86,12 @@ pub enum ParachainBlockData<Block> {
 		scheduling_proof: SchedulingProof,
 	},
 	/// V3 adds the speculative-messaging lifts, from which `validate_block` synthesizes
-	/// `Requires`. Like `scheduling_proof`, they are collator-supplied and regenerable from
-	/// public data.
+	/// `Requires`.
 	V3 {
 		blocks: Vec<Block>,
 		proof: CompactProof,
-		/// Required when the runtime has V3 scheduling enabled, exactly as choosing V2 over V1
-		/// is; `validate_block` rejects a V3-scheduling candidate without one. Lifts do not
-		/// imply V3 scheduling, so it stays optional here.
+		/// Optional: lifts do not imply V3 scheduling. `validate_block` requires it when V3
+		/// scheduling is enabled.
 		scheduling_proof: Option<SchedulingProof>,
 		lifts: LiftsBySource,
 	},
@@ -155,7 +153,6 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 					let blocks = Vec::<Block>::decode(input)?;
 					let proof = CompactProof::decode(input)?;
 					let scheduling_proof = Option::<crate::SchedulingProof>::decode(input)?;
-					// The canonical form is enforced here, at the untrusted boundary.
 					let lifts = LiftsBySource::decode(input)?;
 
 					Ok(Self::V3 { blocks, proof, scheduling_proof, lifts })

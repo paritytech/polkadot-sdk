@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
-    Parachain runtimes that do not use speculative messaging must add `type ConsumptionRecordSource = ();` to their `cumulus_pallet_parachain_system::Config` implementation.
+    Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`; `()` if the chain does not use speculative messaging.
 crates:
 - name: cumulus-primitives-core
   bump: major

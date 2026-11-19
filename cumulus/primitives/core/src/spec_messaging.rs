@@ -16,7 +16,7 @@
 
 //! The speculative-messaging part of a candidate's UMP signal tail.
 //!
-//! Blocks emit neither signal. Each block that touched a stream deposits its `StreamsRoot` as an
+//! Each block that touched a stream deposits its `StreamsRoot` as an
 //! SPMS header digest, and the bundle's last one is its `Provides` ([`bundle_provides`]).
 //! [`SpecMessagingSignals::build`] synthesizes `Requires` from the consumption records and the PoV
 //! lifts. The PVF assembles the tail with [`ump_signal_tail`] and panics on a
@@ -32,8 +32,7 @@ use cumulus_primitives_spec_messaging::{
 use polkadot_primitives::{RequiresSet, UMPSignal, UMP_SEPARATOR};
 use sp_runtime::Digest;
 
-/// Why the speculative-messaging part of a candidate's tail cannot be built. Each is deterministic
-/// in the blocks' signals, the records and the PoV, so every validator reaches the same verdict.
+/// Why the speculative-messaging part of a candidate's tail cannot be built.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SpecMessagingError {
 	/// A block emitted bytes that do not decode as a `UMPSignal`.
@@ -58,9 +57,7 @@ impl core::fmt::Display for SpecMessagingError {
 	}
 }
 
-/// The speculative-messaging part of a candidate's UMP signal tail. Built once per candidate, on
-/// the plain and the scheduling-override path alike: a `signed_scheduling_info` replaces only the
-/// scheduling signals.
+/// The speculative-messaging part of a candidate's UMP signal tail.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct SpecMessagingSignals {
 	provides: Option<StreamsRoot>,
@@ -70,7 +67,7 @@ pub struct SpecMessagingSignals {
 impl SpecMessagingSignals {
 	/// Pair the bundle's `provides` ([`bundle_provides`]) with `Requires` synthesized from the
 	/// bundle-ordered consumption records and the PoV-carried lifts. `raw` are the blocks' encoded
-	/// `UMPSignal`s, which must hold neither signal.
+	/// `UMPSignal`s.
 	pub fn build(
 		provides: Option<StreamsRoot>,
 		raw: &[Vec<u8>],
@@ -104,9 +101,8 @@ impl SpecMessagingSignals {
 	}
 }
 
-/// The candidate's complete UMP signal tail: one `UMP_SEPARATOR`, then `SelectCore`,
-/// `ApprovedPeer`, `Provides`, `Requires`, each only if present. Empty, not even a separator, when
-/// there are no signals, since the relay decoder keys off the first `UMP_SEPARATOR`.
+/// The candidate's complete UMP signal tail. Empty, not even a separator, when there are no
+/// signals, since the relay decoder keys off the first `UMP_SEPARATOR`.
 pub fn ump_signal_tail(
 	scheduling: SchedulingSignals,
 	spec_messaging: SpecMessagingSignals,
