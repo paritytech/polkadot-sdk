@@ -621,6 +621,26 @@ mod tests {
 		assert!(!sync.has_pending_write());
 	}
 
+	/// A sync dropped while the client's task still waits records nothing: the task finds its
+	/// receiver gone and leaves the earlier attempt as it was.
+	#[test]
+	fn dropped_sync_records_nothing() {
+		let (_, header) = remote();
+		let (client, backend) = TestClientBuilder::new().set_no_genesis().build_with_backend();
+		let client = Arc::new(client);
+		begin_and_wait(&*client, other_target(&header)).unwrap();
+
+		// The task waits for the import lock, and holds a backend of its own until it ends.
+		let import_lock = backend.get_import_lock().write();
+		let holders = Arc::strong_count(&backend);
+		drop(StateSync::new(client.clone(), header.clone(), None, None));
+		drop(import_lock);
+		while Arc::strong_count(&backend) > holders {
+			std::thread::yield_now();
+		}
+		assert_eq!(record(&client).target, other_target(&header), "the earlier attempt stays");
+	}
+
 	/// `new` records the target, `resume` never records again: it continues from the cursor the
 	/// database holds. A record left after the final chunk hands out the target import, once.
 	#[test]

@@ -72,7 +72,9 @@ pub struct ResumablePartialState<Block: BlockT> {
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
 	/// This returns and the work runs in a blocking task, and the receiver gets its result.
-	/// Fails, and records nothing, if the database already holds block state.
+	/// Fails, and records nothing, if the database already holds block state. Dropping the
+	/// receiver gives the request up, and a task that has not started the work by then does
+	/// nothing.
 	fn begin_partial_state(
 		&self,
 		target: PartialStateTarget<Block>,

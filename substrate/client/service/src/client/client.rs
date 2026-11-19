@@ -1397,6 +1397,10 @@ where
 					// Beginning over an earlier sync empties the state column, so no block
 					// import may run meanwhile.
 					let _import_lock = backend.get_import_lock().write();
+					if result.is_canceled() {
+						// The sync that asked was dropped, and a later one may already have begun.
+						return Ok(());
+					}
 					store.begin(target)
 				});
 				let _ = result.send(recorded);
