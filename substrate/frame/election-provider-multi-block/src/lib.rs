@@ -1824,7 +1824,6 @@ where
 	pub(crate) fn submit_full_solution(
 		PagedRawSolution { score, solution_pages, .. }: PagedRawSolution<T::MinerConfig>,
 	) -> DispatchResultWithPostInfo {
-		use alloc::boxed::Box;
 		use frame_system::RawOrigin;
 		use types::Pagify;
 
