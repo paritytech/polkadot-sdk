@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795099264196,
+  "lastUpdate": 1795104428484,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9df45c241230ca446b9a3e73a51ea554a9cf1ef1",
-          "message": "Use app token to create post crates release PR  (#11987)\n\nThis PR replaces standard GH token with the one generated for the GH app\nso that CI checks will be triggered automatically when PR is created\nfrom the Post Crates Activities flow\nCloses: https://github.com/paritytech/release-engineering/issues/296",
-          "timestamp": "2026-05-06T06:43:34Z",
-          "tree_id": "791084a12542353030f2e25f92f9666f5caa0e70",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9df45c241230ca446b9a3e73a51ea554a9cf1ef1"
-        },
-        "date": 1778054972507,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07974268528999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038433069625999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08201736868399996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8deb3b21aec038c29c40761f9335aab601680082",
+          "message": "Remove sp-std from election-provider-multi-block and election-provider-support (#13860)\n\n# Description\n\nRemoves the `sp-std` dependency from\n`pallet-election-provider-multi-block` and\n`frame-election-provider-support`, using `core` and `alloc` directly\ninstead.\n\nAdvances #2101\n\n## Integration\n\nNo action needed. The public API of the affected crates is unchanged.\n\n## Review Notes\n\nPurely mechanical: `sp_std::prelude::*` is replaced with explicit\n`alloc` imports (`Vec`, `vec!`,\n`Box`, `ToOwned`) and the remaining `sp_std::` paths with their\n`core`/`alloc` equivalents.\n\nVerified with `asset-hub-westend-runtime` built for WASM with\n`runtime-benchmarks`, plus the unit\ntests of both crates.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T14:27:29Z",
+          "tree_id": "6ad6929fc8b21c73cca98709950f0fec1f293eca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8deb3b21aec038c29c40761f9335aab601680082"
+        },
+        "date": 1795104391836,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.07400000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08203929050599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038376111696,
             "unit": "seconds"
           }
         ]
