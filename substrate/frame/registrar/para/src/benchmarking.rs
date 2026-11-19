@@ -324,5 +324,41 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn receive_migrated_para() -> Result<(), BenchmarkError> {
+		let manager = funded_manager::<T>();
+		let para_id = T::FirstPublicParaId::get();
+		let head_len = host_configuration().max_head_data_size;
+		let para = MigratedPara {
+			para_id,
+			manager,
+			state: MigratedParaState::Registered { head_len },
+			locked: None,
+		};
+
+		#[block]
+		{
+			Pallet::<T>::receive_para(para)?;
+		}
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|info| info.state),
+			Some(RegistrationState::Registered { ticket: Some(_) })
+		));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn receive_next_free_para_id() {
+		let para_id = T::FirstPublicParaId::get().saturating_add(1);
+
+		#[block]
+		{
+			Pallet::<T>::receive_next_free_para_id(para_id);
+		}
+
+		assert_eq!(NextFreeParaId::<T>::get(), para_id);
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
