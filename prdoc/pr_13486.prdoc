@@ -3,10 +3,15 @@ doc:
 - audience: Node Operator
   description: |-
     State sync writes each verified chunk to the database as it arrives instead of holding the
-    whole state in memory (#5053). A restart resumes the download from the recorded cursor. In
-    warp sync, a target too old for the peers to serve starts the warp sync over: on a parachain
-    when the finalized head is 256 blocks or more past it, on other chains after three state
-    requests in a row fail.
+    whole state in memory (#5053).
+    Fast sync and warp sync both download the state of one target block, and a restart resumes
+    that download from the recorded cursor. After a long stop the target can be too far below the
+    last finalized block: peers keep the state of the last 256 finalized blocks by default and
+    refuse an older one. What happens then depends on the sync mode. Fast sync downloads the
+    blocks from the old target up to the last finalized block. Warp sync starts the
+    whole warp sync over: a parachain when the target is 256 blocks or more below the finalized
+    head, other chains once three state requests in a row fail. Both discard the old download.
+
     `--sync fast-unsafe` is a deprecated alias of `--sync fast`: the state is always downloaded
     with proofs.
 - audience: Node Dev

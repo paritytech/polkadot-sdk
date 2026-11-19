@@ -1828,6 +1828,36 @@ fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 	assert!(matches!(sync.mode, ChainSyncMode::Full));
 }
 
+/// Fast sync resumes a recorded target less than `STALE_TARGET_DISTANCE` blocks below the
+/// finalized block. Peers no longer serve an older one, so the finalized block replaces it.
+#[test]
+fn recorded_state_sync_too_old_is_replaced_by_the_finalized_block() {
+	let header = |number| {
+		Header::new(
+			number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
+	};
+	let finalized = header(1 + STALE_TARGET_DISTANCE as u64);
+	for (recorded, expected) in [(header(2), header(2)), (header(1), finalized.clone())] {
+		let client = client_knowing_header_only(&finalized);
+		let target = PartialStateTarget { header: recorded, body: None, justifications: None };
+		begin_and_wait(&*client, target).unwrap();
+		let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
+		sync.add_peer(PeerId::random(), finalized.hash(), *finalized.number());
+
+		sync.attempt_state_sync(finalized.hash(), *finalized.number());
+		let state_sync = sync.state_sync.as_mut().expect("the state sync started");
+		state_sync.wait_for_begin();
+		assert_eq!(state_sync.target_hash(), expected.hash());
+		let recorded = client.resumable_partial_state().unwrap().expect("a target is recorded");
+		assert_eq!(recorded.target.header, expected);
+	}
+}
+
 /// A chunk the database refuses ends the state sync at once: the sync is dropped and nothing is
 /// imported. The refusal comes from another target recorded under the sync's feet, right before
 /// the response arrives. The mode stays, so the next finalized block starts a state sync again.

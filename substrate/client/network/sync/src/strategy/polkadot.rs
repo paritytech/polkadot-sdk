@@ -26,9 +26,7 @@ use crate::{
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode, GapSyncBodyPolicyProvider},
 		state::StateStrategy,
-		state_sync::{
-			resumable_state_sync, StateSync, STALE_TARGET_DISTANCE, STALE_TARGET_FAILED_REQUESTS,
-		},
+		state_sync::{StateSync, STALE_TARGET_DISTANCE, STALE_TARGET_FAILED_REQUESTS},
 		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -373,7 +371,7 @@ where
 			// An interrupted state sync is resumed as recorded. No warp proof is downloaded again,
 			// so no authority set change above its target is imported header-only, and the target
 			// never moves. If the target turns out too old, the warp sync starts over.
-			if let Some(resumable) = resumable_state_sync(&*client)? {
+			if let Some(resumable) = client.resumable_partial_state()? {
 				let state = StateStrategy::new_with_provider(
 					Box::new(StateSync::resume(client.clone(), resumable)),
 					std::iter::empty(),

@@ -36,7 +36,7 @@ use crate::{
 	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
-		state_sync::{resumable_state_sync, ImportResult, StateSync, StateSyncProvider},
+		state_sync::{ImportResult, StateSync, StateSyncProvider, STALE_TARGET_DISTANCE},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -2336,10 +2336,25 @@ where
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
-				// Pick up where an earlier run stopped.
-				let state_sync =
-					resumable_state_sync(&*self.client).map(|resumable| match resumable {
+				// Pick up where an earlier run stopped, unless peers no longer serve its target.
+				let state_sync = self.client.resumable_partial_state().map(|resumable| {
+					let resumable = resumable.filter(|resumable| {
+						let target = *resumable.target.header.number();
+						let age = finalized_number.saturating_sub(target);
+						// With every chunk written no peer is needed, only the import is left.
+						let stale = !resumable.complete && age >= STALE_TARGET_DISTANCE.into();
+						if stale {
+							info!(
+								target: LOG_TARGET,
+								"The state sync of #{target} interrupted earlier is too old for \
+								 the peers to serve. Starting over at #{finalized_number}.",
+							);
+						}
+						!stale
+					});
+					match resumable {
 						Some(resumable) => StateSync::resume(self.client.clone(), resumable),
+						// Recording the target removes an older download first.
 						None => {
 							log::debug!(
 								target: LOG_TARGET,
@@ -2347,7 +2362,8 @@ where
 							);
 							StateSync::new(self.client.clone(), header, None, None)
 						},
-					});
+					}
+				});
 				match state_sync {
 					Ok(mut state_sync) => {
 						// Every chunk was written before the restart, so only the import is left.

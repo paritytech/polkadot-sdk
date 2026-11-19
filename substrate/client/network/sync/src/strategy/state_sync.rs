@@ -37,39 +37,15 @@ use sp_runtime::{
 };
 use std::{fmt, sync::Arc};
 
-/// A resumed target this many blocks or more below the finalized head a parachain is given at
-/// startup is too old to download. Peers keep the state of the last 256 finalized blocks by
-/// default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`) and refuse an older one.
+/// A resumed target this many blocks or more below the finalized block is too old to download.
+/// Peers keep the state of the last 256 finalized blocks by default
+/// (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`) and refuse an older one. A parachain in warp
+/// sync measures from the finalized head it is given at startup, fast sync from the finalized
+/// block it would start a new state sync at.
 pub(crate) const STALE_TARGET_DISTANCE: u32 = 256;
 
 /// A resumed target whose state requests failed this many times in a row is too old to download.
 pub(crate) const STALE_TARGET_FAILED_REQUESTS: u32 = 3;
-
-/// The state sync an earlier run left behind, logged as resumed. `Ok(None)` when nothing is
-/// recorded. The age of the target is not checked here. Resuming an old one is safe: it is a
-/// finalized block, every chunk is verified against its state root, and block sync executes the
-/// blocks after it. But peers stop serving it. Warp sync then starts over, see
-/// [`STALE_TARGET_DISTANCE`] and [`STALE_TARGET_FAILED_REQUESTS`]. Fast sync keeps asking until a
-/// peer that kept the state answers.
-pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
-	client: &Client,
-) -> sp_blockchain::Result<Option<ResumablePartialState<B>>> {
-	let Some(resumable) = client.resumable_partial_state()? else {
-		return Ok(None);
-	};
-	info!(
-		target: LOG_TARGET,
-		"Resuming the state sync of #{} ({}) interrupted earlier{}.",
-		resumable.target.header.number(),
-		resumable.target.header.hash(),
-		if resumable.complete {
-			", every chunk is in the database: importing the block"
-		} else {
-			""
-		},
-	);
-	Ok(Some(resumable))
-}
 
 /// Begins the state sync of `target` on `client` and waits for the client's task, for tests that
 /// need the record in place.
@@ -266,8 +242,18 @@ where
 	/// Continue the attempt an earlier run recorded, from its cursor. If every chunk was already
 	/// written there is nothing to download: [`StateSyncProvider::take_target_import`] hands out
 	/// the target import instead. Nothing is recorded again.
+	///
+	/// The age of the target is not checked here. Peers can stop serving it,
+	/// so the two callers must check the age.
 	pub fn resume(client: Arc<Client>, resumable: ResumablePartialState<B>) -> Self {
 		let ResumablePartialState { target, cursor, complete } = resumable;
+		info!(
+			target: LOG_TARGET,
+			"Resuming the state sync of #{} ({}) interrupted earlier{}.",
+			target.header.number(),
+			target.header.hash(),
+			if complete { ", every chunk is in the database: importing the block" } else { "" },
+		);
 		let mut sync = Self::with_cursor(
 			client,
 			target.header,
