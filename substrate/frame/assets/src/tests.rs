@@ -519,6 +519,24 @@ fn thawing_refunded_blocked_account_with_freeze_fails() {
 }
 
 #[test]
+fn thawing_frozen_account_with_freeze_works() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		set_frozen_balance(0, 2, 50);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Account::<Test>::get(0, &2).unwrap().status, AccountStatus::Liquid);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		clear_frozen_balance(0, 2);
+	});
+}
+
+#[test]
 fn refunded_blocked_account_passes_try_state() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
