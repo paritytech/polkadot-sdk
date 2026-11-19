@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795096301591,
+  "lastUpdate": 1795099145762,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "180dc75fdd427c8ac17d51b9075ff6b71114f607",
-          "message": "Fix zombienet test throughput flakyness and enable more tests (#12001)\n\nI added waiting for PVF to be compiled before we measure tput. Even if\nwe wit for 1 block to be backed, doesn't mean that all validators in\ntest have compiled PVF. Let's see how stable the numbers get in CI\n\n\nAssetHub Westend ES test should pass with\nhttps://github.com/paritytech/polkadot-sdk/pull/12005 merged\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-07T17:20:51Z",
-          "tree_id": "9c9d47872f9ad434b76aa3e98616422f7c6196b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/180dc75fdd427c8ac17d51b9075ff6b71114f607"
-        },
-        "date": 1778179499737,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14144965113333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02395546572,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0072154058666666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009606710906666642,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009779091713333306,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ded93ad166d47ffef1e0ab0450204e5109644a7c",
+          "message": "statement-store: reject statements without topics (#13904)\n\n## Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13892.\n\nThe statement store rejects a statement without topics on submit,\nwhether it comes from the network, from an RPC client or from the\nruntime. The submit result is invalid with the new reason \"no topics\",\nwhich has its own metrics label and its own reason in the RPC answer.\nThe check runs right after the size check, before the duplicate lookup\nand the proof validation.\n\nSuch a statement was accepted and treated as a broadcast, which worked\nagainst topic-based routing. The affinity filter matched it for every\npeer, so it went to the whole network whatever the peers asked for.\nUnder the v2 DHT no node is responsible for holding it and no key leads\nto it. A subscription with a topic filter never received it.\n\nThe affinity filter loses the branch that matched a statement without\ntopics, so a filter now matches only by topic.\n\nA statement without topics that a store already holds stays there until\nit expires or the account quota evicts it. The database version stays\nthe same and no migration runs.\n\nA peer that sends a statement without topics pays the same reputation\ncost as for any other invalid statement.\n\n## Integration\n\nA client that submits a statement without topics gets the invalid result\nwith the reason noTopics from both submit RPCs, so every statement needs\nat least one topic. A runtime that emits such a statement through the\nstatement pallet loses it without an error, because the offchain worker\nignores the submit result.\n\nA node without the change still accepts statements without topics and\npasses them on. A node with the change keeps passing the ones that it\nalready holds to v1 peers. A node with the change rejects each one that\nit receives and lowers the sender's reputation by 4096, so a ban takes\nabout 370,000 of them from one peer.\n\nThe store benchmarks now put one topic on every statement, which adds a\ntopic index row per statement, so their submit and eviction numbers\nshift against older baselines.",
+          "timestamp": "2026-11-19T12:05:10Z",
+          "tree_id": "d56f42c9ca651a7913b60a90dbeb50e27db80442",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ded93ad166d47ffef1e0ab0450204e5109644a7c"
+        },
+        "date": 1795099109025,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024102973166666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007920631553333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14200678004666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009664893019999966,
             "unit": "seconds"
           }
         ]
