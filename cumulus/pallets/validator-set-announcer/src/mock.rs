@@ -15,7 +15,10 @@
 
 use super::*;
 use crate as pallet_validator_set_announcer;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64},
+};
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 
@@ -46,6 +49,8 @@ impl frame_support::traits::ValidatorRegistration<u64> for AllRegistered {
 parameter_types! {
 	pub const Period: u64 = 10;
 	pub const Offset: u64 = 0;
+	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
+		pallet_validator_collators::CollatorDraw::All;
 }
 
 impl pallet_validator_collators::Config for Test {
@@ -54,7 +59,23 @@ impl pallet_validator_collators::Config for Test {
 	type ValidatorRegistration = AllRegistered;
 	type MaxValidators = ConstU32<50>;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = ();
+	type DefaultMaxCollators = DefaultMaxCollators;
+	type DefaultReportPeriod = Period;
+	type MaxEntriesPerReport = ConstU32<100>;
+	type UnixTime = ZeroTime;
+	type DefaultExpectedEraDuration = ConstU64<1000>;
+	type DefaultReportMargin = ConstU64<100>;
+	type MaxReportMargin = ConstU64<500>;
 	type WeightInfo = ();
+}
+
+/// A clock that always reads zero.
+pub struct ZeroTime;
+impl frame_support::traits::UnixTime for ZeroTime {
+	fn now() -> core::time::Duration {
+		core::time::Duration::ZERO
+	}
 }
 
 impl Config for Test {

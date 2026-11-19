@@ -1231,7 +1231,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		None,
-		Some(xcm_config::DapBufferAccount::get()),
+		Some(xcm_config::DapStagingAccount::get()),
 	)
 }
 
@@ -3211,6 +3211,18 @@ fn staking_operator_filter_allows_validator_ops_and_session_keys() {
 		max_delivery_and_remote_execution_fee: None,
 	})));
 
+	// StakingOperator can manage the session keys of this chain, to collate here
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::set_keys {
+		keys: SessionKeys {
+			aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+			authority_discovery: AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(
+				ALICE,
+			)),
+		},
+		proof: vec![],
+	})));
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::purge_keys {})));
+
 	// StakingOperator can batch operations
 	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
 	assert!(
@@ -3463,6 +3475,7 @@ fn ah_treasury_creates_asset_reward_pool() {
 
 mod dap {
 	use super::*;
+	use xcm_executor::traits::{FeeManager, FeeReason};
 
 	#[test]
 	fn tx_fees_go_to_dap_buffer() {
@@ -3513,6 +3526,64 @@ mod dap {
 					buffer_before + fee_paid
 				);
 				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+			});
+	}
+
+	#[test]
+	fn xcm_fees_go_to_dap_buffer() {
+		let alice = AccountId::from(ALICE);
+		let buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
+		let ed = ExistentialDeposit::get();
+		let fee = 10 * ed;
+
+		ExtBuilder::<Runtime>::default()
+			.with_collators(vec![alice.clone()])
+			.with_session_keys(collator_session_keys().session_keys())
+			.with_balances(vec![
+				(alice.clone(), 100 * ed),
+				(buffer.clone(), ed),
+				(staging.clone(), ed),
+			])
+			.build()
+			.execute_with(|| {
+				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
+				let inactive_before = Balances::inactive_issuance();
+
+				// GIVEN an XCM fee withdrawn from Alice.
+				let alice_location: Location =
+					Junction::AccountId32 { network: None, id: alice.into() }.into();
+				let fee_holding =
+					<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+						&(WestendLocation::get(), fee).into(),
+						&alice_location,
+						None,
+					)
+					.expect("Alice holds enough to pay the fee");
+
+				// WHEN the XCM fee manager handles the fee.
+				<XcmConfig as xcm_executor::Config>::FeeManager::handle_fee(
+					fee_holding,
+					None,
+					FeeReason::ChargeFees,
+				);
+
+				// THEN the fee lands in staging and stays active.
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + fee
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
+				assert_eq!(Balances::inactive_issuance(), inactive_before);
+
+				// WHEN `on_idle` drains staging.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+
+				// THEN the fee moves to the buffer and becomes inactive issuance.
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + fee);
+				assert_eq!(Balances::inactive_issuance(), inactive_before + fee);
 			});
 	}
 
@@ -3858,4 +3929,228 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	let keys = Runtime::keys_to_prove().keys;
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
+}
+
+// `fast-runtime` shortens the era, not the expected era duration.
+#[cfg(not(feature = "fast-runtime"))]
+#[test]
+fn expected_era_duration_matches_the_staking_era() {
+	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
+	// GIVEN the era length of Asset Hub's staking
+	let era = staking::SessionsPerEra::get() as u64 *
+		staking::RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	// WHEN system chains expect the end of an era after the arrival of its set
+	// THEN they expect it after one era, so they report shortly before the rotation
+	assert_eq!(
+		EXPECTED_ERA_DURATION_MILLIS, era,
+		"update `testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS` \
+		to the era length of {era} ms",
+	);
+}
+
+#[test]
+fn own_blocks_are_credited_to_staking_under_this_chain_id() {
+	use asset_hub_westend_runtime::{ParachainInfo, StakingPointsConverter, ValidatorCollators};
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let alice = AccountId::from(ALICE);
+		let bob = AccountId::from(BOB);
+		let own = ParachainInfo::parachain_id();
+		// GIVEN era 1 is active with Alice exposed, this chain's blocks earn 5 points, and the
+		// stored set of Alice and Bob
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 1,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(StakingPointsConverter::set_points_per_service(
+			RuntimeOrigin::root(),
+			own,
+			sp_staking::ServiceKind::Collation,
+			5
+		));
+		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
+		// AND Alice authored 3 blocks here
+		for _ in 0..3 {
+			<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+				alice.clone(),
+			);
+		}
+		// WHEN the report block comes
+		let period = pallet_validator_collators::ReportPeriod::<Runtime>::get();
+		frame_system::Pallet::<Runtime>::reset_events();
+		ValidatorCollators::on_poll(period, &mut frame_support::weights::WeightMeter::new());
+		// THEN Alice's blocks reach staking as collation points of this chain, with no message
+		// sent
+		assert_eq!(
+			pallet_staking_async::ErasRewardPoints::<Runtime>::get(1)
+				.individual
+				.into_iter()
+				.collect::<Vec<_>>(),
+			vec![(alice.clone(), 15)]
+		);
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
+				1,
+				sp_staking::ServiceKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
+			vec![(alice, 15)]
+		);
+		let events = frame_system::Pallet::<Runtime>::events()
+			.into_iter()
+			.map(|r| r.event)
+			.collect::<Vec<_>>();
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksCredited { source: own, blocks: 3 }
+		)));
+		assert!(events.contains(&RuntimeEvent::Staking(
+			pallet_staking_async::Event::ServicePointsCredited {
+				service: sp_staking::ServiceKind::Collation,
+				era: 1,
+				credited: 1,
+				dropped: 0
+			}
+		)));
+	});
+}
+
+#[test]
+fn only_listed_chains_report_blocks_and_only_as_themselves() {
+	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ValidatorCollatorChains};
+	use frame_support::traits::EnsureOrigin;
+	type EnsureReportingSibling = EnsureReportingSiblings<ValidatorCollatorChains>;
+	use testnet_parachains_constants::westend::locations::{BulletinLocation, PeopleLocation};
+	let sibling =
+		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
+	// GIVEN a listed chain as a sibling parachain origin
+	// WHEN it reports THEN it is accepted under its own id
+	for id in ValidatorCollatorChains::get() {
+		assert_eq!(EnsureReportingSibling::try_origin(sibling(id.into())).ok(), Some(id));
+	}
+	// GIVEN another sibling, the relay chain, People's or Bulletin's location as an XCM origin,
+	// or their sovereign accounts through a `Transact` with another origin kind
+	let account_of = |location| LocationToAccountId::convert_location(&location).unwrap();
+	for origin in [
+		sibling(2000),
+		RuntimeOrigin::from(cumulus_pallet_xcm::Origin::Relay),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(PeopleLocation::get())),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(BulletinLocation::get())),
+		RuntimeOrigin::signed(account_of(PeopleLocation::get())),
+		RuntimeOrigin::signed(account_of(BulletinLocation::get())),
+		RuntimeOrigin::root(),
+	] {
+		// WHEN it reports THEN it is rejected
+		assert!(EnsureReportingSibling::try_origin(origin).is_err());
+	}
+}
+
+#[test]
+fn bulletin_report_message_executes_unpaid_and_credits_points() {
+	use asset_hub_westend_runtime::StakingPointsConverter;
+	use testnet_parachains_constants::westend::locations::{BulletinLocation, BulletinParaId};
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let alice = AccountId::from(ALICE);
+		let report = || {
+			RuntimeCall::StakingPointsConverter(
+				pallet_staking_async_points_converter::Call::report_authored_blocks {
+					blocks: vec![(alice.clone(), 3)],
+				},
+			)
+		};
+		// GIVEN era 1 is active with Alice exposed, and Bulletin's blocks earn 5 points
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 1,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(StakingPointsConverter::set_points_per_service(
+			RuntimeOrigin::root(),
+			BulletinParaId::get(),
+			sp_staking::ServiceKind::Collation,
+			5
+		));
+
+		// WHEN another non-system sibling, or an account on Bulletin, sends the message Bulletin
+		// sends to report its blocks
+		// THEN the barrier rejects it, since only the listed chains may execute without paying
+		for origin in [
+			Location::new(1, Parachain(2000)),
+			Location::new(
+				1,
+				[Parachain(BulletinParaId::get().into()), AccountId32 { network: None, id: ALICE }],
+			),
+		] {
+			assert_eq!(
+				RuntimeHelper::execute_as_origin((origin, OriginKind::Native), report(), None)
+					.ensure_complete()
+					.map_err(|error| error.error),
+				Err(XcmError::Barrier)
+			);
+		}
+
+		// WHEN Bulletin sends it, an unpaid `Transact` with its native origin
+		// THEN it executes and Alice's blocks are credited as Bulletin's collation points
+		assert_ok!(RuntimeHelper::execute_as_origin(
+			(BulletinLocation::get(), OriginKind::Native),
+			report(),
+			None,
+		)
+		.ensure_complete());
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
+				1,
+				sp_staking::ServiceKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
+			vec![(alice, 15)]
+		);
+	});
+}
+
+#[test]
+fn only_wnd_from_bulletin_itself_is_a_trusted_teleport() {
+	use testnet_parachains_constants::westend::locations::BulletinLocation;
+	use xcm_executor::traits::{TransferType, XcmAssetTransfers};
+	type IsTeleporter = <XcmConfig as xcm_executor::Config>::IsTeleporter;
+	type Executor = xcm_executor::XcmExecutor<XcmConfig>;
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let wnd = Asset { id: AssetId(WestendLocation::get()), fun: Fungible(UNITS) };
+		// GIVEN WND from Bulletin Chain
+		// WHEN Asset Hub checks it as a teleport THEN it is trusted
+		assert!(IsTeleporter::contains(&wnd, &BulletinLocation::get()));
+		// GIVEN WND sent to Bulletin Chain
+		// WHEN `pallet-xcm` picks the transfer type THEN it is a teleport
+		assert_eq!(
+			Executor::determine_for(&wnd, &BulletinLocation::get()),
+			Ok(TransferType::Teleport)
+		);
+
+		// GIVEN WND from another non-system sibling or from an account on Bulletin, or another
+		// asset from Bulletin
+		let bulletin_account = BulletinLocation::get()
+			.appended_with(AccountId32 { network: None, id: ALICE })
+			.expect("a sibling location has room for one more junction");
+		let other_asset = Asset { id: AssetId(BulletinLocation::get()), fun: Fungible(UNITS) };
+		for (asset, origin) in [
+			(&wnd, Location::new(1, Parachain(2000))),
+			(&wnd, bulletin_account),
+			(&other_asset, BulletinLocation::get()),
+		] {
+			// WHEN Asset Hub checks it as a teleport THEN it is not trusted
+			assert!(!IsTeleporter::contains(asset, &origin));
+		}
+	});
 }

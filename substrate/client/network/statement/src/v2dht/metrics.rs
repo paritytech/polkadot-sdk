@@ -31,6 +31,8 @@ pub(crate) struct V2DhtMetrics {
 	eligible_peers: Gauge<U64>,
 	/// Desired peers without an open statement substream, sampled on the pending-affinity tick.
 	desired_unconnected_peers: Gauge<U64>,
+	/// Peers passed over as unreachable, sampled on the pending-affinity tick.
+	unreachable_peers: Gauge<U64>,
 }
 
 impl V2DhtMetrics {
@@ -64,6 +66,13 @@ impl V2DhtMetrics {
 				)?,
 				r,
 			)?,
+			unreachable_peers: register(
+				Gauge::new(
+					"substrate_sync_statement_v2dht_unreachable_peers",
+					"Peers passed over as unreachable, sampled on the pending-affinity tick",
+				)?,
+				r,
+			)?,
 		})
 	}
 
@@ -80,5 +89,9 @@ impl V2DhtMetrics {
 
 	pub(crate) fn set_desired_unconnected_peers(&self, count: usize) {
 		self.desired_unconnected_peers.set(count as u64);
+	}
+
+	pub(crate) fn set_unreachable_peers(&self, count: usize) {
+		self.unreachable_peers.set(count as u64);
 	}
 }

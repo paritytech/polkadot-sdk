@@ -472,7 +472,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = pallet_staking_async::AllZero;
 	type OnEraStart = ();
 }
 

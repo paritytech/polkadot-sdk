@@ -328,7 +328,17 @@ impl IsSystem for Sibling {
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
 #[derive(
-	Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {

@@ -267,15 +267,14 @@ where
 				},
 			};
 
-			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);
 
 			// We don't care about the return value of this join:
 			// - process_events might encounter an error (if the client disconnected)
 			// - storage_fut might encounter an error while processing a trie queries and
 			// the error is propagated via the sink.
-			let _ = futures::future::join(storage_fut, process_storage_events(&mut rx, &mut sink))
-				.await;
+			let _ = futures::future::join(storage_fut, process_storage_events(rx, &mut sink)).await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
@@ -307,7 +306,7 @@ where
 				*current_header.parent_hash()
 			};
 
-			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			let storage_fut =
 				storage_client.handle_trie_queries(hash, items, previous_hash, tx.clone());
 
@@ -315,9 +314,8 @@ where
 			// - process_events might encounter an error (if the client disconnected)
 			// - storage_fut might encounter an error while processing a trie queries and
 			// the error is propagated via the sink.
-			let _ =
-				futures::future::join(storage_fut, process_storage_diff_events(&mut rx, &mut sink))
-					.await;
+			let _ = futures::future::join(storage_fut, process_storage_diff_events(rx, &mut sink))
+				.await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
@@ -326,7 +324,7 @@ where
 
 /// Sends all the events of the storage_diff method to the sink.
 async fn process_storage_diff_events(
-	rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>,
+	mut rx: mpsc::Receiver<ArchiveStorageDiffEvent>,
 	sink: &mut Subscription,
 ) {
 	loop {
@@ -355,7 +353,7 @@ async fn process_storage_diff_events(
 }
 
 /// Sends all the events of the storage method to the sink.
-async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
+async fn process_storage_events(mut rx: mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
 	loop {
 		tokio::select! {
 			_ = sink.closed() => {

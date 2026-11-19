@@ -23,7 +23,11 @@ use crate::{
 };
 use codec::Encode;
 use frame_support::{
-	traits::fungible::{Inspect, Mutate},
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude::Polite, Preservation::Expendable},
+		LockableCurrency, WithdrawReasons,
+	},
 	PalletId,
 };
 
@@ -239,6 +243,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Test that era pruning does not happen automatically
 		assert_eq!(active_era(), 1);
+		// Era 1 holds points of both services, which the `ErasRewardPoints` step removes.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Staking::reward_service_points(ServiceKind::Collation, vec![(11, 1)]);
+		assert_eq!(crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(), 2);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);
 		assert!(matches!(
@@ -427,6 +435,11 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						!crate::ErasRewardPoints::<T>::contains_key(1),
 						"{expected_step:?} should be empty after completing step"
 					);
+					assert_eq!(
+						crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(),
+						0,
+						"ErasRewardPointsByService should be empty after completing {expected_step:?}"
+					);
 				},
 				SingleEntryCleanups => {
 					assert!(
@@ -523,6 +536,61 @@ mod inflation {
 			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 		})
 	}
+}
+
+#[test]
+fn locked_era_pot_pays_out_in_full_after_slot_reuse() {
+	ExtBuilder::default().nominate(true).build_and_execute(|| {
+		let era = 1;
+		let reused_era = era + POT_POOL_SIZE;
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			era,
+			RewardKind::StakerRewards,
+		));
+
+		// GIVEN: a third party locks funds in an era pot, e.g. with a vested transfer.
+		let locked = 10;
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), pot, locked));
+		Balances::set_lock(*b"vesting ", &pot, locked, WithdrawReasons::all());
+
+		// WHEN: the era is drained, its slot is reused and all stakers claim.
+		Session::roll_until_active_era(reused_era);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 50), (21, 50)]);
+		Session::roll_until_active_era(reused_era + 1);
+		let _ = staking_events_since_last_call();
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, reused_era));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 21, reused_era));
+
+		// THEN: everyone is paid in full.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted {
+					era_index: reused_era,
+					validator_stash: 11,
+					page: 0,
+					next: None
+				},
+				Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 3000 },
+				Event::Rewarded { stash: 101, dest: RewardDestination::Staked, amount: 750 },
+				Event::PayoutStarted {
+					era_index: reused_era,
+					validator_stash: 21,
+					page: 0,
+					next: None
+				},
+				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 3000 },
+				Event::Rewarded { stash: 101, dest: RewardDestination::Staked, amount: 750 },
+			]
+		);
+
+		// AND: the locked funds stay in the pot.
+		assert!(Balances::balance(&pot) >= locked);
+		assert_eq!(
+			Balances::reducible_balance(&pot, Expendable, Polite),
+			Balances::balance(&pot) - locked
+		);
+	});
 }
 
 #[test]
