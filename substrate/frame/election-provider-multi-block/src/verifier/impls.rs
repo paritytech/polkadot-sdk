@@ -718,8 +718,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// verify each page, and amalgamate into a final support.
-		let mut backings =
-			BTreeMap::<T::AccountId, PartialBackings>::new();
+		let mut backings = BTreeMap::<T::AccountId, PartialBackings>::new();
 		let mut linked_supports = Vec::with_capacity(partial_solutions.len());
 
 		for (solution_page, page) in partial_solutions.into_iter().zip(solution_pages.iter()) {
