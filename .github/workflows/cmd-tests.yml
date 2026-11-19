@@ -19,6 +19,5 @@ jobs:
     needs: [isdraft]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: python3 .github/scripts/cmd/test_cmd.py
-      - run: python3 -m pip install --user pyyaml
-      - run: python3 .github/scripts/test_prdoc_tooling.py
+      - run: python3 -m pip install --user -r .github/scripts/requirements-test.txt
+      - run: python3 -m pytest .github/scripts
