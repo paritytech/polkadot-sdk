@@ -646,13 +646,17 @@ benchmarks_instance_pallet! {
 		assert_eq!(T::Currency::reserved_balance(&new_account), T::AssetAccountDeposit::get());
 		// ...and also create an `Account` entry.
 		assert!(Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
-		// Blocked, so that `refund` also looks up the freezer deposit.
-		block_as::<T, I>(&asset_owner, account("freezer", 0, SEED), new_account.clone());
+		// Blocked without a freezer deposit: `refund` looks one up and still removes the account.
+		Account::<T, I>::mutate(asset_id.clone().into(), &new_account, |maybe_account| {
+			if let Some(account) = maybe_account {
+				account.status = AccountStatus::Blocked;
+			}
+		});
 	}: _(SystemOrigin::Signed(new_account.clone()), asset_id.clone(), true)
 	verify {
 		// `refund`ing should of course repatriate the reserve
 		assert!(T::Currency::reserved_balance(&new_account).is_zero());
-		assert!(Account::<T, I>::contains_key(asset_id.into(), &new_account));
+		assert!(!Account::<T, I>::contains_key(asset_id.into(), &new_account));
 	}
 
 	refund_other {
