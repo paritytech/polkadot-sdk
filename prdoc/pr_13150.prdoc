@@ -1,0 +1,16 @@
+title: 'bridges relayer: resolve header hash by number without `chain_getBlockHash`'
+doc:
+- audience: Node Operator
+  description: |-
+    The relayer no longer requires `chain_getBlockHash` to resolve a block number to a hash.
+    When the node doesn't answer it (light clients such as smoldot only answer for block zero),
+    the relayer walks back through parent hashes from the best finalized header and caches every
+    mapping on the way. The finality loop also stops downloading whole blocks when it only needs
+    a header.
+crates:
+- name: relay-substrate-client
+  bump: major
+- name: finality-relay
+  bump: minor
+- name: substrate-relay-helper
+  bump: patch

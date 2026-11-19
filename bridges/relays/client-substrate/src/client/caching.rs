@@ -545,3 +545,279 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		self.backend.prove_storage(at, keys).await
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{test_chain::TestChain, StreamDescription};
+	use std::{
+		collections::HashMap,
+		sync::atomic::{AtomicUsize, Ordering as AtomicOrdering},
+	};
+
+	type TestHeader = HeaderOf<TestChain>;
+
+	/// Backend that, like a light client, never answers `chain_getBlockHash`.
+	struct NoBlockHashBackend<C: Chain> {
+		/// Canonical chain, indexed by block number.
+		headers: Arc<Vec<HeaderOf<C>>>,
+		/// Same headers, by hash.
+		headers_by_hash: Arc<HashMap<HashOf<C>, HeaderOf<C>>>,
+		/// Index of the best finalized header in `headers`.
+		finalized: usize,
+		/// Number of `header_by_hash` calls.
+		header_by_hash_calls: Arc<AtomicUsize>,
+	}
+
+	impl<C: Chain> Clone for NoBlockHashBackend<C> {
+		fn clone(&self) -> Self {
+			Self {
+				headers: self.headers.clone(),
+				headers_by_hash: self.headers_by_hash.clone(),
+				finalized: self.finalized,
+				header_by_hash_calls: self.header_by_hash_calls.clone(),
+			}
+		}
+	}
+
+	impl<C: Chain> std::fmt::Debug for NoBlockHashBackend<C> {
+		fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+			fmt.write_str("NoBlockHashBackend")
+		}
+	}
+
+	impl<C: Chain> NoBlockHashBackend<C> {
+		fn calls(&self) -> usize {
+			self.header_by_hash_calls.load(AtomicOrdering::SeqCst)
+		}
+
+		fn never_ending_headers() -> Subscription<HeaderOf<C>> {
+			Subscription::new_broadcasted(
+				StreamDescription::new("headers".into(), C::NAME.into()),
+				futures::stream::pending(),
+			)
+		}
+	}
+
+	#[async_trait]
+	impl<C: Chain> Client<C> for NoBlockHashBackend<C> {
+		async fn ensure_synced(&self) -> Result<()> {
+			Ok(())
+		}
+
+		async fn reconnect(&self) -> Result<()> {
+			Ok(())
+		}
+
+		fn genesis_hash(&self) -> HashOf<C> {
+			self.headers[0].hash()
+		}
+
+		async fn header_hash_by_number(&self, number: BlockNumberOf<C>) -> Result<HashOf<C>> {
+			Err(Error::unknown_header_hash_by_number::<C>(number))
+		}
+
+		async fn header_by_hash(&self, hash: HashOf<C>) -> Result<HeaderOf<C>> {
+			self.header_by_hash_calls.fetch_add(1, AtomicOrdering::SeqCst);
+			self.headers_by_hash
+				.get(&hash)
+				.cloned()
+				.ok_or_else(|| Error::Custom(format!("unknown header {hash:?}")))
+		}
+
+		async fn block_by_hash(&self, _: HashOf<C>) -> Result<SignedBlockOf<C>> {
+			unimplemented!()
+		}
+
+		async fn best_finalized_header_hash(&self) -> Result<HashOf<C>> {
+			Ok(self.headers[self.finalized].hash())
+		}
+
+		async fn best_header(&self) -> Result<HeaderOf<C>> {
+			Ok(self.headers[self.headers.len() - 1].clone())
+		}
+
+		async fn subscribe_best_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
+			Ok(Self::never_ending_headers())
+		}
+
+		async fn subscribe_finalized_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
+			Ok(Self::never_ending_headers())
+		}
+
+		async fn subscribe_grandpa_finality_justifications(&self) -> Result<Subscription<Bytes>>
+		where
+			C: ChainWithGrandpa,
+		{
+			unimplemented!()
+		}
+
+		async fn generate_grandpa_key_ownership_proof(
+			&self,
+			_: HashOf<C>,
+			_: SetId,
+			_: AuthorityId,
+		) -> Result<Option<OpaqueKeyOwnershipProof>> {
+			unimplemented!()
+		}
+
+		async fn subscribe_beefy_finality_justifications(&self) -> Result<Subscription<Bytes>> {
+			unimplemented!()
+		}
+
+		async fn token_decimals(&self) -> Result<Option<u64>> {
+			unimplemented!()
+		}
+
+		async fn runtime_version(&self) -> Result<RuntimeVersion> {
+			unimplemented!()
+		}
+
+		async fn simple_runtime_version(&self) -> Result<SimpleRuntimeVersion> {
+			unimplemented!()
+		}
+
+		fn can_start_version_guard(&self) -> bool {
+			unimplemented!()
+		}
+
+		async fn raw_storage_value(
+			&self,
+			_: HashOf<C>,
+			_: StorageKey,
+		) -> Result<Option<StorageData>> {
+			unimplemented!()
+		}
+
+		async fn pending_extrinsics(&self) -> Result<Vec<Bytes>> {
+			unimplemented!()
+		}
+
+		async fn submit_unsigned_extrinsic(&self, _: Bytes) -> Result<HashOf<C>> {
+			unimplemented!()
+		}
+
+		async fn submit_signed_extrinsic(
+			&self,
+			_: &AccountKeyPairOf<C>,
+			_: impl FnOnce(HeaderIdOf<C>, NonceOf<C>) -> Result<UnsignedTransaction<C>> + Send + 'static,
+		) -> Result<HashOf<C>>
+		where
+			C: ChainWithTransactions,
+			AccountIdOf<C>: From<<AccountKeyPairOf<C> as Pair>::Public>,
+		{
+			unimplemented!()
+		}
+
+		async fn submit_and_watch_signed_extrinsic(
+			&self,
+			_: &AccountKeyPairOf<C>,
+			_: impl FnOnce(HeaderIdOf<C>, NonceOf<C>) -> Result<UnsignedTransaction<C>> + Send + 'static,
+		) -> Result<TransactionTracker<C, Self>>
+		where
+			C: ChainWithTransactions,
+			AccountIdOf<C>: From<<AccountKeyPairOf<C> as Pair>::Public>,
+		{
+			unimplemented!()
+		}
+
+		async fn validate_transaction<SignedTransaction: Encode + Send + 'static>(
+			&self,
+			_: HashOf<C>,
+			_: SignedTransaction,
+		) -> Result<TransactionValidity> {
+			unimplemented!()
+		}
+
+		async fn estimate_extrinsic_weight<SignedTransaction: Encode + Send + 'static>(
+			&self,
+			_: HashOf<C>,
+			_: SignedTransaction,
+		) -> Result<Weight> {
+			unimplemented!()
+		}
+
+		async fn raw_state_call<Args: Encode + Send>(
+			&self,
+			_: HashOf<C>,
+			_: String,
+			_: Args,
+		) -> Result<Bytes> {
+			unimplemented!()
+		}
+
+		async fn prove_storage(
+			&self,
+			_: HashOf<C>,
+			_: Vec<StorageKey>,
+		) -> Result<(StorageProof, HashOf<C>)> {
+			unimplemented!()
+		}
+	}
+
+	/// Builds a canonical chain of `len` headers, with header `finalized` finalized.
+	fn backend(len: u32, finalized: u32) -> NoBlockHashBackend<TestChain> {
+		let mut headers: Vec<TestHeader> = Vec::with_capacity(len as usize);
+		for number in 0..len {
+			let parent_hash = headers.last().map(|parent| parent.hash()).unwrap_or_default();
+			headers.push(TestHeader::new(
+				number,
+				Default::default(),
+				Default::default(),
+				parent_hash,
+				Default::default(),
+			));
+		}
+		let headers_by_hash =
+			headers.iter().map(|header| (header.hash(), header.clone())).collect();
+		NoBlockHashBackend {
+			headers: Arc::new(headers),
+			headers_by_hash: Arc::new(headers_by_hash),
+			finalized: finalized as usize,
+			header_by_hash_calls: Arc::new(AtomicUsize::new(0)),
+		}
+	}
+
+	#[tokio::test]
+	async fn header_hash_by_number_walks_back_from_finalized_header() {
+		let backend = backend(30, 20);
+		let client = CachingClient::new(backend.clone()).await;
+
+		assert_eq!(client.header_hash_by_number(10).await.unwrap(), backend.headers[10].hash());
+		assert_eq!(client.header_hash_by_number(20).await.unwrap(), backend.headers[20].hash());
+
+		// the walk to 10 has cached every number on the way, so no header is read again
+		let calls = backend.calls();
+		assert_eq!(client.header_hash_by_number(15).await.unwrap(), backend.headers[15].hash());
+		assert_eq!(client.header_hash_by_number(11).await.unwrap(), backend.headers[11].hash());
+		assert_eq!(backend.calls(), calls);
+	}
+
+	#[tokio::test]
+	async fn header_hash_by_number_does_not_resolve_unfinalized_headers() {
+		let backend = backend(30, 20);
+		let client = CachingClient::new(backend.clone()).await;
+
+		assert!(matches!(
+			client.header_hash_by_number(25).await,
+			Err(Error::UnknownHeaderHashByNumber { .. })
+		));
+	}
+
+	#[tokio::test]
+	async fn header_hash_by_number_walk_back_is_bounded() {
+		let finalized = MAX_HEADER_HASH_BY_NUMBER_WALK_BACK + 1;
+		let backend = backend(finalized + 1, finalized);
+
+		// exactly the limit
+		let client = CachingClient::new(backend.clone()).await;
+		assert_eq!(client.header_hash_by_number(1).await.unwrap(), backend.headers[1].hash());
+
+		// one step too many
+		let client = CachingClient::new(backend.clone()).await;
+		assert!(matches!(
+			client.header_hash_by_number(0).await,
+			Err(Error::UnknownHeaderHashByNumber { .. })
+		));
+	}
+}
