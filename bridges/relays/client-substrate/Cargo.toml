@@ -54,6 +54,9 @@ sp-version = { workspace = true, default-features = true }
 # Polkadot Dependencies
 xcm = { workspace = true, default-features = true }
 
+[dev-dependencies]
+bp-test-utils = { workspace = true, default-features = true }
+
 [features]
 default = []
 test-helpers = []

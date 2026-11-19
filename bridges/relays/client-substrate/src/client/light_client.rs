@@ -19,6 +19,9 @@
 //! All chains of the process are added to a single smoldot [`Client`]. Each chain gets its own
 //! jsonrpsee client, whose requests go to [`Client::json_rpc_request`] and whose responses come
 //! from the chain's [`JsonRpcResponses`] stream.
+//!
+//! smoldot's JSON-RPC server doesn't serve GRANDPA justifications. They are taken from GRANDPA
+//! warp sync proofs instead, see [`LightChainHandle::warp_proof`].
 
 use crate::{
 	client::rpc::MAX_SUBSCRIPTION_CAPACITY,
@@ -26,6 +29,9 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bp_header_chain::justification::GrandpaJustification;
+use codec::{Decode, Encode};
+use futures::Stream;
 use jsonrpsee::{
 	core::client::{ClientBuilder, ReceivedMessage, TransportReceiverT, TransportSenderT},
 	ws_client::WsClient,
@@ -34,11 +40,15 @@ use smoldot_light::{
 	platform::DefaultPlatform, AddChainConfig, AddChainConfigJsonRpc, ChainId, Client,
 	JsonRpcResponses,
 };
+use sp_core::Bytes;
+use sp_runtime::traits::Header as HeaderT;
 use std::{
+	collections::VecDeque,
 	iter,
 	num::NonZero,
 	path::Path,
 	sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError},
+	time::Duration,
 };
 
 /// Platform used by the shared smoldot client.
@@ -59,6 +69,12 @@ const MAX_SUBSCRIPTIONS: u32 = 1024;
 
 /// Maximum number of transactions smoldot holds for one chain.
 const MAX_PENDING_TRANSACTIONS: NonZero<u32> = NonZero::new(64).unwrap();
+
+/// Number of peers asked for a warp sync proof, one after the other, before giving up.
+const WARP_PROOF_ATTEMPTS: u32 = 3;
+
+/// Timeout of a warp sync proof request to a single peer.
+const WARP_PROOF_TIMEOUT: Duration = Duration::from_secs(24);
 
 /// Process-wide smoldot client, created on first use.
 static LIGHT_CLIENT: OnceLock<SharedClient> = OnceLock::new();
@@ -102,6 +118,166 @@ impl Drop for LightChainHandle {
 			let () = client.remove_chain(relay_chain_id);
 		}
 	}
+}
+
+impl LightChainHandle {
+	/// Asks the chain's peers for a GRANDPA warp sync proof starting at `begin` and returns its
+	/// SCALE encoding. `begin` must be finalized. The proof is **not verified**.
+	pub(crate) async fn warp_proof(&self, begin: [u8; 32]) -> Result<Vec<u8>> {
+		// the returned future doesn't borrow the client, so the lock is released before `.await`
+		let request = lock(&self.client).grandpa_warp_sync_proof(
+			self.chain_id,
+			begin,
+			WARP_PROOF_ATTEMPTS,
+			WARP_PROOF_TIMEOUT,
+		);
+		let response = request
+			.await
+			.map_err(|e| Error::LightClient(format!("warp sync proof request failed: {e}")))?;
+		Ok(response.as_encoded().to_vec())
+	}
+}
+
+/// One fragment of a GRANDPA warp sync proof: a header and the justification that finalizes it.
+///
+/// Same SCALE layout as `sc_consensus_grandpa::warp_proof::WarpSyncFragment`.
+#[derive(Encode, Decode)]
+pub(crate) struct WarpSyncFragment<H: HeaderT> {
+	/// The last header of an authority set, or the latest finalized header.
+	pub header: H,
+	/// Justification of `header`.
+	pub justification: GrandpaJustification<H>,
+}
+
+/// GRANDPA warp sync proof, as sent by Substrate nodes and passed through by smoldot.
+///
+/// Same SCALE layout as `sc_consensus_grandpa::warp_proof::WarpSyncProof`.
+#[derive(Encode, Decode)]
+pub(crate) struct WarpSyncProof<H: HeaderT> {
+	/// Fragments, in increasing block number order.
+	pub proofs: Vec<WarpSyncFragment<H>>,
+	/// `false` if the proof was cut short because of its size. Ask again from its last fragment.
+	pub is_finished: bool,
+}
+
+/// Decodes a warp sync proof.
+pub(crate) fn decode_warp_proof<H: HeaderT>(encoded: &[u8]) -> Result<WarpSyncProof<H>> {
+	Ok(WarpSyncProof::decode(&mut &encoded[..])?)
+}
+
+/// Converts a block hash to the form smoldot takes.
+pub(crate) fn hash_to_bytes<Hash: AsRef<[u8]>>(hash: Hash) -> Result<[u8; 32]> {
+	<[u8; 32]>::try_from(hash.as_ref()).map_err(|_| {
+		Error::LightClient(format!("block hash is {} bytes long, expected 32", hash.as_ref().len()))
+	})
+}
+
+/// Returns the justification of the given block, if the proof has a fragment for it.
+pub(crate) fn justification_for<H: HeaderT>(
+	proof: &WarpSyncProof<H>,
+	hash: H::Hash,
+) -> Option<GrandpaJustification<H>> {
+	proof
+		.proofs
+		.iter()
+		.find(|fragment| fragment.header.hash() == hash)
+		.map(|fragment| fragment.justification.clone())
+}
+
+/// Returns the justifications of the fragments above `after`, in increasing block number order
+/// and with at most one justification per block number.
+pub(crate) fn new_justifications<H: HeaderT>(
+	proof: WarpSyncProof<H>,
+	after: H::Number,
+) -> Vec<GrandpaJustification<H>> {
+	let mut last = after;
+	let mut justifications = Vec::new();
+	for fragment in proof.proofs {
+		let number = *fragment.header.number();
+		if number > last {
+			last = number;
+			justifications.push(fragment.justification);
+		}
+	}
+	justifications
+}
+
+/// Fetches and decodes a warp sync proof starting at `begin`.
+async fn fetch_warp_proof<H: HeaderT>(
+	light: &LightChainHandle,
+	begin: H::Hash,
+) -> Result<WarpSyncProof<H>> {
+	decode_warp_proof(&light.warp_proof(hash_to_bytes(begin)?).await?)
+}
+
+/// State of [`grandpa_justifications`].
+struct JustificationsState<H: HeaderT> {
+	light: Arc<LightChainHandle>,
+	/// Where the next warp sync proof starts.
+	begin: H::Hash,
+	/// Number of the last yielded (or initial) block.
+	last_number: H::Number,
+	/// Justifications not yielded yet.
+	pending: VecDeque<GrandpaJustification<H>>,
+	/// Whether to poll again without waiting first.
+	poll_now: bool,
+}
+
+/// Stream of SCALE-encoded GRANDPA justifications, made by polling warp sync proofs.
+///
+/// Yields the justifications of authority set changes and of the latest finalized block that
+/// peers know, above `last_number`. Unlike `grandpa_subscribeJustifications`, it doesn't yield a
+/// justification for every finalized block. Never ends: failed requests are logged and retried
+/// after `poll_interval`.
+pub(crate) fn grandpa_justifications<H: HeaderT>(
+	light: Arc<LightChainHandle>,
+	begin: H::Hash,
+	last_number: H::Number,
+	poll_interval: Duration,
+	chain: &'static str,
+) -> impl Stream<Item = Bytes> + Send + 'static {
+	let state = JustificationsState::<H> {
+		light,
+		begin,
+		last_number,
+		pending: VecDeque::new(),
+		poll_now: true,
+	};
+	futures::stream::unfold(state, move |mut state| async move {
+		loop {
+			if let Some(justification) = state.pending.pop_front() {
+				return Some((Bytes(justification.encode()), state));
+			}
+
+			if !state.poll_now {
+				tokio::time::sleep(poll_interval).await;
+			}
+
+			match fetch_warp_proof::<H>(&state.light, state.begin).await {
+				Ok(proof) => {
+					let is_finished = proof.is_finished;
+					let justifications = new_justifications(proof, state.last_number);
+					if let Some(last) = justifications.last() {
+						state.begin = last.commit.target_hash;
+						state.last_number = last.commit.target_number;
+					}
+					// an unfinished proof continues right away, unless it brought nothing new
+					state.poll_now = !is_finished && !justifications.is_empty();
+					state.pending.extend(justifications);
+				},
+				Err(error) => {
+					tracing::debug!(
+						target: "bridge",
+						%error,
+						node=%chain,
+						begin=?state.begin,
+						"Failed to get GRANDPA justifications from a warp sync proof"
+					);
+					state.poll_now = false;
+				},
+			}
+		}
+	})
 }
 
 /// Reads a chain spec file.
@@ -227,4 +403,75 @@ pub(crate) fn build(
 		.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
 		.build_with_tokio(Sender { handle: handle.clone() }, Receiver { responses });
 	Ok((handle, client))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use bp_test_utils::{make_default_justification, test_header};
+	use sp_runtime::traits::BlakeTwo256;
+
+	type Header = sp_runtime::generic::Header<u32, BlakeTwo256>;
+
+	fn fragment(number: u32) -> WarpSyncFragment<Header> {
+		let header = test_header::<Header>(number);
+		let justification = make_default_justification(&header);
+		WarpSyncFragment { header, justification }
+	}
+
+	fn proof(numbers: &[u32]) -> WarpSyncProof<Header> {
+		WarpSyncProof { proofs: numbers.iter().copied().map(fragment).collect(), is_finished: true }
+	}
+
+	fn target_numbers(justifications: &[GrandpaJustification<Header>]) -> Vec<u32> {
+		justifications.iter().map(|j| j.commit.target_number).collect()
+	}
+
+	#[test]
+	fn decodes_substrate_warp_proof_layout() {
+		// `WarpSyncProof { proofs: Vec<WarpSyncFragment { header, justification }>, is_finished }`
+		let fragments: Vec<(Header, GrandpaJustification<Header>)> = [1, 5]
+			.into_iter()
+			.map(|n| {
+				let header = test_header::<Header>(n);
+				let justification = make_default_justification(&header);
+				(header, justification)
+			})
+			.collect();
+		let encoded = (fragments.clone(), false).encode();
+
+		let decoded = decode_warp_proof::<Header>(&encoded).unwrap();
+		assert!(!decoded.is_finished);
+		assert_eq!(decoded.proofs.len(), 2);
+		for (fragment, (header, justification)) in decoded.proofs.iter().zip(fragments) {
+			assert_eq!(fragment.header, header);
+			assert_eq!(fragment.justification, justification);
+		}
+		assert_eq!(decoded.encode(), encoded);
+	}
+
+	#[test]
+	fn justification_for_finds_and_misses() {
+		let proof = proof(&[1, 5, 9]);
+		let hash = test_header::<Header>(5).hash();
+		assert_eq!(
+			justification_for(&proof, hash),
+			Some(make_default_justification(&test_header(5)))
+		);
+		assert_eq!(justification_for(&proof, test_header::<Header>(7).hash()), None);
+	}
+
+	#[test]
+	fn new_justifications_filters_and_dedups() {
+		assert_eq!(target_numbers(&new_justifications(proof(&[1, 5, 5, 9]), 1)), vec![5, 9]);
+		assert_eq!(target_numbers(&new_justifications(proof(&[1, 5, 9]), 0)), vec![1, 5, 9]);
+		assert!(new_justifications(proof(&[1, 5, 9]), 9).is_empty());
+		assert!(new_justifications(proof(&[]), 0).is_empty());
+	}
+
+	#[test]
+	fn hash_to_bytes_checks_length() {
+		assert_eq!(hash_to_bytes(sp_core::H256::repeat_byte(7)).unwrap(), [7; 32]);
+		assert!(hash_to_bytes([0u8; 20]).is_err());
+	}
 }

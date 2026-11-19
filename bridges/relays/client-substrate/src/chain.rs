@@ -162,6 +162,12 @@ pub trait BlockWithJustification<Header> {
 	fn extrinsics(&self) -> Vec<EncodedExtrinsic>;
 	/// Return block justification, if known.
 	fn justification(&self, engine_id: ConsensusEngineId) -> Option<&EncodedJustification>;
+	/// Set block justification, replacing the existing one of the same consensus engine.
+	fn set_justification(
+		&mut self,
+		engine_id: ConsensusEngineId,
+		justification: EncodedJustification,
+	);
 }
 
 /// Transaction before it is signed.
@@ -258,6 +264,20 @@ impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block>
 
 	fn justification(&self, engine_id: ConsensusEngineId) -> Option<&EncodedJustification> {
 		self.justifications.as_ref().and_then(|j| j.get(engine_id))
+	}
+
+	fn set_justification(
+		&mut self,
+		engine_id: ConsensusEngineId,
+		justification: EncodedJustification,
+	) {
+		match self.justifications {
+			Some(ref mut justifications) => {
+				justifications.remove(engine_id);
+				let _ = justifications.append((engine_id, justification));
+			},
+			None => self.justifications = Some((engine_id, justification).into()),
+		}
 	}
 }
 
