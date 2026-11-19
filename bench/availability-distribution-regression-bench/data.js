@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795099145762,
+  "lastUpdate": 1795104310640,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c2e8c6004af99b23f776b3bde9cf3589f1c436d5",
-          "message": "Enable parachain code size up to 5MiB (#11894)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/11880 \n\nAlso add some more tests.\n\nThe host config parameter still needs to be bumped via Gov.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-07T21:11:58Z",
-          "tree_id": "5a8422797a76adfb91a45752a8c3e0e9036daf79",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c2e8c6004af99b23f776b3bde9cf3589f1c436d5"
-        },
-        "date": 1778193250324,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14103135750666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009324064326666647,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006998497246666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02361708732666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009664893019999966,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "info@novami.cz",
+            "name": "Michal Novák",
+            "username": "novami"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8deb3b21aec038c29c40761f9335aab601680082",
+          "message": "Remove sp-std from election-provider-multi-block and election-provider-support (#13860)\n\n# Description\n\nRemoves the `sp-std` dependency from\n`pallet-election-provider-multi-block` and\n`frame-election-provider-support`, using `core` and `alloc` directly\ninstead.\n\nAdvances #2101\n\n## Integration\n\nNo action needed. The public API of the affected crates is unchanged.\n\n## Review Notes\n\nPurely mechanical: `sp_std::prelude::*` is replaced with explicit\n`alloc` imports (`Vec`, `vec!`,\n`Box`, `ToOwned`) and the remaining `sp_std::` paths with their\n`core`/`alloc` equivalents.\n\nVerified with `asset-hub-westend-runtime` built for WASM with\n`runtime-benchmarks`, plus the unit\ntests of both crates.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T14:27:29Z",
+          "tree_id": "6ad6929fc8b21c73cca98709950f0fec1f293eca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8deb3b21aec038c29c40761f9335aab601680082"
+        },
+        "date": 1795104274084,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076203216466666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14499748507333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024232189386666655,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009795865293333315,
             "unit": "seconds"
           }
         ]
