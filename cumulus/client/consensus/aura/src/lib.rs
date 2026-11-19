@@ -27,7 +27,7 @@ use cumulus_primitives_core::{relay_chain::HeadData, PersistedValidationData};
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use std::{fs, fs::File, path::PathBuf};
+use std::{fs, fs::File, path::Path};
 
 mod import_queue;
 
@@ -51,7 +51,7 @@ const LOG_TARGET: &str = "aura::cumulus";
 /// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
 /// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
 pub(crate) fn export_pov_to_path<Block: BlockT>(
-	path: PathBuf,
+	path: &Path,
 	pov: PoV,
 	block_hash: Block::Hash,
 	block_number: NumberFor<Block>,

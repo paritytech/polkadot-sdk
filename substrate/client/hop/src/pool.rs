@@ -14,25 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! HOP data pool: in-memory index backed by sharded on-disk storage.
+//! HOP data pool: parity-db metadata at `<data_dir>/meta-db/` plus
+//! content-addressed blob files at `<data_dir>/blobs/{shard}/{hash}.blob`.
+//! In-memory counters are caches rebuilt at startup. RMW ops serialise on
+//! `rmw_lock` since parity-db has no CAS.
 //!
-//! ## On-disk layout
-//!
-//! The pool root contains two subdirectories, `blobs/` and `meta/`, each
-//! sharded into 256 subdirectories named `00`–`ff` after the first byte of the
-//! content hash. An entry with hash `H` is stored as:
-//!
-//! - `blobs/<H[0:2]>/<H>.blob` — raw payload bytes
-//! - `meta/<H[0:2]>/<H>.meta` — SCALE-encoded [`HopEntryMeta`]
-//!
-//! ## Recovery
-//!
-//! On startup the pool scans every `meta/` shard, decodes each `.meta` file,
-//! and rebuilds the in-memory index. `.meta` files that are corrupt, have an
-//! unexpected version, or lack a sibling `.blob` are deleted. Then the
-//! corresponding `blobs/` shard is scanned and any `.blob` without an entry in
-//! the freshly-built index (orphan) is also deleted. Stale `.tmp.*` files left
-//! by a previous crash are removed during both scans.
+//! The database carries a schema version row in `COL_DB_META`, checked on
+//! every open so a database written by a newer binary is rejected rather than
+//! misread. Startup also imports any leftover `<data_dir>/meta/` metadata files
+//! from the pre-KV-store layout and removes that tree; see
+//! `HopDataPool::import_legacy_meta_files`.
 
 use crate::{
 	metrics::{removal_reasons, HopMetrics},
@@ -52,8 +43,9 @@ use sp_runtime::{
 	MultiSignature, MultiSigner,
 };
 use std::{
-	collections::{BTreeSet, HashMap, HashSet},
+	collections::{BTreeSet, HashMap},
 	fs,
+	ops::Bound,
 	path::{Path, PathBuf},
 	process,
 	sync::{
@@ -63,40 +55,67 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-/// Per-process counter that disambiguates concurrent atomic writes targeting
-/// the same final path. Two threads computing the same content hash would
-/// otherwise share a `<path>.tmp` file and stomp each other's bytes.
+/// Disambiguates concurrent atomic writes to the same final blob path so two
+/// threads with the same content hash don't share a `<path>.tmp` file.
 static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 const BLOBS_DIR: &str = "blobs";
-const META_DIR: &str = "meta";
 const BLOB_EXT: &str = "blob";
-const META_EXT: &str = "meta";
-/// Number of shards used for both `blobs/` and `meta/` directories (one per
-/// first-byte value of the content hash: `00`–`ff`).
+/// Subdirectory of `data_dir` housing the parity-db instance.
+const META_DB_DIR: &str = "meta-db";
+/// Number of shards used for the `blobs/` directory (one per first-byte value
+/// of the content hash: `00`–`ff`). Metadata is no longer sharded since it
+/// lives in parity-db.
 const SHARD_COUNT: u16 = 256;
 
-/// HOP data pool with disk-backed blob storage and in-memory metadata index.
+/// Pre-KV-store metadata layout: `<data_dir>/meta/{shard}/{hash}.meta`, one
+/// SCALE-encoded `HopEntryMeta` per file. Imported into [`COL_META`] and
+/// removed on the first startup after the upgrade.
+const LEGACY_META_DIR: &str = "meta";
+const LEGACY_META_EXT: &str = "meta";
+
+/// parity-db column holding `HopHash` → SCALE-encoded `HopEntryMeta`.
+const COL_META: u8 = 0;
+/// parity-db column holding pool-wide metadata. Kept separate from
+/// [`COL_META`] so the startup scan can iterate entry rows without having to
+/// recognise and skip non-entry keys.
+const COL_DB_META: u8 = 1;
+/// Total number of parity-db columns this pool uses.
+const COL_COUNT: u8 = 2;
+
+/// Key of the schema version row in [`COL_DB_META`].
+const KEY_DB_VERSION: &[u8] = b"version";
+/// On-disk schema version this binary writes and understands.
+const CURRENT_DB_VERSION: u32 = 1;
+/// Upper bound on rows buffered per `commit` while importing legacy metadata,
+/// so a large pool doesn't build one unbounded transaction.
+const MIGRATION_CHUNK: usize = 10_000;
+
+/// HOP data pool: parity-db metadata + content-addressed blob files.
 pub struct HopDataPool {
-	/// In-memory metadata index (no blobs).
-	index: Mutex<HashMap<HopHash, HopEntryMeta>>,
-	/// Per-user byte usage tracked by sender id.
-	///
-	/// Counters live directly in the map and are charged via `charge_user`
-	/// inside the read guard, so the reclamation pass in `cleanup_expired`
-	/// (which holds `user_usage.write()` together with `index.lock()`) cannot
-	/// interpose between a lookup and its `fetch_add`. Stale entries —
-	/// counter 0 and no live index entry — are reclaimed by the same pass.
+	/// Metadata KV store; source of truth for entry existence and state.
+	db: Arc<parity_db::Db>,
+	/// Serialises get-then-conditional-write pairs (parity-db has no CAS).
+	rmw_lock: Mutex<()>,
+	/// Per-user byte usage cache, rebuilt at startup.
 	user_usage: RwLock<HashMap<SenderId, AtomicU64>>,
-	/// Maximum pool size in bytes (counts both data and per-entry metadata overhead).
+	/// Expiry-ordered index of live entries, rebuilt at startup. Lets
+	/// `cleanup_expired` and `get_promotable` run as bounded range scans
+	/// instead of iterating the entire meta column each tick. Stale or
+	/// missing entries are tolerated: maintenance re-reads each candidate
+	/// under `rmw_lock` before acting on it.
+	expiry_index: RwLock<BTreeSet<(u64, HopHash)>>,
+	/// Maximum pool size in bytes (data + per-entry metadata overhead).
 	max_size: u64,
 	/// Fixed hard per-user quota in bytes.
 	max_user_size: u64,
-	/// Current pool size in bytes (accounted size — includes metadata overhead).
+	/// Current accounted pool size in bytes.
 	current_size: AtomicU64,
+	/// Cached entry count for `status()`.
+	entry_count: AtomicU64,
 	/// Data retention period in seconds.
 	retention_secs: u64,
-	/// Root data directory containing blobs/ and meta/ subdirectories.
+	/// Root data directory.
 	data_dir: PathBuf,
 	/// Per-account submit rate limiter.
 	rate_limiter: Arc<RateLimiter>,
@@ -105,10 +124,8 @@ pub struct HopDataPool {
 }
 
 impl HopDataPool {
-	/// Create a new disk-backed data pool.
-	///
-	/// Creates shard directories under `data_dir` and rebuilds the in-memory index
-	/// from existing `.meta` files on disk (recovery after restart).
+	/// Open or create the metadata DB, rebuild counter caches by iterating it,
+	/// and remove orphan `.blob` files in the same pass.
 	pub fn new(
 		max_size: u64,
 		max_user_size: u64,
@@ -117,157 +134,157 @@ impl HopDataPool {
 		rate_limit_cfg: RateLimitConfig,
 		metrics: HopMetrics,
 	) -> Result<Self, HopError> {
-		// Create shard directories (256 each for blobs/ and meta/).
+		// Blob shard directories (256 of them, named 00..ff).
 		for i in 0..SHARD_COUNT {
 			let shard = format!("{:02x}", i as u8);
 			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
-			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))?;
 		}
 
-		let mut index = HashMap::new();
+		let db_path = data_dir.join(META_DB_DIR);
+		fs::create_dir_all(&db_path)?;
+		// Column layout upgrades happen while the DB is closed, since parity-db
+		// refuses to open a path whose stored column config differs from ours.
+		Self::migrate_columns(&db_path)?;
+		let db = parity_db::Db::open_or_create(&Self::db_options(&db_path))
+			.map_err(|e| HopError::Db(e.to_string()))?;
+		Self::check_db_version(&db)?;
+
+		// Import pre-KV-store metadata before the scan below, so the imported
+		// rows feed the counter caches and their blobs count as live.
+		Self::import_legacy_meta_files(&db, &data_dir)?;
+
+		// Rebuild counters + live-hash set, dropping any unsupported-version rows.
 		let mut user_usage: HashMap<SenderId, AtomicU64> = HashMap::new();
-		let mut current_size = 0u64;
-		// Orphan `.blob`s are not counted: without a `.meta` they were never a
-		// claimable entry.
-		let mut dropped = 0u64;
+		let mut current_size: u64 = 0;
+		let mut entry_count: u64 = 0;
+		let mut live_hashes: std::collections::HashSet<HopHash> = std::collections::HashSet::new();
+		let mut expiry_index: BTreeSet<(u64, HopHash)> = BTreeSet::new();
+		let mut stale_keys: Vec<Vec<u8>> = Vec::new();
 
-		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
-		for i in 0..SHARD_COUNT {
-			let shard = format!("{:02x}", i as u8);
-
-			// Scan .meta files → rebuild index (removes corrupt/orphan .meta files).
-			let meta_shard_dir = data_dir.join(META_DIR).join(&shard);
-			if let Ok(entries) = fs::read_dir(&meta_shard_dir) {
-				for entry in entries.flatten() {
-					let path = entry.path();
-					if path.extension().and_then(|e| e.to_str()) != Some(META_EXT) {
-						if path
-							.file_name()
-							.and_then(|n| n.to_str())
-							.map_or(false, |n| n.contains(".tmp."))
-						{
-							let _ = fs::remove_file(&path);
+		{
+			let mut iter = db.iter(COL_META).map_err(|e| HopError::Db(e.to_string()))?;
+			while let Some((key, value)) = iter.next().map_err(|e| HopError::Db(e.to_string()))? {
+				let hash = match <[u8; 32]>::try_from(key.as_slice()) {
+					Ok(arr) => H256(arr),
+					Err(_) => {
+						tracing::warn!(target: "hop", key_len = key.len(), "Dropping meta row with non-32-byte key");
+						stale_keys.push(key);
+						continue;
+					},
+				};
+				match HopEntryMeta::decode(&mut value.as_slice()) {
+					Ok(meta) if meta.version == HOP_META_VERSION => {
+						// `insert` writes the blob before committing the meta row, so a
+						// committed row must have a sibling blob. A missing blob means a
+						// crash persisted the blob unlink but lost the async meta-delete;
+						// drop the row here rather than let it hold pool + user quota
+						// until expiry.
+						if !Self::entry_path(&data_dir, &hash, BLOBS_DIR, BLOB_EXT).exists() {
+							tracing::warn!(target: "hop", hash = ?hex::encode(hash), "Dropping meta row with missing blob");
+							stale_keys.push(key);
+							continue;
 						}
-						continue;
-					}
-
-					let stem = match path.file_stem().and_then(|s| s.to_str()) {
-						Some(s) => s.to_string(),
-						None => continue,
-					};
-
-					let Some(hash) = parse_hex_hash(&stem) else {
-						tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
-						let _ = fs::remove_file(&path);
-						dropped += 1;
-						continue;
-					};
-
-					let meta_bytes = match fs::read(&path) {
-						Ok(b) => b,
-						Err(e) => {
-							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing unreadable .meta");
-							let _ = fs::remove_file(&path);
-							dropped += 1;
-							continue;
-						},
-					};
-					let meta = match HopEntryMeta::decode(&mut &meta_bytes[..]) {
-						Ok(m) => m,
-						Err(e) => {
-							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing corrupt .meta");
-							let _ = fs::remove_file(&path);
-							dropped += 1;
-							continue;
-						},
-					};
-					if meta.version != HOP_META_VERSION {
+						let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+						current_size = current_size.saturating_add(accounted);
+						entry_count = entry_count.saturating_add(1);
+						user_usage
+							.entry(meta.sender_id)
+							.or_default()
+							.fetch_add(accounted, Ordering::Relaxed);
+						live_hashes.insert(hash);
+						expiry_index.insert((meta.expires_at, hash));
+					},
+					Ok(meta) => {
 						tracing::warn!(
 							target: "hop",
-							path = ?path,
 							version = meta.version,
 							expected = HOP_META_VERSION,
-							"Removing .meta with unsupported on-disk version",
+							hash = ?hex::encode(hash),
+							"Dropping meta row with unsupported version",
 						);
-						let _ = fs::remove_file(&path);
-						let _ = fs::remove_file(Self::entry_path(
-							&data_dir, &hash, BLOBS_DIR, BLOB_EXT,
-						));
-						dropped += 1;
-						continue;
-					}
-
-					let blob_path = Self::entry_path(&data_dir, &hash, BLOBS_DIR, BLOB_EXT);
-					if !blob_path.exists() {
-						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
-						let _ = fs::remove_file(&path);
-						dropped += 1;
-						continue;
-					}
-
-					let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-					current_size += accounted;
-					user_usage
-						.entry(meta.sender_id)
-						.or_default()
-						.fetch_add(accounted, Ordering::Relaxed);
-					index.insert(hash, meta);
+						stale_keys.push(key);
+					},
+					Err(e) => {
+						tracing::warn!(target: "hop", hash = ?hex::encode(hash), error = %e, "Dropping undecodable meta row");
+						stale_keys.push(key);
+					},
 				}
 			}
+		}
 
-			// Scan .blob files → remove orphans (blobs without corresponding .meta).
+		// Delete stale keys and the corresponding blobs in one batch.
+		if !stale_keys.is_empty() {
+			let ops: Vec<_> =
+				stale_keys.iter().cloned().map(|k| (COL_META, k, None::<Vec<u8>>)).collect();
+			db.commit(ops).map_err(|e| HopError::Db(e.to_string()))?;
+			for k in &stale_keys {
+				if let Ok(arr) = <[u8; 32]>::try_from(k.as_slice()) {
+					let _ = fs::remove_file(Self::entry_path(
+						&data_dir,
+						&H256(arr),
+						BLOBS_DIR,
+						BLOB_EXT,
+					));
+				}
+			}
+		}
+
+		// Reap orphan `.blob` and leftover `.tmp.*` files. Deliberately
+		// unconditional: an empty meta column is a legitimate state for a pool
+		// that has drained, so refusing to reap when it is empty would leak
+		// genuine orphans forever. The case where the column is empty only
+		// because metadata hasn't been read yet is prevented upstream, by
+		// `import_legacy_meta_files` running before this scan.
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 			let blob_shard_dir = data_dir.join(BLOBS_DIR).join(&shard);
-			if let Ok(entries) = fs::read_dir(&blob_shard_dir) {
-				for entry in entries.flatten() {
-					let path = entry.path();
-					if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
-						if path
-							.file_name()
-							.and_then(|n| n.to_str())
-							.map_or(false, |n| n.contains(".tmp."))
-						{
-							let _ = fs::remove_file(&path);
-						}
-						continue;
-					}
-					let stem = match path.file_stem().and_then(|s| s.to_str()) {
-						Some(s) => s.to_string(),
-						None => continue,
-					};
-					// Any blob without a corresponding index entry is an orphan.
-					// The meta scan for this shard already populated `index`, so an
-					// in-memory lookup is sufficient and avoids a syscall per blob.
-					// Blobs with unparseable names have no possible index match and
-					// are always removed.
-					let is_orphan = match parse_hex_hash(&stem) {
-						Some(hash) => !index.contains_key(&hash),
-						None => true,
-					};
-					if is_orphan {
-						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
+			let Ok(entries) = fs::read_dir(&blob_shard_dir) else { continue };
+			for entry in entries.flatten() {
+				let path = entry.path();
+				if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
+					if path
+						.file_name()
+						.and_then(|n| n.to_str())
+						.map_or(false, |n| n.contains(".tmp."))
+					{
 						let _ = fs::remove_file(&path);
 					}
+					continue;
+				}
+				let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+				let is_orphan = match parse_hex_hash(stem) {
+					Some(hash) => !live_hashes.contains(&hash),
+					None => true,
+				};
+				if is_orphan {
+					tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no meta row)");
+					let _ = fs::remove_file(&path);
 				}
 			}
 		}
 
 		tracing::info!(
 			target: "hop",
-			entries = index.len(),
+			entries = entry_count,
 			total_bytes = current_size,
-			dropped,
 			"Recovered HOP pool from disk"
 		);
 
-		metrics.set_pool_status(index.len() as u64, current_size, max_size);
-		metrics.record_removed(removal_reasons::STARTUP_DROPPED, dropped);
+		// `stale_keys` are the meta rows dropped during recovery (bad key,
+		// unsupported version, undecodable, or missing blob). Orphan `.blob`s
+		// are not counted: without a meta row they were never a claimable entry.
+		metrics.set_pool_status(entry_count, current_size, max_size);
+		metrics.record_removed(removal_reasons::STARTUP_DROPPED, stale_keys.len() as u64);
 
 		Ok(Self {
-			index: Mutex::new(index),
+			db: Arc::new(db),
+			rmw_lock: Mutex::new(()),
 			user_usage: RwLock::new(user_usage),
+			expiry_index: RwLock::new(expiry_index),
 			max_size,
 			max_user_size,
 			current_size: AtomicU64::new(current_size),
+			entry_count: AtomicU64::new(entry_count),
 			retention_secs,
 			data_dir,
 			rate_limiter: Arc::new(RateLimiter::new(rate_limit_cfg)),
@@ -280,13 +297,234 @@ impl HopDataPool {
 		&self.metrics
 	}
 
-	/// Snapshot the pool size gauges after a mutation, from inside the index
-	/// critical section with `entries` read from the locked index: publishing
-	/// after the unlock would let an earlier writer overtake a later one and
-	/// leave the gauges stale.
-	fn publish_size_metrics(&self, entries: usize) {
-		self.metrics
-			.set_pool_size(entries as u64, self.current_size.load(Ordering::Relaxed));
+	/// Snapshot the pool size gauges after a mutation. Reads the accounted-size
+	/// and entry-count atomics, which are updated under `rmw_lock` at every
+	/// mutation site, so a gauge publish issued from inside that critical
+	/// section reflects the write that just landed.
+	fn publish_size_metrics(&self) {
+		self.metrics.set_pool_size(
+			self.entry_count.load(Ordering::Relaxed),
+			self.current_size.load(Ordering::Relaxed),
+		);
+	}
+
+	/// Column layout this pool expects of its parity-db instance.
+	///
+	/// `btree_index` on [`COL_META`] is what lets startup recovery iterate
+	/// `(key, value)` pairs; [`COL_DB_META`] stays at the default hash index
+	/// since it is only ever point-queried.
+	fn db_options(db_path: &Path) -> parity_db::Options {
+		let mut options = parity_db::Options::with_columns(db_path, COL_COUNT);
+		options.columns[COL_META as usize].btree_index = true;
+		options
+	}
+
+	/// Append any columns an older on-disk layout is missing.
+	///
+	/// Must run before the DB is opened. No-op for a path with no database yet
+	/// (`open_or_create` will lay down every column) and for one already at
+	/// [`COL_COUNT`], so this is safe to call on every startup. Appended
+	/// columns take their options from [`Self::db_options`], which keeps the
+	/// migration and the open path from ever disagreeing.
+	fn migrate_columns(db_path: &Path) -> Result<(), HopError> {
+		let Some(metadata) =
+			parity_db::Options::load_metadata(db_path).map_err(|e| HopError::Db(e.to_string()))?
+		else {
+			return Ok(());
+		};
+		if metadata.columns.len() >= COL_COUNT as usize {
+			return Ok(());
+		}
+		let desired = Self::db_options(db_path).columns;
+		let mut migrate_options = parity_db::Options::with_columns(db_path, 0);
+		migrate_options.columns = metadata.columns;
+		tracing::info!(
+			target: "hop",
+			from = migrate_options.columns.len(),
+			to = COL_COUNT,
+			"Extending HOP database column layout",
+		);
+		// `add_column` takes options by value and pushes onto
+		// `migrate_options.columns`, so `skip` is evaluated once against the
+		// pre-migration length.
+		for column in desired.into_iter().skip(migrate_options.columns.len()) {
+			parity_db::Db::add_column(&mut migrate_options, column)
+				.map_err(|e| HopError::Db(e.to_string()))?;
+		}
+		Ok(())
+	}
+
+	/// Reconcile the on-disk schema version with [`CURRENT_DB_VERSION`].
+	///
+	/// A database with no version row is stamped with the current version; one
+	/// written by a newer binary is rejected rather than silently misread.
+	fn check_db_version(db: &parity_db::Db) -> Result<(), HopError> {
+		match db.get(COL_DB_META, KEY_DB_VERSION).map_err(|e| HopError::Db(e.to_string()))? {
+			Some(bytes) => {
+				let version = u32::from_le_bytes(
+					bytes
+						.try_into()
+						.map_err(|_| HopError::Db("Malformed HOP database version".into()))?,
+				);
+				if version > CURRENT_DB_VERSION {
+					return Err(HopError::Db(format!(
+						"Unsupported HOP database version {version}; this binary supports up to \
+						 {CURRENT_DB_VERSION}"
+					)));
+				}
+				// Only version 1 exists so far. Future forward migrations
+				// dispatch here on `version < CURRENT_DB_VERSION` and stamp the
+				// new version last, so a crash mid-migration re-runs it.
+				Ok(())
+			},
+			None => db
+				.commit([(
+					COL_DB_META,
+					KEY_DB_VERSION.to_vec(),
+					Some(CURRENT_DB_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| HopError::Db(e.to_string())),
+		}
+	}
+
+	/// Import pre-KV-store `<data_dir>/meta/{shard}/{hash}.meta` files
+	/// into [`COL_META`], then remove the tree.
+	///
+	/// Runs before startup recovery iterates the column, so imported rows are
+	/// picked up by the normal scan: counters, per-user usage and the expiry
+	/// index all come for free, and the orphan pass sees the imported hashes as
+	/// live instead of unlinking every blob in the pool.
+	///
+	/// Gated on the directory existing rather than on the schema version, so an
+	/// import interrupted by a crash is retried on the next boot. Idempotent: a
+	/// row already in the column always wins over the legacy file. Per-file
+	/// problems are logged and skipped, leaving the blob to the orphan pass —
+	/// the same outcome the pre-migration recovery scan produced.
+	fn import_legacy_meta_files(db: &parity_db::Db, data_dir: &Path) -> Result<(), HopError> {
+		let legacy_dir = data_dir.join(LEGACY_META_DIR);
+		if !legacy_dir.exists() {
+			return Ok(());
+		}
+
+		let mut ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+		let mut imported: u64 = 0;
+		let mut skipped: u64 = 0;
+
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
+			let Ok(entries) = fs::read_dir(legacy_dir.join(&shard)) else { continue };
+			for entry in entries.flatten() {
+				let path = entry.path();
+				// Leftover `.tmp.*` files need no special handling: the whole
+				// tree is removed once the import completes.
+				if path.extension().and_then(|e| e.to_str()) != Some(LEGACY_META_EXT) {
+					continue;
+				}
+				let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+				let Some(hash) = parse_hex_hash(stem) else {
+					tracing::warn!(target: "hop", path = ?path, "Skipping legacy .meta with invalid name");
+					skipped += 1;
+					continue;
+				};
+				let bytes = match fs::read(&path) {
+					Ok(b) => b,
+					Err(e) => {
+						tracing::warn!(target: "hop", path = ?path, error = %e, "Skipping unreadable legacy .meta");
+						skipped += 1;
+						continue;
+					},
+				};
+				let meta = match HopEntryMeta::decode(&mut bytes.as_slice()) {
+					Ok(meta) => meta,
+					Err(e) => {
+						tracing::warn!(target: "hop", path = ?path, error = %e, "Skipping corrupt legacy .meta");
+						skipped += 1;
+						continue;
+					},
+				};
+				if meta.version != HOP_META_VERSION {
+					tracing::warn!(
+						target: "hop",
+						path = ?path,
+						version = meta.version,
+						expected = HOP_META_VERSION,
+						"Skipping legacy .meta with unsupported version",
+					);
+					skipped += 1;
+					continue;
+				}
+				if !Self::entry_path(data_dir, &hash, BLOBS_DIR, BLOB_EXT).exists() {
+					tracing::warn!(target: "hop", hash = ?stem, "Skipping legacy .meta with no .blob");
+					skipped += 1;
+					continue;
+				}
+				// A row already in the column is newer than the legacy file.
+				if db
+					.get(COL_META, hash.as_bytes())
+					.map_err(|e| HopError::Db(e.to_string()))?
+					.is_some()
+				{
+					skipped += 1;
+					continue;
+				}
+
+				ops.push((COL_META, hash.as_bytes().to_vec(), Some(bytes)));
+				imported += 1;
+				if ops.len() >= MIGRATION_CHUNK {
+					db.commit(ops.drain(..)).map_err(|e| HopError::Db(e.to_string()))?;
+				}
+			}
+		}
+
+		if !ops.is_empty() {
+			db.commit(ops).map_err(|e| HopError::Db(e.to_string()))?;
+		}
+
+		// Rows are committed at this point, so a failure here is not fatal: the
+		// next boot rescans, skips every file as already-present, and retries.
+		if let Err(e) = fs::remove_dir_all(&legacy_dir) {
+			tracing::warn!(
+				target: "hop",
+				path = ?legacy_dir,
+				error = %e,
+				"Failed to remove legacy meta directory after import",
+			);
+		}
+
+		// The pre-KV-store build created all 256 shard directories on every
+		// boot, so an empty tree is the normal case for an upgraded idle node
+		// and must not look like an event.
+		if imported > 0 || skipped > 0 {
+			tracing::info!(
+				target: "hop",
+				imported,
+				skipped,
+				"Imported legacy HOP metadata into the KV store",
+			);
+		}
+		Ok(())
+	}
+
+	/// Get + decode a meta row. Decode failures surface as `Db(...)` since the
+	/// startup scan should have already dropped corrupt rows.
+	fn fetch_meta(&self, hash: &HopHash) -> Result<Option<HopEntryMeta>, HopError> {
+		match self
+			.db
+			.get(COL_META, hash.as_bytes())
+			.map_err(|e| HopError::Db(e.to_string()))?
+		{
+			Some(bytes) => HopEntryMeta::decode(&mut bytes.as_slice())
+				.map(Some)
+				.map_err(|e| HopError::Db(format!("decoding meta for {}: {e}", hex::encode(hash)))),
+			None => Ok(None),
+		}
+	}
+
+	/// Commit a single (key, optional value) op to the meta column.
+	fn commit_meta(&self, hash: &HopHash, value: Option<Vec<u8>>) -> Result<(), HopError> {
+		self.db
+			.commit([(COL_META, hash.as_bytes().to_vec(), value)])
+			.map_err(|e| HopError::Db(e.to_string()))
 	}
 
 	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
@@ -339,11 +577,6 @@ impl HopDataPool {
 	/// Path to the blob file for a given hash.
 	fn blob_path(&self, hash: &HopHash) -> PathBuf {
 		Self::entry_path(&self.data_dir, hash, BLOBS_DIR, BLOB_EXT)
-	}
-
-	/// Path to the meta file for a given hash.
-	fn meta_path(&self, hash: &HopHash) -> PathBuf {
-		Self::entry_path(&self.data_dir, hash, META_DIR, META_EXT)
 	}
 
 	/// Atomically write data to a file (write to a unique .tmp path, then rename).
@@ -419,18 +652,22 @@ impl HopDataPool {
 
 		let hash = H256(blake2_256(&data));
 
-		// First duplicate check (read lock only).
-		{
-			let index = self.index.lock();
-			if index.contains_key(&hash) {
+		// Best-effort duplicate check; authoritative check happens under rmw_lock.
+		match self.fetch_meta(&hash) {
+			Ok(Some(_)) => {
 				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
-			}
+			},
+			Ok(None) => (),
+			Err(e) => {
+				self.release_user_quota(&sender_id, accounted);
+				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+				return Err(e);
+			},
 		}
 
-		// Blob write is outside the lock — content-addressed bytes, racers
-		// produce identical output, rename is atomic.
+		// Blob first; an orphan from a crash before commit is reaped on next startup.
 		let blob_path = self.blob_path(&hash);
 		if let Err(e) = Self::write_atomic(&blob_path, &data) {
 			self.release_user_quota(&sender_id, accounted);
@@ -453,40 +690,45 @@ impl HopDataPool {
 			submit_timestamp,
 		);
 		let meta_bytes = meta.encode();
-		let meta_path = self.meta_path(&hash);
 
-		// Meta write goes under the index lock: meta is not content-addressed
-		// (sender_id, signer, signature, recipients, submit_timestamp differ
-		// between submitters), so racing writers would otherwise leave the
-		// loser's bytes on disk, diverging from the winner held in memory.
+		// Authoritative dup-check + commit (CAS substitute).
 		{
-			let mut index = self.index.lock();
-			if index.contains_key(&hash) {
-				tracing::debug!(
-					target: "hop",
-					hash = ?hex::encode(hash),
-					"Duplicate insert race lost; keeping winner's files"
-				);
-				// Drop `index` before `release_user_quota` takes `user_usage.read()`
-				// to keep the outer-to-inner lock order matching `cleanup_expired`.
-				drop(index);
-				self.release_user_quota(&sender_id, accounted);
-				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-				return Err(HopError::DuplicateEntry);
+			let _guard = self.rmw_lock.lock();
+			match self.fetch_meta(&hash) {
+				Ok(Some(_)) => {
+					drop(_guard);
+					// Winner's blob is byte-identical (content addressing); leave it.
+					tracing::debug!(
+						target: "hop",
+						hash = ?hex::encode(hash),
+						"Duplicate insert race lost; keeping winner's blob"
+					);
+					self.release_user_quota(&sender_id, accounted);
+					self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+					return Err(HopError::DuplicateEntry);
+				},
+				Ok(None) => (),
+				Err(e) => {
+					drop(_guard);
+					let _ = fs::remove_file(&blob_path);
+					self.release_user_quota(&sender_id, accounted);
+					self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+					return Err(e);
+				},
 			}
-			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				// Index doesn't contain this hash; remove the blob to avoid
-				// leaving an orphan.
+			if let Err(e) = self.commit_meta(&hash, Some(meta_bytes)) {
+				drop(_guard);
 				let _ = fs::remove_file(&blob_path);
-				drop(index);
 				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 				return Err(e);
 			}
-			index.insert(hash, meta);
-			self.publish_size_metrics(index.len());
 		}
+
+		self.expiry_index.write().insert((expires_at, hash));
+		self.entry_count.fetch_add(1, Ordering::Relaxed);
 		self.metrics.record_inserted_bytes(accounted);
+		self.publish_size_metrics();
 
 		tracing::info!(
 			target: "hop",
@@ -528,24 +770,42 @@ impl HopDataPool {
 		Ok(data)
 	}
 
-	/// Remove a corrupt entry from the index and best-effort delete its files.
+	/// Remove a corrupt entry's meta row and best-effort delete its blob.
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
 		let removed = {
-			let mut index = self.index.lock();
-			index.remove(hash).map(|meta| {
-				let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-				self.publish_size_metrics(index.len());
-				(meta.sender_id, accounted)
-			})
+			let _guard = self.rmw_lock.lock();
+			match self.fetch_meta(hash) {
+				Ok(Some(meta)) => {
+					if let Err(e) = self.commit_meta(hash, None) {
+						tracing::error!(
+							target: "hop",
+							hash = ?hex::encode(hash),
+							error = %e,
+							"Failed to delete corrupt meta row",
+						);
+						None
+					} else {
+						Some(meta)
+					}
+				},
+				Ok(None) => None,
+				Err(e) => {
+					tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read meta during corrupt-entry purge");
+					None
+				},
+			}
 		};
-		if let Some((sender_id, accounted)) = removed {
-			self.release_user_quota(&sender_id, accounted);
+		if let Some(meta) = removed {
+			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+			self.expiry_index.write().remove(&(meta.expires_at, *hash));
+			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			self.entry_count.fetch_sub(1, Ordering::Relaxed);
+			self.release_user_quota(&meta.sender_id, accounted);
 			self.metrics.record_removed(removal_reasons::CORRUPT, 1);
+			self.publish_size_metrics();
 		}
 		let _ = fs::remove_file(self.blob_path(hash));
-		let _ = fs::remove_file(self.meta_path(hash));
 	}
 
 	/// Read and verify a blob, returning `None` for missing entries and logging
@@ -568,13 +828,14 @@ impl HopDataPool {
 
 	/// Get data from the pool by content hash.
 	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
-		{
-			let index = self.index.lock();
-			if !index.contains_key(hash) {
-				return None;
-			}
+		match self.fetch_meta(hash) {
+			Ok(Some(_)) => self.read_or_log(hash),
+			Ok(None) => None,
+			Err(e) => {
+				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read meta for get");
+				None
+			},
 		}
-		self.read_or_log(hash)
 	}
 
 	/// Get data alongside the submitter's `MultiSigner`, `hop_submit` signature,
@@ -586,13 +847,16 @@ impl HopDataPool {
 		&self,
 		hash: &HopHash,
 	) -> Option<(Vec<u8>, MultiSigner, MultiSignature, u64)> {
-		let (signer, signature, submit_timestamp) = {
-			let index = self.index.lock();
-			let meta = index.get(hash)?;
-			(meta.signer.clone(), meta.signature.clone(), meta.submit_timestamp)
+		let meta = match self.fetch_meta(hash) {
+			Ok(Some(m)) => m,
+			Ok(None) => return None,
+			Err(e) => {
+				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read meta for get_with_auth");
+				return None;
+			},
 		};
 		let data = self.read_or_log(hash)?;
-		Some((data, signer, signature, submit_timestamp))
+		Some((data, meta.signer, meta.signature, meta.submit_timestamp))
 	}
 
 	/// Decode `signature` and return the index of the matching recipient in
@@ -624,18 +888,15 @@ impl HopDataPool {
 	///
 	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		{
-			let index = self.index.lock();
-			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			// Map NotRecipient → NotFound so callers cannot probe whether a hash
-			// exists by observing different error codes.
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)
-				.map_err(|_| HopError::NotFound)?;
+		let meta = self.fetch_meta(hash)?.ok_or(HopError::NotFound)?;
+		// Map NotRecipient → NotFound so callers cannot probe whether a hash
+		// exists by observing different error codes.
+		let idx = Self::find_recipient_idx(&meta, hash, signature, HOP_CLAIM_CONTEXT)
+			.map_err(|_| HopError::NotFound)?;
 
-			// If this recipient already acked, the data may be gone.
-			if meta.recipients[idx].claimed {
-				return Err(HopError::AlreadyClaimed);
-			}
+		// If this recipient already acked, the data may be gone.
+		if meta.recipients[idx].claimed {
+			return Err(HopError::AlreadyClaimed);
 		}
 		// Read blob from disk and verify its content hash. May be gone if
 		// concurrently acked and deleted, in which case we surface NotFound.
@@ -647,22 +908,20 @@ impl HopDataPool {
 	///
 	/// Idempotent: acking a recipient that already acked returns `Ok(())`.
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
-		// Phase 1: idempotent fast path under read lock.
+		// Phase 1: idempotent fast-path read; no lock acquired.
 		{
-			let index = self.index.lock();
-			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+			let meta = self.fetch_meta(hash)?.ok_or(HopError::NotFound)?;
+			let idx = Self::find_recipient_idx(&meta, hash, signature, HOP_ACK_CONTEXT)
 				.map_err(|_| HopError::NotFound)?;
 			if meta.recipients[idx].claimed {
 				return Ok(());
 			}
 		}
 
-		// Phase 2: re-run the lookup against the current meta — the entry could
-		// have been removed and re-submitted with a different recipient list since Phase 1.
-		let mut index = self.index.lock();
-		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+		// Phase 2: RMW under rmw_lock; re-run the lookup as the meta may have changed.
+		let _guard = self.rmw_lock.lock();
+		let mut meta = self.fetch_meta(hash)?.ok_or(HopError::NotFound)?;
+		let idx = Self::find_recipient_idx(&meta, hash, signature, HOP_ACK_CONTEXT)
 			.map_err(|_| HopError::NotFound)?;
 
 		if meta.recipients[idx].claimed {
@@ -671,20 +930,22 @@ impl HopDataPool {
 
 		meta.recipients[idx].claimed = true;
 
-		// If all recipients have acked, remove the entry entirely.
 		if meta.recipients.iter().all(|r| r.claimed) {
 			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 			let sender = meta.sender_id;
-			index.remove(hash);
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			self.publish_size_metrics(index.len());
-			self.release_user_quota(&sender, accounted);
-			drop(index);
-			self.metrics.record_removed(removal_reasons::ACKED, 1);
+			let expires_at = meta.expires_at;
+			self.commit_meta(hash, None)?;
+			drop(_guard);
 
-			// Delete files from disk (best-effort; orphans cleaned on restart).
+			self.expiry_index.write().remove(&(expires_at, *hash));
+			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			self.entry_count.fetch_sub(1, Ordering::Relaxed);
+			self.release_user_quota(&sender, accounted);
+			self.metrics.record_removed(removal_reasons::ACKED, 1);
+			self.publish_size_metrics();
+
+			// Blob delete is best-effort; orphans get reaped on restart.
 			let _ = fs::remove_file(self.blob_path(hash));
-			let _ = fs::remove_file(self.meta_path(hash));
 
 			tracing::info!(
 				target: "hop",
@@ -693,13 +954,8 @@ impl HopDataPool {
 			);
 		} else {
 			let claimed_count = meta.recipients.iter().filter(|r| r.claimed).count();
-			// Persist updated claimed state to disk.
-			let meta_bytes = meta.encode();
-			let meta_path = self.meta_path(hash);
-			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
-			}
-			drop(index);
+			self.commit_meta(hash, Some(meta.encode()))?;
+			drop(_guard);
 
 			tracing::debug!(
 				target: "hop",
@@ -715,93 +971,126 @@ impl HopDataPool {
 	/// Check if data exists in the pool.
 	#[cfg(test)]
 	pub fn has(&self, hash: &HopHash) -> bool {
-		let index = self.index.lock();
-		index.contains_key(hash)
+		matches!(self.fetch_meta(hash), Ok(Some(_)))
 	}
 
 	/// Remove data from the pool.
 	#[cfg(test)]
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
-			let mut index = self.index.lock();
-			index.remove(hash)
+			let _guard = self.rmw_lock.lock();
+			let Some(meta) = self.fetch_meta(hash)? else {
+				return Err(HopError::NotFound);
+			};
+			self.commit_meta(hash, None)?;
+			meta
 		};
 
-		if let Some(meta) = meta {
-			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			self.release_user_quota(&meta.sender_id, accounted);
+		let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+		self.expiry_index.write().remove(&(meta.expires_at, *hash));
+		self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+		self.entry_count.fetch_sub(1, Ordering::Relaxed);
+		self.release_user_quota(&meta.sender_id, accounted);
 
-			// Delete files from disk (best-effort).
-			let _ = fs::remove_file(self.blob_path(hash));
-			let _ = fs::remove_file(self.meta_path(hash));
+		let _ = fs::remove_file(self.blob_path(hash));
 
-			tracing::debug!(
-				target: "hop",
-				hash = ?hex::encode(hash),
-				"Data removed from pool"
-			);
+		tracing::debug!(
+			target: "hop",
+			hash = ?hex::encode(hash),
+			"Data removed from pool"
+		);
 
-			Ok(())
-		} else {
-			Err(HopError::NotFound)
-		}
+		Ok(())
 	}
 
 	/// Get pool status.
 	pub fn status(&self) -> PoolStatus {
-		let index = self.index.lock();
 		PoolStatus {
-			entry_count: index.len(),
+			entry_count: self.entry_count.load(Ordering::Relaxed) as usize,
 			total_bytes: self.current_size.load(Ordering::Relaxed),
 			max_bytes: self.max_size,
 		}
 	}
 
-	/// Remove expired entries and release their user quotas.
-	/// Returns the total bytes freed.
+	/// Remove expired entries, release their quotas, return total bytes freed.
 	///
-	/// Processes entries in bounded batches to keep the index write lock from
-	/// being held across the full HashMap on huge pools. After all batches the
-	/// per-sender `user_usage` map is GC'd in a single pass.
+	/// Uses `expiry_index` to enumerate expired hashes in O(K), not O(N) over
+	/// the meta column. Entries are processed in batches so a long outage
+	/// can't buffer the whole expired set in RAM before any progress lands.
 	///
-	/// `promotion_buffer_secs` does not affect what is cleaned up. As in
-	/// [`Self::get_promotable`] the caller owns the promotion window; here it
-	/// only scopes the backlog gauge, snapshot from the phase-4 pass.
+	/// `promotion_buffer_secs` does not affect what is cleaned up; as in
+	/// [`Self::get_promotable`] the caller owns the promotion window. Here it
+	/// only scopes the promotion-backlog gauge, snapshot after the sweep.
 	pub fn cleanup_expired(&self, promotion_buffer_secs: u64) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
-		let mut total_freed: u64 = 0;
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
-		loop {
-			// Phase 1: Under index write lock — collect and remove up to one
-			// batch of expired entries. Bounded so the lock hold scales with
-			// batch size, not pool size.
-			let expired: Vec<(HopHash, HopEntryMeta)> = {
-				let mut index = self.index.lock();
-				let expired_keys: Vec<HopHash> = index
-					.iter()
-					.filter(|(_, m)| now_secs >= m.expires_at)
-					.map(|(h, _)| *h)
-					.take(CLEANUP_BATCH_SIZE)
-					.collect();
+		let mut total_freed: u64 = 0;
 
-				expired_keys
-					.into_iter()
-					.filter_map(|hash| index.remove(&hash).map(|meta| (hash, meta)))
+		loop {
+			// Snapshot one batch of expired index entries. The range is
+			// inclusive of `(now, max-hash)` so an entry expiring exactly at
+			// `now` is reaped this tick.
+			let batch: Vec<(u64, HopHash)> = {
+				let guard = self.expiry_index.read();
+				guard
+					.range((Bound::Unbounded, Bound::Included(&(now_secs, H256([0xff; 32])))))
+					.take(CLEANUP_BATCH_SIZE)
+					.copied()
 					.collect()
 			};
 
-			if expired.is_empty() {
+			if batch.is_empty() {
 				break;
 			}
 
-			// Phase 2: Update counters and batch user-quota release. Entries
-			// expiring unpromoted are the data-loss case; count them separately.
+			// Phase 2: re-read under rmw_lock (entries may have changed since
+			// the snapshot), commit deletions, collect metas for accounting.
+			let mut processed: Vec<(HopHash, HopEntryMeta)> = Vec::with_capacity(batch.len());
+			{
+				let _guard = self.rmw_lock.lock();
+				let mut ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::with_capacity(batch.len());
+				for (_, hash) in &batch {
+					match self.fetch_meta(hash) {
+						Ok(Some(meta)) if now_secs >= meta.expires_at => {
+							ops.push((COL_META, hash.as_bytes().to_vec(), None));
+							processed.push((*hash, meta));
+						},
+						Ok(_) => (), // gone or refreshed by a concurrent op
+						Err(e) => {
+							tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "cleanup_expired: failed to re-read meta");
+						},
+					}
+				}
+				if !ops.is_empty() {
+					if let Err(e) = self.db.commit(ops) {
+						tracing::error!(target: "hop", error = %e, "cleanup_expired: batch commit failed");
+						break;
+					}
+				}
+			}
+
+			// Phase 3: drop every batch entry from the index — both processed
+			// ones and any stale snapshots from a racing op — to guarantee
+			// forward progress. Releasing the read guard before taking write
+			// avoids a deadlock since the snapshot already finished above.
+			{
+				let mut index = self.expiry_index.write();
+				for entry in &batch {
+					index.remove(entry);
+				}
+			}
+
+			if processed.is_empty() {
+				continue;
+			}
+
+			// Entries expiring unpromoted are the data-loss case; count them
+			// separately from ones that made it on-chain before expiry.
 			let mut freed = 0u64;
 			let mut promoted = 0u64;
 			let mut unpromoted = 0u64;
-			for (_, meta) in &expired {
+			for (_, meta) in &processed {
 				freed =
 					freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
 				if meta.promoted {
@@ -811,13 +1100,14 @@ impl HopDataPool {
 				}
 			}
 			self.current_size.fetch_sub(freed, Ordering::Relaxed);
+			self.entry_count.fetch_sub(processed.len() as u64, Ordering::Relaxed);
 			total_freed = total_freed.saturating_add(freed);
 			self.metrics.record_removed(removal_reasons::EXPIRED_PROMOTED, promoted);
 			self.metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, unpromoted);
 
 			{
 				let usage = self.user_usage.read();
-				for (_, meta) in &expired {
+				for (_, meta) in &processed {
 					if let Some(counter) = usage.get(&meta.sender_id) {
 						let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 						saturating_release(counter, accounted);
@@ -825,45 +1115,49 @@ impl HopDataPool {
 				}
 			}
 
-			// Phase 3: Delete files from disk (best-effort, no locks held).
-			for (hash, _) in &expired {
+			for (hash, _) in &processed {
 				let _ = fs::remove_file(self.blob_path(hash));
-				let _ = fs::remove_file(self.meta_path(hash));
 			}
 		}
 
-		// Phase 4: Reclaim per-sender counters whose owners have no live
-		// entries. Holding `index.lock()` and `user_usage.write()` together
-		// closes the dominant TOCTOU race (concurrent writers cannot create a
-		// new index entry under our held index lock; concurrent
-		// `release_user_quota` only takes `user_usage.read()` which is
-		// excluded). Build a live-sender set in one index pass so retain is
-		// O(senders + entries) instead of O(senders × entries). The same pass
-		// counts the promotion backlog and publishes the size gauges.
-		let backlog = {
-			let index = self.index.lock();
+		// Phase 4: drop per-sender counters that have settled to 0. A live
+		// sender's counter is kept above 0 by `charge_user`'s read guard,
+		// which excludes this write guard, so usage=0 means no live entries.
+		{
 			let mut usage = self.user_usage.write();
-			let mut live: HashSet<&SenderId> = HashSet::new();
-			let mut backlog = 0u64;
-			// The window test exists only to feed a gauge.
-			let count_backlog = self.metrics.is_enabled();
-			for meta in index.values() {
-				live.insert(&meta.sender_id);
-				if count_backlog && Self::in_promotion_window(meta, now_secs, promotion_buffer_secs)
-				{
-					backlog = backlog.saturating_add(1);
-				}
-			}
-			usage.retain(|sender_id, counter| {
-				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
-			});
-			self.publish_size_metrics(index.len());
-			backlog
-		};
+			usage.retain(|_, counter| counter.load(Ordering::Relaxed) > 0);
+		}
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
 		self.rate_limiter.evict_stale();
 
+		// Snapshot the size gauges and the promotion backlog. The backlog walk
+		// re-reads the meta column for every entry in the promotion window, so
+		// it is gated on metrics being enabled; `promotion_buffer_secs` only
+		// scopes this gauge and does not change what was cleaned up above.
+		self.publish_size_metrics();
+		let backlog = if self.metrics.is_enabled() {
+			let frontier = now_secs.saturating_add(promotion_buffer_secs);
+			let candidates: Vec<HopHash> = {
+				let guard = self.expiry_index.read();
+				guard
+					.range((Bound::Unbounded, Bound::Included(&(frontier, H256([0xff; 32])))))
+					.map(|(_, hash)| *hash)
+					.collect()
+			};
+			candidates
+				.into_iter()
+				.filter(|hash| {
+					matches!(
+						self.fetch_meta(hash),
+						Ok(Some(meta))
+							if Self::in_promotion_window(&meta, now_secs, promotion_buffer_secs)
+					)
+				})
+				.count() as u64
+		} else {
+			0
+		};
 		self.metrics.set_promotion_backlog(backlog);
 
 		total_freed
@@ -880,6 +1174,10 @@ impl HopDataPool {
 	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
 	/// Returns up to `limit` hashes. Use [`Self::get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
+	///
+	/// Uses `expiry_index` to walk only entries inside the promotion window;
+	/// the meta column is touched only for candidates that pass the window
+	/// filter, so cost scales with the window size, not the pool.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
@@ -887,44 +1185,54 @@ impl HopDataPool {
 		limit: usize,
 	) -> Vec<HopHash> {
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-		let index = self.index.lock();
-		// `take(limit)` stays lazy: this holds the index lock, so a full scan
-		// would block inserts and acks. The backlog gauge is snapshot in
-		// `cleanup_expired` instead.
-		index
-			.iter()
-			.filter(|(_, meta)| {
-				Self::in_promotion_window(meta, now_secs, buffer_secs) &&
-					current_block >= meta.next_promotion_attempt_at
-			})
-			.map(|(h, _)| *h)
-			.take(limit)
-			.collect()
+		let frontier = now_secs.saturating_add(buffer_secs);
+
+		// Snapshot candidate hashes inside the window so the read guard isn't
+		// held across `fetch_meta` calls.
+		let candidates: Vec<HopHash> = {
+			let guard = self.expiry_index.read();
+			guard
+				.range((Bound::Unbounded, Bound::Included(&(frontier, H256([0xff; 32])))))
+				.map(|(_, hash)| *hash)
+				.collect()
+		};
+
+		let mut out: Vec<HopHash> = Vec::new();
+		for hash in candidates {
+			if out.len() >= limit {
+				break;
+			}
+			match self.fetch_meta(&hash) {
+				Ok(Some(meta))
+					if Self::in_promotion_window(&meta, now_secs, buffer_secs) &&
+						current_block >= meta.next_promotion_attempt_at =>
+				{
+					out.push(hash);
+				},
+				_ => (),
+			}
+		}
+		out
 	}
 
 	/// Mark an entry as promoted to permanent on-chain storage.
-	/// Persists the updated metadata to disk.
 	pub fn mark_promoted(&self, hash: &HopHash) {
-		let mut index = self.index.lock();
-		if let Some(meta) = index.get_mut(hash) {
-			// Count the transition, not the call: this setter is idempotent.
-			let newly_promoted = !meta.promoted;
-			meta.promoted = true;
-			let meta_bytes = meta.encode();
-			let meta_path = self.meta_path(hash);
-			drop(index);
-			if newly_promoted {
-				self.metrics.record_promotion_confirmed();
-			}
-
-			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				tracing::error!(
-					target: "hop",
-					hash = ?hex::encode(hash),
-					error = %e,
-					"Failed to persist promoted state"
-				);
-			}
+		let _guard = self.rmw_lock.lock();
+		let Ok(Some(mut meta)) = self.fetch_meta(hash) else { return };
+		// Count the transition, not the call: this setter is idempotent.
+		let newly_promoted = !meta.promoted;
+		meta.promoted = true;
+		if let Err(e) = self.commit_meta(hash, Some(meta.encode())) {
+			tracing::error!(
+				target: "hop",
+				hash = ?hex::encode(hash),
+				error = %e,
+				"Failed to persist promoted state"
+			);
+			return;
+		}
+		if newly_promoted {
+			self.metrics.record_promotion_confirmed();
 		}
 	}
 
@@ -943,23 +1251,18 @@ impl HopDataPool {
 		current_block: HopBlockNumber,
 		check_interval_blocks: u32,
 	) {
-		let mut index = self.index.lock();
-		if let Some(meta) = index.get_mut(hash) {
-			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
-			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
-			meta.next_promotion_attempt_at = current_block.saturating_add(backoff);
-			let meta_bytes = meta.encode();
-			let meta_path = self.meta_path(hash);
-			drop(index);
-
-			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				tracing::error!(
-					target: "hop",
-					hash = ?hex::encode(hash),
-					error = %e,
-					"Failed to persist promotion-attempt state"
-				);
-			}
+		let _guard = self.rmw_lock.lock();
+		let Ok(Some(mut meta)) = self.fetch_meta(hash) else { return };
+		meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
+		let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
+		meta.next_promotion_attempt_at = current_block.saturating_add(backoff);
+		if let Err(e) = self.commit_meta(hash, Some(meta.encode())) {
+			tracing::error!(
+				target: "hop",
+				hash = ?hex::encode(hash),
+				error = %e,
+				"Failed to persist promotion-attempt state"
+			);
 		}
 	}
 }
@@ -1077,101 +1380,46 @@ mod tests {
 		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
 	}
 
-	#[test]
-	fn metrics_track_insert_ack_and_expiry() {
-		let registry = prometheus_endpoint::Registry::new();
-		let dir = TempDir::new().unwrap();
-		let pool = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
-			0, // entries expire immediately
-			dir.path().to_path_buf(),
-			RateLimitConfig::disabled(),
-			HopMetrics::new(Some(&registry)).unwrap(),
-		)
-		.unwrap();
-		let (pair, signer) = test_recipient();
-
-		// Insert + full ack removes the entry under `acked`.
-		let hash = pool
-			.insert(
-				vec![1u8; 50],
-				bv(vec![signer.clone()]),
-				SENDER_A,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
-			.unwrap();
-		assert_eq!(pool.metrics().pool_gauges(), (1, acct(50, 1)));
-		let ack = sign_ed(&pair, HOP_ACK_CONTEXT, &hash);
-		pool.ack(&hash, &ack).unwrap();
-		assert_eq!(pool.metrics().removed_count(removal_reasons::ACKED), 1);
-		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
-
-		// An entry expiring without promotion counts as data loss.
-		pool.insert(vec![2u8; 30], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
-		pool.cleanup_expired(0);
-		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_UNPROMOTED), 1);
-		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_PROMOTED), 0);
-		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
-	}
-
-	/// Pool with registered metrics, so counters can be read back.
-	fn make_metered_pool(retention_secs: u64) -> (HopDataPool, TempDir) {
-		let registry = prometheus_endpoint::Registry::new();
-		let dir = TempDir::new().unwrap();
-		let pool = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
-			retention_secs,
-			dir.path().to_path_buf(),
-			RateLimitConfig::disabled(),
-			HopMetrics::new(Some(&registry)).unwrap(),
-		)
-		.unwrap();
-		(pool, dir)
-	}
-
-	#[test]
-	fn backlog_gauge_counts_backing_off_entries() {
-		let (pool, _dir) = make_metered_pool(/* retention = */ 100);
+	/// A `HopEntryMeta` matching `data` for `sender`, expiring far in the future.
+	fn legacy_meta(data: &[u8], sender: SenderId) -> HopEntryMeta {
 		let (_, signer) = test_recipient();
-		let buffer = 300_u64;
-		let hash = pool
-			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
-
-		// Outside the window with a buffer of 0, inside it with 300s.
-		pool.cleanup_expired(0);
-		assert_eq!(pool.metrics().promotion_backlog(), 0);
-
-		pool.cleanup_expired(buffer);
-		assert_eq!(pool.metrics().promotion_backlog(), 1);
-
-		// Backing off drops it from `get_promotable` but not from the backlog.
-		pool.record_promotion_attempt(&hash, 60, /* check_interval_blocks = */ 10);
-		assert!(pool.get_promotable(60, buffer, 10).is_empty());
-		pool.cleanup_expired(buffer);
-		assert_eq!(pool.metrics().promotion_backlog(), 1);
-
-		pool.mark_promoted(&hash);
-		pool.cleanup_expired(buffer);
-		assert_eq!(pool.metrics().promotion_backlog(), 0);
+		HopEntryMeta::new(
+			data.len() as u64,
+			u64::MAX,
+			bv(vec![signer]),
+			sender,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
 	}
 
-	#[test]
-	fn confirmed_counter_ignores_repeated_mark_promoted() {
-		let (pool, _dir) = make_metered_pool(100);
-		let (_, signer) = test_recipient();
-		let hash = pool
-			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
+	/// Lay down a pre-KV-store entry by hand: `blobs/{shard}/{hash}.blob` plus a
+	/// SCALE-encoded `meta/{shard}/{hash}.meta` companion file, with no `meta-db/`
+	/// involved. Returns the content hash.
+	fn write_legacy_entry(dir: &Path, data: &[u8], meta_bytes: &[u8]) -> HopHash {
+		let hash = H256(blake2_256(data));
+		let blob_path = HopDataPool::entry_path(dir, &hash, BLOBS_DIR, BLOB_EXT);
+		fs::create_dir_all(blob_path.parent().unwrap()).unwrap();
+		fs::write(&blob_path, data).unwrap();
+		write_legacy_meta_only(dir, &hash, meta_bytes);
+		hash
+	}
 
-		pool.mark_promoted(&hash);
-		pool.mark_promoted(&hash);
-		assert_eq!(pool.metrics().promotions_confirmed(), 1, "only the transition counts");
+	/// Write only the legacy `.meta` file for `hash`, with no blob.
+	fn write_legacy_meta_only(dir: &Path, hash: &HopHash, meta_bytes: &[u8]) {
+		let meta_path = HopDataPool::entry_path(dir, hash, LEGACY_META_DIR, LEGACY_META_EXT);
+		fs::create_dir_all(meta_path.parent().unwrap()).unwrap();
+		fs::write(&meta_path, meta_bytes).unwrap();
+	}
+
+	/// Read the raw schema version row, or `None` if it is absent.
+	fn read_db_version(dir: &Path) -> Option<u32> {
+		let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&dir.join(META_DB_DIR)))
+			.unwrap();
+		db.get(COL_DB_META, KEY_DB_VERSION)
+			.unwrap()
+			.map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
 	}
 
 	#[test]
@@ -1280,9 +1528,8 @@ mod tests {
 		pool.remove(&hash).unwrap();
 		assert!(!pool.has(&hash));
 
-		// Files should be cleaned up.
+		// Blob file should be cleaned up; meta lives in parity-db (not a file).
 		assert!(!pool.blob_path(&hash).exists());
-		assert!(!pool.meta_path(&hash).exists());
 	}
 
 	#[test]
@@ -1751,6 +1998,7 @@ mod tests {
 	#[test]
 	fn test_corrupt_meta_cleanup() {
 		let dir = TempDir::new().unwrap();
+		// Boot once to create the parity-db on-disk layout.
 		{
 			let _pool = HopDataPool::new(
 				1024 * 1024,
@@ -1763,10 +2011,18 @@ mod tests {
 			.unwrap();
 		}
 
-		let fake_hash = "bb".to_string() + &"cc".repeat(15);
-		let meta_path = dir.path().join("meta").join("bb").join(format!("{}.meta", fake_hash));
-		fs::write(&meta_path, b"not valid SCALE data").unwrap();
-		assert!(meta_path.exists());
+		// Inject an undecodable meta row directly into the column.
+		let fake_hash = H256([0xbbu8; 32]);
+		{
+			let db_path = dir.path().join(META_DB_DIR);
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&db_path)).unwrap();
+			db.commit([(
+				COL_META,
+				fake_hash.as_bytes().to_vec(),
+				Some(b"not valid SCALE data".to_vec()),
+			)])
+			.unwrap();
+		}
 
 		let pool = HopDataPool::new(
 			1024 * 1024,
@@ -1777,7 +2033,8 @@ mod tests {
 			HopMetrics::disabled(),
 		)
 		.unwrap();
-		assert!(!meta_path.exists());
+		// The corrupt row should have been dropped on startup.
+		assert!(!pool.has(&fake_hash));
 		assert_eq!(pool.status().entry_count, 0);
 	}
 
@@ -2035,8 +2292,8 @@ mod tests {
 		use std::{sync::Barrier, thread};
 
 		// Two threads insert identical content concurrently. The race-loser must
-		// not delete the winner's blob/meta files; the winning hash must remain
-		// readable via claim().
+		// not delete the winner's blob or evict the winner's meta row; the
+		// winning hash must remain readable via claim().
 		let (kp, signer) = test_recipient();
 		let (pool, _dir) = make_pool(1024 * 1024, 100);
 		let pool = Arc::new(pool);
@@ -2073,8 +2330,8 @@ mod tests {
 		use std::{sync::Barrier, thread};
 
 		// Same content, different senders. The race-loser's meta must not end
-		// up on disk; otherwise restart recovery would silently load it as
-		// canonical for the entry.
+		// up in the parity-db column; otherwise restart recovery would silently
+		// load it as canonical for the entry.
 		let dir = TempDir::new().unwrap();
 		let pool = Arc::new(
 			HopDataPool::new(
@@ -2090,31 +2347,38 @@ mod tests {
 
 		let signer_a = MultiSigner::Ed25519(ed25519::Pair::from_seed(&[11u8; 32]).public());
 		let signer_b = MultiSigner::Ed25519(ed25519::Pair::from_seed(&[22u8; 32]).public());
+		let auth_a = dummy_auth();
+		let auth_b = {
+			let pair = ed25519::Pair::from_seed(&[33u8; 32]);
+			(MultiSigner::Ed25519(pair.public()), MultiSignature::Ed25519(pair.sign(b"x")))
+		};
 		let data = vec![0xCDu8; 4096];
 
 		let barrier = Arc::new(Barrier::new(2));
-		let (p1, d1, b1, s1) = (pool.clone(), data.clone(), barrier.clone(), signer_a.clone());
+		let (p1, d1, b1, s1, a1) =
+			(pool.clone(), data.clone(), barrier.clone(), signer_a.clone(), auth_a.clone());
 		let h1 = thread::spawn(move || {
 			b1.wait();
-			p1.insert(d1, bv(vec![s1]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			p1.insert(d1, bv(vec![s1]), SENDER_A, a1.0, a1.1, 0)
 		});
-		let (p2, d2, b2, s2) = (pool.clone(), data.clone(), barrier.clone(), signer_b.clone());
+		let (p2, d2, b2, s2, a2) =
+			(pool.clone(), data.clone(), barrier.clone(), signer_b.clone(), auth_b.clone());
 		let h2 = thread::spawn(move || {
 			b2.wait();
-			p2.insert(d2, bv(vec![s2]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
+			p2.insert(d2, bv(vec![s2]), SENDER_B, a2.0, a2.1, 0)
 		});
 
 		let r1 = h1.join().unwrap();
 		let r2 = h2.join().unwrap();
 
-		let (winner_hash, winner_sender) = match (&r1, &r2) {
-			(Ok(h), Err(HopError::DuplicateEntry)) => (*h, SENDER_A),
-			(Err(HopError::DuplicateEntry), Ok(h)) => (*h, SENDER_B),
+		let (winner_hash, winner_sender_auth) = match (&r1, &r2) {
+			(Ok(h), Err(HopError::DuplicateEntry)) => (*h, auth_a.0.clone()),
+			(Err(HopError::DuplicateEntry), Ok(h)) => (*h, auth_b.0.clone()),
 			other => panic!("expected exactly one winner and one DuplicateEntry, got {other:?}"),
 		};
 
-		// Simulate restart: drop the pool, reopen from the same data dir so
-		// recovery rebuilds the in-memory index from `.meta` files on disk.
+		// Simulate restart: drop the pool, reopen the same data dir so the new
+		// pool reconstructs its caches from the parity-db meta column.
 		drop(pool);
 		let pool2 = HopDataPool::new(
 			1024 * 1024,
@@ -2126,15 +2390,11 @@ mod tests {
 		)
 		.unwrap();
 
-		let recovered_sender = pool2
-			.index
-			.lock()
-			.get(&winner_hash)
-			.expect("winner's entry must survive restart")
-			.sender_id;
+		let (_data, recovered_auth_signer, _sig, _ts) =
+			pool2.get_with_auth(&winner_hash).expect("winner's entry must survive restart");
 		assert_eq!(
-			recovered_sender, winner_sender,
-			"on-disk meta diverged from the winning insert; loser's meta overwrote the winner's",
+			recovered_auth_signer, winner_sender_auth,
+			"meta in parity-db diverged from the winning insert; loser's meta overwrote the winner's",
 		);
 	}
 
@@ -2329,25 +2589,201 @@ mod tests {
 
 	#[test]
 	fn test_meta_version_mismatch_rejected() {
-		// Persist a HopEntryMeta with version 0 (an older / future schema), then
-		// boot a fresh pool over the same dir and assert the .meta is wiped and
-		// not surfaced in the in-memory index.
+		// Persist a HopEntryMeta with version 0 (an older / future schema) into
+		// the meta column, write its matching blob, then boot a fresh pool and
+		// assert the row is wiped, the blob is reaped, and the entry never
+		// surfaces.
 		let dir = TempDir::new().unwrap();
+
+		// Boot once to create the parity-db layout.
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+		}
+
 		let (_, signer) = test_recipient();
 		let recipients = bv(vec![signer.clone()]);
 		let mut meta =
 			HopEntryMeta::new(100, 0, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 		meta.version = 0;
 
-		let fake_hash = "ee".to_string() + &"ff".repeat(15);
-		let meta_dir = dir.path().join("meta").join("ee");
-		let blob_dir = dir.path().join("blobs").join("ee");
-		fs::create_dir_all(&meta_dir).unwrap();
-		fs::create_dir_all(&blob_dir).unwrap();
-		let meta_path = meta_dir.join(format!("{}.meta", fake_hash));
-		let blob_path = blob_dir.join(format!("{}.blob", fake_hash));
-		fs::write(&meta_path, meta.encode()).unwrap();
+		let fake_hash = H256([0xeeu8; 32]);
+		let blob_shard = dir.path().join(BLOBS_DIR).join("ee");
+		fs::create_dir_all(&blob_shard).unwrap();
+		let blob_path = blob_shard.join(format!("{}.blob", hex::encode(fake_hash)));
 		fs::write(&blob_path, b"x").unwrap();
+
+		{
+			let db_path = dir.path().join(META_DB_DIR);
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&db_path)).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
+				.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+		assert!(!pool.has(&fake_hash), "stale-version row should be dropped");
+		assert!(!blob_path.exists(), "matching .blob should also be removed");
+		assert_eq!(pool.status().entry_count, 0);
+	}
+
+	#[test]
+	fn test_meta_row_without_blob_dropped_on_recovery() {
+		// A crash can persist a blob unlink but lose the async parity-db
+		// meta-delete, leaving a valid current-version meta row whose blob is
+		// gone. Boot a pool with exactly such a row and assert it is dropped and
+		// its pool + user quota is not accounted, rather than leaking until
+		// expiry.
+		let dir = TempDir::new().unwrap();
+
+		// Boot once to create the parity-db layout.
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+		}
+
+		let (_, signer) = test_recipient();
+		let recipients = bv(vec![signer]);
+		// Current-version meta (as `HopEntryMeta::new` produces), so only the
+		// missing-blob check can reject it.
+		let meta =
+			HopEntryMeta::new(100, 0, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+		assert_eq!(meta.version, HOP_META_VERSION);
+
+		// Commit the meta row but deliberately write no blob.
+		let fake_hash = H256([0xabu8; 32]);
+		{
+			let db_path = dir.path().join(META_DB_DIR);
+			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
+			opts.columns[COL_META as usize].btree_index = true;
+			let db = parity_db::Db::open_or_create(&opts).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
+				.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&fake_hash), "meta row with no blob should be dropped");
+		assert_eq!(pool.status().entry_count, 0, "dropped row must not count toward entries");
+		assert_eq!(pool.status().total_bytes, 0, "dropped row must not hold pool quota");
+		// The meta row is actually gone from the DB, not just uncounted.
+		assert!(matches!(pool.fetch_meta(&fake_hash), Ok(None)));
+	}
+
+	#[test]
+	fn test_metrics_track_insert_promotion_and_expiry() {
+		// Registered metrics so counters read back (disabled() metrics are no-ops).
+		let dir = TempDir::new().unwrap();
+		let registry = prometheus_endpoint::Registry::new();
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			// retention =
+			0, // entries expire immediately
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
+		)
+		.unwrap();
+		let (_, signer) = test_recipient();
+
+		// Insert publishes the size gauges.
+		let hash = pool
+			.insert(
+				vec![1u8; 50],
+				bv(vec![signer.clone()]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
+		assert_eq!(pool.metrics().pool_gauges(), (1, acct(50, 1)));
+
+		// Promotion is counted once, on the false->true transition.
+		pool.mark_promoted(&hash);
+		pool.mark_promoted(&hash);
+		assert_eq!(pool.metrics().promotions_confirmed(), 1);
+
+		// Expiring a promoted entry counts as EXPIRED_PROMOTED and clears gauges.
+		pool.cleanup_expired(0);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_PROMOTED), 1);
+		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+
+		// An unpromoted entry expiring is the data-loss case: EXPIRED_UNPROMOTED.
+		pool.insert(vec![2u8; 30], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+		pool.cleanup_expired(0);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_UNPROMOTED), 1);
+		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+	}
+
+	#[test]
+	fn test_metrics_record_startup_dropped() {
+		// Boot once to lay down the DB, commit a meta row with no sibling blob,
+		// then reopen with registered metrics and assert the dropped row is
+		// counted under STARTUP_DROPPED.
+		let dir = TempDir::new().unwrap();
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+		}
+
+		let (_, signer) = test_recipient();
+		let meta = HopEntryMeta::new(
+			100,
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		);
+		let fake_hash = H256([0xcdu8; 32]);
+		{
+			let db_path = dir.path().join(META_DB_DIR);
+			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
+			opts.columns[COL_META as usize].btree_index = true;
+			let db = parity_db::Db::open_or_create(&opts).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
+				.unwrap();
+		}
 
 		let registry = prometheus_endpoint::Registry::new();
 		let pool = HopDataPool::new(
@@ -2359,10 +2795,9 @@ mod tests {
 			HopMetrics::new(Some(&registry)).unwrap(),
 		)
 		.unwrap();
-		assert!(!meta_path.exists(), "stale-version .meta should be removed");
-		assert!(!blob_path.exists(), "matching .blob should also be removed");
-		assert_eq!(pool.status().entry_count, 0);
+
 		assert_eq!(pool.metrics().removed_count(removal_reasons::STARTUP_DROPPED), 1);
+		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
 	}
 
 	#[test]
@@ -2404,5 +2839,305 @@ mod tests {
 			pool.get_promotable(now + 10_000, buffer, 10).is_empty(),
 			"entry should give up after MAX_PROMOTION_ATTEMPTS"
 		);
+	}
+
+	#[test]
+	fn test_legacy_meta_files_migrated() {
+		// The upgrade path: a data dir holding only the pre-KV-store layout, no
+		// `meta-db/` at all. Both entries must survive the first boot rather
+		// than being reaped as orphans.
+		let dir = TempDir::new().unwrap();
+		let data_a = vec![1u8; 100];
+		let data_b = vec![2u8; 250];
+		let hash_a =
+			write_legacy_entry(dir.path(), &data_a, &legacy_meta(&data_a, SENDER_A).encode());
+		let hash_b =
+			write_legacy_entry(dir.path(), &data_b, &legacy_meta(&data_b, SENDER_B).encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash_a));
+		assert!(pool.has(&hash_b));
+		assert_eq!(pool.get(&hash_a).unwrap(), data_a);
+		assert_eq!(pool.get(&hash_b).unwrap(), data_b);
+		assert_eq!(pool.status().entry_count, 2);
+		assert_eq!(pool.status().total_bytes, acct(100, 1) + acct(250, 1));
+		assert_eq!(user_usage(&pool, &SENDER_A), acct(100, 1));
+		assert_eq!(user_usage(&pool, &SENDER_B), acct(250, 1));
+		// The legacy tree is reclaimed, not left to leak on disk.
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_survives_second_restart() {
+		// Restart durability must hold across the upgrade boundary, not just for
+		// the boot that performed the import.
+		let dir = TempDir::new().unwrap();
+		let data = vec![7u8; 64];
+		let hash = write_legacy_entry(dir.path(), &data, &legacy_meta(&data, SENDER_A).encode());
+
+		for _ in 0..2 {
+			let pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+			assert!(pool.has(&hash));
+			assert_eq!(pool.get(&hash).unwrap(), data);
+			assert_eq!(pool.status().entry_count, 1);
+			assert_eq!(pool.status().total_bytes, acct(64, 1));
+		}
+	}
+
+	#[test]
+	fn test_legacy_meta_without_blob_skipped() {
+		let dir = TempDir::new().unwrap();
+		let orphan_hash = H256([0x5au8; 32]);
+		write_legacy_meta_only(dir.path(), &orphan_hash, &legacy_meta(&[], SENDER_A).encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&orphan_hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_version_mismatch_dropped() {
+		// An unsupported record version is not imported, and the blob it points
+		// at is then reaped by the normal orphan pass.
+		let dir = TempDir::new().unwrap();
+		let data = vec![3u8; 32];
+		let mut meta = legacy_meta(&data, SENDER_A);
+		meta.version = 0;
+		let hash = write_legacy_entry(dir.path(), &data, &meta.encode());
+		let blob_path = HopDataPool::entry_path(dir.path(), &hash, BLOBS_DIR, BLOB_EXT);
+		assert!(blob_path.exists());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!blob_path.exists());
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_corrupt_file_skipped() {
+		// An undecodable `.meta` file must not abort startup.
+		let dir = TempDir::new().unwrap();
+		let data = vec![9u8; 16];
+		let hash = write_legacy_entry(dir.path(), &data, b"not valid SCALE data");
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_does_not_clobber_existing_row() {
+		// A row already in the KV store is newer than any leftover `.meta` file, so
+		// the import must not overwrite it.
+		let dir = TempDir::new().unwrap();
+		let data = vec![4u8; 48];
+		let (_, signer) = test_recipient();
+
+		let hash;
+		let live_expires_at;
+		{
+			let pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+			hash = pool
+				.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+				.unwrap();
+			live_expires_at = pool.fetch_meta(&hash).unwrap().unwrap().expires_at;
+		}
+
+		// Same hash, deliberately different expiry, written as a legacy `.meta` file.
+		let mut stale = legacy_meta(&data, SENDER_A);
+		stale.expires_at = live_expires_at.wrapping_add(999_999);
+		write_legacy_meta_only(dir.path(), &hash, &stale.encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 1);
+		assert_eq!(pool.fetch_meta(&hash).unwrap().unwrap().expires_at, live_expires_at);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_empty_meta_dir_removed() {
+		// What an upgraded but idle node has on disk: 256 empty shard dirs. The
+		// boot must be uneventful and the tree reclaimed anyway.
+		let dir = TempDir::new().unwrap();
+		for i in 0..SHARD_COUNT {
+			fs::create_dir_all(dir.path().join(LEGACY_META_DIR).join(format!("{:02x}", i as u8)))
+				.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_db_version_stamped_on_fresh_pool() {
+		let dir = TempDir::new().unwrap();
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+		}
+		assert_eq!(read_db_version(dir.path()), Some(CURRENT_DB_VERSION));
+	}
+
+	#[test]
+	fn test_future_db_version_rejected() {
+		// A database written by a newer binary must be refused, not misread.
+		let dir = TempDir::new().unwrap();
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
+			)
+			.unwrap();
+		}
+		{
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(
+				&dir.path().join(META_DB_DIR),
+			))
+			.unwrap();
+			db.commit([(
+				COL_DB_META,
+				KEY_DB_VERSION.to_vec(),
+				Some((CURRENT_DB_VERSION + 1).to_le_bytes().to_vec()),
+			)])
+			.unwrap();
+		}
+
+		let result = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		);
+		assert!(matches!(result, Err(HopError::Db(_))), "future db version must be rejected");
+	}
+
+	#[test]
+	fn test_column_layout_migration() {
+		// A database laid down with the previous single-column layout must be
+		// extended in place, with its rows intact.
+		let dir = TempDir::new().unwrap();
+		let data = vec![8u8; 80];
+		let hash = H256(blake2_256(&data));
+		let blob_path = HopDataPool::entry_path(dir.path(), &hash, BLOBS_DIR, BLOB_EXT);
+		fs::create_dir_all(blob_path.parent().unwrap()).unwrap();
+		fs::write(&blob_path, &data).unwrap();
+
+		let db_path = dir.path().join(META_DB_DIR);
+		fs::create_dir_all(&db_path).unwrap();
+		{
+			let mut options = parity_db::Options::with_columns(&db_path, 1);
+			options.columns[COL_META as usize].btree_index = true;
+			let db = parity_db::Db::open_or_create(&options).unwrap();
+			db.commit([(
+				COL_META,
+				hash.as_bytes().to_vec(),
+				Some(legacy_meta(&data, SENDER_A).encode()),
+			)])
+			.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash));
+		assert_eq!(pool.get(&hash).unwrap(), data);
+		assert_eq!(pool.status().entry_count, 1);
+		drop(pool);
+		assert_eq!(read_db_version(dir.path()), Some(CURRENT_DB_VERSION));
 	}
 }

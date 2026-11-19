@@ -34,7 +34,7 @@ macro_rules! define_flavor {
 macro_rules! define_flavors {
 	($($capabilities:tt)*) => {
 		define_flavor!(spec_version_incremented, $($capabilities)*);
-		define_flavor!(relay_parent_offset, $($capabilities)*);
+		define_flavor!(relay_parent_offset_2, $($capabilities)*);
 		define_flavor!(elastic_scaling_500ms, $($capabilities)*);
 		define_flavor!(elastic_scaling, $($capabilities)*);
 		define_flavor!(elastic_scaling_12s_slot, $($capabilities)*);
@@ -46,6 +46,7 @@ macro_rules! define_flavors {
 		define_flavor!(v3_rpo_6, $($capabilities)*);
 		define_flavor!(v3_rpo_15, $($capabilities)*);
 		define_flavor!(elastic_scaling_v3, $($capabilities)*);
+		define_flavor!(elastic_scaling_v3_rpo_1, $($capabilities)*);
 		define_flavor!(slot_duration_18s, $($capabilities)*);
 		define_flavor!(with_authority_discovery, $($capabilities)*);
 	};

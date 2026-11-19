@@ -17,10 +17,11 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, Error, Event, PendingRegistrations};
+use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingCodeUpgrades, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
+	ParachainRegistrar,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -68,7 +69,7 @@ fn register_msg(
 /// Push a valid registration request through and return the code that will satisfy it.
 fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 	let (msg, blob) = register_msg(para_id, head_len, code_len);
-	assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+	assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 	blob
 }
 
@@ -94,6 +95,48 @@ fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
 
 fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
 	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
+}
+
+/// The message id every test deregistration carries, distinct from the ids above.
+const DEREGISTER_ID: u64 = 7;
+
+fn deregister_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id: DEREGISTER_ID })
+}
+
+fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+		para_id,
+		message_id: DEREGISTER_ID,
+		outcome,
+	})
+}
+
+/// Onboard `para_id` for real, so the registry knows it.
+fn onboard(para_id: ParaId) {
+	let blob = request(para_id, 20, 300);
+	assert_ok!(Registrar::apply_authorized_code(
+		frame_system::RawOrigin::Authorized.into(),
+		para_id,
+		blob
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
+}
+
+/// The message id every test head update carries.
+const HEAD_ID: u64 = 8;
+
+fn set_head_msg(para_id: ParaId, head_len: usize) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+		para_id,
+		message_id: HEAD_ID,
+		head: head(head_len),
+	})
+}
+
+fn set_head_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::SetHeadResponse { para_id, message_id: HEAD_ID, outcome })
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
@@ -125,7 +168,7 @@ fn authorize_and_dispatch(
 	(authorized, dispatched)
 }
 
-mod authorize_code {
+mod receive_register {
 	use super::*;
 
 	#[test]
@@ -159,7 +202,7 @@ mod authorize_code {
 		new_test_ext().execute_with(|| {
 			let (msg, _) = register_msg(PARA_A, 20, 300);
 			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::signed(ALICE), msg),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
 				DispatchError::BadOrigin
 			);
 		});
@@ -173,7 +216,7 @@ mod authorize_code {
 
 			// A business rejection is not an extrinsic failure: erroring would roll back the
 			// report and strand the parachain's deposit.
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -196,7 +239,7 @@ mod authorize_code {
 			let _ = take_sent();
 
 			let (msg, _) = register_msg(PARA_A, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 1);
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -210,7 +253,7 @@ mod authorize_code {
 				[(MAX_HEAD_SIZE as usize + 1, 300), (20, MAX_CODE_SIZE as usize + 1), (20, 1)]
 			{
 				let (msg, _) = register_msg(PARA_A, head_len, code_len);
-				assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 				assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 				assert_eq!(
@@ -233,7 +276,7 @@ mod authorize_code {
 
 			let overflow = PARA_A + MAX_PENDING;
 			let (msg, _) = register_msg(overflow, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING);
@@ -304,7 +347,7 @@ mod apply_authorized_code {
 	fn a_blob_of_the_wrong_length_is_refused_by_both() {
 		new_test_ext().execute_with(|| {
 			request(PARA_A, 20, 300);
-			// Shorter than declared, so the manager underpaid on the parachain.
+			// Shorter than declared, which the length check catches before the hash.
 			let short = code(200);
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, short);
@@ -406,7 +449,7 @@ mod apply_authorized_code {
 	}
 }
 
-mod cancel_authorization {
+mod receive_cancel_registration {
 	use super::*;
 
 	#[test]
@@ -416,7 +459,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
@@ -444,7 +487,7 @@ mod cancel_authorization {
 			}
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert!(PendingRegistrations::<Test>::get(PARA_B).is_some());
@@ -464,7 +507,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			// The para is registered, so the deposit is owed and the parachain is told so.
 			assert_eq!(
@@ -488,7 +531,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
 			assert_eq!(
@@ -507,7 +550,7 @@ mod cancel_authorization {
 		new_test_ext().execute_with(|| {
 			// The request may have been rejected here and the report lost; the parachain still has
 			// a deposit to release, so silence would strand it.
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
 			assert_eq!(
@@ -523,32 +566,224 @@ mod cancel_authorization {
 			request(PARA_A, 20, 300);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_some());
 		});
 	}
+}
+
+mod receive_deregister {
+	use super::*;
 
 	#[test]
-	fn each_call_serves_only_its_own_message() {
+	fn drops_the_para_and_confirms_it() {
 		new_test_ext().execute_with(|| {
-			let (register, _) = register_msg(PARA_A, 20, 300);
+			onboard(PARA_A);
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			// Dropped before its first head, so nothing is left waiting on one.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_retry_after_a_lost_answer_is_confirmed_again() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_registry_that_will_not_let_the_para_go_is_reported_not_dispatch_failed() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			DeregisterFails::set(true);
+
+			// `Ok`, not `Err`: failing would roll the refusal report back with it.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::NotDeregisterable))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_ask() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::root(), register),
-				Error::<Test>::UnexpectedMessage
+				Registrar::receive(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A)),
+				DispatchError::BadOrigin
 			);
+			assert!(MockRegistrar::is_registered(PARA_A));
+		});
+	}
+}
+
+mod receive_set_current_head {
+	use super::*;
+
+	#[test]
+	fn sets_the_head_and_confirms_it() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::set(vec![PARA_A]);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert_eq!(Heads::get(), vec![(PARA_A, head(20))]);
+			assert_eq!(take_sent(), vec![set_head_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdated { para_id: PARA_A, message_id: HEAD_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn refuses_a_head_the_relay_chain_will_not_take() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::set(vec![PARA_A]);
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize + 1)
+			));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::HeadDataTooLarge))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::HeadDataTooLarge,
+				}]
+			);
+
+			// The bound itself is fine.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize)
+			));
+			assert_eq!(Heads::get(), vec![(PARA_A, head(MAX_HEAD_SIZE as usize))]);
+		});
+	}
+
+	#[test]
+	fn refuses_a_head_for_a_para_the_relay_chain_does_not_know() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_head_overtaken_by_the_deregistration_is_refused() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_set_heads() {
+		new_test_ext().execute_with(|| {
 			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::root(), cancel_msg(PARA_A)),
-				Error::<Test>::UnexpectedMessage
+				Registrar::receive(RuntimeOrigin::signed(ALICE), set_head_msg(PARA_A, 20)),
+				DispatchError::BadOrigin
 			);
+			assert!(Heads::get().is_empty());
 		});
 	}
 }
 
 mod reporting {
 	use super::*;
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			// The para is gone here regardless; the parachain retries and is confirmed then.
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
+				]
+			);
+		});
+	}
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_onboarding() {
@@ -574,6 +809,538 @@ mod reporting {
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
 				]
 			);
+		});
+	}
+}
+
+mod receive_authorize_code_upgrade {
+	use super::*;
+
+	/// The message id every test upgrade request carries, distinct from the registration's.
+	const UPGRADE_ID: u64 = 7;
+
+	fn upgrade_msg(para_id: ParaId, code_len: usize) -> (MessageToRelay<AccountId>, Vec<u8>) {
+		let blob = code(code_len);
+		let msg = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+			para_id,
+			message_id: UPGRADE_ID,
+			code_hash: hash_of(&blob),
+			code_len: code_len as u32,
+		});
+		(msg, blob)
+	}
+
+	fn upgrade_report(para_id: ParaId, outcome: Result<u32, FailureReason>) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+			para_id,
+			message_id: UPGRADE_ID,
+			outcome,
+		})
+	}
+
+	/// Onboard `para_id` and authorize an upgrade for it, returning the code it now expects.
+	fn authorize(para_id: ParaId, code_len: usize) -> Vec<u8> {
+		AlreadyKnown::mutate(|known| known.push(para_id));
+		let (msg, blob) = upgrade_msg(para_id, code_len);
+		assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+		let _ = take_sent();
+		let _ = registrar_events();
+		blob
+	}
+
+	#[test]
+	fn parks_the_authorization_and_tells_the_parachain_when_it_lapses() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			let (msg, blob) = upgrade_msg(PARA_A, 300);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			let expire_at = 1 + CODE_UPGRADE_VALID_PERIOD;
+			let pending = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap();
+			assert_eq!(pending.message_id, UPGRADE_ID);
+			assert_eq!(pending.code_hash, hash_of(&blob));
+			assert_eq!(pending.code_len, 300);
+			assert_eq!(pending.expire_at, expire_at);
+
+			assert_eq!(take_sent(), vec![upgrade_report(PARA_A, Ok(expire_at))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradePending {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+					code_hash: hash_of(&blob),
+					expire_at,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_this_chain_does_not_know_is_refused_and_reported() {
+		new_test_ext().execute_with(|| {
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+
+			// A refusal is not an extrinsic failure.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![upgrade_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeRejected {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn the_registrys_refusal_is_reported() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			UpgradeCheckFails::set(true);
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![upgrade_report(PARA_A, Err(FailureReason::CannotUpgradeCode))]
+			);
+		});
+	}
+
+	#[test]
+	fn the_code_size_is_bounded_by_this_pallet_and_by_the_registry() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+
+			for (code_len, reason) in [
+				(MAX_CODE_SIZE as usize + 1, FailureReason::InvalidCodeSize),
+				(MIN_CODE_SIZE as usize - 1, FailureReason::CannotUpgradeCode),
+			] {
+				let (msg, _) = upgrade_msg(PARA_A, code_len);
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+				assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+				assert_eq!(take_sent(), vec![upgrade_report(PARA_A, Err(reason))]);
+				let _ = registrar_events();
+			}
+		});
+	}
+
+	#[test]
+	fn a_second_request_replaces_the_first() {
+		new_test_ext().execute_with(|| {
+			let _ = authorize(PARA_A, 300);
+
+			System::set_block_number(50);
+			let blob = code(400);
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID + 1,
+					code_hash: hash_of(&blob),
+					code_len: 400,
+				}),
+			));
+
+			let pending = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap();
+			assert_eq!(pending.message_id, UPGRADE_ID + 1);
+			assert_eq!(pending.code_hash, hash_of(&blob));
+			assert_eq!(pending.code_len, 400);
+			assert_eq!(pending.expire_at, 50 + CODE_UPGRADE_VALID_PERIOD);
+		});
+	}
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_authorization() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert!(registrar_events().iter().any(
+				|e| matches!(e, Event::ReportFailed { message_id, .. } if *message_id == UPGRADE_ID)
+			));
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_authorize() {
+		new_test_ext().execute_with(|| {
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	/// Run the pool check and the dispatch together, the way the node does.
+	fn upgrade_and_dispatch(
+		para_id: ParaId,
+		validation_code: Vec<u8>,
+	) -> (Result<(), InvalidTransaction>, Result<(), DispatchError>) {
+		let authorized = Registrar::authorize_apply_authorized_code_upgrade(
+			TransactionSource::External,
+			&para_id,
+			&validation_code,
+		)
+		.map(|_| ())
+		.map_err(|e| match e {
+			sp_runtime::transaction_validity::TransactionValidityError::Invalid(i) => i,
+			other => panic!("unexpected validity error: {other:?}"),
+		});
+
+		let dispatched = Registrar::apply_authorized_code_upgrade(
+			frame_system::RawOrigin::Authorized.into(),
+			para_id,
+			validation_code,
+		)
+		.map(|_| ())
+		.map_err(|e| e.error);
+
+		(authorized, dispatched)
+	}
+
+	#[test]
+	fn the_right_blob_schedules_the_upgrade_and_reports_it() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			let (authorized, dispatched) = upgrade_and_dispatch(PARA_A, blob.clone());
+			assert_eq!(authorized, Ok(()));
+			assert_eq!(dispatched, Ok(()));
+
+			assert_eq!(ScheduledUpgrades::get(), vec![(PARA_A, blob)]);
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeApplied { para_id: PARA_A, message_id: UPGRADE_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_blob_that_is_not_the_authorized_one_is_refused_by_both() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			// Nothing authorized for this para at all.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_B, blob.clone()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::NothingPending
+					))),
+					Err(Error::<Test>::NothingPending.into())
+				)
+			);
+
+			// Right length, wrong bytes.
+			let mut impostor = blob.clone();
+			*impostor.last_mut().unwrap() ^= 0xff;
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, impostor),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeHashMismatch
+					))),
+					Err(Error::<Test>::CodeHashMismatch.into())
+				)
+			);
+
+			// Right bytes, wrong length.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob[..blob.len() - 1].to_vec()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeLenMismatch
+					))),
+					Err(Error::<Test>::CodeLenMismatch.into())
+				)
+			);
+
+			// Too large to be worth hashing.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, code(MAX_CODE_SIZE as usize + 1)),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeTooLarge
+					))),
+					Err(Error::<Test>::CodeTooLarge.into())
+				)
+			);
+
+			assert!(ScheduledUpgrades::get().is_empty());
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn an_authorization_stops_being_applicable_once_it_lapses() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			let expire_at = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap().expire_at;
+
+			// Still good on the last block.
+			System::set_block_number(expire_at);
+			assert_eq!(
+				Registrar::authorize_apply_authorized_code_upgrade(
+					TransactionSource::External,
+					&PARA_A,
+					&blob,
+				)
+				.map(|_| ()),
+				Ok(())
+			);
+
+			System::set_block_number(expire_at + 1);
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::AuthorizationExpired
+					))),
+					Err(Error::<Test>::AuthorizationExpired.into())
+				)
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_registry_failure_leaves_the_authorization_in_place() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			ScheduleFails::set(true);
+
+			assert!(upgrade_and_dispatch(PARA_A, blob.clone()).1.is_err());
+
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert!(take_sent().is_empty());
+
+			// And the upload works once whatever blocked it clears.
+			ScheduleFails::set(false);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob).1, Ok(()));
+		});
+	}
+
+	#[test]
+	fn an_upgrade_the_registry_would_refuse_stays_out_of_the_pool() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			UpgradeCheckFails::set(true);
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob.clone()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CannotUpgradeCode
+					))),
+					Err(Error::<Test>::CannotUpgradeCode.into())
+				)
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			UpgradeCheckFails::set(false);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob), (Ok(()), Ok(())));
+		});
+	}
+
+	#[test]
+	fn a_deregistration_drops_the_authorization() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			DeregisterFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			DeregisterFails::set(false);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob).1,
+				Err(Error::<Test>::NothingPending.into())
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn it_cannot_be_replayed() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob.clone()).1, Ok(()));
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob).1,
+				Err(Error::<Test>::NothingPending.into())
+			);
+			assert_eq!(ScheduledUpgrades::get().len(), 1);
+		});
+	}
+
+	#[test]
+	fn a_signed_origin_is_not_an_authorized_one() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			assert_noop!(
+				Registrar::apply_authorized_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					PARA_A,
+					blob
+				),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+}
+
+mod head_noted {
+	use super::*;
+	use polkadot_runtime_parachains::paras::OnNewHead;
+
+	/// Leave `para_id` in the state a registration leaves behind: waiting on its first head.
+	fn awaiting(para_id: ParaId) {
+		AwaitingFirstHead::<Test>::insert(para_id, ());
+	}
+
+	#[test]
+	fn a_registration_leaves_the_para_awaiting_its_first_head() {
+		new_test_ext().execute_with(|| {
+			request(PARA_A, 20, 300);
+
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn tells_the_parachain_about_a_new_head() {
+		new_test_ext().execute_with(|| {
+			request(PARA_A, 20, 300);
+			let _ = registrar_events();
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_para_this_pallet_never_registered_is_skipped() {
+		new_test_ext().execute_with(|| {
+			// Only paras registered through here are waiting on a notification; every other para
+			// on this chain locks itself and must not be told anything.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_later_head_is_not_reported_again() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert_eq!(take_sent().len(), 1);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn each_para_is_reported_once() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			awaiting(PARA_B);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			Registrar::on_new_head(PARA_B.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A }),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_B }),
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_only_surfaced() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			SendFails::set(true);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_retried_on_the_next_head() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			SendFails::set(true);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			// A bounced notification keeps the para waiting, otherwise it would never learn about
+			// its first head and could stay unlocked forever.
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+
+			SendFails::set(false);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			// And once it lands it is not sent again.
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
 		});
 	}
 }

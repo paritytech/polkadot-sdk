@@ -205,6 +205,18 @@ impl Metrics {
 		self.note_advertisement(Some(para_id), "scheduling_parent_invalid");
 	}
 
+	/// Rejected: V4 segment that is empty or carries an entry whose parent and output heads
+	/// are equal. Peer-triggerable, so rare but non-zero in the wild is expected.
+	pub fn on_advertisement_rejected_malformed_segment(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "malformed_segment");
+	}
+
+	/// Rejected: segment mixes by-hash and by-output-head entries. Only a caller bug can
+	/// produce this, so a non-zero count is an alert, not a peer signal.
+	pub fn on_advertisement_rejected_mixed_claim_shapes(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "mixed_claim_shapes");
+	}
+
 	/// Note that a collation was sent to the backing subsystem to be seconded.
 	pub fn on_collation_seconded(&self, para_id: &ParaId) {
 		if let Some(metrics) = &self.0 {

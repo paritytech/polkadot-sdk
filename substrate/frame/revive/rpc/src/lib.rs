@@ -17,7 +17,7 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub use alloy_rpc_types::{BlockId, BlockNumberOrTag, Filter, FilterBlockOption};
+pub use alloy_rpc_types::{BlockId, BlockNumberOrTag};
 use client::ClientError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
@@ -28,11 +28,11 @@ use jsonrpsee::{
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
 	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
-	TraceV1, TracerTypeV1, TransactionInfoV1,
+	SyntheticTransactionV1, TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
-use std::pin::Pin;
+use std::{ops::ControlFlow, pin::Pin};
 use subxt::rpcs::methods::legacy::TransactionStatus;
 use thiserror::Error;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
@@ -64,6 +64,15 @@ pub use apis::*;
 
 mod types;
 pub use types::*;
+
+/// Fetch the chain ID from the substrate chain.
+async fn chain_id(
+	api: &subxt::OnlineClient<subxt_client::SrcChainConfig>,
+) -> Result<u64, ClientError> {
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
+	let at_block = api.at_current_block().await?;
+	at_block.constants().entry(query).map_err(|err| err.into())
+}
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -608,8 +617,20 @@ impl EthRpcServer for EthRpcServerImpl {
 			) as _,
 			SubscriptionParameters::Logs(filter) => Box::pin(
 				BroadcastStream::new(self.client.get_log_subscription_rx())
-					.try_filter(move |log| futures::future::ready(filter.matches(log)))
-					.map_ok(SubscriptionItem::Log),
+					.map_ok(move |log| match filter.block_option.window(log.block_number) {
+						LogWindow::Closed => ControlFlow::Break(()),
+						LogWindow::NotYetOpen => ControlFlow::Continue(None),
+						LogWindow::Open => {
+							ControlFlow::Continue(filter.matches(&log).then_some(log))
+						},
+					})
+					.try_take_while(|flow| futures::future::ready(Ok(flow.is_continue())))
+					.try_filter_map(|flow| {
+						futures::future::ready(Ok(match flow {
+							ControlFlow::Continue(log) => log.map(SubscriptionItem::Log),
+							ControlFlow::Break(()) => None,
+						}))
+					}),
 			) as _,
 		};
 		let _ = tokio::spawn(Self::handle_subscription_forwarding(sink, stream));

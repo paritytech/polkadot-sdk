@@ -105,7 +105,7 @@ impl FeeHistoryProvider {
 				(gas_used, effective_reward)
 			})
 			.collect::<Vec<_>>();
-		receipts.sort_by(|(_, a), (_, b)| a.cmp(b));
+		receipts.sort_by_key(|(_, a)| *a);
 
 		// Calculate percentile rewards.
 		result.rewards = reward_percentiles

@@ -622,7 +622,7 @@ fn validate_unsigned_works() {
 				priority: 100,
 				requires: vec![],
 				provides: vec![("claims", eth(&alice())).encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		);
@@ -655,7 +655,7 @@ fn validate_unsigned_works() {
 				priority: 100,
 				requires: vec![],
 				provides: vec![("claims", eth(&dave())).encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		);

@@ -22,6 +22,7 @@ sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
+runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
 std = [
 	"codec/std",
 	"scale-info/std",

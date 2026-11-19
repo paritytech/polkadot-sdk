@@ -772,6 +772,73 @@ mod tests {
 		});
 	}
 
+	type KeptValidators = Option<(u32, Vec<rc::AccountId>)>;
+
+	/// Relay validators 1 to 8 with session keys, the default Asset Hub staking set-up, and the
+	/// recording era-start hook switched on.
+	fn set_up_with_era_start_recorder() {
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys((1..=8).collect()).build());
+		shared::put_ah_state(ah::ExtBuilder::default().build());
+		ah::EraStartHookEnabled::set(true);
+		ah::StartedEras::take();
+	}
+
+	/// Roll the relay chain with Asset Hub one session at a time until era 1 is active on Asset
+	/// Hub. Returns the copy kept by staking after each session.
+	fn roll_until_era_1_is_active() -> Vec<KeptValidators> {
+		let mut kept_per_session = Vec::new();
+		for _ in 0..12 {
+			shared::in_rc(|| rc::roll_to_next_session(true));
+			let mut active = false;
+			shared::in_ah(|| {
+				kept_per_session.push(
+					pallet_staking_async::NextEraValidators::<ah::Runtime>::get()
+						.map(|(era, validators)| (era, validators.into_inner())),
+				);
+				active = ActiveEra::<ah::Runtime>::get().map(|era| era.index) == Some(1);
+			});
+			if active {
+				return kept_per_session;
+			}
+		}
+		panic!("era 1 did not become active on Asset Hub");
+	}
+
+	fn relay_session_validators() -> Vec<rc::AccountId> {
+		let mut validators = Vec::new();
+		shared::in_rc(|| validators = pallet_session::Validators::<rc::Runtime>::get());
+		validators.sort();
+		validators
+	}
+
+	fn recorded_era_starts() -> Vec<(u32, Vec<rc::AccountId>)> {
+		let mut started = ah::StartedEras::get();
+		started.iter_mut().for_each(|(_, validators)| validators.sort());
+		started
+	}
+
+	#[test]
+	fn relay_driven_era_start_hands_the_activated_set_to_on_era_start() {
+		// GIVEN the relay and Asset Hub mocks with the recording era-start hook switched on
+		set_up_with_era_start_recorder();
+		// WHEN the relay rolls through the election and the activation of era 1
+		let kept_per_session = roll_until_era_1_is_active();
+		// THEN the hook ran once, for era 1, with the validators the relay chain activated
+		let activated = relay_session_validators();
+		assert_eq!(activated.len(), 4);
+		assert_eq!(recorded_era_starts(), vec![(1, activated.clone())]);
+		// THEN the copy was kept from hand-off until era 1 started and was then removed
+		let hand_off = kept_per_session.iter().position(Option::is_some).unwrap();
+		let (last, before_start) = kept_per_session.split_last().unwrap();
+		assert!(before_start[..hand_off].iter().all(Option::is_none));
+		assert!(before_start[hand_off..].iter().all(|kept| {
+			kept.as_ref().map(|(era, validators)| (*era, validators.clone())) ==
+				Some((1, activated.clone()))
+		}));
+		assert_eq!(*last, None);
+		ah::EraStartHookEnabled::set(false);
+	}
+
 	#[test]
 	fn election_result_on_ah_reported_to_rc() {
 		// when election result is complete

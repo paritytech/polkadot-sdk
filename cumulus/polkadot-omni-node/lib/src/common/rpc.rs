@@ -37,7 +37,7 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized, StatementStore> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
@@ -54,7 +54,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		sc_statement_store::Store,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
@@ -66,9 +66,7 @@ where
 	fn build_rpc_extensions(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
-		pool: Arc<
-			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-		>,
+		pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block>>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
 		hop_pool: Option<Arc<sc_hop::HopDataPool>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,

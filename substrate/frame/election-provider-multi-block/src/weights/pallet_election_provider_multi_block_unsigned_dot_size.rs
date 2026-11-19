@@ -79,7 +79,7 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	fn validate_unsigned() -> Weight {
+	fn authorize_submit_unsigned() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `378`
 		//  Estimated: `3843`

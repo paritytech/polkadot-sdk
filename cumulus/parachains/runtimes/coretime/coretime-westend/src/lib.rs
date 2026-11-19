@@ -129,7 +129,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -152,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -257,8 +258,6 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 
@@ -489,11 +488,11 @@ pub enum ProxyType {
 	NonTransfer,
 	/// Proxy with the ability to reject time-delay proxy announcements.
 	CancelProxy,
-	/// Proxy for all Broker pallet calls.
+	/// Proxy for all Broker pallet calls, and for placing on-demand coretime orders.
 	Broker,
 	/// Proxy for renewing coretime.
 	CoretimeRenewer,
-	/// Proxy able to purchase on-demand coretime credits.
+	/// Proxy able to purchase on-demand coretime credits, and to place on-demand coretime orders.
 	OnDemandPurchaser,
 	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
 	Collator,
@@ -519,7 +518,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				// `pool` doesn't transfer, but it defines the account to be paid for contributions
 				RuntimeCall::Broker(pallet_broker::Call::pool { .. }) |
 				// `assign` is essentially a transfer of a region NFT
-				RuntimeCall::Broker(pallet_broker::Call::assign { .. })
+				RuntimeCall::Broker(pallet_broker::Call::assign { .. }) |
+				// `place_order` pays the spot price out of the proxied account
+				RuntimeCall::OnDemand(pallet_on_demand_para::Call::place_order { .. })
 			),
 			ProxyType::CancelProxy => matches!(
 				c,
@@ -531,6 +532,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Broker { .. } |
+						RuntimeCall::OnDemand(pallet_on_demand_para::Call::place_order { .. }) |
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. }
 				)
@@ -547,6 +549,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Broker(pallet_broker::Call::purchase_credit { .. }) |
+						RuntimeCall::OnDemand(pallet_on_demand_para::Call::place_order { .. }) |
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. }
 				)
@@ -676,6 +679,9 @@ construct_runtime!(
 	{
 		// System support stuff.
 		System: frame_system = 0,
+		// `OnDemand` sends its orders out in `on_finalize`, so it has to come before
+		// `ParachainSystem` for them to make it into the same block.
+		OnDemand: pallet_on_demand_para = 51,
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
@@ -722,6 +728,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
 		[pallet_broker, Broker]
+		[pallet_on_demand_para, OnDemand]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]

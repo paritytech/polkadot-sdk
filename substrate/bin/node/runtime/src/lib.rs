@@ -62,7 +62,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
 		EqualPrivilegeOnly, InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -74,8 +74,10 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
+	EnsureWithSuccess,
 };
+use hrmp_primitives::{MessageToPara, MessageToRelay};
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
@@ -94,6 +96,11 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
 use pallet_vesting_precompiles::Vesting as VestingPrecompile;
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
+	hrmp::deposits::{DepositAction, DepositChangeRequest, DepositError, OnDepositSet},
+	origin as parachains_origin,
+};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -178,7 +185,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 270,
+	spec_version: 271,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -539,50 +546,6 @@ impl pallet_preimage::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ScarcityHoldReason: RuntimeHoldReason =
-		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
-}
-
-impl pallet_scarcity::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
-	type UnixTime = Timestamp;
-	type Balance = Balance;
-	type Consideration = HoldConsideration<
-		AccountId,
-		Balances,
-		ScarcityHoldReason,
-		sp_runtime::traits::Identity,
-		Balance,
-	>;
-	type CollectionDeposit = LinearStoragePrice<
-		dynamic_params::storage::BaseDeposit,
-		dynamic_params::storage::ByteDeposit,
-		Balance,
-	>;
-	type ItemDeposit = LinearStoragePrice<
-		dynamic_params::storage::BaseDeposit,
-		dynamic_params::storage::ByteDeposit,
-		Balance,
-	>;
-	type InstanceDeposit = LinearStoragePrice<
-		dynamic_params::storage::BaseDeposit,
-		dynamic_params::storage::ByteDeposit,
-		Balance,
-	>;
-	type MetadataDeposit = LinearStoragePrice<
-		dynamic_params::storage::BaseDeposit,
-		dynamic_params::storage::ByteDeposit,
-		Balance,
-	>;
-	type MaxKeyLen = ConstU32<32>;
-	type MaxValueLen = ConstU32<256>;
-	type MaxInstanceMetadata = ConstU32<100>;
-	type LockPeriod = ConstU64<60>;
-	type MaxTransferPriority = ConstU64<1_000_000>;
-}
-
-parameter_types! {
 	// NOTE: Currently it is not possible to change the epoch duration after the chain has started.
 	//       Attempting to do so will brick block production.
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
@@ -636,8 +599,6 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<Runtime>;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -1038,7 +999,7 @@ impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 pub struct U256ToBalance;
 impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	fn convert(n: sp_core::U256) -> Balance {
-		n.try_into().unwrap_or(Balance::max_value())
+		n.try_into().unwrap_or(Balance::MAX)
 	}
 }
 
@@ -1362,7 +1323,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
@@ -1630,6 +1591,10 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// A backstop on the buffer's size only: each log's weight is charged where it is emitted, so
+	// the block fills before the cap is reached. Nothing here mirrors balance changes, and the
+	// pallet's benchmarks fill the buffer past any cap, so the value is never reached.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = ();
 }
 
@@ -1644,9 +1609,9 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -1686,7 +1651,7 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		let tx_ext: TxExtension = (
-			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1746,7 +1711,7 @@ where
 {
 	fn create_extension() -> Self::Extension {
 		(
-			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -2330,7 +2295,9 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
+	// Opt into permissionless dispatch.
+	type DispatchWhitelistedOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;
 	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
@@ -2518,6 +2485,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2526,6 +2494,41 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+parameter_types! {
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
+}
+
+/// The size of the on-demand pool as seen by `pallet_on_demand_para`.
+///
+/// On a real Coretime chain this reflects the number of cores the Relay chain has assigned to the
+/// on-demand pool. This runtime has no Relay chain, so we report a fixed non-zero size.
+pub struct OnDemandPoolCapacity;
+impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
+	fn pool_cores() -> u32 {
+		1
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		assert!(cores <= Self::pool_cores(), "the on-demand pool has a fixed size");
+	}
+}
+
+impl pallet_on_demand_para::Config for Runtime {
+	type WeightInfo = pallet_on_demand_para::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type RelayBlockNumberProvider = System;
+	type PoolCapacityProvider = OnDemandPoolCapacity;
+	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
+	// Orders are dropped instead of being forwarded to a Relay chain.
+	type OrderQueue = ();
+	type MaxBatchSize = ConstU32<1000>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
+	type MaxUnclaimedTimeslices = ConstU32<5>;
+	type PalletId = OnDemandPalletId;
 }
 
 parameter_types! {
@@ -2698,6 +2701,30 @@ parameter_types! {
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
 	pub const RegistrationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+	// No parachain-system here, so a fixed stand-in for the relay chain's host configuration.
+	pub storage RegistrarHostConfig: Option<polkadot_primitives::AbridgedHostConfiguration> =
+		Some(polkadot_primitives::AbridgedHostConfiguration {
+			max_code_size: 3 * 1024 * 1024,
+			max_head_data_size: 1024 * 1024,
+			max_upward_queue_count: 0,
+			max_upward_queue_size: 0,
+			max_upward_message_size: 0,
+			max_upward_message_num_per_candidate: 0,
+			hrmp_max_message_num_per_candidate: 0,
+			validation_upgrade_cooldown: 0,
+			validation_upgrade_delay: 0,
+			async_backing_params: polkadot_primitives::AsyncBackingParams {
+				allowed_ancestry_len: 0,
+				max_candidate_depth: 0,
+			},
+		});
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_registrar_para::BenchmarkHelper for RegistrarHostConfig {
+	fn set_host_configuration(config: polkadot_primitives::AbridgedHostConfiguration) {
+		RegistrarHostConfig::set(&Some(config));
+	}
 }
 
 impl pallet_registrar_para::Config for Runtime {
@@ -2715,17 +2742,26 @@ impl pallet_registrar_para::Config for Runtime {
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
-	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
-	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type HostConfiguration = RegistrarHostConfig;
 	type PendingDeadline = ConstU32<600>;
 	type BlockNumberProvider = System;
 	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = RegistrarHostConfig;
 }
 
-/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+/// A registrar that accepts everything; only which ids it holds is modelled, not the paras stack.
 pub struct AcceptingRegistrar;
+
+impl AcceptingRegistrar {
+	fn key(para_id: registrar_primitives::ParaId) -> Vec<u8> {
+		(b"AcceptingRegistrar", para_id).encode()
+	}
+}
 
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
@@ -2734,14 +2770,56 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
-	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
-		false
+	fn is_registered(para_id: registrar_primitives::ParaId) -> bool {
+		frame_support::storage::unhashed::exists(&Self::key(para_id))
 	}
 
 	fn register(
 		_manager: AccountId,
-		_para_id: registrar_primitives::ParaId,
+		para_id: registrar_primitives::ParaId,
 		_genesis_head: Vec<u8>,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
+		Ok(())
+	}
+
+	fn deregister(para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::kill(&Self::key(para_id));
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: registrar_primitives::ParaId, _head: Vec<u8>) {}
+
+	fn check_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_code_len: u32,
+	) -> Result<(), ()> {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_code_upgrade(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
 		Ok(())
@@ -2756,8 +2834,69 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
 	type MaxPendingRegistrations = ConstU32<128>;
+	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
+}
+
+impl parachains_origin::Config for Runtime {}
+
+/// Discards HRMP deposit messages; the counterpart chain is not modelled here.
+pub struct DiscardHrmpMessages;
+
+impl pallet_hrmp_relay::SendToPara for DiscardHrmpMessages {
+	fn send(_message: MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+impl pallet_hrmp_para::SendToRelay for DiscardHrmpMessages {
+	fn send(_message: MessageToRelay) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+/// Ignores the answers to HRMP deposit requests; the relay chain's `hrmp` pallet is not here.
+pub struct IgnoreDepositAnswers;
+
+impl OnDepositSet for IgnoreDepositAnswers {
+	fn on_deposit_set(_request: DepositChangeRequest, _result: Result<(), DepositError>) {}
+
+	fn weight_of_on_deposit_set(_action: &DepositAction) -> Weight {
+		Weight::zero()
+	}
+}
+
+parameter_types! {
+	pub const HrmpHolderParaId: ParaId = ParaId::new(1005);
+}
+
+impl pallet_hrmp_relay::Config for Runtime {
+	type OnDepositSet = IgnoreDepositAnswers;
+	type HolderParaId = HrmpHolderParaId;
+	type SendToPara = DiscardHrmpMessages;
+	type MaxFailedReleases = ConstU32<16>;
+	type WeightInfo = pallet_hrmp_relay::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+/// A para's sovereign account, as the relay chain derives it.
+pub struct ParaSovereignAccount;
+
+impl Convert<hrmp_primitives::ParaId, AccountId> for ParaSovereignAccount {
+	fn convert(para: hrmp_primitives::ParaId) -> AccountId {
+		ParaId::from(para).into_account_truncating()
+	}
+}
+
+impl pallet_hrmp_para::Config for Runtime {
+	type Currency = Balances;
+	type SendToRelay = DiscardHrmpMessages;
+	type SovereignAccountOf = ParaSovereignAccount;
+	type WeightInfo = pallet_hrmp_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[frame_support::runtime]
@@ -3041,9 +3180,6 @@ mod runtime {
 	#[runtime::pallet_index(86)]
 	pub type Psm = pallet_psm::Pallet<Runtime>;
 
-	#[runtime::pallet_index(87)]
-	pub type Scarcity = pallet_scarcity::Pallet<Runtime>;
-
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -3067,6 +3203,18 @@ mod runtime {
 
 	#[runtime::pallet_index(96)]
 	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(97)]
+	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
+
+	#[runtime::pallet_index(98)]
+	pub type ParachainsOrigin = parachains_origin::Pallet<Runtime>;
+
+	#[runtime::pallet_index(99)]
+	pub type HrmpRelay = pallet_hrmp_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(100)]
+	pub type HrmpPara = pallet_hrmp_para::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3083,16 +3231,9 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs`!
 ///
-/// `AsScarcity` follows Coinage's purse model. It must run with the origin modifiers, before
-/// `AuthorizeCall`, signed-account checks such as `CheckNonce`, and
-/// `SkipCheckIfFeeless<ChargeAssetTxPayment>`. The account checks deliberately skip the resulting
-/// `Origin::Nft`, while payment observes that origin and skips feeless NFT operations. Keep the
-/// relative order `AsScarcity -> AuthorizeCall -> CheckNonce ->
-/// SkipCheckIfFeeless<ChargeAssetTxPayment>`.
-///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
-	(pallet_scarcity::extension::AsScarcity<Runtime>, frame_system::AuthorizeCall<Runtime>),
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -3109,9 +3250,6 @@ pub type TxExtension = (
 	frame_system::WeightReclaim<Runtime>,
 );
 
-/// Scarcity authorization extension used by signed development-runtime transactions.
-pub type ScarcityTxExtension = pallet_scarcity::extension::AsScarcity<Runtime>;
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EthExtraImpl;
 
@@ -3122,7 +3260,7 @@ impl EthExtra for EthExtraImpl {
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
-			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -3169,6 +3307,9 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 type EventRecord = frame_system::EventRecord<
@@ -3404,6 +3545,8 @@ mod benches {
 		[pallet_nis, Nis]
 		[pallet_parameters, Parameters]
 		[pallet_grandpa, Grandpa]
+		[pallet_hrmp_para, HrmpPara]
+		[pallet_hrmp_relay, HrmpRelay]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
@@ -3417,6 +3560,7 @@ mod benches {
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_on_demand_para, OnDemand]
 		[pallet_oracle, Oracle]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
@@ -3427,7 +3571,6 @@ mod benches {
 		[pallet_registrar_relay, RegistrarRelay]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
-		[pallet_scarcity, Scarcity]
 		[pallet_scheduler, Scheduler]
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
@@ -4164,34 +4307,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::dispatch::GetDispatchInfo;
 	use frame_system::offchain::CreateSignedTransaction;
-	use sp_runtime::{traits::DispatchTransaction, BuildStorage};
-
-	fn scarcity_tx_extension(nonce: Nonce, state_nonce: u64) -> TxExtension {
-		(
-			(
-				ScarcityTxExtension::new(Some(pallet_scarcity::extension::AsScarcityInfo::AsNft {
-					instance: 0,
-					state_nonce,
-				})),
-				frame_system::AuthorizeCall::<Runtime>::new(),
-			),
-			frame_system::CheckNonZeroSender::<Runtime>::new(),
-			frame_system::CheckSpecVersion::<Runtime>::new(),
-			frame_system::CheckTxVersion::<Runtime>::new(),
-			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
-			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
-			),
-			frame_metadata_hash_extension::CheckMetadataHash::new(false),
-			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
-			frame_system::WeightReclaim::<Runtime>::new(),
-		)
-	}
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
@@ -4214,129 +4330,5 @@ mod tests {
 			 If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
-	}
-
-	#[test]
-	fn nft_only_purse_without_system_account_can_transfer() {
-		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-		let mut ext: sp_io::TestExternalities = storage.into();
-
-		ext.execute_with(|| {
-			System::set_block_number(1);
-			Timestamp::set_timestamp(1_000);
-			let from = AccountId::new([1u8; 32]);
-			let to = AccountId::new([2u8; 32]);
-			pallet_scarcity::NftsByOwner::<Runtime>::insert(
-				&from,
-				pallet_scarcity::Nft {
-					instance: 0,
-					collection: 0,
-					item: 0,
-					minted_at: 0,
-					last_moved: 0,
-					state_nonce: 0,
-				},
-			);
-			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
-
-			assert_eq!(Balances::free_balance(&from), 0);
-			assert_eq!(System::account_nonce(&from), 0);
-			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
-
-			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
-				to: to.clone(),
-			});
-			let info = call.get_dispatch_info();
-			// A non-zero account nonce proves `CheckNonce` skipped the `Origin::Nft`.
-			let result = scarcity_tx_extension(7, 0).dispatch_transaction(
-				RuntimeOrigin::signed(from.clone()),
-				call,
-				&info,
-				0,
-				0,
-			);
-			assert!(matches!(result, Ok(Ok(_))), "transaction failed: {result:?}");
-
-			assert_eq!(Balances::free_balance(&from), 0);
-			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
-			assert!(!frame_system::Account::<Runtime>::contains_key(&to));
-			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&from));
-			assert_eq!(
-				pallet_scarcity::NftsByOwner::<Runtime>::get(&to).map(|nft| nft.instance),
-				Some(0),
-			);
-			assert!(System::events().iter().any(|record| matches!(
-				record.event,
-				RuntimeEvent::SkipFeelessPayment(
-					pallet_skip_feeless_payment::Event::FeeSkipped { .. }
-				)
-			)));
-		});
-	}
-
-	#[test]
-	fn failed_scarcity_transfer_is_feeless_and_retryable_after_lock() {
-		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-		let mut ext: sp_io::TestExternalities = storage.into();
-
-		ext.execute_with(|| {
-			System::set_block_number(1);
-			Timestamp::set_timestamp(1_000);
-			let from = AccountId::new([1u8; 32]);
-			let to = AccountId::new([2u8; 32]);
-			pallet_scarcity::NftsByOwner::<Runtime>::insert(
-				&from,
-				pallet_scarcity::Nft {
-					instance: 0,
-					collection: 0,
-					item: 0,
-					minted_at: 0,
-					last_moved: 0,
-					state_nonce: u64::MAX,
-				},
-			);
-			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
-
-			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
-				to: to.clone(),
-			});
-			let info = call.get_dispatch_info();
-			let result = scarcity_tx_extension(9, u64::MAX).dispatch_transaction(
-				RuntimeOrigin::signed(from.clone()),
-				call,
-				&info,
-				0,
-				0,
-			);
-			assert!(matches!(result, Ok(Err(_))), "transaction did not reach dispatch: {result:?}");
-
-			assert_eq!(Balances::free_balance(&from), 0);
-			assert_eq!(System::account_nonce(&from), 0);
-			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
-			assert_eq!(
-				pallet_scarcity::NftsByOwner::<Runtime>::get(&from).map(|nft| nft.state_nonce),
-				Some(u64::MAX),
-			);
-			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&to));
-			assert_eq!(pallet_scarcity::Locked::<Runtime>::get(&from).unwrap().retries, 1);
-
-			pallet_timestamp::Now::<Runtime>::put(62_000);
-			let retry_call =
-				RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer { to });
-			let retry_info = retry_call.get_dispatch_info();
-			let retry_result = scarcity_tx_extension(9, u64::MAX).dispatch_transaction(
-				RuntimeOrigin::signed(from.clone()),
-				retry_call,
-				&retry_info,
-				0,
-				0,
-			);
-			assert!(
-				matches!(retry_result, Ok(Err(_))),
-				"retry did not reach dispatch: {retry_result:?}"
-			);
-			assert_eq!(System::account_nonce(&from), 0);
-			assert_eq!(pallet_scarcity::Locked::<Runtime>::get(&from).unwrap().retries, 2);
-		});
 	}
 }

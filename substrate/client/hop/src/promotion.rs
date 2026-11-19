@@ -67,7 +67,7 @@ pub trait HopPromoter: Send + Sync + 'static {
 /// Concrete [`HopPromoter`] that calls the HOP runtime API dynamically (see
 /// [`crate::runtime_api`]) to build a promotion extrinsic and submits it to
 /// the local transaction pool.
-pub struct RuntimeApiPromoter<Block: BlockT, C, P> {
+pub struct RuntimeApiPromoter<Block: BlockT, C, P: ?Sized> {
 	client: Arc<C>,
 	tx_pool: Arc<P>,
 	_phantom: PhantomData<Block>,
@@ -77,7 +77,7 @@ impl<Block, C, P> RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
+	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	/// Create a new promoter.
 	pub fn new(client: Arc<C>, tx_pool: Arc<P>) -> Self {
@@ -89,7 +89,7 @@ impl<Block, C, P> HopPromoter for RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
+	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	fn promote(
 		&self,
@@ -134,7 +134,7 @@ pub fn try_build_promoter<Block, C, P>(
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
+	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	let best_hash = client.info().best_hash;
 	match client
@@ -178,7 +178,7 @@ pub fn build_maintenance_task<Block, C, P>(
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
+	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);
 	let best_block_client = client.clone();

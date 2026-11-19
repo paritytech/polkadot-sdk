@@ -228,6 +228,20 @@ pub fn new_test_ext(vec: Vec<(u64, u64)>) -> sp_io::TestExternalities {
 	new_test_ext_raw_authorities(to_authorities(vec))
 }
 
+pub fn build_and_execute(authorities: Vec<(u64, u64)>, test: impl FnOnce()) {
+	new_test_ext(authorities).execute_with(|| {
+		test();
+		Grandpa::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
+pub fn build_and_execute_with_raw_authorities(authorities: AuthorityList, test: impl FnOnce()) {
+	new_test_ext_raw_authorities(authorities).execute_with(|| {
+		test();
+		Grandpa::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

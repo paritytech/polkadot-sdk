@@ -80,13 +80,16 @@ pub trait Tracing {
 
 	/// Called before a contract call is executed.
 	///
-	/// For CALL/DELEGATECALL opcodes:
+	/// - `code_address`: When code is loaded from a different address than `to` (DELEGATECALL or
+	///   EIP-7702 delegation), this is that source address.
+	/// - `is_delegate_call`: true for DELEGATECALL frames (not EIP-7702 delegation).
 	/// - `gas_limit`: gas forwarded to the child call
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_delegate_call: Option<H160>,
+		_code_address: Option<H160>,
+		_is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
@@ -122,8 +125,22 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Record a log event
+	/// Record a log event emitted from within a contract call frame (the `LOG` opcode).
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8], _log_index: u32) {}
+
+	/// Record a log event emitted outside of any contract call frame.
+	///
+	/// Used by runtime components that mirror non-contract activity as EVM logs (e.g. a
+	/// pallet-assets balance change surfaced as an ERC-20 `Transfer`). Unlike [`Self::log_event`],
+	/// this must not assume an active call frame.
+	fn log_event_outside_frame(
+		&mut self,
+		_address: H160,
+		_topics: &[H256],
+		_data: &[u8],
+		_log_index: u32,
+	) {
+	}
 
 	/// Called after a contract call is executed
 	fn exit_child_span(

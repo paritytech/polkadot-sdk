@@ -43,7 +43,7 @@ use polkadot_node_core_chain_selection::{
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames},
+	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, Protocol, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -315,8 +315,18 @@ where
 		};
 
 		// validation/collation protocols are enabled only if `Overseer` is enabled
-		let peerset_protocol_names =
-			PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
+		let main_collation_version = if is_parachain_node.is_running_alongside_parachain_node() ||
+			experimental_collator_protocol
+		{
+			None
+		} else {
+			Some(CollationVersion::V3)
+		};
+		let peerset_protocol_names = PeerSetProtocolNames::new_with_main_collation_version(
+			genesis_hash,
+			config.chain_spec.fork_id(),
+			main_collation_version,
+		);
 
 		// If this is a validator or running alongside a parachain node, we need to enable the
 		// networking protocols.
@@ -351,6 +361,9 @@ where
 			.get_outbound_only_config::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (collation_req_v2_receiver, cfg) =
+			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (collation_req_v3_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (available_data_req_receiver, cfg) =
@@ -481,6 +494,7 @@ where
 				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		if config.offchain_worker.enabled {
@@ -633,6 +647,7 @@ where
 						sync_service: sync_service.clone(),
 						authority_discovery_service,
 						collation_req_v2_receiver,
+						collation_req_v3_receiver,
 						available_data_req_receiver,
 						registry: prometheus_registry.as_ref(),
 						spawner,

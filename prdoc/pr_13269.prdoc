@@ -1,0 +1,10 @@
+title: 'elections-phragmen: saturate the prime-vote multiplier'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The Borda count that picks the prime member weighs each ballot position by `MaxVotesPerVoter - vote_position`. Stored ballots are a plain `Vec` and are only length-checked when `vote` is called, so a reduction of `MaxVotesPerVoter` leaves entries whose positions run past the current bound and underflow the subtraction.
+
+    Use a saturating subtraction so those positions weigh nothing.
+crates:
+- name: pallet-elections-phragmen
+  bump: patch

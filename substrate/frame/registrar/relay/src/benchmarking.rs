@@ -21,8 +21,10 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+// The registry refuses smaller code, and both upgrade benchmarks go through it.
+use polkadot_primitives::MIN_CODE_SIZE;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
 
 /// A para id no benchmark setup will collide on.
 const PARA_ID: ParaId = 4_242;
@@ -33,10 +35,9 @@ fn code_of(len: u32) -> Vec<u8> {
 
 /// Park a pending registration for `PARA_ID` expecting exactly `code`.
 ///
-/// Written straight to storage rather than pushed through [`Pallet::authorize_code`]: going
-/// through the call would put the whole range at the mercy of whatever minimum code size the
-/// configured [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring
-/// anything.
+/// Written straight to storage rather than pushed through [`Pallet::receive`]: going through the
+/// call would put the whole range at the mercy of whatever minimum code size the configured
+/// [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring anything.
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];
 	let pending = PendingRegistration {
@@ -51,13 +52,30 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	Ok(())
 }
 
+/// Register `PARA_ID` and authorize a code upgrade for it expecting exactly `code`.
+fn authorize<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
+	T::Registrar::setup_worst_case_code_upgrade(PARA_ID)?;
+	let expire_at =
+		frame_system::Pallet::<T>::block_number().saturating_add(T::CodeUpgradeValidPeriod::get());
+	PendingCodeUpgrades::<T>::insert(
+		PARA_ID,
+		PendingCodeUpgrade {
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(code),
+			code_len: code.len() as u32,
+			expire_at,
+		},
+	);
+	Ok(())
+}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	/// Accepting a registration request. Dominated by writing the head data.
 	#[benchmark]
-	fn authorize_code(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn receive_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
@@ -70,7 +88,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		authorize_code(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -116,7 +134,7 @@ mod benchmarks {
 	/// Dropping an authorization. The worst case carries the largest head data, since that is what
 	/// the entry being removed holds.
 	#[benchmark]
-	fn cancel_authorization() -> Result<(), BenchmarkError> {
+	fn receive_cancel_registration() -> Result<(), BenchmarkError> {
 		park::<T>(&code_of(T::MaxCodeSize::get()))?;
 		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 			para_id: PARA_ID,
@@ -124,9 +142,126 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Authorizing a code upgrade. One look at the registry, one write, one report.
+	#[benchmark]
+	fn receive_authorize_code_upgrade() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_worst_case_code_upgrade(PARA_ID)?;
+		let code = code_of(T::MaxCodeSize::get());
+		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+			para_id: PARA_ID,
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(&code),
+			code_len: code.len() as u32,
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		assert!(PendingCodeUpgrades::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Uploading the new validation code. Dominated by hashing and scheduling the blob.
+	#[benchmark]
+	fn apply_authorized_code_upgrade(
+		c: Linear<{ MIN_CODE_SIZE }, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let code = code_of(c);
+		authorize::<T>(&code)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Authorized, PARA_ID, code);
+
+		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Deciding whether an unsigned `apply_authorized_code_upgrade` may enter the pool.
+	#[benchmark]
+	fn authorize_apply_authorized_code_upgrade(
+		c: Linear<{ MIN_CODE_SIZE }, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let code = code_of(c);
+		authorize::<T>(&code)?;
+		let call =
+			Call::<T>::apply_authorized_code_upgrade { para_id: PARA_ID, validation_code: code };
+
+		#[block]
+		{
+			use frame_support::pallet_prelude::Authorize;
+			call.authorize(sp_runtime::transaction_validity::TransactionSource::External)
+				.ok_or("call must give some authorization")??;
+		}
+
+		Ok(())
+	}
+
+	/// Telling the parachain a para produced its first head.
+	#[benchmark]
+	fn on_new_head() {
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+
+		#[block]
+		{
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
+		}
+
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
+	}
+
+	/// A later head, where the first one has already been reported.
+	#[benchmark]
+	fn on_new_head_already_noted() {
+		#[block]
+		{
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
+		}
+	}
+
+	/// Dropping a para from the registry, which is where the whole cost of this sits.
+	#[benchmark]
+	fn receive_deregister() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+		let message =
+			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: 0 });
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Setting a head. Dominated by the head data.
+	#[benchmark]
+	fn receive_set_current_head(
+		h: Linear<0, { T::MaxHeadDataSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// Any registered para will do; this is the only registry setup the trait offers.
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+			para_id: PARA_ID,
+			message_id: 0,
+			head: alloc::vec![2u8; h as usize],
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		frame_system::Pallet::<T>::assert_last_event(
+			<T as Config>::RuntimeEvent::from(Event::<T>::HeadUpdated {
+				para_id: PARA_ID,
+				message_id: 0,
+			})
+			.into(),
+		);
 		Ok(())
 	}
 

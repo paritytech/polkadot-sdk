@@ -1,0 +1,13 @@
+title: 'litep2p/req-resp: fix inbound request serve time reporting'
+doc:
+- audience: Node Operator
+  description: |-
+    The litep2p backend reported a near-zero serve time in the
+    `substrate_sub_libp2p_requests_in_success_total` histogram, because the
+    start time of an inbound request was taken only after the response was
+    ready. The start time is now taken on arrival, matching the libp2p backend.
+    Failures to send an outbound request are now counted in
+    `requests_out_failure_total` instead of `requests_in_failure_total`.
+crates:
+- name: sc-network
+  bump: patch

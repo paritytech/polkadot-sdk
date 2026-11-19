@@ -37,11 +37,13 @@ use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClient
 const STATEMENT_DATA_SIZE: usize = 256;
 
 #[derive(Clone)]
-struct TestNetwork;
+struct TestNetwork {
+	local_peer: PeerId,
+}
 
 impl TestNetwork {
 	fn new() -> Self {
-		Self
+		Self { local_peer: PeerId::random() }
 	}
 }
 
@@ -122,6 +124,20 @@ impl sc_network::NetworkEventStream for TestNetwork {
 		_name: &'static str,
 	) -> Pin<Box<dyn Stream<Item = sc_network::Event> + Send>> {
 		unimplemented!()
+	}
+}
+
+impl sc_network::NetworkStateInfo for TestNetwork {
+	fn external_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn listen_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn local_peer_id(&self) -> PeerId {
+		self.local_peer
 	}
 }
 

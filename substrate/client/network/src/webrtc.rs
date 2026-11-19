@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! WebRTC DTLS cert/key generation from the node key.
+//! WebRTC DTLS cert/key generation from the node key, and the public addresses that advertise
+//! the certificate's hash.
 
+use crate::error::Error;
 use hmac::{Hmac, Mac};
 use p256::{
 	ecdsa::{
@@ -47,6 +49,10 @@ use x509_cert::{
 };
 
 use litep2p::{crypto::ed25519::SecretKey as Ed25519SecretKey, transport::webrtc::DtlsCertificate};
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	multihash::Multihash,
+};
 
 /// Domain-separation tag used when deriving P-256 key from ed25519 key via HMAC-SHA256.
 const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-p256-v1";
@@ -178,13 +184,83 @@ fn validity() -> Validity {
 	Validity { not_before: Time::UtcTime(not_before), not_after: Time::GeneralTime(not_after) }
 }
 
+/// Whether `address` contains the `webrtc-direct` transport
+pub(crate) fn is_webrtc_address(address: &Multiaddr) -> bool {
+	address.iter().any(|protocol| matches!(protocol, Protocol::WebRTCDirect))
+}
+
+/// Check that `address` is a bare `webrtc-direct` address.
+///
+/// Dns is accepted as host only if the validation is applied to a public address.
+fn validate(address: &Multiaddr, public_addr: bool) -> Result<(), Error> {
+	let mut iter = address.iter();
+
+	let host_is_valid = match iter.next() {
+		Some(Protocol::Ip4(_) | Protocol::Ip6(_)) => true,
+		Some(Protocol::Dns(_) | Protocol::Dns4(_) | Protocol::Dns6(_)) => public_addr,
+		_ => false,
+	};
+
+	// `/udp/<port>/webrtc-direct` and nothing after it.
+	let is_valid = host_is_valid &&
+		matches!(
+			(iter.next(), iter.next(), iter.next()),
+			(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect), None)
+		);
+
+	is_valid
+		.then_some(())
+		.ok_or_else(|| Error::InvalidWebRtcAddress { address: address.clone() })
+}
+
+pub(crate) fn validate_listen_address(address: &Multiaddr) -> Result<(), Error> {
+	validate(address, false)
+}
+
+pub(crate) fn validate_public_address(address: &Multiaddr) -> Result<(), Error> {
+	validate(address, true)
+}
+
+/// Append the node's `certhash` to a public `webrtc-direct` address.
+pub fn complete_public_address(address: &mut Multiaddr, certhash: Multihash) -> Result<(), Error> {
+	validate_public_address(address)?;
+	address.push(Protocol::Certhash(certhash));
+	Ok(())
+}
+
+/// Check the shape of every `webrtc-direct` address, then append `certhash` to the public ones.
+pub(crate) fn validate_and_complete_addresses(
+	listen_addresses: &[Multiaddr],
+	public_addresses: &mut [Multiaddr],
+	certhash: Multihash,
+) -> Result<(), Error> {
+	// Listen addresses are validated but never completed, unlike the public ones below.
+	//
+	// A listen address names a socket to bind, and `/certhash` is no part of binding one.
+	// litep2p appends it itself when it reports the address it actually bound.
+	//
+	// A public address is the opposite: it is handed to peers to dial, and a `webrtc-direct` dialer
+	// verifies the DTLS handshake against that hash, so it has to be there before anything reads
+	// `--public-addr`.
+	for address in listen_addresses {
+		if is_webrtc_address(address) {
+			validate_listen_address(address)?;
+		}
+	}
+
+	for address in public_addresses.iter_mut() {
+		if is_webrtc_address(address) {
+			complete_public_address(address, certhash)?;
+		}
+	}
+
+	Ok(())
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_network_types::{
-		multiaddr::{Multiaddr, Protocol},
-		multihash::Code,
-	};
+	use sc_network_types::multihash::Code;
 
 	/// Node secret key from raw bytes.
 	fn node_key_from(bytes: [u8; 32]) -> Ed25519SecretKey {
@@ -198,7 +274,7 @@ mod tests {
 	}
 
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
-	fn certhash(certificate: &DtlsCertificate) -> String {
+	fn certhash_component(certificate: &DtlsCertificate) -> String {
 		let hash = Code::Sha2_256.digest(certificate.as_parts().0);
 		Multiaddr::empty().with(Protocol::Certhash(hash)).to_string()
 	}
@@ -210,7 +286,7 @@ mod tests {
 		let second = derive_certificate(key).unwrap();
 
 		assert_eq!(first.as_parts(), second.as_parts());
-		assert_eq!(certhash(&first), certhash(&second));
+		assert_eq!(certhash_component(&first), certhash_component(&second));
 	}
 
 	#[test]
@@ -235,7 +311,7 @@ mod tests {
 
 		assert_ne!(first.as_parts().0, second.as_parts().0);
 		assert_ne!(first.as_parts().1, second.as_parts().1);
-		assert_ne!(certhash(&first), certhash(&second));
+		assert_ne!(certhash_component(&first), certhash_component(&second));
 	}
 
 	#[test]
@@ -247,17 +323,17 @@ mod tests {
 		// `node_key(7)` (serial `0x87..`) gets a `0x00` sign byte, `node_key(42)` (`0x6e..`)
 		// encodes plain, and the third key (`0x002b..`) has its leading zero stripped.
 		assert_eq!(
-			certhash(&derive_certificate(node_key(7)).unwrap()),
+			certhash_component(&derive_certificate(node_key(7)).unwrap()),
 			"/certhash/uEiAXqXtF_3QIfMcgXwMgneoB4EuSE_EcpGvKhY4yz7HfcA"
 		);
 		assert_eq!(
-			certhash(&derive_certificate(node_key(42)).unwrap()),
+			certhash_component(&derive_certificate(node_key(42)).unwrap()),
 			"/certhash/uEiAWsH8V-_VMveqodSJYiAhW5FikqSzBNLV0FyeEb_oetA"
 		);
 		let mut stripped_serial_key = [3u8; 32];
 		stripped_serial_key[31] = 26;
 		assert_eq!(
-			certhash(&derive_certificate(node_key_from(stripped_serial_key)).unwrap()),
+			certhash_component(&derive_certificate(node_key_from(stripped_serial_key)).unwrap()),
 			"/certhash/uEiAfSKLRHZTkoALez2X0jqB0Yyh6T4DYQGM3wLpbR1u7dQ"
 		);
 	}

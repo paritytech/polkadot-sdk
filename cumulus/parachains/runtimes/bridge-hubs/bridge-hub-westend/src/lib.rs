@@ -149,7 +149,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -172,7 +173,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -280,8 +281,6 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 

@@ -1,0 +1,8 @@
+title: 'pallet-balances: Do not store empty reserves in state'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `repatriate_reserved_named` with `Status::Reserved` no longer writes an empty `Reserves` entry for the beneficiary when nothing was moved, so no useless state items are left behind.
+crates:
+- name: pallet-balances
+  bump: patch

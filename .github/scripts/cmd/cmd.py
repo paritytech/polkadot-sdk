@@ -468,7 +468,7 @@ def main():
 
     elif args.command == 'prdoc':
         # Call the main function from ./github/scripts/generate-prdoc.py module
-        exit_code = generate_prdoc.main(args)
+        exit_code = generate_prdoc.main(args, log=print_and_log)
         if exit_code != 0:
             print_and_log('❌ Failed to generate prdoc')
             sys.exit(exit_code)

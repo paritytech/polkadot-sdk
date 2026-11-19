@@ -187,6 +187,23 @@ fn extract_errors(errors: &Option<Vec<u128>>) -> impl Iterator<Item = u128> + '_
 		.chain(std::iter::repeat(0))
 }
 
+// Removes the components that have a single value across `results`.
+fn remove_constant_components(results: &mut [BenchmarkResult]) {
+	let Some(first) = results.first() else { return };
+	let varies = first
+		.components
+		.iter()
+		.enumerate()
+		.map(|(i, &(_, value))| results.iter().any(|result| result.components[i].1 != value))
+		.collect::<Vec<_>>();
+	for result in results.iter_mut() {
+		let mut varies = varies.iter();
+		result
+			.components
+			.retain(|_| *varies.next().expect("one flag per component; qed"));
+	}
+}
+
 // Analyze and return the relevant results for a given benchmark.
 fn get_benchmark_data(
 	batch: &BenchmarkBatchSplitResults,
@@ -302,6 +319,12 @@ fn get_benchmark_data(
 		worst_case_map_values,
 		additional_trie_layers,
 	);
+
+	// The samples touching a storage prefix need not cover every component, e.g. a key touched
+	// only at the component max. Components with a single value across them determine no slope.
+	for results in storage_per_prefix.values_mut() {
+		remove_constant_components(results);
+	}
 
 	let proof_size_per_components: Vec<_> = storage_per_prefix
 		.iter()
@@ -566,7 +589,9 @@ pub(crate) fn process_storage_results(
 	let mut identified_prefix = HashSet::<Vec<u8>>::new();
 	let mut identified_key = HashSet::<Vec<u8>>::new();
 
-	// TODO Emit a warning for unused `pov_mode` attributes.
+	// We don't warn about unused `pov_modes` keys: proactively setting a PoV mode for a storage
+	// item not accessed by every benchmark is legitimate, and truly unknown keys are already
+	// caught by `PalletCmd::check_pov_modes`.
 
 	// We have to iterate in reverse order to catch the largest values for read/write since the
 	// components start low and then increase and only the first value is used.
@@ -1203,6 +1228,67 @@ mod test {
 		let base = result.base_calculated_proof_size;
 		assert!(result.component_calculated_proof_size.is_empty(), "There is no slope");
 		assert_eq!(base, 0);
+	}
+
+	/// Regression: keys touched only in some samples, so that a component has a single value
+	/// across them, used to fail the per-prefix proof-size analysis.
+	#[test]
+	fn pov_partially_touched_prefixes_work() {
+		use BenchmarkParameter::{n, s};
+		let sample = |sv, nv, keys| BenchmarkResult {
+			components: vec![(s, sv), (n, nv)],
+			extrinsic_time: 0,
+			storage_root_time: 0,
+			reads: 0,
+			repeat_reads: 0,
+			writes: 0,
+			repeat_writes: 0,
+			proof_size: 0,
+			keys,
+		};
+		// `s` swept at `n = 4`, then `n` swept at `s = 4`. The `per_n` key is read only in the
+		// `n` sweep, `n + 1` times, and the `at_max` key only at `s = n = 4`.
+		let mut results = (0..4).map(|i| sample(i, 4, vec![])).collect::<Vec<_>>();
+		for i in 0..5 {
+			let mut keys = vec![(b"per_n".to_vec(), i + 1, 0, false)];
+			if i == 4 {
+				keys.push((b"at_max".to_vec(), 1, 0, false));
+			}
+			results.push(sample(4, i, keys));
+		}
+
+		let data = BenchmarkBatchSplitResults {
+			pallet: b"scheduler".to_vec(),
+			instance: b"instance".to_vec(),
+			benchmark: b"first_benchmark".to_vec(),
+			time_results: results.clone(),
+			db_results: results,
+		};
+
+		// Results are mapped with the median-slopes analysis.
+		let mapped_results = map_results(
+			&[data],
+			&[],
+			&Default::default(),
+			Default::default(),
+			PovEstimationMode::Measured,
+			&AnalysisChoice::MedianSlopes,
+			&AnalysisChoice::MedianSlopes,
+			1_000_000,
+			0,
+		)
+		.unwrap();
+		let result =
+			mapped_results.get(&("scheduler".to_string(), "instance".to_string())).unwrap()[0]
+				.clone();
+
+		// The proof size is one read overhead plus one per `n`.
+		let overhead = single_read_pov_overhead(None, 1_000_000) as u128;
+		assert_eq!(result.base_calculated_proof_size, overhead);
+		assert_eq!(
+			result.component_calculated_proof_size,
+			vec![ComponentSlope { name: "n".to_string(), slope: overhead, error: 0 }]
+		);
 	}
 
 	#[test]

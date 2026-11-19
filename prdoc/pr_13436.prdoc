@@ -1,0 +1,11 @@
+title: 'statement-store: benchmark routing targets and retention affinity of the v2 topology'
+doc:
+- audience: Node Dev
+  description: |-
+    A criterion benchmark for the per-statement decisions of the v2 DHT topology: the forwarding
+    targets of a topic and the local node's retention affinity. The topology types are
+    re-exported, hidden from the docs without the test-helpers feature, so the benchmark can build
+    them.
+crates:
+- name: sc-network-statement
+  bump: minor

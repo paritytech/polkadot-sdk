@@ -286,8 +286,8 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		487_426_000,
-		8799,
+		873_850_000,
+		12_416,
 	)));
 	assert_expected_events!(
 		AssetHubWestend,
@@ -303,9 +303,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
-			// Delivery fees are deposited to the DAP buffer account.
+			// Delivery fees are deposited to the DAP staging account.
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-				who: *who == DapBufferAccount::get(),
+				who: *who == DapStagingAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(

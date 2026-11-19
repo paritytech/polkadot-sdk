@@ -39,7 +39,7 @@ use sp_trie::StorageProof;
 use std::{marker::PhantomData, sync::Arc};
 
 const STORE_VERSION_KEY: &[u8] = b"cumulus_resubmission_store_version";
-const STORE_CURRENT_VERSION: u32 = 1;
+const STORE_CURRENT_VERSION: u32 = 2;
 const STORE_ENTRY_PREFIX: &[u8] = b"cumulus_resubmission_store";
 
 /// Entry stored in aux storage for each unincluded parablock.
@@ -51,6 +51,9 @@ pub struct StoredEntry {
 	pub relay_parent_header: RelayHeader,
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: SessionIndex,
+	/// The relay chain's `max_pov_size` at the relay parent, used to rebuild the block's persisted
+	/// validation data at resubmission time.
+	pub max_pov_size: u32,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -85,8 +88,10 @@ pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	proof: Arc<StorageProof>,
 	relay_parent_header: RelayHeader,
 	relay_parent_session: SessionIndex,
+	max_pov_size: u32,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry = (&proof, &relay_parent_header, &relay_parent_session).encode();
+	let encoded_entry =
+		(&proof, &relay_parent_header, &relay_parent_session, &max_pov_size).encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -220,6 +225,7 @@ mod tests {
 			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]])),
 			relay_parent_header: test_relay_header(7),
 			relay_parent_session: 1,
+			max_pov_size: 5_242_880,
 		}
 	}
 
@@ -235,6 +241,7 @@ mod tests {
 			entry.proof.clone(),
 			entry.relay_parent_header.clone(),
 			entry.relay_parent_session,
+			entry.max_pov_size,
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -248,11 +255,13 @@ mod tests {
 		let proof = Arc::new(StorageProof::new(vec![vec![10, 20, 30]]));
 		let relay_parent_header = test_relay_header(42);
 		let relay_parent_session = 42;
+		let max_pov_size = 1_048_576;
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
 			proof.clone(),
 			relay_parent_header.clone(),
 			relay_parent_session,
+			max_pov_size,
 		)
 		.collect();
 
@@ -266,6 +275,7 @@ mod tests {
 		assert_eq!(decoded_entry.proof, proof);
 		assert_eq!(decoded_entry.relay_parent_header, relay_parent_header);
 		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
+		assert_eq!(decoded_entry.max_pov_size, max_pov_size);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
 		let decoded_version =
@@ -427,12 +437,14 @@ mod tests {
 				entry_a.proof.clone(),
 				entry_a.relay_parent_header.clone(),
 				entry_a.relay_parent_session,
+				entry_a.max_pov_size,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.proof.clone(),
 				entry_b.relay_parent_header.clone(),
 				entry_b.relay_parent_session,
+				entry_b.max_pov_size,
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -515,6 +527,7 @@ mod tests {
 				entry.proof,
 				entry.relay_parent_header,
 				entry.relay_parent_session,
+				entry.max_pov_size,
 			)
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

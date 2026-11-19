@@ -45,6 +45,7 @@ tokio-stream = { workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
+rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-test-primitives = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }

@@ -1,0 +1,38 @@
+title: Add time-bounded executor & limit light client request processing time
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Add executor that aborts execution when timeout elapses, based on WasmTime epoch
+    interruptions. A separate executor for time-bound requests is needed, because epoch
+    interruption compiles into the WASM blob and slows execution down by 10%.
+
+    Limit light client execution proof requests by 3-second timeout by default. The timeout is
+    deliberately chosen high before we obtain real-world execution time data for legitimate
+    requests. The default timeout can be overridden with `--light-request-execution-timeout-ms`.
+crates:
+- name: sp-core
+  bump: major
+- name: sp-state-machine
+  bump: major
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-wasmtime
+  bump: major
+- name: sc-executor-polkavm
+  bump: major
+- name: sc-executor
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-service
+  bump: patch
+- name: sc-network
+  bump: major
+- name: sc-network-light
+  bump: major
+- name: sc-cli
+  bump: major
+- name: frame-benchmarking-cli
+  bump: patch
+- name: polkadot-node-core-pvf-common
+  bump: patch

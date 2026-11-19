@@ -49,10 +49,15 @@ use crate::common::{
 	world::World,
 };
 use codec::Encode;
-use polkadot_node_network_protocol::request_response::{v1 as protocol_v1, v2 as protocol_v2};
+use polkadot_node_network_protocol::{
+	request_response::{v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3},
+	v4_collation::CandidateFingerprint,
+};
 use polkadot_node_primitives::PoV;
-use polkadot_primitives::{CandidateHash, CandidateReceiptV2, Hash, HeadData, Id as ParaId};
-use sc_network::ProtocolName;
+use polkadot_primitives::{
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2, Hash, HeadData, Id as ParaId,
+};
+use sc_network::{ProtocolName, RequestFailure};
 use std::time::Duration;
 
 /// Default budget for "happy-path" expectations (advertise → fetch → respond → second).
@@ -156,6 +161,23 @@ impl<S: CollatorSut> World<S> {
 			candidate_hash,
 			parent_head_hash,
 			descriptor_version,
+		));
+	}
+
+	/// Send a V4 `AdvertiseSegment` from `peer` at `scheduling_parent`, carrying V3
+	/// candidate descriptors (the only descriptor version V4 segments use today). The
+	/// `peer` must be V4. A V4 peer's first segment doubles as its declaration. For a
+	/// different descriptor version, call [`Peer::advertise_segment`] directly.
+	pub fn advertise_segment(
+		&mut self,
+		peer: &Peer,
+		scheduling_parent: Hash,
+		fingerprints: Vec<CandidateFingerprint>,
+	) {
+		self.base.sim.send(peer.advertise_segment(
+			scheduling_parent,
+			CandidateDescriptorVersion::V3,
+			fingerprints,
 		));
 	}
 
@@ -313,6 +335,49 @@ impl<S: CollatorSut> World<S> {
 		);
 	}
 
+	/// Wait for the next V4-resolved fetch — `Effect::SendRequestV3`, the
+	/// output-head-keyed `CollationFetchingV3` request — from any peer. Returns
+	/// `(peer_id, request_id, output_head_data_hash)`.
+	///
+	/// Use when the test doesn't know which peer the validator will pick (equal-score
+	/// peers tie-break nondeterministically). Note: the V1/V2 helpers
+	/// (`expect_fetch_to`, `no_fetch_within`, ...) match `Effect::SendRequest` only and
+	/// do NOT see V4 fetches.
+	pub fn expect_any_fetch_v3(&mut self) -> (sc_network_types::PeerId, RequestId, Hash) {
+		let send_request = self.base.sim.expect(
+			|e| matches!(e, Effect::SendRequestV3 { .. }),
+			HAPPY_PATH_TIMEOUT,
+			"Effect::SendRequestV3 (output-head-keyed collation fetch) from any peer",
+		);
+		match send_request {
+			Effect::SendRequestV3 { to, request_id, output_head_data_hash, .. } => {
+				(to, request_id, output_head_data_hash)
+			},
+			_ => unreachable!("filter ensures SendRequestV3"),
+		}
+	}
+
+	/// Wait for `Effect::SendRequestV3` targeting `peer`. Returns the [`RequestId`] for
+	/// [`Self::respond_fetch_v3`] / [`Self::fail_fetch`].
+	pub fn expect_fetch_v3_to(&mut self, peer: sc_network_types::PeerId) -> RequestId {
+		let send_request = self.base.sim.expect(
+			|e| matches!(e, Effect::SendRequestV3 { to, .. } if *to == peer),
+			HAPPY_PATH_TIMEOUT,
+			"Effect::SendRequestV3 to the specified peer",
+		);
+		send_request.request_id().expect("SendRequestV3 carries a RequestId")
+	}
+
+	/// Assert that **no** V4-resolved fetch (`Effect::SendRequestV3`) fires within
+	/// `within`.
+	pub fn no_fetch_v3_within(&mut self, within: Duration) {
+		self.base.sim.expect_no(
+			|e| matches!(e, Effect::SendRequestV3 { .. }),
+			within,
+			"any SendRequestV3 (must NOT fire)",
+		);
+	}
+
 	/// Encode a V2 `CollationFetchingResponse::Collation(receipt, pov)` and resolve the
 	/// pending fetch identified by `request_id`.
 	pub fn respond_fetch_v2(
@@ -335,6 +400,31 @@ impl<S: CollatorSut> World<S> {
 		self.base
 			.sim
 			.respond_fetch(request_id, Ok((vec![0xff; 8], ProtocolName::from(""))));
+	}
+
+	/// Encode a V3 request-response `CollationFetchingResponse::Collation { .. }` — the
+	/// response format for output-head-keyed V4 fetches; `parent_head_data` is
+	/// mandatory there — and resolve the pending fetch identified by `request_id`.
+	pub fn respond_fetch_v3(
+		&mut self,
+		request_id: RequestId,
+		receipt: CandidateReceiptV2,
+		pov: PoV,
+		parent_head_data: HeadData,
+	) {
+		let response =
+			protocol_v3::CollationFetchingResponse::Collation { receipt, pov, parent_head_data };
+		self.base
+			.sim
+			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
+	}
+
+	/// Resolve the pending fetch with a network-level failure (`NotConnected`). The
+	/// subsystem sees `RequestError::NetworkError` — a fetch failure that is not
+	/// attributed to the collator (no slash) — making this the plain "the first fetch
+	/// failed" stimulus for retry scenarios.
+	pub fn fail_fetch(&mut self, request_id: RequestId) {
+		self.base.sim.respond_fetch(request_id, Err(RequestFailure::NotConnected));
 	}
 
 	/// V1 variant of [`Self::respond_fetch_v2`].
