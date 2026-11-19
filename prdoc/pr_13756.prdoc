@@ -9,8 +9,8 @@ doc:
     deposit or consumer reference as before, but keeps a zero-balance entry that stays blocked
     until the admin thaws it, which removes the entry. A blocked holder can therefore still free
     a consumer reference forced on them by an asset owner, but can no longer lift the block.
-    Such an entry has the new `ExistenceReason::Tombstone`, and `freeze` fails with `NoAccount`
-    on it. It still counts in `AssetDetails::accounts`, so the owner cannot raise the minimum
+    Such an entry has the new `ExistenceReason::Tombstone`, and `freeze` fails on it with the new
+    `Error::RefundedWhileBlocked`. It still counts in `AssetDetails::accounts`, so the owner cannot raise the minimum
     balance while it exists, and `thaw` fails with `ContainsHolds` or `ContainsFreezes` while it
     has a hold or freeze.
 

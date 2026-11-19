@@ -864,6 +864,8 @@ pub mod pallet {
 		TooManyReserves,
 		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
 		IncompleteDepositTransfer,
+		/// The account was refunded while blocked and can only be removed by `thaw`.
+		RefundedWhileBlocked,
 	}
 
 	#[pallet::hooks]
@@ -1243,9 +1245,9 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be frozen.
 		///
-		/// Freezing a blocked account returns its block deposit. Fails with `NoAccount` on an
-		/// entry left by refunding a blocked account, since a frozen entry can receive and nothing
-		/// would back a balance there; `thaw` removes such an entry.
+		/// Freezing a blocked account returns its block deposit. Fails with `RefundedWhileBlocked`
+		/// on an entry left by refunding a blocked account, since a frozen entry can receive and
+		/// nothing would back a balance there; `thaw` removes such an entry.
 		///
 		/// Emits `Frozen`.
 		///
@@ -1272,7 +1274,7 @@ pub mod pallet {
 				&who,
 				|maybe_account| -> Result<bool, DispatchError> {
 					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
-					ensure!(!account.is_tombstone(), Error::<T, I>::NoAccount);
+					ensure!(!account.is_tombstone(), Error::<T, I>::RefundedWhileBlocked);
 					let was_blocked = account.status.is_blocked();
 					account.status = AccountStatus::Frozen;
 					Ok(was_blocked)

@@ -374,7 +374,10 @@ fn refunding_blocked_account_keeps_it_blocked() {
 		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
 		assert_noop!(Assets::touch(RuntimeOrigin::signed(2), 0), Error::<Test>::AlreadyExists);
 		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::NoDeposit);
-		assert_noop!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::NoAccount);
+		assert_noop!(
+			Assets::freeze(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::RefundedWhileBlocked
+		);
 
 		// thawing removes the entry and returns the block deposit
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
@@ -651,7 +654,10 @@ fn only_admin_returns_block_deposit_after_holder_refund() {
 		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
 
-		assert_noop!(Assets::freeze(RuntimeOrigin::signed(4), 0, 2), Error::<Test>::NoAccount);
+		assert_noop!(
+			Assets::freeze(RuntimeOrigin::signed(4), 0, 2),
+			Error::<Test>::RefundedWhileBlocked
+		);
 		assert_noop!(Assets::thaw(RuntimeOrigin::signed(4), 0, 2), Error::<Test>::NoPermission);
 		assert_eq!(Balances::reserved_balance(&4), 10);
 
