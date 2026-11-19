@@ -115,6 +115,40 @@ fn implicit_refund_after_explicit_refund_is_a_noop() {
 }
 
 #[test]
+fn surplus_accrued_after_explicit_refund_is_charged_at_the_end() {
+	let mut vm = executor_with_leftover_fees();
+	vm.set_total_surplus(Weight::from_parts(1, 1));
+
+	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+	assert_eq!(vm.total_refunded(), &Weight::from_parts(1, 1));
+
+	// More surplus after the explicit refund, e.g. from an error handler that never ran.
+	vm.set_total_surplus(Weight::from_parts(5, 5));
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	// `(4, 4)` is left to refund, `(2, 2)` of it is charged and the trader refunds the `(1, 1)` it
+	// has left, `1` of `Here`. Holding has the two refunds of `1` and the leftover fees of `6`.
+	assert_eq!(outcome.weight_used(), Weight::from_parts(7, 7));
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 8u128).into()]);
+}
+
+#[test]
+fn implicit_refund_is_charged_per_dimension() {
+	let mut vm = executor_with_leftover_fees();
+	vm.set_total_surplus(Weight::from_parts(6, 3));
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	// `(2, 2)` is charged and `(4, 1)` refunded. The trader refunds only the `(2, 1)` it has, `2`
+	// of `Here`.
+	assert_eq!(outcome.weight_used(), Weight::from_parts(6, 9));
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 8u128).into()]);
+}
+
+#[test]
 fn refund_holding_cannot_take_fails_and_is_left_to_the_end() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_total_surplus(Weight::from_parts(4, 4));
