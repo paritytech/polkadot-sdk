@@ -118,6 +118,15 @@ impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 		// `pallet_session` leaves out validators without keys. The historical root must count the
 		// same validators, or every key ownership proof for the session fails.
 		validators.retain(|v| pallet_session::Pallet::<T>::load_keys(v).is_some());
+		if validators.is_empty() {
+			// BABE cannot author a block in an epoch without authorities, so the chain would halt.
+			log::error!(
+				target: "runtime::validator-manager",
+				"The planned validator set for session {new_index} is empty, keeping the current set",
+			);
+			validators = pallet_session::Pallet::<T>::validators();
+			validators.retain(|v| pallet_session::Pallet::<T>::load_keys(v).is_some());
+		}
 		Some(validators)
 	}
 
@@ -141,11 +150,12 @@ impl<T: Config> pallet_session::historical::SessionManager<T::ValidatorId, ()> f
 mod tests {
 	use crate::{
 		genesis_config_presets::{authority_keys_from_seed, ENDOWMENT},
-		AccountId, BalancesConfig, BuildStorage, Historical, RuntimeGenesisConfig, RuntimeOrigin,
-		Session, SessionConfig, System, ValidatorManager,
+		AccountId, BalancesConfig, BuildStorage, Historical, Runtime, RuntimeGenesisConfig,
+		RuntimeOrigin, Session, SessionConfig, System, ValidatorManager,
 	};
 	use polkadot_sdk::{
-		frame_support::{assert_ok, storage, traits::KeyOwnerProofSystem},
+		frame_support::{assert_ok, traits::KeyOwnerProofSystem},
+		pallet_babe,
 		sp_consensus_babe::{digests::PreDigest, KEY_TYPE as BABE},
 		sp_core::crypto::ByteArray,
 		sp_io::TestExternalities,
@@ -176,8 +186,7 @@ mod tests {
 	fn rotate_session() {
 		System::set_block_number(System::block_number() + 1);
 		// BABE asserts that its per-block initialization ran before an epoch change.
-		let initialized = storage::storage_prefix(b"Babe", b"Initialized");
-		storage::unhashed::put(&initialized, &Option::<PreDigest>::None);
+		pallet_babe::Initialized::<Runtime>::put(None::<PreDigest>);
 		Session::rotate_session();
 	}
 
@@ -203,6 +212,41 @@ mod tests {
 			));
 			rotate_session();
 			assert_eq!(Session::validators(), vec![alice.clone(), bob]);
+			rotate_session();
+			assert_eq!(Session::validators(), vec![alice]);
+		});
+	}
+
+	#[test]
+	fn deregistering_cancels_a_pending_registration() {
+		let (mut ext, alice, bob) = new_test_ext();
+		ext.execute_with(|| {
+			rotate_session();
+			rotate_session();
+
+			assert_ok!(ValidatorManager::register_validators(
+				RuntimeOrigin::root(),
+				vec![bob.clone()]
+			));
+			assert_ok!(ValidatorManager::deregister_validators(RuntimeOrigin::root(), vec![bob]));
+			rotate_session();
+			rotate_session();
+			assert_eq!(Session::validators(), vec![alice]);
+		});
+	}
+
+	#[test]
+	fn an_empty_set_keeps_the_current_validators() {
+		let (mut ext, alice, _) = new_test_ext();
+		ext.execute_with(|| {
+			rotate_session();
+			rotate_session();
+
+			assert_ok!(ValidatorManager::deregister_validators(
+				RuntimeOrigin::root(),
+				vec![alice.clone()]
+			));
+			rotate_session();
 			rotate_session();
 			assert_eq!(Session::validators(), vec![alice]);
 		});
