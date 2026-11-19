@@ -389,8 +389,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns a deposit or a consumer reference, destroying an asset-account.
 	/// Non-zero balance accounts refunded and destroyed only if `allow_burn` is true.
 	///
-	/// A frozen or blocked account is not destroyed: it keeps a zero-balance entry that stays
-	/// frozen or blocked until thawed, so refunding cannot be used to lift the freeze or block.
+	/// A frozen or blocked account with a freezer deposit is not destroyed: it keeps a zero-balance
+	/// entry that stays frozen or blocked until thawed, so refunding cannot be used to lift the
+	/// freeze or block.
 	pub(super) fn do_refund(id: T::AssetId, who: T::AccountId, allow_burn: bool) -> DispatchResult {
 		use AssetStatus::*;
 		use ExistenceReason::*;
@@ -406,7 +407,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Currency::unreserve(&who, deposit);
 		}
 		let burned = core::mem::replace(&mut account.balance, Zero::zero());
-		let keep_frozen = account.status.is_frozen();
+		let keep_frozen =
+			account.status.is_frozen() && FreezerDeposits::<T, I>::contains_key(&id, &who);
 
 		if keep_frozen {
 			if let Consumer = account.reason {

@@ -17,15 +17,17 @@ doc:
 
     To back this entry with a deposit, `freeze` and `block` now reserve `AssetAccountDeposit`
     from the freezer when the account's holder can refund it, that is when it exists through a
-    consumer reference or its own deposit, or is already a tombstone. The deposit is recorded in
-    the new `FreezerDeposits` storage item and returned to the account that placed it when the
-    account is thawed or destroyed together with the asset. Freezing or blocking an account that
-    already has a freezer deposit takes no further deposit, and the freezer must hold enough
-    free balance for it. Accounts that exist as `Sufficient` or through a deposit someone else
-    placed cannot be refunded while frozen or blocked and take no freezer deposit. Accounts
-    frozen or blocked before this change hold no freezer deposit until they are frozen or
-    blocked again. No migration is needed: `FreezerDeposits` starts empty and `Tombstone` is a
-    new variant.
+    consumer reference or its own deposit. The deposit is recorded in the new `FreezerDeposits`
+    storage item and returned to the account that placed it when the account is thawed or
+    destroyed together with the asset. Freezing or blocking an account that already has a
+    freezer deposit takes no further deposit, and the freezer must hold enough free balance for
+    it. Accounts that exist as `Sufficient` or through a deposit someone else placed cannot be
+    refunded while frozen or blocked and take no freezer deposit.
+
+    Only an account with a freezer deposit is kept on refund, so every kept entry is paid for.
+    Accounts frozen or blocked before this change hold no freezer deposit: refunding one still
+    removes it, as before, until its freezer freezes or blocks it again. No migration is needed:
+    `FreezerDeposits` starts empty and `Tombstone` is a new variant.
 
     `WeightInfo` gains `destroy_blocked_accounts`, which prices `destroy_accounts` for accounts
     that return a freezer deposit. The `destroy_accounts` call is charged the larger of the two

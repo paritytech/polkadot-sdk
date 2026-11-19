@@ -117,8 +117,7 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// - it is always `Frozen` or `Blocked` and holds a zero balance;
 	/// - it cannot receive the asset, whatever its status;
 	/// - it holds no consumer reference and no deposit of its holder;
-	/// - its entry is paid for by the freezer's deposit in `FreezerDeposits`, unless the account
-	///   was frozen or blocked before freezer deposits existed and has not been since;
+	/// - its entry is paid for by the freezer's deposit in `FreezerDeposits`;
 	/// - it is removed only by `thaw` or by destroying the asset, which also return that deposit.
 	#[codec(index = 5)]
 	Tombstone,
@@ -209,13 +208,6 @@ impl<Balance, DepositBalance, Extra, AccountId>
 	/// Returns `true` if the account's holder can `refund` it.
 	pub fn is_refundable_by_holder(&self) -> bool {
 		matches!(self.reason, ExistenceReason::Consumer | ExistenceReason::DepositHeld(_))
-	}
-
-	/// Returns `true` if freezing or blocking the account needs a deposit: its holder can `refund`
-	/// it while frozen or blocked, or already did, leaving an entry behind that nothing else pays
-	/// for.
-	pub fn needs_freezer_deposit(&self) -> bool {
-		self.is_refundable_by_holder() || self.is_tombstone()
 	}
 }
 

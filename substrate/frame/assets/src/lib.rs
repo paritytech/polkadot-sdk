@@ -553,7 +553,7 @@ pub mod pallet {
 	/// `refund`, together with the account it was reserved from. It backs the account entry, which
 	/// outlives a `refund` while frozen or blocked. An entry exists only while the account is
 	/// frozen or blocked. Accounts frozen or blocked before freezer deposits existed have none
-	/// until they are frozen or blocked again, so a tombstone of such an account is not backed.
+	/// until they are frozen or blocked again, and until then a `refund` removes them.
 	pub type FreezerDeposits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -1276,7 +1276,7 @@ pub mod pallet {
 				|maybe_account| -> Result<bool, DispatchError> {
 					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
 					account.status = AccountStatus::Frozen;
-					Ok(account.needs_freezer_deposit())
+					Ok(account.is_refundable_by_holder())
 				},
 			)?;
 			if needs_deposit {
@@ -1835,9 +1835,9 @@ pub mod pallet {
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
 		/// the asset account contains holds or freezes in place.
 		///
-		/// A frozen or blocked asset account is not destroyed: its balance is burned and its
-		/// deposit or consumer reference returned, but it stays frozen or blocked with a zero
-		/// balance, and cannot receive the asset, until thawed.
+		/// A frozen or blocked asset account with a freezer deposit is not destroyed: its balance
+		/// is burned and its deposit or consumer reference returned, but it stays frozen or blocked
+		/// with a zero balance, and cannot receive the asset, until thawed.
 		///
 		/// Emits `Burned` if a non-zero balance was burned.
 		#[pallet::call_index(27)]
@@ -1986,7 +1986,7 @@ pub mod pallet {
 				|maybe_account| -> Result<bool, DispatchError> {
 					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
 					account.status = AccountStatus::Blocked;
-					Ok(account.needs_freezer_deposit())
+					Ok(account.is_refundable_by_holder())
 				},
 			)?;
 			if needs_deposit {
@@ -2190,6 +2190,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					ensure!(
 						account.status.is_frozen() && account.balance.is_zero(),
 						"Tombstone that is not a frozen or blocked zero-balance account found"
+					);
+					ensure!(
+						FreezerDeposits::<T, I>::contains_key(&asset_id, &who),
+						"Tombstone without a freezer deposit found"
 					);
 				}
 

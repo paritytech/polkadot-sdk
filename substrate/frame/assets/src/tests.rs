@@ -571,6 +571,9 @@ fn try_state_rejects_tombstone_that_is_not_frozen_with_zero_balance() {
 
 		FreezerDeposits::<Test>::remove(0, &2);
 		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
+
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Blocked);
+		assert_eq!(Assets::do_try_state(), Err("Tombstone without a freezer deposit found".into()));
 	});
 }
 
@@ -724,20 +727,28 @@ fn blocking_without_funds_for_deposit_fails() {
 }
 
 #[test]
-fn blocking_account_blocked_without_deposit_takes_one() {
+fn refunding_account_without_freezer_deposit_removes_it_until_blocked_again() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
-		// blocked before freezer deposits existed, then refunded into an entry nothing pays for
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		// frozen and blocked before freezer deposits existed
 		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Blocked);
-		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
-		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
-		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+		Account::<Test>::mutate(0, &3, |a| a.as_mut().unwrap().status = AccountStatus::Frozen);
+
+		// nothing would pay for an entry
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(3), 0, true));
+		assert!(!Account::<Test>::contains_key(0, &3));
+		assert_eq!(System::consumers(&3), 0);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
 
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
 		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
 		assert_eq!(Balances::reserved_balance(&1), 0);
 	});
