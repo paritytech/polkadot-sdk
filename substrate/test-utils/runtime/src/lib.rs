@@ -121,7 +121,7 @@ pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 
 // The `runtime_version` macro operates on the AST, so the `spec_version` can not be set using
 // `cfg` inside of the declaration.
-#[cfg(feature = "without-inherent-upgrade-pallet")]
+#[cfg(without_inherent_upgrade_pallet)]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("test"),
@@ -135,7 +135,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 /// Test runtime version.
-#[cfg(not(feature = "without-inherent-upgrade-pallet"))]
+#[cfg(not(without_inherent_upgrade_pallet))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("test"),
@@ -347,6 +347,8 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	}
 }
 
+// `construct_runtime!` only supports `feature` and `test` predicates in `cfg` attributes.
+#[cfg(not(without_inherent_upgrade_pallet))]
 construct_runtime!(
 	pub enum Runtime
 	{
@@ -355,8 +357,19 @@ construct_runtime!(
 		SubstrateTest: substrate_test_pallet::pallet,
 		Utility: pallet_utility,
 		Balances: pallet_balances,
-		#[cfg(not(feature = "without-inherent-upgrade-pallet"))]
 		InherentUpgrade: inherent_upgrade_pallet,
+	}
+);
+
+#[cfg(without_inherent_upgrade_pallet)]
+construct_runtime!(
+	pub enum Runtime
+	{
+		System: frame_system,
+		Babe: pallet_babe,
+		SubstrateTest: substrate_test_pallet::pallet,
+		Utility: pallet_utility,
+		Balances: pallet_balances,
 	}
 );
 

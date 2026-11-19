@@ -48,7 +48,7 @@ fn main() {
 			.export_heap_base()
 			.import_memory()
 			.set_file_name("wasm_binary_without_inherent_upgrade_pallet.rs")
-			.enable_feature("without-inherent-upgrade-pallet")
+			.append_to_rust_flags("--cfg without_inherent_upgrade_pallet")
 			.build();
 	}
 }
