@@ -407,15 +407,4 @@ mod tests {
 		affinity.on_substream_closed(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
-
-	#[test]
-	fn peer_with_a_filter_accepts_broadcast_statements() {
-		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
-		let peer = PeerId::random();
-		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
-
-		let mut broadcast = Statement::new();
-		broadcast.set_plain_data(b"broadcast".to_vec());
-		assert!(affinity.peer_has_explicit_affinity(peer, &broadcast));
-	}
 }

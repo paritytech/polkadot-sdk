@@ -1,0 +1,19 @@
+title: 'statement-store: reject statements without topics'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store rejects a statement without topics on submit from every source: the
+    network, an RPC client and the runtime. The result is `SubmitResult::Invalid` with the new
+    `InvalidReason::NoTopics`, which has the metrics label `no_topics` and the RPC reason
+    `noTopics`. Such a statement was treated as a broadcast and went to every peer whatever
+    filter the peer advertised.
+
+    The affinity filter matches a statement only by its topics. A statement without topics that a
+    store already holds stays there until it expires or the account quota evicts it.
+crates:
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: patch
+- name: sc-network-statement
+  bump: patch
