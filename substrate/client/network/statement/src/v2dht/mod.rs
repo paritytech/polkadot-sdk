@@ -424,12 +424,11 @@ impl V2DhtOrchestrator {
 		self.peer_steering.update_unreachable_peers(now);
 		self.peer_steering.update_paused_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics, |peer| {
+		let is_skipped = |peer: &PeerId| {
 			self.peer_steering.is_unreachable(peer) || self.peer_steering.is_paused(peer)
-		});
-		desired.extend(self.peers_topology.peers_for_routing(|peer| {
-			self.peer_steering.is_unreachable(peer) || self.peer_steering.is_paused(peer)
-		}));
+		};
+		let mut desired = self.peers_topology.peers_for_topics(&topics, &is_skipped);
+		desired.extend(self.peers_topology.peers_for_routing(&is_skipped));
 		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
 		// closes its substream, which returns the peer to the index and gets it dialed again.
 		desired.extend(
@@ -464,11 +463,7 @@ impl V2DhtOrchestrator {
 	/// [`peer_steering::DISCONNECT_PAUSE`]: steering leaves it unreserved and gives its place to
 	/// the next candidate, and the handler rejects its inbound substream.
 	pub(crate) fn pause_peer(&mut self, peer: PeerId) {
-		self.pause_peer_at(peer, Instant::now());
-	}
-
-	fn pause_peer_at(&mut self, peer: PeerId, now: Instant) {
-		self.peer_steering.pause_peer(peer, now);
+		self.peer_steering.pause_peer(peer, Instant::now());
 	}
 
 	/// Whether `peer` is paused after a disconnect for its behavior.
@@ -1009,10 +1004,10 @@ mod tests {
 		orchestrator.on_pending_affinities_at(start);
 		let places = orchestrator.peer_steering.peers_to_reserve().len();
 
-		orchestrator.pause_peer_at(routing, start);
-		orchestrator.pause_peer_at(coverage, start);
+		orchestrator.peer_steering.pause_peer(routing, start);
+		orchestrator.peer_steering.pause_peer(coverage, start);
 
-		// A dial-in leaves the pause running, and the pause outlasts the unreachable retry.
+		// A dial-in leaves the pause running.
 		orchestrator.on_substream_opened(routing);
 		orchestrator.on_substream_closed(routing);
 		orchestrator.on_pending_affinities_at(start + DISCONNECT_PAUSE - Duration::from_secs(1));

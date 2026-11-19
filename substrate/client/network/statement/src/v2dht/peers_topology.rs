@@ -341,11 +341,11 @@ impl PeersTopology {
 	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 	/// statement for any topic a connected next hop closer to the topic.
 	///
-	/// A peer that `is_passed_over` is skipped, so the next peer of its bucket takes its place.
+	/// A peer that `is_skipped` is passed over, so the next peer of its bucket takes its place.
 	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
 	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
 	/// peers themselves connect.
-	pub fn peers_for_routing(&self, is_passed_over: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
+	pub fn peers_for_routing(&self, is_skipped: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
 		let mut last_bucket = None;
@@ -353,7 +353,7 @@ impl PeersTopology {
 		let mut connected_chosen = 0;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
-			if is_passed_over(&peer) {
+			if is_skipped(&peer) {
 				continue;
 			}
 			let bucket = bucket_of(self.local_key, key);
@@ -1100,8 +1100,8 @@ mod tests {
 					.filter(|q| **q != peer)
 					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
 					.count() + usize::from(
-					cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
-				);
+						cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
+					);
 				if closer_entries < 5 {
 					expected.push(peer);
 				} else if distance_to(topic, &peer) < local_distance {

@@ -247,11 +247,11 @@ impl PeerSteering {
 			.collect()
 	}
 
-	/// Desired peers outside the reserved set. A paused peer stays outside it.
+	/// Desired peers outside the reserved set.
 	pub(crate) fn peers_to_reserve(&self) -> Vec<PeerId> {
 		self.desired
 			.iter()
-			.filter(|peer| !self.reserved.contains(peer) && !self.paused.contains_key(peer))
+			.filter(|peer| !self.reserved.contains(peer))
 			.copied()
 			.collect()
 	}

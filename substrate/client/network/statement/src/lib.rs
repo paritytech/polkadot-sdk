@@ -8120,12 +8120,10 @@ mod tests {
 		assert!(!handler.v2dht.is_reserved(&held));
 		assert!(!handler.v2dht.is_reserved(&routing));
 
-		// The next refresh reserves the peers steering still needs, which reconnects them, and
-		// leaves a paused one released.
-		handler.v2dht.pause_peer(routing);
+		// The next refresh reserves the peers steering still needs, which reconnects them.
 		handler.v2dht.refresh_connections(&network);
 		assert!(handler.v2dht.is_reserved(&held));
-		assert!(!handler.v2dht.is_reserved(&routing));
+		assert!(handler.v2dht.is_reserved(&routing));
 	}
 
 	#[test]
