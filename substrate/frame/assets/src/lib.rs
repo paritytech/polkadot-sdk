@@ -1837,7 +1837,7 @@ pub mod pallet {
 		/// A blocked asset account is not destroyed: its balance is burned and its deposit or
 		/// consumer reference returned, but it stays blocked with a zero balance until thawed.
 		///
-		/// Emits `Refunded` event when successful.
+		/// Emits `Burned` if a non-zero balance was burned.
 		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::refund())]
 		pub fn refund(
@@ -1931,7 +1931,7 @@ pub mod pallet {
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
 		/// the asset account contains holds or freezes in place.
 		///
-		/// Emits `Refunded` event when successful.
+		/// Emits no event.
 		#[pallet::call_index(30)]
 		#[pallet::weight(T::WeightInfo::refund_other())]
 		pub fn refund_other(
