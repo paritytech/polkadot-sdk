@@ -38,12 +38,12 @@
 //!
 //! 2. Write a little program to generate the definitions. This program exists only to hook together
 //! the runtime definitions with the various calculations here. Take a look at
-//! _cumulus/parachains/utils/generate-bags_ for an example.
+//! _utils/frame/generate_bags/node-runtime_ for an example.
 //!
 //! 3. Run that program:
 //!
 //!    ```sh,notrust
-//!    $ cargo run -p polkadot-voter-bags -- --total-issuance 1234 --minimum-balance 1
+//!    $ cargo run -p node-runtime-generate-bags -- --total-issuance 1234 --minimum-balance 1
 //! output.rs    ```
 //!
 //! 4. Update the runtime definition.

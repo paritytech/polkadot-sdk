@@ -12218,6 +12218,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "node-runtime-generate-bags"
+version = "3.0.0"
+dependencies = [
+ "clap",
+ "generate-bags",
+ "kitchensink-runtime",
+]
+
+[[package]]
 name = "node-testing"
 version = "3.0.0-dev"
 dependencies = [

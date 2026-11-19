@@ -1,0 +1,20 @@
+[package]
+name = "node-runtime-generate-bags"
+version = "3.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Bag threshold generation script for pallet-bag-list and kitchensink-runtime."
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+generate-bags = { workspace = true, default-features = true }
+kitchensink-runtime = { workspace = true }
+
+# third-party
+clap = { features = ["derive"], workspace = true }

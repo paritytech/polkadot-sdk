@@ -36,6 +36,7 @@ use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_election_provider_support::{NoElection, VoteWeight};
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -84,6 +85,7 @@ use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
+use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
 use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -140,6 +142,9 @@ use sp_runtime::generic::Era;
 
 /// A proof-of-authority validator set.
 mod validator_manager;
+
+/// Generated voter bag information.
+mod voter_bags;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
@@ -425,6 +430,7 @@ pub enum ProxyType {
 	Any,
 	NonTransfer,
 	Governance,
+	Staking,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -453,6 +459,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Elections(..) |
 					RuntimeCall::Treasury(..)
 			),
+			ProxyType::Staking => matches!(c, RuntimeCall::Staking(..)),
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
@@ -697,6 +704,69 @@ impl validator_manager::Config for Runtime {
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
+	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
+	pub MaxPruningItems: u32 = 100;
+}
+
+/// Upper limit on the number of NPOS nominations.
+const MAX_QUOTA_NOMINATIONS: u32 = 16;
+
+/// The relay-chain client of `pallet_staking_async` in a chain without a relay chain.
+///
+/// `ValidatorManager` sets the session validators, so the validator sets that staking plans are
+/// dropped.
+pub struct NoRelayChain;
+impl pallet_staking_async_rc_client::RcClientInterface for NoRelayChain {
+	type AccountId = AccountId;
+
+	fn validator_set(_: Vec<AccountId>, _: u32, _: Option<u32>) {}
+}
+
+impl pallet_staking_async::Config for Runtime {
+	type Filter = Nothing;
+	type OldCurrency = Balances;
+	type Currency = Balances;
+	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
+	type RewardRemainder = ResolveTo<TreasuryAccount, Balances>;
+	type Slash = ResolveTo<TreasuryAccount, Balances>; // send the slashed funds to the treasury.
+	type Reward = ();
+	type SessionsPerEra = SessionsPerEra;
+	type BondingDuration = BondingDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
+	type SlashDeferDuration = SlashDeferDuration;
+	/// A super-majority of the council can cancel the slash.
+	type AdminOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
+	>;
+	type EraPayout = ();
+	type MaxExposurePageSize = ConstU32<256>;
+	type ElectionProvider = NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+	type VoterList = VoterList;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+	type MaxValidatorSet = ConstU32<1000>;
+	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
+	type MaxUnlockingChunks = ConstU32<32>;
+	type HistoryDepth = ConstU32<84>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type EventListeners = (NominationPools, DelegatedStaking);
+	type PlanningEraOffset = ConstU32<1>;
+	type RcClientInterface = NoRelayChain;
+	type MaxEraDuration = ();
+	type DisableMinting = ConstBool<false>;
+	type UnclaimedRewardHandler = ();
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type MaxPruningItems = MaxPruningItems;
+	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
+	type IsValidatorInactive = ();
+	type OnEraStart = ();
 }
 
 parameter_types! {
@@ -717,7 +787,82 @@ impl pallet_dap::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const BagThresholds: &'static [u64] = &voter_bags::THRESHOLDS;
+	pub const AutoRebagNumber: u32 = 10;
+}
+
+type VoterBagsListInstance = pallet_bags_list::Instance1;
+impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
+	/// The voter bags-list is loosely kept up to date, and the real source of truth for the score
+	/// of each node is the staking pallet.
+	type ScoreProvider = Staking;
+	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
+	type Score = VoteWeight;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	type OnSlash = ();
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
+}
+
+parameter_types! {
+	// Buffer (4) + bonding duration (24 * 28).
+	pub const MaxUnbondingPools: u32 = 24 * 28 + 4;
+	pub const NominationPoolsPalletId: PalletId = PalletId(*b"py/nopls");
+	pub const MaxPointsToBalance: u8 = 10;
+}
+
 use sp_runtime::traits::{Convert, Keccak256};
+pub struct BalanceToU256;
+impl Convert<Balance, sp_core::U256> for BalanceToU256 {
+	fn convert(balance: Balance) -> sp_core::U256 {
+		sp_core::U256::from(balance)
+	}
+}
+pub struct U256ToBalance;
+impl Convert<sp_core::U256, Balance> for U256ToBalance {
+	fn convert(n: sp_core::U256) -> Balance {
+		n.try_into().unwrap_or(Balance::MAX)
+	}
+}
+
+impl pallet_nomination_pools::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type MaxUnbondingPools = MaxUnbondingPools;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = ConstU32<8>;
+	type PalletId = NominationPoolsPalletId;
+	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
+	>;
+	type BlockNumberProvider = System;
+	type Filter = Nothing;
+}
+
 parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
 }
@@ -2637,6 +2782,9 @@ mod runtime {
 	#[runtime::pallet_index(9)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet<Runtime>;
 
+	#[runtime::pallet_index(11)]
+	pub type Staking = pallet_staking_async::Pallet<Runtime>;
+
 	#[runtime::pallet_index(12)]
 	pub type Session = pallet_session::Pallet<Runtime>;
 
@@ -2759,6 +2907,9 @@ mod runtime {
 	#[runtime::pallet_index(51)]
 	pub type TransactionStorage = pallet_transaction_storage::Pallet<Runtime>;
 
+	#[runtime::pallet_index(52)]
+	pub type VoterList = pallet_bags_list::Pallet<Runtime, Instance1>;
+
 	#[runtime::pallet_index(53)]
 	pub type StateTrieMigration = pallet_state_trie_migration::Pallet<Runtime>;
 
@@ -2785,6 +2936,9 @@ mod runtime {
 
 	#[runtime::pallet_index(61)]
 	pub type Alliance = pallet_alliance::Pallet<Runtime>;
+
+	#[runtime::pallet_index(62)]
+	pub type NominationPools = pallet_nomination_pools::Pallet<Runtime>;
 
 	#[runtime::pallet_index(63)]
 	pub type RankedPolls = pallet_referenda::Pallet<Runtime, Instance2>;
@@ -2839,6 +2993,9 @@ mod runtime {
 
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
+	#[runtime::pallet_index(82)]
+	pub type DelegatedStaking = pallet_delegated_staking::Pallet<Runtime>;
 
 	#[runtime::pallet_index(83)]
 	pub type AssetRewards = pallet_asset_rewards::Pallet<Runtime>;
@@ -2978,6 +3135,7 @@ const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 // `OnRuntimeUpgrade`. Note: These are examples and do not need to be run directly
 // after the genesis block.
 type Migrations = (
+	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
@@ -3194,6 +3352,7 @@ mod benches {
 		[pallet_alliance, Alliance]
 		[pallet_assets, Assets]
 		[pallet_babe, Babe]
+		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
@@ -3377,6 +3536,62 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_grandpa::OpaqueKeyOwnershipProof::new)
+		}
+	}
+
+	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<Block, AccountId, Balance> for Runtime {
+		fn pending_rewards(who: AccountId) -> Balance {
+			NominationPools::api_pending_rewards(who).unwrap_or_default()
+		}
+
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
+			NominationPools::api_points_to_balance(pool_id, points)
+		}
+
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
+			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
+		}
+	}
+
+	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+		fn nominations_quota(balance: Balance) -> u32 {
+			Staking::api_nominations_quota(balance)
+		}
+
+		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 
@@ -3839,7 +4054,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
-			// which is why we need these two lines below.
+			// which is why we need the line below.
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -3863,7 +4078,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
-			// which is why we need these two lines below.
+			// which is why we need the line below.
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
