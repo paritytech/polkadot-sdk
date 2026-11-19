@@ -617,6 +617,33 @@ fn destroying_asset_removes_refunded_blocked_account() {
 }
 
 #[test]
+fn destroying_asset_returns_freezer_deposits_of_frozen_accounts() {
+	build_and_execute(|| {
+		for who in 1..=4 {
+			Balances::make_free_balance_be(&who, 100);
+		}
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		// 2 exists through a consumer reference, 3 through its own deposit; 4 freezes 3
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(4), 0, 3));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert_eq!(Balances::reserved_balance(&3), 10);
+		assert_eq!(Balances::reserved_balance(&4), 10);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert_eq!(FreezerDeposits::<Test>::iter().count(), 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(Balances::reserved_balance(&3), 0);
+		assert_eq!(Balances::reserved_balance(&4), 0);
+		assert_eq!(System::consumers(&2), 0);
+	});
+}
+
+#[test]
 fn destroying_accounts_charges_freezer_deposit_weight_only_for_returned_deposits() {
 	use crate::WeightInfo;
 	use frame_support::traits::Get;
