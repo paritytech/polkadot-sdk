@@ -84,13 +84,10 @@ mod tests {
 
 	use crate::{ecdsa_crypto::Signature as EcdsaSignature, known_payloads, Payload};
 
-	#[cfg(feature = "bls-experimental")]
 	use crate::bls_crypto::Signature as BlsSignature;
 
-	#[cfg(feature = "bls-experimental")]
 	use w3f_bls::{
-		single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
-		Signed, TinyBLS381,
+		pop_aggregator::SignatureAggregatorAssumingPoP, SerializableToBytes, Signed, TinyBLS381,
 	};
 
 	type TestCommitment = Commitment<u128>;
@@ -100,14 +97,11 @@ mod tests {
 	type TestEcdsaSignedCommitmentWitness =
 		SignedCommitmentWitness<u128, Vec<Option<EcdsaSignature>>>;
 
-	#[cfg(feature = "bls-experimental")]
 	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
 	struct EcdsaBlsSignaturePair(EcdsaSignature, BlsSignature);
 
 	// types for commitment containing  bls signature along side ecdsa signature
-	#[cfg(feature = "bls-experimental")]
 	type TestBlsSignedCommitment = SignedCommitment<u128, EcdsaBlsSignaturePair>;
-	#[cfg(feature = "bls-experimental")]
 	type TestBlsSignedCommitmentWitness = SignedCommitmentWitness<u128, Vec<u8>>;
 
 	// The mock signatures are equivalent to the ones produced by the BEEFY keystore
@@ -125,7 +119,6 @@ mod tests {
 
 	// Generates mock aggregatable bls signature for generating test commitment
 	// BLS signatures
-	#[cfg(feature = "bls-experimental")]
 	fn mock_bls_signatures() -> (BlsSignature, BlsSignature) {
 		let alice = sp_core::bls::Pair::from_string("//Alice", None).unwrap();
 
@@ -151,7 +144,6 @@ mod tests {
 		SignedCommitment { commitment, signatures: vec![None, None, Some(sigs.0), Some(sigs.1)] }
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_and_bls_signed_commitment() -> TestBlsSignedCommitment {
 		let payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
@@ -188,7 +180,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn should_convert_dually_signed_commitment_to_witness() {
 		// given
 		let signed = ecdsa_and_bls_signed_commitment();
@@ -199,7 +190,7 @@ mod tests {
 			TestBlsSignedCommitmentWitness::from_signed::<_, _>(signed, |sigs| {
 				// we are going to aggregate the signatures here
 				let mut aggregatedsigs: SignatureAggregatorAssumingPoP<TinyBLS381> =
-					SignatureAggregatorAssumingPoP::new(Message::new(b"", b"mock payload"));
+					SignatureAggregatorAssumingPoP::new();
 
 				for sig in sigs {
 					match sig {

@@ -64,8 +64,8 @@ sp-crypto-hashing = { workspace = true }
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 
 # bls crypto
-sha2 = { optional = true, workspace = true }
-w3f-bls = { optional = true, workspace = true }
+sha2 = { workspace = true }
+w3f-bls = { workspace = true }
 
 # bandersnatch crypto
 ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
@@ -113,7 +113,7 @@ std = [
 	"scale-info/std",
 	"schnorrkel/std",
 	"serde/std",
-	"sha2?/std",
+	"sha2/std",
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
@@ -123,7 +123,7 @@ std = [
 	"substrate-bip39/std",
 	"thiserror",
 	"tracing",
-	"w3f-bls?/std",
+	"w3f-bls/std",
 	"zeroize/alloc",
 	"zeroize/std",
 ]
@@ -147,11 +147,6 @@ serde = [
 full_crypto = [
 	"blake2",
 ]
-
-# This feature adds BLS crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bls-experimental = ["sha2", "w3f-bls"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still

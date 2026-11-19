@@ -47,12 +47,3 @@ serde = { workspace = true, default-features = true }
 sp-mmr-primitives = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-
-[features]
-# This feature adds BLS crypto primitives. It should not be used in production since
-# the BLS implementation and interface may still be subject to significant change.
-bls-experimental = [
-	"sp-application-crypto/bls-experimental",
-	"sp-consensus-beefy/bls-experimental",
-	"sp-core/bls-experimental",
-]

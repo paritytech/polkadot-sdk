@@ -56,7 +56,7 @@ pub mod hash;
 #[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
-pub mod proof_of_possession;
+pub mod key_proofs;
 pub mod testing;
 #[cfg(not(substrate_runtime))]
 pub mod traits;
@@ -64,7 +64,6 @@ pub mod uint;
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
-#[cfg(feature = "bls-experimental")]
 pub mod bls;
 pub mod crypto_bytes;
 pub mod ecdsa;
@@ -72,9 +71,7 @@ pub mod ed25519;
 pub mod paired_crypto;
 pub mod sr25519;
 
-#[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
-#[cfg(feature = "bls-experimental")]
 pub use paired_crypto::{ecdsa_bls377, ecdsa_bls381};
 
 pub use self::{

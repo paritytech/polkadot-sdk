@@ -27,7 +27,7 @@ use crate::{
 		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
 		PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 	},
-	proof_of_possession::NonAggregatable,
+	key_proofs::NonAggregatable,
 };
 use alloc::{vec, vec::Vec};
 use ark_vrf::{
@@ -65,8 +65,8 @@ impl CryptoType for Public {
 /// Bandersnatch Schnorr signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
-/// Proof of Possession is the same as Signature for Bandersnatch
-pub type ProofOfPossession = Signature;
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature for Bandersnatch
+pub type KeyProofs = Signature;
 
 impl CryptoType for Signature {
 	type Pair = Pair;
@@ -93,7 +93,7 @@ impl TraitPair for Pair {
 	type Seed = Seed;
 	type Public = Public;
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type KeyProofs = Signature;
 
 	/// Make a new key pair from secret seed material.
 	///
@@ -574,7 +574,7 @@ mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
 	use crate::{
 		crypto::{VrfPublic, VrfSecret, DEV_PHRASE},
-		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+		key_proofs::{KeyProofGenerator, KeyProofVerifier},
 	};
 
 	const TEST_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
@@ -845,18 +845,18 @@ mod tests {
 	}
 
 	#[test]
-	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+	fn good_key_proofs_should_work_bad_key_proofs_should_fail() {
 		let owner = b"owner";
 		let not_owner = b"not owner";
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession(owner);
-		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
-		assert!(!Pair::verify_proof_of_possession(
+		let key_proofs = pair.generate_key_proofs(owner);
+		assert!(Pair::verify_key_proofs(owner, &key_proofs, &pair.public()));
+		assert!(!Pair::verify_key_proofs(
 			owner,
-			&proof_of_possession,
+			&key_proofs,
 			&other_pair.public()
 		));
-		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_key_proofs(not_owner, &key_proofs, &pair.public()));
 	}
 }

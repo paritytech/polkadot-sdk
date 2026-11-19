@@ -112,7 +112,7 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 	const ID: KeyTypeId = key_types::DUMMY;
 
 	type Signature = TestSignature;
-	type ProofOfPossession = TestSignature;
+	type KeyProofs = TestSignature;
 
 	fn all() -> Vec<Self> {
 		ALL_KEYS.with(|l| l.borrow().clone())
@@ -131,11 +131,11 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
 	}
 
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::Signature> {
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Option<Self::Signature> {
 		Some(TestSignature(self.0, owner.to_vec()))
 	}
 
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool {
+	fn verify_key_proofs(&self, owner: &[u8], pop: &Self::Signature) -> bool {
 		traits::Verify::verify(pop, owner, &self.0)
 	}
 

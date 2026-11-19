@@ -24,19 +24,15 @@ use crate::crypto::{
 	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
-use crate::proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use crate::key_proofs::{KeyProofGenerator, KeyProofVerifier};
 
 use alloc::vec::Vec;
 
 /// ECDSA and BLS12-377 paired crypto scheme
-#[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
-	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{Pair as PairT, UncheckedFrom},
-		Hasher,
-	};
+	use crate::crypto::UncheckedFrom;
+	use crate::{bls377, crypto::CryptoTypeId, ecdsa, Hasher, Pair as PairT};
 
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb7");
@@ -46,8 +42,8 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
+	const KEY_PROOFS_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::KEY_PROOFS_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
@@ -60,7 +56,7 @@ pub mod ecdsa_bls377 {
 		bls377::Pair,
 		PUBLIC_KEY_LEN,
 		SIGNATURE_LEN,
-		POP_LEN,
+		KEY_PROOFS_LEN,
 		EcdsaBls377Tag,
 	>;
 
@@ -71,7 +67,7 @@ pub mod ecdsa_bls377 {
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Tag>;
 
 	/// (ECDSA, (BLS12-377, BLS12-377))
-	pub type ProofOfPossession = super::Signature<POP_LEN, EcdsaBls377Tag>;
+	pub type KeyProofs = super::Signature<KEY_PROOFS_LEN, EcdsaBls377Tag>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -81,7 +77,7 @@ pub mod ecdsa_bls377 {
 		type Pair = Pair;
 	}
 
-	impl super::CryptoType for ProofOfPossession {
+	impl super::CryptoType for KeyProofs {
 		type Pair = Pair;
 	}
 
@@ -89,13 +85,13 @@ pub mod ecdsa_bls377 {
 		type Pair = Pair;
 	}
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,
@@ -145,14 +141,10 @@ pub mod ecdsa_bls377 {
 }
 
 /// ECDSA and BLS12-381 paired crypto scheme
-#[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls381 {
-	use crate::{bls381, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{Pair as PairT, UncheckedFrom},
-		Hasher,
-	};
+	use crate::crypto::UncheckedFrom;
+	use crate::{bls381, crypto::CryptoTypeId, ecdsa, Hasher, Pair as PairT};
 
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb8");
@@ -165,10 +157,10 @@ pub mod ecdsa_bls381 {
 	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
-	/// Size of Proof Of Possession for (ECDSA, BLS12-381) type (this is one ECDSA and two BLS12-381
-	/// signature)
-	pub const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
+	/// Size of Key Proofs for (ECDSA, BLS12-381) type (this is one ECDSA and two BLS12-381
+	/// signatures)
+	pub const KEY_PROOFS_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::KEY_PROOFS_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls381Tag(ecdsa::EcdsaTag, bls381::Bls381Tag);
@@ -181,7 +173,7 @@ pub mod ecdsa_bls381 {
 		bls381::Pair,
 		PUBLIC_KEY_LEN,
 		SIGNATURE_LEN,
-		POP_LEN,
+		KEY_PROOFS_LEN,
 		EcdsaBls381Tag,
 	>;
 
@@ -192,7 +184,7 @@ pub mod ecdsa_bls381 {
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls381Tag>;
 
 	/// (ECDSA, (BLS12-381, BLS12-381))
-	pub type ProofOfPossession = super::Signature<POP_LEN, EcdsaBls381Tag>;
+	pub type KeyProofs = super::Signature<KEY_PROOFS_LEN, EcdsaBls381Tag>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -202,7 +194,7 @@ pub mod ecdsa_bls381 {
 		type Pair = Pair;
 	}
 
-	impl super::CryptoType for ProofOfPossession {
+	impl super::CryptoType for KeyProofs {
 		type Pair = Pair;
 	}
 
@@ -210,13 +202,13 @@ pub mod ecdsa_bls381 {
 		type Pair = Pair;
 	}
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-381 component. This generates BLS12-381 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,
@@ -291,16 +283,32 @@ impl<
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>>
-	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
+	>
+	From<
+		Pair<
+			LeftPair,
+			RightPair,
+			LEFT_PLUS_RIGHT_PUBLIC_LEN,
+			SIGNATURE_LEN,
+			KEY_PROOFS_LEN,
+			SubTag,
+		>,
+	> for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>:
+	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>:
 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
 	fn from(
-		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>,
+		x: Pair<
+			LeftPair,
+			RightPair,
+			LEFT_PLUS_RIGHT_PUBLIC_LEN,
+			SIGNATURE_LEN,
+			KEY_PROOFS_LEN,
+			SubTag,
+		>,
 	) -> Self {
 		x.public()
 	}
@@ -310,8 +318,8 @@ where
 pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
-/// A pair of proof of possession of different types
-pub type ProofOfPossession<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
+/// A pair of key proofs of different types
+pub type KeyProofs<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
 /// A key pair.
@@ -320,7 +328,7 @@ pub struct Pair<
 	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
-	const POP_LEN: usize,
+	const KEY_PROOFS_LEN: usize,
 	SubTag,
 > {
 	left: LeftPair,
@@ -334,9 +342,9 @@ impl<
 		RightPair: PairT + Clone,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag,
-	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 {
 	fn clone(&self) -> Self {
 		Self { left: self.left.clone(), right: self.right.clone(), _phantom: PhantomData }
@@ -349,21 +357,21 @@ impl<
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
 	type Signature = Signature<SIGNATURE_LEN, SubTag>;
-	type ProofOfPossession = Signature<POP_LEN, SubTag>;
+	type KeyProofs = Signature<KEY_PROOFS_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -439,90 +447,86 @@ where
 }
 
 impl<
-		LeftPair: PairT + ProofOfPossessionGenerator,
-		RightPair: PairT + ProofOfPossessionGenerator,
+		LeftPair: PairT + KeyProofGenerator,
+		RightPair: PairT + KeyProofGenerator,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> ProofOfPossessionGenerator
-	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> KeyProofGenerator
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
-		let mut raw: [u8; POP_LEN] = [0u8; POP_LEN];
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs {
+		let mut raw: [u8; KEY_PROOFS_LEN] = [0u8; KEY_PROOFS_LEN];
 
 		raw.copy_from_slice(
 			[
-				self.left.generate_proof_of_possession(owner).to_raw_vec(),
-				self.right.generate_proof_of_possession(owner).to_raw_vec(),
+				self.left.generate_key_proofs(owner).to_raw_vec(),
+				self.right.generate_key_proofs(owner).to_raw_vec(),
 			]
 			.concat()
 			.as_slice(),
 		);
-		Self::ProofOfPossession::unchecked_from(raw)
+		Self::KeyProofs::unchecked_from(raw)
 	}
 }
 
-/// This requires that the proof_of_possession of LEFT is of LeftPair::Signature.
+/// This requires that the key_proofs of LEFT is of LeftPair::Signature.
 /// This is the case for current implemented cases but does not
 /// holds in general.
 impl<
-		LeftPair: PairT + ProofOfPossessionVerifier,
-		RightPair: PairT + ProofOfPossessionVerifier,
+		LeftPair: PairT + KeyProofVerifier,
+		RightPair: PairT + KeyProofVerifier,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> ProofOfPossessionVerifier
-	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> KeyProofVerifier
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		owner: &[u8],
-		proof_of_possession: &Self::ProofOfPossession,
+		key_proofs: &Self::KeyProofs,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false;
 		};
-		let Ok(left_proof_of_possession) =
-			proof_of_possession.0[0..LeftPair::ProofOfPossession::LEN].try_into()
-		else {
+		let Ok(left_key_proofs) = key_proofs.0[0..LeftPair::KeyProofs::LEN].try_into() else {
 			return false;
 		};
 
-		if !LeftPair::verify_proof_of_possession(owner, &left_proof_of_possession, &left_pub) {
+		if !LeftPair::verify_key_proofs(owner, &left_key_proofs, &left_pub) {
 			return false;
 		}
 
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
 			return false;
 		};
-		let Ok(right_proof_of_possession) =
-			proof_of_possession.0[LeftPair::ProofOfPossession::LEN..].try_into()
-		else {
+		let Ok(right_key_proofs) = key_proofs.0[LeftPair::KeyProofs::LEN..].try_into() else {
 			return false;
 		};
-		RightPair::verify_proof_of_possession(owner, &right_proof_of_possession, &right_pub)
+		RightPair::verify_key_proofs(owner, &right_key_proofs, &right_pub)
 	}
 }
 
 // Test set exercising the (ECDSA,BLS12-377) implementation
-#[cfg(all(test, feature = "bls-experimental"))]
+#[cfg(test)]
 mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
@@ -602,14 +606,14 @@ mod tests {
 		let pair = Pair::from_seed(&([seed_left_and_right].concat()[..].try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
-					public,
-					Public::unchecked_from(
-						array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"),
-		    		),
-		    	);
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
+			),),
+		);
 		let message = b"";
-		let signature =
-		array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
+		let signature = array_bytes::hex2array_unchecked(
+			"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af250123a5b8314dd23c2f879b9b82d2753f44ebc452bef88610af81238cf10b9c78034b755a26b8e73643eeddf1a283b0c7b596f973be86f1b96bf697fca5e6df8607",
 		);
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
@@ -625,16 +629,15 @@ mod tests {
 		.unwrap();
 		let public = pair.public();
 		assert_eq!(
-				public,
-				Public::unchecked_from(
-					array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
-	 ),
-	    		),
-	    	);
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
+			),),
+		);
 		let message = b"";
-		let signature =
-	array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
-	);
+		let signature = array_bytes::hex2array_unchecked(
+			"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af250123a5b8314dd23c2f879b9b82d2753f44ebc452bef88610af81238cf10b9c78034b755a26b8e73643eeddf1a283b0c7b596f973be86f1b96bf697fca5e6df8607",
+		);
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -656,14 +659,14 @@ mod tests {
 			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
-	    		public,
-				Public::unchecked_from(
-					array_bytes::hex2array_unchecked("035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080")
-	 ),
-	    	);
-		let message =
-	    	array_bytes::hex2bytes_unchecked("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
-	    );
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080"
+			)),
+		);
+		let message = array_bytes::hex2bytes_unchecked(
+			"2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000",
+		);
 		let signature = pair.sign(&message[..]);
 		println!("Correct signature: {:?}", signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -764,18 +767,15 @@ mod tests {
 	}
 
 	#[test]
-	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+	fn good_key_proofs_should_work_bad_key_proofs_should_fail() {
 		let owner = b"owner";
 		let not_owner = b"not owner";
 
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession(owner);
-		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
-		assert_eq!(
-			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
-			false
-		);
-		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
+		let key_proofs = pair.generate_key_proofs(owner);
+		assert!(Pair::verify_key_proofs(owner, &key_proofs, &pair.public()));
+		assert_eq!(Pair::verify_key_proofs(owner, &key_proofs, &other_pair.public()), false);
+		assert!(!Pair::verify_key_proofs(not_owner, &key_proofs, &pair.public()));
 	}
 }
