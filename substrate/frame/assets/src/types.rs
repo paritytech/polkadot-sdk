@@ -112,12 +112,13 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// An account with such a reason might not be referenced in `system`.
 	#[codec(index = 4)]
 	DepositFrom(AccountId, Balance),
-	/// The account holder refunded the account while it was blocked. It is kept only to stay
-	/// blocked until thawed:
-	/// - it is always `Blocked` and holds a zero balance;
+	/// The account holder refunded the account while it was frozen or blocked. It is kept only to
+	/// stay frozen or blocked until thawed:
+	/// - it is always `Frozen` or `Blocked` and holds a zero balance;
+	/// - it cannot receive the asset, whatever its status;
 	/// - it holds no consumer reference and no deposit of its holder;
-	/// - its entry is paid for by the freezer's deposit in `BlockDeposits`, unless the account was
-	///   blocked before block deposits existed and has not been blocked since;
+	/// - its entry is paid for by the freezer's deposit in `FreezerDeposits`, unless the account
+	///   was frozen or blocked before freezer deposits existed and has not been since;
 	/// - it is removed only by `thaw` or by destroying the asset, which also return that deposit.
 	#[codec(index = 5)]
 	Tombstone,
@@ -199,7 +200,7 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 impl<Balance, DepositBalance, Extra, AccountId>
 	AssetAccount<Balance, DepositBalance, Extra, AccountId>
 {
-	/// Returns `true` if the account was left behind by refunding it while blocked.
+	/// Returns `true` if the account was left behind by refunding it while frozen or blocked.
 	pub fn is_tombstone(&self) -> bool {
 		matches!(self.reason, ExistenceReason::Tombstone)
 	}
@@ -209,9 +210,10 @@ impl<Balance, DepositBalance, Extra, AccountId>
 		matches!(self.reason, ExistenceReason::Consumer | ExistenceReason::DepositHeld(_))
 	}
 
-	/// Returns `true` if blocking the account needs a deposit: its holder can `refund` it while
-	/// blocked, or already did, leaving an entry behind that nothing else pays for.
-	pub fn needs_block_deposit(&self) -> bool {
+	/// Returns `true` if freezing or blocking the account needs a deposit: its holder can `refund`
+	/// it while frozen or blocked, or already did, leaving an entry behind that nothing else pays
+	/// for.
+	pub fn needs_freezer_deposit(&self) -> bool {
 		self.is_refundable_by_holder() || self.is_tombstone()
 	}
 }
