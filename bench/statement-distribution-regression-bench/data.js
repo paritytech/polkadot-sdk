@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795096422720,
+  "lastUpdate": 1795099264196,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c3ecf63034924511d6b92e3533c23c15765f16b9",
-          "message": "Fix `claim_rewards_to` benchmark to enable Snowbridge reward claims (#10952)\n\nThe `prepare_rewards_account` benchmark helper was returning `None`,\ncausing `claim_rewards_to` to be assigned `Weight::MAX` and effectively\ndisabling the extrinsic. This fix returns a valid beneficiary account,\nenabling Snowbridge relayers to claim rewards to AssetHub as intended.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-05T12:08:04Z",
-          "tree_id": "a501877d9951c422cf0a742c1ce2ab2b94bd587d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3ecf63034924511d6b92e3533c23c15765f16b9"
-        },
-        "date": 1777989205334,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.11599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038686224172,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08324582324999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08828032390399997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ded93ad166d47ffef1e0ab0450204e5109644a7c",
+          "message": "statement-store: reject statements without topics (#13904)\n\n## Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13892.\n\nThe statement store rejects a statement without topics on submit,\nwhether it comes from the network, from an RPC client or from the\nruntime. The submit result is invalid with the new reason \"no topics\",\nwhich has its own metrics label and its own reason in the RPC answer.\nThe check runs right after the size check, before the duplicate lookup\nand the proof validation.\n\nSuch a statement was accepted and treated as a broadcast, which worked\nagainst topic-based routing. The affinity filter matched it for every\npeer, so it went to the whole network whatever the peers asked for.\nUnder the v2 DHT no node is responsible for holding it and no key leads\nto it. A subscription with a topic filter never received it.\n\nThe affinity filter loses the branch that matched a statement without\ntopics, so a filter now matches only by topic.\n\nA statement without topics that a store already holds stays there until\nit expires or the account quota evicts it. The database version stays\nthe same and no migration runs.\n\nA peer that sends a statement without topics pays the same reputation\ncost as for any other invalid statement.\n\n## Integration\n\nA client that submits a statement without topics gets the invalid result\nwith the reason noTopics from both submit RPCs, so every statement needs\nat least one topic. A runtime that emits such a statement through the\nstatement pallet loses it without an error, because the offchain worker\nignores the submit result.\n\nA node without the change still accepts statements without topics and\npasses them on. A node with the change keeps passing the ones that it\nalready holds to v1 peers. A node with the change rejects each one that\nit receives and lowers the sender's reputation by 4096, so a ban takes\nabout 370,000 of them from one peer.\n\nThe store benchmarks now put one topic on every statement, which adds a\ntopic index row per statement, so their submit and eviction numbers\nshift against older baselines.",
+          "timestamp": "2026-11-19T12:05:10Z",
+          "tree_id": "d56f42c9ca651a7913b60a90dbeb50e27db80442",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ded93ad166d47ffef1e0ab0450204e5109644a7c"
+        },
+        "date": 1795099228207,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03923613891799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08201736868399996,
             "unit": "seconds"
           }
         ]
