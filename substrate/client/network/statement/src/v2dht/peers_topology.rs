@@ -1100,8 +1100,8 @@ mod tests {
 					.filter(|q| **q != peer)
 					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
 					.count() + usize::from(
-						cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
-					);
+					cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
+				);
 				if closer_entries < 5 {
 					expected.push(peer);
 				} else if distance_to(topic, &peer) < local_distance {
