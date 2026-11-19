@@ -376,8 +376,7 @@ pub mod pallet {
 
 	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
 	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
-	/// Reverted with the chain, dropped when the sender offboards.
-	/// Forced head updates preserve the window.
+	/// Dropped when the sender offboards.
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
@@ -969,8 +968,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Whether `root` is present in `source`'s provides window.
 	fn provides_contains(source: ParaId, root: &StreamsRoot) -> bool {
-		// Scan newest-first: a `requires` almost always references a recent commitment, which sits
-		// at the tail of the drop-oldest window, so this short-circuits sooner on a match.
 		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
 	}
 
@@ -983,7 +980,6 @@ impl<T: Config> Pallet<T> {
 	/// Whether every `(source, root)` of `requires` is in that source's window; `Err` names the
 	/// first miss.
 	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> Result<(), (ParaId, StreamsRoot)> {
-		// One `RecentProvides` read per required source.
 		for (source, expected) in requires.iter() {
 			if !Self::provides_contains(*source, expected) {
 				return Err((*source, *expected));
@@ -996,7 +992,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
 		log::debug!(target: LOG_TARGET, "Recording provides root {root:?} of para {source:?}");
 		RecentProvides::<T>::mutate(source, |window| {
-			// Appending at `len` never fails; a full window evicts its oldest root.
+			// Appending at `len` never fails.
 			let _evicted = window.force_insert_keep_right(window.len(), root);
 		});
 	}
