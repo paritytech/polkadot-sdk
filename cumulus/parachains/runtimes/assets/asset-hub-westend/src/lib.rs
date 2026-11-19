@@ -3143,15 +3143,11 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					// Paying in a pool asset makes the trader swap to buy and swap back to refund.
 					Ok((Asset {
-						id: AssetId(WestendLocation::get()),
+						id: AssetId(set_up_foreign_asset_pool()),
 						fun: Fungible(1_000 * UNITS),
 					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
-				}
-
-				fn worst_case_for_refund() -> Result<Asset, BenchmarkError> {
-					// Paying in a pool asset makes the trader swap to buy and swap back to refund.
-					Ok((AssetId(set_up_foreign_asset_pool()), 1_000 * UNITS).into())
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {

@@ -8,11 +8,12 @@ doc:
     dimension: a dimension whose surplus does not cover it is not refunded, and a surplus that
     covers it in no dimension is left as it was.
 
-    The `refund_surplus` benchmark now pays with the asset of the new
-    `pallet_xcm_benchmarks::generic::Config::worst_case_for_refund`, which defaults to the asset of
-    `worst_case_for_trader`. A runtime whose trader swaps, such as one with
-    `SwapFirstAssetTrader`, should return an asset the trader swaps, so the weight of
-    `RefundSurplus` includes the swap back on refund. Asset Hub Westend does.
+    The `buy_execution`, `pay_fees` and `refund_surplus` benchmarks now mint the asset of
+    `pallet_xcm_benchmarks::generic::Config::worst_case_for_trader` into holding when
+    `worst_case_holding` does not have it. A runtime whose trader swaps, such as one with
+    `SwapFirstAssetTrader`, should return an asset the trader swaps from `worst_case_for_trader`,
+    so the weights of `BuyExecution`, `PayFees` and `RefundSurplus` include the swap. Asset Hub
+    Westend now does.
 
     A refund is no longer bought back from the trader when holding is at capacity. `RefundSurplus`
     now fails with `HoldingWouldOverflow` before asking the trader when holding is at capacity for
@@ -32,6 +33,6 @@ crates:
 - name: staging-xcm-executor
   bump: patch
 - name: pallet-xcm-benchmarks
-  bump: minor
+  bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
