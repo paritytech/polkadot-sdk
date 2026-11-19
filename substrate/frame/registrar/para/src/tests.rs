@@ -2377,17 +2377,14 @@ mod migration {
 			let info = Paras::<Test>::get(para_id).unwrap();
 			assert!(info.reservation.is_none());
 			assert!(matches!(info.state, RegistrationState::Registered { ticket: None }));
-			let not_taken = |e: &Event<Test>| {
-				matches!(
-					e,
-					Event::Unexpected(UnexpectedKind::MigratedDepositNotTaken { para_id: id, .. })
-						if *id == para_id
-				)
-			};
-			let events = registrar_events();
-			assert_eq!(events.len(), 3);
-			assert!(not_taken(&events[0]) && not_taken(&events[1]));
-			assert_eq!(events[2], Event::Migrated { para_id, manager: POOR });
+			let not_taken = Event::Unexpected(UnexpectedKind::MigratedDepositNotTaken {
+				para_id,
+				error: TokenError::FundsUnavailable.into(),
+			});
+			assert_eq!(
+				registrar_events(),
+				vec![not_taken.clone(), not_taken, Event::Migrated { para_id, manager: POOR }]
+			);
 		});
 	}
 

@@ -1287,7 +1287,7 @@ impl<T: Config> ReceiveMigratedParas<T::AccountId> for Pallet<T> {
 			para_id,
 			ParaInfo { manager: manager.clone(), reservation, state, locked },
 		);
-		NextFreeParaId::<T>::mutate(|next| *next = (*next).max(para_id.saturating_add(1)));
+		Self::receive_next_free_para_id(para_id.saturating_add(1));
 
 		Self::deposit_event(Event::Migrated { para_id, manager });
 		Ok(())
