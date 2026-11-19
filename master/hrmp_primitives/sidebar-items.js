@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DepositError","DepositSide","MessageToPara","MessageToParaV1","MessageToRelay","MessageToRelayV1"],"struct":["ChannelId","MigratedChannel"],"trait":["ReceiveMigratedChannels"],"type":["Balance","ParaId"]};
+window.SIDEBAR_ITEMS = {"enum":["DepositError","DepositSide","MessageToPara","MessageToParaV1","MessageToRelay","MessageToRelayV1"],"struct":["ChannelId","DepositKey"],"trait":["ReceiveMigratedDeposits"],"type":["Balance","ParaId"]};

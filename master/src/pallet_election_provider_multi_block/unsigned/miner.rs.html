@@ -182,17 +182,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#32 id=32 data-nosnippet>32</a>	verifier::{<span class="self">self</span>},
 <a href=#33 id=33 data-nosnippet>33</a>	CommonError,
 <a href=#34 id=34 data-nosnippet>34</a>};
-<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>codec::Encode;
-<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>frame_election_provider_support::{ExtendedBalance, NposSolver, Support, VoteWeight};
-<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>frame_support::{traits::Get, BoundedVec};
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>scale_info::TypeInfo;
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sp_npos_elections::EvaluateSupport;
-<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>sp_runtime::{
-<a href=#42 id=42 data-nosnippet>42</a>	offchain::storage::{MutateStorageError, StorageValueRef},
-<a href=#43 id=43 data-nosnippet>43</a>	traits::{SaturatedConversion, Saturating, Zero},
-<a href=#44 id=44 data-nosnippet>44</a>};
-<a href=#45 id=45 data-nosnippet>45</a><span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>codec::Encode;
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>frame_election_provider_support::{ExtendedBalance, NposSolver, Support, VoteWeight};
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>frame_support::{traits::Get, BoundedVec};
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>scale_info::TypeInfo;
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>sp_npos_elections::EvaluateSupport;
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span>sp_runtime::{
+<a href=#43 id=43 data-nosnippet>43</a>	offchain::storage::{MutateStorageError, StorageValueRef},
+<a href=#44 id=44 data-nosnippet>44</a>	traits::{SaturatedConversion, Saturating, Zero},
+<a href=#45 id=45 data-nosnippet>45</a>};
 <a href=#46 id=46 data-nosnippet>46</a>
 <a href=#47 id=47 data-nosnippet>47</a><span class="comment">// TODO: we should have a fuzzer for miner that ensures no matter the parameters, it generates a
 <a href=#48 id=48 data-nosnippet>48</a>// valid solution. Esp. for the trimming.
@@ -304,7 +304,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#154 id=154 data-nosnippet>154</a>		+ PartialEq
 <a href=#155 id=155 data-nosnippet>155</a>		+ Eq
 <a href=#156 id=156 data-nosnippet>156</a>		+ Clone
-<a href=#157 id=157 data-nosnippet>157</a>		+ sp_std::fmt::Debug
+<a href=#157 id=157 data-nosnippet>157</a>		+ core::fmt::Debug
 <a href=#158 id=158 data-nosnippet>158</a>		+ Ord
 <a href=#159 id=159 data-nosnippet>159</a>		+ NposSolution
 <a href=#160 id=160 data-nosnippet>160</a>		+ TypeInfo
@@ -359,7 +359,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#209 id=209 data-nosnippet>209</a>
 <a href=#210 id=210 data-nosnippet>210</a><span class="doccomment">/// A base miner that is only capable of mining a new solution and checking it against the state of
 <a href=#211 id=211 data-nosnippet>211</a>/// this pallet for feasibility, and trimming its length/weight.
-<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">pub struct </span>BaseMiner&lt;T: MinerConfig&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">pub struct </span>BaseMiner&lt;T: MinerConfig&gt;(core::marker::PhantomData&lt;T&gt;);
 <a href=#213 id=213 data-nosnippet>213</a>
 <a href=#214 id=214 data-nosnippet>214</a><span class="doccomment">/// Parameterized `BoundedSupports` for the miner.
 <a href=#215 id=215 data-nosnippet>215</a>///
@@ -817,7 +817,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#667 id=667 data-nosnippet>667</a><span class="doccomment">/// A miner that is suited to work inside offchain worker environment.
 <a href=#668 id=668 data-nosnippet>668</a>///
 <a href=#669 id=669 data-nosnippet>669</a>/// This is parameterized by [`Config`], rather than [`MinerConfig`].
-<a href=#670 id=670 data-nosnippet>670</a></span><span class="kw">pub struct </span>OffchainWorkerMiner&lt;T: Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<a href=#670 id=670 data-nosnippet>670</a></span><span class="kw">pub struct </span>OffchainWorkerMiner&lt;T: Config&gt;(core::marker::PhantomData&lt;T&gt;);
 <a href=#671 id=671 data-nosnippet>671</a>
 <a href=#672 id=672 data-nosnippet>672</a><span class="kw">impl</span>&lt;T: Config&gt; OffchainWorkerMiner&lt;T&gt; {
 <a href=#673 id=673 data-nosnippet>673</a>	<span class="doccomment">/// Storage key used to store the offchain worker running status.

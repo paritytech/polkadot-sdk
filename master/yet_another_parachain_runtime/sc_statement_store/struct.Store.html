@@ -243,6 +243,7 @@ decryption fails.</p>
 (<code>SubmitResult::Invalid(InvalidReason::AlreadyExpired)</code>).</li>
 <li><strong>Encoding size check</strong> — reject if the encoded statement exceeds <a href="constant.MAX_STATEMENT_SIZE.html" title="constant yet_another_parachain_runtime::sc_statement_store::MAX_STATEMENT_SIZE"><code>MAX_STATEMENT_SIZE</code></a>
 (<code>InvalidReason::EncodingTooLarge</code>).</li>
+<li><strong>Topics check</strong> — reject a statement without topics (<code>InvalidReason::NoTopics</code>).</li>
 <li><strong>Duplicate check</strong> — a statement already in the store is reported <code>Known</code>: the hash
 covers the whole content, so a duplicate carries nothing to renew. A recently evicted
 statement may be resubmitted (renewed) by <code>Chain</code> and <code>Local</code> sources but not by

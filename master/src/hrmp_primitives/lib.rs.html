@@ -337,33 +337,63 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#187 id=187 data-nosnippet>187</a>	},
 <a href=#188 id=188 data-nosnippet>188</a>}
 <a href=#189 id=189 data-nosnippet>189</a>
-<a href=#190 id=190 data-nosnippet>190</a><span class="doccomment">/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
-<a href=#191 id=191 data-nosnippet>191</a>///
-<a href=#192 id=192 data-nosnippet>192</a>/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
-<a href=#193 id=193 data-nosnippet>193</a>/// confirmed channel the recipient's, deposit at the destination's own prices.
-<a href=#194 id=194 data-nosnippet>194</a>///
-<a href=#195 id=195 data-nosnippet>195</a>/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
-<a href=#196 id=196 data-nosnippet>196</a>/// is dropped.
-<a href=#197 id=197 data-nosnippet>197</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-<a href=#198 id=198 data-nosnippet>198</a></span><span class="kw">pub struct </span>MigratedChannel {
-<a href=#199 id=199 data-nosnippet>199</a>	<span class="doccomment">/// Which channel.
-<a href=#200 id=200 data-nosnippet>200</a>	</span><span class="kw">pub </span>channel: ChannelId,
-<a href=#201 id=201 data-nosnippet>201</a>	<span class="doccomment">/// Whether the source chain has the channel itself, or only an open request the recipient
-<a href=#202 id=202 data-nosnippet>202</a>	/// has not accepted.
-<a href=#203 id=203 data-nosnippet>203</a>	</span><span class="kw">pub </span>confirmed: bool,
-<a href=#204 id=204 data-nosnippet>204</a>}
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a><span class="doccomment">/// Takes migrated channels into the pallet that owns HRMP on the destination.
-<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub trait </span>ReceiveMigratedChannels {
-<a href=#208 id=208 data-nosnippet>208</a>	<span class="doccomment">/// Take one channel, charging its deposits at this chain's prices.
-<a href=#209 id=209 data-nosnippet>209</a>	</span><span class="kw">fn </span>receive_channel(channel: MigratedChannel) -&gt; sp_runtime::DispatchResult;
+<a href=#190 id=190 data-nosnippet>190</a><span class="doccomment">/// What a deposit is held for: one side of one channel.
+<a href=#191 id=191 data-nosnippet>191</a></span><span class="attr">#[derive(
+<a href=#192 id=192 data-nosnippet>192</a>	Encode,
+<a href=#193 id=193 data-nosnippet>193</a>	Decode,
+<a href=#194 id=194 data-nosnippet>194</a>	DecodeWithMemTracking,
+<a href=#195 id=195 data-nosnippet>195</a>	Clone,
+<a href=#196 id=196 data-nosnippet>196</a>	Copy,
+<a href=#197 id=197 data-nosnippet>197</a>	Eq,
+<a href=#198 id=198 data-nosnippet>198</a>	PartialEq,
+<a href=#199 id=199 data-nosnippet>199</a>	Ord,
+<a href=#200 id=200 data-nosnippet>200</a>	PartialOrd,
+<a href=#201 id=201 data-nosnippet>201</a>	Debug,
+<a href=#202 id=202 data-nosnippet>202</a>	TypeInfo,
+<a href=#203 id=203 data-nosnippet>203</a>	MaxEncodedLen,
+<a href=#204 id=204 data-nosnippet>204</a>)]
+<a href=#205 id=205 data-nosnippet>205</a></span><span class="kw">pub struct </span>DepositKey {
+<a href=#206 id=206 data-nosnippet>206</a>	<span class="doccomment">/// The channel the deposit is for.
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub </span>channel: ChannelId,
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="doccomment">/// The side that pays it.
+<a href=#209 id=209 data-nosnippet>209</a>	</span><span class="kw">pub </span>side: DepositSide,
 <a href=#210 id=210 data-nosnippet>210</a>}
 <a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a><span class="kw">impl </span>ReceiveMigratedChannels <span class="kw">for </span>() {
-<a href=#213 id=213 data-nosnippet>213</a>	<span class="kw">fn </span>receive_channel(<span class="kw">_</span>: MigratedChannel) -&gt; sp_runtime::DispatchResult {
-<a href=#214 id=214 data-nosnippet>214</a>		<span class="prelude-val">Err</span>(sp_runtime::DispatchError::Unavailable)
-<a href=#215 id=215 data-nosnippet>215</a>	}
-<a href=#216 id=216 data-nosnippet>216</a>}
+<a href=#212 id=212 data-nosnippet>212</a><span class="kw">impl </span>DepositKey {
+<a href=#213 id=213 data-nosnippet>213</a>	<span class="doccomment">/// The para that pays this deposit.
+<a href=#214 id=214 data-nosnippet>214</a>	</span><span class="kw">pub fn </span>para(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
+<a href=#215 id=215 data-nosnippet>215</a>		<span class="self">self</span>.side.para(<span class="kw-2">&amp;</span><span class="self">self</span>.channel)
+<a href=#216 id=216 data-nosnippet>216</a>	}
+<a href=#217 id=217 data-nosnippet>217</a>}
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a><span class="doccomment">/// Receive a migrated HRMP deposit.
+<a href=#220 id=220 data-nosnippet>220</a>///
+<a href=#221 id=221 data-nosnippet>221</a>/// `HoldReason` is the hold reason type of the currency the deposits are held in.
+<a href=#222 id=222 data-nosnippet>222</a></span><span class="kw">pub trait </span>ReceiveMigratedDeposits&lt;HoldReason&gt; {
+<a href=#223 id=223 data-nosnippet>223</a>	<span class="doccomment">/// Set the deposit of `key` to `amount`, by moving the balance from/into the `source` hold
+<a href=#224 id=224 data-nosnippet>224</a>	/// reason.
+<a href=#225 id=225 data-nosnippet>225</a>	///
+<a href=#226 id=226 data-nosnippet>226</a>	/// The function is idempotent, the current deposit is reset, so a deposit can be delivered
+<a href=#227 id=227 data-nosnippet>227</a>	/// twice.
+<a href=#228 id=228 data-nosnippet>228</a>	</span><span class="kw">fn </span>receive_deposit(
+<a href=#229 id=229 data-nosnippet>229</a>		key: DepositKey,
+<a href=#230 id=230 data-nosnippet>230</a>		amount: Balance,
+<a href=#231 id=231 data-nosnippet>231</a>		source: <span class="kw-2">&amp;</span>HoldReason,
+<a href=#232 id=232 data-nosnippet>232</a>	) -&gt; sp_runtime::DispatchResult;
+<a href=#233 id=233 data-nosnippet>233</a>
+<a href=#234 id=234 data-nosnippet>234</a>	<span class="doccomment">/// The weight of [`Self::receive_deposit`].
+<a href=#235 id=235 data-nosnippet>235</a>	</span><span class="kw">fn </span>weight_of_receive_deposit() -&gt; sp_runtime::Weight;
+<a href=#236 id=236 data-nosnippet>236</a>}
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a><span class="kw">impl</span>&lt;HoldReason&gt; ReceiveMigratedDeposits&lt;HoldReason&gt; <span class="kw">for </span>() {
+<a href=#239 id=239 data-nosnippet>239</a>	<span class="kw">fn </span>receive_deposit(<span class="kw">_</span>: DepositKey, <span class="kw">_</span>: Balance, <span class="kw">_</span>: <span class="kw-2">&amp;</span>HoldReason) -&gt; sp_runtime::DispatchResult {
+<a href=#240 id=240 data-nosnippet>240</a>		<span class="prelude-val">Err</span>(sp_runtime::DispatchError::Unavailable)
+<a href=#241 id=241 data-nosnippet>241</a>	}
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>	<span class="kw">fn </span>weight_of_receive_deposit() -&gt; sp_runtime::Weight {
+<a href=#244 id=244 data-nosnippet>244</a>		sp_runtime::Weight::zero()
+<a href=#245 id=245 data-nosnippet>245</a>	}
+<a href=#246 id=246 data-nosnippet>246</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

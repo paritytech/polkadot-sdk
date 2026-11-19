@@ -172,9 +172,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#22 id=22 data-nosnippet>22</a>	unsigned::miner::MinerConfig,
 <a href=#23 id=23 data-nosnippet>23</a>	AllVoterPagesOf, SolutionTargetIndexOf, SolutionVoterIndexOf, VoteWeight,
 <a href=#24 id=24 data-nosnippet>24</a>};
-<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame_support::{traits::Get, BoundedVec};
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>sp_runtime::SaturatedConversion;
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, convert::TryInto, prelude::<span class="kw-2">*</span>};
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>frame_support::{traits::Get, BoundedVec};
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>sp_runtime::SaturatedConversion;
 <a href=#28 id=28 data-nosnippet>28</a>
 <a href=#29 id=29 data-nosnippet>29</a><span class="doccomment">/// Emit a log specific to this pallet, setting the target to [`crate::LOG_PREFIX`]
 <a href=#30 id=30 data-nosnippet>30</a></span><span class="attr">#[macro_export]

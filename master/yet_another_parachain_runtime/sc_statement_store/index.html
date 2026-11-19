@@ -157,7 +157,7 @@ propagated across the network without consuming on-chain storage.</p>
 <li><strong>Off-chain storage</strong> — keeps the data off-chain to avoid blockchain state bloat.</li>
 <li><strong>Gossip-based distribution</strong> — statements propagate node-to-node over a notification protocol.</li>
 <li><strong>Cryptographic verification</strong> — every statement is signed and verified before acceptance.</li>
-<li><strong>Topic-based indexing</strong> — up to four topics per statement for efficient querying.</li>
+<li><strong>Topic-based indexing</strong> — one to four topics per statement for efficient querying.</li>
 <li><strong>Account-based limits</strong> — per-account quotas bound how much an account may store.</li>
 <li><strong>Automatic eviction</strong> — lower-priority statements are evicted when limits are reached.</li>
 <li><strong>Multiple access methods</strong> — reachable over JSON-RPC for applications and via the runtime API
@@ -229,7 +229,7 @@ account are evicted, and if it still does not fit the submission is rejected.</p
 <p>A statement with no channel is never subject to channel uniqueness — it is only ever removed by
 priority-based eviction or expiry. The store does not prescribe how a channel id is generated.</p>
 <h3 id="topics"><a class="doc-anchor" href="#topics">§</a>Topics</h3>
-<p>Topics are the primary attribute used to query and filter statements. A statement carries up to
+<p>Topics are the primary attribute used to query and filter statements. A statement carries one to
 <code>MAX_TOPICS</code> (4) topics, each a 32-byte identifier, and the store maintains a <code>topic -&gt; statements</code>
 index for fast lookups.</p>
 <p>Subscriptions filter by topic in one of three ways:</p>
@@ -323,6 +323,7 @@ an existing one.</li>
 <li><strong><code>noProof</code></strong> / <strong><code>badProof</code></strong> — missing or invalid signature.</li>
 <li><strong><code>encodingTooLarge</code></strong> — the encoded statement exceeds the network size limit.</li>
 <li><strong><code>alreadyExpired</code></strong> — the expiry timestamp is already in the past.</li>
+<li><strong><code>noTopics</code></strong> — the statement carries no topic, so topic-based routing cannot deliver it.</li>
 </ul>
 <h3 id="duplicates-retries-and-delivery"><a class="doc-anchor" href="#duplicates-retries-and-delivery">§</a>Duplicates, retries, and delivery</h3>
 <p>The store does <strong>not</strong> guarantee delivery or timing (see the overview’s design principles). In

@@ -960,7 +960,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#810 id=810 data-nosnippet>810</a>			<span class="kw">impl </span>Clone + IntoIterator&lt;Item = <span class="self">Self</span>::AccountId&gt;,
 <a href=#811 id=811 data-nosnippet>811</a>		)&gt;,
 <a href=#812 id=812 data-nosnippet>812</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;ElectionResult&lt;<span class="self">Self</span>::AccountId, <span class="self">Self</span>::Accuracy&gt;, <span class="self">Self</span>::Error&gt; {
-<a href=#813 id=813 data-nosnippet>813</a>		<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
+<a href=#813 id=813 data-nosnippet>813</a>		<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 <a href=#814 id=814 data-nosnippet>814</a>
 <a href=#815 id=815 data-nosnippet>815</a>		<span class="kw">if </span>to_elect &gt; targets.len() {
 <a href=#816 id=816 data-nosnippet>816</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"to_elect is greater than the number of targets."</span>);
@@ -1265,7 +1265,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1115 id=1115 data-nosnippet>1115</a>	}
 <a href=#1116 id=1116 data-nosnippet>1116</a>}
 <a href=#1117 id=1117 data-nosnippet>1117</a>
-<a href=#1118 id=1118 data-nosnippet>1118</a><span class="kw">impl</span>&lt;AccountId, BOuter: Get&lt;u32&gt;, BInner: Get&lt;u32&gt;&gt; sp_std::ops::DerefMut
+<a href=#1118 id=1118 data-nosnippet>1118</a><span class="kw">impl</span>&lt;AccountId, BOuter: Get&lt;u32&gt;, BInner: Get&lt;u32&gt;&gt; core::ops::DerefMut
 <a href=#1119 id=1119 data-nosnippet>1119</a>	<span class="kw">for </span>BoundedSupports&lt;AccountId, BOuter, BInner&gt;
 <a href=#1120 id=1120 data-nosnippet>1120</a>{
 <a href=#1121 id=1121 data-nosnippet>1121</a>	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
@@ -1318,7 +1318,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1168 id=1168 data-nosnippet>1168</a>	}
 <a href=#1169 id=1169 data-nosnippet>1169</a>}
 <a href=#1170 id=1170 data-nosnippet>1170</a>
-<a href=#1171 id=1171 data-nosnippet>1171</a><span class="kw">impl</span>&lt;AccountId, BOuter: Get&lt;u32&gt;, BInner: Get&lt;u32&gt;&gt; sp_std::ops::Deref
+<a href=#1171 id=1171 data-nosnippet>1171</a><span class="kw">impl</span>&lt;AccountId, BOuter: Get&lt;u32&gt;, BInner: Get&lt;u32&gt;&gt; core::ops::Deref
 <a href=#1172 id=1172 data-nosnippet>1172</a>	<span class="kw">for </span>BoundedSupports&lt;AccountId, BOuter, BInner&gt;
 <a href=#1173 id=1173 data-nosnippet>1173</a>{
 <a href=#1174 id=1174 data-nosnippet>1174</a>	<span class="kw">type </span>Target = BoundedVec&lt;(AccountId, BoundedSupport&lt;AccountId, BInner&gt;), BOuter&gt;;
@@ -1332,7 +1332,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1182 id=1182 data-nosnippet>1182</a>	<span class="kw">for </span>BoundedSupports&lt;AccountId, BOuter, BInner&gt;
 <a href=#1183 id=1183 data-nosnippet>1183</a>{
 <a href=#1184 id=1184 data-nosnippet>1184</a>	<span class="kw">type </span>Item = (AccountId, BoundedSupport&lt;AccountId, BInner&gt;);
-<a href=#1185 id=1185 data-nosnippet>1185</a>	<span class="kw">type </span>IntoIter = sp_std::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
+<a href=#1185 id=1185 data-nosnippet>1185</a>	<span class="kw">type </span>IntoIter = alloc::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
 <a href=#1186 id=1186 data-nosnippet>1186</a>
 <a href=#1187 id=1187 data-nosnippet>1187</a>	<span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
 <a href=#1188 id=1188 data-nosnippet>1188</a>		<span class="self">self</span>.<span class="number">0</span>.into_iter()

@@ -2481,63 +2481,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2331 id=2331 data-nosnippet>2331</a>		<span class="kw">let </span>decoded3: Statement = Statement::decode(<span class="kw-2">&amp;mut &amp;</span>received3.<span class="number">0</span>[..]).unwrap();
 <a href=#2332 id=2332 data-nosnippet>2332</a>		<span class="macro">assert_eq!</span>(decoded3, statement2);
 <a href=#2333 id=2333 data-nosnippet>2333</a>	}
-<a href=#2334 id=2334 data-nosnippet>2334</a>
-<a href=#2335 id=2335 data-nosnippet>2335</a>	<span class="attr">#[test]
-<a href=#2336 id=2336 data-nosnippet>2336</a>	</span><span class="kw">fn </span>test_statement_without_topics_matches_only_any_filter() {
-<a href=#2337 id=2337 data-nosnippet>2337</a>		<span class="kw">let </span><span class="kw-2">mut </span>subscriptions = SubscriptionsInfo::new();
-<a href=#2338 id=2338 data-nosnippet>2338</a>
-<a href=#2339 id=2339 data-nosnippet>2339</a>		<span class="kw">let </span>(tx_match_all, rx_match_all) = async_channel::bounded::&lt;StatementEvent&gt;(<span class="number">10</span>);
-<a href=#2340 id=2340 data-nosnippet>2340</a>		<span class="kw">let </span>(tx_match_any, rx_match_any) = async_channel::bounded::&lt;StatementEvent&gt;(<span class="number">10</span>);
-<a href=#2341 id=2341 data-nosnippet>2341</a>		<span class="kw">let </span>(tx_any, rx_any) = async_channel::bounded::&lt;StatementEvent&gt;(<span class="number">10</span>);
-<a href=#2342 id=2342 data-nosnippet>2342</a>
-<a href=#2343 id=2343 data-nosnippet>2343</a>		<span class="kw">let </span>topic1 = Topic::from([<span class="number">8u8</span>; <span class="number">32</span>]);
-<a href=#2344 id=2344 data-nosnippet>2344</a>		<span class="kw">let </span>topic2 = Topic::from([<span class="number">9u8</span>; <span class="number">32</span>]);
-<a href=#2345 id=2345 data-nosnippet>2345</a>
-<a href=#2346 id=2346 data-nosnippet>2346</a>		<span class="comment">// Subscribe with MatchAll filter.
-<a href=#2347 id=2347 data-nosnippet>2347</a>		</span><span class="kw">let </span>sub_match_all = fixed_subscription(
-<a href=#2348 id=2348 data-nosnippet>2348</a>			<span class="number">1</span>,
-<a href=#2349 id=2349 data-nosnippet>2349</a>			OptimizedTopicFilter::MatchAll(<span class="macro">vec!</span>[topic1, topic2].into_iter().collect()),
-<a href=#2350 id=2350 data-nosnippet>2350</a>		);
-<a href=#2351 id=2351 data-nosnippet>2351</a>		subscriptions.subscribe(sub_match_all, tx_match_all);
-<a href=#2352 id=2352 data-nosnippet>2352</a>
-<a href=#2353 id=2353 data-nosnippet>2353</a>		<span class="comment">// Subscribe with MatchAny filter.
-<a href=#2354 id=2354 data-nosnippet>2354</a>		</span><span class="kw">let </span>sub_match_any = fixed_subscription(
-<a href=#2355 id=2355 data-nosnippet>2355</a>			<span class="number">2</span>,
-<a href=#2356 id=2356 data-nosnippet>2356</a>			OptimizedTopicFilter::MatchAny(<span class="macro">vec!</span>[topic1, topic2].into_iter().collect()),
-<a href=#2357 id=2357 data-nosnippet>2357</a>		);
-<a href=#2358 id=2358 data-nosnippet>2358</a>		subscriptions.subscribe(sub_match_any, tx_match_any);
-<a href=#2359 id=2359 data-nosnippet>2359</a>
-<a href=#2360 id=2360 data-nosnippet>2360</a>		<span class="comment">// Subscribe with Any filter.
-<a href=#2361 id=2361 data-nosnippet>2361</a>		</span><span class="kw">let </span>sub_any = fixed_subscription(<span class="number">3</span>, OptimizedTopicFilter::Any);
-<a href=#2362 id=2362 data-nosnippet>2362</a>		subscriptions.subscribe(sub_any, tx_any);
-<a href=#2363 id=2363 data-nosnippet>2363</a>
-<a href=#2364 id=2364 data-nosnippet>2364</a>		<span class="comment">// Create a statement without any topics set.
-<a href=#2365 id=2365 data-nosnippet>2365</a>		</span><span class="kw">let </span>statement = signed_statement(<span class="number">1</span>);
-<a href=#2366 id=2366 data-nosnippet>2366</a>		<span class="macro">assert!</span>(statement.topics().is_empty(), <span class="string">"Statement should have no topics"</span>);
-<a href=#2367 id=2367 data-nosnippet>2367</a>
-<a href=#2368 id=2368 data-nosnippet>2368</a>		<span class="comment">// Notify all matching filters.
-<a href=#2369 id=2369 data-nosnippet>2369</a>		</span>subscriptions.notify_matching_filters(<span class="number">0</span>, <span class="kw-2">&amp;</span>statement);
-<a href=#2370 id=2370 data-nosnippet>2370</a>
-<a href=#2371 id=2371 data-nosnippet>2371</a>		<span class="comment">// Any should receive (matches all statements regardless of topics).
-<a href=#2372 id=2372 data-nosnippet>2372</a>		</span><span class="kw">let </span>received =
-<a href=#2373 id=2373 data-nosnippet>2373</a>			unwrap_statement(rx_any.try_recv().expect(<span class="string">"Any filter should receive statement"</span>));
-<a href=#2374 id=2374 data-nosnippet>2374</a>		<span class="kw">let </span>decoded_statement: Statement =
-<a href=#2375 id=2375 data-nosnippet>2375</a>			Statement::decode(<span class="kw-2">&amp;mut &amp;</span>received.<span class="number">0</span>[..]).expect(<span class="string">"Should decode statement"</span>);
-<a href=#2376 id=2376 data-nosnippet>2376</a>		<span class="macro">assert_eq!</span>(decoded_statement, statement);
-<a href=#2377 id=2377 data-nosnippet>2377</a>
-<a href=#2378 id=2378 data-nosnippet>2378</a>		<span class="comment">// MatchAll should NOT receive (statement has no topics, filter requires topic1 AND topic2).
-<a href=#2379 id=2379 data-nosnippet>2379</a>		</span><span class="macro">assert!</span>(
-<a href=#2380 id=2380 data-nosnippet>2380</a>			rx_match_all.try_recv().is_err(),
-<a href=#2381 id=2381 data-nosnippet>2381</a>			<span class="string">"MatchAll should not receive statement without topics"
-<a href=#2382 id=2382 data-nosnippet>2382</a>		</span>);
-<a href=#2383 id=2383 data-nosnippet>2383</a>
-<a href=#2384 id=2384 data-nosnippet>2384</a>		<span class="comment">// MatchAny should NOT receive (statement has no topics, filter requires topic1 OR topic2).
-<a href=#2385 id=2385 data-nosnippet>2385</a>		</span><span class="macro">assert!</span>(
-<a href=#2386 id=2386 data-nosnippet>2386</a>			rx_match_any.try_recv().is_err(),
-<a href=#2387 id=2387 data-nosnippet>2387</a>			<span class="string">"MatchAny should not receive statement without topics"
-<a href=#2388 id=2388 data-nosnippet>2388</a>		</span>);
-<a href=#2389 id=2389 data-nosnippet>2389</a>	}
-<a href=#2390 id=2390 data-nosnippet>2390</a>}
+<a href=#2334 id=2334 data-nosnippet>2334</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

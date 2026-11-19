@@ -176,19 +176,19 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#26 id=26 data-nosnippet>26</a>	verifier::Verifier,
 <a href=#27 id=27 data-nosnippet>27</a>	SolutionOf,
 <a href=#28 id=28 data-nosnippet>28</a>};
-<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>frame_election_provider_support::{
-<a href=#31 id=31 data-nosnippet>31</a>	ExtendedBalance, NposSolution, PageIndex, TryFromOtherBounds,
-<a href=#32 id=32 data-nosnippet>32</a>};
-<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>frame_support::{
-<a href=#34 id=34 data-nosnippet>34</a>	ensure,
-<a href=#35 id=35 data-nosnippet>35</a>	pallet_prelude::{ValueQuery, <span class="kw-2">*</span>},
-<a href=#36 id=36 data-nosnippet>36</a>	traits::{defensive_prelude::<span class="kw-2">*</span>, DefensiveSaturating, Get},
-<a href=#37 id=37 data-nosnippet>37</a>};
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>pallet::<span class="kw-2">*</span>;
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sp_npos_elections::{evaluate_support, ElectionScore};
-<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>frame_election_provider_support::{
+<a href=#32 id=32 data-nosnippet>32</a>	ExtendedBalance, NposSolution, PageIndex, TryFromOtherBounds,
+<a href=#33 id=33 data-nosnippet>33</a>};
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>frame_support::{
+<a href=#35 id=35 data-nosnippet>35</a>	ensure,
+<a href=#36 id=36 data-nosnippet>36</a>	pallet_prelude::{ValueQuery, <span class="kw-2">*</span>},
+<a href=#37 id=37 data-nosnippet>37</a>	traits::{defensive_prelude::<span class="kw-2">*</span>, DefensiveSaturating, Get},
+<a href=#38 id=38 data-nosnippet>38</a>};
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>pallet::<span class="kw-2">*</span>;
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>sp_npos_elections::{evaluate_support, ElectionScore};
 <a href=#42 id=42 data-nosnippet>42</a>
 <a href=#43 id=43 data-nosnippet>43</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SupportsOfVerifier&lt;V&gt; = frame_election_provider_support::BoundedSupports&lt;
 <a href=#44 id=44 data-nosnippet>44</a>	&lt;V <span class="kw">as </span>Verifier&gt;::AccountId,
@@ -354,7 +354,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#204 id=204 data-nosnippet>204</a>	///
 <a href=#205 id=205 data-nosnippet>205</a>	/// No additional conditions must be met when the pallet is in [`Status::Ongoing`]. The number
 <a href=#206 id=206 data-nosnippet>206</a>	/// of pages in
-<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub struct </span>QueuedSolution&lt;T: Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub struct </span>QueuedSolution&lt;T: Config&gt;(core::marker::PhantomData&lt;T&gt;);
 <a href=#208 id=208 data-nosnippet>208</a>	<span class="kw">impl</span>&lt;T: Config&gt; QueuedSolution&lt;T&gt; {
 <a href=#209 id=209 data-nosnippet>209</a>		<span class="doccomment">/// Private helper for mutating the storage group.
 <a href=#210 id=210 data-nosnippet>210</a>		</span><span class="kw">fn </span>mutate_checked&lt;R&gt;(mutate: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R {
@@ -868,321 +868,320 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#718 id=718 data-nosnippet>718</a>		);
 <a href=#719 id=719 data-nosnippet>719</a>
 <a href=#720 id=720 data-nosnippet>720</a>		<span class="comment">// verify each page, and amalgamate into a final support.
-<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>backings =
-<a href=#722 id=722 data-nosnippet>722</a>			sp_std::collections::btree_map::BTreeMap::&lt;T::AccountId, PartialBackings&gt;::new();
-<a href=#723 id=723 data-nosnippet>723</a>		<span class="kw">let </span><span class="kw-2">mut </span>linked_supports = Vec::with_capacity(partial_solutions.len());
-<a href=#724 id=724 data-nosnippet>724</a>
-<a href=#725 id=725 data-nosnippet>725</a>		<span class="kw">for </span>(solution_page, page) <span class="kw">in </span>partial_solutions.into_iter().zip(solution_pages.iter()) {
-<a href=#726 id=726 data-nosnippet>726</a>			<span class="kw">let </span>page_supports = <span class="self">Self</span>::feasibility_check_page_inner(solution_page, <span class="kw-2">*</span>page)
-<a href=#727 id=727 data-nosnippet>727</a>				.map_err(|fe| (<span class="kw-2">*</span>page, fe))<span class="question-mark">?</span>;
-<a href=#728 id=728 data-nosnippet>728</a>
-<a href=#729 id=729 data-nosnippet>729</a>			linked_supports.push(page_supports.clone());
-<a href=#730 id=730 data-nosnippet>730</a>			<span class="kw">let </span>support_len = page_supports.len() <span class="kw">as </span>u32;
-<a href=#731 id=731 data-nosnippet>731</a>			<span class="kw">for </span>(who, support) <span class="kw">in </span>page_supports.into_iter() {
-<a href=#732 id=732 data-nosnippet>732</a>				<span class="kw">let </span>entry = backings.entry(who).or_default();
-<a href=#733 id=733 data-nosnippet>733</a>				entry.total = entry.total.saturating_add(support.total);
-<a href=#734 id=734 data-nosnippet>734</a>				<span class="comment">// Note we assume snapshots are always disjoint, and therefore we can easily extend
-<a href=#735 id=735 data-nosnippet>735</a>				// here.
-<a href=#736 id=736 data-nosnippet>736</a>				</span>entry.backers = entry.backers.saturating_add(support.voters.len() <span class="kw">as </span>u32);
-<a href=#737 id=737 data-nosnippet>737</a>				<span class="kw">if </span>entry.backers &gt; T::MaxBackersPerWinnerFinal::get() {
-<a href=#738 id=738 data-nosnippet>738</a>					<span class="kw">return </span><span class="prelude-val">Err</span>((<span class="kw-2">*</span>page, FeasibilityError::FailedToBoundSupport));
-<a href=#739 id=739 data-nosnippet>739</a>				}
-<a href=#740 id=740 data-nosnippet>740</a>			}
-<a href=#741 id=741 data-nosnippet>741</a>
-<a href=#742 id=742 data-nosnippet>742</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Verified(<span class="kw-2">*</span>page, support_len));
-<a href=#743 id=743 data-nosnippet>743</a>		}
-<a href=#744 id=744 data-nosnippet>744</a>
-<a href=#745 id=745 data-nosnippet>745</a>		<span class="comment">// then check that the number of winners was exactly enough..
-<a href=#746 id=746 data-nosnippet>746</a>		</span><span class="kw">let </span>desired_targets = <span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets()
-<a href=#747 id=747 data-nosnippet>747</a>			.ok_or(FeasibilityError::SnapshotUnavailable)
-<a href=#748 id=748 data-nosnippet>748</a>			.map_err(|fe| (last_page, fe))<span class="question-mark">?</span>;
-<a href=#749 id=749 data-nosnippet>749</a>		<span class="macro">ensure!</span>(
-<a href=#750 id=750 data-nosnippet>750</a>			backings.len() <span class="kw">as </span>u32 == desired_targets,
-<a href=#751 id=751 data-nosnippet>751</a>			(last_page, FeasibilityError::WrongWinnerCount)
-<a href=#752 id=752 data-nosnippet>752</a>		);
-<a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a>		<span class="comment">// then check the score was truth..
-<a href=#755 id=755 data-nosnippet>755</a>		</span><span class="kw">let </span>truth_score = evaluate_support(backings.into_values());
-<a href=#756 id=756 data-nosnippet>756</a>		<span class="macro">ensure!</span>(truth_score == claimed_score, (last_page, FeasibilityError::InvalidScore));
-<a href=#757 id=757 data-nosnippet>757</a>
-<a href=#758 id=758 data-nosnippet>758</a>		<span class="kw">let </span>maybe_current_score = QueuedSolution::&lt;T&gt;::queued_score();
-<a href=#759 id=759 data-nosnippet>759</a>
-<a href=#760 id=760 data-nosnippet>760</a>		<span class="comment">// then store it.
-<a href=#761 id=761 data-nosnippet>761</a>		</span><span class="macro">sublog!</span>(
-<a href=#762 id=762 data-nosnippet>762</a>			debug,
-<a href=#763 id=763 data-nosnippet>763</a>			<span class="string">"verifier"</span>,
-<a href=#764 id=764 data-nosnippet>764</a>			<span class="string">"queued sync solution with score {:?} for pages {:?}"</span>,
-<a href=#765 id=765 data-nosnippet>765</a>			truth_score,
-<a href=#766 id=766 data-nosnippet>766</a>			solution_pages
-<a href=#767 id=767 data-nosnippet>767</a>		);
-<a href=#768 id=768 data-nosnippet>768</a>		QueuedSolution::&lt;T&gt;::force_set_multi_page_valid(
-<a href=#769 id=769 data-nosnippet>769</a>			solution_pages,
-<a href=#770 id=770 data-nosnippet>770</a>			linked_supports,
-<a href=#771 id=771 data-nosnippet>771</a>			truth_score,
-<a href=#772 id=772 data-nosnippet>772</a>		);
-<a href=#773 id=773 data-nosnippet>773</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(truth_score, maybe_current_score));
-<a href=#774 id=774 data-nosnippet>774</a>
-<a href=#775 id=775 data-nosnippet>775</a>		<span class="prelude-val">Ok</span>(())
-<a href=#776 id=776 data-nosnippet>776</a>	}
-<a href=#777 id=777 data-nosnippet>777</a>
-<a href=#778 id=778 data-nosnippet>778</a>	<span class="doccomment">/// Finalize an asynchronous verification. Checks the final score for correctness, and ensures
-<a href=#779 id=779 data-nosnippet>779</a>	/// that it matches all of the criteria.
-<a href=#780 id=780 data-nosnippet>780</a>	///
-<a href=#781 id=781 data-nosnippet>781</a>	/// This should only be called when all pages of an async verification are done.
-<a href=#782 id=782 data-nosnippet>782</a>	///
-<a href=#783 id=783 data-nosnippet>783</a>	/// Returns:
-<a href=#784 id=784 data-nosnippet>784</a>	/// - `Ok()` if everything is okay, at which point the valid variant of the queued solution will
-<a href=#785 id=785 data-nosnippet>785</a>	/// be updated. Returns
-<a href=#786 id=786 data-nosnippet>786</a>	/// - `Err(Feasibility)` if any of the last verification steps fail.
-<a href=#787 id=787 data-nosnippet>787</a>	</span><span class="kw">fn </span>finalize_async_verification(claimed_score: ElectionScore) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
-<a href=#788 id=788 data-nosnippet>788</a>		<span class="kw">let </span>outcome = QueuedSolution::&lt;T&gt;::compute_invalid_score()
-<a href=#789 id=789 data-nosnippet>789</a>			.and_then(|(final_score, winner_count)| {
-<a href=#790 id=790 data-nosnippet>790</a>				<span class="kw">let </span>desired_targets =
-<a href=#791 id=791 data-nosnippet>791</a>					<span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets().defensive_unwrap_or(u32::MAX);
-<a href=#792 id=792 data-nosnippet>792</a>				<span class="comment">// claimed_score checked prior in seal_unverified_solution
-<a href=#793 id=793 data-nosnippet>793</a>				</span><span class="kw">match </span>(final_score == claimed_score, winner_count == desired_targets) {
-<a href=#794 id=794 data-nosnippet>794</a>					(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; {
-<a href=#795 id=795 data-nosnippet>795</a>						<span class="comment">// all good, finalize this solution
-<a href=#796 id=796 data-nosnippet>796</a>						// NOTE: must be before the call to `finalize_correct`.
-<a href=#797 id=797 data-nosnippet>797</a>						</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(
-<a href=#798 id=798 data-nosnippet>798</a>							final_score,
-<a href=#799 id=799 data-nosnippet>799</a>							QueuedSolution::&lt;T&gt;::queued_score(), <span class="comment">/* the previous score, now
-<a href=#800 id=800 data-nosnippet>800</a>							                                      * ejected. */
-<a href=#801 id=801 data-nosnippet>801</a>						</span>));
-<a href=#802 id=802 data-nosnippet>802</a>						QueuedSolution::&lt;T&gt;::finalize_correct(final_score);
-<a href=#803 id=803 data-nosnippet>803</a>						<span class="prelude-val">Ok</span>(())
-<a href=#804 id=804 data-nosnippet>804</a>					},
-<a href=#805 id=805 data-nosnippet>805</a>					(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::InvalidScore),
-<a href=#806 id=806 data-nosnippet>806</a>					(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::WrongWinnerCount),
-<a href=#807 id=807 data-nosnippet>807</a>					(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::InvalidScore),
-<a href=#808 id=808 data-nosnippet>808</a>				}
-<a href=#809 id=809 data-nosnippet>809</a>			})
-<a href=#810 id=810 data-nosnippet>810</a>			.map_err(|err| {
-<a href=#811 id=811 data-nosnippet>811</a>				<span class="macro">sublog!</span>(warn, <span class="string">"verifier"</span>, <span class="string">"Finalizing solution was invalid due to {:?}."</span>, err);
-<a href=#812 id=812 data-nosnippet>812</a>				<span class="comment">// and deposit an event about it.
-<a href=#813 id=813 data-nosnippet>813</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(<span class="number">0</span>, err.clone()));
-<a href=#814 id=814 data-nosnippet>814</a>				err
-<a href=#815 id=815 data-nosnippet>815</a>			});
-<a href=#816 id=816 data-nosnippet>816</a>		<span class="macro">sublog!</span>(debug, <span class="string">"verifier"</span>, <span class="string">"finalize verification outcome: {:?}"</span>, outcome);
-<a href=#817 id=817 data-nosnippet>817</a>		outcome
-<a href=#818 id=818 data-nosnippet>818</a>	}
-<a href=#819 id=819 data-nosnippet>819</a>
-<a href=#820 id=820 data-nosnippet>820</a>	<span class="doccomment">/// Ensure that the given score is:
-<a href=#821 id=821 data-nosnippet>821</a>	///
-<a href=#822 id=822 data-nosnippet>822</a>	/// - better than the queued solution, if one exists.
-<a href=#823 id=823 data-nosnippet>823</a>	/// - greater than the minimum untrusted score.
-<a href=#824 id=824 data-nosnippet>824</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_score_quality(score: ElectionScore) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
-<a href=#825 id=825 data-nosnippet>825</a>		<span class="kw">let </span>is_improvement = &lt;<span class="self">Self </span><span class="kw">as </span>Verifier&gt;::queued_score()
-<a href=#826 id=826 data-nosnippet>826</a>			.map_or(<span class="bool-val">true</span>, |best_score| score.strict_better(best_score));
-<a href=#827 id=827 data-nosnippet>827</a>		<span class="macro">ensure!</span>(is_improvement, FeasibilityError::ScoreTooLow);
-<a href=#828 id=828 data-nosnippet>828</a>
-<a href=#829 id=829 data-nosnippet>829</a>		<span class="kw">let </span>is_greater_than_min_untrusted =
-<a href=#830 id=830 data-nosnippet>830</a>			<span class="self">Self</span>::minimum_score().map_or(<span class="bool-val">true</span>, |min_score| score.strict_better(min_score));
-<a href=#831 id=831 data-nosnippet>831</a>		<span class="macro">ensure!</span>(is_greater_than_min_untrusted, FeasibilityError::ScoreTooLow);
-<a href=#832 id=832 data-nosnippet>832</a>
-<a href=#833 id=833 data-nosnippet>833</a>		<span class="prelude-val">Ok</span>(())
-<a href=#834 id=834 data-nosnippet>834</a>	}
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a>	<span class="doccomment">/// Do the full feasibility check:
-<a href=#837 id=837 data-nosnippet>837</a>	///
-<a href=#838 id=838 data-nosnippet>838</a>	/// - check all edges.
-<a href=#839 id=839 data-nosnippet>839</a>	/// - checks `MaxBackersPerWinner` to be respected IN THIS PAGE.
-<a href=#840 id=840 data-nosnippet>840</a>	/// - checks the number of winners to be less than or equal to `DesiredTargets` IN THIS PAGE
-<a href=#841 id=841 data-nosnippet>841</a>	///   ONLY.
-<a href=#842 id=842 data-nosnippet>842</a>	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>feasibility_check_page_inner(
-<a href=#843 id=843 data-nosnippet>843</a>		partial_solution: SolutionOf&lt;T::MinerConfig&gt;,
-<a href=#844 id=844 data-nosnippet>844</a>		page: PageIndex,
-<a href=#845 id=845 data-nosnippet>845</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;SupportsOfVerifier&lt;<span class="self">Self</span>&gt;, FeasibilityError&gt; {
-<a href=#846 id=846 data-nosnippet>846</a>		<span class="comment">// Read the corresponding snapshots.
-<a href=#847 id=847 data-nosnippet>847</a>		</span><span class="kw">let </span>snapshot_targets =
-<a href=#848 id=848 data-nosnippet>848</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::targets().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
-<a href=#849 id=849 data-nosnippet>849</a>		<span class="kw">let </span>snapshot_voters =
-<a href=#850 id=850 data-nosnippet>850</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
-<a href=#851 id=851 data-nosnippet>851</a>		<span class="kw">let </span>desired_targets =
-<a href=#852 id=852 data-nosnippet>852</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>		feasibility_check_page_inner_with_snapshot::&lt;T::MinerConfig&gt;(
-<a href=#855 id=855 data-nosnippet>855</a>			partial_solution,
-<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw-2">&amp;</span>snapshot_voters,
-<a href=#857 id=857 data-nosnippet>857</a>			<span class="kw-2">&amp;</span>snapshot_targets,
-<a href=#858 id=858 data-nosnippet>858</a>			desired_targets,
-<a href=#859 id=859 data-nosnippet>859</a>		)
-<a href=#860 id=860 data-nosnippet>860</a>		.and_then(|miner_supports| {
-<a href=#861 id=861 data-nosnippet>861</a>			SupportsOfVerifier::&lt;<span class="self">Self</span>&gt;::try_from_other_bounds(miner_supports)
-<a href=#862 id=862 data-nosnippet>862</a>				.defensive_map_err(|<span class="kw">_</span>| FeasibilityError::FailedToBoundSupport)
-<a href=#863 id=863 data-nosnippet>863</a>		})
-<a href=#864 id=864 data-nosnippet>864</a>	}
-<a href=#865 id=865 data-nosnippet>865</a>
-<a href=#866 id=866 data-nosnippet>866</a>	<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"try-runtime"</span>))]
-<a href=#867 id=867 data-nosnippet>867</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state(_now: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-<a href=#868 id=868 data-nosnippet>868</a>		QueuedSolution::&lt;T&gt;::sanity_check()
-<a href=#869 id=869 data-nosnippet>869</a>	}
-<a href=#870 id=870 data-nosnippet>870</a>}
-<a href=#871 id=871 data-nosnippet>871</a>
-<a href=#872 id=872 data-nosnippet>872</a><span class="doccomment">/// Same as `feasibility_check_page_inner`, but with a snapshot.
-<a href=#873 id=873 data-nosnippet>873</a>///
-<a href=#874 id=874 data-nosnippet>874</a>/// This is exported as a standalone function, relying on `MinerConfig` rather than `Config` so that
-<a href=#875 id=875 data-nosnippet>875</a>/// it can be used in any offchain miner.
-<a href=#876 id=876 data-nosnippet>876</a></span><span class="kw">pub fn </span>feasibility_check_page_inner_with_snapshot&lt;T: MinerConfig&gt;(
-<a href=#877 id=877 data-nosnippet>877</a>	partial_solution: SolutionOf&lt;T&gt;,
-<a href=#878 id=878 data-nosnippet>878</a>	snapshot_voters: <span class="kw-2">&amp;</span>BoundedVec&lt;VoterOf&lt;T&gt;, T::VoterSnapshotPerBlock&gt;,
-<a href=#879 id=879 data-nosnippet>879</a>	snapshot_targets: <span class="kw-2">&amp;</span>BoundedVec&lt;T::AccountId, T::TargetSnapshotPerBlock&gt;,
-<a href=#880 id=880 data-nosnippet>880</a>	desired_targets: u32,
-<a href=#881 id=881 data-nosnippet>881</a>) -&gt; <span class="prelude-ty">Result</span>&lt;PageSupportsOfMiner&lt;T&gt;, FeasibilityError&gt; {
-<a href=#882 id=882 data-nosnippet>882</a>	<span class="comment">// ----- Start building. First, we need some closures.
-<a href=#883 id=883 data-nosnippet>883</a>	</span><span class="kw">let </span>cache = helpers::generate_voter_cache::&lt;T, <span class="kw">_</span>&gt;(snapshot_voters);
-<a href=#884 id=884 data-nosnippet>884</a>	<span class="kw">let </span>voter_at = helpers::voter_at_fn::&lt;T&gt;(snapshot_voters);
-<a href=#885 id=885 data-nosnippet>885</a>	<span class="kw">let </span>target_at = helpers::target_at_fn::&lt;T&gt;(snapshot_targets);
-<a href=#886 id=886 data-nosnippet>886</a>	<span class="kw">let </span>voter_index = helpers::voter_index_fn_usize::&lt;T&gt;(<span class="kw-2">&amp;</span>cache);
-<a href=#887 id=887 data-nosnippet>887</a>
-<a href=#888 id=888 data-nosnippet>888</a>	<span class="comment">// Then convert solution -&gt; assignment. This will fail if any of the indices are
-<a href=#889 id=889 data-nosnippet>889</a>	// gibberish. It will also ensure each assignemnt (voter) is unique, and all targets within it
-<a href=#890 id=890 data-nosnippet>890</a>	// are unique.
-<a href=#891 id=891 data-nosnippet>891</a>	</span><span class="kw">let </span>assignments = partial_solution
-<a href=#892 id=892 data-nosnippet>892</a>		.into_assignment(voter_at, target_at)
-<a href=#893 id=893 data-nosnippet>893</a>		.map_err::&lt;FeasibilityError, <span class="kw">_</span>&gt;(Into::into)<span class="question-mark">?</span>;
-<a href=#894 id=894 data-nosnippet>894</a>
-<a href=#895 id=895 data-nosnippet>895</a>	<span class="comment">// Ensure that assignments are all correct.
-<a href=#896 id=896 data-nosnippet>896</a>	</span><span class="kw">let _ </span>= assignments
-<a href=#897 id=897 data-nosnippet>897</a>		.iter()
-<a href=#898 id=898 data-nosnippet>898</a>		.map(|<span class="kw-2">ref </span>assignment| {
-<a href=#899 id=899 data-nosnippet>899</a>			<span class="comment">// Check that assignment.who is actually a voter (defensive-only). NOTE: while
-<a href=#900 id=900 data-nosnippet>900</a>			// using the index map from `voter_index` is better than a blind linear search,
-<a href=#901 id=901 data-nosnippet>901</a>			// this *still* has room for optimization. Note that we had the index when we
-<a href=#902 id=902 data-nosnippet>902</a>			// did `solution -&gt; assignment` and we lost it. Ideal is to keep the index
-<a href=#903 id=903 data-nosnippet>903</a>			// around.
-<a href=#904 id=904 data-nosnippet>904</a>
-<a href=#905 id=905 data-nosnippet>905</a>			// Defensive-only: must exist in the snapshot.
-<a href=#906 id=906 data-nosnippet>906</a>			</span><span class="kw">let </span>snapshot_index =
-<a href=#907 id=907 data-nosnippet>907</a>				voter_index(<span class="kw-2">&amp;</span>assignment.who).ok_or(FeasibilityError::InvalidVoter)<span class="question-mark">?</span>;
-<a href=#908 id=908 data-nosnippet>908</a>			<span class="comment">// Defensive-only: index comes from the snapshot, must exist.
-<a href=#909 id=909 data-nosnippet>909</a>			</span><span class="kw">let </span>(_voter, _stake, targets) =
-<a href=#910 id=910 data-nosnippet>910</a>				snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)<span class="question-mark">?</span>;
-<a href=#911 id=911 data-nosnippet>911</a>			<span class="macro">debug_assert!</span>(<span class="kw-2">*</span>_voter == assignment.who);
-<a href=#912 id=912 data-nosnippet>912</a>
-<a href=#913 id=913 data-nosnippet>913</a>			<span class="comment">// Check that all of the targets are valid based on the snapshot.
-<a href=#914 id=914 data-nosnippet>914</a>			</span><span class="kw">if </span>assignment.distribution.iter().any(|(t, <span class="kw">_</span>)| !targets.contains(t)) {
-<a href=#915 id=915 data-nosnippet>915</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(FeasibilityError::InvalidVote);
-<a href=#916 id=916 data-nosnippet>916</a>			}
-<a href=#917 id=917 data-nosnippet>917</a>			<span class="prelude-val">Ok</span>(())
-<a href=#918 id=918 data-nosnippet>918</a>		})
-<a href=#919 id=919 data-nosnippet>919</a>		.collect::&lt;<span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#920 id=920 data-nosnippet>920</a>
-<a href=#921 id=921 data-nosnippet>921</a>	<span class="comment">// ----- Start building support. First, we need one more closure.
-<a href=#922 id=922 data-nosnippet>922</a>	</span><span class="kw">let </span>stake_of = helpers::stake_of_fn::&lt;T, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>snapshot_voters, <span class="kw-2">&amp;</span>cache);
-<a href=#923 id=923 data-nosnippet>923</a>
-<a href=#924 id=924 data-nosnippet>924</a>	<span class="comment">// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
-<a href=#925 id=925 data-nosnippet>925</a>	</span><span class="kw">let </span>staked_assignments =
-<a href=#926 id=926 data-nosnippet>926</a>		sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
-<a href=#927 id=927 data-nosnippet>927</a>			.map_err::&lt;FeasibilityError, <span class="kw">_</span>&gt;(Into::into)<span class="question-mark">?</span>;
-<a href=#928 id=928 data-nosnippet>928</a>
-<a href=#929 id=929 data-nosnippet>929</a>	<span class="kw">let </span>supports = sp_npos_elections::to_supports(<span class="kw-2">&amp;</span>staked_assignments);
-<a href=#930 id=930 data-nosnippet>930</a>
-<a href=#931 id=931 data-nosnippet>931</a>	<span class="comment">// Ensure some heuristics. These conditions must hold in the **entire** support, this is
-<a href=#932 id=932 data-nosnippet>932</a>	// just a single page. But, they must hold in a single page as well.
-<a href=#933 id=933 data-nosnippet>933</a>	</span><span class="macro">ensure!</span>((supports.len() <span class="kw">as </span>u32) &lt;= desired_targets, FeasibilityError::WrongWinnerCount);
-<a href=#934 id=934 data-nosnippet>934</a>
-<a href=#935 id=935 data-nosnippet>935</a>	<span class="comment">// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
-<a href=#936 id=936 data-nosnippet>936</a>	// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
-<a href=#937 id=937 data-nosnippet>937</a>	// is ALSO checked, so this conversion can almost never fail.
-<a href=#938 id=938 data-nosnippet>938</a>	</span><span class="kw">let </span>bounded_supports =
-<a href=#939 id=939 data-nosnippet>939</a>		supports.try_into().map_err(|<span class="kw">_</span>| FeasibilityError::FailedToBoundSupport)<span class="question-mark">?</span>;
-<a href=#940 id=940 data-nosnippet>940</a>	<span class="prelude-val">Ok</span>(bounded_supports)
-<a href=#941 id=941 data-nosnippet>941</a>}
-<a href=#942 id=942 data-nosnippet>942</a>
-<a href=#943 id=943 data-nosnippet>943</a><span class="kw">impl</span>&lt;T: Config&gt; Verifier <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#944 id=944 data-nosnippet>944</a>	<span class="kw">type </span>AccountId = T::AccountId;
-<a href=#945 id=945 data-nosnippet>945</a>	<span class="kw">type </span>Solution = SolutionOf&lt;T::MinerConfig&gt;;
-<a href=#946 id=946 data-nosnippet>946</a>	<span class="kw">type </span>MaxBackersPerWinner = T::MaxBackersPerWinner;
-<a href=#947 id=947 data-nosnippet>947</a>	<span class="kw">type </span>MaxWinnersPerPage = T::MaxWinnersPerPage;
-<a href=#948 id=948 data-nosnippet>948</a>	<span class="kw">type </span>MaxBackersPerWinnerFinal = T::MaxBackersPerWinnerFinal;
-<a href=#949 id=949 data-nosnippet>949</a>
-<a href=#950 id=950 data-nosnippet>950</a>	<span class="kw">fn </span>set_minimum_score(score: ElectionScore) {
-<a href=#951 id=951 data-nosnippet>951</a>		MinimumScore::&lt;T&gt;::put(score);
-<a href=#952 id=952 data-nosnippet>952</a>	}
-<a href=#953 id=953 data-nosnippet>953</a>
-<a href=#954 id=954 data-nosnippet>954</a>	<span class="kw">fn </span>ensure_claimed_score_improves(claimed_score: ElectionScore) -&gt; bool {
-<a href=#955 id=955 data-nosnippet>955</a>		<span class="self">Self</span>::ensure_score_quality(claimed_score).is_ok()
-<a href=#956 id=956 data-nosnippet>956</a>	}
-<a href=#957 id=957 data-nosnippet>957</a>
-<a href=#958 id=958 data-nosnippet>958</a>	<span class="kw">fn </span>queued_score() -&gt; <span class="prelude-ty">Option</span>&lt;ElectionScore&gt; {
-<a href=#959 id=959 data-nosnippet>959</a>		QueuedSolution::&lt;T&gt;::queued_score()
-<a href=#960 id=960 data-nosnippet>960</a>	}
-<a href=#961 id=961 data-nosnippet>961</a>
-<a href=#962 id=962 data-nosnippet>962</a>	<span class="kw">fn </span>kill() {
-<a href=#963 id=963 data-nosnippet>963</a>		QueuedSolution::&lt;T&gt;::kill();
-<a href=#964 id=964 data-nosnippet>964</a>		&lt;StatusStorage&lt;T&gt;&gt;::put(Status::Nothing);
-<a href=#965 id=965 data-nosnippet>965</a>	}
-<a href=#966 id=966 data-nosnippet>966</a>
-<a href=#967 id=967 data-nosnippet>967</a>	<span class="kw">fn </span>get_queued_solution_page(page: PageIndex) -&gt; <span class="prelude-ty">Option</span>&lt;SupportsOfVerifier&lt;<span class="self">Self</span>&gt;&gt; {
-<a href=#968 id=968 data-nosnippet>968</a>		QueuedSolution::&lt;T&gt;::get_queued_solution_page(page)
-<a href=#969 id=969 data-nosnippet>969</a>	}
-<a href=#970 id=970 data-nosnippet>970</a>
-<a href=#971 id=971 data-nosnippet>971</a>	<span class="kw">fn </span>verify_synchronous_multi(
-<a href=#972 id=972 data-nosnippet>972</a>		partial_solutions: Vec&lt;<span class="self">Self</span>::Solution&gt;,
-<a href=#973 id=973 data-nosnippet>973</a>		solution_pages: Vec&lt;PageIndex&gt;,
-<a href=#974 id=974 data-nosnippet>974</a>		claimed_score: ElectionScore,
-<a href=#975 id=975 data-nosnippet>975</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
-<a href=#976 id=976 data-nosnippet>976</a>		<span class="self">Self</span>::do_verify_synchronous_multi(partial_solutions, solution_pages, claimed_score).map_err(
-<a href=#977 id=977 data-nosnippet>977</a>			|(page, fe)| {
-<a href=#978 id=978 data-nosnippet>978</a>				<span class="macro">sublog!</span>(
-<a href=#979 id=979 data-nosnippet>979</a>					warn,
-<a href=#980 id=980 data-nosnippet>980</a>					<span class="string">"verifier"</span>,
-<a href=#981 id=981 data-nosnippet>981</a>					<span class="string">"sync verification of page {:?} failed due to {:?}."</span>,
-<a href=#982 id=982 data-nosnippet>982</a>					page,
-<a href=#983 id=983 data-nosnippet>983</a>					fe
-<a href=#984 id=984 data-nosnippet>984</a>				);
-<a href=#985 id=985 data-nosnippet>985</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(page, fe.clone()));
-<a href=#986 id=986 data-nosnippet>986</a>				fe
-<a href=#987 id=987 data-nosnippet>987</a>			},
-<a href=#988 id=988 data-nosnippet>988</a>		)
-<a href=#989 id=989 data-nosnippet>989</a>	}
-<a href=#990 id=990 data-nosnippet>990</a>
-<a href=#991 id=991 data-nosnippet>991</a>	<span class="kw">fn </span>force_set_single_page_valid(
-<a href=#992 id=992 data-nosnippet>992</a>		partial_supports: SupportsOfVerifier&lt;<span class="self">Self</span>&gt;,
-<a href=#993 id=993 data-nosnippet>993</a>		page: PageIndex,
-<a href=#994 id=994 data-nosnippet>994</a>		score: ElectionScore,
-<a href=#995 id=995 data-nosnippet>995</a>	) {
-<a href=#996 id=996 data-nosnippet>996</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(score, QueuedSolution::&lt;T&gt;::queued_score()));
-<a href=#997 id=997 data-nosnippet>997</a>		QueuedSolution::&lt;T&gt;::force_set_single_page_valid(page, partial_supports, score);
-<a href=#998 id=998 data-nosnippet>998</a>	}
-<a href=#999 id=999 data-nosnippet>999</a>
-<a href=#1000 id=1000 data-nosnippet>1000</a>	<span class="kw">fn </span>per_block_exec() -&gt; (Weight, Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>WeightMeter)&gt;) {
-<a href=#1001 id=1001 data-nosnippet>1001</a>		<span class="self">Self</span>::do_per_block_exec()
-<a href=#1002 id=1002 data-nosnippet>1002</a>	}
-<a href=#1003 id=1003 data-nosnippet>1003</a>}
-<a href=#1004 id=1004 data-nosnippet>1004</a>
-<a href=#1005 id=1005 data-nosnippet>1005</a><span class="kw">impl</span>&lt;T: Config&gt; AsynchronousVerifier <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1006 id=1006 data-nosnippet>1006</a>	<span class="kw">type </span>SolutionDataProvider = T::SolutionDataProvider;
-<a href=#1007 id=1007 data-nosnippet>1007</a>
-<a href=#1008 id=1008 data-nosnippet>1008</a>	<span class="kw">fn </span>status() -&gt; Status {
-<a href=#1009 id=1009 data-nosnippet>1009</a>		Pallet::&lt;T&gt;::status_storage()
-<a href=#1010 id=1010 data-nosnippet>1010</a>	}
-<a href=#1011 id=1011 data-nosnippet>1011</a>
-<a href=#1012 id=1012 data-nosnippet>1012</a>	<span class="kw">fn </span>start() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-<a href=#1013 id=1013 data-nosnippet>1013</a>		<span class="macro">sublog!</span>(debug, <span class="string">"verifier"</span>, <span class="string">"start signal received."</span>);
-<a href=#1014 id=1014 data-nosnippet>1014</a>		<span class="kw">if let </span>Status::Nothing = <span class="self">Self</span>::status() {
-<a href=#1015 id=1015 data-nosnippet>1015</a>			<span class="kw">let </span>claimed_score = <span class="self">Self</span>::SolutionDataProvider::get_score();
-<a href=#1016 id=1016 data-nosnippet>1016</a>			<span class="kw">if </span><span class="self">Self</span>::ensure_score_quality(claimed_score).is_err() {
-<a href=#1017 id=1017 data-nosnippet>1017</a>				<span class="comment">// don't do anything, report back that this solution was garbage.
-<a href=#1018 id=1018 data-nosnippet>1018</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(
-<a href=#1019 id=1019 data-nosnippet>1019</a>					<span class="kw">crate</span>::Pallet::&lt;T&gt;::msp(),
-<a href=#1020 id=1020 data-nosnippet>1020</a>					FeasibilityError::ScoreTooLow,
-<a href=#1021 id=1021 data-nosnippet>1021</a>				));
-<a href=#1022 id=1022 data-nosnippet>1022</a>				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-<a href=#1023 id=1023 data-nosnippet>1023</a>				<span class="comment">// Despite being an instant-reject, this was a successful `start` operation.
-<a href=#1024 id=1024 data-nosnippet>1024</a>				</span><span class="prelude-val">Ok</span>(())
-<a href=#1025 id=1025 data-nosnippet>1025</a>			} <span class="kw">else </span>{
-<a href=#1026 id=1026 data-nosnippet>1026</a>				<span class="comment">// This solution is good enough to win, we start verifying it in the next block.
-<a href=#1027 id=1027 data-nosnippet>1027</a>				</span>StatusStorage::&lt;T&gt;::put(Status::Ongoing(<span class="kw">crate</span>::Pallet::&lt;T&gt;::msp()));
-<a href=#1028 id=1028 data-nosnippet>1028</a>				<span class="prelude-val">Ok</span>(())
-<a href=#1029 id=1029 data-nosnippet>1029</a>			}
-<a href=#1030 id=1030 data-nosnippet>1030</a>		} <span class="kw">else </span>{
-<a href=#1031 id=1031 data-nosnippet>1031</a>			<span class="macro">sublog!</span>(warn, <span class="string">"verifier"</span>, <span class="string">"start signal received while busy. This will be ignored."</span>);
-<a href=#1032 id=1032 data-nosnippet>1032</a>			<span class="prelude-val">Err</span>(<span class="string">"verification ongoing"</span>)
-<a href=#1033 id=1033 data-nosnippet>1033</a>		}
-<a href=#1034 id=1034 data-nosnippet>1034</a>	}
-<a href=#1035 id=1035 data-nosnippet>1035</a>}
+<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>backings = BTreeMap::&lt;T::AccountId, PartialBackings&gt;::new();
+<a href=#722 id=722 data-nosnippet>722</a>		<span class="kw">let </span><span class="kw-2">mut </span>linked_supports = Vec::with_capacity(partial_solutions.len());
+<a href=#723 id=723 data-nosnippet>723</a>
+<a href=#724 id=724 data-nosnippet>724</a>		<span class="kw">for </span>(solution_page, page) <span class="kw">in </span>partial_solutions.into_iter().zip(solution_pages.iter()) {
+<a href=#725 id=725 data-nosnippet>725</a>			<span class="kw">let </span>page_supports = <span class="self">Self</span>::feasibility_check_page_inner(solution_page, <span class="kw-2">*</span>page)
+<a href=#726 id=726 data-nosnippet>726</a>				.map_err(|fe| (<span class="kw-2">*</span>page, fe))<span class="question-mark">?</span>;
+<a href=#727 id=727 data-nosnippet>727</a>
+<a href=#728 id=728 data-nosnippet>728</a>			linked_supports.push(page_supports.clone());
+<a href=#729 id=729 data-nosnippet>729</a>			<span class="kw">let </span>support_len = page_supports.len() <span class="kw">as </span>u32;
+<a href=#730 id=730 data-nosnippet>730</a>			<span class="kw">for </span>(who, support) <span class="kw">in </span>page_supports.into_iter() {
+<a href=#731 id=731 data-nosnippet>731</a>				<span class="kw">let </span>entry = backings.entry(who).or_default();
+<a href=#732 id=732 data-nosnippet>732</a>				entry.total = entry.total.saturating_add(support.total);
+<a href=#733 id=733 data-nosnippet>733</a>				<span class="comment">// Note we assume snapshots are always disjoint, and therefore we can easily extend
+<a href=#734 id=734 data-nosnippet>734</a>				// here.
+<a href=#735 id=735 data-nosnippet>735</a>				</span>entry.backers = entry.backers.saturating_add(support.voters.len() <span class="kw">as </span>u32);
+<a href=#736 id=736 data-nosnippet>736</a>				<span class="kw">if </span>entry.backers &gt; T::MaxBackersPerWinnerFinal::get() {
+<a href=#737 id=737 data-nosnippet>737</a>					<span class="kw">return </span><span class="prelude-val">Err</span>((<span class="kw-2">*</span>page, FeasibilityError::FailedToBoundSupport));
+<a href=#738 id=738 data-nosnippet>738</a>				}
+<a href=#739 id=739 data-nosnippet>739</a>			}
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Verified(<span class="kw-2">*</span>page, support_len));
+<a href=#742 id=742 data-nosnippet>742</a>		}
+<a href=#743 id=743 data-nosnippet>743</a>
+<a href=#744 id=744 data-nosnippet>744</a>		<span class="comment">// then check that the number of winners was exactly enough..
+<a href=#745 id=745 data-nosnippet>745</a>		</span><span class="kw">let </span>desired_targets = <span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets()
+<a href=#746 id=746 data-nosnippet>746</a>			.ok_or(FeasibilityError::SnapshotUnavailable)
+<a href=#747 id=747 data-nosnippet>747</a>			.map_err(|fe| (last_page, fe))<span class="question-mark">?</span>;
+<a href=#748 id=748 data-nosnippet>748</a>		<span class="macro">ensure!</span>(
+<a href=#749 id=749 data-nosnippet>749</a>			backings.len() <span class="kw">as </span>u32 == desired_targets,
+<a href=#750 id=750 data-nosnippet>750</a>			(last_page, FeasibilityError::WrongWinnerCount)
+<a href=#751 id=751 data-nosnippet>751</a>		);
+<a href=#752 id=752 data-nosnippet>752</a>
+<a href=#753 id=753 data-nosnippet>753</a>		<span class="comment">// then check the score was truth..
+<a href=#754 id=754 data-nosnippet>754</a>		</span><span class="kw">let </span>truth_score = evaluate_support(backings.into_values());
+<a href=#755 id=755 data-nosnippet>755</a>		<span class="macro">ensure!</span>(truth_score == claimed_score, (last_page, FeasibilityError::InvalidScore));
+<a href=#756 id=756 data-nosnippet>756</a>
+<a href=#757 id=757 data-nosnippet>757</a>		<span class="kw">let </span>maybe_current_score = QueuedSolution::&lt;T&gt;::queued_score();
+<a href=#758 id=758 data-nosnippet>758</a>
+<a href=#759 id=759 data-nosnippet>759</a>		<span class="comment">// then store it.
+<a href=#760 id=760 data-nosnippet>760</a>		</span><span class="macro">sublog!</span>(
+<a href=#761 id=761 data-nosnippet>761</a>			debug,
+<a href=#762 id=762 data-nosnippet>762</a>			<span class="string">"verifier"</span>,
+<a href=#763 id=763 data-nosnippet>763</a>			<span class="string">"queued sync solution with score {:?} for pages {:?}"</span>,
+<a href=#764 id=764 data-nosnippet>764</a>			truth_score,
+<a href=#765 id=765 data-nosnippet>765</a>			solution_pages
+<a href=#766 id=766 data-nosnippet>766</a>		);
+<a href=#767 id=767 data-nosnippet>767</a>		QueuedSolution::&lt;T&gt;::force_set_multi_page_valid(
+<a href=#768 id=768 data-nosnippet>768</a>			solution_pages,
+<a href=#769 id=769 data-nosnippet>769</a>			linked_supports,
+<a href=#770 id=770 data-nosnippet>770</a>			truth_score,
+<a href=#771 id=771 data-nosnippet>771</a>		);
+<a href=#772 id=772 data-nosnippet>772</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(truth_score, maybe_current_score));
+<a href=#773 id=773 data-nosnippet>773</a>
+<a href=#774 id=774 data-nosnippet>774</a>		<span class="prelude-val">Ok</span>(())
+<a href=#775 id=775 data-nosnippet>775</a>	}
+<a href=#776 id=776 data-nosnippet>776</a>
+<a href=#777 id=777 data-nosnippet>777</a>	<span class="doccomment">/// Finalize an asynchronous verification. Checks the final score for correctness, and ensures
+<a href=#778 id=778 data-nosnippet>778</a>	/// that it matches all of the criteria.
+<a href=#779 id=779 data-nosnippet>779</a>	///
+<a href=#780 id=780 data-nosnippet>780</a>	/// This should only be called when all pages of an async verification are done.
+<a href=#781 id=781 data-nosnippet>781</a>	///
+<a href=#782 id=782 data-nosnippet>782</a>	/// Returns:
+<a href=#783 id=783 data-nosnippet>783</a>	/// - `Ok()` if everything is okay, at which point the valid variant of the queued solution will
+<a href=#784 id=784 data-nosnippet>784</a>	/// be updated. Returns
+<a href=#785 id=785 data-nosnippet>785</a>	/// - `Err(Feasibility)` if any of the last verification steps fail.
+<a href=#786 id=786 data-nosnippet>786</a>	</span><span class="kw">fn </span>finalize_async_verification(claimed_score: ElectionScore) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
+<a href=#787 id=787 data-nosnippet>787</a>		<span class="kw">let </span>outcome = QueuedSolution::&lt;T&gt;::compute_invalid_score()
+<a href=#788 id=788 data-nosnippet>788</a>			.and_then(|(final_score, winner_count)| {
+<a href=#789 id=789 data-nosnippet>789</a>				<span class="kw">let </span>desired_targets =
+<a href=#790 id=790 data-nosnippet>790</a>					<span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets().defensive_unwrap_or(u32::MAX);
+<a href=#791 id=791 data-nosnippet>791</a>				<span class="comment">// claimed_score checked prior in seal_unverified_solution
+<a href=#792 id=792 data-nosnippet>792</a>				</span><span class="kw">match </span>(final_score == claimed_score, winner_count == desired_targets) {
+<a href=#793 id=793 data-nosnippet>793</a>					(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; {
+<a href=#794 id=794 data-nosnippet>794</a>						<span class="comment">// all good, finalize this solution
+<a href=#795 id=795 data-nosnippet>795</a>						// NOTE: must be before the call to `finalize_correct`.
+<a href=#796 id=796 data-nosnippet>796</a>						</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(
+<a href=#797 id=797 data-nosnippet>797</a>							final_score,
+<a href=#798 id=798 data-nosnippet>798</a>							QueuedSolution::&lt;T&gt;::queued_score(), <span class="comment">/* the previous score, now
+<a href=#799 id=799 data-nosnippet>799</a>							                                      * ejected. */
+<a href=#800 id=800 data-nosnippet>800</a>						</span>));
+<a href=#801 id=801 data-nosnippet>801</a>						QueuedSolution::&lt;T&gt;::finalize_correct(final_score);
+<a href=#802 id=802 data-nosnippet>802</a>						<span class="prelude-val">Ok</span>(())
+<a href=#803 id=803 data-nosnippet>803</a>					},
+<a href=#804 id=804 data-nosnippet>804</a>					(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::InvalidScore),
+<a href=#805 id=805 data-nosnippet>805</a>					(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::WrongWinnerCount),
+<a href=#806 id=806 data-nosnippet>806</a>					(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(FeasibilityError::InvalidScore),
+<a href=#807 id=807 data-nosnippet>807</a>				}
+<a href=#808 id=808 data-nosnippet>808</a>			})
+<a href=#809 id=809 data-nosnippet>809</a>			.map_err(|err| {
+<a href=#810 id=810 data-nosnippet>810</a>				<span class="macro">sublog!</span>(warn, <span class="string">"verifier"</span>, <span class="string">"Finalizing solution was invalid due to {:?}."</span>, err);
+<a href=#811 id=811 data-nosnippet>811</a>				<span class="comment">// and deposit an event about it.
+<a href=#812 id=812 data-nosnippet>812</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(<span class="number">0</span>, err.clone()));
+<a href=#813 id=813 data-nosnippet>813</a>				err
+<a href=#814 id=814 data-nosnippet>814</a>			});
+<a href=#815 id=815 data-nosnippet>815</a>		<span class="macro">sublog!</span>(debug, <span class="string">"verifier"</span>, <span class="string">"finalize verification outcome: {:?}"</span>, outcome);
+<a href=#816 id=816 data-nosnippet>816</a>		outcome
+<a href=#817 id=817 data-nosnippet>817</a>	}
+<a href=#818 id=818 data-nosnippet>818</a>
+<a href=#819 id=819 data-nosnippet>819</a>	<span class="doccomment">/// Ensure that the given score is:
+<a href=#820 id=820 data-nosnippet>820</a>	///
+<a href=#821 id=821 data-nosnippet>821</a>	/// - better than the queued solution, if one exists.
+<a href=#822 id=822 data-nosnippet>822</a>	/// - greater than the minimum untrusted score.
+<a href=#823 id=823 data-nosnippet>823</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_score_quality(score: ElectionScore) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
+<a href=#824 id=824 data-nosnippet>824</a>		<span class="kw">let </span>is_improvement = &lt;<span class="self">Self </span><span class="kw">as </span>Verifier&gt;::queued_score()
+<a href=#825 id=825 data-nosnippet>825</a>			.map_or(<span class="bool-val">true</span>, |best_score| score.strict_better(best_score));
+<a href=#826 id=826 data-nosnippet>826</a>		<span class="macro">ensure!</span>(is_improvement, FeasibilityError::ScoreTooLow);
+<a href=#827 id=827 data-nosnippet>827</a>
+<a href=#828 id=828 data-nosnippet>828</a>		<span class="kw">let </span>is_greater_than_min_untrusted =
+<a href=#829 id=829 data-nosnippet>829</a>			<span class="self">Self</span>::minimum_score().map_or(<span class="bool-val">true</span>, |min_score| score.strict_better(min_score));
+<a href=#830 id=830 data-nosnippet>830</a>		<span class="macro">ensure!</span>(is_greater_than_min_untrusted, FeasibilityError::ScoreTooLow);
+<a href=#831 id=831 data-nosnippet>831</a>
+<a href=#832 id=832 data-nosnippet>832</a>		<span class="prelude-val">Ok</span>(())
+<a href=#833 id=833 data-nosnippet>833</a>	}
+<a href=#834 id=834 data-nosnippet>834</a>
+<a href=#835 id=835 data-nosnippet>835</a>	<span class="doccomment">/// Do the full feasibility check:
+<a href=#836 id=836 data-nosnippet>836</a>	///
+<a href=#837 id=837 data-nosnippet>837</a>	/// - check all edges.
+<a href=#838 id=838 data-nosnippet>838</a>	/// - checks `MaxBackersPerWinner` to be respected IN THIS PAGE.
+<a href=#839 id=839 data-nosnippet>839</a>	/// - checks the number of winners to be less than or equal to `DesiredTargets` IN THIS PAGE
+<a href=#840 id=840 data-nosnippet>840</a>	///   ONLY.
+<a href=#841 id=841 data-nosnippet>841</a>	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>feasibility_check_page_inner(
+<a href=#842 id=842 data-nosnippet>842</a>		partial_solution: SolutionOf&lt;T::MinerConfig&gt;,
+<a href=#843 id=843 data-nosnippet>843</a>		page: PageIndex,
+<a href=#844 id=844 data-nosnippet>844</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;SupportsOfVerifier&lt;<span class="self">Self</span>&gt;, FeasibilityError&gt; {
+<a href=#845 id=845 data-nosnippet>845</a>		<span class="comment">// Read the corresponding snapshots.
+<a href=#846 id=846 data-nosnippet>846</a>		</span><span class="kw">let </span>snapshot_targets =
+<a href=#847 id=847 data-nosnippet>847</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::targets().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
+<a href=#848 id=848 data-nosnippet>848</a>		<span class="kw">let </span>snapshot_voters =
+<a href=#849 id=849 data-nosnippet>849</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
+<a href=#850 id=850 data-nosnippet>850</a>		<span class="kw">let </span>desired_targets =
+<a href=#851 id=851 data-nosnippet>851</a>			<span class="kw">crate</span>::Snapshot::&lt;T&gt;::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>		feasibility_check_page_inner_with_snapshot::&lt;T::MinerConfig&gt;(
+<a href=#854 id=854 data-nosnippet>854</a>			partial_solution,
+<a href=#855 id=855 data-nosnippet>855</a>			<span class="kw-2">&amp;</span>snapshot_voters,
+<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw-2">&amp;</span>snapshot_targets,
+<a href=#857 id=857 data-nosnippet>857</a>			desired_targets,
+<a href=#858 id=858 data-nosnippet>858</a>		)
+<a href=#859 id=859 data-nosnippet>859</a>		.and_then(|miner_supports| {
+<a href=#860 id=860 data-nosnippet>860</a>			SupportsOfVerifier::&lt;<span class="self">Self</span>&gt;::try_from_other_bounds(miner_supports)
+<a href=#861 id=861 data-nosnippet>861</a>				.defensive_map_err(|<span class="kw">_</span>| FeasibilityError::FailedToBoundSupport)
+<a href=#862 id=862 data-nosnippet>862</a>		})
+<a href=#863 id=863 data-nosnippet>863</a>	}
+<a href=#864 id=864 data-nosnippet>864</a>
+<a href=#865 id=865 data-nosnippet>865</a>	<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"try-runtime"</span>))]
+<a href=#866 id=866 data-nosnippet>866</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state(_now: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+<a href=#867 id=867 data-nosnippet>867</a>		QueuedSolution::&lt;T&gt;::sanity_check()
+<a href=#868 id=868 data-nosnippet>868</a>	}
+<a href=#869 id=869 data-nosnippet>869</a>}
+<a href=#870 id=870 data-nosnippet>870</a>
+<a href=#871 id=871 data-nosnippet>871</a><span class="doccomment">/// Same as `feasibility_check_page_inner`, but with a snapshot.
+<a href=#872 id=872 data-nosnippet>872</a>///
+<a href=#873 id=873 data-nosnippet>873</a>/// This is exported as a standalone function, relying on `MinerConfig` rather than `Config` so that
+<a href=#874 id=874 data-nosnippet>874</a>/// it can be used in any offchain miner.
+<a href=#875 id=875 data-nosnippet>875</a></span><span class="kw">pub fn </span>feasibility_check_page_inner_with_snapshot&lt;T: MinerConfig&gt;(
+<a href=#876 id=876 data-nosnippet>876</a>	partial_solution: SolutionOf&lt;T&gt;,
+<a href=#877 id=877 data-nosnippet>877</a>	snapshot_voters: <span class="kw-2">&amp;</span>BoundedVec&lt;VoterOf&lt;T&gt;, T::VoterSnapshotPerBlock&gt;,
+<a href=#878 id=878 data-nosnippet>878</a>	snapshot_targets: <span class="kw-2">&amp;</span>BoundedVec&lt;T::AccountId, T::TargetSnapshotPerBlock&gt;,
+<a href=#879 id=879 data-nosnippet>879</a>	desired_targets: u32,
+<a href=#880 id=880 data-nosnippet>880</a>) -&gt; <span class="prelude-ty">Result</span>&lt;PageSupportsOfMiner&lt;T&gt;, FeasibilityError&gt; {
+<a href=#881 id=881 data-nosnippet>881</a>	<span class="comment">// ----- Start building. First, we need some closures.
+<a href=#882 id=882 data-nosnippet>882</a>	</span><span class="kw">let </span>cache = helpers::generate_voter_cache::&lt;T, <span class="kw">_</span>&gt;(snapshot_voters);
+<a href=#883 id=883 data-nosnippet>883</a>	<span class="kw">let </span>voter_at = helpers::voter_at_fn::&lt;T&gt;(snapshot_voters);
+<a href=#884 id=884 data-nosnippet>884</a>	<span class="kw">let </span>target_at = helpers::target_at_fn::&lt;T&gt;(snapshot_targets);
+<a href=#885 id=885 data-nosnippet>885</a>	<span class="kw">let </span>voter_index = helpers::voter_index_fn_usize::&lt;T&gt;(<span class="kw-2">&amp;</span>cache);
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>	<span class="comment">// Then convert solution -&gt; assignment. This will fail if any of the indices are
+<a href=#888 id=888 data-nosnippet>888</a>	// gibberish. It will also ensure each assignemnt (voter) is unique, and all targets within it
+<a href=#889 id=889 data-nosnippet>889</a>	// are unique.
+<a href=#890 id=890 data-nosnippet>890</a>	</span><span class="kw">let </span>assignments = partial_solution
+<a href=#891 id=891 data-nosnippet>891</a>		.into_assignment(voter_at, target_at)
+<a href=#892 id=892 data-nosnippet>892</a>		.map_err::&lt;FeasibilityError, <span class="kw">_</span>&gt;(Into::into)<span class="question-mark">?</span>;
+<a href=#893 id=893 data-nosnippet>893</a>
+<a href=#894 id=894 data-nosnippet>894</a>	<span class="comment">// Ensure that assignments are all correct.
+<a href=#895 id=895 data-nosnippet>895</a>	</span><span class="kw">let _ </span>= assignments
+<a href=#896 id=896 data-nosnippet>896</a>		.iter()
+<a href=#897 id=897 data-nosnippet>897</a>		.map(|<span class="kw-2">ref </span>assignment| {
+<a href=#898 id=898 data-nosnippet>898</a>			<span class="comment">// Check that assignment.who is actually a voter (defensive-only). NOTE: while
+<a href=#899 id=899 data-nosnippet>899</a>			// using the index map from `voter_index` is better than a blind linear search,
+<a href=#900 id=900 data-nosnippet>900</a>			// this *still* has room for optimization. Note that we had the index when we
+<a href=#901 id=901 data-nosnippet>901</a>			// did `solution -&gt; assignment` and we lost it. Ideal is to keep the index
+<a href=#902 id=902 data-nosnippet>902</a>			// around.
+<a href=#903 id=903 data-nosnippet>903</a>
+<a href=#904 id=904 data-nosnippet>904</a>			// Defensive-only: must exist in the snapshot.
+<a href=#905 id=905 data-nosnippet>905</a>			</span><span class="kw">let </span>snapshot_index =
+<a href=#906 id=906 data-nosnippet>906</a>				voter_index(<span class="kw-2">&amp;</span>assignment.who).ok_or(FeasibilityError::InvalidVoter)<span class="question-mark">?</span>;
+<a href=#907 id=907 data-nosnippet>907</a>			<span class="comment">// Defensive-only: index comes from the snapshot, must exist.
+<a href=#908 id=908 data-nosnippet>908</a>			</span><span class="kw">let </span>(_voter, _stake, targets) =
+<a href=#909 id=909 data-nosnippet>909</a>				snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)<span class="question-mark">?</span>;
+<a href=#910 id=910 data-nosnippet>910</a>			<span class="macro">debug_assert!</span>(<span class="kw-2">*</span>_voter == assignment.who);
+<a href=#911 id=911 data-nosnippet>911</a>
+<a href=#912 id=912 data-nosnippet>912</a>			<span class="comment">// Check that all of the targets are valid based on the snapshot.
+<a href=#913 id=913 data-nosnippet>913</a>			</span><span class="kw">if </span>assignment.distribution.iter().any(|(t, <span class="kw">_</span>)| !targets.contains(t)) {
+<a href=#914 id=914 data-nosnippet>914</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(FeasibilityError::InvalidVote);
+<a href=#915 id=915 data-nosnippet>915</a>			}
+<a href=#916 id=916 data-nosnippet>916</a>			<span class="prelude-val">Ok</span>(())
+<a href=#917 id=917 data-nosnippet>917</a>		})
+<a href=#918 id=918 data-nosnippet>918</a>		.collect::&lt;<span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#919 id=919 data-nosnippet>919</a>
+<a href=#920 id=920 data-nosnippet>920</a>	<span class="comment">// ----- Start building support. First, we need one more closure.
+<a href=#921 id=921 data-nosnippet>921</a>	</span><span class="kw">let </span>stake_of = helpers::stake_of_fn::&lt;T, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>snapshot_voters, <span class="kw-2">&amp;</span>cache);
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>	<span class="comment">// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+<a href=#924 id=924 data-nosnippet>924</a>	</span><span class="kw">let </span>staked_assignments =
+<a href=#925 id=925 data-nosnippet>925</a>		sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
+<a href=#926 id=926 data-nosnippet>926</a>			.map_err::&lt;FeasibilityError, <span class="kw">_</span>&gt;(Into::into)<span class="question-mark">?</span>;
+<a href=#927 id=927 data-nosnippet>927</a>
+<a href=#928 id=928 data-nosnippet>928</a>	<span class="kw">let </span>supports = sp_npos_elections::to_supports(<span class="kw-2">&amp;</span>staked_assignments);
+<a href=#929 id=929 data-nosnippet>929</a>
+<a href=#930 id=930 data-nosnippet>930</a>	<span class="comment">// Ensure some heuristics. These conditions must hold in the **entire** support, this is
+<a href=#931 id=931 data-nosnippet>931</a>	// just a single page. But, they must hold in a single page as well.
+<a href=#932 id=932 data-nosnippet>932</a>	</span><span class="macro">ensure!</span>((supports.len() <span class="kw">as </span>u32) &lt;= desired_targets, FeasibilityError::WrongWinnerCount);
+<a href=#933 id=933 data-nosnippet>933</a>
+<a href=#934 id=934 data-nosnippet>934</a>	<span class="comment">// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
+<a href=#935 id=935 data-nosnippet>935</a>	// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
+<a href=#936 id=936 data-nosnippet>936</a>	// is ALSO checked, so this conversion can almost never fail.
+<a href=#937 id=937 data-nosnippet>937</a>	</span><span class="kw">let </span>bounded_supports =
+<a href=#938 id=938 data-nosnippet>938</a>		supports.try_into().map_err(|<span class="kw">_</span>| FeasibilityError::FailedToBoundSupport)<span class="question-mark">?</span>;
+<a href=#939 id=939 data-nosnippet>939</a>	<span class="prelude-val">Ok</span>(bounded_supports)
+<a href=#940 id=940 data-nosnippet>940</a>}
+<a href=#941 id=941 data-nosnippet>941</a>
+<a href=#942 id=942 data-nosnippet>942</a><span class="kw">impl</span>&lt;T: Config&gt; Verifier <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#943 id=943 data-nosnippet>943</a>	<span class="kw">type </span>AccountId = T::AccountId;
+<a href=#944 id=944 data-nosnippet>944</a>	<span class="kw">type </span>Solution = SolutionOf&lt;T::MinerConfig&gt;;
+<a href=#945 id=945 data-nosnippet>945</a>	<span class="kw">type </span>MaxBackersPerWinner = T::MaxBackersPerWinner;
+<a href=#946 id=946 data-nosnippet>946</a>	<span class="kw">type </span>MaxWinnersPerPage = T::MaxWinnersPerPage;
+<a href=#947 id=947 data-nosnippet>947</a>	<span class="kw">type </span>MaxBackersPerWinnerFinal = T::MaxBackersPerWinnerFinal;
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a>	<span class="kw">fn </span>set_minimum_score(score: ElectionScore) {
+<a href=#950 id=950 data-nosnippet>950</a>		MinimumScore::&lt;T&gt;::put(score);
+<a href=#951 id=951 data-nosnippet>951</a>	}
+<a href=#952 id=952 data-nosnippet>952</a>
+<a href=#953 id=953 data-nosnippet>953</a>	<span class="kw">fn </span>ensure_claimed_score_improves(claimed_score: ElectionScore) -&gt; bool {
+<a href=#954 id=954 data-nosnippet>954</a>		<span class="self">Self</span>::ensure_score_quality(claimed_score).is_ok()
+<a href=#955 id=955 data-nosnippet>955</a>	}
+<a href=#956 id=956 data-nosnippet>956</a>
+<a href=#957 id=957 data-nosnippet>957</a>	<span class="kw">fn </span>queued_score() -&gt; <span class="prelude-ty">Option</span>&lt;ElectionScore&gt; {
+<a href=#958 id=958 data-nosnippet>958</a>		QueuedSolution::&lt;T&gt;::queued_score()
+<a href=#959 id=959 data-nosnippet>959</a>	}
+<a href=#960 id=960 data-nosnippet>960</a>
+<a href=#961 id=961 data-nosnippet>961</a>	<span class="kw">fn </span>kill() {
+<a href=#962 id=962 data-nosnippet>962</a>		QueuedSolution::&lt;T&gt;::kill();
+<a href=#963 id=963 data-nosnippet>963</a>		&lt;StatusStorage&lt;T&gt;&gt;::put(Status::Nothing);
+<a href=#964 id=964 data-nosnippet>964</a>	}
+<a href=#965 id=965 data-nosnippet>965</a>
+<a href=#966 id=966 data-nosnippet>966</a>	<span class="kw">fn </span>get_queued_solution_page(page: PageIndex) -&gt; <span class="prelude-ty">Option</span>&lt;SupportsOfVerifier&lt;<span class="self">Self</span>&gt;&gt; {
+<a href=#967 id=967 data-nosnippet>967</a>		QueuedSolution::&lt;T&gt;::get_queued_solution_page(page)
+<a href=#968 id=968 data-nosnippet>968</a>	}
+<a href=#969 id=969 data-nosnippet>969</a>
+<a href=#970 id=970 data-nosnippet>970</a>	<span class="kw">fn </span>verify_synchronous_multi(
+<a href=#971 id=971 data-nosnippet>971</a>		partial_solutions: Vec&lt;<span class="self">Self</span>::Solution&gt;,
+<a href=#972 id=972 data-nosnippet>972</a>		solution_pages: Vec&lt;PageIndex&gt;,
+<a href=#973 id=973 data-nosnippet>973</a>		claimed_score: ElectionScore,
+<a href=#974 id=974 data-nosnippet>974</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), FeasibilityError&gt; {
+<a href=#975 id=975 data-nosnippet>975</a>		<span class="self">Self</span>::do_verify_synchronous_multi(partial_solutions, solution_pages, claimed_score).map_err(
+<a href=#976 id=976 data-nosnippet>976</a>			|(page, fe)| {
+<a href=#977 id=977 data-nosnippet>977</a>				<span class="macro">sublog!</span>(
+<a href=#978 id=978 data-nosnippet>978</a>					warn,
+<a href=#979 id=979 data-nosnippet>979</a>					<span class="string">"verifier"</span>,
+<a href=#980 id=980 data-nosnippet>980</a>					<span class="string">"sync verification of page {:?} failed due to {:?}."</span>,
+<a href=#981 id=981 data-nosnippet>981</a>					page,
+<a href=#982 id=982 data-nosnippet>982</a>					fe
+<a href=#983 id=983 data-nosnippet>983</a>				);
+<a href=#984 id=984 data-nosnippet>984</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(page, fe.clone()));
+<a href=#985 id=985 data-nosnippet>985</a>				fe
+<a href=#986 id=986 data-nosnippet>986</a>			},
+<a href=#987 id=987 data-nosnippet>987</a>		)
+<a href=#988 id=988 data-nosnippet>988</a>	}
+<a href=#989 id=989 data-nosnippet>989</a>
+<a href=#990 id=990 data-nosnippet>990</a>	<span class="kw">fn </span>force_set_single_page_valid(
+<a href=#991 id=991 data-nosnippet>991</a>		partial_supports: SupportsOfVerifier&lt;<span class="self">Self</span>&gt;,
+<a href=#992 id=992 data-nosnippet>992</a>		page: PageIndex,
+<a href=#993 id=993 data-nosnippet>993</a>		score: ElectionScore,
+<a href=#994 id=994 data-nosnippet>994</a>	) {
+<a href=#995 id=995 data-nosnippet>995</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Queued(score, QueuedSolution::&lt;T&gt;::queued_score()));
+<a href=#996 id=996 data-nosnippet>996</a>		QueuedSolution::&lt;T&gt;::force_set_single_page_valid(page, partial_supports, score);
+<a href=#997 id=997 data-nosnippet>997</a>	}
+<a href=#998 id=998 data-nosnippet>998</a>
+<a href=#999 id=999 data-nosnippet>999</a>	<span class="kw">fn </span>per_block_exec() -&gt; (Weight, Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>WeightMeter)&gt;) {
+<a href=#1000 id=1000 data-nosnippet>1000</a>		<span class="self">Self</span>::do_per_block_exec()
+<a href=#1001 id=1001 data-nosnippet>1001</a>	}
+<a href=#1002 id=1002 data-nosnippet>1002</a>}
+<a href=#1003 id=1003 data-nosnippet>1003</a>
+<a href=#1004 id=1004 data-nosnippet>1004</a><span class="kw">impl</span>&lt;T: Config&gt; AsynchronousVerifier <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1005 id=1005 data-nosnippet>1005</a>	<span class="kw">type </span>SolutionDataProvider = T::SolutionDataProvider;
+<a href=#1006 id=1006 data-nosnippet>1006</a>
+<a href=#1007 id=1007 data-nosnippet>1007</a>	<span class="kw">fn </span>status() -&gt; Status {
+<a href=#1008 id=1008 data-nosnippet>1008</a>		Pallet::&lt;T&gt;::status_storage()
+<a href=#1009 id=1009 data-nosnippet>1009</a>	}
+<a href=#1010 id=1010 data-nosnippet>1010</a>
+<a href=#1011 id=1011 data-nosnippet>1011</a>	<span class="kw">fn </span>start() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+<a href=#1012 id=1012 data-nosnippet>1012</a>		<span class="macro">sublog!</span>(debug, <span class="string">"verifier"</span>, <span class="string">"start signal received."</span>);
+<a href=#1013 id=1013 data-nosnippet>1013</a>		<span class="kw">if let </span>Status::Nothing = <span class="self">Self</span>::status() {
+<a href=#1014 id=1014 data-nosnippet>1014</a>			<span class="kw">let </span>claimed_score = <span class="self">Self</span>::SolutionDataProvider::get_score();
+<a href=#1015 id=1015 data-nosnippet>1015</a>			<span class="kw">if </span><span class="self">Self</span>::ensure_score_quality(claimed_score).is_err() {
+<a href=#1016 id=1016 data-nosnippet>1016</a>				<span class="comment">// don't do anything, report back that this solution was garbage.
+<a href=#1017 id=1017 data-nosnippet>1017</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::VerificationFailed(
+<a href=#1018 id=1018 data-nosnippet>1018</a>					<span class="kw">crate</span>::Pallet::&lt;T&gt;::msp(),
+<a href=#1019 id=1019 data-nosnippet>1019</a>					FeasibilityError::ScoreTooLow,
+<a href=#1020 id=1020 data-nosnippet>1020</a>				));
+<a href=#1021 id=1021 data-nosnippet>1021</a>				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+<a href=#1022 id=1022 data-nosnippet>1022</a>				<span class="comment">// Despite being an instant-reject, this was a successful `start` operation.
+<a href=#1023 id=1023 data-nosnippet>1023</a>				</span><span class="prelude-val">Ok</span>(())
+<a href=#1024 id=1024 data-nosnippet>1024</a>			} <span class="kw">else </span>{
+<a href=#1025 id=1025 data-nosnippet>1025</a>				<span class="comment">// This solution is good enough to win, we start verifying it in the next block.
+<a href=#1026 id=1026 data-nosnippet>1026</a>				</span>StatusStorage::&lt;T&gt;::put(Status::Ongoing(<span class="kw">crate</span>::Pallet::&lt;T&gt;::msp()));
+<a href=#1027 id=1027 data-nosnippet>1027</a>				<span class="prelude-val">Ok</span>(())
+<a href=#1028 id=1028 data-nosnippet>1028</a>			}
+<a href=#1029 id=1029 data-nosnippet>1029</a>		} <span class="kw">else </span>{
+<a href=#1030 id=1030 data-nosnippet>1030</a>			<span class="macro">sublog!</span>(warn, <span class="string">"verifier"</span>, <span class="string">"start signal received while busy. This will be ignored."</span>);
+<a href=#1031 id=1031 data-nosnippet>1031</a>			<span class="prelude-val">Err</span>(<span class="string">"verification ongoing"</span>)
+<a href=#1032 id=1032 data-nosnippet>1032</a>		}
+<a href=#1033 id=1033 data-nosnippet>1033</a>	}
+<a href=#1034 id=1034 data-nosnippet>1034</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

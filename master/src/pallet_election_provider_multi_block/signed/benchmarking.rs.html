@@ -171,16 +171,16 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#21 id=21 data-nosnippet>21</a>	unsigned::miner::OffchainWorkerMiner,
 <a href=#22 id=22 data-nosnippet>22</a>	CurrentPhase, Phase, Round,
 <a href=#23 id=23 data-nosnippet>23</a>};
-<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
-<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame_election_provider_support::ElectionProvider;
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>frame_support::{
-<a href=#27 id=27 data-nosnippet>27</a>	pallet_prelude::<span class="kw-2">*</span>,
-<a href=#28 id=28 data-nosnippet>28</a>	traits::fungible::{Inspect, Mutate},
-<a href=#29 id=29 data-nosnippet>29</a>};
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>frame_system::RawOrigin;
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>sp_npos_elections::ElectionScore;
-<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>sp_runtime::traits::{One, Saturating};
-<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_std::boxed::Box;
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>alloc::boxed::Box;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>frame_election_provider_support::ElectionProvider;
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>frame_support::{
+<a href=#28 id=28 data-nosnippet>28</a>	pallet_prelude::<span class="kw-2">*</span>,
+<a href=#29 id=29 data-nosnippet>29</a>	traits::fungible::{Inspect, Mutate},
+<a href=#30 id=30 data-nosnippet>30</a>};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>frame_system::RawOrigin;
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>sp_npos_elections::ElectionScore;
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_runtime::traits::{One, Saturating};
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a><span class="attr">#[benchmarks(<span class="kw">where </span>T: <span class="kw">crate</span>::Config + <span class="kw">crate</span>::verifier::Config + <span class="kw">crate</span>::unsigned::Config)]
 <a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">mod </span>benchmarks {
@@ -330,7 +330,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#180 id=180 data-nosnippet>180</a>		<span class="kw">let </span>alice = <span class="kw">crate</span>::Pallet::&lt;T&gt;::funded_account(<span class="string">"alice"</span>, <span class="number">0</span>);
 <a href=#181 id=181 data-nosnippet>181</a>
 <a href=#182 id=182 data-nosnippet>182</a>		<span class="comment">// worst case: an invulnerable is also refunded their tx-fee upon clearing.
-<a href=#183 id=183 data-nosnippet>183</a>		</span>Invulnerables::&lt;T&gt;::put(BoundedVec::truncate_from(<span class="macro">sp_std::vec!</span>[alice.clone()]));
+<a href=#183 id=183 data-nosnippet>183</a>		</span>Invulnerables::&lt;T&gt;::put(BoundedVec::truncate_from(<span class="macro">alloc::vec!</span>[alice.clone()]));
 <a href=#184 id=184 data-nosnippet>184</a>
 <a href=#185 id=185 data-nosnippet>185</a>		<span class="comment">// register alice
 <a href=#186 id=186 data-nosnippet>186</a>		</span><span class="kw">let </span>score = ElectionScore::default();

@@ -210,31 +210,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#60 id=60 data-nosnippet>60</a>	types::SolutionOf,
 <a href=#61 id=61 data-nosnippet>61</a>	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
 <a href=#62 id=62 data-nosnippet>62</a>};
-<a href=#63 id=63 data-nosnippet>63</a><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
-<a href=#64 id=64 data-nosnippet>64</a><span class="kw">use </span>frame_election_provider_support::PageIndex;
-<a href=#65 id=65 data-nosnippet>65</a><span class="kw">use </span>frame_support::{
-<a href=#66 id=66 data-nosnippet>66</a>	dispatch::{DispatchResultWithPostInfo, GetDispatchInfo},
-<a href=#67 id=67 data-nosnippet>67</a>	pallet_prelude::{StorageDoubleMap, ValueQuery, <span class="kw-2">*</span>},
-<a href=#68 id=68 data-nosnippet>68</a>	traits::{
-<a href=#69 id=69 data-nosnippet>69</a>		tokens::{
-<a href=#70 id=70 data-nosnippet>70</a>			fungible::{
-<a href=#71 id=71 data-nosnippet>71</a>				BalancedHold, Credit <span class="kw">as </span>FungibleCredit, Inspect, Mutate, MutateHold, Unbalanced,
-<a href=#72 id=72 data-nosnippet>72</a>			},
-<a href=#73 id=73 data-nosnippet>73</a>			Imbalance, Precision, Preservation,
-<a href=#74 id=74 data-nosnippet>74</a>		},
-<a href=#75 id=75 data-nosnippet>75</a>		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee, OnUnbalanced,
-<a href=#76 id=76 data-nosnippet>76</a>	},
-<a href=#77 id=77 data-nosnippet>77</a>	BoundedVec, Twox64Concat,
-<a href=#78 id=78 data-nosnippet>78</a>};
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">use </span>frame_system::{ensure_signed, pallet_prelude::<span class="kw-2">*</span>};
-<a href=#80 id=80 data-nosnippet>80</a><span class="kw">use </span>scale_info::TypeInfo;
-<a href=#81 id=81 data-nosnippet>81</a><span class="kw">use </span>sp_io::MultiRemovalResults;
-<a href=#82 id=82 data-nosnippet>82</a><span class="kw">use </span>sp_npos_elections::ElectionScore;
-<a href=#83 id=83 data-nosnippet>83</a><span class="kw">use </span>sp_runtime::{
-<a href=#84 id=84 data-nosnippet>84</a>	traits::{Saturating, Zero},
-<a href=#85 id=85 data-nosnippet>85</a>	Perbill,
-<a href=#86 id=86 data-nosnippet>86</a>};
-<a href=#87 id=87 data-nosnippet>87</a><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
+<a href=#64 id=64 data-nosnippet>64</a><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<a href=#65 id=65 data-nosnippet>65</a><span class="kw">use </span>frame_election_provider_support::PageIndex;
+<a href=#66 id=66 data-nosnippet>66</a><span class="kw">use </span>frame_support::{
+<a href=#67 id=67 data-nosnippet>67</a>	dispatch::{DispatchResultWithPostInfo, GetDispatchInfo},
+<a href=#68 id=68 data-nosnippet>68</a>	pallet_prelude::{StorageDoubleMap, ValueQuery, <span class="kw-2">*</span>},
+<a href=#69 id=69 data-nosnippet>69</a>	traits::{
+<a href=#70 id=70 data-nosnippet>70</a>		tokens::{
+<a href=#71 id=71 data-nosnippet>71</a>			fungible::{
+<a href=#72 id=72 data-nosnippet>72</a>				BalancedHold, Credit <span class="kw">as </span>FungibleCredit, Inspect, Mutate, MutateHold, Unbalanced,
+<a href=#73 id=73 data-nosnippet>73</a>			},
+<a href=#74 id=74 data-nosnippet>74</a>			Imbalance, Precision, Preservation,
+<a href=#75 id=75 data-nosnippet>75</a>		},
+<a href=#76 id=76 data-nosnippet>76</a>		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee, OnUnbalanced,
+<a href=#77 id=77 data-nosnippet>77</a>	},
+<a href=#78 id=78 data-nosnippet>78</a>	BoundedVec, Twox64Concat,
+<a href=#79 id=79 data-nosnippet>79</a>};
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">use </span>frame_system::{ensure_signed, pallet_prelude::<span class="kw-2">*</span>};
+<a href=#81 id=81 data-nosnippet>81</a><span class="kw">use </span>scale_info::TypeInfo;
+<a href=#82 id=82 data-nosnippet>82</a><span class="kw">use </span>sp_io::MultiRemovalResults;
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">use </span>sp_npos_elections::ElectionScore;
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">use </span>sp_runtime::{
+<a href=#85 id=85 data-nosnippet>85</a>	traits::{Saturating, Zero},
+<a href=#86 id=86 data-nosnippet>86</a>	Perbill,
+<a href=#87 id=87 data-nosnippet>87</a>};
 <a href=#88 id=88 data-nosnippet>88</a>
 <a href=#89 id=89 data-nosnippet>89</a><span class="doccomment">/// Explore all weights
 <a href=#90 id=90 data-nosnippet>90</a></span><span class="kw">pub use </span><span class="kw">crate</span>::weights::traits::pallet_election_provider_multi_block_signed::<span class="kw-2">*</span>;
@@ -421,7 +421,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#271 id=271 data-nosnippet>271</a>///
 <a href=#272 id=272 data-nosnippet>272</a>/// Correct only for pots holding *active* funds. A pot holding deactivated issuance, such as a
 <a href=#273 id=273 data-nosnippet>273</a>/// DAP buffer, must use a source that reactivates in [`RewardSource::paid`].
-<a href=#274 id=274 data-nosnippet>274</a></span><span class="kw">pub struct </span>ActivePot&lt;P&gt;(sp_std::marker::PhantomData&lt;P&gt;);
+<a href=#274 id=274 data-nosnippet>274</a></span><span class="kw">pub struct </span>ActivePot&lt;P&gt;(core::marker::PhantomData&lt;P&gt;);
 <a href=#275 id=275 data-nosnippet>275</a>
 <a href=#276 id=276 data-nosnippet>276</a><span class="kw">impl</span>&lt;AccountId, Balance, P: Get&lt;<span class="prelude-ty">Option</span>&lt;AccountId&gt;&gt;&gt; RewardSource&lt;AccountId, Balance&gt;
 <a href=#277 id=277 data-nosnippet>277</a>	<span class="kw">for </span>ActivePot&lt;P&gt;
@@ -437,7 +437,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#287 id=287 data-nosnippet>287</a>/// `Currency` afterwards.
 <a href=#288 id=288 data-nosnippet>288</a>///
 <a href=#289 id=289 data-nosnippet>289</a>/// For pots holding previously-deactivated issuance, such as a DAP buffer.
-<a href=#290 id=290 data-nosnippet>290</a></span><span class="kw">pub struct </span>ReactivatingPot&lt;P, Currency&gt;(sp_std::marker::PhantomData&lt;(P, Currency)&gt;);
+<a href=#290 id=290 data-nosnippet>290</a></span><span class="kw">pub struct </span>ReactivatingPot&lt;P, Currency&gt;(core::marker::PhantomData&lt;(P, Currency)&gt;);
 <a href=#291 id=291 data-nosnippet>291</a>
 <a href=#292 id=292 data-nosnippet>292</a><span class="kw">impl</span>&lt;AccountId, Balance, P, Currency&gt; RewardSource&lt;AccountId, Balance&gt;
 <a href=#293 id=293 data-nosnippet>293</a>	<span class="kw">for </span>ReactivatingPot&lt;P, Currency&gt;
@@ -616,7 +616,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#466 id=466 data-nosnippet>466</a>	///
 <a href=#467 id=467 data-nosnippet>467</a>	/// No particular invariant exists between data that related to different rounds. They are
 <a href=#468 id=468 data-nosnippet>468</a>	/// purely independent.
-<a href=#469 id=469 data-nosnippet>469</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Submissions&lt;T: Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<a href=#469 id=469 data-nosnippet>469</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Submissions&lt;T: Config&gt;(core::marker::PhantomData&lt;T&gt;);
 <a href=#470 id=470 data-nosnippet>470</a>
 <a href=#471 id=471 data-nosnippet>471</a>	<span class="attr">#[pallet::storage]
 <a href=#472 id=472 data-nosnippet>472</a>	</span><span class="kw">pub type </span>SortedScores&lt;T: Config&gt; = StorageMap&lt;
@@ -767,7 +767,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#617 id=617 data-nosnippet>617</a>						.ok_or(Error::&lt;T&gt;::QueueFull)<span class="question-mark">?</span>;
 <a href=#618 id=618 data-nosnippet>618</a>					<span class="kw">if </span>insert_idx &gt; remove_idx {
 <a href=#619 id=619 data-nosnippet>619</a>						<span class="comment">// we have a better solution
-<a href=#620 id=620 data-nosnippet>620</a>						</span>sp_std::mem::swap(<span class="kw-2">&amp;mut </span>sorted_scores[remove_idx], <span class="kw-2">&amp;mut </span>record);
+<a href=#620 id=620 data-nosnippet>620</a>						</span>core::mem::swap(<span class="kw-2">&amp;mut </span>sorted_scores[remove_idx], <span class="kw-2">&amp;mut </span>record);
 <a href=#621 id=621 data-nosnippet>621</a>						<span class="comment">// slicing safety note:
 <a href=#622 id=622 data-nosnippet>622</a>						// - `insert_idx` is at most `sorted_scores.len()`, obtained from
 <a href=#623 id=623 data-nosnippet>623</a>						//   `binary_search_by_key`, valid for the upper bound of slicing.
@@ -1003,7 +1003,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#853 id=853 data-nosnippet>853</a>
 <a href=#854 id=854 data-nosnippet>854</a>		<span class="doccomment">/// Perform all the sanity checks of this storage item group at the given round.
 <a href=#855 id=855 data-nosnippet>855</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sanity_check_round(round: u32) -&gt; DispatchResult {
-<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
+<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw">use </span>alloc::collections::btree_set::BTreeSet;
 <a href=#857 id=857 data-nosnippet>857</a>			<span class="kw">let </span>sorted_scores = SortedScores::&lt;T&gt;::get(round);
 <a href=#858 id=858 data-nosnippet>858</a>			<span class="macro">assert_eq!</span>(
 <a href=#859 id=859 data-nosnippet>859</a>				sorted_scores.clone().into_iter().map(|(x, <span class="kw">_</span>)| x).collect::&lt;BTreeSet&lt;<span class="kw">_</span>&gt;&gt;().len(),
