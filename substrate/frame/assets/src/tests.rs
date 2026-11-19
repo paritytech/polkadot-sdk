@@ -787,6 +787,25 @@ fn blocking_without_funds_for_deposit_fails() {
 }
 
 #[test]
+fn freezing_without_funds_for_deposit_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_noop!(
+			Assets::freeze(RuntimeOrigin::signed(1), 0, 2),
+			BalancesError::<Test>::InsufficientBalance
+		);
+		assert!(!Account::<Test>::get(0, &2).unwrap().status.is_frozen());
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+	});
+}
+
+#[test]
 fn refunding_account_without_freezer_deposit_removes_it_until_blocked_again() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
