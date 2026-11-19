@@ -100,11 +100,13 @@
 //! or later than expected, a set that never arrives, and the time before the first set arrives. If
 //! both reports fall in the same block, the pallet reports once.
 //!
-//! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
-//! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
-//! the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
-//! between their slots. [`Config::MaxValidators`] rather than the cap is the bound, since the cap
-//! can be raised or removed without a runtime upgrade.
+//! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed two Aura
+//! rounds of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates,
+//! times the blocks the chain produces per Aura slot. A change of the list length at a session
+//! boundary can delay a collator's next turn by up to one more round. Otherwise bonded candidates
+//! are kicked as stale between their slots. [`Config::MaxValidators`] rather than the cap is the
+//! bound, since the cap can be raised or removed without a runtime upgrade.
+//! `parachains_common::impls::KickThreshold` derives such a value.
 //!
 //! ## TODO
 //!
