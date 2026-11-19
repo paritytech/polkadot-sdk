@@ -141,10 +141,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	pub(super) fn release_freezer_deposit(id: &T::AssetId, who: &T::AccountId) {
-		if let Some((depositor, deposit)) = FreezerDeposits::<T, I>::take(id, who) {
-			T::Currency::unreserve(&depositor, deposit);
-		}
+	/// Returns whether there was a deposit to release.
+	pub(super) fn release_freezer_deposit(id: &T::AssetId, who: &T::AccountId) -> bool {
+		let Some((depositor, deposit)) = FreezerDeposits::<T, I>::take(id, who) else {
+			return false;
+		};
+		T::Currency::unreserve(&depositor, deposit);
+		true
 	}
 
 	/// Returns `true` when the balance of `account` can be increased by `amount`.
@@ -879,22 +882,35 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	/// Weight of `destroy_accounts` removing `n` accounts: an account is either reaped through
-	/// the asset or releases a freezer deposit, so each one costs at most the costlier of the two.
-	pub(super) fn destroy_accounts_weight(n: u32) -> frame_support::weights::Weight {
-		T::WeightInfo::destroy_accounts(n).max(T::WeightInfo::destroy_blocked_accounts(n))
+	/// Weight of `destroy_accounts` removing `accounts` accounts, `freezer_deposits` of which
+	/// returned a freezer deposit.
+	pub(super) fn destroy_accounts_weight(
+		accounts: u32,
+		freezer_deposits: u32,
+	) -> frame_support::weights::Weight {
+		T::WeightInfo::destroy_accounts(accounts.saturating_sub(freezer_deposits))
+			.saturating_add(T::WeightInfo::destroy_blocked_accounts(freezer_deposits))
+	}
+
+	/// Upper bound of [`Self::destroy_accounts_weight`] for `accounts` accounts: an account that
+	/// exists as `Sufficient` has no freezer deposit, so each one costs at most the costlier of
+	/// the two kinds.
+	pub(super) fn max_destroy_accounts_weight(accounts: u32) -> frame_support::weights::Weight {
+		Self::destroy_accounts_weight(accounts, 0)
+			.max(Self::destroy_accounts_weight(accounts, accounts))
 	}
 
 	/// Destroy accounts associated with a given asset up to the max (T::RemoveItemsLimit).
 	///
 	/// Each call emits the `Event::DestroyedAccounts` event.
-	/// Returns the number of destroyed accounts.
+	/// Returns the number of destroyed accounts and how many of them returned a freezer deposit.
 	pub(super) fn do_destroy_accounts(
 		id: T::AssetId,
 		max_items: u32,
-	) -> Result<u32, DispatchError> {
+	) -> Result<(u32, u32), DispatchError> {
 		let mut dead_accounts: Vec<T::AccountId> = vec![];
 		let mut remaining_accounts = 0;
+		let mut freezer_deposits = 0;
 		Asset::<T, I>::try_mutate_exists(&id, |maybe_details| -> Result<(), DispatchError> {
 			let mut details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
 			// Should only destroy accounts while the asset is in a destroying state
@@ -912,8 +928,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 					Account::<T, I>::remove(&id, &who);
-					if v.status.is_frozen() {
-						Self::release_freezer_deposit(&id, &who);
+					if v.status.is_frozen() && Self::release_freezer_deposit(&id, &who) {
+						freezer_deposits += 1;
 					}
 					dead_accounts.push(who);
 				} else {
@@ -939,7 +955,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			accounts_destroyed: dead_accounts.len() as u32,
 			accounts_remaining: remaining_accounts as u32,
 		});
-		Ok(dead_accounts.len() as u32)
+		Ok((dead_accounts.len() as u32, freezer_deposits))
 	}
 
 	/// Destroy approvals associated with a given asset up to the max (T::RemoveItemsLimit).

@@ -1024,15 +1024,16 @@ pub mod pallet {
 		///
 		/// Each call emits the `Event::DestroyedAccounts` event.
 		#[pallet::call_index(3)]
-		#[pallet::weight(Pallet::<T, I>::destroy_accounts_weight(T::RemoveItemsLimit::get()))]
+		#[pallet::weight(Pallet::<T, I>::max_destroy_accounts_weight(T::RemoveItemsLimit::get()))]
 		pub fn destroy_accounts(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			let removed_accounts = Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
-			Ok(Some(Self::destroy_accounts_weight(removed_accounts)).into())
+			let (accounts, freezer_deposits) =
+				Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
+			Ok(Some(Self::destroy_accounts_weight(accounts, freezer_deposits)).into())
 		}
 
 		/// Destroy all approvals associated with a given asset up to the max (T::RemoveItemsLimit).

@@ -30,8 +30,11 @@ doc:
     `FreezerDeposits` starts empty and `Tombstone` is a new variant.
 
     `WeightInfo` gains `destroy_blocked_accounts`, which prices `destroy_accounts` for accounts
-    that return a freezer deposit. The `destroy_accounts` call is charged the larger of the two
-    weights, since an account is either reaped through the asset or returns a freezer deposit.
+    that return a freezer deposit. The `destroy_accounts` call charges it for the accounts that
+    returned one and `WeightInfo::destroy_accounts` for the others. Its pre-dispatch weight is
+    the larger of the two for `RemoveItemsLimit` accounts, which is more than before for every
+    asset. Runtimes must check that it still fits their block limits and lower
+    `RemoveItemsLimit` if it does not.
 
 crates:
 - name: pallet-assets

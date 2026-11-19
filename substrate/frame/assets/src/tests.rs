@@ -617,6 +617,39 @@ fn destroying_asset_removes_refunded_blocked_account() {
 }
 
 #[test]
+fn destroying_accounts_charges_freezer_deposit_weight_only_for_returned_deposits() {
+	use crate::WeightInfo;
+	use frame_support::traits::Get;
+	build_and_execute(|| {
+		for who in 1..=4 {
+			Balances::make_free_balance_be(&who, 100);
+		}
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 4, 100));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+
+		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 0).unwrap();
+		assert_eq!(
+			post.actual_weight,
+			Some(
+				<() as WeightInfo>::destroy_accounts(2)
+					.saturating_add(<() as WeightInfo>::destroy_blocked_accounts(1))
+			)
+		);
+
+		let limit = <Test as Config>::RemoveItemsLimit::get();
+		let declared = crate::Call::<Test>::destroy_accounts { id: 0 }.get_dispatch_info();
+		assert!(declared.call_weight.all_gte(<() as WeightInfo>::destroy_accounts(limit)));
+		assert!(declared
+			.call_weight
+			.all_gte(<() as WeightInfo>::destroy_blocked_accounts(limit)));
+	});
+}
+
+#[test]
 fn refund_trait_on_blocked_account() {
 	use frame_support::traits::fungibles::Refund;
 	build_and_execute(|| {
