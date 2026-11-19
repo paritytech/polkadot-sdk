@@ -1006,6 +1006,8 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
+	/// The peer repeated its latest filter, so its next sync sends everything.
+	full_replay_requested: bool,
 	/// The peer sent no filter in time, so it is served as a full node without the v2 DHT path.
 	assumed_match_all: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
@@ -1261,6 +1263,7 @@ impl Peer {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
+			full_replay_requested: false,
 			assumed_match_all: false,
 			sync_watermark: 0,
 		}
@@ -1449,7 +1452,7 @@ where
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
 						if self.v2dht.major_sync_settled() {
-							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
+							for filter in self.v2dht.take_filters_to_broadcast() {
 								self.broadcast_local_filter(filter).await;
 							}
 						}
@@ -1527,7 +1530,7 @@ where
 		});
 	}
 
-	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
+	/// Advertise an affinity filter to every connected peer past V1. A peer assumed
 	/// match-all is skipped: any filter restarts the receiver's initial sync, and it already has
 	/// the match-all one.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
@@ -1555,7 +1558,8 @@ where
 		if self.peers.get(peer).map(|p| p.protocol_version) == Some(PeerProtocolVersion::V1) {
 			return;
 		}
-		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
+		let encoded =
+			StatementMessage::ExplicitTopicAffinity(self.v2dht.advertised_filter()).encode();
 		self.send_notification(peer, encoded).await;
 	}
 
@@ -1848,6 +1852,7 @@ where
 						is_light,
 						inbound: direction.is_inbound(),
 						pending_topic_affinity: None,
+						full_replay_requested: false,
 						assumed_match_all: false,
 						sync_watermark: 0,
 					},
@@ -2001,6 +2006,13 @@ where
 										);
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
+										let latest = peer_data
+											.pending_topic_affinity
+											.as_ref()
+											.or(peer_data.topic_affinity.as_ref());
+										if latest == Some(&filter) {
+											peer_data.full_replay_requested = true;
+										}
 										peer_data.pending_topic_affinity = Some(filter);
 										was_assumed_match_all =
 											std::mem::take(&mut peer_data.assumed_match_all);
@@ -2839,11 +2851,15 @@ where
 			// A filter repeated unchanged asks for a full replay: that is how a peer recovers
 			// what it dropped during major sync.
 			let previous = std::mem::replace(&mut peer_data.topic_affinity, Some(filter.clone()));
-			let already_served = previous.clone().filter(|previous| *previous != filter);
+			// The request outlives a changed filter that arrives before the replay is scheduled.
+			let full_replay = std::mem::take(&mut peer_data.full_replay_requested);
+			let already_served =
+				previous.clone().filter(|previous| !full_replay && *previous != filter);
 			if !self.schedule_initial_sync_for_peer(peer_id, already_served) {
 				// A filter counts as served only once its sync is scheduled, so it waits for the
 				// next pass.
 				if let Some(peer_data) = self.peers.get_mut(&peer_id) {
+					peer_data.full_replay_requested = full_replay;
 					peer_data.topic_affinity = previous;
 					peer_data.pending_topic_affinity = Some(filter);
 				}
@@ -3739,6 +3755,7 @@ mod tests {
 					is_light: false,
 					inbound: true,
 					pending_topic_affinity: None,
+					full_replay_requested: false,
 					assumed_match_all: false,
 					sync_watermark: 0,
 				},
@@ -6609,6 +6626,74 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn a_changed_filter_after_a_repeated_one_syncs_in_full() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		statement_store.insert(new_live_statement());
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		let already_served = |handler: &StatementHandler<TestNetwork, TestSync>| {
+			handler
+				.pending_initial_syncs
+				.get(&peer_id)
+				.expect("a sync is pending")
+				.already_served
+				.clone()
+		};
+		let complete_sync = |handler: &mut StatementHandler<TestNetwork, TestSync>| {
+			handler.pending_initial_syncs.remove(&peer_id);
+			handler.initial_sync_peer_queue.clear();
+		};
+		complete_sync(&mut handler);
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
+		complete_sync(&mut handler);
+
+		// Both filters arrive within one tick.
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		assert!(already_served(&handler).is_none());
+		assert!(handler
+			.peers
+			.get(&peer_id)
+			.unwrap()
+			.topic_affinity
+			.as_ref()
+			.unwrap()
+			.contains(&[0xBB; 32]));
+		complete_sync(&mut handler);
+
+		// The repeated filter starts a sync, and the changed one waits behind it.
+		send_affinity(&mut handler, peer_id, [0xBB; 32]).await;
+		handler.process_pending_affinities();
+		assert!(already_served(&handler).is_none());
+		send_affinity(&mut handler, peer_id, [0xCC; 32]).await;
+		complete_sync(&mut handler);
+		handler.process_pending_affinities();
+		let mut second = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		second.insert(&[0xBB; 32]);
+		assert_eq!(already_served(&handler), Some(second), "the replay already ran");
+		complete_sync(&mut handler);
+
+		// The repeated filter waits behind a running sync, and the changed one replaces it.
+		send_affinity(&mut handler, peer_id, [0xDD; 32]).await;
+		handler.process_pending_affinities();
+		send_affinity(&mut handler, peer_id, [0xDD; 32]).await;
+		send_affinity(&mut handler, peer_id, [0xEE; 32]).await;
+		complete_sync(&mut handler);
+		handler.process_pending_affinities();
+		assert!(already_served(&handler).is_none());
+	}
+
+	#[tokio::test]
 	async fn a_changed_filter_waits_for_the_running_sync() {
 		let (mut handler, statement_store, _network, _notification_service) =
 			build_handler_no_peers();
@@ -6721,11 +6806,14 @@ mod tests {
 		assert_eq!(metrics.late_affinity_filters.get(), 0);
 
 		// A late filter clears the mark and gets the real filter in return.
+		// A topic that no broadcast has carried yet stays out of it.
+		let advertised = handler.v2dht.advertised_filter();
+		handler.v2dht.set_rpc_subscription_topics(&HashSet::from([[0xCC; 32].into()]));
 		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
 
 		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
 		assert_eq!(handler.metrics.as_ref().unwrap().late_affinity_filters.get(), 1);
-		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
+		let local = StatementMessage::ExplicitTopicAffinity(advertised).encode();
 		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
 	}
 
@@ -7314,6 +7402,7 @@ mod tests {
 				is_light,
 				inbound: true,
 				pending_topic_affinity: None,
+				full_replay_requested: false,
 				assumed_match_all: false,
 				sync_watermark: 0,
 			}
@@ -7589,6 +7678,7 @@ mod tests {
 				is_light: false,
 				inbound: true,
 				pending_topic_affinity: None,
+				full_replay_requested: false,
 				assumed_match_all: false,
 				sync_watermark: 0,
 			},
@@ -8221,6 +8311,7 @@ mod tests {
 				is_light: false,
 				inbound: true,
 				pending_topic_affinity: None,
+				full_replay_requested: false,
 				assumed_match_all: false,
 				sync_watermark: 0,
 			},
@@ -8338,6 +8429,7 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
+			full_replay_requested: false,
 			assumed_match_all: false,
 			sync_watermark: 0,
 		};
@@ -8447,6 +8539,7 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
+			full_replay_requested: false,
 			assumed_match_all: false,
 			sync_watermark: 0,
 		};
@@ -8512,6 +8605,7 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
+			full_replay_requested: false,
 			assumed_match_all: false,
 			sync_watermark: 0,
 		};
@@ -8581,6 +8675,7 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
+			full_replay_requested: false,
 			assumed_match_all: false,
 			sync_watermark: 0,
 		};
