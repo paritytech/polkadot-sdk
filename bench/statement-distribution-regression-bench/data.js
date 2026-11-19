@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795084217814,
+  "lastUpdate": 1795096422720,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ef30210809ef77767afb5e2a5bb238d41180989e",
-          "message": "Snowbridge: Halt message verifier when Ethereum client is Halted    (#11856)\n\nWhen the Snowbridge Ethereum client is halted, no messages should be\nverified. The Ethereum client currently checks the bridge status, but\n`submit_delivery_receipt` does not explicitly use the Ethereum client -\nit uses the `Verifier` impl. When the Ethereum client is `Halted`, no\nmessages should be processed at all. This PR adds a check if the pallet\nis halted, and if so, return a `VerificationError::Halted` message.\n\nThere is no current vulnerability or exploit that this change fixes, it\nis just good security posture.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2026-05-05T11:05:24Z",
-          "tree_id": "008e20e6e6dfe724cece80b6a831f26ed64256c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef30210809ef77767afb5e2a5bb238d41180989e"
-        },
-        "date": 1777984652376,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.10599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03839707762599999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0850776700139999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09089834506599993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "415f4fd4e5f3534d8c2983dd983c03f5e3179bee",
+          "message": "statement-store: warn when the v2 DHT path runs on the libp2p backend (#13897)\n\nCloses #13876\n\nThe v2 DHT topology learns peers from discovery and identify events,\nwhich only litep2p emits. With `--statement-v2-dht --network-backend\nlibp2p` the node reserves and dials no statement peer, silently. It now\nlogs a warning at startup.",
+          "timestamp": "2026-11-19T11:24:28Z",
+          "tree_id": "8556299ad37423743d527453a6e945c10e734643",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/415f4fd4e5f3534d8c2983dd983c03f5e3179bee"
+        },
+        "date": 1795096386427,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.06599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038733737572,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08828032390399997,
             "unit": "seconds"
           }
         ]
