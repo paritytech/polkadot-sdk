@@ -59,15 +59,74 @@ const TOKEN_AMOUNT: u128 = 100_000_000_000;
 const BRIDGE_FEE: u128 = 4_000_000_000_000;
 
 pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
+	send_inbound_message_from(BridgeHubWestendSender::get(), fixture)
+}
+
+pub fn send_inbound_message_from(relayer: AccountId, fixture: EventFixture) -> DispatchResult {
 	EthereumBeaconClient::store_finalized_header(
 		fixture.finalized_header,
 		fixture.block_roots_root,
 	)
 	.unwrap();
-	EthereumInboundQueue::submit(
-		BridgeHubWestendRuntimeOrigin::signed(BridgeHubWestendSender::get()),
-		fixture.event,
-	)
+	EthereumInboundQueue::submit(BridgeHubWestendRuntimeOrigin::signed(relayer), fixture.event)
+}
+
+/// Channel the `make_send_native_eth_message` fixture is delivered on.
+const NATIVE_ETH_FIXTURE_CHANNEL_ID: [u8; 32] =
+	hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539");
+
+fn native_eth_fixture_channel_nonce() -> u64 {
+	type Runtime = <BridgeHubWestend as Chain>::Runtime;
+	snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(snowbridge_core::ChannelId::from(
+		NATIVE_ETH_FIXTURE_CHANNEL_ID,
+	))
+}
+
+fn set_bridge_hub_balance(who: AccountId, amount: u128) {
+	assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+		<BridgeHubWestend as Chain>::RuntimeOrigin::root(),
+		sp_runtime::MultiAddress::Id(who),
+		amount,
+	));
+}
+
+fn bridge_hub_balance(who: &AccountId) -> u128 {
+	<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(who)
+}
+
+fn set_ethereum_gateway_for_native_eth_fixture() {
+	assert_ok!(<BridgeHubWestend as Chain>::System::set_storage(
+		<BridgeHubWestend as Chain>::RuntimeOrigin::root(),
+		vec![(
+			EthereumGatewayAddress::key().to_vec(),
+			sp_core::H160(hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d")).encode(),
+		)],
+	));
+}
+
+/// Returns the `fee_burned` of the `MessageReceived` event for `nonce`, if one was emitted.
+fn inbound_fee_burned(nonce: u64) -> Option<u128> {
+	type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+	BridgeHubWestend::events().iter().find_map(|event| match event {
+		RuntimeEvent::EthereumInboundQueue(
+			snowbridge_pallet_inbound_queue::Event::MessageReceived {
+				nonce: n, fee_burned, ..
+			},
+		) if *n == nonce => Some(*fee_burned),
+		_ => None,
+	})
+}
+
+/// Submits `fixture` from the (funded) default relayer and rolls back all storage changes,
+/// returning the fee the inbound queue burns for it.
+fn dry_run_fee_burned(fixture: EventFixture) -> u128 {
+	let nonce = native_eth_fixture_channel_nonce() + 1;
+	frame_support::storage::with_transaction(|| {
+		let result = send_inbound_message(fixture).map(|_| inbound_fee_burned(nonce));
+		frame_support::storage::TransactionOutcome::Rollback(result)
+	})
+	.expect("dry run submit succeeds")
+	.expect("dry run emitted MessageReceived")
 }
 
 /// Tests the registering of a token as an asset on AssetHub.
@@ -578,6 +637,88 @@ fn send_eth_asset_from_ethereum_fails_when_relayer_cannot_front_fee() {
 		// The nonce did not advance, so the channel is not stalled and a funded relayer can
 		// resubmit the same message.
 		assert_eq!(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id), 0);
+	});
+}
+
+// If neither the relayer nor the Asset Hub sovereign can cover the teleported fee, the inbound
+// message must be rejected with nothing changed (nonce and balances). Once the relayer can front
+// the fee, the same message is accepted, so the channel is not stalled.
+#[test]
+fn send_eth_asset_from_ethereum_fails_when_relayer_and_sovereign_are_underfunded() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	BridgeHubWestend::execute_with(|| {
+		set_ethereum_gateway_for_native_eth_fixture();
+
+		// Both accounts hold barely more than the existential deposit, far below the fee.
+		let relayer_balance = BRIDGE_HUB_WESTEND_ED;
+		let sovereign_balance = BRIDGE_HUB_WESTEND_ED + BRIDGE_HUB_WESTEND_ED / 2;
+		set_bridge_hub_balance(BridgeHubWestendSender::get(), relayer_balance);
+		set_bridge_hub_balance(assethub_sovereign.clone(), sovereign_balance);
+		assert_eq!(native_eth_fixture_channel_nonce(), 0);
+
+		// Dispatch inside a storage layer to mimic the on-chain transactional revert.
+		let result = frame_support::storage::with_storage_layer(|| {
+			send_inbound_message(make_send_native_eth_message())
+		});
+		assert_err!(result, sp_runtime::TokenError::FundsUnavailable);
+
+		assert_eq!(native_eth_fixture_channel_nonce(), 0, "nonce must not advance on failure");
+		assert_eq!(bridge_hub_balance(&BridgeHubWestendSender::get()), relayer_balance);
+		assert_eq!(bridge_hub_balance(&assethub_sovereign), sovereign_balance);
+		assert!(inbound_fee_burned(1).is_none());
+
+		// Once the relayer can front the fee, the same message is accepted.
+		set_bridge_hub_balance(BridgeHubWestendSender::get(), INITIAL_FUND);
+		assert_ok!(send_inbound_message(make_send_native_eth_message()));
+		assert_eq!(native_eth_fixture_channel_nonce(), 1);
+		assert!(inbound_fee_burned(1).is_some());
+	});
+}
+
+// The Asset Hub sovereign has a nonzero reducible balance (dust above its ED), but reimbursing that
+// dust to a relayer that was reaped by fronting the fee fails because it is below the existential
+// deposit. The inbound queue ignores the failed reimbursement to preserve liveness: the message is
+// processed, the nonce advances, and neither account is reimbursed or charged beyond the burn.
+#[test]
+fn send_eth_asset_from_ethereum_ignores_reimbursement_below_existential_deposit() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	// A fresh relayer account with no other references, so it is reaped once it fronts the fee.
+	let relayer: AccountId = [0xab; 32].into();
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		set_ethereum_gateway_for_native_eth_fixture();
+
+		let sovereign_balance = BRIDGE_HUB_WESTEND_ED + BRIDGE_HUB_WESTEND_ED / 2;
+		set_bridge_hub_balance(assethub_sovereign.clone(), sovereign_balance);
+
+		// Fund the relayer with exactly the fee it will burn.
+		let fee = dry_run_fee_burned(make_send_native_eth_message());
+		assert!(fee >= BRIDGE_HUB_WESTEND_ED);
+		set_bridge_hub_balance(relayer.clone(), fee);
+		assert_eq!(native_eth_fixture_channel_nonce(), 0);
+
+		// Message still processes even though the reimbursement transfer fails.
+		assert_ok!(send_inbound_message_from(relayer.clone(), make_send_native_eth_message()));
+
+		assert_eq!(inbound_fee_burned(1), Some(fee));
+		assert_eq!(native_eth_fixture_channel_nonce(), 1, "message nonce advanced");
+		assert_eq!(bridge_hub_balance(&relayer), 0, "relayer was not reimbursed");
+		assert_eq!(
+			bridge_hub_balance(&assethub_sovereign),
+			sovereign_balance,
+			"failed reimbursement left the sovereign untouched"
+		);
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
 	});
 }
 

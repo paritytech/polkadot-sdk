@@ -242,6 +242,53 @@ fn test_submit_fails_and_nonce_reverts_when_relayer_cannot_front_fee() {
 	});
 }
 
+// If neither the relayer nor the sovereign can cover the teleported fee, the extrinsic must revert
+// entirely (nonce and balances untouched). Once the relayer can front the fee, the same message is
+// accepted, so the channel is not stalled.
+#[test]
+fn test_submit_fails_when_relayer_and_sovereign_are_underfunded() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer.clone());
+		let channel_id = ChannelId::from(hex!(
+			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
+		));
+
+		// Sovereign holds only dust above its ED.
+		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
+		let sovereign_balance = ExistentialDeposit::get() + ExistentialDeposit::get() / 2;
+		Balances::set_balance(&sovereign_account, sovereign_balance);
+
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		let fee = fee_for(&event);
+		assert!(fee > ExistentialDeposit::get() + 1);
+
+		// Relayer is one unit short of the teleported fee.
+		Balances::mint_into(&relayer, fee - 1).unwrap();
+
+		// Dispatch inside a storage layer to mimic the on-chain transactional revert.
+		// `assert_noop` also checks that no storage (nonce, balances) was changed.
+		assert_noop!(
+			with_storage_layer(|| InboundQueue::submit(origin.clone(), event.clone())),
+			TokenError::FundsUnavailable
+		);
+		assert_eq!(<Nonce<Test>>::get(channel_id), 0, "nonce must not advance on failure");
+		assert_eq!(Balances::balance(&relayer), fee - 1);
+		assert_eq!(Balances::balance(&sovereign_account), sovereign_balance);
+
+		// Once the relayer can front the fee, the same message is accepted.
+		Balances::mint_into(&relayer, 1).unwrap();
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
+		assert_eq!(<Nonce<Test>>::get(channel_id), 1, "message nonce advanced");
+	});
+}
+
 // A reimbursement that would leave the relayer below the existential deposit fails, but that must
 // never revert message processing (best-effort). The relayer simply goes unrewarded.
 #[test]
