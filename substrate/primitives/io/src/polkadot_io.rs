@@ -46,7 +46,6 @@ use sp_core::{
 	LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
 };
 
-#[cfg(feature = "bls-experimental")]
 use sp_core::{bls381, ecdsa_bls381};
 
 #[cfg(not(substrate_runtime))]
@@ -1302,13 +1301,12 @@ pub trait Crypto {
 		Ok(pubkey.serialize())
 	}
 
-	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
+	/// Generate a `bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1321,20 +1319,44 @@ pub trait Crypto {
 			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate a 'bls12-381' Proof Of Possession for the corresponding public key.
+	/// Generate a `bls12-381` Proof Of Possession for the corresponding public key.
 	///
-	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
-	/// or 'None' if an error occurs.
-	#[cfg(feature = "bls-experimental")]
+	/// Returns the Proof Of Possession as a [`bls381::Signature`] or `None` if an error occurs.
 	fn bls381_generate_proof_of_possession(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-		owner: PassFatPointerAndRead<&[u8]>,
-	) -> AllocateAndReturnByCodec<Option<bls381::ProofOfPossession>> {
+	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key, owner)
+			.bls381_generate_proof_of_possession(id, pub_key)
+			.ok()
+			.flatten()
+	}
+
+	/// Returns all `bls12-381` public keys for the given key id from the keystore.
+	fn bls381_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<bls381::Public>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_public_keys(id)
+	}
+
+	/// Sign the given `msg` with the `bls12-381` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature or `None` if the key was not found.
+	fn bls381_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bls381::Public, 144>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
 	}
@@ -1345,7 +1367,6 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1356,6 +1377,16 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_bls381_generate_new(id, seed)
 			.expect("`ecdsa_bls381_generate` failed")
+	}
+
+	/// Returns all `ecdsa & bls12-381` public keys for the given key id from the keystore.
+	fn ecdsa_bls381_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<ecdsa_bls381::Public>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_bls381_public_keys(id)
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
