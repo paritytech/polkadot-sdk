@@ -499,6 +499,64 @@ fn refunded_blocked_account_prevents_raising_min_balance_until_thawed() {
 }
 
 #[test]
+fn refunded_frozen_or_blocked_account_cannot_be_credited() {
+	use frame_support::traits::{
+		fungibles::{Balanced, Inspect, Mutate},
+		tokens::{DepositConsequence, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 4, 50));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 1));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 3));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(3), 0, true));
+
+		for who in [2, 3] {
+			assert_noop!(
+				Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::transfer_approved(RuntimeOrigin::signed(4), 0, 1, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::touch_other(RuntimeOrigin::signed(1), 0, who),
+				Error::<Test>::AlreadyExists
+			);
+			assert_eq!(
+				<Assets as Inspect<u64>>::can_deposit(0, &who, 10, Provenance::Extant),
+				DepositConsequence::Blocked
+			);
+			assert_noop!(<Assets as Mutate<u64>>::mint_into(0, &who, 10), TokenError::Blocked);
+			assert_noop!(
+				<Assets as Mutate<u64>>::transfer(0, &1, &who, 10, Preservation::Expendable),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				<Assets as Balanced<u64>>::deposit(0, &who, 10, Precision::Exact).map(|_| ()),
+				TokenError::Blocked
+			);
+
+			assert!(Account::<Test>::get(0, &who).unwrap().is_tombstone());
+			assert_eq!(Assets::balance(0, who), 0);
+			assert_eq!(System::consumers(&who), 0);
+		}
+	});
+}
+
+#[test]
 fn thawing_refunded_blocked_account_with_freeze_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);

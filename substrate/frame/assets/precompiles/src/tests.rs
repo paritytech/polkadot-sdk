@@ -1764,3 +1764,61 @@ fn zero_value_transfer_past_the_receipt_limit_fails_the_call() {
 	);
 	assert_eq!(call_token_after_logs(LOG_DATA, transfer), TOKEN_CALL_FAILED, "the receipt is full");
 }
+
+#[test]
+fn refunded_blocked_account_cannot_receive_through_the_precompile() {
+	use sp_runtime::TokenError;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789u64;
+		let holder = 987654321u64;
+		let payer = 111111111u64;
+		let holder_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&holder);
+		let payer_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&payer);
+		for who in [owner, holder, payer] {
+			Balances::make_free_balance_be(&who, 1_000_000_000_000);
+		}
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, holder, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, payer, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(payer), asset_id, owner, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(owner), asset_id, holder));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(holder), asset_id, true));
+
+		let transfer = || {
+			pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(payer),
+				asset_addr,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u128::MAX,
+				},
+				IERC20::transferCall { to: holder_addr.0.into(), value: U256::from(10) }
+					.abi_encode(),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+		};
+
+		assert_eq!(
+			erc20_call(asset_addr, payer, IERC20::balanceOfCall { account: holder_addr.0.into() }),
+			U256::ZERO
+		);
+		assert_eq!(transfer().unwrap_err(), TokenError::Blocked.into());
+		assert_eq!(
+			call_transfer_from(owner, asset_addr, payer_addr, holder_addr, U256::from(10))
+				.result
+				.unwrap_err(),
+			TokenError::Blocked.into()
+		);
+		assert_eq!(Assets::balance(asset_id, payer), 100);
+		assert_eq!(Assets::balance(asset_id, holder), 0);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(owner), asset_id, holder));
+		assert!(!transfer().unwrap().did_revert());
+		assert_eq!(Assets::balance(asset_id, holder), 10);
+	});
+}
