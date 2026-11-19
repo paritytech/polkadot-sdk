@@ -841,6 +841,37 @@ fn freezer_deposit_is_reserved_from_freezer_not_owner() {
 }
 
 #[test]
+fn returning_freezer_deposit_leaves_other_reserves_of_freezer_alone() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Balances::reserve(&1, 7));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+		assert_eq!(Balances::free_balance(&1), 93);
+	});
+}
+
+#[test]
 fn only_admin_returns_freezer_deposit() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
