@@ -885,8 +885,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		accounts: u32,
 		frozen: u32,
 	) -> frame_support::weights::Weight {
+		// both include the fixed part of the call, which is paid once
+		let fixed =
+			T::WeightInfo::destroy_accounts(0).min(T::WeightInfo::destroy_blocked_accounts(0));
 		T::WeightInfo::destroy_accounts(accounts.saturating_sub(frozen))
 			.saturating_add(T::WeightInfo::destroy_blocked_accounts(frozen))
+			.saturating_sub(fixed)
 	}
 
 	/// Upper bound of [`Self::destroy_accounts_weight`] for `accounts` accounts: each one costs at

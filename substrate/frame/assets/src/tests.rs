@@ -738,21 +738,31 @@ fn destroying_accounts_charges_freezer_deposit_weight_for_frozen_accounts() {
 		assert!(!FreezerDeposits::<Test>::contains_key(0, &5));
 		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
 
+		// the fixed part of the call is in both weights and charged once
 		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 0).unwrap();
 		assert_eq!(
 			post.actual_weight,
 			Some(
 				<() as WeightInfo>::destroy_accounts(2)
 					.saturating_add(<() as WeightInfo>::destroy_blocked_accounts(2))
+					.saturating_sub(<() as WeightInfo>::destroy_blocked_accounts(0))
 			)
 		);
 
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 3, 100));
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 1));
+		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 1).unwrap();
+		assert_eq!(post.actual_weight, Some(<() as WeightInfo>::destroy_accounts(2)));
+
 		let limit = <Test as Config>::RemoveItemsLimit::get();
 		let declared = crate::Call::<Test>::destroy_accounts { id: 0 }.get_dispatch_info();
-		assert!(declared.call_weight.all_gte(<() as WeightInfo>::destroy_accounts(limit)));
-		assert!(declared
-			.call_weight
-			.all_gte(<() as WeightInfo>::destroy_blocked_accounts(limit)));
+		assert_eq!(
+			declared.call_weight,
+			<() as WeightInfo>::destroy_accounts(limit)
+				.max(<() as WeightInfo>::destroy_blocked_accounts(limit))
+		);
 	});
 }
 
