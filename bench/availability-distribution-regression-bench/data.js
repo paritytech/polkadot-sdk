@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795084099740,
+  "lastUpdate": 1795096301591,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "912969a78efada22616c5f3f74ed12274e872545",
-          "message": "ci: fix resolc download (#12008)\n\nPR adds some logic to retry download resolc to avoid\n[such](https://github.com/paritytech/polkadot-sdk/actions/runs/25483886193/job/74774666969)\nproblems\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-07T14:16:45Z",
-          "tree_id": "4240b9e11b6c4949c5bfcea8a5dae01bdde6b367",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/912969a78efada22616c5f3f74ed12274e872545"
-        },
-        "date": 1778169845735,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006810053960000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023644003599999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14029670847333342,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00929949235333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007518132193333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "415f4fd4e5f3534d8c2983dd983c03f5e3179bee",
+          "message": "statement-store: warn when the v2 DHT path runs on the libp2p backend (#13897)\n\nCloses #13876\n\nThe v2 DHT topology learns peers from discovery and identify events,\nwhich only litep2p emits. With `--statement-v2-dht --network-backend\nlibp2p` the node reserves and dials no statement peer, silently. It now\nlogs a warning at startup.",
+          "timestamp": "2026-11-19T11:24:28Z",
+          "tree_id": "8556299ad37423743d527453a6e945c10e734643",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/415f4fd4e5f3534d8c2983dd983c03f5e3179bee"
+        },
+        "date": 1795096265438,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007647150033333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02405932089333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14394805133333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009779091713333306,
             "unit": "seconds"
           }
         ]
