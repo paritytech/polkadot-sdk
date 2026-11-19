@@ -716,8 +716,8 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
 /// The relay-chain client of `pallet_staking_async` in a chain without a relay chain.
 ///
-/// `ValidatorManager` sets the session validators, so the validator sets that staking plans are
-/// dropped.
+/// `NoElection` never elects, so staking never calls `validator_set`. `ValidatorManager` sets the
+/// session validators.
 pub struct NoRelayChain;
 impl pallet_staking_async_rc_client::RcClientInterface for NoRelayChain {
 	type AccountId = AccountId;
@@ -725,6 +725,8 @@ impl pallet_staking_async_rc_client::RcClientInterface for NoRelayChain {
 	fn validator_set(_: Vec<AccountId>, _: u32, _: Option<u32>) {}
 }
 
+// No relay chain sends session reports, so the active era stays at its genesis value and unbonded
+// funds never unlock.
 impl pallet_staking_async::Config for Runtime {
 	type Filter = Nothing;
 	type OldCurrency = Balances;
