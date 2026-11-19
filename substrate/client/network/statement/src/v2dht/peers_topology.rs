@@ -150,7 +150,8 @@ impl PeersTopology {
 	}
 
 	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
-	/// DHT path. Identify keeps it out until the substream closes.
+	/// DHT path. It returns only when identify lists the main protocol or a `statement/3`
+	/// substream opens.
 	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;

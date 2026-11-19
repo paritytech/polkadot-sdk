@@ -861,6 +861,22 @@ mod tests {
 	}
 
 	#[test]
+	fn a_peer_without_dht_returns_to_the_index_on_a_statement_3_substream() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_peer_without_dht(remote);
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_substream_opened(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
 	fn an_identified_light_peer_is_no_replica() {
 		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
 		let handle = RetentionHandle::new(peer(1), nz(1));

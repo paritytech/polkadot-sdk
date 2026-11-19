@@ -15,7 +15,6 @@ why it matters how to read it and what problems it helps diagnose.
   - [Network Overview](#network-overview)
   - [Network Throughput & Bandwidth](#network-throughput--bandwidth)
   - [Operation Latency](#operation-latency)
-  - [Network Health Indicators](#network-health-indicators)
   - [Statement Expiration & Cleanup](#statement-expiration--cleanup)
   - [Initial Sync](#initial-sync)
 ---

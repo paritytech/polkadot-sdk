@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Topic affinity filters for the `statement/2` protocol.
+//! Topic affinity filters for the `statement/2` and `statement/3` protocols.
 //!
 //! A peer can advertise the set of topics it is interested in as a space-efficient bloom filter
 //! ([`AffinityFilter`]). Once a peer has advertised one, only statements whose topics match the

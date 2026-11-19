@@ -28,7 +28,7 @@
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
 //!   blocks; it resumes automatically once the node is fully synced. Without the v2 DHT path a peer
 //!   is reconnected to recover statements missed while syncing; with it, the node re-advertises its
-//!   affinity filter after `MAJOR_SYNC_SETTLE_PERIOD` and v2 peers replay them. A v1 peer cannot
+//!   affinity filter after `MAJOR_SYNC_SETTLE_PERIOD` and v3 peers replay them. A v1 peer cannot
 //!   replay on request, so it is reconnected on either path.
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
@@ -1272,7 +1272,7 @@ impl Peer {
 	/// Whether this peer is ready to receive statements.
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements; with the
-	/// v2 DHT path on, every peer past V1 must.
+	/// v2 DHT path on, every `statement/3` peer must.
 	fn can_receive(&self) -> bool {
 		!(self.protocol_version != PeerProtocolVersion::V1 &&
 			self.topic_affinity.is_none() &&
@@ -1554,7 +1554,13 @@ where
 			return;
 		}
 		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
-		self.send_notification(peer, encoded).await;
+		if !self.send_notification(peer, encoded).await {
+			log::warn!(
+				target: LOG_TARGET,
+				"{peer}: Failed to send the local affinity filter, the peer gets no statements \
+				until the local topics change",
+			);
+		}
 	}
 
 	/// Send `notification` to `peer`, bounded by [`SEND_TIMEOUT`], counting the bytes sent.
@@ -1765,8 +1771,8 @@ where
 	///
 	/// - Validates inbound substreams by peer role.
 	/// - Tracks stream open/close to maintain per-peer state.
-	/// - Decodes incoming notifications: V1 peers send raw statement batches; V2 peers send a
-	///   `StatementMessage` that is either a batch of statements or an `ExplicitTopicAffinity`
+	/// - Decodes incoming notifications: V1 peers send raw statement batches; V2 and V3 peers send
+	///   a `StatementMessage` that is either a batch of statements or an `ExplicitTopicAffinity`
 	///   advertisement.
 	/// - Rate-limits affinity advertisements (reporting `rep::AFFINITY_FLOODING` on abuse);
 	///   otherwise stores the filter as pending until applied by the main loop.
@@ -1917,7 +1923,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a
+					// With the v2 DHT path on, a v3 peer replays on the re-advertised filter; a
 					// peer without the DHT path gets no such request and is reconnected once the
 					// sync ends.
 					let from_peer_without_dht =
@@ -1952,7 +1958,7 @@ where
 						}
 					},
 					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
-						// V2 peers send StatementMessage enum.
+						// V2 and V3 peers send StatementMessage enum.
 						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
 							match message {
 								StatementMessage::Statements(statements) => {
