@@ -12,7 +12,7 @@ Apply this file's conventions when touching any of them.
 
 - `lib.rs` — `StatementHandler` event loop and the v1 flood path (current production path).
 - `affinity.rs` — `AffinityFilter`, the bloom filter a node advertises to peers.
-- `v2dht/` — the new DHT path; `V2DhtOrchestrator` coordinates it.
+- `dht/` — the new DHT path; `DhtOrchestrator` coordinates it.
 - `config.rs` — protocol constants.
 
 ## Wire compatibility
@@ -41,16 +41,16 @@ https://github.com/paritytech/polkadot-sdk/issues/11932.
 
 Remove this section when the feature stabilizes and the gate is removed.
 
-### The v2 path is gated
+### The DHT path is gated
 
-`v2dht_enabled()` in `lib.rs` is off by default. A node binary turns it on with `set_v2dht_enabled`
-when its CLI sees `--statement-v2-dht`. A default-configured node never takes the v2 path, and a
+`dht_enabled()` in `lib.rs` is off by default. A node binary turns it on with `set_dht_enabled`
+when its CLI sees `--statement-dht`. A default-configured node never takes the DHT path, and a
 node with the path on serves peers without it like v1 peers. The negotiated protocol tells the two
 apart: a node with the path on prefers `statement/3`, so a full peer that falls back to
 `statement/2` or `statement/1` runs without it. Two invariants hold while the gate exists:
 
-- Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
-- Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.
+- Keep the v1 path working: with the gate off, behavior must match a node without the DHT code.
+- Put every DHT call site behind `dht_enabled()`; never let the DHT path leak into v1 handling.
 
 ## Writing
 

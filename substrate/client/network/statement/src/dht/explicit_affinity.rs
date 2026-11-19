@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Explicit topic affinity for the v2 DHT gossip path: tracks which topics this node cares about,
+//! Explicit topic affinity for the DHT gossip path: tracks which topics this node cares about,
 //! advertises a filter for them, and decides storage and forwarding from that affinity.
 //!
 //! Retention runs on the store's thread, not the handler's, so the orchestrator can't be queried

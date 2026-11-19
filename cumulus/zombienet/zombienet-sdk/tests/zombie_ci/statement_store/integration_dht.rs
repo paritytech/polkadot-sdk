@@ -1,15 +1,15 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! End-to-end tests for the v2 DHT-affinity statement routing.
+//! End-to-end tests for the DHT-affinity statement routing.
 //!
-//! v2 routes a statement to the `K` nodes with affinity to its topic instead of flooding every
-//! peer. The `--statement-v2-dht` flag turns it on per node, and further flags set the replication
-//! factor `K` and the gossip target.
+//! The DHT path routes a statement to the `K` nodes with affinity to its topic instead of flooding
+//! every peer. The `--statement-dht` flag turns it on per node, and further flags set the
+//! replication factor `K` and the gossip target.
 
 use super::common::{
-	assert_late_joiner_receives_backlog, collator_args_v2, expect_statement_delivered,
-	spawn_network_with_injected_allowances_v2, stores_locally, submit_statement, subscribe_topic,
+	assert_late_joiner_receives_backlog, collator_args_dht, expect_statement_delivered,
+	spawn_network_with_injected_allowances_dht, stores_locally, submit_statement, subscribe_topic,
 	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
@@ -20,10 +20,10 @@ use std::time::Duration;
 use zombienet_sdk::AddCollatorOptions;
 
 const TEST_GOSSIP_TARGET: u32 = 3;
-// Statement peers with an open notification substream, exported per node by the v2 DHT path.
-const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
-// Statement-store peers known to a node's topology, exported per node by the v2 DHT path.
-const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
+// Statement peers with an open notification substream, exported per node by the DHT path.
+const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_dht_connected_peers";
+// Statement-store peers known to a node's topology, exported per node by the DHT path.
+const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_dht_known_peers";
 
 /// Probe budget, in one-second attempts, for waiting out the maintenance sweep: a statement no
 /// affinity covers stays in the store until the sweep (every 29 s) removes it once propagated, and
@@ -136,7 +136,7 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 
 	let names = ["charlie", "dave"];
 	let replication_factor: usize = 1;
-	let network = spawn_network_with_injected_allowances_v2(
+	let network = spawn_network_with_injected_allowances_dht(
 		&names,
 		names.len() as u32,
 		replication_factor as u32,
@@ -226,7 +226,7 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 
 	let names = ["alice", "bob", "charlie"];
 	let replication_factor: usize = 2;
-	let network = spawn_network_with_injected_allowances_v2(
+	let network = spawn_network_with_injected_allowances_dht(
 		&names,
 		names.len() as u32,
 		replication_factor as u32,
@@ -324,7 +324,7 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 
 	let names = ["alice", "bob"];
 	let replication_factor: usize = 1;
-	let network = spawn_network_with_injected_allowances_v2(
+	let network = spawn_network_with_injected_allowances_dht(
 		&names,
 		names.len() as u32,
 		replication_factor as u32,
@@ -388,7 +388,7 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 
 	let names = ["charlie", "alice"];
 	let replication_factor: u32 = 1;
-	let mut network = spawn_network_with_injected_allowances_v2(
+	let mut network = spawn_network_with_injected_allowances_dht(
 		&names,
 		names.len() as u32,
 		replication_factor,
@@ -397,7 +397,7 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 	.await?;
 
 	let options = AddCollatorOptions {
-		args: collator_args_v2(
+		args: collator_args_dht(
 			names.len() as u32,
 			COLLATOR_TRACE_LOG_FILTER,
 			replication_factor,

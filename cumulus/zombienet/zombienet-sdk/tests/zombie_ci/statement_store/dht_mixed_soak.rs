@@ -1,8 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Soak of a mixed network: one binary on every node, the v2 DHT path on most of them and off on
-//! `STATEMENT_V2_SOAK_DHT_OFF_NODES` full nodes, the `dht-off-*` ones. Every rollout of the gate
+//! Soak of a mixed network: one binary on every node, the DHT path on most of them and off on
+//! `STATEMENT_DHT_SOAK_OFF_NODES` full nodes, the `dht-off-*` ones. Every rollout of the gate
 //! passes through this state, and a node of a release before the DHT path acts like a DHT-off one:
 //! it speaks statement/2 but never advertises a filter
 //!
@@ -36,8 +36,8 @@
 //! missed, a DHT placement did not converge, the topology fell short or a node logged a statement
 //! error
 //!
-//! Sized by `STATEMENT_V2_SOAK_NODES` (default 16), `STATEMENT_V2_SOAK_DHT_OFF_NODES` (default 4)
-//! and `STATEMENT_V2_SOAK_SECS` (default 900)
+//! Sized by `STATEMENT_DHT_SOAK_NODES` (default 16), `STATEMENT_DHT_SOAK_OFF_NODES` (default 4)
+//! and `STATEMENT_DHT_SOAK_SECS` (default 900)
 //!
 //! The rollout soak walks a network through turning the DHT path on: only the collators start on
 //! it, then full nodes restart onto it, with their keys and databases, until half and then 90% of
@@ -46,10 +46,10 @@
 
 use super::{
 	common::{
-		base_dir, collator_args, collator_args_v2, submit_at_rate, submit_statement,
+		base_dir, collator_args, collator_args_dht, submit_at_rate, submit_statement,
 		subscribe_topic, wait_for_first_block, Load,
 	},
-	v2_dht_soak::{
+	dht_soak::{
 		bring_online, collect_peer_keys, env_parsed, is_dropped_connection, launch_soak_network,
 		nodes_with_statement_errors, placement_mismatch, ranked_by_distance, soak_topic,
 		store_snapshot, take_offline, ExpectedPlacement, NodeHandle, AUTHORING_COLLATORS,
@@ -73,11 +73,11 @@ use zombienet_sdk::{
 	AddCollatorOptions, LocalFileSystem, Network,
 };
 
-const DHT_OFF_NODES_ENV: &str = "STATEMENT_V2_SOAK_DHT_OFF_NODES";
+const DHT_OFF_NODES_ENV: &str = "STATEMENT_DHT_SOAK_OFF_NODES";
 const DEFAULT_DHT_OFF_NODES: usize = 4;
 const DEFAULT_NODES: usize = 16;
 const PEERS_CONNECTED_METRIC: &str = "substrate_sync_statement_peers_connected{kind=\"full\"}";
-const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_v2dht_desired_unconnected_peers";
+const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_dht_desired_unconnected_peers";
 const BYTES_SENT_METRICS: [&str; 2] = [
 	"substrate_sync_statement_bytes_sent_total{route=\"dht\"}",
 	"substrate_sync_statement_bytes_sent_total{route=\"legacy\"}",
@@ -116,7 +116,7 @@ fn farthest_dht(order: &[usize], dht_off: &[bool]) -> usize {
 
 fn node_args(dht: bool) -> Vec<zombienet_sdk::Arg> {
 	if dht {
-		collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET)
+		collator_args_dht(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET)
 	} else {
 		collator_args(PARTICIPANTS, LOG_FILTER)
 	}
@@ -906,7 +906,7 @@ async fn run_join(
 	tokio::time::sleep(BACKLOG_SETTLE).await;
 
 	info!("Join {join}: {name} joins");
-	// A DHT joiner keeps the network's args, the v2 DHT flag among them
+	// A DHT joiner keeps the network's args, the DHT flag among them
 	let options = if joiner_is_dht_off { dht_off_options() } else { AddCollatorOptions::default() };
 	network.add_collator(name, options, 1004).await?;
 	let node = network.get_node(name)?.clone();
@@ -989,7 +989,7 @@ async fn log_traffic(nodes: &[NodeHandle], dht_off: &[bool]) -> Result<(), anyho
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
+async fn statement_store_dht_mixed_soak() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -1004,7 +1004,7 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 	);
 
 	// 2. Start the collators and the DHT nodes, then add the DHT-off nodes: the same binary, the
-	// args without the v2 DHT ones
+	// args without the DHT ones
 	let dht_node_names: Vec<String> =
 		(0..full_node_count - dht_off_count).map(|i| format!("soak-{i}")).collect();
 	let mut network = launch_soak_network(&dht_node_names).await?;
@@ -1114,7 +1114,7 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
+async fn statement_store_dht_rollout_soak() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

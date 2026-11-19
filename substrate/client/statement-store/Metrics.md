@@ -47,11 +47,11 @@ of statements in the database
 - **Metric:** `substrate_sub_statement_store_bytes_by_retention{track}`
 - **Type:** Gauge, refreshed by store maintenance (every 29s)
 - **What it measures:** Bytes of statement data per retention track:
-  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps
+  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the DHT path keeps
     everything here)
   - `explicit`: kept only for explicit (subscription) affinity
   - `transient`: kept only until propagated to the replicas
-- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range
+- **Why it matters:** During the DHT rollout this shows the share of the store a node holds for its own DHT range
   next to what it relays.
 - **How to read:** Stacked area; the tracks sum to `bytes_total`.
 
@@ -90,7 +90,7 @@ of statements in the database
 - **Labels:** `reason` = `persistent` | `transient` | `dht` | `explicit` | `both`
 - **What it measures:** Successful new statement submissions per second, broken down by the
   retention reason chosen at admission:
-  - **`persistent`**: No v2 retention resolver is installed (v2 DHT disabled); the statement is
+  - **`persistent`**: No v2 retention resolver is installed (DHT disabled); the statement is
     kept under the normal retention rules.
   - **`transient`**: The node has no affinity for any of the statement's topics; it is kept only
     until the first maintenance sweep after propagation.
@@ -103,7 +103,7 @@ of statements in the database
   for the total across reasons.
 - **Problems it solves:**
   - Detect throughput degradation after a release (compare before/after deployment).
-  - Tell whether the v2 affinity oracles drive retention: a v2 node admitting only `transient`
+  - Tell whether the DHT affinity oracles drive retention: a DHT node admitting only `transient`
     statements keeps nothing by affinity.
 
 #### Throughput vs Errors
@@ -244,13 +244,13 @@ bandwidth, latency, and network health indicators.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
 - **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
-  carry `route`: `dht` for peers served through the v2 DHT path, `legacy` for the rest (v1 peers and full
+  carry `route`: `dht` for peers served through the DHT path, `legacy` for the rest (v1 peers and full
   v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` peer counts as
-  `legacy` until its filter arrives. A node without the v2 DHT path reports every peer as `legacy`.
+  `legacy` until its filter arrives. A node without the DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
-  - Show the `legacy` share of a v2 node's traffic during the rollout
+  - Show the `legacy` share of a DHT node's traffic during the rollout
 
 ---
 
