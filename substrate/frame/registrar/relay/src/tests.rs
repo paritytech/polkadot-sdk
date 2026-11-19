@@ -31,7 +31,6 @@ use sp_runtime::{
 
 fn poll_with(meter: &mut WeightMeter) {
 	Registrar::on_poll(System::block_number(), meter);
-	Registrar::do_try_state().unwrap();
 }
 
 fn poll() {
@@ -1470,7 +1469,7 @@ mod head_noted {
 
 mod relay {
 	use super::*;
-	use crate::{weights::WeightInfo, QueuedPerPara, RelayQueue, RelayQueueBounds};
+	use crate::{weights::WeightInfo, RequestWindows};
 	use frame_support::dispatch::GetDispatchInfo;
 	use registrar_primitives::{ParaRequest, ParaRequestV1};
 
@@ -1486,40 +1485,27 @@ mod relay {
 		Registrar::relay(para(para_id), ParaRequest::V1(request))
 	}
 
-	fn queue_len() -> u32 {
-		let (oldest, next) = RelayQueueBounds::<Test>::get();
-		next.wrapping_sub(oldest)
-	}
-
 	#[test]
-	fn queues_the_request_and_forwards_it_on_poll() {
+	fn sends_the_request_at_once() {
 		new_test_ext().execute_with(|| {
 			let request =
 				ParaRequestV1::ScheduleCodeUpgrade { code_hash: hash_of(&code(20)), code_len: 20 };
 
 			assert_ok!(relay(PARA_A, request.clone()));
 
-			assert!(take_sent().is_empty());
-			assert_eq!(registrar_events(), vec![Event::RelayQueued { para_id: PARA_A }]);
-			assert_eq!(QueuedPerPara::<Test>::get(PARA_A), 1);
-
-			poll();
-
 			assert_eq!(take_sent(), vec![relayed(PARA_A, request)]);
 			assert_eq!(registrar_events(), vec![Event::Relayed { para_id: PARA_A }]);
-			assert_eq!(queue_len(), 0);
-			assert!(!QueuedPerPara::<Test>::contains_key(PARA_A));
+			assert_eq!(RequestWindows::<Test>::get(PARA_A), Some((1, 1)));
 		});
 	}
 
 	#[test]
 	fn nothing_is_checked_or_applied_here() {
 		new_test_ext().execute_with(|| {
-			// Unknown to the registry: forwarded all the same.
+			// Unknown to the registry: relayed all the same.
 			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
 
 			assert_ok!(relay(PARA_B, request.clone()));
-			poll();
 
 			assert!(Heads::get().is_empty());
 			assert_eq!(take_sent(), vec![relayed(PARA_B, request)]);
@@ -1549,237 +1535,66 @@ mod relay {
 				Registrar::relay(RuntimeOrigin::root(), request),
 				DispatchError::BadOrigin
 			);
-			assert_eq!(queue_len(), 0);
 		});
 	}
 
 	#[test]
-	fn one_para_cannot_take_more_than_its_share() {
+	fn a_para_is_limited_per_window() {
 		new_test_ext().execute_with(|| {
-			for _ in 0..MAX_QUEUED_PER_PARA {
+			for _ in 0..MAX_REQUESTS_PER_WINDOW {
 				assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
 			}
 
-			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::TooManyQueued);
-			// Others still get in.
+			System::set_block_number(REQUEST_WINDOW);
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::TooManyRequests);
+			// Others have their own window.
 			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
 
-			// Its share frees up as its requests go out.
-			poll();
+			// The window opened at block 1, so it is over at `1 + REQUEST_WINDOW`.
+			System::set_block_number(1 + REQUEST_WINDOW);
 			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			Registrar::do_try_state().unwrap();
+			assert_eq!(RequestWindows::<Test>::get(PARA_A), Some((1 + REQUEST_WINDOW, 1)));
 		});
 	}
 
 	#[test]
-	fn the_queue_is_bounded_in_total() {
+	fn a_refused_send_fails_the_call_and_is_not_counted() {
 		new_test_ext().execute_with(|| {
-			for para_id in [PARA_A, PARA_B] {
-				for _ in 0..MAX_QUEUED_PER_PARA {
-					assert_ok!(relay(para_id, ParaRequestV1::AddLock));
-				}
-			}
-			assert_eq!(queue_len(), MAX_QUEUED);
-
-			assert_noop!(relay(PARA_C, ParaRequestV1::AddLock), Error::<Test>::QueueFull);
-
-			poll();
-			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
-		});
-	}
-
-	#[test]
-	fn forwards_oldest_first_up_to_the_per_block_limit() {
-		new_test_ext().execute_with(|| {
-			let queued = [
-				(PARA_A, ParaRequestV1::AddLock),
-				(PARA_B, ParaRequestV1::RemoveLock),
-				(PARA_A, ParaRequestV1::Deregister),
-				(PARA_C, ParaRequestV1::AddLock),
-			];
-			for (para_id, request) in queued.clone() {
-				assert_ok!(relay(para_id, request));
-			}
-			let expected: Vec<_> = queued.into_iter().map(|(p, r)| relayed(p, r)).collect();
-
-			poll();
-			assert_eq!(take_sent(), expected[..MAX_FORWARDED_PER_BLOCK as usize]);
-
-			poll();
-			assert_eq!(take_sent(), expected[MAX_FORWARDED_PER_BLOCK as usize..]);
-			assert_eq!(queue_len(), 0);
-		});
-	}
-
-	#[test]
-	fn a_bounced_request_stays_first_in_line() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
-			registrar_events();
-
 			SendFails::set(true);
-			poll();
-			assert!(take_sent().is_empty());
-			assert!(registrar_events().is_empty());
-			assert_eq!(queue_len(), 2);
 
-			SendFails::set(false);
-			poll();
-			assert_eq!(
-				take_sent(),
-				vec![
-					relayed(PARA_A, ParaRequestV1::AddLock),
-					relayed(PARA_B, ParaRequestV1::RemoveLock)
-				]
-			);
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::SendFailed);
 		});
 	}
 
 	#[test]
-	fn a_request_the_transport_cannot_carry_does_not_stall_other_paras() {
+	fn a_request_waits_behind_deferred_reports() {
 		new_test_ext().execute_with(|| {
-			MaxSendSize::set(50);
-			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
-			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
-			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
-
-			for n in 2..12 {
-				System::set_block_number(n);
-				poll();
-			}
-
-			assert_eq!(take_sent(), vec![relayed(PARA_B, ParaRequestV1::AddLock)]);
-		});
-	}
-
-	#[test]
-	fn a_request_that_no_longer_fits_is_dropped() {
-		new_test_ext().execute_with(|| {
-			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
-			assert_ok!(relay(PARA_A, request));
-			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
-			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
-			registrar_events();
-
-			// The transport's limit shrank after the request was queued.
-			MaxSendSize::set(50);
-			poll();
-
-			assert_eq!(
-				take_sent(),
-				vec![
-					relayed(PARA_B, ParaRequestV1::AddLock),
-					relayed(PARA_C, ParaRequestV1::AddLock)
-				]
-			);
-			assert_eq!(
-				registrar_events(),
-				vec![
-					Event::RelayDropped { para_id: PARA_A },
-					Event::Relayed { para_id: PARA_B },
-					Event::Relayed { para_id: PARA_C },
-				]
-			);
-			assert_eq!(queue_len(), 0);
-			assert!(!QueuedPerPara::<Test>::contains_key(PARA_A));
-		});
-	}
-
-	#[test]
-	fn a_dropped_request_does_not_count_against_the_per_block_limit() {
-		new_test_ext().execute_with(|| {
-			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
-			assert_ok!(relay(PARA_A, request));
-			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
-			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
-			assert_ok!(relay(PARA_C, ParaRequestV1::AddLock));
-
-			MaxSendSize::set(50);
-			poll();
-
-			assert_eq!(take_sent().len(), MAX_FORWARDED_PER_BLOCK as usize);
-			assert_eq!(queue_len(), 0);
-		});
-	}
-
-	#[test]
-	fn nothing_overtakes_a_bounced_request() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
-			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
-
-			RefusedPara::set(Some(PARA_A));
-			poll();
-			assert!(take_sent().is_empty());
-
-			RefusedPara::set(None);
-			poll();
-			assert_eq!(
-				take_sent(),
-				vec![
-					relayed(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }),
-					relayed(PARA_B, ParaRequestV1::RemoveLock)
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn forwarding_stops_when_the_meter_runs_out() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			let poll_weight = <() as WeightInfo>::retry_failed_reports(0) +
-				<() as WeightInfo>::poll_relay_queue();
-			let worst = <() as WeightInfo>::forward_relayed(MAX_HEAD_SIZE) -
-				<() as WeightInfo>::poll_relay_queue();
-
-			poll_with(&mut WeightMeter::with_limit(poll_weight + worst - 1.into()));
-			assert!(take_sent().is_empty());
-
-			poll_with(&mut WeightMeter::with_limit(poll_weight + worst));
-			assert_eq!(take_sent(), vec![relayed(PARA_A, ParaRequestV1::AddLock)]);
-		});
-	}
-
-	#[test]
-	fn queue_positions_wrap_around() {
-		new_test_ext().execute_with(|| {
-			RelayQueueBounds::<Test>::put((u32::MAX, u32::MAX));
-
-			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			assert_ok!(relay(PARA_B, ParaRequestV1::RemoveLock));
-			assert_eq!(RelayQueueBounds::<Test>::get(), (u32::MAX, 1));
-			assert!(RelayQueue::<Test>::contains_key(0));
-
-			poll();
-			assert_eq!(take_sent().len(), 2);
-			assert_eq!(RelayQueueBounds::<Test>::get(), (1, 1));
-		});
-	}
-
-	#[test]
-	fn on_poll_charges_for_the_head_it_forwards() {
-		new_test_ext().execute_with(|| {
-			let retry = <() as WeightInfo>::retry_failed_reports(0);
-			let mut meter = WeightMeter::new();
-			poll_with(&mut meter);
-			assert_eq!(meter.consumed(), retry + <() as WeightInfo>::poll_relay_queue());
-
-			assert_ok!(relay(PARA_A, ParaRequestV1::SetCurrentHead { head: head(10) }));
-			let charged = retry + <() as WeightInfo>::forward_relayed(10);
-
-			// A refused send was still read and attempted.
 			SendFails::set(true);
-			let mut meter = WeightMeter::new();
-			poll_with(&mut meter);
-			assert_eq!(meter.consumed(), charged);
-
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 			SendFails::set(false);
-			let mut meter = WeightMeter::new();
-			poll_with(&mut meter);
-			assert_eq!(take_sent().len(), 1);
-			assert_eq!(meter.consumed(), charged);
+
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::SendFailed);
+
+			poll();
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_eq!(
+				take_sent(),
+				vec![cancel_report(PARA_A, Ok(())), relayed(PARA_A, ParaRequestV1::AddLock)]
+			);
+		});
+	}
+
+	#[test]
+	fn deregistering_drops_the_window() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::set(vec![PARA_A]);
+			assert_ok!(relay(PARA_A, ParaRequestV1::Deregister));
+
+			let message =
+				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_A, message_id: 0 });
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), message));
+
+			assert!(!RequestWindows::<Test>::contains_key(PARA_A));
 		});
 	}
 
@@ -1796,21 +1611,5 @@ mod relay {
 			weight(ParaRequestV1::SetCurrentHead { head: head(64) }),
 			<() as WeightInfo>::relay(64)
 		);
-	}
-
-	#[test]
-	fn try_state_catches_a_queue_out_of_step() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
-			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
-			assert_ok!(Registrar::do_try_state());
-
-			QueuedPerPara::<Test>::insert(PARA_A, 2);
-			assert!(Registrar::do_try_state().is_err());
-			QueuedPerPara::<Test>::insert(PARA_A, 1);
-
-			RelayQueue::<Test>::remove(1);
-			assert!(Registrar::do_try_state().is_err());
-		});
 	}
 }

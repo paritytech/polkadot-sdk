@@ -83,8 +83,6 @@ pub trait WeightInfo {
 	fn receive_deregister() -> Weight;
 	fn receive_set_current_head(h: u32, ) -> Weight;
 	fn relay(h: u32, ) -> Weight;
-	fn poll_relay_queue() -> Weight;
-	fn forward_relayed(h: u32, ) -> Weight;
 	fn retry_failed_reports(n: u32, ) -> Weight;
 }
 
@@ -262,51 +260,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
-	/// Storage: `RegistrarRelay::QueuedPerPara` (r:1 w:1)
-	/// Proof: `RegistrarRelay::QueuedPerPara` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueue` (r:0 w:1)
-	/// Proof: `RegistrarRelay::RelayQueue` (`max_values`: None, `max_size`: Some(1048597), added: 1051072, mode: `MaxEncodedLen`)
+	/// Storage: `RegistrarRelay::RequestWindows` (r:1 w:1)
+	/// Proof: `RegistrarRelay::RequestWindows` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// The range of component `h` is `[0, 1048576]`.
 	fn relay(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3489`
+		//  Measured:  `313`
+		//  Estimated: `3493`
 		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(12_579_195, 3489)
+		Weight::from_parts(13_093_793, 3493)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(358, 0).saturating_mul(h.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:0)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn poll_relay_queue() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `1493`
-		// Minimum execution time: 0_000 picoseconds.
-		Weight::from_parts(1_000_000, 1493)
+			.saturating_add(Weight::from_parts(164, 0).saturating_mul(h.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
-	}
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueue` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueue` (`max_values`: None, `max_size`: Some(1048597), added: 1051072, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::QueuedPerPara` (r:1 w:1)
-	/// Proof: `RegistrarRelay::QueuedPerPara` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
-	fn forward_relayed(h: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `106 + h * (1 ±0)`
-		//  Estimated: `1052062`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(14_580_698, 1052062)
-			// Standard Error: 0
-			.saturating_add(Weight::from_parts(254, 0).saturating_mul(h.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `RegistrarRelay::FailedReports` (r:1 w:1)
 	/// Proof: `RegistrarRelay::FailedReports` (`max_values`: Some(1), `max_size`: Some(289), added: 784, mode: `MaxEncodedLen`)
@@ -497,51 +463,19 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
-	/// Storage: `RegistrarRelay::QueuedPerPara` (r:1 w:1)
-	/// Proof: `RegistrarRelay::QueuedPerPara` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueue` (r:0 w:1)
-	/// Proof: `RegistrarRelay::RelayQueue` (`max_values`: None, `max_size`: Some(1048597), added: 1051072, mode: `MaxEncodedLen`)
+	/// Storage: `RegistrarRelay::RequestWindows` (r:1 w:1)
+	/// Proof: `RegistrarRelay::RequestWindows` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// The range of component `h` is `[0, 1048576]`.
 	fn relay(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3489`
+		//  Measured:  `313`
+		//  Estimated: `3493`
 		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(12_579_195, 3489)
+		Weight::from_parts(13_093_793, 3493)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(358, 0).saturating_mul(h.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
-	}
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:0)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn poll_relay_queue() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `1493`
-		// Minimum execution time: 0_000 picoseconds.
-		Weight::from_parts(1_000_000, 1493)
+			.saturating_add(Weight::from_parts(164, 0).saturating_mul(h.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}
-	/// Storage: `RegistrarRelay::RelayQueueBounds` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueueBounds` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::RelayQueue` (r:1 w:1)
-	/// Proof: `RegistrarRelay::RelayQueue` (`max_values`: None, `max_size`: Some(1048597), added: 1051072, mode: `MaxEncodedLen`)
-	/// Storage: `RegistrarRelay::QueuedPerPara` (r:1 w:1)
-	/// Proof: `RegistrarRelay::QueuedPerPara` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
-	fn forward_relayed(h: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `106 + h * (1 ±0)`
-		//  Estimated: `1052062`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(14_580_698, 1052062)
-			// Standard Error: 0
-			.saturating_add(Weight::from_parts(254, 0).saturating_mul(h.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `RegistrarRelay::FailedReports` (r:1 w:1)
 	/// Proof: `RegistrarRelay::FailedReports` (`max_values`: Some(1), `max_size`: Some(289), added: 784, mode: `MaxEncodedLen`)

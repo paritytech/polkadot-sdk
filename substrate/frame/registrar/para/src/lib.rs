@@ -97,7 +97,7 @@ use registrar_primitives::{
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BadOrigin, BlockNumberProvider, Saturating},
+	traits::{BadOrigin, BlakeTwo256, BlockNumberProvider, Hash, Saturating},
 	DispatchError, DispatchResult,
 };
 
@@ -402,7 +402,40 @@ pub mod pallet {
 		/// The relay chain refused the head.
 		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A para's request relayed by the relay chain ran, with `result`.
-		RelayedRequest { para_id: ParaId, request: ParaRequestV1, result: DispatchResult },
+		RelayedRequest { para_id: ParaId, request: RelayedRequestSummary, result: DispatchResult },
+	}
+
+	/// A relayed request as [`Event::RelayedRequest`] reports it, with a head as its hash.
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub enum RelayedRequestSummary {
+		/// See [`ParaRequestV1::AddLock`].
+		AddLock,
+		/// See [`ParaRequestV1::RemoveLock`].
+		RemoveLock,
+		/// See [`ParaRequestV1::Deregister`].
+		Deregister,
+		/// See [`ParaRequestV1::ScheduleCodeUpgrade`].
+		ScheduleCodeUpgrade { code_hash: H256, code_len: u32 },
+		/// See [`ParaRequestV1::SetCurrentHead`].
+		SetCurrentHead { head_hash: H256 },
+	}
+
+	impl From<&ParaRequestV1> for RelayedRequestSummary {
+		fn from(request: &ParaRequestV1) -> Self {
+			match request {
+				ParaRequestV1::AddLock => Self::AddLock,
+				ParaRequestV1::RemoveLock => Self::RemoveLock,
+				ParaRequestV1::Deregister => Self::Deregister,
+				ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len } => {
+					Self::ScheduleCodeUpgrade { code_hash: *code_hash, code_len: *code_len }
+				},
+				ParaRequestV1::SetCurrentHead { head } => {
+					Self::SetCurrentHead { head_hash: BlakeTwo256::hash(head) }
+				},
+			}
+		}
 	}
 
 	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
@@ -1021,7 +1054,8 @@ impl<T: Config> Pallet<T> {
 	fn on_relayed_request(para_id: ParaId, request: ParaRequestV1) -> DispatchResult {
 		let origin: frame_system::pallet_prelude::OriginFor<T> =
 			Origin::RelayedPara(para_id).into();
-		let result = match request.clone() {
+		let summary = RelayedRequestSummary::from(&request);
+		let result = match request {
 			ParaRequestV1::AddLock => Self::add_lock(origin, para_id),
 			ParaRequestV1::RemoveLock => Self::remove_lock(origin, para_id),
 			ParaRequestV1::Deregister => Self::deregister(origin, para_id),
@@ -1030,7 +1064,7 @@ impl<T: Config> Pallet<T> {
 			},
 			ParaRequestV1::SetCurrentHead { head } => Self::set_current_head(origin, para_id, head),
 		};
-		Self::deposit_event(Event::RelayedRequest { para_id, request, result });
+		Self::deposit_event(Event::RelayedRequest { para_id, request: summary, result });
 		Ok(())
 	}
 

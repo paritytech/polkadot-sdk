@@ -2281,7 +2281,7 @@ mod schedule_code_upgrade {
 
 mod relayed {
 	use super::*;
-	use crate::{Origin, WeightInfo};
+	use crate::{Origin, RelayedRequestSummary, WeightInfo};
 	use frame_support::dispatch::GetDispatchInfo;
 	use registrar_primitives::ParaRequestV1;
 
@@ -2312,7 +2312,7 @@ mod relayed {
 					Event::ParaUnlocked { para_id },
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::RemoveLock,
+						request: RelayedRequestSummary::RemoveLock,
 						result: Ok(())
 					},
 				]
@@ -2334,7 +2334,7 @@ mod relayed {
 					Event::ParaLocked { para_id },
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::AddLock,
+						request: RelayedRequestSummary::AddLock,
 						result: Ok(())
 					}
 				]
@@ -2374,13 +2374,18 @@ mod relayed {
 					Event::HeadUpdateRequested { para_id, message_id: 1 },
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::SetCurrentHead { head: head(20) },
+						request: RelayedRequestSummary::SetCurrentHead {
+							head_hash: hash_of(&head(20))
+						},
 						result: Ok(())
 					},
 					Event::CodeUpgradeRequested { para_id, message_id: 2, code_hash },
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::ScheduleCodeUpgrade { code_hash, code_len: 300 },
+						request: RelayedRequestSummary::ScheduleCodeUpgrade {
+							code_hash,
+							code_len: 300
+						},
 						result: Ok(())
 					},
 				]
@@ -2432,17 +2437,17 @@ mod relayed {
 				vec![
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::RemoveLock,
+						request: RelayedRequestSummary::RemoveLock,
 						result: Err(Error::<Test>::NotLocked.into())
 					},
 					Event::RelayedRequest {
 						para_id: 4242,
-						request: ParaRequestV1::AddLock,
+						request: RelayedRequestSummary::AddLock,
 						result: Err(Error::<Test>::NotReserved.into())
 					},
 					Event::RelayedRequest {
 						para_id,
-						request: ParaRequestV1::Deregister,
+						request: RelayedRequestSummary::Deregister,
 						result: Err(Error::<Test>::SendFailed.into())
 					},
 				]

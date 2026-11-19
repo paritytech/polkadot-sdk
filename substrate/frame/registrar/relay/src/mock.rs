@@ -24,9 +24,8 @@
 //! the job of the `pallet-registrar-test` crate.
 
 use crate::{self as pallet_registrar_relay, SendToPara};
-use codec::Encode;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, MessageToParaV1, ParaId, ParachainRegistrar};
+use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -41,9 +40,8 @@ pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
 pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
-pub const MAX_QUEUED: u32 = 4;
-pub const MAX_QUEUED_PER_PARA: u32 = 2;
-pub const MAX_FORWARDED_PER_BLOCK: u32 = 3;
+pub const MAX_REQUESTS_PER_WINDOW: u32 = 2;
+pub const REQUEST_WINDOW: u32 = 10;
 pub const MAX_FAILED_REPORTS: u32 = 2;
 
 #[frame_support::runtime]
@@ -96,10 +94,6 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
-	/// The transport refuses relayed requests from this para.
-	pub static RefusedPara: Option<ParaId> = None;
-	/// The largest encoded message the transport carries.
-	pub static MaxSendSize: u32 = u32::MAX;
 	/// When true, `MockRegistrar::check_code_upgrade` fails.
 	pub static UpgradeCheckFails: bool = false;
 	/// Code upgrades `MockRegistrar` has scheduled, in order.
@@ -199,20 +193,11 @@ pub struct RecordingSender;
 
 impl SendToPara for RecordingSender {
 	fn send(message: MessageToPara) -> Result<(), ()> {
-		let refused = matches!(
-			message,
-			MessageToPara::V1(MessageToParaV1::Relayed { para_id, .. })
-				if Some(para_id) == RefusedPara::get()
-		);
-		if SendFails::get() || refused || message.encoded_size() > MaxSendSize::get() as usize {
+		if SendFails::get() {
 			return Err(());
 		}
 		SentMessages::mutate(|sent| sent.push(message));
 		Ok(())
-	}
-
-	fn max_message_size() -> u32 {
-		MaxSendSize::get()
 	}
 }
 
@@ -234,9 +219,9 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
 	type CodeUpgradeValidPeriod = ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = ConstU64<100>;
-	type MaxQueuedRequests = ConstU32<MAX_QUEUED>;
-	type MaxQueuedPerPara = ConstU32<MAX_QUEUED_PER_PARA>;
-	type MaxForwardedPerBlock = ConstU32<MAX_FORWARDED_PER_BLOCK>;
+	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
+	type MaxRequestsPerWindow = ConstU32<MAX_REQUESTS_PER_WINDOW>;
+	type RequestWindow = ConstU32<REQUEST_WINDOW>;
 	type MaxFailedReports = ConstU32<MAX_FAILED_REPORTS>;
 	type WeightInfo = ();
 }
@@ -252,8 +237,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
-	RefusedPara::set(None);
-	MaxSendSize::set(u32::MAX);
 	UpgradeCheckFails::set(false);
 	ScheduledUpgrades::set(Vec::new());
 	ScheduleFails::set(false);
