@@ -9,11 +9,11 @@ doc:
     account now burns the balance and returns the deposit or consumer reference as before, but
     keeps a zero-balance entry that stays frozen or blocked until the admin thaws it, which
     removes the entry. A holder can therefore still free a consumer reference forced on them by
-    an asset owner, but can no longer lift a freeze or block. Such an entry has the new
-    `ExistenceReason::Tombstone` and cannot receive the asset, whatever its status. It still
-    counts in `AssetDetails::accounts`, so the owner cannot raise the minimum balance while it
-    exists, and `thaw` fails with `ContainsHolds` or `ContainsFreezes` while it has a hold or
-    freeze.
+    an asset owner, but can no longer lift a freeze or block placed after this change. Such an
+    entry has the new `ExistenceReason::Tombstone` and cannot receive the asset, whatever its
+    status. It still counts in `AssetDetails::accounts`, so the owner cannot raise the minimum
+    balance while it exists, and `thaw` fails with `ContainsHolds` or `ContainsFreezes` while it
+    has a hold or freeze.
 
     To back this entry with a deposit, `freeze` and `block` now reserve `AssetAccountDeposit`
     from the freezer when the account's holder can refund it, that is when it exists through a
@@ -26,8 +26,11 @@ doc:
 
     Only an account with a freezer deposit is kept on refund, so every kept entry is paid for.
     Accounts frozen or blocked before this change hold no freezer deposit: refunding one still
-    removes it, as before, until its freezer freezes or blocks it again. No migration is needed:
-    `FreezerDeposits` starts empty and `Tombstone` is a new variant.
+    removes it, as before, until its freezer freezes or blocks it again. To protect such an
+    account, the freezer must repeat the call that gave it its status: `freeze` for a frozen
+    account and `block` for a blocked one, since `freeze` would lift the block. Each call
+    reserves `AssetAccountDeposit`. No migration is needed: `FreezerDeposits` starts empty and
+    `Tombstone` is a new variant.
 
     `WeightInfo` gains `destroy_blocked_accounts`, which prices `destroy_accounts` for accounts
     that return a freezer deposit. The `destroy_accounts` call charges it for frozen and blocked

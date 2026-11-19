@@ -912,7 +912,12 @@ fn refunding_account_without_freezer_deposit_removes_it_until_blocked_again() {
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(3), 0, true));
 		assert!(!Account::<Test>::contains_key(0, &3));
 		assert_eq!(System::consumers(&3), 0);
+		// and the freeze is gone with it
+		assert_noop!(Assets::freeze(RuntimeOrigin::signed(1), 0, 3), Error::<Test>::NoAccount);
+		assert_noop!(Assets::block(RuntimeOrigin::signed(1), 0, 3), Error::<Test>::NoAccount);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		assert_eq!(Account::<Test>::get(0, &3).unwrap().status, AccountStatus::Liquid);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(3), 0, 1, 50));
 
 		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
 		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
