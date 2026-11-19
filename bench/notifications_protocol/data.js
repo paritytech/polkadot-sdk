@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795098201421,
+  "lastUpdate": 1795101408500,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -265535,6 +265535,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2400486152,
             "range": "± 14809883",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "41743d82f8a0593f6c0e84ac336f90dee5beebee",
+          "message": "statement-store: keep the recovery replay when the filter changes during major sync (#13879)\n\n## Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13871.\n\nA node in major sync drops every incoming statement. After the sync it\nsends its affinity filter again, and a peer answers an unchanged filter\nwith a full replay. A peer answers a changed filter with only the\ndifference. If an RPC client subscribed or unsubscribed during the sync,\nthe filter differed, every peer sent the difference, and the statements\ndropped on the unchanged topics stayed missing.\n\nThe fix has two sides, and the wire format stays as it is.\n\nThe recovering node remembers the filter that it advertised last. After\nthe sync, if its topics changed, it sends that filter first and the\nchanged one second. A newly connected peer receives the remembered\nfilter too, so every peer holds the same one however often the topics\nchange during the sync.\n\nThe peer remembers that a sender repeated its latest filter. The next\nsync for that sender sends everything, also when a changed filter\nreplaced the repeated one before the sync was scheduled.\n\n## Integration\n\nNo action for node operators. A peer without the change keeps only the\nlatest filter and sends the difference, so the loss ends on a link once\nboth sides run the change.\n\nA peer that connects between a topic change and the next filter\nbroadcast receives the previous filter first and the changed one a tick\nlater.",
+          "timestamp": "2026-11-19T14:00:28Z",
+          "tree_id": "f9f8ac81f12c5d1935335a7c9d6340a103020803",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41743d82f8a0593f6c0e84ac336f90dee5beebee"
+        },
+        "date": 1795101372034,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4296022,
+            "range": "± 23843",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 303422,
+            "range": "± 3969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 3869748,
+            "range": "± 25164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 370647,
+            "range": "± 2257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4669282,
+            "range": "± 34693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 881649,
+            "range": "± 7612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10362965,
+            "range": "± 31237",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4869450,
+            "range": "± 69218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44224258,
+            "range": "± 488676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37858808,
+            "range": "± 233584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 353547965,
+            "range": "± 4009563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 302815445,
+            "range": "± 1604049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2523956103,
+            "range": "± 14895543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2279116651,
+            "range": "± 17257431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3448527,
+            "range": "± 38540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1924604,
+            "range": "± 10437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3603196,
+            "range": "± 39473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2005027,
+            "range": "± 10523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4329747,
+            "range": "± 78044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2343191,
+            "range": "± 20891",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8042447,
+            "range": "± 44318",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5571322,
+            "range": "± 79265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39811183,
+            "range": "± 482912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38916935,
+            "range": "± 533682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 332631823,
+            "range": "± 4152166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 295434328,
+            "range": "± 1763637",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2595574281,
+            "range": "± 16082780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2383305415,
+            "range": "± 11207410",
             "unit": "ns/iter"
           }
         ]
