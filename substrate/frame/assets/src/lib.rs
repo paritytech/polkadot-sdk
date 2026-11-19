@@ -1950,7 +1950,7 @@ pub mod pallet {
 		/// Origin must be Signed and the sender should be the Freezer of the asset `id`.
 		///
 		/// - `id`: The identifier of the account's asset.
-		/// - `who`: The account to be unblocked.
+		/// - `who`: The account to be blocked.
 		///
 		/// If the account's holder can `refund` it, which leaves a blocked entry behind, reserves
 		/// `AssetAccountDeposit` from the sender unless the account already has a block deposit.
