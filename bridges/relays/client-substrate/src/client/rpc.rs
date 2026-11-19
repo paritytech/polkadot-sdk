@@ -19,6 +19,7 @@
 
 use crate::{
 	client::{
+		light_client::{self, LightChainHandle},
 		rpc_api::{
 			SubstrateAuthorClient, SubstrateBeefyClient, SubstrateChainClient,
 			SubstrateFrameSystemClient, SubstrateGrandpaClient, SubstrateStateClient,
@@ -32,7 +33,7 @@ use crate::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain,
 	ChainRuntimeVersion, ChainWithGrandpa, ChainWithTransactions, ConnectionParams, HashOf,
 	HeaderIdOf, HeaderOf, NonceOf, SignParam, SignedBlockOf, SimpleRuntimeVersion,
-	TransactionTracker, UnsignedTransaction,
+	TransactionTracker, Transport, UnsignedTransaction,
 };
 
 use async_trait::async_trait;
@@ -60,7 +61,7 @@ use sp_version::RuntimeVersion;
 use std::{cmp::Ordering, future::Future, marker::PhantomData, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
-const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
+pub(crate) const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_validate_transaction";
 const SUB_API_TX_PAYMENT_QUERY_INFO: &str = "TransactionPaymentApi_query_info";
@@ -91,6 +92,9 @@ struct ClientData {
 	tokio: tokio::runtime::Handle,
 	/// Substrate RPC client.
 	client: Arc<WsClient>,
+	/// The chain in the embedded light client, when connected through it.
+	#[allow(dead_code)]
+	light: Option<Arc<LightChainHandle>>,
 }
 
 /// Already encoded value.
@@ -134,7 +138,7 @@ impl<C: Chain> RpcClient<C> {
 	/// Try to connect to Substrate node over websocket. Returns Substrate RPC client if connection
 	/// has been established or error otherwise.
 	async fn try_connect(params: Arc<ConnectionParams>) -> Result<Self> {
-		let (tokio, client) = Self::build_client(&params).await?;
+		let (tokio, client, light) = Self::build_client(&params).await?;
 
 		let genesis_hash_client = client.clone();
 		let genesis_hash = tokio
@@ -150,7 +154,7 @@ impl<C: Chain> RpcClient<C> {
 			params,
 			submit_signed_extrinsic_lock: Arc::new(Mutex::new(())),
 			genesis_hash,
-			data: Arc::new(RwLock::new(ClientData { tokio, client })),
+			data: Arc::new(RwLock::new(ClientData { tokio, client, light })),
 			_phantom: PhantomData,
 		};
 		Self::ensure_correct_runtime_version(&mut client, chain_runtime_version).await?;
@@ -195,23 +199,36 @@ impl<C: Chain> RpcClient<C> {
 	/// Build client to use in connection.
 	async fn build_client(
 		params: &ConnectionParams,
-	) -> Result<(tokio::runtime::Handle, Arc<WsClient>)> {
+	) -> Result<(tokio::runtime::Handle, Arc<WsClient>, Option<Arc<LightChainHandle>>)> {
 		let tokio = tokio::runtime::Handle::try_current().map_err(|e| {
 			Error::Custom(format!("Failed to obtain current tokio runtime handle: {e}"))
 		})?;
-		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
+		let transport = &params.transport;
+		tracing::info!(target: "bridge", node=%C::NAME, %transport, "Connecting");
 
-		let client = tokio
-			.spawn(async move {
-				WsClientBuilder::default()
-					.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
-					.build(&uri)
-					.await
-			})
-			.await??;
+		let (client, light) = match transport.clone() {
+			Transport::Ws { uri } => {
+				let client = tokio
+					.spawn(async move {
+						WsClientBuilder::default()
+							.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
+							.build(&uri)
+							.await
+					})
+					.await??;
+				(client, None)
+			},
+			Transport::LightClient { chain_spec, relay_chain_spec } => {
+				let (light, client) = tokio
+					.spawn(
+						async move { light_client::build(&chain_spec, relay_chain_spec.as_deref()) },
+					)
+					.await??;
+				(client, Some(light))
+			},
+		};
 
-		Ok((tokio, Arc::new(client)))
+		Ok((tokio, Arc::new(client), light))
 	}
 
 	/// Execute jsonrpsee future in tokio context.
@@ -322,9 +339,12 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 
 	async fn reconnect(&self) -> Result<()> {
 		let mut data = self.data.write().await;
-		let (tokio, client) = Self::build_client(&self.params).await?;
+		// in light-client mode, the chain is added again before the old handle removes it, so
+		// smoldot keeps its sync state
+		let (tokio, client, light) = Self::build_client(&self.params).await?;
 		data.tokio = tokio;
 		data.client = client;
+		data.light = light;
 		Ok(())
 	}
 

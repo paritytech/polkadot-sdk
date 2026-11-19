@@ -116,7 +116,9 @@ macro_rules! declare_chain_connection_params_cli_schema {
 						.[<$chain_prefix _runtime_version>]
 						.into_runtime_version(Chain::RUNTIME_VERSION)?;
 					Ok(relay_substrate_client::new(relay_substrate_client::ConnectionParams {
-						uri: self.[<$chain_prefix _uri>],
+						transport: relay_substrate_client::Transport::Ws {
+							uri: self.[<$chain_prefix _uri>],
+						},
 						chain_runtime_version,
 					})
 					.await

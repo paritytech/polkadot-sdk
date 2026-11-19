@@ -244,6 +244,9 @@ pub enum Error {
 	/// Custom logic error.
 	#[error("{0}")]
 	Custom(String),
+	/// Embedded light client error.
+	#[error("Light client error: {0}")]
+	LightClient(String),
 }
 
 impl From<tokio::task::JoinError> for Error {
