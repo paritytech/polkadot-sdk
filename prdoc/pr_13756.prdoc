@@ -34,7 +34,8 @@ doc:
     returned one and `WeightInfo::destroy_accounts` for the others. Its pre-dispatch weight is
     the larger of the two for `RemoveItemsLimit` accounts, which is more than before for every
     asset. Runtimes must check that it still fits their block limits and lower
-    `RemoveItemsLimit` if it does not.
+    `RemoveItemsLimit` if it does not. Penpal lowers its limit from 1000 to 500 for that
+    reason.
 
 crates:
 - name: pallet-assets
@@ -43,3 +44,5 @@ crates:
   bump: minor
 - name: asset-hub-rococo-runtime
   bump: minor
+- name: penpal-runtime
+  bump: patch
