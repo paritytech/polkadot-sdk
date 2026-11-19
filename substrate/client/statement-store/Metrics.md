@@ -125,12 +125,13 @@ of statements in the database
 #### Invalid Validations Rate
 - **Metric:** `rate(substrate_sub_statement_store_validations_invalid[$__rate_interval])` with label `reason`
 - **Type:** CounterVec (displayed as rate; use `sum by (reason)` for breakdown)
-- **Labels:** `reason` = `no_proof` | `bad_proof` | `encoding_too_large` | `already_expired`
+- **Labels:** `reason` = `no_proof` | `bad_proof` | `encoding_too_large` | `already_expired` | `no_topics`
 - **What it measures:** Statements that failed validation during submission, broken down by reason:
   - **`no_proof`**: Statement has no account / missing proof so it cannot be attributed.
   - **`bad_proof`**: Signature verification failed — tampered or malformed proof.
   - **`encoding_too_large`**: Encoded statement exceeds `MAX_STATEMENT_SIZE`.
   - **`already_expired`**: Statement's expiration timestamp was already in the past at submission time.
+  - **`no_topics`**: Statement carries no topic, so topic-based routing cannot deliver it.
 - **Why it matters:** Invalid statements consume validation resources
   (CPU for signature verification) without producing useful work. High rates indicate
   malicious actors submitting garbage, network corruption, or client bugs. Breakdown by
