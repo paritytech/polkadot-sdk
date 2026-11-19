@@ -521,12 +521,13 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			// we store last validation result (i.e. the pool entry) in txs_to_resubmit
 			let mut initial_statuses = HashMap::new();
 			let mut txs_to_resubmit = Vec::with_capacity(updated_transactions.len());
-			while !updated_transactions.is_empty() {
-				let hash = updated_transactions
-					.keys()
-					.next()
-					.cloned()
-					.expect("transactions is not empty; qed");
+			// we walk the hashes in their original order and remove entries with `swap_remove`,
+			// because `shift_remove` moves every remaining entry and makes this loop quadratic.
+			let hashes = updated_transactions.keys().cloned().collect::<Vec<_>>();
+			for hash in hashes {
+				if !updated_transactions.contains_key(&hash) {
+					continue;
+				}
 
 				// note we are not considering tx with hash invalid here - we just want
 				// to remove it along with dependent transactions and `remove_subtree()`
@@ -534,7 +535,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				let removed = pool.remove_subtree(&[hash]);
 				for removed_tx in removed {
 					let removed_hash = removed_tx.hash;
-					let updated_transaction = updated_transactions.shift_remove(&removed_hash);
+					let updated_transaction = updated_transactions.swap_remove(&removed_hash);
 					let tx_to_resubmit = if let Some(updated_tx) = updated_transaction {
 						updated_tx
 					} else {
@@ -551,7 +552,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					txs_to_resubmit.push((removed_hash, tx_to_resubmit));
 				}
 				// make sure to remove the hash even if it's not present in the pool anymore.
-				updated_transactions.shift_remove(&hash);
+				updated_transactions.swap_remove(&hash);
 			}
 
 			// if we're rejecting future transactions, then insertion order matters here:
