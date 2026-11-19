@@ -21,8 +21,8 @@ doc:
     the new `FreezerDeposits` storage item and returned to the account that placed it when the
     account is thawed or destroyed together with the asset. Freezing or blocking an account that
     already has a freezer deposit takes no further deposit, and the freezer must hold enough
-    free balance for it. Accounts of a sufficient asset, and accounts whose deposit someone else
-    placed, cannot be refunded while frozen or blocked and take no freezer deposit. Accounts
+    free balance for it. Accounts that exist as `Sufficient` or through a deposit someone else
+    placed cannot be refunded while frozen or blocked and take no freezer deposit. Accounts
     frozen or blocked before this change hold no freezer deposit until they are frozen or
     blocked again. No migration is needed: `FreezerDeposits` starts empty and `Tombstone` is a
     new variant.

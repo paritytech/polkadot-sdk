@@ -166,7 +166,8 @@ fn ensure_bool_decodes_to_liquid_or_frozen() {
 pub enum AccountStatus {
 	/// Asset account can receive and transfer the assets.
 	Liquid,
-	/// Asset account cannot transfer the assets.
+	/// Asset account cannot transfer the assets. It cannot receive them either if it is a
+	/// [`ExistenceReason::Tombstone`].
 	Frozen,
 	/// Asset account cannot receive and transfer the assets.
 	Blocked,
