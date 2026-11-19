@@ -1,0 +1,22 @@
+title: 'Asset Hub Westend: validators collate on Bulletin Westend'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Asset Hub Westend sends the validator set of every era to Bulletin Westend, as it does to
+    People, and accepts Bulletin's reports of authored blocks for era points.
+
+    One list of parachain IDs, `ValidatorCollatorChains`, names the chains that receive the
+    validator set, report their authored blocks and get explicit unpaid execution at the barrier.
+    The set is sent as an unpaid `Transact` of `set_validators` with the `Xcm` origin kind. Asset
+    Hub encodes the call with the same pallet index of `ValidatorCollators` on every receiving
+    chain. The Bulletin Westend runtime is built outside this repository, so it must keep that
+    index.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: testnet-parachains-constants
+  bump: minor
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none

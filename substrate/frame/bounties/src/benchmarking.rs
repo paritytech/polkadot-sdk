@@ -416,7 +416,10 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), bounty_id);
 
-		assert_last_event::<T, I>(Event::BountyFundsReclaimed { bounty_id }.into());
+		// `TransferAllAssets = ()` transfers nothing, in which case no event is emitted.
+		if T::Currency::free_balance(&bounty_account).is_zero() {
+			assert_last_event::<T, I>(Event::BountyFundsReclaimed { bounty_id }.into());
+		}
 
 		Ok(())
 	}
@@ -425,4 +428,17 @@ mod benchmarks {
 		crate::tests::ExtBuilder::default().build(),
 		crate::tests::Test
 	);
+
+	// `Instance1` of the mock uses `TransferAllAssets = ()`.
+	#[test]
+	fn reclaim_bounty_funds_works_without_transfer_all_assets() {
+		use crate::{
+			tests::{ExtBuilder, Test},
+			Instance1,
+		};
+
+		ExtBuilder::default().build().execute_with(|| {
+			assert_eq!(Bounties::<Test, Instance1>::test_benchmark_reclaim_bounty_funds(), Ok(()));
+		});
+	}
 }

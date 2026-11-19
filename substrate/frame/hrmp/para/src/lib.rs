@@ -30,12 +30,15 @@ extern crate alloc;
 use core::cmp::Ordering;
 use frame_support::{
 	pallet_prelude::*,
-	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
-	traits::{fungible::MutateHold, tokens::Precision},
+	storage::{transactional::with_transaction_opaque_err, with_storage_layer, TransactionOutcome},
+	traits::{
+		fungible::{InspectHold, MutateHold},
+		tokens::Precision,
+	},
 };
 use hrmp_primitives::{
-	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
 use sp_runtime::{traits::Convert, DispatchError, DispatchResult, TokenError};
 
@@ -79,6 +82,10 @@ pub trait BenchmarkHelper {
 impl BenchmarkHelper for () {
 	fn ensure_send_to_relay() {}
 }
+
+/// The hold reason type of [`Config::Currency`].
+pub type ReasonOf<T> =
+	<<T as Config>::Currency as InspectHold<<T as frame_system::Config>::AccountId>>::Reason;
 
 /// What one side of a channel holds, and from whose account.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
@@ -145,6 +152,9 @@ pub mod pallet {
 		DepositSet { channel: ChannelId, side: DepositSide, amount: Balance },
 		/// The deposits of request `id` could not be set. Nothing changed.
 		DepositRefused { id: u64, channel: ChannelId },
+		/// A migrated deposit of `amount` was taken over: the side now holds `held`, which is
+		/// `amount` unless the hold to move from, the migration's or this pallet's, was short.
+		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
 	}
 
 	#[pallet::error]
@@ -245,6 +255,57 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config> ReceiveMigratedDeposits<ReasonOf<T>> for Pallet<T> {
+	fn receive_deposit(key: DepositKey, amount: Balance, source: &ReasonOf<T>) -> DispatchResult {
+		let DepositKey { channel, side } = key;
+		let local = HoldReason::ChannelDeposit.into();
+		// As `set_side`: the recorded depositor, or the payer if nothing is held.
+		let (current, who) = match Deposits::<T>::get((channel, side)) {
+			Some(Deposit { amount, depositor }) => (amount, depositor),
+			None => (0, Self::payer(&channel, side)),
+		};
+		// What the side is missing comes from the migration's hold, what it holds in excess
+		// goes back to it; as much as the hold it comes from has.
+		let (from, to, wanted) = if amount > current {
+			(source, &local, amount - current)
+		} else {
+			(&local, source, current - amount)
+		};
+
+		let moved = wanted.min(T::Currency::balance_on_hold(from, &who));
+		if moved != 0 {
+			// Released from one hold and held again for the other, on the same account.
+			with_storage_layer(|| -> DispatchResult {
+				T::Currency::release(from, &who, moved, Precision::Exact)?;
+				T::Currency::hold(to, &who, moved)
+			})?;
+		}
+		let held = if amount > current {
+			current.saturating_add(moved)
+		} else {
+			current.saturating_sub(moved)
+		};
+
+		if moved != wanted {
+			frame_support::defensive!("hrmp-para: moved holds not as wanted", (wanted, moved));
+		}
+		if held != current {
+			if held == 0 {
+				Deposits::<T>::remove((channel, side));
+			} else {
+				Deposits::<T>::insert((channel, side), Deposit { amount: held, depositor: who });
+			}
+			Self::deposit_event(Event::DepositSet { channel, side, amount: held });
+		}
+		Self::deposit_event(Event::DepositMigrated { channel, side, amount, held });
+		Ok(())
+	}
+
+	fn weight_of_receive_deposit() -> Weight {
+		T::WeightInfo::receive_deposit()
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// The account that pays for `side` of `channel` when it holds nothing yet.
 	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
@@ -324,7 +385,6 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::btree_map::BTreeMap;
-		use frame_support::traits::fungible::InspectHold;
 		let mut per_depositor = BTreeMap::<T::AccountId, Balance>::new();
 
 		for (_, Deposit { amount, depositor }) in Deposits::<T>::iter() {

@@ -46,16 +46,25 @@ struct PeerInfo {
 	supports_protocol: bool,
 	/// The peer speaks the protocol without the DHT path, so identify must not index it.
 	without_dht: bool,
+	/// A light peer stores and routes nothing, so identify must not index it.
+	is_light: bool,
 	/// The statement notification substream to the peer is open.
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
 	key: Key,
-	/// Monotonic timestamp of the most recent event observing this peer; the eviction key for both
-	/// staleness and the capacity backstop.
+	/// Monotonic timestamp of the most recent sign of life from this peer, of its substream close,
+	/// or of its discovery.
+	/// The eviction key for both staleness and the capacity backstop.
 	last_seen: Instant,
 }
 
-/// Evict a disconnected peer unseen by any event for this long.
+impl PeerInfo {
+	fn can_join_dht(&self) -> bool {
+		!self.without_dht && !self.is_light
+	}
+}
+
+/// Evict a disconnected peer that gave no sign of life for this long.
 const PEER_STALENESS_TTL: Duration = Duration::from_secs(2 * 60 * 60);
 
 /// Hard cap on `discovered`; bounds memory when discovery outruns staleness eviction.
@@ -102,9 +111,13 @@ impl PeersTopology {
 	///
 	/// Used instead of the Kademlia routing table, which is bucket-limited and holds only a
 	/// fraction of discovered peers.
+	///
+	/// A known peer keeps its `last_seen`, because other nodes name a peer long after it left.
 	pub fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		for peer in peers {
-			self.get_or_insert_peer(peer);
+			if !self.discovered.contains_key(&peer) {
+				self.get_or_insert_peer(peer);
+			}
 		}
 	}
 
@@ -115,7 +128,7 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		info.supports_protocol = supports_statement_protocol && !info.without_dht;
+		info.supports_protocol = supports_statement_protocol && info.can_join_dht();
 		if info.supports_protocol {
 			self.discovered_index.insert(key, peer);
 		} else {
@@ -145,6 +158,18 @@ impl PeersTopology {
 		info.without_dht = true;
 		self.discovered_index.remove(key, &peer);
 		self.connected.remove(key, &peer);
+	}
+
+	/// Drop the light `peer` from the DHT index until eviction: a light peer id never turns into a
+	/// full node. Returns whether the DHT index changed.
+	pub fn on_light_peer(&mut self, peer: PeerId) -> bool {
+		let info = self.get_or_insert_peer(peer);
+		let key = info.key;
+		let was_indexed = info.supports_protocol;
+		info.is_light = true;
+		info.supports_protocol = false;
+		self.discovered_index.remove(key, &peer);
+		was_indexed
 	}
 
 	/// Record that the statement notification substream closed. A peer without the DHT path
@@ -244,12 +269,34 @@ impl PeersTopology {
 		targets
 	}
 
+	/// The connected peers, farthest from the local node first.
+	pub fn connected_farthest_first(&self) -> Vec<PeerId> {
+		// The peer farthest from a key is the one closest to the key's complement.
+		let opposite = self.local_key.map(|byte| !byte);
+		self.connected.closest(opposite).map(|(peer, _)| peer).collect()
+	}
+
+	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
+	pub fn is_replica_for(&self, topic: Topic) -> bool {
+		let local = (self.local_key, self.local_peer);
+		let k = self.config.replication_factor.get();
+		is_peer_topic_affine(&self.discovered_index, local, local, k, topic)
+	}
+
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
-	/// explicit-affinity topics, and selects a minimal set of peers covering every topic,
-	/// independent of connection state.
-	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
+	/// explicit-affinity topics, and selects few peers that together cover every topic with a
+	/// reachable replica.
+	///
+	/// A peer that `is_unreachable` is passed over, so another replica of its topic takes its
+	/// place. A connected peer goes first, so the replacement keeps the topic when the unreachable
+	/// peer is tried again.
+	pub fn peers_for_topics(
+		&self,
+		topics: &[Topic],
+		is_unreachable: impl Fn(&PeerId) -> bool,
+	) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
 		}
@@ -258,16 +305,23 @@ impl PeersTopology {
 
 		let closest_pools = topics
 			.iter()
-			.map(|topic| self.closest_known_keyed(*topic, pool_size))
+			.map(|topic| {
+				let mut pool = self.closest_known_keyed(*topic, pool_size);
+				pool.retain(|(peer, _)| !is_unreachable(peer));
+				pool
+			})
 			.collect::<Vec<_>>();
 
 		let mut uncovered = (0..topics.len()).collect::<HashSet<_>>();
 
 		let mut selected = Vec::new();
 		let limit = topics.len();
+		let is_connected =
+			|peer: &PeerId| self.discovered.get(peer).is_some_and(|info| info.connected);
 
 		while !uncovered.is_empty() && selected.len() < limit {
-			let Some(best_peer) = best_candidate(topics, &closest_pools, &uncovered, &selected)
+			let Some(best_peer) =
+				best_candidate(topics, &closest_pools, &uncovered, &selected, is_connected)
 			else {
 				break;
 			};
@@ -286,15 +340,34 @@ impl PeersTopology {
 	/// peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
 	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 	/// statement for any topic a connected next hop closer to the topic.
-	pub fn peers_for_routing(&self) -> Vec<PeerId> {
+	///
+	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
+	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
+	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
+	/// peers themselves connect.
+	pub fn peers_for_routing(&self, is_unreachable: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
 		let mut last_bucket = None;
+		let mut bucket_has_connected = false;
+		let mut connected_chosen = 0;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
+			if is_unreachable(&peer) {
+				continue;
+			}
 			let bucket = bucket_of(self.local_key, key);
-			if routing.len() < nearest || last_bucket != Some(bucket) {
+			let first_of_bucket = last_bucket != Some(bucket);
+			if first_of_bucket {
+				bucket_has_connected = false;
+			}
+			let connected = self.discovered.get(&peer).is_some_and(|info| info.connected);
+			let keeps_connected =
+				connected && (!bucket_has_connected || connected_chosen < nearest);
+			if routing.len() < nearest || first_of_bucket || keeps_connected {
 				routing.push(peer);
+				bucket_has_connected |= connected;
+				connected_chosen += usize::from(connected);
 			}
 			last_bucket = Some(bucket);
 		}
@@ -307,6 +380,7 @@ impl PeersTopology {
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
 			without_dht: false,
+			is_light: false,
 			connected: false,
 			key: peer_key(&peer),
 			last_seen: now,
@@ -348,13 +422,14 @@ impl PeersTopology {
 	}
 }
 
-/// The peer covering the most uncovered topics, breaking ties by the smallest distance to a
-/// covered topic, then by the smallest peer id.
+/// A connected peer before any other, then the peer covering the most uncovered topics, breaking
+/// ties by the smallest distance to a covered topic, then by the smallest peer id.
 fn best_candidate(
 	topics: &[Topic],
 	pools: &[Vec<(PeerId, Key)>],
 	uncovered: &HashSet<usize>,
 	selected: &[PeerId],
+	is_connected: impl Fn(&PeerId) -> bool,
 ) -> Option<PeerId> {
 	uncovered
 		.iter()
@@ -373,7 +448,7 @@ fn best_candidate(
 			(peer, covered_count, best_distance)
 		})
 		.min_by_key(|&(peer, covered_count, best_distance)| {
-			(Reverse(covered_count), best_distance, peer)
+			(Reverse(is_connected(&peer)), Reverse(covered_count), best_distance, peer)
 		})
 		.map(|(peer, ..)| peer)
 }
@@ -546,6 +621,36 @@ mod tests {
 	}
 
 	#[test]
+	fn identify_keeps_a_light_peer_out_of_the_index() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+
+		assert!(!topology.on_light_peer(peer));
+		topology.on_peer_identified(peer, true);
+
+		assert_eq!(topology.known_peers_count(), 1);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+	}
+
+	#[test]
+	fn an_indexed_light_peer_leaves_the_index_until_eviction() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 1);
+
+		assert!(topology.on_light_peer(peer));
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		assert!(!topology.on_substream_closed(peer));
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		assert!(!topology.evict(Instant::now() + PEER_STALENESS_TTL));
+		assert_eq!(topology.known_peers_count(), 0);
+	}
+
+	#[test]
 	fn substream_lifecycle_drives_routing_targets() {
 		let mut topology = topology(1);
 		let topic = topic(1);
@@ -643,6 +748,21 @@ mod tests {
 	}
 
 	#[test]
+	fn connected_peers_are_listed_farthest_from_the_local_node_first() {
+		let local = peer(1);
+		let mut topology = topology(1);
+		let mut peers: Vec<PeerId> = (2..=6).map(peer).collect();
+		for peer in &peers {
+			topology.on_substream_opened(*peer);
+		}
+
+		let local_key = Topic(peer_key(&local));
+		peers.sort_by(|a, b| cmp_distance_then_peer(local_key, b, a));
+
+		assert_eq!(topology.connected_farthest_first(), peers);
+	}
+
+	#[test]
 	fn routing_targets_saturate_the_replica_set_beyond_gossip_target() {
 		// Regression: with K replicas and a smaller gossip_target, every connected
 		// replica must still be a forwarding target, otherwise the replica set
@@ -711,11 +831,42 @@ mod tests {
 		}
 
 		let connected = topology.closest_known(topic, 1)[0];
-		let before = topology.peers_for_topics(&[topic]);
+		let before = topology.peers_for_topics(&[topic], |_| false);
 		topology.on_substream_opened(connected);
 
-		assert_eq!(topology.peers_for_topics(&[topic]), before);
-		assert!(topology.peers_for_topics(&[topic]).contains(&connected));
+		assert_eq!(topology.peers_for_topics(&[topic], |_| false), before);
+		assert!(topology.peers_for_topics(&[topic], |_| false).contains(&connected));
+	}
+
+	#[test]
+	fn peers_for_topics_replaces_an_unreachable_coverage_peer() {
+		let mut topology = topology(1);
+		let topic = topic(9);
+		for peer in (2..=10).map(peer) {
+			dht_peer(&mut topology, peer);
+		}
+		let pool = topology.closest_known(topic, 2);
+		let (unreachable, replacement) = (pool[0], pool[1]);
+		assert_eq!(topology.peers_for_topics(&[topic], |_| false), vec![unreachable]);
+
+		let skipped = topology.peers_for_topics(&[topic], |peer| *peer == unreachable);
+		assert_eq!(skipped, vec![replacement]);
+
+		// The mark of the unreachable peer ends, and the connected replacement keeps the topic.
+		topology.on_substream_opened(replacement);
+		assert_eq!(topology.peers_for_topics(&[topic], |_| false), vec![replacement]);
+	}
+
+	#[test]
+	fn peers_for_topics_leaves_a_topic_uncovered_when_every_replica_is_unreachable() {
+		let mut topology = topology(1);
+		let topic = topic(9);
+		for peer in (2..=10).map(peer) {
+			dht_peer(&mut topology, peer);
+		}
+		let pool = topology.closest_known(topic, 2);
+
+		assert!(topology.peers_for_topics(&[topic], |peer| pool.contains(peer)).is_empty());
 	}
 
 	#[test]
@@ -732,8 +883,8 @@ mod tests {
 			dht_peer(&mut reverse, *peer);
 		}
 
-		let selected = forward.peers_for_topics(&topics);
-		assert_eq!(selected, reverse.peers_for_topics(&topics));
+		let selected = forward.peers_for_topics(&topics, |_| false);
+		assert_eq!(selected, reverse.peers_for_topics(&topics, |_| false));
 		assert!(!selected.is_empty());
 		assert!(selected.len() <= topics.len());
 
@@ -785,7 +936,7 @@ mod tests {
 		// the result.
 		assert_eq!(bucket_of(&candidates[9]), bucket_of(&candidates[10]));
 
-		let mut routing = topology.peers_for_routing();
+		let mut routing = topology.peers_for_routing(|_| false);
 		routing.sort();
 		expected.sort();
 		assert_eq!(routing, expected);
@@ -797,7 +948,97 @@ mod tests {
 		for seed in 2..=6 {
 			dht_peer(&mut topology, peer(seed));
 		}
-		assert_eq!(topology.peers_for_routing().len(), 5);
+		assert_eq!(topology.peers_for_routing(|_| false).len(), 5);
+	}
+
+	/// A topology with 12 peers in the farthest bucket and 12 nearer ones, and a topic that only
+	/// a peer of the farthest bucket is closer to than the local node.
+	fn topology_with_far_bucket() -> (PeersTopology, Topic) {
+		let local = peer(1);
+		let local_key = peer_key(&local);
+		let mut topology = PeersTopology::new(local, topology_config(8, 3));
+		let in_far_bucket = |peer: &PeerId| bucket_of(local_key, peer_key(peer)) == 0;
+		let peers: Vec<PeerId> = (2..=255).map(peer).collect();
+		let far = peers.iter().copied().filter(|peer| in_far_bucket(peer)).take(12);
+		let near = peers.iter().copied().filter(|peer| !in_far_bucket(peer)).take(12);
+		for peer in far.chain(near) {
+			dht_peer(&mut topology, peer);
+		}
+		let mut topic_key = local_key;
+		topic_key[0] ^= 0x80;
+		(topology, Topic(topic_key))
+	}
+
+	fn far_bucket_routing_peers(
+		topology: &PeersTopology,
+		is_unreachable: impl Fn(&PeerId) -> bool,
+	) -> Vec<PeerId> {
+		topology
+			.peers_for_routing(is_unreachable)
+			.into_iter()
+			.filter(|peer| bucket_of(topology.local_key, peer_key(peer)) == 0)
+			.collect()
+	}
+
+	#[test]
+	fn peers_for_routing_replaces_an_unreachable_peer_with_the_next_of_its_bucket() {
+		let (mut topology, topic) = topology_with_far_bucket();
+		let unreachable = far_bucket_routing_peers(&topology, |_| false);
+		assert_eq!(unreachable.len(), 1);
+		for peer in topology.peers_for_routing(|_| false) {
+			if peer != unreachable[0] {
+				topology.on_substream_opened(peer);
+			}
+		}
+		assert!(topology.routing_targets(topic).is_empty());
+
+		let replacement = far_bucket_routing_peers(&topology, |peer| *peer == unreachable[0]);
+		assert_eq!(replacement.len(), 1);
+		assert_ne!(replacement, unreachable);
+		topology.on_substream_opened(replacement[0]);
+		assert_eq!(topology.routing_targets(topic), replacement);
+	}
+
+	#[test]
+	fn peers_for_routing_keeps_a_connected_peer_until_a_nearer_one_of_its_bucket_connects() {
+		let (mut topology, _) = topology_with_far_bucket();
+		let nearest = far_bucket_routing_peers(&topology, |_| false)[0];
+		let replacement = far_bucket_routing_peers(&topology, |peer| *peer == nearest)[0];
+		for peer in topology.peers_for_routing(|peer| *peer == nearest) {
+			topology.on_substream_opened(peer);
+		}
+
+		// The nearest peer is tried again while the replacement still serves the bucket.
+		assert_eq!(far_bucket_routing_peers(&topology, |_| false), vec![nearest, replacement]);
+
+		topology.on_substream_opened(nearest);
+		assert_eq!(far_bucket_routing_peers(&topology, |_| false), vec![nearest]);
+	}
+
+	#[test]
+	fn peers_for_routing_keeps_a_connected_peer_until_the_nearest_ones_connect() {
+		// With 10 nearest peers the 10th sits mid-bucket, so the 11th is chosen only in its place.
+		let mut topology = PeersTopology::new(peer(1), topology_config(10, 3));
+		for seed in 2..=200 {
+			dht_peer(&mut topology, peer(seed));
+		}
+		let chosen = topology.peers_for_routing(|_| false);
+		let nearest = chosen[0];
+		let with_replacement = topology.peers_for_routing(|peer| *peer == nearest);
+		let replacement: Vec<PeerId> =
+			with_replacement.iter().copied().filter(|peer| !chosen.contains(peer)).collect();
+		assert_eq!(replacement.len(), 1);
+		for peer in with_replacement {
+			topology.on_substream_opened(peer);
+		}
+
+		// The nearest peer is tried again while the replacement still fills its place.
+		let retried = topology.peers_for_routing(|_| false);
+		assert!(retried.contains(&nearest));
+		assert!(retried.contains(&replacement[0]));
+
+		topology.on_substream_opened(nearest);
+		assert!(!topology.peers_for_routing(|_| false).contains(&replacement[0]));
 	}
 
 	#[test]
@@ -924,6 +1165,33 @@ mod tests {
 		assert!(!topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1)));
 
 		assert_eq!(topology.known_peers_count(), 1);
+	}
+
+	#[test]
+	fn staleness_drops_a_peer_that_discovery_keeps_naming() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		dht_peer(&mut topology, peer);
+		let deadline = Instant::now() + PEER_STALENESS_TTL;
+
+		std::thread::sleep(Duration::from_millis(1));
+		topology.on_peers_discovered([peer]);
+
+		assert!(topology.evict(deadline));
+		assert_eq!(topology.known_peers_count(), 0);
+	}
+
+	#[test]
+	fn discovery_returns_an_evicted_peer_outside_the_dht_index() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		dht_peer(&mut topology, peer);
+		assert!(topology.evict(Instant::now() + PEER_STALENESS_TTL));
+
+		topology.on_peers_discovered([peer]);
+
+		assert_eq!(topology.known_peers_count(), 1);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
 	}
 
 	#[test]
