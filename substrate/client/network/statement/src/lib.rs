@@ -364,7 +364,7 @@ mod peer_route {
 	/// We use the DHT path and send only what the peer's filter asks for.
 	pub const DHT: &str = "dht";
 	/// We send the peer everything. This covers v1 peers, full v2 peers, and every peer while this
-	/// node runs without the DHT.
+	/// node runs without the DHT path.
 	pub const LEGACY: &str = "legacy";
 }
 

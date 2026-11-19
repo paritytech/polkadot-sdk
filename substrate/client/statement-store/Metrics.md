@@ -90,7 +90,7 @@ of statements in the database
 - **Labels:** `reason` = `persistent` | `transient` | `dht` | `explicit` | `both`
 - **What it measures:** Successful new statement submissions per second, broken down by the
   retention reason chosen at admission:
-  - **`persistent`**: No v2 retention resolver is installed (DHT disabled); the statement is
+  - **`persistent`**: No retention resolver is installed (DHT path off); the statement is
     kept under the normal retention rules.
   - **`transient`**: The node has no affinity for any of the statement's topics; it is kept only
     until the first maintenance sweep after propagation.

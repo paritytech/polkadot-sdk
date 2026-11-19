@@ -181,7 +181,8 @@ pub(super) async fn launch_soak_network(
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
 	salt_chain_spec(&chain_spec_path)?;
-	let args = collator_args_dht(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
+	let args =
+		collator_args_dht(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();

@@ -3,8 +3,8 @@
 
 mod bench;
 mod common;
+mod dht_mixed_soak;
+mod dht_soak;
 mod integration;
 mod integration_dht;
 mod mixed_version;
-mod dht_mixed_soak;
-mod dht_soak;
