@@ -21,9 +21,9 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
-	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, ReviveConfig, RuntimeGenesisConfig,
+	SessionConfig, SessionKeys, SocietyConfig, SudoConfig, TechnicalCommitteeConfig,
+	BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -36,24 +36,16 @@ use sp_core::{crypto::get_public_from_string_or_panic, sr25519, Get};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
-use sp_runtime::Perbill;
 
 pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 pub const STASH: Balance = ENDOWMENT / 1000;
-
-/// The staker type as supplied ot the Staking config.
-pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
 pub fn kitchensink_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, SessionKeys)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	stakers: Vec<Staker>,
 ) -> serde_json::Value {
-	let validator_count = initial_authorities.len() as u32;
-	let minimum_validator_count = validator_count;
-
 	let collective = collective(&endowed_accounts);
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -67,18 +59,6 @@ pub fn kitchensink_genesis(
 				.map(|x| { (x.0.clone(), x.1.clone(), x.2.clone()) })
 				.collect(),
 		},
-		staking: StakingConfig {
-			validator_count,
-			minimum_validator_count,
-			invulnerables: initial_authorities
-				.iter()
-				.map(|x| x.0.clone())
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
-			slash_reward_fraction: Perbill::from_percent(10),
-			stakers,
-		},
 		elections: ElectionsConfig {
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),
 		},
@@ -90,10 +70,6 @@ pub fn kitchensink_genesis(
 			// This asset is used by the NIS pallet as counterpart currency.
 			assets: vec![(9, Sr25519Keyring::Alice.to_account_id(), true, 1)],
 			..Default::default()
-		},
-		nomination_pools: NominationPoolsConfig {
-			min_create_bond: 10 * DOLLARS,
-			min_join_bond: 1 * DOLLARS,
 		},
 		revive: ReviveConfig {
 			mapped_accounts: if <crate::Runtime as pallet_revive::Config>::AutoMap::get() {
@@ -121,23 +97,17 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchensink_genesis(
-			// Use stash as controller account, otherwise grandpa can't load the authority set at
-			// genesis.
-			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
-			alice.clone(),
+			vec![(alice_stash.clone(), alice_stash, alice_session_keys)],
+			alice,
 			endowed,
-			vec![validator(alice_stash.clone())],
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
-				// Use stash as controller account, otherwise grandpa can't load the authority set
-				// at genesis.
-				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
-				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),
+				(alice_stash.clone(), alice_stash, alice_session_keys),
+				(bob_stash.clone(), bob_stash, bob_session_keys),
 			],
 			alice,
 			endowed,
-			vec![validator(alice_stash), validator(bob_stash)],
 		),
 		_ => return None,
 	};
@@ -155,13 +125,6 @@ pub fn preset_names() -> Vec<PresetId> {
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
-}
-
-/// Sets up the `account` to be a staker of validator variant as supplied to the
-/// staking config.
-pub fn validator(account: AccountId) -> Staker {
-	// validator, controller, stash, staker status
-	(account.clone(), account, STASH, StakerStatus::Validator)
 }
 
 /// Extract some accounts from endowed to be put into the collective.

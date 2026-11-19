@@ -74,7 +74,6 @@ EXCLUDED_PALLETS=(
   "pallet_babe"
   "pallet_grandpa"
   "pallet_mmr"
-  "pallet_offences"
   # Only used for testing, does not need real weights.
   "frame_benchmarking_pallet_pov"
 )

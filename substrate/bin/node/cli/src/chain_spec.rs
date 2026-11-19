@@ -22,8 +22,8 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	genesis_config_presets::{Staker, ENDOWMENT, STASH},
-	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
+	genesis_config_presets::{ENDOWMENT, STASH},
+	wasm_binary_unwrap, Block,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_revive::AddressMapper;
@@ -213,7 +213,7 @@ fn configure_accounts_for_staging_testnet() -> (
 fn staging_testnet_genesis_patch() -> serde_json::Value {
 	let (initial_authorities, root_key, endowed_accounts) =
 		configure_accounts_for_staging_testnet();
-	testnet_genesis_patch(initial_authorities, vec![], root_key, endowed_accounts)
+	testnet_genesis_patch(initial_authorities, root_key, endowed_accounts)
 }
 
 /// Staging testnet config.
@@ -231,12 +231,9 @@ pub fn staging_testnet_config() -> ChainSpec {
 		.build()
 }
 
-/// Configure the accounts for the testnet.
-///
-/// * Adds `initial_authorities` and `initial_nominators` to endowed accounts if missing.
-/// * Sets up the stakers consisting of the `initial_authorities` and `initial_nominators`.
-fn configure_accounts(
-	initial_authorities: Vec<(
+/// Adds the `initial_authorities` to the `endowed_accounts` if missing.
+fn endow_authorities(
+	initial_authorities: &[(
 		AccountId,
 		AccountId,
 		GrandpaId,
@@ -245,56 +242,16 @@ fn configure_accounts(
 		AuthorityDiscoveryId,
 		MixnetId,
 		BeefyId,
-	)>,
-	initial_nominators: Vec<AccountId>,
+	)],
 	endowed_accounts: Vec<AccountId>,
-	stash: Balance,
-) -> (
-	Vec<(
-		AccountId,
-		AccountId,
-		GrandpaId,
-		BabeId,
-		ImOnlineId,
-		AuthorityDiscoveryId,
-		MixnetId,
-		BeefyId,
-	)>,
-	Vec<AccountId>,
-	Vec<Staker>,
-) {
+) -> Vec<AccountId> {
 	let mut endowed_accounts = endowed_accounts;
-	// endow all authorities and nominators.
-	initial_authorities
-		.iter()
-		.map(|x| &x.0)
-		.chain(initial_nominators.iter())
-		.for_each(|x| {
-			if !endowed_accounts.contains(x) {
-				endowed_accounts.push(x.clone())
-			}
-		});
-
-	// stakers: all validators and nominators.
-	let mut rng = rand::thread_rng();
-	let stakers = initial_authorities
-		.iter()
-		.map(|x| (x.0.clone(), x.0.clone(), stash, StakerStatus::Validator))
-		.chain(initial_nominators.iter().map(|x| {
-			use rand::{seq::SliceRandom, Rng};
-			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
-			let count = rng.gen::<usize>() % limit;
-			let nominations = initial_authorities
-				.as_slice()
-				.choose_multiple(&mut rng, count)
-				.into_iter()
-				.map(|choice| choice.0.clone())
-				.collect::<Vec<_>>();
-			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
-		}))
-		.collect::<Vec<_>>();
-
-	(initial_authorities, endowed_accounts, stakers)
+	initial_authorities.iter().map(|x| &x.0).for_each(|x| {
+		if !endowed_accounts.contains(x) {
+			endowed_accounts.push(x.clone())
+		}
+	});
+	endowed_accounts
 }
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
@@ -309,15 +266,10 @@ pub fn testnet_genesis_patch(
 		MixnetId,
 		BeefyId,
 	)>,
-	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, stakers) =
-		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
-
-	let validator_count = initial_authorities.len();
-	let minimum_validator_count = validator_count;
+	let endowed_accounts = endow_authorities(&initial_authorities, endowed_accounts);
 
 	let collective = collective(&endowed_accounts);
 
@@ -331,7 +283,6 @@ pub fn testnet_genesis_patch(
 			.map(|x| {
 				(
 					x.0.clone(),
-					// stash account is controller
 					x.0.clone(),
 					session_keys_json(
 						x.2.clone(),
@@ -350,15 +301,6 @@ pub fn testnet_genesis_patch(
 		},
 		"technicalCommittee": {
 			"members": collective,
-		},
-		"staking": {
-			"validatorCount": validator_count,
-			"minimumValidatorCount": minimum_validator_count,
-			"invulnerables": initial_authorities
-				.iter()
-				.map(|x| x.0.clone())
-				.collect::<Vec<_>>(),
-			"stakers": stakers,
 		},
 		"sudo": {
 			"key": root_key,

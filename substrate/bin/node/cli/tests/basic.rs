@@ -409,19 +409,7 @@ fn full_native_block_import_works() {
 				topics: vec![],
 			},
 		];
-		let filtered_events: Vec<_> = System::events()
-			.into_iter()
-			.filter(|ev| {
-				!matches!(
-					ev.event,
-					RuntimeEvent::VoterList(
-						pallet_bags_list::Event::<Runtime, _>::ScoreUpdated { .. }
-					)
-				)
-			})
-			.collect();
-
-		assert_eq!(filtered_events, events);
+		assert_eq!(System::events(), events);
 	});
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
@@ -553,18 +541,7 @@ fn full_native_block_import_works() {
 				topics: vec![],
 			},
 		];
-		let all_events = System::events();
-		// Ensure that all expected events (`events`) are present in the full event log
-		// (`all_events`). We use this instead of strict equality since some events (like
-		// VoterList::ScoreUpdated) may be emitted non-deterministically depending on runtime
-		// internals or auto-rebagging logic.
-		for expected_event in &events {
-			assert!(
-				all_events.contains(expected_event),
-				"Expected event {:?} not found in actual events",
-				expected_event
-			);
-		}
+		assert_eq!(System::events(), events);
 	});
 }
 

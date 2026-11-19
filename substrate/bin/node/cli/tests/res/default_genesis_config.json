@@ -21,19 +21,6 @@
   "transactionPayment": {
     "multiplier": "1000000000000000000"
   },
-  "staking": {
-    "validatorCount": 0,
-    "minimumValidatorCount": 0,
-    "invulnerables": [],
-    "forceEra": "NotForcing",
-    "slashRewardFraction": 0,
-    "canceledPayout": 0,
-    "stakers": [],
-    "minNominatorBond": 0,
-    "minValidatorBond": 0,
-    "maxValidatorCount": null,
-    "maxNominatorCount": null
-  },
   "session": {
     "keys": [],
     "nonAuthorityKeys": []
@@ -114,14 +101,6 @@
   },
   "assetConversion": {
     "pools": []
-  },
-  "nominationPools": {
-    "minJoinBond": 0,
-    "minCreateBond": 0,
-    "maxPools": 16,
-    "maxMembersPerPool": 32,
-    "maxMembers": 512,
-    "globalMaxCommission": null
   },
   "txPause": {
     "paused": []
