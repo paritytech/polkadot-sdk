@@ -22,6 +22,12 @@ use jam_types::{ServiceId, Slot, WorkItem};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use primitive_types::H256;
 
+/// The number of Aura slots between the Unix epoch and the JAM common era.
+///
+/// An Aura slot counts from the Unix epoch, a JAM slot from the JAM common era, and both are
+/// 6 seconds long, so this is the Aura slot of JAM slot zero.
+pub const AURA_SLOT_OFFSET: u64 = jam_types::JAM_COMMON_ERA / 6;
+
 /// Invalid AURA configuration or work items that do not satisfy it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigError {
@@ -73,12 +79,15 @@ impl AuthConfig {
 		Ok(())
 	}
 
-	/// The round-robin collator index expected for `slot`.
+	/// The round-robin collator index expected at `slot`, the JAM slot of the package's anchor.
 	///
-	/// Computed as `(slot / slot_duration) mod collator_set_size`.
+	/// The Aura slot of the anchor is `(AURA_SLOT_OFFSET + slot) / slot_duration`, and the
+	/// collator that Aura slot names authors the block, so this is that Aura slot modulo
+	/// `collator_set_size`.
 	pub fn expected_collator_index(&self, slot: Slot) -> u32 {
-		// unchecked math is safe since both are NonZero types, QED
-		(slot / self.slot_duration) % self.collator_set_size
+		let aura_slot = (u64::from(slot) + AURA_SLOT_OFFSET) / u64::from(self.slot_duration.get());
+		// The modulo keeps the result below `collator_set_size`, which is a `u32`.
+		(aura_slot % u64::from(self.collator_set_size.get())) as u32
 	}
 }
 
@@ -128,10 +137,14 @@ mod tests {
 		for (size, duration, slot, expected) in [
 			// good cases
 			(1, 1, Slot::MAX, 0),
-			(3, Slot::MAX, Slot::MAX - 1, 0),
+			(3, Slot::MAX, Slot::MAX - 1, 1),
 			(3, Slot::MAX, Slot::MAX, 1),
-			(u32::MAX, 1, Slot::MAX - 1, u32::MAX - 1),
-			(u32::MAX, 1, Slot::MAX, 0),
+			(u32::MAX, 1, Slot::MAX - 1, 289_288_799),
+			(u32::MAX, 1, Slot::MAX, 289_288_800),
+			// A slot duration that does not divide the offset moves the collator off what
+			// `(slot / slot_duration) % size` would pick.
+			(2, 7, 0, 1),
+			(2, 7, 6, 0),
 		] {
 			let config = AuthConfig {
 				para_ids: Vec::new(),
@@ -146,6 +159,27 @@ mod tests {
 				expected,
 				"set size {size}, slot duration {duration}, slot {slot}"
 			);
+		}
+	}
+
+	#[test]
+	fn expected_collator_index_is_the_aura_slot_of_the_anchor_works() {
+		let config = AuthConfig {
+			para_ids: Vec::new(),
+			parachain_service: 1,
+			collator_set_root: H256::zero(),
+			collator_set_size: NonZero::new(2).expect("nonzero test size"),
+			slot_duration: NonZero::new(7).expect("nonzero test duration"),
+		};
+
+		// The Aura slot of JAM slot zero is `AURA_SLOT_OFFSET / 7` = 41326971, which is odd and
+		// so names the second collator; `(0 / 7) % 2` would have named the first.
+		assert_eq!(config.expected_collator_index(0), 1);
+		assert_ne!(config.expected_collator_index(0), (0 / 7) % 2);
+
+		for slot in [0, 1, 6, 7, 11, 14] {
+			let aura_slot = (AURA_SLOT_OFFSET + u64::from(slot)) / 7;
+			assert_eq!(config.expected_collator_index(slot), (aura_slot % 2) as u32);
 		}
 	}
 }

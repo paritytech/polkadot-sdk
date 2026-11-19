@@ -19,8 +19,7 @@
 //! A wall-clock **para-slot timer** drives authoring — one tick per parachain slot (the Aura slot
 //! duration, 6 s today) — instead of one iteration per JAM best-block notification, which could
 //! never pace a parachain producing several blocks per JAM slot. The JAM best-block subscription
-//! is demoted to a tip cache that the tick reads synchronously; the anchor is that cached tip.
-//!
+//! is demoted to a tip cache that the tick reads synchronously; the anchor is that cached tip.//!
 //! Per tick: read the para head JAM has accumulated, pick the parent to author on out of the
 //! blocks the local database holds below that head ([`choose_parent`] over [`select_parent`]),
 //! ask the runtime whether another block fits on top (`can_build_upon` — capacity and velocity
@@ -43,15 +42,18 @@
 //! branches on it.
 //!
 //! Phases 1–5 inject a **mocked** parachain inherent (the runtime still requires
-//! `set_validation_data`); its fake relay slot follows the wall-clock JAM slot, and it advertises
-//! the head JAM has accumulated as the relay chain's included para head — that is what makes the
-//! runtime's own segment tracking, and therefore its capacity limit, real. Both the mocked
-//! validation data and the timestamp travel *inside* the block, so importers validate them
-//! instead of recomputing them from their own clock — exactly as in relay mode.
+//! `set_validation_data`); its fake relay slot is the block's anchor slot, and it advertises the
+//! head JAM has accumulated as the relay chain's included para head — that is what makes the
+//! runtime's own segment tracking, and therefore its capacity limit, real. The block's timestamp
+//! is the anchor's as well, so its Aura slot is the anchor's Aura slot; the parachain, the
+//! collator and the JAM authorizer therefore agree on who may author. Both the mocked validation
+//! data and the timestamp travel *inside* the block, so importers validate them instead of
+//! recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
 	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
-	jam_slot_at, scan_pools_at, AuthoringHold, JamCollatorMessage, PoolScan, LOG_TARGET,
+	jam_slot_at, scan_pools_at, AuraPublic, AuthoringHold, AuthoritySource, JamCollatorMessage,
+	PoolScan, LOG_TARGET,
 };
 use crate::common::{
 	aura::{AuraIdT, AuraRuntimeApi},
@@ -61,6 +63,7 @@ use crate::common::{
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_jam_aura_primitives::timestamp_for_anchor;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{BlockBundleInfo, RelayParentOffsetApi};
@@ -82,7 +85,7 @@ use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, Addition
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{Slot, SlotDuration};
 use sp_externalities::Extensions;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
@@ -142,9 +145,9 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub keystore: KeystorePtr,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
-	/// The para's AURA authorizer, which decides which lookup anchors this collator may sign
-	/// against and which core its packages belong on.
-	pub authorizer: Arc<AuraAuthorizer>,
+	/// The para's AURA authorizers by anchor slot: which set JAM authorizes there, and whether it
+	/// names this node. Re-read per anchor because the set changes at a JAM slot.
+	pub authorizers: Arc<dyn AuthoritySource<Block>>,
 	pub jam: Arc<Jam>,
 	pub message_sender: mpsc::Sender<JamCollatorMessage<Block>>,
 	/// How many in-flight resubmission packages the collation task is holding; while non-zero
@@ -494,8 +497,10 @@ fn push_report<Header: HeaderT>(
 
 /// What the builder remembers between ticks.
 struct BuilderState<Header: HeaderT> {
-	/// Aura guard: the parachain slot last claimed.
-	last_claimed_slot: Option<Slot>,
+	/// The anchor slot last claimed. A turn is one anchor slot: the block's timestamp, Aura slot
+	/// and mocked relay slot all derive from the anchor, so two turns on one anchor would be two
+	/// blocks claiming one Aura slot.
+	last_claimed_anchor: Option<JamSlot>,
 	/// The hash of the para head JAM has accumulated, as of the last tick that managed to read it.
 	included: Option<Header::Hash>,
 	/// The blocks this collator authored that are still below the accumulated head, oldest first.
@@ -619,6 +624,8 @@ struct AnchorReads {
 	/// Which cores hold the para's authorizer at this anchor, and therefore where the packages
 	/// built on it may be submitted.
 	pool_scan: PoolScan,
+	/// The authorizer JAM uses for this anchor, which signs the turn's packages.
+	authorizer: Arc<AuraAuthorizer>,
 }
 
 /// How long until the next para slot starts.
@@ -632,14 +639,13 @@ fn time_until_next_para_slot(now: Duration, slot_duration: Duration) -> Duration
 	Duration::from_millis((next_slot_start - now) as u64)
 }
 
-/// One turn per para slot: the Aura guard, on the wall-clock para slot rather than the anchor's
-/// timeslot.
+/// One turn per anchor slot: the Aura guard, on the anchor slot rather than the wall clock.
 ///
 /// The turn is what claims the slot; the blocks inside it are the turn's packages, one per core,
-/// and they deliberately claim the same Aura slot. Only a second *turn* in the same slot would
-/// be equivocation, and that is what the guard refuses.
-fn para_slot_claimed(last_claimed: Option<Slot>, para_slot: Slot) -> bool {
-	last_claimed.is_some_and(|last| para_slot <= last)
+/// and they deliberately claim the same Aura slot. Only a second *turn* in the same anchor slot
+/// would be equivocation, and that is what the guard refuses.
+fn anchor_slot_claimed(last_claimed: Option<JamSlot>, anchor: JamSlot) -> bool {
+	last_claimed.is_some_and(|last| anchor <= last)
 }
 
 /// How many packages one turn may author, before the runtime's gate is consulted.
@@ -811,7 +817,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		keystore,
 		para_id,
 		service_id,
-		authorizer,
+		authorizers,
 		jam,
 		mut message_sender,
 		hold,
@@ -841,7 +847,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	// head from JAM and finds the blocks above it in the local database, which is also how this
 	// collator extends a block another one authored.
 	let mut state = BuilderState {
-		last_claimed_slot: None,
+		last_claimed_anchor: None,
 		included: None,
 		own_recent: VecDeque::new(),
 		head_advanced_at: None,
@@ -923,7 +929,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			&keystore,
 			para_id,
 			service_id,
-			&authorizer,
+			&*authorizers,
 			&jam,
 			slot_duration,
 			tip,
@@ -980,7 +986,7 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	keystore: &KeystorePtr,
 	para_id: ParaId,
 	service_id: ServiceId,
-	authorizer: &AuraAuthorizer,
+	authorizers: &dyn AuthoritySource<Block>,
 	jam: &Arc<Jam>,
 	tick_slot_duration: SlotDuration,
 	tip: BlockDesc,
@@ -999,12 +1005,12 @@ where
 {
 	// The tick's budget and early stall clock come from the runtime at the best block. The block's
 	// own Aura slot and the mocked inherent's fake relay slot are re-derived below from the
-	// parent's runtime, so an upgrade that changes the slot keeps them in step.
-	let para_slot = Slot::from_timestamp(now, tick_slot_duration);
+	// anchor, so an upgrade that changes the slot keeps them in step.
+	let wall_para_slot = Slot::from_timestamp(now, tick_slot_duration);
 	let wall_jam_slot = jam_slot_at(now);
 	tracing::debug!(
 		target: LOG_TARGET,
-		?para_slot,
+		para_slot = ?wall_para_slot,
 		wall_jam_slot,
 		timestamp = now.as_millis(),
 		?tip,
@@ -1014,12 +1020,12 @@ where
 		"Parachain slot tick.",
 	);
 
-	if para_slot_claimed(state.last_claimed_slot, para_slot) {
+	if anchor_slot_claimed(state.last_claimed_anchor, tip.slot) {
 		tracing::debug!(
 			target: LOG_TARGET,
-			?para_slot,
-			last_claimed_slot = ?state.last_claimed_slot,
-			"Parachain slot already claimed; skipping this tick.",
+			?tip,
+			last_claimed_anchor = ?state.last_claimed_anchor,
+			"Anchor slot already claimed; skipping this tick.",
 		);
 		return Ok(Vec::new());
 	}
@@ -1044,7 +1050,14 @@ where
 	let (reads, reports) = match tokio::time::timeout(
 		tick_slot_duration.as_duration(),
 		futures::future::join(
-			read_anchor(&**jam, tip, service_id, para_id_u32, authorizer),
+			read_anchor::<Block, _>(
+				&**jam,
+				tip,
+				service_id,
+				para_id_u32,
+				authorizers,
+				para_client.info().best_hash,
+			),
 			monitor_in_flight::<Block::Header, _>(&**jam, tip.header_hash, service_id),
 		),
 	)
@@ -1061,10 +1074,30 @@ where
 			return Ok(Vec::new());
 		},
 	};
-	let Some(AnchorReads { anchor, context, included, pool_scan }) = reads else {
+	let Some(AnchorReads { anchor, context, included, pool_scan, authorizer }) = reads else {
 		return Ok(Vec::new());
 	};
-	state.note_pool_scan(&pool_scan, &anchor, authorizer);
+	state.note_pool_scan(&pool_scan, &anchor, &authorizer);
+
+	// One turn per anchor slot. The early check above is on the tip so a repeat tick costs no JAM
+	// read; this one is on the anchor the blocks actually derive from, which is what the guard is
+	// about when `ANCHOR_OFFSET` walks back from the tip.
+	if anchor_slot_claimed(state.last_claimed_anchor, anchor.slot) {
+		tracing::debug!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			last_claimed_anchor = ?state.last_claimed_anchor,
+			"Anchor slot already claimed; skipping this tick.",
+		);
+		return Ok(Vec::new());
+	}
+
+	// The block's timestamp is the anchor's, and its Aura slot follows from that timestamp: the
+	// parachain, the collator and the JAM authorizer all read the same clock. A turn per anchor
+	// slot, so a tip that lags the wall clock does not produce a second turn for the same anchor.
+	let block_timestamp = Timestamp::new(timestamp_for_anchor(anchor.slot));
+	let anchor_para_slot = Slot::from_timestamp(block_timestamp, tick_slot_duration);
 
 	let included_head = included
 		.as_deref()
@@ -1087,7 +1120,7 @@ where
 	let head_before = state.included;
 	let moved = head_move(state.included.as_ref(), included_head.as_ref(), &state.own_recent);
 	state.included = included_head;
-	let stalled_for = state.note_head(moved, para_slot);
+	let stalled_for = state.note_head(moved, anchor_para_slot);
 	// The level is the only thing that varies, and `tracing` needs it at the macro's call site.
 	macro_rules! log_head_move {
 		($level:ident) => {
@@ -1118,14 +1151,13 @@ where
 		tracing::info!(
 			target: LOG_TARGET,
 			pending,
-			?para_slot,
+			?anchor_para_slot,
 			stalled_for,
 			"Holding this parachain slot: a lost block is being resubmitted in a new work package \
 			 instead of a new block being built.",
 		);
 		return Ok(Vec::new());
 	}
-
 	let genesis_hash = para_client.info().genesis_hash;
 	// The whole header, not just its hash: the mocked inherent advertises it to the runtime as
 	// the relay chain's included para head, which is what `parachain-system` prunes its own
@@ -1210,10 +1242,10 @@ where
 	}
 
 	// The parent's runtime owns the slot duration: the block's Aura slot, the mocked relay slot
-	// and the runtime's own `FixedVelocityConsensusHook` all have to agree on it, and an upgrade
-	// can change it between rounds (the 18s-slot test). Reading it at the block's actual parent
-	// keeps all three in step; `--jam-slot-duration` — the authorizer round-robin divisor — is a
-	// separate, immutable config and is never read from the runtime.
+	// and the runtime's own `JamFixedVelocityConsensusHook` all have to agree on it, and an
+	// upgrade can change it between rounds (the 18s-slot test). Reading it at the block's actual
+	// parent keeps all three in step; `--jam-slot-duration` — the authorizer round-robin divisor —
+	// is a separate, immutable config and is never read from the runtime.
 	super::ensure_code_blob_at(
 		para_client,
 		para_backend,
@@ -1235,7 +1267,7 @@ where
 			return Ok(Vec::new());
 		},
 	};
-	let para_slot = Slot::from_timestamp(now, slot_duration);
+	let para_slot = Slot::from_timestamp(block_timestamp, slot_duration);
 
 	// The monitor's derived events. Nothing branches on them; they are the pre-accumulation view
 	// of the pipeline, which with no links left is the only one there is.
@@ -1271,30 +1303,28 @@ where
 		}
 	}
 
-	let authorities = para_client
-		.runtime_api()
-		.authorities(parent_hash)
-		.map_err(|e| format!("authorities: {e}"))?;
-	// The set that claims slots is the set the authorizer hash was built from; the moment the two
-	// part ways, blocks keep being authored but their packages stop being authorized.
-	authorizer.warn_on_set_drift(parent_hash, &authorities);
-	let Some(author_pub) = aura_internal::claim_slot::<<AuraId as AuraIdT>::BoundedPair>(
-		para_slot,
-		&authorities,
-		keystore,
-	)
-	.await
-	else {
-		tracing::debug!(
+	// The block is sealed against the set JAM authorizes at its anchor slot, and its Aura slot is
+	// the anchor's, so the Aura round-robin index is the authorizer's: the turn check in
+	// `read_anchor` already named this node, and the author is its key in that set.
+	if (*para_slot % u64::from(authorizer.collator_set_size())) as u32 != authorizer.own_index() {
+		tracing::warn!(
 			target: LOG_TARGET,
 			?para_slot,
-			authorities = authorities.len(),
-			"Slot not ours; skipping.",
+			anchor_slot = anchor.slot,
+			own_index = authorizer.own_index(),
+			"The Aura slot of the anchor does not name us although the authorizer does; \
+			 `--jam-slot-duration` disagrees with the runtime's Aura slot duration. Skipping.",
 		);
 		return Ok(Vec::new());
-	};
-	let slot_claim =
-		SlotClaim::unchecked::<<AuraId as AuraIdT>::BoundedPair>(author_pub, para_slot, now);
+	}
+	let author_pub =
+		<AuraPublic<AuraId> as sp_core::crypto::ByteArray>::from_slice(&authorizer.own_key())
+			.map_err(|_| "the authorizer key is no aura key".to_string())?;
+	let slot_claim = SlotClaim::unchecked::<<AuraId as AuraIdT>::BoundedPair>(
+		author_pub,
+		para_slot,
+		block_timestamp,
+	);
 
 	// The para-head state proof is prefetched here — the JAM RPC is async, host calls are sync —
 	// and verified against the anchor's own state root with the very code the service runs, so a
@@ -1395,7 +1425,7 @@ where
 			?anchor,
 			?para_slot,
 			wall_jam_slot,
-			timestamp = now.as_millis(),
+			timestamp = block_timestamp.as_millis(),
 			parent = ?parent_hash,
 			parent_number = %parent_header.number(),
 			?parent_source,
@@ -1414,8 +1444,8 @@ where
 					para_id,
 					&parent_header,
 					&included_header,
-					wall_jam_slot,
-					now,
+					anchor.slot,
+					block_timestamp,
 					slot_duration,
 				)
 				.await?;
@@ -1552,7 +1582,7 @@ where
 	}
 
 	if !messages.is_empty() {
-		state.last_claimed_slot = Some(para_slot);
+		state.last_claimed_anchor = Some(anchor.slot);
 	}
 	Ok(messages)
 }
@@ -1560,13 +1590,18 @@ where
 /// The JAM reads one tick makes at its anchor, plus the refine context built around it.
 ///
 /// `Ok(None)` means the reads disagree with each other and the tick has to be skipped.
-async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
+async fn read_anchor<Block, Jam>(
 	jam: &Jam,
 	tip: BlockDesc,
 	service_id: ServiceId,
 	para_id: u32,
-	authorizer: &AuraAuthorizer,
-) -> Result<Option<AnchorReads>, String> {
+	authorizers: &dyn AuthoritySource<Block>,
+	at_hash: Block::Hash,
+) -> Result<Option<AnchorReads>, String>
+where
+	Block: NodeBlock,
+	Jam: JamChainSource + JamStateSource + ?Sized,
+{
 	// Anchoring at the cached tip itself is what buys back the freshness the phase-4 "parent of
 	// best" convention gave away; `ANCHOR_OFFSET` walks back from it when distance is wanted.
 	let mut anchor = tip;
@@ -1580,15 +1615,36 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	let finalized = jam_read("finalizedBlock", anchor.header_hash, jam.finalized_block()).await?;
 	let newest_lookup_anchor =
 		jam_read("parent", finalized.header_hash, jam.parent(finalized.header_hash)).await?;
-	let Some(lookup_anchor) =
-		choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer).await
-	else {
+	// The set JAM authorizes at this anchor, and with it whether this node may author at all.
+	// The parent of the finalized block is the lookup anchor: it is finalized, recent, and the
+	// authorizer hash covers whichever set the anchor slot names.
+	let Some(authorizer) = authorizers.for_anchor(at_hash, anchor.slot)? else {
+		tracing::debug!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			"The JAM authority set at this anchor does not name this node; skipping this tick.",
+		);
+		return Ok(None);
+	};
+	if !authorizer.names_us(anchor.slot) {
+		tracing::debug!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			expected_collator = authorizer.collator_for(anchor.slot),
+			own_index = authorizer.own_index(),
+			"The anchor slot names another collator; skipping this tick.",
+		);
+		return Ok(None);
+	}
+	let Some(lookup_anchor) = choose_lookup_anchor(&anchor, newest_lookup_anchor) else {
 		return Ok(None);
 	};
 	let lookup_anchor_state_root =
 		jam_read("stateRoot", lookup_anchor.header_hash, jam.state_root(lookup_anchor.header_hash))
 			.await?;
-	let pool_scan = scan_pools_at(jam, anchor.header_hash, authorizer).await?;
+	let pool_scan = scan_pools_at(jam, anchor.header_hash, &authorizer).await?;
 	let included = jam_read(
 		"serviceValue",
 		anchor.header_hash,
@@ -1610,6 +1666,7 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 		},
 		included,
 		pool_scan,
+		authorizer,
 	}))
 }
 
@@ -1651,14 +1708,14 @@ where
 /// every block is included the moment it is authored, so its segment never grows and the
 /// `size_after_included >= C` half of `can_build_upon` can never refuse anything.
 ///
-/// The mocked relay parent number stays a pure function of the wall-clock JAM slot.
-/// `FixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from it and panics
-/// on a mismatch, so it must not move with the included head.
+/// The mocked relay parent number stays a pure function of the block's anchor slot.
+/// `JamFixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from the
+/// timestamp, which is the anchor's, so this must not move with the included head.
 fn mocked_relay_state<Header: HeaderT>(
 	para_id: ParaId,
 	parent_header: &Header,
 	included_header: &Header,
-	wall_jam_slot: JamSlot,
+	anchor_slot: JamSlot,
 	slot_duration: SlotDuration,
 	relay_parent_offset: u32,
 ) -> MockValidationDataInherentDataProvider<()> {
@@ -1668,7 +1725,7 @@ fn mocked_relay_state<Header: HeaderT>(
 		UniqueSaturatedInto::<u32>::unique_saturated_into(*parent_header.number()) + 1;
 	let relay_blocks_per_para_block =
 		(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
-	let target_relay_slot = jam_slot_as_relay_slot(wall_jam_slot);
+	let target_relay_slot = jam_slot_as_relay_slot(anchor_slot);
 	let relay_offset =
 		(target_relay_slot as u32).saturating_sub(relay_blocks_per_para_block * current_para_block);
 
@@ -1685,18 +1742,18 @@ fn mocked_relay_state<Header: HeaderT>(
 	}
 }
 
-/// Timestamp + mocked parachain inherent, both derived from the wall clock.
+/// Timestamp + mocked parachain inherent, both derived from the anchor slot.
 ///
-/// Mirrors omni-node's relay-less dev mode, except the fake relay slot is the wall-clock JAM
-/// timeslot instead of a plain wall-clock relay slot. Both values end up *inside* the block (as
-/// the timestamp and `set_validation_data` extrinsics), so importers validate them rather than
-/// recomputing them from their own clock — the same contract as in relay mode.
+/// The timestamp is the anchor's, which pins the block's Aura slot to the anchor; the fake relay
+/// slot is the anchor slot as well. Both values end up *inside* the block (as the timestamp and
+/// `set_validation_data` extrinsics), so importers validate them rather than recomputing them
+/// from their own clock — the same contract as in relay mode.
 async fn create_inherent_data<Block, RuntimeApi>(
 	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
 	para_id: ParaId,
 	parent_header: &Block::Header,
 	included_header: &Block::Header,
-	wall_jam_slot: JamSlot,
+	anchor_slot: JamSlot,
 	timestamp: Timestamp,
 	slot_duration: SlotDuration,
 ) -> Result<InherentData, String>
@@ -1713,7 +1770,7 @@ where
 		para_id,
 		parent_header,
 		included_header,
-		wall_jam_slot,
+		anchor_slot,
 		slot_duration,
 		relay_parent_offset,
 	);
@@ -1721,7 +1778,7 @@ where
 	tracing::debug!(
 		target: LOG_TARGET,
 		current_para_block = mocked_parachain.current_para_block,
-		target_relay_slot = jam_slot_as_relay_slot(wall_jam_slot),
+		target_relay_slot = jam_slot_as_relay_slot(anchor_slot),
 		relay_offset = mocked_parachain.relay_offset,
 		relay_blocks_per_para_block = mocked_parachain.relay_blocks_per_para_block,
 		relay_parent_offset,
@@ -1780,13 +1837,13 @@ mod tests {
 	fn provider_for(
 		parent: &TestHeader,
 		included: &TestHeader,
-		now: Timestamp,
+		anchor_slot: JamSlot,
 	) -> MockValidationDataInherentDataProvider<()> {
 		mocked_relay_state(
 			ParaId::from(TEST_PARA_ID),
 			parent,
 			included,
-			jam_slot_at(now),
+			anchor_slot,
 			SlotDuration::from_millis(6000),
 			0,
 		)
@@ -1964,7 +2021,7 @@ mod tests {
 	/// A fresh builder, as `run_builder_task` starts one.
 	fn builder_state() -> BuilderState<TestHeader> {
 		BuilderState {
-			last_claimed_slot: None,
+			last_claimed_anchor: None,
 			included: None,
 			own_recent: VecDeque::new(),
 			head_advanced_at: None,
@@ -2152,15 +2209,15 @@ mod tests {
 		assert_eq!(state.own_recent, ours(&[&chain[2], &chain[3]]));
 	}
 
-	/// The turn claims a para slot once and may author several packages under that claim, so the
-	/// guard is per *turn*, not per block: only a second turn in the same slot is equivocation,
-	/// and the next slot always starts fresh.
+	/// The turn claims an anchor slot once and may author several packages under that claim, so
+	/// the guard is per *turn*, not per block: only a second turn on the same anchor slot is
+	/// equivocation, and the next anchor always starts fresh.
 	#[test]
-	fn one_turn_per_parachain_slot() {
-		assert!(!para_slot_claimed(None, Slot::from(7)));
-		assert!(para_slot_claimed(Some(Slot::from(7)), Slot::from(7)));
-		assert!(para_slot_claimed(Some(Slot::from(7)), Slot::from(6)));
-		assert!(!para_slot_claimed(Some(Slot::from(7)), Slot::from(8)));
+	fn one_turn_per_anchor_slot() {
+		assert!(!anchor_slot_claimed(None, 7));
+		assert!(anchor_slot_claimed(Some(7), 7));
+		assert!(anchor_slot_claimed(Some(7), 6));
+		assert!(!anchor_slot_claimed(Some(7), 8));
 	}
 
 	/// The budget is one package per core, and never zero: with no core at all the turn still
@@ -2258,9 +2315,8 @@ mod tests {
 	async fn the_mocked_relay_state_advertises_the_accumulated_head_as_included() {
 		let blocks = chain(4);
 		let (included, parent) = (&blocks[0], &blocks[3]);
-		let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000);
 
-		let provider = provider_for(parent, included, now);
+		let provider = provider_for(parent, included, 0);
 		// Only what counts as included moved; the block being authored is still the parent's
 		// child, which is what the mocked relay parent number is computed for.
 		assert_eq!(provider.current_para_block, parent.number() + 1);
@@ -2272,23 +2328,21 @@ mod tests {
 		assert_ne!(BlakeTwo256::hash(&head.0), parent.hash());
 	}
 
-	/// `FixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from the relay
-	/// parent number the mock advertises and panics unless the two agree, so that number has to
-	/// stay a pure function of the wall clock. Advertising a lagging included head must not shift
+	/// `JamFixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from the
+	/// anchor's timestamp and panics unless the two agree, so the mocked relay parent number has to
+	/// stay a pure function of the anchor slot. Advertising a lagging included head must not shift
 	/// it, whichever block is included.
 	#[tokio::test]
 	async fn the_mocked_relay_parent_number_does_not_move_with_the_included_head() {
 		let blocks = chain(4);
-		let slot_duration = SlotDuration::from_millis(6000);
 
-		for offset_ms in [0, 1, 5999, 6000, 123_456] {
-			let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000 + offset_ms);
+		for anchor_slot in [0, 1, 6000, 123_456] {
 			for included in [&blocks[0], &blocks[2], &blocks[3]] {
-				let data = produced_by(provider_for(&blocks[3], included, now)).await;
+				let data = produced_by(provider_for(&blocks[3], included, anchor_slot)).await;
 				assert_eq!(
 					u64::from(data.validation_data.relay_parent_number),
-					*Slot::from_timestamp(now, slot_duration),
-					"included {:?}, {offset_ms} ms into the JAM common era",
+					jam_slot_as_relay_slot(anchor_slot),
+					"included {:?}, anchor slot {anchor_slot}",
 					included.hash(),
 				);
 			}
@@ -2302,14 +2356,13 @@ mod tests {
 	#[test]
 	fn the_mocked_relay_state_tracks_the_slot_duration() {
 		let blocks = chain(2);
-		let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000);
 
 		for (slot_millis, relay_blocks) in [(6000u64, 1u32), (12_000, 2), (18_000, 3)] {
 			let provider = mocked_relay_state(
 				ParaId::from(TEST_PARA_ID),
 				&blocks[1],
 				&blocks[0],
-				jam_slot_at(now),
+				0,
 				SlotDuration::from_millis(slot_millis),
 				0,
 			);
@@ -2379,17 +2432,45 @@ mod tests {
 		assert_eq!(reports[2].head, None, "a failed refinement names no block");
 	}
 
-	/// The consensus hook panics unless the block's Aura slot equals the slot it derives from the
-	/// mocked relay slot, so both wall-clock derivations must agree at every instant in a slot.
+	/// The block's timestamp is the anchor's, and its Aura slot is that timestamp over the slot
+	/// duration: the parachain, the collator and the JAM authorizer read one clock, so a collator
+	/// cannot pick its own time. Both sides must agree at every anchor, including a para slot
+	/// several JAM timeslots long.
+	#[test]
+	fn the_block_timestamp_and_para_slot_derive_from_the_anchor_slot() {
+		for slot_duration_ms in [6000u64, 12_000, 18_000] {
+			let slot_duration = SlotDuration::from_millis(slot_duration_ms);
+			for anchor_slot in [0, 1, 7, 123_456] {
+				let timestamp = Timestamp::new(timestamp_for_anchor(anchor_slot));
+
+				assert_eq!(
+					timestamp.as_millis(),
+					(jam_types::JAM_COMMON_ERA + u64::from(anchor_slot) * 6) * 1000,
+					"the timestamp is the anchor's wall-clock time",
+				);
+				assert_eq!(
+					*Slot::from_timestamp(timestamp, slot_duration),
+					cumulus_jam_aura_primitives::aura_slot_for_anchor(
+						anchor_slot,
+						slot_duration_ms
+					),
+					"the para slot is the anchor's Aura slot",
+				);
+			}
+		}
+	}
+
+	/// The consensus hook derives the Aura slot from the block's timestamp, and the mocked relay
+	/// slot from the anchor; both have to name the same Aura slot at every anchor.
 	#[test]
 	fn the_aura_slot_matches_the_mocked_relay_slot() {
 		let slot_duration = SlotDuration::from_millis(6000);
-		for offset_ms in [0, 1, 2999, 5999, 6000, 6001, 123_456] {
-			let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000 + offset_ms);
+		for anchor_slot in [0, 1, 2999, 5999, 6000, 6001, 123_456] {
+			let timestamp = Timestamp::new(timestamp_for_anchor(anchor_slot));
 			assert_eq!(
-				*Slot::from_timestamp(now, slot_duration),
-				jam_slot_as_relay_slot(jam_slot_at(now)),
-				"disagreement {offset_ms} ms into the JAM common era",
+				*Slot::from_timestamp(timestamp, slot_duration),
+				jam_slot_as_relay_slot(anchor_slot),
+				"disagreement at anchor slot {anchor_slot}",
 			);
 		}
 	}

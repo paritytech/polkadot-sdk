@@ -77,7 +77,7 @@ use super::{
 	para_header_stream,
 	pov_store::{BlockPov, BlockPovs},
 	resubmission::*,
-	AuthoringHold, JamCollatorMessage, LOG_TARGET,
+	AuthoringHold, AuthoritySource, JamCollatorMessage, LOG_TARGET,
 };
 use crate::common::{
 	types::{ParachainBackend, ParachainClient},
@@ -98,7 +98,7 @@ use jam_interface::{
 use jam_types::{ExtrinsicSpec, MapLike, RefineContext, VecSet};
 use parachain_service_core::authorizer::Authorizer;
 use polkadot_primitives::Id as ParaId;
-use sc_client_api::backend::AuxStore;
+use sc_client_api::{backend::AuxStore, HeaderBackend};
 use sc_client_db::DbHash;
 use sp_additional_data::AdditionalData;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor};
@@ -115,7 +115,9 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub jam: Arc<Jam>,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
-	pub authorizer: Arc<AuraAuthorizer>,
+	/// The para's AURA authorizers by anchor slot: every package is signed with the one JAM
+	/// authorizes at its own anchor.
+	pub authorizers: Arc<dyn AuthoritySource<Block>>,
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	/// The service settings every package is built with.
@@ -139,7 +141,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		jam,
 		para_id,
 		service_id,
-		authorizer,
+		authorizers,
 		mut message_receiver,
 		announce_block,
 		params,
@@ -178,9 +180,6 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		refine_gas_limit = params.refine_gas_limit,
 		accumulate_gas_limit = params.accumulate_gas_limit,
 		report_deadline_slots = REPORT_DEADLINE_SLOTS,
-		authorizer_hash = ?authorizer.hash(),
-		collator_set_size = authorizer.collator_set_size(),
-		own_index = authorizer.own_index(),
 		"JAM collation task started.",
 	);
 
@@ -192,7 +191,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		para_client,
 		para_backend,
 		jam,
-		authorizer,
+		authorizers,
 		params,
 		policy: ForgetWhenAnchorExpires,
 		announce_block,
@@ -583,8 +582,9 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	para_client: Arc<ParachainClient<Block, RuntimeApi>>,
 	para_backend: Arc<ParachainBackend<Block>>,
 	jam: Arc<Jam>,
-	/// The para's AURA authorizer: what every package here runs under, and what signs it.
-	authorizer: Arc<AuraAuthorizer>,
+	/// The para's AURA authorizers by anchor slot: what every package here runs under, and what
+	/// signs it.
+	authorizers: Arc<dyn AuthoritySource<Block>>,
 	/// The service settings every package is assembled from.
 	params: PackageParams,
 	policy: ForgetWhenAnchorExpires,
@@ -636,6 +636,23 @@ where
 		.await;
 	}
 
+	/// The authorizer JAM uses at `anchor_slot`, or an error when this node is not in that set.
+	///
+	/// `at` is a block whose runtime knows the schedule: the package's parent for a fresh block,
+	/// the local best for a resubmission round whose anchor is the JAM tip.
+	fn authorizer_for(
+		&self,
+		at: Block::Hash,
+		anchor_slot: JamSlot,
+	) -> Result<Arc<AuraAuthorizer>, String> {
+		self.authorizers.for_anchor(at, anchor_slot)?.ok_or_else(|| {
+			format!(
+				"this node holds no aura key of the authority set JAM authorizes at anchor slot \
+				 {anchor_slot}",
+			)
+		})
+	}
+
 	/// A block from the builder: assemble its package, submit it, track it.
 	///
 	/// The package names the work package this node submitted for the parent block as its one
@@ -673,6 +690,20 @@ where
 
 		self.ensure_code_blob_at(parent_hash, context.anchor).await;
 
+		let authorizer = match self.authorizer_for(parent_hash, anchor_slot) {
+			Ok(authorizer) => authorizer,
+			Err(error) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?block_hash,
+					anchor_slot,
+					error,
+					"No authorizer for the package's anchor; dropping the block.",
+				);
+				return;
+			},
+		};
+
 		let validation_code = match self.para_client.code_at(parent_hash) {
 			Ok(code) => code,
 			Err(error) => {
@@ -708,7 +739,7 @@ where
 			additional_data,
 			validation_code_hash,
 			params: self.params.clone(),
-			authorizer: self.authorizer.authorizer(),
+			authorizer: authorizer.authorizer(),
 			parent_header,
 		};
 		// The prerequisite goes in before the package is signed: the token covers the context,
@@ -722,7 +753,7 @@ where
 			anchor_slot,
 			submit_target,
 		};
-		let (package, pov) = match self.authorized_package(&source, &anchored) {
+		let (package, pov) = match self.authorized_package(&source, &anchored, &authorizer) {
 			Ok(package) => package,
 			Err(error) => {
 				tracing::error!(
@@ -761,9 +792,9 @@ where
 			anchor_slot,
 			lookup_anchor = ?anchored.context.lookup_anchor,
 			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
-			expected_collator = self.authorizer.collator_for(anchored.context.lookup_anchor_slot),
-			own_index = self.authorizer.own_index(),
-			authorizer_hash = ?self.authorizer.hash(),
+			expected_collator = authorizer.collator_for(anchored.context.anchor_slot),
+			own_index = authorizer.own_index(),
+			authorizer_hash = ?authorizer.hash(),
 			token_len = package.authorization.len(),
 			pov_len = package.items[0].extrinsics[0].len,
 			in_flight = self.packages.len(),
@@ -775,7 +806,7 @@ where
 
 		// The entry is recorded even if the submission itself failed: the package may still have
 		// reached a guarantor, and the next JAM block re-decides it either way.
-		let sent = self.submit(wp_hash, &package, pov, &anchored, block_hash).await;
+		let sent = self.submit(wp_hash, &package, pov, &anchored, block_hash, &authorizer).await;
 		self.packages.entries.push_back(InFlight {
 			block_hash,
 			block_number,
@@ -798,9 +829,10 @@ where
 		&self,
 		source: &PackageSource<Block>,
 		anchored: &Anchored,
+		authorizer: &AuraAuthorizer,
 	) -> Result<(WorkPackage, Vec<u8>), String> {
 		let (mut package, pov) = source.package(anchored);
-		self.authorizer.authorize(&mut package)?;
+		authorizer.authorize(&mut package)?;
 		Ok((package, pov))
 	}
 
@@ -820,6 +852,7 @@ where
 		pov: Vec<u8>,
 		anchored: &Anchored,
 		block_hash: Block::Hash,
+		authorizer: &AuraAuthorizer,
 	) -> bool {
 		let anchor = anchored.context.anchor;
 		let Some(core) = anchored.submit_target else {
@@ -829,7 +862,7 @@ where
 				?wp_hash,
 				?anchor,
 				anchor_slot = anchored.anchor_slot,
-				authorizer_hash = ?self.authorizer.hash(),
+				authorizer_hash = ?authorizer.hash(),
 				in_flight = self.packages.len(),
 				"No core held this para's authorizer at the package's anchor, so it was not \
 				 submitted. It stays in flight until its anchor expires.",
@@ -1103,7 +1136,21 @@ where
 			use sp_blockchain::HeaderBackend;
 			self.para_client.info().best_number > head.1
 		};
-		let our_turn = self.authorizer.names_us(tip.slot);
+		// The turn at the tip belongs to whoever the set JAM authorizes at the tip's slot names;
+		// the set is the tip's, not the accumulated head's.
+		let authorizer = match self.authorizer_for(self.para_client.info().best_hash, tip.slot) {
+			Ok(authorizer) => authorizer,
+			Err(error) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?tip,
+					error,
+					"Resubmission is not this node's turn at the tip's anchor slot.",
+				);
+				return;
+			},
+		};
+		let our_turn = authorizer.names_us(tip.slot);
 		let round_in_flight = self.resubmissions_pending() > 0;
 
 		if !resubmission_due(
@@ -1134,7 +1181,7 @@ where
 			return;
 		}
 		self.last_round_at = Some(tip.slot);
-		self.resubmit_round(tip, blocks).await;
+		self.resubmit_round(tip, blocks, authorizer).await;
 	}
 
 	/// One resubmission round: rebuild `blocks` — oldest first, each with a stored PoV and an
@@ -1149,35 +1196,37 @@ where
 		&mut self,
 		tip: BlockDesc,
 		blocks: Vec<(Block::Hash, BlockPov<Block>)>,
+		authorizer: Arc<AuraAuthorizer>,
 	) {
 		// Build a fresh anchor context from the current tip.
-		let (anchor_context, anchor_slot, pool_scan) = match self.read_resubmit_anchor(tip).await {
-			Ok(Some(reads)) => reads,
-			Ok(None) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?tip,
-					"Resubmission round skipped: no suitable lookup anchor.",
-				);
-				return;
-			},
-			Err(error) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?tip,
-					error,
-					"Resubmission round skipped: anchor reads failed.",
-				);
-				return;
-			},
-		};
+		let (anchor_context, anchor_slot, pool_scan) =
+			match self.read_resubmit_anchor(tip, &authorizer).await {
+				Ok(Some(reads)) => reads,
+				Ok(None) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?tip,
+						"Resubmission round skipped: no suitable lookup anchor.",
+					);
+					return;
+				},
+				Err(error) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?tip,
+						error,
+						"Resubmission round skipped: anchor reads failed.",
+					);
+					return;
+				},
+			};
 		// A package nothing can be sent to would only hold the builder: it would count as a round
 		// in flight until its anchor expired.
 		let Some(core) = pool_scan.target else {
 			tracing::warn!(
 				target: LOG_TARGET,
 				?tip,
-				authorizer_hash = ?self.authorizer.hash(),
+				authorizer_hash = ?authorizer.hash(),
 				blocks = blocks.len(),
 				"Resubmission round skipped: no core holds this para's authorizer at the tip, so \
 				 nothing could be submitted.",
@@ -1264,10 +1313,10 @@ where
 				prerequisite,
 				validation_code_hash,
 				&self.params,
-				self.authorizer.authorizer(),
+				authorizer.authorizer(),
 				&anchor_context,
 			);
-			if let Err(error) = self.authorizer.authorize(&mut package) {
+			if let Err(error) = authorizer.authorize(&mut package) {
 				tracing::warn!(
 					target: LOG_TARGET,
 					?block_hash,
@@ -1300,7 +1349,8 @@ where
 				"Resubmitting a parachain block in a new work package.",
 			);
 
-			let sent = self.submit(wp_hash, &package, pov, &anchored, *block_hash).await;
+			let sent =
+				self.submit(wp_hash, &package, pov, &anchored, *block_hash, &authorizer).await;
 			self.packages.entries.push_back(InFlight {
 				block_hash: *block_hash,
 				block_number: block_pov.number,
@@ -1332,6 +1382,7 @@ where
 	async fn read_resubmit_anchor(
 		&mut self,
 		tip: BlockDesc,
+		authorizer: &AuraAuthorizer,
 	) -> Result<Option<(RefineContext, JamSlot, super::PoolScan)>, String> {
 		let anchor = tip;
 		let state_root =
@@ -1345,9 +1396,7 @@ where
 		let newest_lookup_anchor =
 			jam_read("parent", finalized.header_hash, self.jam.parent(finalized.header_hash))
 				.await?;
-		let Some(lookup_anchor) =
-			choose_lookup_anchor(&*self.jam, &anchor, newest_lookup_anchor, &self.authorizer).await
-		else {
+		let Some(lookup_anchor) = choose_lookup_anchor(&anchor, newest_lookup_anchor) else {
 			return Ok(None);
 		};
 		let lookup_anchor_state_root = jam_read(
@@ -1356,8 +1405,7 @@ where
 			self.jam.state_root(lookup_anchor.header_hash),
 		)
 		.await?;
-		let pool_scan =
-			super::scan_pools_at(&*self.jam, anchor.header_hash, &self.authorizer).await?;
+		let pool_scan = super::scan_pools_at(&*self.jam, anchor.header_hash, authorizer).await?;
 
 		Ok(Some((
 			RefineContext {

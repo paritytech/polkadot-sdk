@@ -33,7 +33,6 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
 };
-use pallet_aura::Authorities;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -75,7 +74,28 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Authorities::<Runtime>::get().into_inner()
+			#[cfg(not(jam))]
+			let authorities = pallet_aura::Authorities::<Runtime>::get();
+			#[cfg(jam)]
+			let authorities = pallet_aura_jam::Authorities::<Runtime>::get();
+			authorities.into_inner()
+		}
+	}
+
+	impl cumulus_jam_aura_primitives::JamAuraApi<Block, AuraId> for Runtime {
+		fn authorities_at(_anchor_slot: u32) -> Vec<AuraId> {
+			// Off JAM there is one set for every slot.
+			#[cfg(not(jam))]
+			return pallet_aura::Authorities::<Runtime>::get().into_inner();
+			#[cfg(jam)]
+			return pallet_aura_jam::Pallet::<Runtime>::authorities_at(_anchor_slot);
+		}
+
+		fn scheduled_changes() -> Vec<(u32, Vec<AuraId>)> {
+			#[cfg(not(jam))]
+			return Vec::new();
+			#[cfg(jam)]
+			return pallet_aura_jam::Pallet::<Runtime>::scheduled_changes();
 		}
 	}
 

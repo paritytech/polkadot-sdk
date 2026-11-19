@@ -61,6 +61,10 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 ] }
 
 # Cumulus
+# The pallet is always part of the runtime; its slot-based session switches are enabled by
+# `cfg(jam)` only.
+cumulus-jam-aura-primitives = { workspace = true, default-features = false }
+pallet-aura-jam = { workspace = true, default-features = false }
 cumulus-pallet-parachain-system = { workspace = true }
 
 # `min_stack_size!`, for the PolkaVM/JAM build (`validate_block` needs more than the 8 KiB default).
@@ -74,6 +78,8 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-jam-aura-primitives/std",
+	"pallet-aura-jam/std",
 	"cumulus-pallet-parachain-system/std",
 	"log/std",
 	"pallet-parachain-template/std",
@@ -85,12 +91,14 @@ std = [
 # Builds a second, upgrade-target runtime blob with `spec_version` bumped to 2.
 spec-version-2 = []
 runtime-benchmarks = [
+	"pallet-aura-jam/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"hex-literal",
 	"pallet-parachain-template/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
 ]
 try-runtime = [
+	"pallet-aura-jam/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"pallet-parachain-template/try-runtime",
 	"polkadot-sdk/try-runtime",

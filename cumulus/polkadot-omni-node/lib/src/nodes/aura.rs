@@ -76,9 +76,7 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, BlockStatus, Environment};
-use sp_consensus_aura::AuraApi;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -89,25 +87,106 @@ use sp_runtime::{
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
-struct Verifier<Block, Client, AuraId> {
+struct Verifier<Block: BlockT, Client, AuraId: AuraIdT, CIDP> {
 	client: Arc<Client>,
 	aura_verifier: Box<dyn VerifierT<Block>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
+	/// The authority sets by JAM anchor slot, for runtimes with slot-bound Aura sets.
+	jam_authorities: Arc<dyn jam::RuntimeAuthorities<Block, AuraId>>,
+	create_inherent_data_providers: CIDP,
 	_phantom: PhantomData<AuraId>,
 }
 
-#[async_trait::async_trait]
-impl<Block: BlockT, Client, AuraId> VerifierT<Block> for Verifier<Block, Client, AuraId>
+impl<Block: BlockT, Client, AuraId, CIDP> Verifier<Block, Client, AuraId, CIDP>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraRuntimeApi<Block, AuraId>,
+	Client::Api: AuraRuntimeApi<Block, AuraId> + sp_block_builder::BlockBuilder<Block>,
 	AuraId: AuraIdT + Sync,
+	CIDP: CreateInherentDataProviders<Block, ()>,
+{
+	/// Check a JAM block's seal against the set JAM authorizes at its anchor slot, not the set
+	/// of its parent: the next set is announced a session ahead, so the first block anchored at
+	/// a switch slot is already sealed by the new set.
+	async fn verify_jam(
+		&self,
+		mut params: BlockImportParams<Block>,
+		anchor_slot: u32,
+	) -> Result<BlockImportParams<Block>, String> {
+		if params.state_action.skip_execution_checks() || params.with_state() {
+			params.fork_choice =
+				Some(sc_consensus::ForkChoiceStrategy::Custom(params.with_state()));
+			return Ok(params);
+		}
+
+		let post_hash = params.header.hash();
+		let parent_hash = *params.header.parent_hash();
+		let authorities = self.jam_authorities.authorities_at(parent_hash, anchor_slot)?;
+		use sp_consensus_aura::AuraApi as _;
+		let slot_duration = self
+			.client
+			.runtime_api()
+			.slot_duration(parent_hash)
+			.map_err(|e| format!("slot duration at {parent_hash:?}: {e}"))?;
+		let slot_now = sp_consensus_aura::Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			slot_duration,
+		);
+		let (pre_header, _slot, seal) =
+			sc_consensus_aura::standalone::check_header_slot_and_seal::<
+				Block,
+				<AuraId as AuraIdT>::BoundedPair,
+			>(slot_now, params.header, &authorities)
+			.map_err(|e| {
+				format!("Rejecting block {post_hash:?} with invalid seal at anchor slot {anchor_slot}: {e:?}")
+			})?;
+		params.header = pre_header;
+		params.post_digests.push(seal);
+		params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::LongestChain);
+		params.post_hash = Some(post_hash);
+
+		if let Some(body) = params.body.clone() {
+			let block = Block::new(params.header.clone(), body);
+			let providers = self
+				.create_inherent_data_providers
+				.create_inherent_data_providers(parent_hash, ())
+				.await
+				.map_err(|e| format!("Could not create inherent data {e:?}"))?;
+			sp_block_builder::check_inherents(self.client.clone(), parent_hash, block, &providers)
+				.await
+				.map_err(|e| format!("Error checking block inherents {e:?}"))?;
+		}
+		Ok(params)
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block: BlockT, Client, AuraId, CIDP> VerifierT<Block> for Verifier<Block, Client, AuraId, CIDP>
+where
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client::Api: AuraRuntimeApi<Block, AuraId> + sp_block_builder::BlockBuilder<Block>,
+	AuraId: AuraIdT + Sync,
+	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
 {
 	async fn verify(
 		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
+		let parent_hash = *block_import.header.parent_hash();
+		if let Some(jam_parent) = cumulus_primitives_core::CumulusDigestItem::find_jam_parent_info(
+			block_import.header.digest(),
+		) {
+			let slot_bound = self
+				.client
+				.runtime_api()
+				.has_api::<dyn cumulus_jam_aura_primitives::JamAuraApi<Block, jam::AuraPublic<AuraId>>>(
+					parent_hash,
+				)
+				.unwrap_or(false);
+			if slot_bound {
+				return self.verify_jam(block_import, jam_parent.anchor_slot).await;
+			}
+		}
+		if self.client.runtime_api().has_aura_api(parent_hash) {
 			self.aura_verifier.verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
@@ -147,7 +226,7 @@ pub(crate) struct BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockIm
 	PhantomData<(Block, RuntimeApi, AuraId, BlockImport)>,
 );
 
-impl<Block: BlockT, RuntimeApi, AuraId, BlockImport>
+impl<Block: NodeBlock, RuntimeApi, AuraId, BlockImport>
 	BuildImportQueue<Block, RuntimeApi, BlockImport>
 	for BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport>
 where
@@ -184,9 +263,13 @@ where
 			);
 
 		let verifier = Verifier {
+			jam_authorities: Arc::new(
+				jam::RuntimeApiAuthorities::<Block, RuntimeApi, AuraId>::new(client.clone()),
+			),
 			client,
 			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
+			create_inherent_data_providers: inherent_data_providers,
 			_phantom: Default::default(),
 		};
 
@@ -685,31 +768,23 @@ where
 			tracing_execute_block: None,
 		})?;
 
-		// Up front, and fatal: a collator that cannot reproduce its core's authorizer config, or
-		// that holds no aura key of the set that config commits to, would author blocks whose
-		// packages no guarantor can ever authorize — and the only symptom would be silence. A full
-		// node signs nothing, so it is not asked for a key it has no reason to hold.
-		//
-		// The set is read once, here: the authorizer hash commits to a snapshot of it, so
-		// re-reading it every block could only produce a hash no core holds. The builder warns
-		// when the runtime's set drifts away from this one.
-		let jam_authorizer = if is_authority {
-			let best_hash = client.info().best_hash;
-			let authorities = client.runtime_api().authorities(best_hash).map_err(|error| {
-				sc_service::Error::Other(format!(
-					"cannot read the runtime's aura authorities at {best_hash:?}: {error}",
-				))
-			})?;
-			let authorizer = jam::authorizer::AuraAuthorizer::new::<AuraId>(
-				&authorities,
-				&jam_params.authorizer_blob,
+		// Up front, and fatal only for what is genuinely broken: an unreadable authorizer blob, or
+		// a degenerate config the guest itself rejects. Holding no key of the current set is not
+		// fatal any more — the set changes at JAM slots and the node may be in the next one — so
+		// the authorizer is resolved per anchor slot by [`jam::Authorizers`]. A full node signs
+		// nothing and is not given one.
+		let jam_authorizers = if is_authority {
+			let source = Arc::new(jam::RuntimeApiAuthorities::<Block, RuntimeApi, AuraId>::new(
+				client.clone(),
+			));
+			Some(Arc::new(jam::Authorizers::<Block, AuraId>::new(
+				source,
+				jam_params.authorizer_blob.clone(),
 				para_id.into(),
 				jam_params.service_id,
 				jam_params.slot_duration,
 				keystore_container.keystore(),
-			)
-			.map_err(sc_service::Error::Other)?;
-			Some(Arc::new(authorizer))
+			)) as Arc<dyn jam::AuthoritySource<Block>>)
 		} else {
 			None
 		};
@@ -874,7 +949,7 @@ where
 					None,
 					Box::pin(recovery.run(bundle_recovery, block_status_fn, import_notifications)),
 				);
-				let Some(jam_authorizer) = jam_authorizer else {
+				let Some(jam_authorizers) = jam_authorizers else {
 					// Essential task: park forever, returning would shut the node down.
 					return futures::future::pending::<()>().await;
 				};
@@ -905,7 +980,7 @@ where
 						keystore,
 						para_id,
 						service_id: jam_params.service_id,
-						authorizer: jam_authorizer.clone(),
+						authorizers: jam_authorizers.clone(),
 						jam: jam.clone(),
 						message_sender,
 						hold: hold.clone(),
@@ -921,7 +996,7 @@ where
 							jam,
 							para_id,
 							service_id: jam_params.service_id,
-							authorizer: jam_authorizer,
+							authorizers: jam_authorizers,
 							message_receiver,
 							announce_block,
 							params: package_params,

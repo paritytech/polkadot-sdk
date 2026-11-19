@@ -24,7 +24,10 @@
 //!   JAM has accumulated rather than waiting for inclusion — or on a sibling of that head once it
 //!   has stood still long enough to say the branch above it is lost — with the shared authoring
 //!   primitives and a *mocked* parachain inherent, one block per core that holds the para's
-//!   authorizer, and feeds the channel;
+//!   authorizer, and feeds the channel. A block's timestamp is its anchor's and its Aura slot is
+//!   the anchor's Aura slot, so the collator cannot pick its own time; the authorizer that signs a
+//!   package is the one JAM uses at the package's anchor slot, and a turn stops at a block that
+//!   changes the Aura set;
 //! - the [collation task](collation_task) turns each block into a work package — naming the work
 //!   package this node submitted for the parent block as its one prerequisite when the ledger still
 //!   remembers it — submits it, follows `workPackageStatus` for every package in flight, and
@@ -57,32 +60,41 @@ pub(crate) mod resubmission;
 pub(crate) use cumulus_client_jam_authorizer::authorizer;
 
 use crate::common::{
+	aura::{AuraIdT, AuraRuntimeApi},
 	types::{ParachainBackend, ParachainClient},
 	ConstructNodeRuntimeApi, NodeBlock,
 };
 use authorizer::AuraAuthorizer;
-use codec::{Decode, DecodeAll};
+use codec::{Decode, DecodeAll, Encode};
+use cumulus_jam_aura_primitives::JamAuraApi;
 use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
 use futures::{Stream, StreamExt};
 use jam_interface::{
-	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
-	ServiceId, Slot as JamSlot,
+	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamStateSource, ServiceId,
+	Slot as JamSlot,
 };
 use jam_types::RefineContext;
 use parachain_service_core::{para_info_key, ParaInfo};
 use sc_client_api::{Backend as _, BlockchainEvents, StorageProvider};
 use sp_additional_data::AdditionalData;
+use sp_api::{ApiExt, CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::ProposeArgs;
+use sp_consensus_aura::AuraApi;
+use sp_core::Pair;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
 use std::{
+	collections::HashMap,
 	fmt::Debug,
 	future::Future,
+	marker::PhantomData,
+	path::PathBuf,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
-		Arc,
+		Arc, Mutex,
 	},
 	time::Instant,
 };
@@ -90,6 +102,187 @@ use std::{
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
+
+/// The public key of an aura authority, as `AuraApi::authorities()` hands it out.
+pub(crate) type AuraPublic<AuraId> = <<AuraId as AuraIdT>::BoundedPair as Pair>::Public;
+
+/// Where the collator gets the para's AURA authorizer for an anchor slot.
+///
+/// JAM authorizes packages with the set it uses at the package's *anchor* slot, and a set change
+/// is announced a session ahead. The runtime knows the schedule, so every decision that depends
+/// on who may author — signing, the round-robin turn, the pool scan — asks this source for the
+/// anchor's set rather than caching one set for the node's life.
+pub(crate) trait AuthoritySource<Block: BlockT>: Send + Sync {
+	/// The authorizer JAM uses at `anchor_slot`, read from the runtime state at `at`.
+	///
+	/// `Ok(None)` means this node holds no aura key of that set: it may not author there. `Err`
+	/// means the set could not be read or derived, which is a configuration or runtime problem
+	/// rather than a turn that simply is not ours.
+	fn for_anchor(
+		&self,
+		at: Block::Hash,
+		anchor_slot: JamSlot,
+	) -> Result<Option<Arc<AuraAuthorizer>>, String>;
+}
+
+/// The authority sets a runtime names, by anchor slot.
+///
+/// Split out from [`Authorizers`] so the slot-bound selection can be tested without a client.
+pub(crate) trait RuntimeAuthorities<Block: BlockT, AuraId: AuraIdT>: Send + Sync {
+	/// The set the runtime names for a package anchored at `anchor_slot`, read at `at`.
+	fn authorities_at(
+		&self,
+		at: Block::Hash,
+		anchor_slot: JamSlot,
+	) -> Result<Vec<AuraPublic<AuraId>>, String>;
+}
+
+/// [`RuntimeAuthorities`] backed by the parachain client's runtime API.
+pub(crate) struct RuntimeApiAuthorities<Block: BlockT, RuntimeApi, AuraId> {
+	client: Arc<ParachainClient<Block, RuntimeApi>>,
+	_phantom: PhantomData<AuraId>,
+}
+
+impl<Block, RuntimeApi, AuraId> RuntimeApiAuthorities<Block, RuntimeApi, AuraId>
+where
+	Block: NodeBlock,
+{
+	pub(crate) fn new(client: Arc<ParachainClient<Block, RuntimeApi>>) -> Self {
+		Self { client, _phantom: PhantomData }
+	}
+}
+
+impl<Block, RuntimeApi, AuraId> RuntimeAuthorities<Block, AuraId>
+	for RuntimeApiAuthorities<Block, RuntimeApi, AuraId>
+where
+	Block: NodeBlock,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	fn authorities_at(
+		&self,
+		at: Block::Hash,
+		anchor_slot: JamSlot,
+	) -> Result<Vec<AuraPublic<AuraId>>, String> {
+		let has_jam_aura_api = self
+			.client
+			.runtime_api()
+			.has_api::<dyn JamAuraApi<Block, AuraPublic<AuraId>>>(at)
+			.unwrap_or(false);
+		if !has_jam_aura_api {
+			// A runtime without the slot-bound API has one set for all slots; falling back keeps
+			// coretime-westend and the test runtime authoring exactly as before.
+			return self
+				.client
+				.runtime_api()
+				.authorities(at)
+				.map_err(|error| format!("AuraApi::authorities at {at:?}: {error}"));
+		}
+
+		// A direct call with the method name the runtime dispatch table uses; the arguments are
+		// the tuple `(anchor_slot,)` encoded exactly as the generated client method encodes them.
+		// Calling through `CallApiAt` rather than a trait bound on the node's `RuntimeApi` keeps
+		// every runtime the omni-node serves compiling without implementing the new API.
+		let raw = self
+			.client
+			.call_api_at(CallApiAtParams {
+				at,
+				function: "JamAuraApi_authorities_at",
+				arguments: anchor_slot.encode(),
+				overlayed_changes: &Default::default(),
+				call_context: CallContext::Offchain,
+				recorder: &None,
+				extensions: &Default::default(),
+			})
+			.map_err(|error| {
+				format!("JamAuraApi::authorities_at({anchor_slot}) at {at:?}: {error}")
+			})?;
+		Vec::<AuraPublic<AuraId>>::decode(&mut &raw[..]).map_err(|error| {
+			format!(
+				"JamAuraApi::authorities_at({anchor_slot}) at {at:?} returned undecodable data: {error}"
+			)
+		})
+	}
+}
+
+/// Derives and caches the para's authorizers, one per authority set.
+///
+/// The set comes from the runtime's `JamAuraApi::authorities_at` when it exposes it, and from
+/// `AuraApi::authorities` otherwise — a runtime without the slot-bound API only has one set, and
+/// falling back keeps it authoring exactly as before. A derived `AuraAuthorizer` is cached by the
+/// exact authority list it commits to, so a set change costs one derivation and a node whose key
+/// is absent from a set keeps `None` for that set instead of failing every tick.
+pub(crate) struct Authorizers<Block: BlockT, AuraId: AuraIdT> {
+	source: Arc<dyn RuntimeAuthorities<Block, AuraId>>,
+	blob_path: PathBuf,
+	para_id: u32,
+	service_id: ServiceId,
+	slot_duration: u32,
+	keystore: KeystorePtr,
+	/// Keyed by the SCALE-encoded authority list, which is exactly what the authorizer commits to.
+	cache: Mutex<HashMap<Vec<u8>, Option<Arc<AuraAuthorizer>>>>,
+}
+
+impl<Block: BlockT, AuraId: AuraIdT> Authorizers<Block, AuraId> {
+	pub(crate) fn new(
+		source: Arc<dyn RuntimeAuthorities<Block, AuraId>>,
+		blob_path: PathBuf,
+		para_id: u32,
+		service_id: ServiceId,
+		slot_duration: u32,
+		keystore: KeystorePtr,
+	) -> Self {
+		Self {
+			source,
+			blob_path,
+			para_id,
+			service_id,
+			slot_duration,
+			keystore,
+			cache: Mutex::new(HashMap::new()),
+		}
+	}
+}
+
+impl<Block: BlockT, AuraId: AuraIdT> AuthoritySource<Block> for Authorizers<Block, AuraId> {
+	fn for_anchor(
+		&self,
+		at: Block::Hash,
+		anchor_slot: JamSlot,
+	) -> Result<Option<Arc<AuraAuthorizer>>, String> {
+		let authorities = self.source.authorities_at(at, anchor_slot)?;
+		let key = authorities.encode();
+		if let Some(cached) =
+			self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&key)
+		{
+			return Ok(cached.clone());
+		}
+
+		let authorizer = AuraAuthorizer::try_new::<AuraId>(
+			&authorities,
+			&self.blob_path,
+			self.para_id,
+			self.service_id,
+			self.slot_duration,
+			self.keystore.clone(),
+		)?
+		.map(Arc::new);
+		tracing::info!(
+			target: LOG_TARGET,
+			?at,
+			anchor_slot,
+			collators = authorities.len(),
+			ours = authorizer.as_ref().map(|authorizer| authorizer.own_index()),
+			"Resolved the aura authorizer for an anchor slot.",
+		);
+		self.cache
+			.lock()
+			.unwrap_or_else(|poisoned| poisoned.into_inner())
+			.insert(key, authorizer.clone());
+		Ok(authorizer)
+	}
+}
 
 /// How many in-flight resubmission packages the builder has to wait for before it authors again.
 /// Written by the collation task, read by the builder at tick time.
@@ -316,68 +509,6 @@ const MAX_LOOKUP_ANCHOR_AGE: JamSlot = 24;
 /// — and a package that dies for that reason looks exactly like one that was never submitted.
 const LOOKUP_ANCHOR_SAFETY_MARGIN: JamSlot = 8;
 
-/// What a walk back through the finalized chain found to use as a lookup anchor.
-#[derive(Debug, PartialEq, Eq)]
-struct LookupAnchorWalk {
-	/// The newest block within one turn of the round-robin whose slot names this collator.
-	chosen: Option<BlockDesc>,
-	/// How many blocks the walk looked at, the block it started from included.
-	walked: u32,
-	/// Why the walk ended before exhausting its window — a JAM read that failed, or the chain
-	/// running out under it near genesis. Not an error in itself: a shorter walk simply has fewer
-	/// candidates.
-	stopped_early: Option<String>,
-}
-
-/// The lookup anchor a package must carry for this collator's token to be accepted.
-///
-/// The AURA authorizer derives the expected collator from `refine_context().lookup_anchor_slot` —
-/// the anchor's own slot is not visible in-core — so it is the *lookup* anchor, not the anchor,
-/// that has to name us. Walking back through finalized blocks is safe: they are all finalized by
-/// construction, which is polkajam's other requirement, and one full turn of the round-robin is
-/// as far as the arithmetic can go before repeating itself.
-///
-/// Walks newest-first from `newest` and stops at the first block that names this collator, so on
-/// the common case (our own slot) it costs no JAM read at all.
-async fn walk_back_to_our_slot<Parent, Fut>(
-	newest: BlockDesc,
-	authorizer: &AuraAuthorizer,
-	parent: Parent,
-) -> LookupAnchorWalk
-where
-	Parent: Fn(HeaderHash) -> Fut,
-	Fut: Future<Output = Result<BlockDesc, String>>,
-{
-	let window = authorizer.round_robin_window();
-	let mut block = newest;
-	for walked in 1..=window {
-		let ours = authorizer.names_us(block.slot);
-		tracing::debug!(
-			target: LOG_TARGET,
-			candidate = ?block.header_hash,
-			slot = block.slot,
-			expected_collator = authorizer.collator_for(block.slot),
-			own_index = authorizer.own_index(),
-			walked,
-			window,
-			accepted = ours,
-			"Considered a block as the package's lookup anchor.",
-		);
-		if ours {
-			return LookupAnchorWalk { chosen: Some(block), walked, stopped_early: None };
-		}
-		if walked < window {
-			match parent(block.header_hash).await {
-				Ok(parent) => block = parent,
-				Err(error) => {
-					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) };
-				},
-			}
-		}
-	}
-	LookupAnchorWalk { chosen: None, walked: window, stopped_early: None }
-}
-
 /// Whether a lookup anchor this old would still be inside polkajam's window when the package
 /// carrying it is reported, rather than expiring in flight.
 pub(crate) fn lookup_anchor_survives_reporting(
@@ -386,6 +517,43 @@ pub(crate) fn lookup_anchor_survives_reporting(
 ) -> bool {
 	anchor_slot.saturating_sub(lookup_anchor_slot) <=
 		MAX_LOOKUP_ANCHOR_AGE.saturating_sub(LOOKUP_ANCHOR_SAFETY_MARGIN)
+}
+
+/// The lookup anchor a package carries: the newest finalized block, as long as it survives the
+/// package's time in flight.
+///
+/// Under slot-bound sets the *anchor* slot selects the collator and the set is announced a
+/// session ahead, so the round-robin walk this replaces is gone; what remains is polkajam's
+/// freshness rule. `None` means the tick has to be skipped — a package anchored now would carry
+/// a lookup anchor that expires before it could be reported.
+pub(crate) fn choose_lookup_anchor(anchor: &BlockDesc, newest: BlockDesc) -> Option<BlockDesc> {
+	let age = anchor.slot.saturating_sub(newest.slot);
+	if !lookup_anchor_survives_reporting(anchor.slot, newest.slot) {
+		tracing::warn!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			lookup_anchor = ?newest.header_hash,
+			lookup_anchor_slot = newest.slot,
+			age,
+			max_age = MAX_LOOKUP_ANCHOR_AGE,
+			safety_margin = LOOKUP_ANCHOR_SAFETY_MARGIN,
+			"The newest finalized block would expire before the package carrying it could be
+			 reported; skipping this tick.",
+		);
+		return None;
+	}
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		anchor = ?anchor.header_hash,
+		anchor_slot = anchor.slot,
+		lookup_anchor = ?newest.header_hash,
+		lookup_anchor_slot = newest.slot,
+		age,
+		"Chose the newest finalized block as the lookup anchor.",
+	);
+	Some(newest)
 }
 
 /// Which cores currently hold this para's authorizer, and therefore where its packages may go.
@@ -516,78 +684,6 @@ where
 		),
 	}
 	result.map_err(|error| format!("{method}: {error}"))
-}
-
-/// Run the lookup-anchor walk against the live chain and apply the two rules a guarantor will
-/// apply to the answer: it has to name this collator, and it has to survive the package's time in
-/// flight.
-///
-/// `None` means the tick has to be skipped — there is no lookup anchor this collator could sign
-/// against, so any package built now would be refused in-core with nothing but silence to show
-/// for it. That is a loud log, not a quiet one.
-pub(crate) async fn choose_lookup_anchor<Jam: JamChainSource + ?Sized>(
-	jam: &Jam,
-	anchor: &BlockDesc,
-	newest: BlockDesc,
-	authorizer: &AuraAuthorizer,
-) -> Option<BlockDesc> {
-	let started = Instant::now();
-	let walk = walk_back_to_our_slot(newest, authorizer, |hash| {
-		jam_read("parent", hash, jam.parent(hash))
-	})
-	.await;
-
-	let Some(chosen) = walk.chosen else {
-		tracing::warn!(
-			target: LOG_TARGET,
-			anchor = ?anchor.header_hash,
-			anchor_slot = anchor.slot,
-			walk_started_at = ?newest.header_hash,
-			walk_started_at_slot = newest.slot,
-			blocks_walked = walk.walked,
-			window = authorizer.round_robin_window(),
-			collator_set_size = authorizer.collator_set_size(),
-			own_index = authorizer.own_index(),
-			stopped_early = ?walk.stopped_early,
-			elapsed_ms = started.elapsed().as_millis(),
-			"No finalized block within one turn of the round-robin names this collator, so there \
-			 is no lookup anchor a package of ours could be signed against; skipping this tick.",
-		);
-		return None;
-	};
-
-	let age = anchor.slot.saturating_sub(chosen.slot);
-	if !lookup_anchor_survives_reporting(anchor.slot, chosen.slot) {
-		tracing::warn!(
-			target: LOG_TARGET,
-			anchor = ?anchor.header_hash,
-			anchor_slot = anchor.slot,
-			lookup_anchor = ?chosen.header_hash,
-			lookup_anchor_slot = chosen.slot,
-			age,
-			max_age = MAX_LOOKUP_ANCHOR_AGE,
-			safety_margin = LOOKUP_ANCHOR_SAFETY_MARGIN,
-			blocks_walked = walk.walked,
-			elapsed_ms = started.elapsed().as_millis(),
-			"The newest lookup anchor naming this collator would expire before the package \
-			 carrying it could be reported; skipping this tick.",
-		);
-		return None;
-	}
-
-	tracing::info!(
-		target: LOG_TARGET,
-		anchor = ?anchor.header_hash,
-		anchor_slot = anchor.slot,
-		lookup_anchor = ?chosen.header_hash,
-		lookup_anchor_slot = chosen.slot,
-		age,
-		blocks_walked = walk.walked,
-		own_index = authorizer.own_index(),
-		elapsed_ms = started.elapsed().as_millis(),
-		"Chose the lookup anchor whose slot names this collator.",
-	);
-	Some(chosen)
 }
 
 /// The head hash a SCALE-encoded `ParaInfo` holds: `head_data` is the header hash of the para's
@@ -854,8 +950,7 @@ mod tests {
 		assert_eq!(resolved.next().now_or_never(), Some(None));
 	}
 
-	/// A finalized JAM chain, newest first, one block per slot ending at `newest_slot`. Block
-	/// `slot` is named by its own slot number so the walk is legible from the assertions.
+	/// A finalized JAM chain, newest first, one block per slot ending at `newest_slot`.
 	fn finalized_chain(newest_slot: JamSlot, length: u32) -> Vec<BlockDesc> {
 		(0..length)
 			.map(|back| {
@@ -865,83 +960,126 @@ mod tests {
 			.collect()
 	}
 
-	/// Walk `chain` (newest first) as the builder walks the finalized chain, and say what it
-	/// picked. Every step past the first is one `parent` round-trip on the real thing.
-	fn walk(chain: &[BlockDesc], authorizer: &AuraAuthorizer) -> LookupAnchorWalk {
-		futures::executor::block_on(walk_back_to_our_slot(
-			chain[0],
-			authorizer,
-			|hash| async move {
-				chain
-					.iter()
-					.position(|block| block.header_hash == hash)
-					.and_then(|index| chain.get(index + 1))
-					.copied()
-					.ok_or_else(|| "the chain ends here".to_string())
-			},
-		))
-	}
-
-	/// The authorizer reads the *lookup* anchor's slot, so a package is only ever signable by the
-	/// collator that slot names. Anchoring at the freshest finalized block, as phase 5a did, names
-	/// whoever happens to own that slot — so the builder walks back to the newest one that names
-	/// it, and takes the newest such block rather than any of them, because every slot of extra
-	/// age is a slot off the package's reporting window.
+	/// The lookup anchor is the newest finalized block, not a block whose slot names this
+	/// collator: under slot-bound sets the *anchor* slot selects the collator, and the set is
+	/// announced a session ahead, so there is nothing left to walk for. What remains is
+	/// polkajam's freshness rule, applied when the package is reported.
 	#[test]
-	fn the_lookup_anchor_is_the_newest_finalized_block_naming_us() {
-		let charlie = authorizer_of("alice,bob,charlie", "Charlie", 1);
-		// Slots 20..=12; charlie is collator 2, so slots 20 and 17 name him.
+	fn the_lookup_anchor_is_the_newest_finalized_block() {
 		let chain = finalized_chain(20, 9);
 
-		let from_20 = walk(&chain, &charlie);
+		let chosen = choose_lookup_anchor(&chain[0], chain[1]).expect("slot 19 is recent enough");
 
-		assert_eq!(from_20.chosen.expect("slot 20 names charlie").slot, 20);
-		assert_eq!(from_20.walked, 1, "our own slot costs no `parent` read at all");
-
-		let from_19 = walk(&chain[1..], &charlie);
-		assert_eq!(from_19.chosen.expect("slot 17 names charlie").slot, 17);
-		assert_eq!(from_19.walked, 3, "slots 19 and 18 are somebody else's");
+		assert_eq!(chosen.slot, 19, "no walk, the parent of the finalized block itself");
 	}
 
-	/// A para slot several JAM timeslots long makes the round-robin coarser, and the walk has to
-	/// use the same divisor the guest will: `--jam-slot-duration` is part of the config the
-	/// authorizer hash commits to.
+	/// A finalized block that would expire before the package carrying it could be reported is
+	/// not a lookup anchor at all: the tick has to be skipped, loudly.
 	#[test]
-	fn the_walk_uses_the_paras_slot_duration() {
+	fn a_stale_lookup_anchor_is_refused() {
+		let budget = MAX_LOOKUP_ANCHOR_AGE - LOOKUP_ANCHOR_SAFETY_MARGIN;
+		let anchor = BlockDesc { header_hash: HeaderHash::from([1u8; 32]), slot: 100 };
+
+		let newest = |slot| BlockDesc { header_hash: HeaderHash::from([2u8; 32]), slot };
+		assert!(choose_lookup_anchor(&anchor, newest(100 - budget)).is_some());
+		assert!(choose_lookup_anchor(&anchor, newest(100 - budget - 1)).is_none());
+	}
+
+	/// The round-robin is still read off the anchor slot: the set's own size and the para's slot
+	/// duration decide whose turn it is, and only that turn may author.
+	#[test]
+	fn the_round_robin_names_one_collator_per_para_slot() {
 		let bob = authorizer_of("alice,bob", "Bob", 3);
+
 		// Para slot = 3 timeslots; bob is collator 1, so timeslots 3..=5 and 9..=11 are his.
-		assert_eq!(walk(&finalized_chain(11, 12), &bob).chosen.expect("slot 11").slot, 11);
-		assert_eq!(walk(&finalized_chain(8, 12), &bob).chosen.expect("slot 5").slot, 5);
+		assert!(bob.names_us(3) && bob.names_us(5) && bob.names_us(11));
+		assert!(!bob.names_us(2) && !bob.names_us(6));
+		assert_eq!(bob.round_robin_window(), 6, "one full turn of two collators");
 	}
 
-	/// The walk is bounded by one turn of the round-robin: past that the arithmetic only repeats,
-	/// so a longer walk would be JAM reads spent on an answer already known to be no. A collator
-	/// alone in its set is named by every slot and never walks.
-	#[test]
-	fn the_walk_stops_after_one_turn_of_the_round_robin() {
-		let alice = authorizer_of("alice,bob,charlie", "Alice", 1);
-		assert_eq!(alice.round_robin_window(), 3);
-
-		// Slot 20 names collator 2, 19 names 1, 18 names 0 — the last block in the window.
-		let found = walk(&finalized_chain(20, 9), &alice);
-		assert_eq!(found.chosen.expect("slot 18 names alice").slot, 18);
-		assert_eq!(found.walked, 3);
-
-		let alone = authorizer_of("alice", "Alice", 1);
-		assert_eq!(walk(&finalized_chain(20, 9), &alone).walked, 1);
+	/// A runtime that schedules one set change at `switch`, as `pallet-jam-aura` announces it.
+	struct ScheduledSet {
+		switch: JamSlot,
+		current: Vec<AuraPublic<sp_consensus_aura::sr25519::AuthorityId>>,
+		next: Vec<AuraPublic<sp_consensus_aura::sr25519::AuthorityId>>,
 	}
 
-	/// A chain that ends under the walk — near genesis, or a JAM read that failed mid-walk — is
-	/// not a silent no: the tick is skipped either way, but the reason has to reach the log.
-	#[test]
-	fn a_walk_that_runs_out_of_chain_says_so() {
-		let charlie = authorizer_of("alice,bob,charlie", "Charlie", 1);
-		// Slots 19 and 18 name bob and alice; the chain stops before charlie's turn comes round.
-		let short = walk(&finalized_chain(19, 2), &charlie);
+	impl RuntimeAuthorities<cumulus_test_runtime::Block, sp_consensus_aura::sr25519::AuthorityId>
+		for ScheduledSet
+	{
+		fn authorities_at(
+			&self,
+			_: H256,
+			anchor_slot: JamSlot,
+		) -> Result<Vec<AuraPublic<sp_consensus_aura::sr25519::AuthorityId>>, String> {
+			Ok(if anchor_slot < self.switch { self.current.clone() } else { self.next.clone() })
+		}
+	}
 
-		assert_eq!(short.chosen, None);
-		assert_eq!(short.walked, 2);
-		assert!(short.stopped_early.is_some(), "the reason is carried, not swallowed");
+	/// The authorizer the collator picks for an anchor slot is the set JAM authorizes there: the
+	/// old set before the scheduled switch slot, the new one from the switch slot on. This is what
+	/// makes a collator sign with the set the core's pool holds at the package's anchor.
+	#[test]
+	fn the_authorizer_is_the_sets_at_the_anchor_slot() {
+		use cumulus_client_jam_authorizer::testing::{authorities, keystore_of};
+		use sp_consensus_aura::sr25519::AuthorityId as Sr25519AuraId;
+
+		let switch = 100;
+		let source = Arc::new(ScheduledSet {
+			switch,
+			current: authorities::<Sr25519AuraId>("alice,bob"),
+			next: authorities::<Sr25519AuraId>("charlie,bob"),
+		});
+		let authorizers = Authorizers::<cumulus_test_runtime::Block, Sr25519AuraId>::new(
+			source,
+			std::path::PathBuf::from(cumulus_client_jam_authorizer::testing::SOME_BLOB),
+			cumulus_client_jam_authorizer::testing::PARA_ID,
+			cumulus_client_jam_authorizer::testing::SERVICE_ID,
+			1,
+			keystore_of::<Sr25519AuraId>("Bob"),
+		);
+
+		let before = authorizers
+			.for_anchor(H256::zero(), switch - 1)
+			.expect("the old set derives")
+			.expect("Bob is in the old set");
+		let after = authorizers
+			.for_anchor(H256::zero(), switch)
+			.expect("the new set derives")
+			.expect("Bob is in the new set");
+
+		assert_eq!(before.own_index(), 1, "Bob is second in the old set");
+		assert_eq!(after.own_index(), 1, "Bob is second in the new set too");
+		assert_ne!(
+			before.hash(),
+			after.hash(),
+			"the switch changes the authorizer the core's pool must hold",
+		);
+	}
+
+	/// A node outside the set at an anchor slot gets `None`, not an error: under slot-bound sets
+	/// that is the ordinary state of waiting for a set that names it.
+	#[test]
+	fn an_anchor_slot_that_does_not_name_us_is_none() {
+		use cumulus_client_jam_authorizer::testing::{authorities, keystore_of};
+		use sp_consensus_aura::sr25519::AuthorityId as Sr25519AuraId;
+
+		let source = Arc::new(ScheduledSet {
+			switch: 10,
+			current: authorities::<Sr25519AuraId>("alice,bob"),
+			next: authorities::<Sr25519AuraId>("charlie,dave"),
+		});
+		let authorizers = Authorizers::<cumulus_test_runtime::Block, Sr25519AuraId>::new(
+			source,
+			std::path::PathBuf::from(cumulus_client_jam_authorizer::testing::SOME_BLOB),
+			cumulus_client_jam_authorizer::testing::PARA_ID,
+			cumulus_client_jam_authorizer::testing::SERVICE_ID,
+			1,
+			keystore_of::<Sr25519AuraId>("Bob"),
+		);
+
+		assert!(authorizers.for_anchor(H256::zero(), 9).expect("derives").is_some());
+		assert!(authorizers.for_anchor(H256::zero(), 10).expect("derives").is_none());
 	}
 
 	/// One core's authorizer pool, holding `hashes` as the eight-deep window it is.

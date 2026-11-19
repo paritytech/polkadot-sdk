@@ -1,0 +1,64 @@
+[package]
+name = "pallet-aura-jam"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Aura for JAM parachains: authority sets enacted at JAM anchor slots, seal and slot checked against the anchor"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+cumulus-jam-aura-primitives = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-session = { workspace = true }
+pallet-timestamp = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-runtime = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-jam-aura-primitives/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-session/std",
+	"pallet-timestamp/std",
+	"scale-info/std",
+	"sp-consensus-aura/std",
+	"sp-runtime/std",
+]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

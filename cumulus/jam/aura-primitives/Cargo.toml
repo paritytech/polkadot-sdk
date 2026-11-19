@@ -1,0 +1,22 @@
+[package]
+name = "cumulus-jam-aura-primitives"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Runtime API and slot helpers for slot-bound Aura authority sets on JAM"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+cumulus-aura-authorizer-utils = { path = "../aura-authorizer-utils", default-features = false }
+sp-api = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["codec/std", "cumulus-aura-authorizer-utils/std", "sp-api/std"]

@@ -147,6 +147,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AuthorizerHashes<T> = StorageMap<_, Twox64Concat, TaskId, [u8; 32], OptionQuery>;
 
+	/// The authorizer hash of every task that is scheduled for a JAM slot.
+	///
+	/// The hash becomes the task's current one in `AuthorizerHashes` once the JAM slot is reached.
+	#[pallet::storage]
+	pub type ScheduledAuthorizers<T> =
+		StorageMap<_, Twox64Concat, TaskId, (u32, [u8; 32]), OptionQuery>;
+
 	/// The current configuration of this pallet.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -540,6 +547,22 @@ pub mod pallet {
 			/// The core whose assignment was sent again.
 			core: CoreIndex,
 		},
+		/// The authorizer hash of a task was scheduled for a JAM slot.
+		AuthorizerScheduled {
+			/// The task whose authorizer hash was scheduled.
+			task: TaskId,
+			/// The JAM slot at which the authorizer hash takes effect.
+			from_slot: u32,
+			/// The scheduled authorizer hash.
+			authorizer: [u8; 32],
+		},
+		/// A scheduled authorizer hash became the current one of a task.
+		AuthorizerActivated {
+			/// The task whose authorizer hash changed.
+			task: TaskId,
+			/// The new current authorizer hash.
+			authorizer: [u8; 32],
+		},
 	}
 
 	#[pallet::error]
@@ -642,7 +665,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			Self::do_tick().saturating_add(Self::retry_rejected_assignments())
+			Self::process_scheduled_authorizers()
+				.saturating_add(Self::do_tick())
+				.saturating_add(Self::retry_rejected_assignments())
 		}
 	}
 
@@ -1130,6 +1155,31 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			AuthorizerHashes::<T>::set(task, authorizer);
 			Self::deposit_event(Event::<T>::AuthorizerRegistered { task, authorizer });
+			Ok(())
+		}
+
+		/// Schedule the authorizer hash of a task for a JAM slot.
+		///
+		/// The hash becomes the task's current one once the JAM slot is reached, and the cores
+		/// currently assigned to the task get an assignment taking effect at that slot.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `task`: The task whose authorizer hash is scheduled.
+		/// - `from_slot`: The JAM slot at which the authorizer hash takes effect.
+		/// - `authorizer`: The authorizer hash.
+		#[pallet::call_index(30)]
+		#[pallet::weight({
+			// Manual estimate: the scheduled entry plus the workload of every core.
+			T::DbWeight::get().reads_writes(1_024, 2)
+		})]
+		pub fn schedule_authorizer(
+			origin: OriginFor<T>,
+			task: TaskId,
+			from_slot: u32,
+			authorizer: [u8; 32],
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_schedule_authorizer(task, from_slot, authorizer);
 			Ok(())
 		}
 	}

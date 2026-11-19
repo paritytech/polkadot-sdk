@@ -32,7 +32,7 @@ mod work_package;
 
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
-pub use config::{AuthConfig, ConfigError};
+pub use config::{AuthConfig, ConfigError, AURA_SLOT_OFFSET};
 pub use merkle::{build_collator_proof, CollatorProofError};
 pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
@@ -61,7 +61,7 @@ impl AuthTrace {
 	/// Validate the work items and AURA token, returning the author trace.
 	///
 	/// The caller must supply the configuration bound to the authorized code/config
-	/// combination and the slot from the host's trusted refinement context.
+	/// combination and the JAM slot of the anchor from the host's trusted refinement context.
 	pub fn try_from_token<S: SignatureVerifier>(
 		config: &AuthConfig,
 		token: &AuthToken,

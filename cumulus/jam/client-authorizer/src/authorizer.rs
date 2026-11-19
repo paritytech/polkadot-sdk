@@ -85,6 +85,43 @@ impl AuraAuthorizer {
 		slot_duration: u32,
 		keystore: KeystorePtr,
 	) -> Result<Self, String> {
+		let keystore_for_error = keystore.clone();
+		match Self::try_new::<AuraId>(
+			authorities,
+			blob_path,
+			para_id,
+			parachain_service,
+			slot_duration,
+			keystore,
+		)? {
+			Some(authorizer) => Ok(authorizer),
+			None => {
+				let collators = collator_keys(authorities)?;
+				let scheme = scheme_name(<AuraId as AppCrypto>::CRYPTO_ID);
+				Err(own_key_missing(
+					&*keystore_for_error,
+					<AuraId as AppCrypto>::ID,
+					&scheme,
+					&collators,
+				))
+			},
+		}
+	}
+
+	/// Derive the para's authorizer for one authority set, and find this node in it.
+	///
+	/// `Ok(None)` means this node holds no key of the set, which under slot-bound authority sets
+	/// is an ordinary state: JAM switches to a set this node is not part of, and the collator waits
+	/// instead of authoring packages no core would authorize. Everything else — an unreadable blob,
+	/// a degenerate config the guest itself rejects — stays an error.
+	pub fn try_new<AuraId: AppCrypto>(
+		authorities: &[impl ByteArray],
+		blob_path: &Path,
+		para_id: u32,
+		parachain_service: ServiceId,
+		slot_duration: u32,
+		keystore: KeystorePtr,
+	) -> Result<Option<Self>, String> {
 		let Some(slot_duration) = NonZero::new(slot_duration) else {
 			return Err("`--jam-slot-duration` must be at least one JAM timeslot".into());
 		};
@@ -105,8 +142,18 @@ impl AuraAuthorizer {
 		let key_type = <AuraId as AppCrypto>::ID;
 		let crypto_id = <AuraId as AppCrypto>::CRYPTO_ID;
 		let scheme = scheme_name(crypto_id);
-		let own_index = own_index(&*keystore, key_type, &collators)
-			.ok_or_else(|| own_key_missing(&*keystore, key_type, &scheme, &collators))?;
+		let Some(own_index) = own_index(&*keystore, key_type, &collators) else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				para_id,
+				parachain_service,
+				%scheme,
+				collators = ?collators.iter().map(hex).collect::<Vec<_>>(),
+				"This node holds no aura key of the runtime's authority set; it does not author \
+				 under this set.",
+			);
+			return Ok(None);
+		};
 
 		let (collator_set_root, own_proof) = build_collator_proof(&collators, own_index as u32)
 			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
@@ -141,7 +188,7 @@ impl AuraAuthorizer {
 			 hash a core's pool must hold for our packages to be authorized.",
 		);
 
-		Ok(Self {
+		Ok(Some(Self {
 			authorizer,
 			hash,
 			config,
@@ -152,7 +199,7 @@ impl AuraAuthorizer {
 			key_type,
 			crypto_id,
 			keystore,
-		})
+		}))
 	}
 
 	/// The hash a core's authorizer pool has to hold for this para's packages to run on it.
@@ -169,19 +216,24 @@ impl AuraAuthorizer {
 		self.own_index
 	}
 
+	/// This collator's key in the set.
+	pub fn own_key(&self) -> CollatorKey {
+		self.own_key
+	}
+
 	pub fn collator_set_size(&self) -> u32 {
 		self.config.collator_set_size.get()
 	}
 
-	/// The collator the round-robin names for `slot` — what the guest computes from the package's
-	/// *lookup* anchor slot, and therefore what the lookup-anchor policy has to satisfy.
-	pub fn collator_for(&self, slot: JamSlot) -> u32 {
-		self.config.expected_collator_index(slot)
+	/// The collator the round-robin names for `anchor_slot` — what the guest computes from the
+	/// package's *anchor* slot, and therefore what this collator has to be named by to author it.
+	pub fn collator_for(&self, anchor_slot: JamSlot) -> u32 {
+		self.config.expected_collator_index(anchor_slot)
 	}
 
-	/// Whether `slot` names this collator.
-	pub fn names_us(&self, slot: JamSlot) -> bool {
-		self.collator_for(slot) == self.own_index
+	/// Whether `anchor_slot` names this collator.
+	pub fn names_us(&self, anchor_slot: JamSlot) -> bool {
+		self.collator_for(anchor_slot) == self.own_index
 	}
 
 	/// How far back a search for a slot naming this collator has to look: one full turn of the
@@ -229,6 +281,10 @@ impl AuraAuthorizer {
 
 	/// Sign `package` as this collator and put the token in its authorization.
 	///
+	/// The token is valid for the anchor slot the package already carries: that is the slot the
+	/// guest selects the collator by, so signing a package whose anchor does not name this node
+	/// produces a token no core will accept.
+	///
 	/// The signed hash excludes the authorization by construction, which is exactly what lets the
 	/// signature live inside the package it signs — so this runs *after* the package is otherwise
 	/// complete, and re-anchoring re-signs.
@@ -256,13 +312,13 @@ impl AuraAuthorizer {
 		tracing::debug!(
 			target: LOG_TARGET,
 			?wp_hash,
-			lookup_anchor_slot = package.context.lookup_anchor_slot,
-			expected_collator = self.collator_for(package.context.lookup_anchor_slot),
+			anchor_slot = package.context.anchor_slot,
+			expected_collator = self.collator_for(package.context.anchor_slot),
 			own_index = self.own_index,
 			own_key = %hex(&self.own_key),
 			proof_len = self.own_proof.len(),
 			token_len = authorization.len(),
-			"Signed the work package as the collator its lookup anchor names.",
+			"Signed the work package as the collator its anchor slot names.",
 		);
 		package.authorization = authorization;
 		Ok(())
@@ -346,7 +402,7 @@ mod tests {
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
 
-	fn package(lookup_anchor_slot: JamSlot, authorizer: &AuraAuthorizer) -> WorkPackage {
+	fn package(anchor_slot: JamSlot, authorizer: &AuraAuthorizer) -> WorkPackage {
 		let item = WorkItem {
 			service: SERVICE_ID,
 			code_hash: CodeHash::from([9u8; 32]),
@@ -363,11 +419,12 @@ mod tests {
 			authorizer: authorizer.authorizer(),
 			context: RefineContext {
 				anchor: [1u8; 32].into(),
-				anchor_slot: 0,
+				anchor_slot,
 				state_root: [2u8; 32].into(),
 				beefy_root: [3u8; 32].into(),
 				lookup_anchor: [4u8; 32].into(),
-				lookup_anchor_slot,
+				// Deliberately a slot naming another collator: only the anchor slot selects.
+				lookup_anchor_slot: 0,
 				lookup_anchor_state_root: Default::default(),
 				prerequisites: Default::default(),
 			},
@@ -409,8 +466,7 @@ mod tests {
 	}
 
 	/// A node whose keystore holds no key of the set could sign nothing a guarantor would accept,
-	/// so it must refuse to start rather than author blocks that can never be authorized — and the
-	/// error has to say how to fix it, because the fix is one key away.
+	/// so `new` must refuse to start rather than author blocks that can never be authorized.
 	#[test]
 	fn a_node_outside_the_authorities_errors() {
 		let error = AuraAuthorizer::new::<Sr25519AuraId>(
@@ -426,6 +482,34 @@ mod tests {
 		assert!(error.contains("key insert --scheme sr25519"), "the error names the fix: {error}");
 	}
 
+	/// Under slot-bound sets, a node holding no key of one set is an ordinary state: JAM switched
+	/// to a set it is not part of and the collator waits for its next turn.
+	#[test]
+	fn try_new_is_none_outside_the_authorities_works() {
+		let authorizer = AuraAuthorizer::try_new::<Sr25519AuraId>(
+			&authorities::<Sr25519AuraId>("alice,bob"),
+			Path::new(SOME_BLOB),
+			PARA_ID,
+			SERVICE_ID,
+			1,
+			keystore_of::<Sr25519AuraId>("Dave"),
+		)
+		.expect("an unreadable blob or degenerate config is the only error");
+		assert!(authorizer.is_none(), "Dave is not an authority");
+
+		let ours = AuraAuthorizer::try_new::<Sr25519AuraId>(
+			&authorities::<Sr25519AuraId>("alice,bob"),
+			Path::new(SOME_BLOB),
+			PARA_ID,
+			SERVICE_ID,
+			1,
+			keystore_of::<Sr25519AuraId>("Bob"),
+		)
+		.expect("Bob is an authority")
+		.expect("the set names Bob");
+		assert_eq!(ours.own_index(), 1);
+	}
+
 	/// The round-robin is the guest's, read off the config the package itself carries: one
 	/// collator per para slot, and a para slot is `slot_duration` JAM timeslots long.
 	#[test]
@@ -439,6 +523,22 @@ mod tests {
 		assert!(!alice.names_us(2));
 		// One full turn is how far back a search for a naming slot ever has to look.
 		assert_eq!(alice.round_robin_window(), 6);
+	}
+
+	/// The index comes from the Aura slot of the anchor, not the raw anchor slot: the round-robin
+	/// counts from the JAM common era, `AURA_SLOT_OFFSET` Aura slots after the Unix epoch. A
+	/// duration that does not divide the offset moves a collator's turn against the old
+	/// `(slot / slot_duration) % size`.
+	#[test]
+	fn the_round_robin_starts_at_the_jam_common_era_works() {
+		let alice = authorizer_of("alice,bob", "Alice", 7);
+		// Slot 0 is Aura slot 41326971, which names collator 1 (Bob); `0 / 7 % 2` names Alice.
+		assert_eq!(alice.collator_for(0), 1);
+		assert_ne!(alice.collator_for(0), (0 / 7) % 2);
+		assert!(!alice.names_us(0));
+		// Aura slot 41326972 names collator 0, which is Alice.
+		assert_eq!(alice.collator_for(7), 0);
+		assert!(alice.names_us(7));
 	}
 
 	/// A queue hash commits to the whole config, so two paras on the same collator set must land
@@ -483,14 +583,14 @@ mod tests {
 	#[test]
 	fn an_ed25519_token_satisfies_the_guest_verifier_works() {
 		let bob = authorizer_for::<Ed25519AuraId>("alice,bob,charlie", "Bob", 1);
-		// Slot 4 names collator 4 % 3 == 1, which is Bob.
+		// Anchor slot 4 is Aura slot 289288804, which names collator 1, Bob.
 		let mut package = package(4, &bob);
 		bob.authorize(&mut package).expect("the keystore holds Bob's aura key; qed");
 
 		let token = GuestToken::decode_all(&mut &package.authorization[..])
 			.expect("the guest decodes the token this node encoded");
-		let index = bob.collator_for(package.context.lookup_anchor_slot);
-		assert_eq!(index, bob.own_index(), "the lookup anchor names the signer");
+		let index = bob.collator_for(package.context.anchor_slot);
+		assert_eq!(index, bob.own_index(), "the anchor slot names the signer");
 		token
 			.check_proof(&bob.config, index)
 			.expect("the proof puts Bob at his own leaf");
@@ -500,6 +600,8 @@ mod tests {
 		// ...and the same token must fail once it is read as a *different* collator's, which is
 		// the only thing standing between the round-robin and any collator authoring any slot.
 		assert!(token.check_proof(&bob.config, 0).is_err(), "Bob's proof is not Alice's");
+		// The package's lookup anchor is not what selected the collator.
+		assert_ne!(bob.collator_for(package.context.lookup_anchor_slot), bob.own_index());
 	}
 
 	/// The same contract on the other curve, against the sr25519 blob's own verifier *and*

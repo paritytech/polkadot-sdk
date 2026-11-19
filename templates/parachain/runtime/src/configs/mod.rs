@@ -36,9 +36,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
-	},
+	traits::{ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -59,7 +57,7 @@ use xcm::latest::prelude::{AssetId, BodyId};
 // Local module imports
 use super::{
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
+	AccountId, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
 	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
 	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
@@ -160,13 +158,19 @@ impl cumulus_pallet_weight_reclaim::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	#[cfg(not(jam))]
+	type OnTimestampSet = super::Aura;
+	#[cfg(jam)]
+	type OnTimestampSet = super::AuraJam;
 	type MinimumPeriod = ConstU64<0>;
 	type WeightInfo = ();
 }
 
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+	#[cfg(not(jam))]
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, super::Aura>;
+	#[cfg(jam)]
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, super::AuraJam>;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -265,6 +269,7 @@ impl pallet_message_queue::Config for Runtime {
 	type IdleMaxServiceWeight = ();
 }
 
+#[cfg(not(jam))]
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
@@ -308,7 +313,15 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	// we don't have stash and controller, thus we don't need the convert as well.
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	#[cfg(jam)]
+	type ShouldEndSession = pallet_aura_jam::JamSlotSessions<Runtime>;
+	#[cfg(not(jam))]
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	// On JAM a session ends once the block's anchor slot reaches the next authorizer switch; on
+	// the relay chain it stays block-number based.
+	#[cfg(jam)]
+	type NextSessionRotation = pallet_aura_jam::JamSlotSessions<Runtime>;
+	#[cfg(not(jam))]
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionManager = CollatorSelection;
 	// Essentially just Aura, but let's be pedantic.
@@ -320,13 +333,24 @@ impl pallet_session::Config for Runtime {
 	type KeyDeposit = ();
 }
 
+#[cfg(not(jam))]
 #[docify::export(aura_config)]
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
+	type AllowMultipleBlocksPerSlot = frame_support::traits::ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+}
+
+/// On JAM, Aura's authority set is the one JAM authorizes at the block's anchor slot.
+#[cfg(jam)]
+impl pallet_aura_jam::Config for Runtime {
+	type AuthorityId = AuraId;
+	type MaxAuthorities = ConstU32<100_000>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
+	/// One session per `Period` JAM slots; a JAM slot is 6 s, the same as this template's block.
+	type RotationPeriod = Period;
 }
 
 parameter_types! {
