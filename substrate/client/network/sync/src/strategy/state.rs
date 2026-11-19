@@ -277,8 +277,7 @@ impl<B: BlockT> StateStrategy<B> {
 	fn abort(&mut self) {
 		error!(
 			target: LOG_TARGET,
-			"State sync aborted: the state could not be written to the database. Falling back to \
-			 full sync.",
+			"State sync aborted: the state could not be written to the database.",
 		);
 		self.aborted = true;
 		self.actions.push(SyncingAction::Finished);

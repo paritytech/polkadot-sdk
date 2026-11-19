@@ -490,7 +490,8 @@ where
 		self.warp = Some(warp_sync);
 	}
 
-	/// Proceed with the next strategy if the active one finished.
+	/// Proceed with the next strategy if the active one finished. A state sync that failed is an
+	/// error: the database has no state for a block sync to start from.
 	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
 		// The strategies are switched as `WarpSync` -> `StateStrategy` -> `ChainSync`.
 		if let Some(ref mut warp) = self.warp {
@@ -551,7 +552,15 @@ where
 			if state.is_succeeded() {
 				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
 			} else {
-				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
+				// Warp sync leaves the database without any state, the genesis one included, so a
+				// block sync has nothing to execute blocks on. The error ends the syncing engine,
+				// and the node stops.
+				error!(
+					target: LOG_TARGET,
+					"State sync failed and the database has no state to sync blocks from. Restart \
+					 the node to try again.",
+				);
+				return Err(ClientError::Backend("State sync failed".into()));
 			}
 			let chain_sync = match ChainSync::new(
 				chain_sync_mode(self.config.mode),
@@ -701,5 +710,39 @@ mod test {
 		strategy.actions(&network_handle).unwrap();
 		assert!(strategy.warp.is_some() && strategy.state.is_none(), "no peer serves it");
 		assert!(strategy.client.resumable_partial_state().unwrap().is_none(), "abandoned");
+	}
+
+	/// A state sync that fails is an error, which stops the node: there is no state for a block
+	/// sync to start from. Here the target cannot be recorded, as this database holds block state.
+	#[test]
+	fn failed_state_sync_is_an_error() {
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		let client = Arc::new(TestClientBuilder::new().build());
+		let mut strategy = PolkadotSyncingStrategy::new(
+			warp_mode_config(),
+			client.clone(),
+			Some(WarpSyncConfig::WithTarget(header(5))),
+			None,
+		)
+		.unwrap();
+		strategy.warp = None;
+		strategy.state = Some(StateStrategy::new(
+			client,
+			header(1),
+			None,
+			None,
+			std::iter::empty(),
+			ProtocolName::from("/state/2"),
+		));
+
+		// Nothing happens until the client's task has ended.
+		let result = loop {
+			match strategy.actions(&network_handle) {
+				Ok(actions) if actions.is_empty() => std::thread::yield_now(),
+				result => break result,
+			}
+		};
+		assert!(result.is_err());
 	}
 }

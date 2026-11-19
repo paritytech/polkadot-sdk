@@ -11,7 +11,8 @@ doc:
     blocks from the old target up to the last finalized block. Warp sync starts the
     whole warp sync over: a parachain when the target is 256 blocks or more below the finalized
     head, other chains once three state requests in a row fail. Both discard the old download.
-
+    If the state sync of a warp sync fails, the node now stops with an error instead of falling
+    back to a full sync that its database, which has no state, cannot run.
     `--sync fast-unsafe` is a deprecated alias of `--sync fast`: the state is always downloaded
     with proofs.
 - audience: Node Dev
