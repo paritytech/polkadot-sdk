@@ -472,11 +472,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * For accounts in [`Voting::Casting`] state: votes must be sorted by poll index with no
 	///   duplicates (invariant required for the binary search used during vote insertion).
 	/// * For accounts in [`Voting::Delegating`] state: an account may not delegate to itself.
+	///
+	/// Note: [`Voting::Casting`] entries with zero capital (only zero balance votes, no delegations
+	/// and no prior lock) should not be stored, but currently can be, see
+	/// <https://github.com/paritytech/polkadot-sdk/issues/7458>. This check does not reject them
+	/// until that is addressed.
 	fn try_state_voting() -> Result<(), sp_runtime::TryRuntimeError> {
 		VotingFor::<T, I>::iter().try_for_each(
 			|(who, _, voting)| -> Result<(), sp_runtime::TryRuntimeError> {
 				match voting {
 					Voting::Casting(casting) => {
+						// TODO(#7458): reject zero capital entries once they are no longer stored.
 						ensure!(
 							casting.votes.windows(2).all(|w| w[0].0 < w[1].0),
 							"Votes in `VotingFor` must be sorted by poll index with no duplicates"
