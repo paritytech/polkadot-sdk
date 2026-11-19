@@ -82,7 +82,7 @@ pub trait PartialStateImport<Block: BlockT> {
 	///
 	/// A chunk with no end marks the download complete. On `Err` nothing was written and the
 	/// cursor did not move. A chunk for another block or state root, one not starting at the
-	/// cursor, or one after the final chunk is refused.
+	/// cursor, one whose end is not after its start, or one after the final chunk is refused.
 	fn import_partial_state(
 		&self,
 		partial_state: &PartialStateFor<Block>,
@@ -116,10 +116,11 @@ pub trait PartialStateStore<Block: BlockT>: Send + Sync {
 
 	/// Write the chunk's nodes and its range end as the new cursor, in one transaction.
 	///
-	/// A chunk for another block or state root, one not starting at the cursor, or one after the
-	/// final chunk is refused with nothing written. Each node must be written once per position,
-	/// or reference counting breaks, and a range written over a hole would never complete. The
-	/// cursor is kept in the database alone, so a restart continues from it.
+	/// A chunk for another block or state root, one not starting at the cursor, one whose end is
+	/// not after its start, or one after the final chunk is refused with nothing written. Each
+	/// node must be written once per position, or reference counting breaks, and a range written
+	/// over a hole would never complete. The cursor is kept in the database alone, so a restart
+	/// continues from it.
 	fn import(&self, chunk: &PartialStateFor<Block>) -> sp_blockchain::Result<()>;
 
 	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an

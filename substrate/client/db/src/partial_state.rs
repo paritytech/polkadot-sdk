@@ -489,6 +489,29 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 				partial_state.start, progress.cursor
 			)));
 		}
+		// The end becomes the cursor, so it must come after the start, or the next chunks would
+		// write positions a second time.
+		//
+		// A child trie is stored under a top key, whose value is the child's root. The download
+		// reads top keys in order, and when it meets a child's top key it reads that child's keys
+		// right after it, then carries on in the top trie. So a cursor at the child's top key
+		// alone stands after every cursor inside that child. With top keys `A`, `K`, `Z` and a
+		// child trie under `K`:
+		//
+		// [A]  <  [K, c1]  <  [K, c2]  <  [K, c3]  <  [K]  <  [Z]
+		//
+		// In `order`, `past_child_trie` is what puts `[K, c3]` before `[K]`.
+		if let Some(end) = &partial_state.end {
+			let start = &partial_state.start;
+			let order = |cursor: &[Vec<u8>]| {
+				let (top_key, child_key) = (cursor.first().cloned(), cursor.get(1).cloned());
+				let past_child_trie = child_key.is_none();
+				(top_key, past_child_trie, child_key)
+			};
+			if order(end) <= order(start) {
+				return Err(refused(format!("ends at {end:?}, not after its start {start:?}")));
+			}
+		}
 		// The nodes go straight into `STATE`, bypassing state-db. They belong to no block until
 		// the target block is imported with the state complete. They are keyed exactly as
 		// `StorageDb::get` looks nodes up, so reads find them.
@@ -830,6 +853,11 @@ mod tests {
 
 		backend.partial_state.import(&with_end(from(&[]), &[vec![0x80]])).unwrap();
 		assert!(backend.partial_state.import(&from(&[])).is_err(), "the first range again");
+		// An end before the cursor, at it, or inside the child trie it stands after.
+		for end in [vec![vec![0x40]], vec![vec![0x80]], vec![vec![0x80], vec![1]]] {
+			let back = with_end(from(&[vec![0x80]]), &end);
+			assert!(backend.partial_state.import(&back).is_err(), "end {end:?} is not after");
+		}
 		assert_eq!(
 			backend.partial_state.resumable().unwrap().map(|record| record.cursor),
 			Some(vec![vec![0x80]]),
