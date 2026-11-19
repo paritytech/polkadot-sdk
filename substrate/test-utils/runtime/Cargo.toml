@@ -125,6 +125,9 @@ std = [
 # Special feature to disable logging
 disable-logging = ["sp-api/disable-logging"]
 
+# Builds the runtime without `inherent_upgrade_pallet` and with `spec_version` 1.
+without-inherent-upgrade-pallet = []
+
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.

@@ -25,6 +25,7 @@ extern crate alloc;
 pub mod extrinsic;
 #[cfg(feature = "std")]
 pub mod genesismap;
+pub mod inherent_upgrade_pallet;
 pub mod substrate_test_pallet;
 
 #[cfg(not(feature = "std"))]
@@ -94,6 +95,12 @@ pub mod wasm_binary_logging_disabled {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_logging_disabled.rs"));
 }
 
+/// The runtime without [`inherent_upgrade_pallet`] and with `spec_version` 1.
+#[cfg(feature = "std")]
+pub mod wasm_binary_without_inherent_upgrade_pallet {
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_without_inherent_upgrade_pallet.rs"));
+}
+
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
 pub fn wasm_binary_unwrap() -> &'static [u8] {
@@ -112,7 +119,23 @@ pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 	)
 }
 
+// The `runtime_version` macro operates on the AST, so the `spec_version` can not be set using
+// `cfg` inside of the declaration.
+#[cfg(feature = "without-inherent-upgrade-pallet")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: alloc::borrow::Cow::Borrowed("test"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-test"),
+	authoring_version: 1,
+	spec_version: 1,
+	impl_version: 2,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	system_version: 1,
+};
+
 /// Test runtime version.
+#[cfg(not(feature = "without-inherent-upgrade-pallet"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("test"),
@@ -332,6 +355,8 @@ construct_runtime!(
 		SubstrateTest: substrate_test_pallet::pallet,
 		Utility: pallet_utility,
 		Balances: pallet_balances,
+		#[cfg(not(feature = "without-inherent-upgrade-pallet"))]
+		InherentUpgrade: inherent_upgrade_pallet,
 	}
 );
 
@@ -424,6 +449,8 @@ impl pallet_utility::Config for Runtime {
 }
 
 impl substrate_test_pallet::Config for Runtime {}
+
+impl inherent_upgrade_pallet::Config for Runtime {}
 
 // Required for `pallet_babe::Config`.
 impl pallet_timestamp::Config for Runtime {
@@ -551,8 +578,8 @@ impl_runtime_apis! {
 			vec![]
 		}
 
-		fn check_inherents(_block: <Block as BlockT>::LazyBlock, _data: InherentData) -> CheckInherentsResult {
-			CheckInherentsResult::new()
+		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: InherentData) -> CheckInherentsResult {
+			data.check_extrinsics(&block)
 		}
 	}
 
