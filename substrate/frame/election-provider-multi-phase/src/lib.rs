@@ -240,6 +240,7 @@
 //! all operations on the solution and the snapshot are worthy of taking this into account.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(deprecated)]
 
 extern crate alloc;
 
@@ -591,6 +592,9 @@ impl From<sp_npos_elections::Error> for FeasibilityError {
 
 pub use pallet::*;
 #[frame_support::pallet]
+#[deprecated(
+	note = "`pallet-election-provider-multi-phase` will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block`, or `onchain::OnChainExecution` with `pallet-staking`."
+)]
 pub mod pallet {
 	use super::*;
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};

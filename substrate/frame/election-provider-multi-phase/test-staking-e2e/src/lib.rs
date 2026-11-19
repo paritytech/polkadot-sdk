@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #![cfg(test)]
+#![allow(deprecated)]
 
 // We do not declare all features used by `construct_runtime`
 #[allow(unexpected_cfgs)]

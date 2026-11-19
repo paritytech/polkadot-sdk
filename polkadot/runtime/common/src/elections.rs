@@ -48,7 +48,11 @@ macro_rules! impl_elections_weights {
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
 /// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
 /// since the staking is bounded and the weight pipeline takes hours for this single pallet.
+#[deprecated(
+	note = "`BenchmarkConfig` will be removed after May 2027, together with `pallet-election-provider-multi-phase`."
+)]
 pub struct BenchmarkConfig;
+#[allow(deprecated)]
 impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfig {
 	const VOTERS: [u32; 2] = [1000, 2000];
 	const TARGETS: [u32; 2] = [500, 1000];
