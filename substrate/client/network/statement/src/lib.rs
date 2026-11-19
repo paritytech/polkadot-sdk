@@ -1870,7 +1870,7 @@ where
 				// once.
 				if v2dht_enabled() && protocol_version == PeerProtocolVersion::V2 && !is_light {
 					self.serve_without_dht(peer);
-				} else if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
+				} else if self.peers.get(&peer).is_some_and(Peer::can_receive) {
 					self.schedule_initial_sync_for_peer(peer, None);
 				}
 				self.update_peers_without_dht();
@@ -6672,6 +6672,7 @@ mod tests {
 		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
 		handler.process_pending_affinities();
 
+		assert!(notification_service.get_sent_notifications().is_empty(), "no filter in return");
 		let filter = handler.peers.get(&peer_id).unwrap().topic_affinity.as_ref().unwrap();
 		assert!(filter.contains(&[0xAA; 32]));
 		assert!(!filter.contains(&[0xBB; 32]));
@@ -6705,6 +6706,76 @@ mod tests {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
 		let sent: HashSet<_> = notification_service.get_sent_notifications().into_iter().collect();
 		assert_eq!(sent, HashSet::from([(with_dht, encoded.clone()), (light, encoded)]));
+	}
+
+	#[tokio::test]
+	async fn a_new_peer_without_dht_gets_no_local_filter() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let [v1, full_v2, light_v2, v3] = [(); 4].map(|_| PeerId::random());
+		for peer in [v1, full_v2, light_v2, v3] {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+					peer,
+					direction: sc_network::service::traits::Direction::Inbound,
+					handshake: vec![],
+					negotiated_fallback: None,
+				})
+				.await;
+		}
+		handler.peers.get_mut(&v1).unwrap().protocol_version = PeerProtocolVersion::V1;
+		handler.peers.get_mut(&light_v2).unwrap().is_light = true;
+		handler.peers.get_mut(&v3).unwrap().protocol_version = PeerProtocolVersion::V3;
+		notification_service.clear_sent_notifications();
+
+		for peer in [v1, full_v2, light_v2, v3, PeerId::random()] {
+			handler.send_local_filter(&peer).await;
+		}
+
+		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
+		let sent: HashSet<_> = notification_service.get_sent_notifications().into_iter().collect();
+		assert_eq!(sent, HashSet::from([(light_v2, local.clone()), (v3, local)]));
+	}
+
+	#[test]
+	fn identify_indexes_only_a_peer_that_lists_the_main_protocol() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+		let main: ProtocolName = format!("/aa/{STATEMENT_PROTOCOL_V3}").into();
+		let fallbacks: HashSet<ProtocolName> = HashSet::from([
+			format!("/aa/{STATEMENT_PROTOCOL_V2}").into(),
+			format!("/aa/{STATEMENT_PROTOCOL_V1}").into(),
+		]);
+		handler.protocol_name = main.clone();
+		// A lone node is the replica of the topic at a peer's key until it indexes that peer.
+		let remote = PeerId::random();
+		handler.v2dht = V2DhtOrchestrator::new(
+			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+			PeerId::random(),
+			topology_config(1, 1),
+			main.clone(),
+			None,
+		);
+		let topic = Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes()));
+
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: fallbacks.clone(),
+		});
+		assert!(
+			handler.v2dht.is_replica_for(&[topic]),
+			"a peer without statement/3 is not indexed"
+		);
+
+		let mut with_main = fallbacks;
+		with_main.insert(main);
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: with_main,
+		});
+		assert!(!handler.v2dht.is_replica_for(&[topic]));
 	}
 
 	#[test]
@@ -7332,6 +7403,10 @@ mod tests {
 		assert!(make_peer(true, PeerProtocolVersion::V2, true).can_receive());
 		// Full node, V2, with affinity → can receive
 		assert!(make_peer(false, PeerProtocolVersion::V2, true).can_receive());
+		// Light, V3, no affinity → CANNOT receive (must set affinity first)
+		assert!(!make_peer(true, PeerProtocolVersion::V3, false).can_receive());
+		// Light, V3, with affinity → can receive
+		assert!(make_peer(true, PeerProtocolVersion::V3, true).can_receive());
 	}
 
 	#[tokio::test]

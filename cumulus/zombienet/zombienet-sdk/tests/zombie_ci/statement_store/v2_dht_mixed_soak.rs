@@ -324,9 +324,9 @@ fn describe_links(
 }
 
 /// Waits for the topology the replica oracle needs: every DHT node knows all the other DHT nodes as
-/// eligible, and the DHT-off ones it has no link to may count as well. A DHT node whose connected
-/// and wanted statement peers stay under the K-peer floor or a DHT-off node without a statement
-/// peer is a finding, not a stop
+/// eligible, and a DHT-off one whose link to it closed may count as well. A DHT node whose
+/// connected and wanted statement peers stay under the K-peer floor or a DHT-off node without a
+/// statement peer is a finding, not a stop
 async fn wait_for_mixed_topology(
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
@@ -487,8 +487,9 @@ fn pick_probes(
 		}
 	}
 
-	// The subscriber's steering keeps one peer for the topic, its nearest known node: here a
-	// DHT-off node that refuses the subscriber, as they share no sync link
+	// The subscriber's steering keeps one peer for the topic, its nearest known DHT node. The
+	// topic's nearest node is DHT-off and shares no sync link with the subscriber, so identify
+	// keeps it out of the subscriber's index
 	let nearest_dht_off = (0..TOPIC_SEARCH_LIMIT).find_map(|candidate| {
 		let topic = soak_topic(b"mixed-p2-hard", wave, candidate);
 		let order = ranked_by_distance(peer_keys, topic);
@@ -566,7 +567,7 @@ async fn dht_placement(
 /// Where `statement` must sit among the DHT nodes: on the DHT nodes among the K closest of its
 /// topic's `order`, and on `subscriber` when that is a DHT node that got it. Also returns the DHT
 /// nodes left unchecked: one past the K closest for each DHT-off node among them, as it holds a
-/// replica only if it is linked to the DHT-off nodes ahead. DHT-off stores are not checked, they
+/// replica unless its index still has a DHT-off node ahead. DHT-off stores are not checked, they
 /// keep whatever reaches them
 fn expected_dht_placement(
 	statement: &[u8],
