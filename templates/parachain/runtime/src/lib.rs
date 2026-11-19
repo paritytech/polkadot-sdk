@@ -297,7 +297,6 @@ type ConsensusHook = pallet_aura_jam::JamFixedVelocityConsensusHook<
 >;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-#[cfg(not(jam))]
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -343,75 +342,15 @@ mod runtime {
 	pub type CollatorSelection = pallet_collator_selection;
 	#[runtime::pallet_index(22)]
 	pub type Session = pallet_session;
+	#[cfg(not(jam))]
 	#[runtime::pallet_index(23)]
 	pub type Aura = pallet_aura;
+	#[cfg(not(jam))]
 	#[runtime::pallet_index(24)]
 	pub type AuraExt = cumulus_pallet_aura_ext;
-
-	// XCM helpers.
-	#[runtime::pallet_index(30)]
-	pub type XcmpQueue = cumulus_pallet_xcmp_queue;
-	#[runtime::pallet_index(31)]
-	pub type PolkadotXcm = pallet_xcm;
-	#[runtime::pallet_index(32)]
-	pub type CumulusXcm = cumulus_pallet_xcm;
-	#[runtime::pallet_index(33)]
-	pub type MessageQueue = pallet_message_queue;
-
-	// Template
-	#[runtime::pallet_index(50)]
-	pub type TemplatePallet = pallet_parachain_template;
-}
-
-// On JAM, `AuraJam` replaces `Aura` and `AuraExt`: the authority set of a block is the one JAM
-// authorizes at its anchor slot. `construct_runtime` only understands feature cfgs on single
-// pallets, so the whole declaration is duplicated.
-#[cfg(jam)]
-#[frame_support::runtime]
-mod runtime {
-	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeFreezeReason,
-		RuntimeHoldReason,
-		RuntimeSlashReason,
-		RuntimeLockId,
-		RuntimeTask,
-		RuntimeViewFunction
-	)]
-	pub struct Runtime;
-
-	#[runtime::pallet_index(0)]
-	pub type System = frame_system;
-	#[runtime::pallet_index(1)]
-	pub type ParachainSystem = cumulus_pallet_parachain_system;
-	#[runtime::pallet_index(2)]
-	pub type Timestamp = pallet_timestamp;
-	#[runtime::pallet_index(3)]
-	pub type ParachainInfo = parachain_info;
-	#[runtime::pallet_index(4)]
-	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
-
-	// Monetary stuff.
-	#[runtime::pallet_index(10)]
-	pub type Balances = pallet_balances;
-	#[runtime::pallet_index(11)]
-	pub type TransactionPayment = pallet_transaction_payment;
-
-	// Governance
-	#[runtime::pallet_index(15)]
-	pub type Sudo = pallet_sudo;
-
-	// Collator support. The order of these 4 are important and shall not change.
-	#[runtime::pallet_index(20)]
-	pub type Authorship = pallet_authorship;
-	#[runtime::pallet_index(21)]
-	pub type CollatorSelection = pallet_collator_selection;
-	#[runtime::pallet_index(22)]
-	pub type Session = pallet_session;
+	// On JAM one pallet replaces both: the authority set is the one JAM authorizes at the block's
+	// anchor slot.
+	#[cfg(jam)]
 	#[runtime::pallet_index(23)]
 	pub type AuraJam = pallet_aura_jam;
 

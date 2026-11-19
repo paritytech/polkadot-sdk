@@ -1,0 +1,11 @@
+error: Pallet indices are conflicting: Both pallets Pallet1 and Pallet2 are at index 1
+  --> tests/runtime_ui/conflicting_pallet_index_cfg.rs:42:14
+   |
+42 |     pub type Pallet1 = pallet;
+   |              ^^^^^^^
+
+error: Pallet indices are conflicting: Both pallets Pallet1 and Pallet2 are at index 1
+  --> tests/runtime_ui/conflicting_pallet_index_cfg.rs:46:14
+   |
+46 |     pub type Pallet2 = pallet;
+   |              ^^^^^^^

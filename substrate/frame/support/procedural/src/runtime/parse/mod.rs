@@ -21,7 +21,7 @@ pub mod pallet_decl;
 pub mod runtime_struct;
 pub mod runtime_types;
 
-use crate::construct_runtime::parse::Pallet;
+use crate::construct_runtime::{cfg_atoms, check_pallet_indices, parse::Pallet};
 use pallet_decl::PalletDeclaration;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
@@ -143,7 +143,6 @@ impl Def {
 		let mut runtime_struct = None;
 		let mut runtime_types = None;
 
-		let mut indices = HashMap::new();
 		let mut names = HashMap::new();
 
 		let mut pallet_decls = vec![];
@@ -211,17 +210,6 @@ impl Def {
 							&bounds,
 						)?;
 
-						if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone())
-						{
-							let msg = format!(
-								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-								used_pallet, pallet.name, pallet.index,
-							);
-							let mut err = syn::Error::new(used_pallet.span(), &msg);
-							err.combine(syn::Error::new(pallet.name.span(), msg));
-							return Err(err);
-						}
-
 						pallets.push(pallet);
 					},
 					_ => continue,
@@ -233,6 +221,8 @@ impl Def {
 				}
 			}
 		}
+
+		check_pallet_indices(&pallets, &cfg_atoms(pallets.iter())?)?;
 
 		let name = item.ident.clone();
 		let decl_count = pallet_decls.len();

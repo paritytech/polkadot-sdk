@@ -221,7 +221,10 @@ use parse::{ExplicitRuntimeDeclaration, ImplicitRuntimeDeclaration, Pallet, Runt
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use std::{collections::HashSet, str::FromStr};
+use std::{
+	collections::{BTreeSet, HashSet},
+	str::FromStr,
+};
 use syn::{spanned::Spanned, Ident, Result};
 
 /// The fixed name of the system pallet.
@@ -365,21 +368,7 @@ fn construct_runtime_final_expansion(
 		));
 	}
 
-	let features = pallets
-		.iter()
-		.filter_map(|decl| {
-			(!decl.cfg_pattern.is_empty()).then(|| {
-				decl.cfg_pattern.iter().flat_map(|attr| {
-					attr.predicates().filter_map(|pred| match pred {
-						Predicate::Feature(feat) => Some(feat),
-						Predicate::Test => Some("test"),
-						_ => None,
-					})
-				})
-			})
-		})
-		.flatten()
-		.collect::<HashSet<_>>();
+	let features = cfg_atoms(pallets.iter())?;
 
 	let hidden_crate_name = "construct_runtime";
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
@@ -519,20 +508,106 @@ fn construct_runtime_final_expansion(
 	Ok(res)
 }
 
+/// The atom of a `cfg` predicate, as it is written in a `#[cfg]` attribute.
+///
+/// `None` for predicates a pallet declaration can not be gated on.
+fn cfg_atom(pred: &Predicate) -> Option<String> {
+	match pred {
+		Predicate::Feature(feature) => Some(format!("feature = \"{feature}\"")),
+		Predicate::Test => Some("test".into()),
+		Predicate::DebugAssertions => Some("debug_assertions".into()),
+		Predicate::Flag(flag) => Some((*flag).into()),
+		Predicate::KeyValue { key, val } => Some(format!("{key} = \"{val}\"")),
+		Predicate::Target(_) | Predicate::TargetFeature(_) | Predicate::ProcMacro => None,
+	}
+}
+
+/// Every `cfg` atom the pallet declarations are gated on.
+pub(crate) fn cfg_atoms<'a>(
+	pallet_declarations: impl Iterator<Item = &'a Pallet>,
+) -> syn::Result<BTreeSet<String>> {
+	let mut atoms = BTreeSet::new();
+	for pallet in pallet_declarations {
+		for pred in pallet.cfg_pattern.iter().flat_map(|expr| expr.predicates()) {
+			let atom = cfg_atom(&pred).ok_or_else(|| {
+				syn::Error::new(
+					pallet.name.span(),
+					format!(
+						"Unsupported `cfg` predicate `{pred:?}` on pallet `{}`; supported are \
+						 `feature`, `test`, `debug_assertions`, bare flags and `key = \"value\"`",
+						pallet.name,
+					),
+				)
+			})?;
+			atoms.insert(atom);
+		}
+	}
+	Ok(atoms)
+}
+
+/// Every combination of enabled `cfg` atoms.
+fn cfg_combinations(cfg_atoms: &BTreeSet<String>) -> Vec<HashSet<&str>> {
+	cfg_atoms
+		.iter()
+		.map(String::as_str)
+		.powerset()
+		.map(HashSet::from_iter)
+		.collect()
+}
+
+/// Whether `pallet` is part of the runtime when exactly the `enabled` `cfg` atoms are set.
+fn is_pallet_active(pallet: &Pallet, enabled: &HashSet<&str>) -> bool {
+	// Rust tidbit: if we have multiple `#[cfg]` on the same item, then the predicates listed in
+	// all `#[cfg]` attributes are effectively joined by `and()`, meaning that all of them must
+	// match in order to activate the item.
+	pallet.cfg_pattern.iter().all(|expr| {
+		expr.eval(|pred| cfg_atom(pred).is_some_and(|atom| enabled.contains(atom.as_str())))
+	})
+}
+
+/// Ensures that no two pallets share an index in any combination of `cfg` atoms.
+///
+/// Pallets whose `cfg`s exclude each other, e.g. `#[cfg(jam)]` and `#[cfg(not(jam))]`, may use the
+/// same index.
+pub(crate) fn check_pallet_indices(pallets: &[Pallet], cfg_atoms: &BTreeSet<String>) -> Result<()> {
+	let mut combinations = None;
+
+	for (pos, pallet) in pallets.iter().enumerate() {
+		for used_pallet in pallets[..pos].iter().filter(|p| p.index == pallet.index) {
+			let conflicts = combinations
+				.get_or_insert_with(|| cfg_combinations(cfg_atoms))
+				.iter()
+				.any(|enabled| {
+					is_pallet_active(used_pallet, enabled) && is_pallet_active(pallet, enabled)
+				});
+
+			if conflicts {
+				let msg = format!(
+					"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
+					used_pallet.name, pallet.name, pallet.index,
+				);
+				let mut err = syn::Error::new(used_pallet.name.span(), &msg);
+				err.combine(syn::Error::new(pallet.name.span(), msg));
+				return Err(err);
+			}
+		}
+	}
+
+	Ok(())
+}
+
 pub(crate) fn decl_all_pallets<'a>(
 	runtime: &'a Ident,
 	pallet_declarations: impl Iterator<Item = &'a Pallet>,
-	features: &HashSet<&str>,
+	cfg_atoms: &BTreeSet<String>,
 ) -> TokenStream2 {
 	let mut types = TokenStream2::new();
 
-	// Every feature set to the pallet names that should be included by this feature set.
-	let mut features_to_names = features
-		.iter()
-		.map(|f| *f)
-		.powerset()
-		.map(|feat| (HashSet::from_iter(feat), Vec::new()))
-		.collect::<Vec<(HashSet<_>, Vec<_>)>>();
+	// Every set of enabled `cfg` atoms to the pallet names that are included under it.
+	let mut atoms_to_names = cfg_combinations(cfg_atoms)
+		.into_iter()
+		.map(|atoms| (atoms, Vec::new()))
+		.collect::<Vec<_>>();
 
 	for pallet_declaration in pallet_declarations {
 		let type_name = &pallet_declaration.name;
@@ -552,55 +627,24 @@ pub(crate) fn decl_all_pallets<'a>(
 		);
 		types.extend(type_decl);
 
-		if pallet_declaration.cfg_pattern.is_empty() {
-			for (_, names) in features_to_names.iter_mut() {
+		for (enabled, names) in &mut atoms_to_names {
+			if is_pallet_active(pallet_declaration, enabled) {
 				names.push(&pallet_declaration.name);
-			}
-		} else {
-			for (feature_set, names) in &mut features_to_names {
-				// Rust tidbit: if we have multiple `#[cfg]` feature on the same item, then the
-				// predicates listed in all `#[cfg]` attributes are effectively joined by `and()`,
-				// meaning that all of them must match in order to activate the item
-				let is_feature_active = pallet_declaration.cfg_pattern.iter().all(|expr| {
-					expr.eval(|pred| match pred {
-						Predicate::Feature(f) => feature_set.contains(f),
-						Predicate::Test => feature_set.contains(&"test"),
-						_ => false,
-					})
-				});
-
-				if is_feature_active {
-					names.push(&pallet_declaration.name);
-				}
 			}
 		}
 	}
 
-	// All possible features. This will be used below for the empty feature set.
-	let mut all_features = features_to_names
-		.iter()
-		.flat_map(|f| f.0.iter().cloned())
-		.collect::<HashSet<_>>();
-	let attribute_to_names = features_to_names
+	let to_tokens = |atom: &str| TokenStream2::from_str(atom).expect("a parsed cfg predicate; qed");
+	let attribute_to_names = atoms_to_names
 		.into_iter()
-		.map(|(mut features, names)| {
-			// If this is the empty feature set, it needs to be changed to negate all available
-			// features. So, we ensure that there is some type declared when all features are not
-			// enabled.
-			if features.is_empty() {
-				let test_cfg = all_features.remove("test").then_some(quote!(test)).into_iter();
-				let features = all_features.iter();
-				let attr = quote!(#[cfg(all( #(not(#test_cfg)),* #(not(feature = #features)),* ))]);
-
-				(attr, names)
-			} else {
-				let test_cfg = features.remove("test").then_some(quote!(test)).into_iter();
-				let disabled_features = all_features.difference(&features);
-				let features = features.iter();
-				let attr = quote!(#[cfg(all( #(#test_cfg,)* #(feature = #features,)* #(not(feature = #disabled_features)),* ))]);
-
-				(attr, names)
-			}
+		.map(|(enabled, names)| {
+			// Every combination names each atom, enabled or not, so exactly one is active.
+			let enabled_atoms = cfg_atoms.iter().filter(|a| enabled.contains(a.as_str()));
+			let disabled_atoms = cfg_atoms.iter().filter(|a| !enabled.contains(a.as_str()));
+			let enabled_atoms = enabled_atoms.map(|a| to_tokens(a));
+			let disabled_atoms = disabled_atoms.map(|a| to_tokens(a));
+			let attr = quote!(#[cfg(all( #(#enabled_atoms,)* #(not(#disabled_atoms),)* ))]);
+			(attr, names)
 		})
 		.collect::<Vec<_>>();
 

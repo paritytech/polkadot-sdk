@@ -669,7 +669,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 		return Ok(PalletsConversion::Implicit(pallets));
 	}
 
-	let mut indices = HashMap::new();
 	let mut last_index: Option<u8> = None;
 	let mut names = HashMap::new();
 	let mut is_expanded = true;
@@ -686,16 +685,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 			};
 
 			last_index = Some(final_index);
-
-			if let Some(used_pallet) = indices.insert(final_index, pallet.name.clone()) {
-				let msg = format!(
-					"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-					used_pallet, pallet.name, final_index,
-				);
-				let mut err = syn::Error::new(used_pallet.span(), &msg);
-				err.combine(syn::Error::new(pallet.name.span(), msg));
-				return Err(err);
-			}
 
 			if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
 				let msg = "Two pallets with the same name!";
@@ -782,6 +771,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 			})
 		})
 		.collect::<Result<Vec<_>>>()?;
+
+	super::check_pallet_indices(&pallets, &super::cfg_atoms(pallets.iter())?)?;
 
 	if is_expanded {
 		Ok(PalletsConversion::ExplicitExpanded(pallets))
