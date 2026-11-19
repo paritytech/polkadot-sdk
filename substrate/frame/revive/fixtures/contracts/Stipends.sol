@@ -71,9 +71,9 @@ contract SenderBalanceReader {
 
 /**
  * @title TwoEventsReceiver
- * @dev Receiver contract 7: emits two LOG4 events with 64 data bytes each. The call stipend
- * reserves room for one such event plus 2300 gas, so the second event exceeds it in both ref
- * time and proof size.
+ * @dev Receiver contract 7: emits two LOG4 events with 64 data bytes each. The call stipend's
+ * weight reserves room for one such event plus 2300 gas, so the second event exceeds it in both
+ * ref time and proof size.
  */
 contract TwoEventsReceiver {
     event Received(
@@ -87,6 +87,26 @@ contract TwoEventsReceiver {
     receive() external payable {
         emit Received(msg.sender, msg.value, 0, msg.value, 1);
         emit Received(msg.sender, msg.value, 1, msg.value, 2);
+    }
+}
+
+/**
+ * @title ThreeWordEventReceiver
+ * @dev Receiver contract 8: emits one LOG4 event with 96 bytes of data, while the call stipend's
+ * weight includes one LOG4 event with 64 bytes of data
+ */
+contract ThreeWordEventReceiver {
+    event Received(
+        address indexed from,
+        uint256 indexed amount,
+        uint256 indexed index,
+        uint256 first,
+        uint256 second,
+        uint256 third
+    );
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value, 0, msg.value, 1, 2);
     }
 }
 
